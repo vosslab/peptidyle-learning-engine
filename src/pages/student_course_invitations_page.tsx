@@ -5,6 +5,7 @@ import { createResource, For, Show, type JSX } from "solid-js";
 
 import type { LiveStudentCourseInvitationSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 
 function InvitationCard(props: {
   readonly invitation: LiveStudentCourseInvitationSummary;
@@ -34,10 +35,12 @@ export function StudentCourseInvitationsPage(): JSX.Element {
   );
 
   return (
-    <section class="page" data-route-surface="studentCourseInvitations">
-      <p class="eyebrow">Your learning</p>
-      <h1>Course invitations</h1>
-      <p class="page-lede">Review a pending invitation before joining a course.</p>
+    <PageFrame
+      routeSurface="studentCourseInvitations"
+      eyebrow="Your learning"
+      title="Course invitations"
+      lede="Review a pending invitation before joining a course."
+    >
       <A class="quiet-link" href="/">
         Your courses
       </A>
@@ -64,6 +67,6 @@ export function StudentCourseInvitationsPage(): JSX.Element {
           </For>
         </div>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

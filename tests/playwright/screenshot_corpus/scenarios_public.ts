@@ -2,7 +2,7 @@
 // Selector contract: sign-in and renewal headings are owned by src/pages/sign_in_page.tsx:92 and
 // src/app.tsx:101; seeded identity actions are shared through visible_workflows.ts:16.
 
-import type { ScenarioDefinition } from "./scenario_types";
+import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import { enterInstructor, scrollTop } from "./visible_workflows";
 
 export const PUBLIC_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
@@ -39,6 +39,18 @@ export const PUBLIC_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Expired-session renewal",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop", "phone"], {
+      tablet: {
+        target: "sign_in_laptop",
+        reason:
+          "sign_in_laptop captures the signed-out sign-in form on the public entry route as a laptop representative substitution. The tablet layout remains unverified until a tablet replay is captured.",
+      },
+      square: {
+        target: "sign_in_laptop",
+        reason:
+          "sign_in_laptop captures the signed-out sign-in form on the public entry route as a laptop representative substitution. The square layout remains unverified until a square replay is captured.",
+      },
+    }),
     async run(runtime): Promise<void> {
       const laptop = await runtime.open("sign_in_laptop");
       try {

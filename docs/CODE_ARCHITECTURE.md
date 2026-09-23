@@ -186,6 +186,38 @@ Instructor Assessment edit, release, and Unrelease UI lives in
 [src/pages/assessment_workspace/](../src/pages/assessment_workspace/). Student
 Coursework entry lives on Student Course landing and Assessment Attempt pages.
 
+## UI composition
+
+[src/application_shell.tsx](../src/application_shell.tsx) owns the persistent
+signed-in shell: course-theme variables, Ribbon, breadcrumb prelude, route
+scope provider, focus movement, and the main content boundary.
+[src/ribbon/](../src/ribbon/) supplies the Ribbon catalog, route scope, and
+typed model. [src/route_access_boundary.tsx](../src/route_access_boundary.tsx)
+admits browser routes from the route contract; server routes and PostgreSQL
+remain the authorization boundary for each operation and resource.
+
+[src/components/page_frame.tsx](../src/components/page_frame.tsx) owns the
+shared page heading, the WP-C1-admitted page-level slots, and fixed content
+placement. Reading width is the default; a route may declare `fullWidth` for
+dense content without coupling that choice to Ribbon navigation. Callers style
+their content region while the PageFrame root keeps its production geometry.
+[src/components/record_list/record_list.tsx](../src/components/record_list/record_list.tsx)
+renders aligned record regions and shared loading, empty, and error states.
+[src/components/record_list/record_list_reorder.tsx](../src/components/record_list/record_list_reorder.tsx)
+provides caller-owned movement, keyboard focus restoration, and live move
+announcements. Its caller owns persistence, disabled policy, and failure
+handling. [src/components/record_list/record_list_window.ts](../src/components/record_list/record_list_window.ts)
+selects a contiguous mounted slice while preserving record identity and order;
+it does not render rows.
+
+Pages compose these pieces around their domain state. For example,
+[src/features/blueprint_course/blueprint_course_detail_workspace.tsx](../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)
+holds a locally editable Blueprint draft until explicit Save creates the next
+Revision. [src/pages/assessment_workspace/assessment_workspace_questions_view.tsx](../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx)
+owns the Assessment-entry draft and its explicit save. Student response
+controls, including [src/components/question_response_controls/ordering.tsx](../src/components/question_response_controls/ordering.tsx),
+retain their response-specific timing and status behavior.
+
 ## Storage and retention
 
 Typed object records bind logical identity, data class, owner scope, media type,

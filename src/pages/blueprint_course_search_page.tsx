@@ -11,6 +11,7 @@ import {
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import { appendBlueprintCoursePage } from "../features/blueprint_course/blueprint_course_model";
 import { useSessionBootstrap } from "../auth/session_context";
+import { PageFrame } from "../components/page_frame";
 import {
   BLUEPRINT_SEARCH_RETURN_PARAMETER,
   saveBlueprintSearchReturnState,
@@ -204,15 +205,13 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
   });
 
   return (
-    <main class="page blueprint-course-workspace" data-route-surface="publicBlueprintSearch">
-      <header class="blueprint-course-page-heading">
-        <p class="eyebrow">Blueprint Courses</p>
-        <h1>Search Public Blueprint Courses</h1>
-        <p class="page-lede">
-          Find reusable course structure by short or long name. Open a Blueprint Course to inspect
-          it or create a Course Instance.
-        </p>
-      </header>
+    <PageFrame
+      contentClass="blueprint-course-workspace"
+      routeSurface="publicBlueprintSearch"
+      eyebrow="Blueprint Courses"
+      title="Search Public Blueprint Courses"
+      lede="Find reusable course structure by short or long name. Open a Blueprint Course to inspect it or create a Course Instance."
+    >
       <section class="blueprint-public-search" aria-labelledby="public-blueprint-results-heading">
         <form
           role="search"
@@ -349,6 +348,6 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
           </Show>
         </Show>
       </section>
-    </main>
+    </PageFrame>
   );
 }

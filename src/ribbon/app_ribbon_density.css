@@ -85,10 +85,6 @@
     border-color: ButtonText;
   }
 
-  .ple-app-ribbon__course-scope-label::before {
-    background: Highlight;
-  }
-
   /* Gradients are deliberately suppressed by forced-colors mode. Keep the
      overflow state discoverable with a directional system-color marker that
      is independent of the author palette. */
@@ -200,6 +196,7 @@
 }
 
 .ple-shell__breadcrumb-prelude li {
+  position: relative;
   display: flex;
   flex: 0 1 auto;
   min-inline-size: 0;
@@ -221,9 +218,17 @@
   text-overflow: ellipsis;
 }
 
-/* At a phone width, keep Home and the current leaf visible while the scoped
-   Course and Assessment links compress. Their full labels remain in the DOM
-   and become fully visible when keyboard focus reaches them. */
+.ple-shell__breadcrumb-measure {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: max-content;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* At a phone width, keep the full breadcrumb trail content-sized so its Home
+   and Course context remain visible at rest without compressing their labels. */
 @media (max-width: 25rem) {
   .ple-shell__breadcrumb-prelude {
     padding-inline: var(--ple-ribbon-space-tight);
@@ -266,36 +271,7 @@
   }
 
   .ple-shell__breadcrumb-prelude ol {
-    inline-size: 100%;
-    max-inline-size: 100%;
     gap: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-shell__breadcrumb-prelude li:first-child,
-  .ple-shell__breadcrumb-prelude li:last-child {
-    flex: 0 0 auto;
-  }
-
-  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child) {
-    flex: 1 1 0;
-    min-inline-size: 2ch;
-    overflow: hidden;
-  }
-
-  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child) a {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child):focus-within {
-    flex: 0 0 auto;
-    overflow: visible;
-  }
-
-  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child) a:focus-visible {
-    overflow: visible;
-    text-overflow: clip;
-    white-space: nowrap;
   }
 }
 

@@ -2,20 +2,14 @@
 
 .blueprint-course-workspace {
   display: grid;
-  gap: var(--ple-section-gap);
+  gap: var(--ple-space-3);
 }
 
-.blueprint-course-page-heading {
-  max-width: 72ch;
-}
-
-.blueprint-course-page-heading h1,
 .blueprint-course-section-heading h2,
 .blueprint-course-section-heading h3 {
-  margin-block: 0.15rem;
+  margin-block: var(--ple-space-1);
 }
 
-.blueprint-course-page-heading p,
 .blueprint-course-section-heading p,
 .blueprint-course-field-help,
 .blueprint-course-empty-copy,
@@ -325,7 +319,7 @@
   width: 100%;
   min-height: 16rem;
   resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--ple-font-mono);
 }
 
 @media (max-width: 60rem) {

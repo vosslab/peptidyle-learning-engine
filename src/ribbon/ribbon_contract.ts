@@ -23,7 +23,6 @@ import {
   productRoleHomeRouteId,
   productRoleHomePath,
   routeContractForPathname,
-  type ContentLayout,
   type RibbonScope,
   type RibbonTabId,
   type RouteContract,
@@ -54,6 +53,8 @@ import { ribbonSchemaFor, type RibbonRelationshipRequirement } from "./ribbon_sc
 export interface RibbonRouteState {
   readonly route: RouteContract;
   readonly params: Exclude<RouteParams, undefined>;
+  /** Last resolved Student Course retained by the persistent shell for tier-one links. */
+  readonly currentCourseInstanceId?: string;
 }
 
 /** The immutable session fact the Ribbon may use for presentation admission. */
@@ -69,9 +70,7 @@ export interface RibbonContextLabels {
   readonly courseShortName?: string;
   readonly courseLongName?: string;
   readonly assessmentTitle?: string;
-  readonly assessmentTypeLabel?: string;
   readonly assessmentAttemptTitle?: string;
-  readonly assessmentAttemptProgress?: string;
 }
 
 /** The declared public route parameters are strings only; no resource is admitted here. */
@@ -97,10 +96,6 @@ export interface RibbonActionDescriptor {
 
 export interface RibbonContextModel {
   readonly productLabel: "Student" | "Instructor" | "Sysadmin";
-  readonly scopeLabel?: string;
-  readonly assessmentLabel?: string;
-  readonly assessmentTypeLabel?: string;
-  readonly assessmentAttemptProgress?: string;
   /** Account-endcap positions remain modeled while truthful admission withholds them. */
   readonly accountControls: ReadonlyArray<RibbonContextControlModel>;
   readonly signOutAction: RibbonActionDescriptor;
@@ -139,6 +134,7 @@ export interface RibbonTaskAreaModel {
 /** A shell-owned location in the route-derived breadcrumb trail. */
 export interface RibbonBreadcrumbModel {
   readonly label: string;
+  readonly compactLabel?: string;
   readonly href: string;
   readonly current: boolean;
 }
@@ -146,14 +142,11 @@ export interface RibbonBreadcrumbModel {
 /** Complete synchronous input for the two-row Ribbon and shell-owned breadcrumb prelude. */
 export interface RibbonModel {
   readonly scope: RibbonScope;
-  readonly contentLayout: ContentLayout;
   readonly context: RibbonContextModel;
   readonly tabs: ReadonlyArray<RibbonControlModel<RibbonTabId>>;
   readonly taskAreas: ReadonlyArray<RibbonTaskAreaModel>;
   /** Role-home-rooted locations; unresolved scopes retain the home link. */
   readonly breadcrumbs: ReadonlyArray<RibbonBreadcrumbModel>;
-  /** Every signed-in route reserves the same breadcrumb footprint. */
-  readonly breadcrumbPreludeReserved: boolean;
 }
 
 const PRODUCT_LABELS = {
@@ -166,6 +159,7 @@ const TASK_AREA_LABELS: Readonly<Record<RibbonTaskArea, string>> = Object.freeze
   instructorCourses: "Courses",
   instructorQuestions: "Questions",
   instructorAssessments: "Assessments",
+  course: "Course",
   assessment: "Assessment",
   courseSetup: "Course setup",
   assessmentAttempt: "Attempt",
@@ -332,7 +326,7 @@ function targetParamsFor(
   routeState: RibbonRouteState,
 ): DeclaredRibbonRouteParams | undefined {
   const values: Partial<Record<RouteParamName, string>> = {};
-  for (const name of control.requiredParams) {
+  for (const name of control.requiredParams ?? []) {
     const value = routeState.params[name];
     if (value === undefined) return undefined;
     values[name] = value;
@@ -347,6 +341,11 @@ function hrefFor(
   productRole: ProductRole,
 ): string | undefined {
   if (availability !== "Available" || control.destination.kind !== "route") return undefined;
+  if (control.id === "coursework" || control.id === "grades") {
+    const courseInstanceId = routeState.currentCourseInstanceId;
+    if (courseInstanceId === undefined) return productRoleHomePath("student");
+    return buildRoutePath(control.destination.routeId, { courseInstanceId });
+  }
   // The Courses tab is the role's stable home, not the anonymous root resolver.
   // This preserves direct role navigation even if a caller does not first visit `/`.
   if (control.id === "courses" && routeState.route.ribbon.scope === "product") {
@@ -362,7 +361,7 @@ function selectedFor(
   route: RouteContract,
 ): boolean {
   if (TAB_CATALOG.some((tab) => tab.id === control.id)) {
-    return route.ribbon.tab === control.id;
+    return route.ribbon.tierOneArea === control.id;
   }
   return control.destination.kind === "route" && control.destination.routeId === route.id;
 }
@@ -399,26 +398,9 @@ function modelForControl<Id extends RibbonDestinationId>(
   });
 }
 
-function contextFor(
-  route: RouteContract,
-  productRole: ProductRole,
-  labels: RibbonContextLabels,
-): RibbonContextModel {
-  const scopeLabel = route.ribbon.scope === "courseInstance" ? labels.courseShortName : undefined;
-  const assessmentLabel =
-    route.ribbon.scope === "courseInstance"
-      ? labels.assessmentTitle
-      : labels.assessmentAttemptTitle;
-  const assessmentAttemptProgress =
-    route.ribbon.scope === "assessmentAttempt" ? labels.assessmentAttemptProgress : undefined;
+function contextFor(productRole: ProductRole): RibbonContextModel {
   return Object.freeze({
     productLabel: PRODUCT_LABELS[productRole],
-    ...(scopeLabel === undefined ? {} : { scopeLabel }),
-    ...(assessmentLabel === undefined ? {} : { assessmentLabel }),
-    ...(labels.assessmentTypeLabel === undefined
-      ? {}
-      : { assessmentTypeLabel: labels.assessmentTypeLabel }),
-    ...(assessmentAttemptProgress === undefined ? {} : { assessmentAttemptProgress }),
     accountControls: accountControlsFor(productRole),
     signOutAction: SIGN_OUT_ACTION,
   });
@@ -530,15 +512,30 @@ function breadcrumbsFor(
   const instructorAssessment = breadcrumbLink("assessmentWorkspaceOverview", assessmentParams);
   const studentAssessment = breadcrumbLink("assessmentOverview", assessmentParams);
   const courseLabel = courseBreadcrumbLabel(
-    labels.courseLongName,
+    labels.courseLongName ?? labels.courseShortName,
     routeState.params.courseInstanceId,
   );
+  const courseCompactLabel =
+    labels.courseLongName !== undefined &&
+    labels.courseShortName !== undefined &&
+    labels.courseShortName !== courseLabel
+      ? labels.courseShortName
+      : undefined;
+
+  function courseBreadcrumbItem(href: string, current = false): RibbonBreadcrumbModel {
+    return Object.freeze({
+      label: courseLabel,
+      ...(courseCompactLabel === undefined ? {} : { compactLabel: courseCompactLabel }),
+      href,
+      current,
+    });
+  }
   const assessmentLabel = labels.assessmentTitle ?? "Assessment";
   const studentAssessmentAccessLabel = labels.assessmentTitle ?? "Before you start";
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
     if (courseHref === undefined) return [];
-    return [home, breadcrumbLinkItem(courseLabel, courseHref), breadcrumbCurrent(current)];
+    return [home, courseBreadcrumbItem(courseHref), breadcrumbCurrent(current)];
   }
 
   switch (routeState.route.id) {
@@ -600,7 +597,9 @@ function breadcrumbsFor(
       return Object.freeze([home, breadcrumbCurrent("My Assessment Templates")]);
     case "courseAssessments":
     case "studentCourseLanding":
-      return Object.freeze([home, breadcrumbCurrent(courseLabel)]);
+      return Object.freeze([home, courseBreadcrumbItem(currentHref, true)]);
+    case "studentCourseGrades":
+      return Object.freeze(courseTrail("Grades", studentCourse));
     case "questionDetail":
       return library === undefined
         ? Object.freeze([])
@@ -661,7 +660,7 @@ function breadcrumbsFor(
       }
       return Object.freeze([
         home,
-        breadcrumbLinkItem(courseLabel, studentCourse),
+        courseBreadcrumbItem(studentCourse),
         breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
         breadcrumbCurrent("Attempt"),
       ]);
@@ -669,7 +668,7 @@ function breadcrumbsFor(
       return studentCourse !== undefined && studentAssessment !== undefined
         ? Object.freeze([
             home,
-            breadcrumbLinkItem(courseLabel, studentCourse),
+            courseBreadcrumbItem(studentCourse),
             breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
             breadcrumbCurrent("Attempt history"),
           ])
@@ -690,28 +689,26 @@ export function deriveRibbonModel<
   viewerIdentity: Exact<RibbonViewerIdentity, ViewerIdentity>,
   contextLabels: Exact<RibbonContextLabels, ContextLabels>,
 ): RibbonModel {
-  const schema = ribbonSchemaFor(routeState.route.ribbon.scope, viewerIdentity.productRole);
+  const schema = ribbonSchemaFor(viewerIdentity.productRole);
   const tabs = schema.map((slot) => {
     const control = TAB_CATALOG.find((candidate) => candidate.id === slot.id);
     if (control === undefined) throw new Error(`Ribbon schema references unknown tab ${slot.id}.`);
     return modelForControl(control, routeState, viewerIdentity.productRole);
   });
   const taskAreas = taskAreasFor(routeState, viewerIdentity.productRole);
-  const context = contextFor(routeState.route, viewerIdentity.productRole, contextLabels);
+  const context = contextFor(viewerIdentity.productRole);
   const breadcrumbs = breadcrumbsFor(routeState, viewerIdentity.productRole, contextLabels);
   return Object.freeze({
     scope: routeState.route.ribbon.scope,
-    contentLayout: routeState.route.ribbon.contentLayout,
     context,
     tabs: Object.freeze(tabs),
     taskAreas,
     breadcrumbs:
-      breadcrumbs.length > 0 || routeState.route.id === "signIn"
+      breadcrumbs.length > 0
         ? breadcrumbs
         : Object.freeze([
             breadcrumbLinkItem("Home", productRoleHomePath(viewerIdentity.productRole)),
           ]),
-    breadcrumbPreludeReserved: routeState.route.id !== "signIn",
   });
 }
 

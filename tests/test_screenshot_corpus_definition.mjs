@@ -6,7 +6,10 @@ import {
   generateManifest,
 } from "../tests/playwright/screenshot_corpus/manifest.ts";
 import { SCREENSHOT_SCENARIOS } from "../tests/playwright/screenshot_corpus/scenario_registry.ts";
-import { captureIdentity } from "../tests/playwright/screenshot_corpus/runtime.ts";
+import {
+  captureIdentity,
+  requiresFreshViewportContext,
+} from "../tests/playwright/screenshot_corpus/runtime.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
 
@@ -44,6 +47,13 @@ test("each screenshot has one role, checkpoint, id, and path", () => {
   assert.equal(new Set(ids).size, ids.length);
   assert.equal(new Set(paths).size, paths.length);
   assert.ok(ids.length > 0);
+});
+
+test("a responsive capture cannot resize between desktop and mobile emulation", () => {
+  assert.equal(requiresFreshViewportContext("laptop", "phone"), true);
+  assert.equal(requiresFreshViewportContext("square", "tablet"), true);
+  assert.equal(requiresFreshViewportContext("laptop", "square"), false);
+  assert.equal(requiresFreshViewportContext("tablet", "phone"), false);
 });
 
 test("a student capture cannot use an instructor-only route", () => {

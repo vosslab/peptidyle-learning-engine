@@ -16,6 +16,7 @@ import { createPleQuestionJsonRepository } from "../features/ple_question_json_a
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "../features/ple_question_json_authoring/question_json_editor_styles";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
+import { PageFrame } from "../components/page_frame";
 
 function authorSafeMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.length > 0 && error.message.length < 240) {
@@ -85,19 +86,14 @@ function GeneralFeedbackOnlyPage(props: {
   }
 
   return (
-    <main
-      class="page ple-question-json-authoring"
-      data-route-surface="questionDraftGeneralFeedback"
+    <PageFrame
+      contentClass="ple-question-json-authoring"
+      routeSurface="questionDraftGeneralFeedback"
+      eyebrow="Private instructor authoring"
+      title="General Feedback"
+      lede="This Draft's source is managed by its Question Backend and is not editable on this page. You can still maintain PLE-managed general feedback below."
     >
       <style>{PLE_QUESTION_JSON_EDITOR_STYLES}</style>
-      <header>
-        <p class="eyebrow">Private instructor authoring</p>
-        <h1>General Feedback</h1>
-        <p>
-          This Draft's source is managed by its Question Backend and is not editable on this page.
-          You can still maintain PLE-managed general feedback below.
-        </p>
-      </header>
       <Show when={status()}>{(message) => <p role="status">{message()}</p>}</Show>
       <section class="editor-panel" aria-labelledby="general-feedback-heading">
         <h2 id="general-feedback-heading">General Feedback</h2>
@@ -143,7 +139,7 @@ function GeneralFeedbackOnlyPage(props: {
       <A class="quiet-link" href="/authoring/drafts">
         Return to My Question Drafts
       </A>
-    </main>
+    </PageFrame>
   );
 }
 
@@ -185,12 +181,15 @@ export function QuestionDraftEditorPage(): JSX.Element {
     <Show
       when={draftQuestionId()}
       fallback={
-        <main class="page route-error" data-route-surface="questionDraftEditorInvalid" role="alert">
-          <h1>Draft Question not found</h1>
+        <PageFrame
+          contentClass="route-error"
+          routeSurface="questionDraftEditorInvalid"
+          title="Draft Question not found"
+        >
           <A class="primary-link" href="/authoring/drafts">
             Return to My Question Drafts
           </A>
-        </main>
+        </PageFrame>
       }
     >
       <Show
@@ -199,7 +198,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
           <Show
             when={metadataOnlyEditor()}
             fallback={
-              <main class="page" data-route-surface="questionDraftEditorLoading">
+              <PageFrame routeSurface="questionDraftEditorLoading" title="Draft Question">
                 <Show
                   when={initialLoadFailed()}
                   fallback={
@@ -222,7 +221,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
                     </button>
                   </section>
                 </Show>
-              </main>
+              </PageFrame>
             }
           >
             {(generalFeedback) => (

@@ -18,6 +18,7 @@ import "./proposal.css";
 export function ProposalReview(props: {
   readonly client: BlueprintChangeProposalClient;
   readonly detail: BlueprintChangeProposalDetailView;
+  readonly formatDateTime: (timestamp: number | Date) => string;
   readonly refresh: () => Promise<void>;
   readonly onAccepted?: () => void;
   readonly hasUnsavedChanges?: boolean;
@@ -106,8 +107,8 @@ export function ProposalReview(props: {
         </p>
       </Show>
       <p>
-        Created {props.detail.proposal.createdAt}. Source and comparison target are frozen saved
-        evidence, not current editors.
+        Created {props.formatDateTime(props.detail.proposal.createdAt)}. Source and comparison
+        target are frozen saved evidence, not current editors.
       </p>
       <p>
         Shared Question IDs relate Assessments, including splits and combinations. Titles and local

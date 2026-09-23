@@ -4,6 +4,7 @@ import { A, useLocation } from "@solidjs/router";
 import { createMemo, onMount, Show, type Component, type JSX } from "solid-js";
 
 import { useSessionBootstrap } from "./auth/session_context";
+import { PageFrame } from "./components/page_frame";
 import {
   productRoleMayAccessRoute,
   routeContractForPathname,
@@ -15,32 +16,26 @@ interface RouteAccessDeniedProps {
 }
 
 function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
-  let heading: HTMLHeadingElement | undefined;
   onMount(() => {
-    queueMicrotask(() => heading?.focus());
+    queueMicrotask(() => document.getElementById("route-access-denied-heading")?.focus());
   });
   return (
-    <section
-      class="page route-error"
-      data-route-surface="routeAccessDenied"
-      data-denied-route={props.route.id}
-      role="alert"
-      aria-atomic="true"
-    >
-      <p class="eyebrow">Account tools</p>
-      <h1
-        tabindex="-1"
-        ref={(element: HTMLHeadingElement) => {
-          heading = element;
-        }}
+    <div role="alert" aria-atomic="true">
+      <PageFrame
+        contentClass="route-error"
+        routeSurface="routeAccessDenied"
+        deniedRoute={props.route.id}
+        headingId="route-access-denied-heading"
+        headingTabIndex={-1}
+        eyebrow="Account tools"
+        title="This page is not available to this account"
+        lede="Your available account tools remain available."
       >
-        This page is not available to this account
-      </h1>
-      <p>Your available account tools remain available.</p>
-      <A class="primary-link" href="/">
-        Return to courses
-      </A>
-    </section>
+        <A class="primary-link" href="/">
+          Return to courses
+        </A>
+      </PageFrame>
+    </div>
   );
 }
 

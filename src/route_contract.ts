@@ -5,22 +5,27 @@ import type { ProductRole } from "../generated/api/ProductRole";
 /** Stable presentation scope for a declared route; this is never authorization. */
 export type RibbonScope = "product" | "courseInstance" | "assessmentAttempt";
 
-/** Content geometry selected mechanically from the current route-level overrides. */
+/** Page geometry selected by a route; reading is the implicit default. */
 export type ContentLayout = "reading" | "fullWidth";
+
+/** The role-level Ribbon tab that conceptually contains a route. */
+export type TierOneArea =
+  | "courses"
+  | "questions"
+  | "productAssessments"
+  | "coursework"
+  | "grades"
+  | "instructorAccounts"
+  | "disciplines"
+  | "account";
 
 /** Designed Ribbon tabs, including unbacked catalog positions retained for future capabilities. */
 export const RIBBON_TAB_IDS = [
   "courses",
   "questions",
   "productAssessments",
-  "assessments",
-  "studentAssessments",
-  "students",
-  "gradebook",
-  "teachingOperations",
-  "blueprintUpdates",
-  "courseSetup",
-  "attempt",
+  "coursework",
+  "grades",
   "instructorAccounts",
   "disciplines",
 ] as const;
@@ -31,6 +36,7 @@ export type RibbonTaskGroupId =
   | "instructorCourses"
   | "instructorQuestions"
   | "instructorAssessments"
+  | "course"
   | "assessment"
   | "courseSetup"
   | "assessmentAttempt";
@@ -38,11 +44,10 @@ export type RibbonTaskGroupId =
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
   readonly scope: RibbonScope;
-  /** Omitted for a Ribbon Context Control route with no selected tab. */
-  readonly tab?: RibbonTabId;
+  /** Role-level Ribbon tab that selects this route. */
+  readonly tierOneArea: TierOneArea;
   /** Omitted when the reserved Task Row has no selected task area. */
   readonly taskGroup?: RibbonTaskGroupId;
-  readonly contentLayout: ContentLayout;
 }
 
 export interface RouteContract {
@@ -85,12 +90,15 @@ export interface RouteContract {
     | "pendingCourseInvitations"
     | "studentCourseInvitations"
     | "studentCourseInvitation"
-    | "studentCourseLanding";
+    | "studentCourseLanding"
+    | "studentCourseGrades";
   readonly path: string;
   readonly surface: string;
   /** Product Role gate for the route; each route declares the Product Roles it serves. */
   readonly requiredProductRoles: ReadonlyArray<ProductRole>;
   readonly ribbon: RouteRibbonContract;
+  /** Omit for the normal reading width; dense workspaces may select full width. */
+  readonly pageLayout?: "fullWidth";
 }
 
 /** Product route order used by the application. */
@@ -102,10 +110,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "changeProposalDetail",
@@ -114,10 +122,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "courses",
@@ -126,7 +134,7 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: [],
     ribbon: {
       scope: "product",
-      contentLayout: "reading",
+      tierOneArea: "courses",
     },
   },
   {
@@ -136,9 +144,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "reading",
     },
   },
   {
@@ -148,9 +155,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "reading",
     },
   },
   {
@@ -158,63 +164,70 @@ export const ROUTE_CONTRACT = [
     path: "/student",
     surface: "Student learning home dashboard",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "courses" },
   },
   {
     id: "sysadminHome",
     path: "/sysadmin",
     surface: "Sysadmin operations home dashboard",
     requiredProductRoles: ["sysadmin"],
-    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "courses" },
   },
   {
     id: "profile",
     path: "/profile",
     surface: "Authenticated Account profile",
     requiredProductRoles: ["student", "instructor", "sysadmin"],
-    ribbon: { scope: "product", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
     id: "accountSettings",
     path: "/account-settings",
     surface: "Authenticated Account Settings",
     requiredProductRoles: ["student", "instructor", "sysadmin"],
-    ribbon: { scope: "product", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
     requiredProductRoles: [],
-    ribbon: { scope: "product", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
     id: "pendingCourseInvitations",
     path: "/account/course-invitations",
     surface: "Account-owned pending Course Invitations",
     requiredProductRoles: [],
-    ribbon: { scope: "product", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
     id: "studentCourseInvitations",
     path: "/student/course-invitations",
     surface: "Student pending Course Invitation index",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
     id: "studentCourseInvitation",
     path: "/courses/:courseInstanceId/invitation",
     surface: "Student Course Invitation acceptance",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "product", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
     id: "studentCourseLanding",
     path: "/student/courses/:courseInstanceId",
     surface: "Student answer-free Course Instance and released Assessment landing",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "studentAssessments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+  },
+  {
+    id: "studentCourseGrades",
+    path: "/student/courses/:courseInstanceId/grades",
+    surface: "Student self-only Course Instance grades",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tierOneArea: "grades" },
   },
   {
     id: "instructorAccounts",
@@ -222,21 +235,25 @@ export const ROUTE_CONTRACT = [
     surface: "Sysadmin Instructor Account lifecycle workspace",
     // ASVS 8.3.1: browser route gating mirrors the server's Sysadmin-only policy.
     requiredProductRoles: ["sysadmin"],
-    ribbon: { scope: "product", tab: "instructorAccounts", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "instructorAccounts" },
   },
   {
     id: "contentDisciplines",
     path: "/sysadmin/disciplines",
     surface: "Sysadmin Discipline lifecycle workspace",
     requiredProductRoles: ["sysadmin"],
-    ribbon: { scope: "product", tab: "disciplines", contentLayout: "reading" },
+    ribbon: { scope: "product", tierOneArea: "disciplines" },
   },
   {
     id: "courseAssessments",
     path: "/courses/:courseInstanceId",
     surface: "Course Instance Teaching Team, roster, and Assessment delivery workspace",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
+    ribbon: {
+      scope: "courseInstance",
+      tierOneArea: "courses",
+      taskGroup: "course",
+    },
   },
   {
     id: "assessmentOverview",
@@ -245,7 +262,7 @@ export const ROUTE_CONTRACT = [
     // ASVS 8.3.1: client admission targets the separately role-gated Student landing route;
     // the server remains the authorization boundary for the exact Student Record.
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "studentAssessments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
   },
   {
     id: "assessmentAttempt",
@@ -254,9 +271,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["student"],
     ribbon: {
       scope: "assessmentAttempt",
-      tab: "attempt",
+      tierOneArea: "coursework",
       taskGroup: "assessmentAttempt",
-      contentLayout: "reading",
     },
   },
   {
@@ -266,9 +282,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["student"],
     ribbon: {
       scope: "assessmentAttempt",
-      tab: "attempt",
+      tierOneArea: "coursework",
       taskGroup: "assessmentAttempt",
-      contentLayout: "reading",
     },
   },
   {
@@ -278,10 +293,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
-      tab: "questions",
+      tierOneArea: "questions",
       taskGroup: "instructorQuestions",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "libraryBrowse",
@@ -290,10 +305,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
-      tab: "questions",
+      tierOneArea: "questions",
       taskGroup: "instructorQuestions",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "libraryWatchNotifications",
@@ -302,9 +317,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questions",
+      tierOneArea: "questions",
       taskGroup: "instructorQuestions",
-      contentLayout: "reading",
     },
   },
   {
@@ -314,9 +328,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
-      tab: "questions",
+      tierOneArea: "questions",
       taskGroup: "instructorQuestions",
-      contentLayout: "reading",
     },
   },
   {
@@ -326,10 +339,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questions",
+      tierOneArea: "questions",
       taskGroup: "instructorQuestions",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "questionDraftEditor",
@@ -338,10 +351,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questions",
+      tierOneArea: "questions",
       taskGroup: "instructorQuestions",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "blueprintCourses",
@@ -350,9 +363,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "reading",
     },
   },
   {
@@ -363,9 +375,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "reading",
     },
   },
   {
@@ -375,9 +386,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "courses",
+      tierOneArea: "courses",
       taskGroup: "instructorCourses",
-      contentLayout: "reading",
     },
   },
   {
@@ -387,10 +397,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "productAssessments",
+      tierOneArea: "productAssessments",
       taskGroup: "instructorAssessments",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "assessmentTemplates",
@@ -399,17 +409,21 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "productAssessments",
+      tierOneArea: "productAssessments",
       taskGroup: "instructorAssessments",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "assessmentCreate",
     path: "/instructor/courses/:courseInstanceId/assessments/new",
     surface: "Create persisted Assessment and enter Questions",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
+    ribbon: {
+      scope: "courseInstance",
+      tierOneArea: "productAssessments",
+      taskGroup: "course",
+    },
   },
   {
     id: "assessmentWorkspaceOverview",
@@ -418,10 +432,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assessments",
+      tierOneArea: "productAssessments",
       taskGroup: "assessment",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "assessmentWorkspaceQuestions",
@@ -430,10 +444,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assessments",
+      tierOneArea: "productAssessments",
       taskGroup: "assessment",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "assessmentWorkspacePolicies",
@@ -442,10 +456,10 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assessments",
+      tierOneArea: "productAssessments",
       taskGroup: "assessment",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "assessmentWorkspaceStudentView",
@@ -454,17 +468,22 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assessments",
+      tierOneArea: "productAssessments",
       taskGroup: "assessment",
-      contentLayout: "fullWidth",
     },
+    pageLayout: "fullWidth",
   },
   {
     id: "gradebook",
     path: "/instructor/courses/:courseInstanceId/gradebook",
     surface: "Answer-free Gradebook evidence",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "gradebook", contentLayout: "fullWidth" },
+    ribbon: {
+      scope: "courseInstance",
+      tierOneArea: "productAssessments",
+      taskGroup: "course",
+    },
+    pageLayout: "fullWidth",
   },
   {
     id: "courseAppearance",
@@ -473,9 +492,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "courseSetup",
+      tierOneArea: "courses",
       taskGroup: "courseSetup",
-      contentLayout: "reading",
     },
   },
   {
@@ -483,7 +501,12 @@ export const ROUTE_CONTRACT = [
     path: "/instructor/courses/:courseInstanceId/students",
     surface: "Course roster, invitations, and import",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "students", contentLayout: "fullWidth" },
+    ribbon: {
+      scope: "courseInstance",
+      tierOneArea: "courses",
+      taskGroup: "course",
+    },
+    pageLayout: "fullWidth",
   },
 ] as const satisfies ReadonlyArray<RouteContract>;
 

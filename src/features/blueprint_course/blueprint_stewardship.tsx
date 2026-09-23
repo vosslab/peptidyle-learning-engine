@@ -9,6 +9,7 @@ import "./blueprint_stewardship.css";
 interface Props {
   readonly client: BlueprintStewardshipClient;
   readonly blueprintCourseId: string;
+  readonly formatDateTime: (timestamp: number | Date) => string;
 }
 
 function eventLabel(kind: BlueprintWatchEvent["kind"]): string {
@@ -138,7 +139,7 @@ export function BlueprintStewardship(props: Props): JSX.Element {
                     {eventLabel(event.kind)}
                     {" - "}
                     <time datetime={new Date(event.occurredAt).toISOString()}>
-                      {new Date(event.occurredAt).toLocaleString()}
+                      {props.formatDateTime(event.occurredAt)}
                     </time>
                   </p>
                 )}

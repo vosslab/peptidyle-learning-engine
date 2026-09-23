@@ -5,7 +5,11 @@
 import type { Page } from "playwright";
 
 import type { ScenarioRuntime } from "./runtime";
-import type { CaptureDeclaration, ScenarioDefinition } from "./scenario_types";
+import {
+  viewportCoverage,
+  type CaptureDeclaration,
+  type ScenarioDefinition,
+} from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
 const ANSWER_KEY_TEXT = /answer key|correct answer|correct feedback|private source/iu;
@@ -138,7 +142,7 @@ async function captureGeneratedExample(
   try {
     await enterInstructor(page);
     await page.getByLabel("Search published questions", { exact: true }).fill(example.search);
-    const result = page.locator("article.question-library-row").filter({
+    const result = page.locator(".record-list__row").filter({
       has: page.getByRole("heading", { name: example.title, exact: true }),
     });
     await result.getByRole("link", { name: "Open question", exact: true }).click();
@@ -172,6 +176,23 @@ export const INSTRUCTOR_WEBWORK_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "instructor_webwork",
     role: "instructor",
     captures: GENERATED_EXAMPLES.map(generatedExampleCapture),
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "webwork_generated_example",
+        reason:
+          "webwork_generated_example captures the rendered answer-free WeBWorK preview on the Instructor Question Library detail route as a laptop representative substitution. The tablet layout remains unverified until a tablet replay is captured.",
+      },
+      phone: {
+        target: "webwork_generated_example",
+        reason:
+          "webwork_generated_example captures the rendered answer-free WeBWorK preview on the Instructor Question Library detail route as a laptop representative substitution. The phone layout remains unverified until a phone replay is captured.",
+      },
+      square: {
+        target: "webwork_generated_example",
+        reason:
+          "webwork_generated_example captures the rendered answer-free WeBWorK preview on the Instructor Question Library detail route as a laptop representative substitution. The square layout remains unverified until a square replay is captured.",
+      },
+    }),
     run: instructorWebwork,
   },
 ];

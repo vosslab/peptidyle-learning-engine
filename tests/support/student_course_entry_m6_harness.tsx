@@ -4,6 +4,8 @@ import { MemoryRouter, Route, createMemoryHistory, query, useLocation } from "@s
 import type { JSX } from "solid-js";
 import { render } from "solid-js/web";
 
+import "../../src/browser_environment";
+
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 import { ApplicationApiProvider, type ApplicationApi } from "../../src/api/application_api";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
@@ -57,6 +59,11 @@ const ASSESSMENT_DECISION = {
   startDecision: "may_start",
   publicReason: null,
 } as const;
+const UPCOMING_DECISION = {
+  ...ASSESSMENT_DECISION,
+  startDecision: "not_yet_available",
+  publicReason: "This Assessment is not yet available.",
+} as const;
 const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   id: "A9D2RX5AF",
   title: "Protein structure practice",
@@ -88,22 +95,13 @@ const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   id: "A7K2CW4A0",
   title: "Peptide quiz",
   assessmentType: "quiz",
-  decision: ASSESSMENT_DECISION,
-  assessmentAttemptNumber: 1,
-  assessmentAttemptCompletion: "completed",
-  canResumeAssessmentAttempt: false,
-  gradedQuestionCount: 4,
-  savedQuestionCount: 0,
-  questionCount: 4,
-};
-const UNSTARTED_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
-  ...WITHHELD_ASSESSMENT,
-  id: "A3N7DX6AT",
-  title: "Protein folding quiz",
+  decision: UPCOMING_DECISION,
   assessmentAttemptNumber: null,
   assessmentAttemptCompletion: null,
+  canResumeAssessmentAttempt: false,
   gradedQuestionCount: 0,
   savedQuestionCount: 0,
+  questionCount: 4,
 };
 
 function coursesFor(
@@ -133,7 +131,7 @@ function HarnessRoot(props: { readonly children?: JSX.Element }): JSX.Element {
 
 function LocationProbe(): JSX.Element {
   const location = useLocation();
-  return <output data-m6-location>{`${location.pathname}${location.search}`}</output>;
+  return <output data-m6-location hidden>{`${location.pathname}${location.search}`}</output>;
 }
 
 export interface StudentCourseEntryM6Harness {
@@ -179,16 +177,13 @@ export function mountStudentCourseEntryM6Harness(
       listLiveStudentAssessments: () =>
         Promise.resolve(
           caseName === "landing"
-            ? [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT, UNSTARTED_ASSESSMENT]
+            ? [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT]
             : [],
         ),
       getLiveAssessmentAccess: (_course: string, assessment: string) => {
-        const item = [
-          currentAssessment(),
-          BONUS_ASSESSMENT,
-          WITHHELD_ASSESSMENT,
-          UNSTARTED_ASSESSMENT,
-        ].find((candidate) => candidate.id === assessment);
+        const item = [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT].find(
+          (candidate) => candidate.id === assessment,
+        );
         if (item === undefined) throw new Error("Unknown harness Coursework");
         return Promise.resolve({
           decision: item.decision,

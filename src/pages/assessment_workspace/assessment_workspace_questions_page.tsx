@@ -107,7 +107,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     if (missingPool)
       return "Loading exact Bloom Classification for Assessment-owned Question Pools.";
     if (entryBlooms().size !== entries().length) {
-      return "Exact Bloom Classification for a fixed Question could not load. Reload the latest Assessment.";
+      return "Bloom sorting waits until all Questions and Question Pools have a Bloom Classification.";
     }
     return undefined;
   });
@@ -218,7 +218,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     if (sorted === undefined) {
       setMessage(
         bloomSortUnavailableReason() ??
-          "Exact Bloom Classification could not load. Reload the latest Assessment.",
+          "Bloom sorting waits until all Questions and Question Pools have a Bloom Classification.",
       );
       return;
     }

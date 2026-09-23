@@ -54,7 +54,11 @@ export interface RibbonCatalogControl<Id extends string> {
   readonly id: Id;
   readonly label: string;
   readonly destination: RibbonDestination;
-  readonly requiredParams: ReadonlyArray<RouteParamName>;
+  /**
+   * Task destinations carry their route parameters from the active scope.
+   * Tier-one destinations instead resolve from the signed-in shell context.
+   */
+  readonly requiredParams?: ReadonlyArray<RouteParamName>;
   readonly role: RibbonControlRole;
   readonly priority: RibbonControlPriority;
   readonly presentation: RibbonPresentation;
@@ -77,6 +81,14 @@ export type RibbonTaskId =
   | "browseQuestionLibrary"
   | "assessmentsDueSoon"
   | "assessmentTemplates"
+  | "assessments"
+  | "students"
+  | "gradebook"
+  | "teachingOperations"
+  | "blueprintUpdates"
+  | "courseSetup"
+  | "studentAssessments"
+  | "attempt"
   | "assessmentOverview"
   | "assessmentQuestions"
   | "assessmentPolicies"
@@ -91,11 +103,13 @@ export type RibbonTaskArea =
   | "instructorCourses"
   | "instructorQuestions"
   | "instructorAssessments"
+  | "course"
   | "assessment"
   | "courseSetup"
   | "assessmentAttempt";
 
 export interface RibbonTaskCatalogEntry extends RibbonCatalogControl<RibbonTaskId> {
+  readonly requiredParams: ReadonlyArray<RouteParamName>;
   readonly taskGroup: RibbonTaskGroupId;
   readonly area: RibbonTaskArea;
 }
@@ -127,7 +141,6 @@ export const TAB_CATALOG = [
     id: "courses",
     label: "Courses",
     destination: { kind: "route", routeId: "courses" },
-    requiredParams: [],
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -137,7 +150,6 @@ export const TAB_CATALOG = [
     id: "questions",
     label: "Questions",
     destination: { kind: "route", routeId: "library" },
-    requiredParams: [],
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -147,87 +159,24 @@ export const TAB_CATALOG = [
     id: "productAssessments",
     label: "Assessments",
     destination: { kind: "route", routeId: "assessmentsDueSoon" },
-    requiredParams: [],
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "assessments",
-    label: "Assessments",
-    destination: { kind: "route", routeId: "courseAssessments" },
-    requiredParams: ["courseInstanceId"],
-    role: "primary",
-    priority: "critical",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "studentAssessments",
+    id: "coursework",
     label: "Coursework",
     destination: { kind: "route", routeId: "studentCourseLanding" },
-    requiredParams: ["courseInstanceId"],
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "students",
-    label: "Students",
-    destination: { kind: "route", routeId: "courseRoster" },
-    requiredParams: ["courseInstanceId"],
-    role: "supporting",
-    priority: "normal",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "gradebook",
-    label: "Gradebook",
-    destination: { kind: "route", routeId: "gradebook" },
-    requiredParams: ["courseInstanceId"],
-    role: "primary",
-    priority: "critical",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "teachingOperations",
-    label: "Teaching Operations",
-    destination: { kind: "future", futureId: "teachingOperations" },
-    requiredParams: ["courseInstanceId"],
-    role: "supporting",
-    priority: "normal",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "blueprintUpdates",
-    label: "Blueprint Updates",
-    destination: { kind: "future", futureId: "blueprintUpdates" },
-    requiredParams: ["courseInstanceId"],
-    role: "supporting",
-    priority: "normal",
-    presentation: "compact",
-    ...pairedIconFlags,
-  },
-  {
-    id: "courseSetup",
-    label: "Course Setup",
-    destination: { kind: "future", futureId: "courseSetup" },
-    requiredParams: ["courseInstanceId"],
-    role: "supporting",
-    priority: "normal",
-    presentation: "compact",
-    ...pairedIconFlags,
-  },
-  {
-    id: "attempt",
-    label: "Attempt",
-    destination: { kind: "route", routeId: "assessmentAttempt" },
-    requiredParams: ["assessmentAttemptId"],
+    id: "grades",
+    label: "Grades",
+    destination: { kind: "route", routeId: "studentCourseGrades" },
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -237,7 +186,6 @@ export const TAB_CATALOG = [
     id: "instructorAccounts",
     label: "Instructor Accounts",
     destination: { kind: "route", routeId: "instructorAccounts" },
-    requiredParams: [],
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -247,7 +195,6 @@ export const TAB_CATALOG = [
     id: "disciplines",
     label: "Disciplines",
     destination: { kind: "route", routeId: "contentDisciplines" },
-    requiredParams: [],
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -401,6 +348,102 @@ export const RIBBON_TASK_CATALOG = [
     area: "instructorAssessments",
     role: "supporting",
     priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "assessments",
+    label: "Assessments",
+    destination: { kind: "route", routeId: "courseAssessments" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "students",
+    label: "Students",
+    destination: { kind: "route", routeId: "courseRoster" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "gradebook",
+    label: "Gradebook",
+    destination: { kind: "route", routeId: "gradebook" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "teachingOperations",
+    label: "Teaching Operations",
+    destination: { kind: "future", futureId: "teachingOperations" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "blueprintUpdates",
+    label: "Blueprint Updates",
+    destination: { kind: "future", futureId: "blueprintUpdates" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "supporting",
+    priority: "normal",
+    presentation: "compact",
+    ...pairedIconFlags,
+  },
+  {
+    id: "courseSetup",
+    label: "Course Setup",
+    destination: { kind: "future", futureId: "courseSetup" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "supporting",
+    priority: "normal",
+    presentation: "compact",
+    ...pairedIconFlags,
+  },
+  {
+    id: "studentAssessments",
+    label: "Coursework",
+    destination: { kind: "route", routeId: "studentCourseLanding" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "course",
+    area: "course",
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "attempt",
+    label: "Attempt",
+    destination: { kind: "route", routeId: "assessmentAttempt" },
+    requiredParams: ["assessmentAttemptId"],
+    taskGroup: "assessmentAttempt",
+    area: "assessmentAttempt",
+    role: "primary",
+    priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },

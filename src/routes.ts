@@ -36,6 +36,7 @@ import { AccountPendingInvitationsPage } from "./pages/account_pending_invitatio
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
+import { StudentCourseGradesPage } from "./pages/student_course_grades_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { ContentDisciplinesPage } from "./pages/content_disciplines_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
@@ -68,6 +69,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentCourseInvitations: StudentCourseInvitationsPage,
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
+  studentCourseGrades: StudentCourseGradesPage,
   instructorAccounts: InstructorAccountsPage,
   contentDisciplines: ContentDisciplinesPage,
   courseAssessments: CourseInstancePage,

@@ -54,7 +54,12 @@ function routeStateFor(routeId) {
 }
 
 function controlsFor(routeId, productRole) {
-  const model = deriveRibbonModel(routeStateFor(routeId), { productRole }, LABELS);
+  const routeState = routeStateFor(routeId);
+  const model = deriveRibbonModel(
+    { ...routeState, currentCourseInstanceId: routeState.params.courseInstanceId },
+    { productRole },
+    LABELS,
+  );
   return { model, controls: [...model.tabs, ...model.taskAreas.flatMap((area) => area.controls)] };
 }
 
@@ -292,12 +297,24 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
 });
 
 test("Student Coursework navigation retains collective labels", () => {
-  const assessmentAccess = controlsFor("assessmentOverview", "student").model;
   const courseLanding = controlsFor("studentCourseLanding", "student").model;
   const attemptControls = controlsFor("assessmentAttempt", "student").controls;
-  const expectedTab = [
+  const expectedTabs = [
     {
-      id: "studentAssessments",
+      id: "courses",
+      label: "Courses",
+      destination: { kind: "route", routeId: "courses" },
+      availability: "Available",
+      selected: false,
+      href: "/",
+      role: "primary",
+      priority: "critical",
+      presentation: "standard",
+      iconBearing: true,
+      iconOnlySafe: false,
+    },
+    {
+      id: "coursework",
       label: "Coursework",
       destination: { kind: "route", routeId: "studentCourseLanding" },
       availability: "Available",
@@ -309,9 +326,21 @@ test("Student Coursework navigation retains collective labels", () => {
       iconBearing: true,
       iconOnlySafe: false,
     },
+    {
+      id: "grades",
+      label: "Grades",
+      destination: { kind: "route", routeId: "studentCourseGrades" },
+      availability: "Available",
+      selected: false,
+      href: "/student/courses/CI7K3M2QAZ/grades",
+      role: "primary",
+      priority: "critical",
+      presentation: "standard",
+      iconBearing: true,
+      iconOnlySafe: false,
+    },
   ];
-  assert.deepEqual(assessmentAccess.tabs, expectedTab);
-  assert.deepEqual(courseLanding.tabs, expectedTab);
+  assert.deepEqual(courseLanding.tabs, expectedTabs);
   assert.equal(
     attemptControls.find((control) => control.id === "backToAssessments")?.label,
     "Back to Coursework",
@@ -459,6 +488,16 @@ test("breadcrumb trails are canonical route projections with one current termina
       );
     }
   }
+  const courseBreadcrumb = deriveRibbonModel(
+    routeStateFor("assessmentWorkspaceQuestions"),
+    { productRole: "instructor" },
+    labels,
+  ).breadcrumbs[1];
+  assert.deepEqual(
+    [courseBreadcrumb?.label, courseBreadcrumb?.compactLabel],
+    ["Biochemistry I", "BCHM 355"],
+    "the breadcrumb model keeps descriptive and compact Course identities together",
+  );
   const malformed = ROUTE_CONTRACT.find((route) => route.id === "courseAppearance");
   assert.ok(malformed);
   const invalid = deriveRibbonModel(
@@ -471,18 +510,17 @@ test("breadcrumb trails are canonical route projections with one current termina
     [{ label: "Home", href: "/instructor", current: false }],
     "malformed scope retains only the known home without identifier copy",
   );
-  assert.equal(
-    invalid.breadcrumbPreludeReserved,
-    true,
-    "declared deep-route geometry remains stable",
-  );
-
   const scoped = deriveRibbonModel(
     routeStateFor("courseAppearance"),
     { productRole: "instructor" },
     labels,
   );
-  assert.equal(scoped.context.scopeLabel, "BCHM 355");
+  assert.deepEqual(Object.keys(scoped.context).sort(), [
+    "accountControls",
+    "productLabel",
+    "signOutAction",
+  ]);
+  assert.equal(Object.hasOwn(scoped, "contentLayout"), false);
   assert.equal(scoped.breadcrumbs[1]?.label, "Biochemistry I");
 });
 
@@ -496,7 +534,6 @@ test("Student Course Invitation acceptance stays outside Course breadcrumb conte
     model.breadcrumbs.map(({ label }) => label),
     ["Home", "Course Invitations", "Course Invitation"],
   );
-  assert.equal(model.breadcrumbPreludeReserved, true);
 });
 
 test("deferred scope labels retain a linked human-readable current breadcrumb", () => {
@@ -580,7 +617,6 @@ test("every signed-in route reserves linked breadcrumbs rooted at its role home"
           assessmentAttemptTitle: "Problem Set 7",
         },
       );
-      assert.equal(model.breadcrumbPreludeReserved, true, route.id);
       assert.equal(model.breadcrumbs[0].href, productRoleHomePath(productRole), route.id);
       assert.equal(model.breadcrumbs.filter(({ current }) => current).length, 1, route.id);
       assert.equal(

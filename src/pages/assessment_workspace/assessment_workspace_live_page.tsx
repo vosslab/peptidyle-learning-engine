@@ -18,6 +18,7 @@ import type {
   UnreleasedLiveAssessment,
 } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
+import { PageFrame } from "../../components/page_frame";
 import {
   parseAssessmentId,
   parseCourseInstanceId,
@@ -106,49 +107,55 @@ function WorkspaceState(props: {
 }): JSX.Element {
   if (props.state === "loading") {
     return (
-      <section class="page assessment-workspace-state" data-route-surface="assessmentWorkspaceGate">
-        <p class="eyebrow">Instructor assessment workspace</p>
+      <PageFrame
+        contentClass="assessment-workspace-state"
+        routeSurface="assessmentWorkspaceGate"
+        eyebrow="Instructor assessment workspace"
+        title="Loading assessment workspace"
+      >
         <p class="loading-state" role="status">
           Loading assessment workspace...
         </p>
-      </section>
+      </PageFrame>
     );
   }
   if (props.state === "error") {
     return (
-      <section
-        class="page assessment-workspace-state route-error"
-        data-route-surface="assessmentWorkspaceGate"
-        role="alert"
-        aria-labelledby="assessment-workspace-load-error"
-      >
-        <p class="eyebrow">Instructor assessment workspace</p>
-        <h1 id="assessment-workspace-load-error">Assessment workspace could not load</h1>
-        <p>Try loading the current assessment again.</p>
-        <button
-          class="primary-action"
-          type="button"
-          onClick={props.retry}
-          ref={props.registerRetryButton}
+      <div role="alert">
+        <PageFrame
+          contentClass="assessment-workspace-state route-error"
+          routeSurface="assessmentWorkspaceGate"
+          eyebrow="Instructor assessment workspace"
+          title="Assessment workspace could not load"
+          headingId="assessment-workspace-load-error"
         >
-          Retry loading assessment
-        </button>
-      </section>
+          <p>Try loading the current assessment again.</p>
+          <button
+            class="primary-action"
+            type="button"
+            onClick={props.retry}
+            ref={props.registerRetryButton}
+          >
+            Retry loading assessment
+          </button>
+        </PageFrame>
+      </div>
     );
   }
   return (
-    <section
-      class="page assessment-workspace-state route-error"
-      data-route-surface="assessmentWorkspaceGate"
-      role="alert"
-    >
-      <p class="eyebrow">Instructor assessment workspace</p>
-      <h1>This assessment workspace is unavailable</h1>
-      <p>The selected assessment could not be found in this course.</p>
-      <A class="primary-link" href="/">
-        Return to courses
-      </A>
-    </section>
+    <div role="alert">
+      <PageFrame
+        contentClass="assessment-workspace-state route-error"
+        routeSurface="assessmentWorkspaceGate"
+        eyebrow="Instructor assessment workspace"
+        title="This assessment workspace is unavailable"
+      >
+        <p>The selected assessment could not be found in this course.</p>
+        <A class="primary-link" href="/">
+          Return to courses
+        </A>
+      </PageFrame>
+    </div>
   );
 }
 
@@ -292,9 +299,9 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
     >
       {(loaded) => (
         <AssessmentWorkspaceContext.Provider value={loaded}>
-          <section class="page assessment-workspace" data-route-surface="assessmentWorkspace">
+          <div class="assessment-workspace" data-route-surface="assessmentWorkspace">
             <WorkspaceChild section={props.section} />
-          </section>
+          </div>
         </AssessmentWorkspaceContext.Provider>
       )}
     </Show>

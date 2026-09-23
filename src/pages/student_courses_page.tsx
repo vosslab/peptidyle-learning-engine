@@ -5,6 +5,7 @@ import { createEffect, createResource, For, Show, type JSX } from "solid-js";
 
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 
 function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
   return (
@@ -34,10 +35,12 @@ export function StudentCoursesPage(): JSX.Element {
   });
 
   return (
-    <section class="page" data-route-surface="studentCourses">
-      <p class="eyebrow">Your learning</p>
-      <h1>Your courses</h1>
-      <p class="page-lede">Open assigned work in one of your current courses.</p>
+    <PageFrame
+      routeSurface="studentCourses"
+      eyebrow="Your learning"
+      title="Your courses"
+      lede="Open assigned work in one of your current courses."
+    >
       <A class="quiet-link" href="/student/course-invitations">
         Course invitations
       </A>
@@ -58,6 +61,6 @@ export function StudentCoursesPage(): JSX.Element {
           <For each={courses()}>{(course) => <CourseCard course={course} />}</For>
         </div>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

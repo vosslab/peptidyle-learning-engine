@@ -37,6 +37,7 @@ SKIP_DIRECTORY_NAMES = frozenset(
 		"__pycache__",
 	}
 )
+GENERATED_SCHEMA_FILE_NAMES = frozenset({"catalog_snapshot.json"})
 
 CLIENT_OUTPUT = pathlib.Path("dist/index.html")
 WASM_OUTPUT = pathlib.Path("dist/wasm/ple_bridge_bg.wasm")
@@ -50,7 +51,11 @@ class Decision:
 	containers: str
 
 
-def newest_mtime(root: pathlib.Path, skip_names: frozenset[str] = SKIP_DIRECTORY_NAMES) -> float | None:
+def newest_mtime(
+	root: pathlib.Path,
+	skip_names: frozenset[str] = SKIP_DIRECTORY_NAMES,
+	skip_file_names: frozenset[str] = frozenset(),
+) -> float | None:
 	"""Return the newest file mtime under root, skipping named output directories."""
 	if not root.exists():
 		return None
@@ -59,6 +64,8 @@ def newest_mtime(root: pathlib.Path, skip_names: frozenset[str] = SKIP_DIRECTORY
 		return root.stat().st_mtime
 	for current_root, directory_names, file_names in os_walk(root, skip_names):
 		for name in file_names:
+			if name in skip_file_names:
+				continue
 			mtime = (current_root / name).stat().st_mtime
 			if newest is None or mtime > newest:
 				newest = mtime
@@ -119,7 +126,8 @@ def _crate_source_mtime(repo_root: pathlib.Path) -> float | None:
 def _schema_source_mtime(repo_root: pathlib.Path) -> float | None:
 	newest: float | None = None
 	for tree in (repo_root / "schemas", repo_root / "containers"):
-		candidate = newest_mtime(tree)
+		skip_file_names = GENERATED_SCHEMA_FILE_NAMES if tree.name == "schemas" else frozenset()
+		candidate = newest_mtime(tree, skip_file_names=skip_file_names)
 		if candidate is not None and (newest is None or candidate > newest):
 			newest = candidate
 	compose_files = list(repo_root.glob("compose*.yaml"))

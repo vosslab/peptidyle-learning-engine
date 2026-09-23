@@ -14,7 +14,7 @@
 ## instructor interface
 
 - depsite my insistence on a locked down top ribbon UI and the exact ribbon UI specified in the human guidance, we are still changing the top ribbon UI: "Courses | Questions | Assessments" never changes. The top ribbon has to be the same for all pages an instructor will visit.
-- the second level of the ribbon is allowed to change. 
+- the second level of the ribbon is allowed to change.
 - the 'not available yet' makes the interface worse that a broken link
 - starred and my questions need to be available, they are mostly just queries.
 - for every display row of content, we have to ask ourselves, what information does the user care about. the assessment ID (probably not), which fixed time zone I am in for every date (never)
@@ -26,7 +26,7 @@
 - why is private draft displayed, shouldn't it be obvious based on the page
 - why does edit number take up five long words.
 - maybe have a preview of the content
-  
+
 ## student interface
 
 - I need to see more than one webwork example
@@ -39,7 +39,7 @@
   - `ls docs/screenshots/student/phone/*.png | wc -l` == 22
   - `ls docs/screenshots/student/square/*.png | wc -l` == 1
   - `ls docs/screenshots/student/laptop/*.png | wc -l` == 30
-  
+
 
 ### the student question taking on the phone
 

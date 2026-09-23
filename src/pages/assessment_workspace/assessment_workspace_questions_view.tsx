@@ -13,6 +13,13 @@ import type {
   AssessmentQuestionPickerEntry,
   AssessmentBlueprintUpdateReview,
 } from "../../api/assessment_release";
+import { PageFrame } from "../../components/page_frame";
+import { RecordList } from "../../components/record_list/record_list";
+import {
+  RecordListReorder,
+  RecordListReorderControls,
+} from "../../components/record_list/record_list_reorder";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
 import { SelectedAssessmentEntryIdentity } from "./assessment_workspace_selected_entry";
 import {
@@ -26,6 +33,7 @@ import {
   AssessmentBlueprintContentSummary,
   currentBlueprintUpdateContent,
 } from "./assessment_blueprint_update_review";
+import "./assessment_questions_record_list.css";
 
 export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly workspace: AssessmentWorkspaceContextValue;
@@ -83,6 +91,11 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly importPool: () => Promise<void>;
 }
 
+type AssessmentQuestionRecord = {
+  readonly entry: AssessmentEntry;
+  readonly index: number;
+};
+
 function questionRevisionInspectionPath(
   publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
 ): string {
@@ -94,6 +107,28 @@ function questionPoolEntry(
   entry: AssessmentEntry,
 ): Extract<AssessmentEntry, { readonly kind: "questionPool" }> | undefined {
   return entry.kind === "questionPool" ? entry : undefined;
+}
+
+function assessmentQuestionRecords(
+  entries: ReadonlyArray<AssessmentEntry>,
+): ReadonlyArray<AssessmentQuestionRecord> {
+  return entries.map((entry, index) => ({ entry, index }));
+}
+
+function moveAssessmentEntryToDestination(
+  moveEntry: (index: number, offset: -1 | 1) => void,
+  sourceIndex: number,
+  destinationIndex: number,
+): void {
+  if (sourceIndex === destinationIndex) return;
+  const direction = destinationIndex > sourceIndex ? 1 : -1;
+  for (
+    let currentIndex = sourceIndex;
+    currentIndex !== destinationIndex;
+    currentIndex += direction
+  ) {
+    moveEntry(currentIndex, direction);
+  }
 }
 
 /** Renders the Assessment Question Editor for the current Assessment. */
@@ -148,17 +183,86 @@ export function AssessmentWorkspaceQuestionsView(
     importPool,
   } = args;
 
+  const selectedQuestionRegions: ReadonlyArray<RecordRegion<AssessmentQuestionRecord>> = [
+    {
+      id: "identity",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (record) => (
+        <>
+          <SelectedAssessmentEntryIdentity
+            entry={record.entry}
+            entryNumber={record.index + 1}
+            description={description}
+            bloom={entryBlooms().get(record.entry.id)}
+          />
+          <Show when={questionPoolEntry(record.entry)}>
+            {(poolEntry) => (
+              <AssessmentPoolEntryEditor
+                entry={poolEntry()}
+                fork={poolForks().get(poolEntry().id)}
+                exactMembersUnavailable={poolForkLoadFailed()}
+                availableQuestions={available()}
+                mutationsEnabled={
+                  !dirty() && !needsReload() && poolEntry().availability === "available"
+                }
+                busy={busy()}
+                onSelectionCount={(selectionCount) =>
+                  void updatePoolSelectionCount(poolEntry(), selectionCount)
+                }
+                onReplaceMembers={(members) => void replacePoolMembers(poolEntry(), members)}
+              />
+            )}
+          </Show>
+        </>
+      ),
+    },
+    {
+      id: "actions",
+      role: "actions",
+      priority: "required",
+      width: "minmax(9rem, 12rem)",
+      align: "stretch",
+      content: (record) => (
+        <>
+          <RecordListReorderControls
+            recordId={record.entry.id}
+            recordLabel={`Entry ${record.index + 1}`}
+            index={() => record.index}
+            count={() => entries().length}
+            disabled={busy() || needsReload()}
+          />
+          <button
+            class="quiet-action"
+            type="button"
+            disabled={busy() || needsReload() || record.entry.availability !== "available"}
+            aria-label={
+              record.entry.availability === "available"
+                ? `Remove Assessment Entry ${record.index + 1}`
+                : `Retained unavailable Assessment Entry ${record.index + 1} cannot be removed`
+            }
+            onClick={() => remove(record.index)}
+          >
+            {record.entry.availability === "available" ? "Remove" : "Retained unavailable"}
+          </button>
+        </>
+      ),
+    },
+  ];
+
   return (
-    <section class="assessment-workspace-questions" aria-labelledby="assessment-questions-heading">
+    <PageFrame
+      contentClass="assessment-workspace-questions"
+      routeSurface="assessmentWorkspace"
+      headingId="assessment-questions-heading"
+      eyebrow="Assessment workspace"
+      title="Assessment Question Editor"
+      lede="Every Entry retains its exact Question Revision and stable identity for future Attempts."
+    >
       <UnsavedChangesGuard dirty={dirty} save={save} />
-      <header class="assessment-workspace-header">
-        <p class="eyebrow">Assessment workspace</p>
-        <h1 id="assessment-questions-heading">Assessment Question Editor</h1>
-        <AssessmentWorkspaceIdentity />
-        <p class="page-lede">
-          Every Entry retains its exact Question Revision and stable identity for future Attempts.
-        </p>
-      </header>
+      <AssessmentWorkspaceIdentity />
       <Show when={message()}>
         {(value) => (
           <p class="assessment-workspace-save-message" role="status">
@@ -284,83 +388,20 @@ export function AssessmentWorkspaceQuestionsView(
         <Show when={bloomSortUnavailableReason()}>
           {(reason) => <p class="assessment-editor-note">{reason()}</p>}
         </Show>
-        <Show when={entries().length > 0} fallback={<p>No Entries are selected.</p>}>
-          <ol class="assessment-editor-list">
-            <For each={entries()}>
-              {(entry, index) => (
-                <li
-                  classList={{
-                    "assessment-editor-row": true,
-                    "assessment-editor-pool": entry.kind === "questionPool",
-                  }}
-                  data-assessment-entry={entry.id}
-                >
-                  <SelectedAssessmentEntryIdentity
-                    entry={entry}
-                    entryNumber={index() + 1}
-                    description={description}
-                    bloom={entryBlooms().get(entry.id)}
-                  />
-                  <div
-                    class="assessment-editor-row-actions"
-                    role="group"
-                    aria-label={`Entry ${index() + 1} actions`}
-                  >
-                    <button
-                      class="quiet-action"
-                      type="button"
-                      disabled={busy() || needsReload() || index() === 0}
-                      onClick={() => move(index(), -1)}
-                    >
-                      Move earlier
-                    </button>
-                    <button
-                      class="quiet-action"
-                      type="button"
-                      disabled={busy() || needsReload() || index() === entries().length - 1}
-                      onClick={() => move(index(), 1)}
-                    >
-                      Move later
-                    </button>
-                    <button
-                      class="quiet-action"
-                      type="button"
-                      disabled={busy() || needsReload() || entry.availability !== "available"}
-                      aria-label={
-                        entry.availability === "available"
-                          ? `Remove Assessment Entry ${index() + 1}`
-                          : `Retained unavailable Assessment Entry ${index() + 1} cannot be removed`
-                      }
-                      onClick={() => remove(index())}
-                    >
-                      {entry.availability === "available" ? "Remove" : "Retained unavailable"}
-                    </button>
-                  </div>
-                  <Show when={questionPoolEntry(entry)}>
-                    {(poolEntry) => (
-                      <AssessmentPoolEntryEditor
-                        entry={poolEntry()}
-                        fork={poolForks().get(poolEntry().id)}
-                        exactMembersUnavailable={poolForkLoadFailed()}
-                        availableQuestions={available()}
-                        mutationsEnabled={
-                          !dirty() && !needsReload() && poolEntry().availability === "available"
-                        }
-                        busy={busy()}
-                        onSelectionCount={(selectionCount) =>
-                          void updatePoolSelectionCount(poolEntry(), selectionCount)
-                        }
-                        onReplaceMembers={(members) =>
-                          void replacePoolMembers(poolEntry(), members)
-                        }
-                      />
-                    )}
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ol>
-        </Show>
+        <RecordListReorder
+          onMove={(sourceIndex, destinationIndex) =>
+            moveAssessmentEntryToDestination(move, sourceIndex, destinationIndex)
+          }
+        >
+          <RecordList
+            rows={assessmentQuestionRecords(entries())}
+            regions={selectedQuestionRegions}
+            recordId={(record) => record.entry.id}
+            state={{ kind: "ready" }}
+            ariaLabel="Ordered Assessment Entries"
+            emptyState={{ title: "No Entries are selected." }}
+          />
+        </RecordListReorder>
       </section>
       <section class="assessment-editor-panel" aria-labelledby="available-questions-heading">
         <h2 id="available-questions-heading">Available published Questions</h2>
@@ -551,6 +592,6 @@ export function AssessmentWorkspaceQuestionsView(
           Review Assessment Properties
         </A>
       </p>
-    </section>
+    </PageFrame>
   );
 }

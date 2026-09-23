@@ -8,6 +8,7 @@ import type { StudentAssessmentAttemptHistory } from "../api/assessment_attempt_
 import { backendAnswerReviewDocumentUrl } from "../api/assessment_attempt_history";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { ContentBlockList } from "../components/student_feedback_panel";
+import { PageFrame } from "../components/page_frame";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
@@ -57,17 +58,14 @@ function AssessmentAttemptHistoryContent(props: {
       );
   }
   return (
-    <section
-      class="page attempt-summary attempt-history"
-      data-route-surface="assessmentAttemptSummary"
+    <PageFrame
+      contentClass="attempt-summary attempt-history"
+      routeSurface="assessmentAttemptSummary"
+      eyebrow={`${assessmentTypePresentation(props.history.assessment.assessmentType).label} · Attempt ${props.history.attemptNumber}`}
+      title={props.history.assessment.title}
+      lede={`This Attempt is ${props.history.state}.`}
     >
       <style>{ASSESSMENT_ATTEMPT_SUMMARY_STYLES}</style>
-      <p class="eyebrow">
-        {assessmentTypePresentation(props.history.assessment.assessmentType).label} · Attempt{" "}
-        {props.history.attemptNumber}
-      </p>
-      <h1>{props.history.assessment.title}</h1>
-      <p>This Attempt is {props.history.state}.</p>
       <section class="attempt-history__score" aria-labelledby="assessment-attempt-score-heading">
         <h2 id="assessment-attempt-score-heading">Score</h2>
         <Show when={props.history.score} fallback={<p>Your score is not available.</p>}>
@@ -191,7 +189,7 @@ function AssessmentAttemptHistoryContent(props: {
       >
         Return to {props.history.assessment.title}
       </A>
-    </section>
+    </PageFrame>
   );
 }
 
@@ -209,7 +207,11 @@ export function AssessmentAttemptSummaryPage(): JSX.Element {
       when={history()}
       keyed
       fallback={
-        <section class="page attempt-summary" data-route-surface="assessmentAttemptSummary">
+        <PageFrame
+          contentClass="attempt-summary"
+          routeSurface="assessmentAttemptSummary"
+          title="Recorded work"
+        >
           <Show
             when={loadState() === "rejected"}
             fallback={
@@ -225,7 +227,7 @@ export function AssessmentAttemptSummaryPage(): JSX.Element {
               Try again
             </button>
           </Show>
-        </section>
+        </PageFrame>
       }
     >
       {(loadedHistory) => <AssessmentAttemptHistoryContent history={loadedHistory} />}

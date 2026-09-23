@@ -178,6 +178,30 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/course_instance.ts::createCourseInstanceClient",
     ],
   },
+  coursework: {
+    kind: "backed",
+    clientMethod: "ApiClient.listLiveStudentAssessments",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
+    },
+    evidence: [
+      "src/pages/student_course_landing_page.tsx::StudentCourseLandingPage",
+      "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
+    ],
+  },
+  grades: {
+    kind: "backed",
+    clientMethod: "ApiClient.listLiveStudentAssessments",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
+    },
+    evidence: [
+      "src/pages/student_course_grades_page.tsx::StudentCourseGradesPage",
+      "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
+    ],
+  },
   questions: {
     kind: "backed",
     clientMethod: "ApiClient.searchQuestionLibrary",

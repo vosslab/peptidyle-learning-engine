@@ -32,6 +32,7 @@ import type {
 import { ApiRequestError } from "../api/http_client/error";
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import { PageFrame } from "../components/page_frame";
 import {
   BloomClassificationEditor,
   BloomClassificationText,
@@ -477,7 +478,11 @@ export function QuestionDetailPage(): JSX.Element {
     setCorrectedBloom(undefined);
   });
   return (
-    <section class="page" data-route-surface="questionDetail">
+    <PageFrame
+      routeSurface="questionDetail"
+      title={detail()?.summary.metadata.questionTitle ?? "Question"}
+      eyebrow="Question Library"
+    >
       <A class="quiet-link" href={libraryReturnHref()}>
         Return to question library
       </A>
@@ -492,7 +497,7 @@ export function QuestionDetailPage(): JSX.Element {
           when={detail()}
           fallback={
             <section class="route-error" role="alert">
-              <h1>Question unavailable</h1>
+              <h2>Question unavailable</h2>
               <p>Return to the library and try again.</p>
             </section>
           }
@@ -500,7 +505,6 @@ export function QuestionDetailPage(): JSX.Element {
           {(record) => (
             <article>
               <p class="eyebrow">Published question</p>
-              <h1>{record().summary.metadata.questionTitle}</h1>
               <section class="question-detail-description" aria-label="Question Description">
                 <h2>Question Description</h2>
                 <p>{record().summary.metadata.questionDescription}</p>
@@ -685,6 +689,6 @@ export function QuestionDetailPage(): JSX.Element {
           )}
         </Show>
       </Suspense>
-    </section>
+    </PageFrame>
   );
 }

@@ -11,7 +11,9 @@ import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkS
 import type { AssessmentQuestionVariationRule } from "../../generated/api/AssessmentQuestionVariationRule";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 import { calculatedAssessmentDurationSeconds } from "../assessment_duration";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
+import { PageFrame } from "./page_frame";
 
 export interface StudentAssessmentPresentationDelivery {
   readonly availableAt: number | null;
@@ -92,6 +94,7 @@ export function StudentAssessmentStartFacts(props: {
 export function StudentAssessmentDecisionDetails(props: {
   readonly decision: StudentAssessmentDecisionSummary;
 }): JSX.Element {
+  const formatDateTime = createDisplayDateTimeFormatter(props.decision.displayTimeZone);
   return (
     <div class="student-assessment-decision">
       <p class="student-assessment-decision__status" role="status">
@@ -107,11 +110,7 @@ export function StudentAssessmentDecisionDetails(props: {
         <div>
           <dt>Due</dt>
           <dd data-assessment-decision-due>
-            {formatAssessmentDeliveryTime(
-              props.decision.dueAt,
-              props.decision.displayTimeZone,
-              "No due time",
-            )}
+            {formatAssessmentDeliveryTime(props.decision.dueAt, formatDateTime, "No due time")}
           </dd>
         </div>
         <div>
@@ -131,7 +130,7 @@ export function StudentAssessmentDecisionDetails(props: {
             <dd>
               {formatAssessmentDeliveryTime(
                 props.decision.availableAt,
-                props.decision.displayTimeZone,
+                formatDateTime,
                 "No opening time",
               )}
             </dd>
@@ -141,7 +140,7 @@ export function StudentAssessmentDecisionDetails(props: {
             <dd>
               {formatAssessmentDeliveryTime(
                 props.decision.closesAt,
-                props.decision.displayTimeZone,
+                formatDateTime,
                 "No closing time",
               )}
             </dd>
@@ -183,28 +182,23 @@ export function toStudentAssessmentPresentationData(
   };
 }
 
-export function formatAssessmentActivity(timestamp: number | null, timeZone: string): string {
+export function formatAssessmentActivity(
+  timestamp: number | null,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+): string {
   if (timestamp === null) {
     return "No activity yet";
   }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  }).format(new Date(timestamp));
+  return formatDateTime(timestamp);
 }
 
 export function formatAssessmentDeliveryTime(
   timestamp: number | null,
-  timeZone: string,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
   unsetLabel = "Not set",
 ): string {
   if (timestamp === null) return unsetLabel;
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  }).format(new Date(timestamp));
+  return formatDateTime(timestamp);
 }
 
 export function formatAssessmentLimit(
@@ -290,6 +284,7 @@ function classStatisticsSummary(statistics: ClassStatistics): string {
 export function StudentAssessmentPresentation(
   props: StudentAssessmentPresentationProps,
 ): JSX.Element {
+  const formatDateTime = createDisplayDateTimeFormatter(props.assessment.displayTimeZone);
   function disclosure(): string | undefined {
     return disclosureSummary(props.assessment.studentFeedbackReleaseRule);
   }
@@ -302,7 +297,13 @@ export function StudentAssessmentPresentation(
   }
 
   return (
-    <div class="student-assessment-presentation">
+    <PageFrame
+      contentClass="student-assessment-presentation"
+      routeSurface="studentAssessment"
+      eyebrow="Assessment overview"
+      title={props.assessment.title}
+      lede="Work from the structures and concepts in front of you. Memorization is not the goal."
+    >
       <Show when={props.contextCue}>
         <div class="student-assessment-context empty-state" role="note">
           {props.contextCue}
@@ -311,8 +312,6 @@ export function StudentAssessmentPresentation(
       <Show when={props.returnAction}>
         <div class="student-assessment-return">{props.returnAction}</div>
       </Show>
-      <p class="eyebrow">Assessment overview</p>
-      <h1>{props.assessment.title}</h1>
       <Show when={hasActions()}>
         <div class="student-assessment-action-region" role="group" aria-label="Practice actions">
           <Show when={props.primaryAction}>
@@ -323,9 +322,6 @@ export function StudentAssessmentPresentation(
           </Show>
         </div>
       </Show>
-      <p class="page-lede">
-        Work from the structures and concepts in front of you. Memorization is not the goal.
-      </p>
       <Show when={props.assessment.instructions.length > 0}>
         <section aria-labelledby="assessment-instructions-heading">
           <h2 id="assessment-instructions-heading">Instructions</h2>
@@ -343,28 +339,17 @@ export function StudentAssessmentPresentation(
           <div>
             <dt>Available</dt>
             <dd>
-              {formatAssessmentDeliveryTime(
-                props.assessment.delivery.availableAt,
-                props.assessment.displayTimeZone,
-              )}
+              {formatAssessmentDeliveryTime(props.assessment.delivery.availableAt, formatDateTime)}
             </dd>
           </div>
           <div>
             <dt>Due</dt>
-            <dd>
-              {formatAssessmentDeliveryTime(
-                props.assessment.delivery.dueAt,
-                props.assessment.displayTimeZone,
-              )}
-            </dd>
+            <dd>{formatAssessmentDeliveryTime(props.assessment.delivery.dueAt, formatDateTime)}</dd>
           </div>
           <div>
             <dt>Closes</dt>
             <dd>
-              {formatAssessmentDeliveryTime(
-                props.assessment.delivery.closesAt,
-                props.assessment.displayTimeZone,
-              )}
+              {formatAssessmentDeliveryTime(props.assessment.delivery.closesAt, formatDateTime)}
             </dd>
           </div>
           <div>
@@ -441,7 +426,7 @@ export function StudentAssessmentPresentation(
                 <dd>
                   {formatAssessmentActivity(
                     progress().assessment_progress.last_activity_at,
-                    props.assessment.displayTimeZone,
+                    formatDateTime,
                   )}
                 </dd>
               </div>
@@ -457,6 +442,6 @@ export function StudentAssessmentPresentation(
           )}
         </Show>
       </dl>
-    </div>
+    </PageFrame>
   );
 }

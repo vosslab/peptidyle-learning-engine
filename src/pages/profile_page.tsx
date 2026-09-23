@@ -4,6 +4,7 @@ import { A } from "@solidjs/router";
 import { Match, Show, Switch, createResource, createSignal, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 import type { ProfileAvatarView } from "../api/profile_avatar";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PROVIDED_AVATAR_CATALOG } from "../features/profile_avatar/avatar_catalog_generated";
@@ -76,10 +77,12 @@ export function ProfilePage(): JSX.Element {
   }
 
   return (
-    <main class="page" data-route-surface="profile">
-      <p class="eyebrow">{selfRoleLabel()} account</p>
-      <h1>Your profile</h1>
-      <p class="page-lede">This page shows settings for the Account you are signed in to.</p>
+    <PageFrame
+      routeSurface="profile"
+      eyebrow={`${selfRoleLabel()} account`}
+      title="Your profile"
+      lede="This page shows settings for the Account you are signed in to."
+    >
       <section aria-labelledby="profile-time-zone-heading">
         <h2 id="profile-time-zone-heading">Time zone</h2>
         <Switch>
@@ -140,6 +143,6 @@ export function ProfilePage(): JSX.Element {
       <A class="quiet-link" href="/">
         Return to your dashboard
       </A>
-    </main>
+    </PageFrame>
   );
 }

@@ -24,8 +24,15 @@ import {
   writeReplayArtifacts,
   type PublishedImage,
 } from "./publication";
-import { createScenarioRuntime, requireEntryUrl, requireProducedClosure } from "./runtime";
+import {
+  createScenarioRuntime,
+  requireEntryUrl,
+  requireProducedClosure,
+  type ScenarioRuntime,
+} from "./runtime";
 import { SCREENSHOT_SCENARIOS } from "./scenario_registry";
+import { persistScenarioCourseTheme, reportScenarioThemeVariety } from "./scenario_theme";
+import type { ScenarioDefinition } from "./scenario_types";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const screenshotRoot = path.join(repositoryRoot, "docs/screenshots");
@@ -42,6 +49,35 @@ interface LoadedContract {
 
 interface PublishedContract extends LoadedContract {
   readonly images: ReadonlyArray<PublishedImage>;
+}
+
+function appendScenarioCapturesInDeclarationOrder(
+  produced: CaptureRecord[],
+  runtime: ScenarioRuntime,
+  scenario: ScenarioDefinition,
+): void {
+  const capturesByCheckpoint = new Map<string, CaptureRecord>();
+  for (const capture of runtime.producedCaptures) {
+    if (capturesByCheckpoint.has(capture.checkpoint)) {
+      throw new Error(
+        `scenario ${scenario.id} produced checkpoint ${capture.checkpoint} more than once`,
+      );
+    }
+    capturesByCheckpoint.set(capture.checkpoint, capture);
+  }
+  for (const declaration of scenario.captures) {
+    const capture = capturesByCheckpoint.get(declaration.checkpoint);
+    if (capture === undefined) {
+      throw new Error(
+        `scenario ${scenario.id} did not produce declared checkpoint ${declaration.checkpoint}`,
+      );
+    }
+    produced.push(capture);
+    capturesByCheckpoint.delete(declaration.checkpoint);
+  }
+  if (capturesByCheckpoint.size > 0) {
+    throw new Error(`scenario ${scenario.id} produced undeclared screenshot checkpoints`);
+  }
 }
 
 async function loadContract(): Promise<LoadedContract> {
@@ -87,8 +123,10 @@ async function replay(
     if (mode === "only" && selected.length !== onlyScenarioIds.size) {
       throw new Error("unknown screenshot scenario id in --only selection");
     }
+    console.log(reportScenarioThemeVariety(selected));
     for (const scenario of selected) {
       console.log(`Running screenshot scenario ${scenario.id}`);
+      await persistScenarioCourseTheme(browser, entryUrl, scenario.id);
       const runtime = createScenarioRuntime({
         browser,
         entryUrl,
@@ -102,7 +140,7 @@ async function replay(
         throw error;
       }
       requireProducedClosure(runtime, scenario);
-      produced.push(...runtime.producedCaptures);
+      appendScenarioCapturesInDeclarationOrder(produced, runtime, scenario);
     }
     if (mode === "only") {
       console.log(`Ran ${String(selected.length)} selected scenario(s) into ${outputRoot}.`);
@@ -143,8 +181,9 @@ async function replay(
       ([artifactPath, hash]) => replayHashes.get(artifactPath) !== hash,
     ).length;
     console.log(
-      `Live replay passed; ${String(byteDifferenceCount)} tracked images differ byte-for-byte ` +
-        "and remain available for human review in test-results/screenshot-corpus/verify/.",
+      "Live replay passed manifest closure, scenario privacy, and published-artifact integrity checks; " +
+        `${String(byteDifferenceCount)} replay PNG(s) differ byte-for-byte and remain available ` +
+        "for human review in test-results/screenshot-corpus/verify/.",
     );
   } finally {
     await browser.close();

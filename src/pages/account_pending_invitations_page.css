@@ -1,9 +1,5 @@
 /* Account-owned pending Course Invitation layout. */
 
-.pending-invitations-page {
-  width: min(100%, 80rem);
-}
-
 .pending-invitation-card {
   display: flex;
   flex-wrap: wrap;

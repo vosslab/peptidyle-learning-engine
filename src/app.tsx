@@ -5,7 +5,7 @@ import { Show, type JSX } from "solid-js";
 
 import { ApplicationShell } from "./application_shell";
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
-import { assessmentTypePresentation } from "./assessment_type_presentation";
+import { PageFrame } from "./components/page_frame";
 import {
   courseRouteView,
   type CourseThemeRouteData,
@@ -37,8 +37,6 @@ function ribbonLabelsFor(
       courseShortName: context.course.shortName,
       courseLongName: context.course.longName,
       assessmentAttemptTitle: context.assessment.title,
-      assessmentTypeLabel: assessmentTypePresentation(context.assessment.assessmentType).label,
-      assessmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
     };
   }
   if (routeData.kind === "assessmentAttemptHistory") {
@@ -47,8 +45,6 @@ function ribbonLabelsFor(
       courseShortName: history.course.shortName,
       courseLongName: history.course.longName,
       assessmentAttemptTitle: history.assessment.title,
-      assessmentTypeLabel: assessmentTypePresentation(history.assessment.assessmentType).label,
-      assessmentAttemptProgress: `Attempt ${String(history.attemptNumber)}`,
     };
   }
   return {
@@ -114,11 +110,13 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
   }
   if (props.state.kind === "loading") {
     return (
-      <section class="page" data-session-state="loading" aria-live="polite">
-        <p class="eyebrow">Opening your learning space</p>
-        <h1>Loading your session</h1>
-        <p class="page-lede">We are confirming your signed-in learning space.</p>
-      </section>
+      <div data-session-state="loading" aria-live="polite">
+        <PageFrame
+          eyebrow="Opening your learning space"
+          title="Loading your session"
+          lede="We are confirming your signed-in learning space."
+        />
+      </div>
     );
   }
 
@@ -162,6 +160,7 @@ export function App(props: RouteSectionProps): JSX.Element {
   function ribbonModel(
     routeData: CourseThemeRouteData | undefined,
     assessmentTitle: string | undefined,
+    currentCourseInstanceId: string | undefined,
   ): RibbonModel | undefined {
     const currentPathname = pathname();
     if (isPublicAccountRoute(currentPathname)) return undefined;
@@ -177,7 +176,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     const params = ribbonParamsFor(route, currentPathname, routeData);
     if (params === undefined) return undefined;
     return deriveRibbonModel(
-      { route, params },
+      { route, params, currentCourseInstanceId },
       { productRole: state.session.account.productRole },
       ribbonLabelsFor(routeData, assessmentTitle),
     );

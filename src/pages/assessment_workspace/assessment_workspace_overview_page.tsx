@@ -1,6 +1,8 @@
 import { A } from "@solidjs/router";
 import { Show, type JSX } from "solid-js";
 
+import { PageFrame } from "../../components/page_frame";
+import { formatLocalWallClockDateTime } from "../../format_datetime";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 
@@ -13,12 +15,14 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
     assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId, section);
 
   return (
-    <section class="assessment-workspace-overview" aria-labelledby="assessment-workspace-heading">
-      <header class="assessment-workspace-header">
-        <p class="eyebrow">Assessment workspace</p>
-        <h1 id="assessment-workspace-heading">{assessment().title}</h1>
-        <p class="page-lede">Current edit {assessment().assessmentEditNumber}</p>
-      </header>
+    <PageFrame
+      contentClass="assessment-workspace-overview"
+      routeSurface="assessmentWorkspace"
+      headingId="assessment-workspace-heading"
+      eyebrow="Assessment workspace"
+      title={assessment().title}
+      lede={`Current edit ${assessment().assessmentEditNumber}`}
+    >
       <div class="assessment-workspace-grid">
         <section
           class="course-card assessment-workspace-card"
@@ -36,7 +40,11 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
             </div>
             <div>
               <dt>Due</dt>
-              <dd>{assessment().dueAt ?? "No due date"}</dd>
+              <dd>
+                <Show when={assessment().dueAt} fallback="No due date">
+                  {(dueAt) => formatLocalWallClockDateTime(dueAt())}
+                </Show>
+              </dd>
             </div>
             <div>
               <dt>Time zone</dt>
@@ -76,6 +84,6 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
           </Show>
         </section>
       </div>
-    </section>
+    </PageFrame>
   );
 }

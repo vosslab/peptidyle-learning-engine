@@ -5,6 +5,8 @@ import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourse
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
+import { PageFrame } from "../../components/page_frame";
+import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
@@ -73,6 +75,8 @@ function errorMessage(error: unknown, fallback: string): string {
 export function BlueprintCourseDetailWorkspace(
   props: BlueprintCourseDetailWorkspaceProps,
 ): JSX.Element {
+  const displayTimeZone = browserDisplayTimeZone();
+  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
   const [editing, setEditing] = createSignal(false);
   const [selectedAssessment, setSelectedAssessment] = createSignal<{
     readonly moduleIndex: number;
@@ -502,10 +506,21 @@ export function BlueprintCourseDetailWorkspace(
 
   onMount(() => void load(false));
   return (
-    <section class="page blueprint-course-workspace" data-route-surface="blueprintCourseDetail">
+    <PageFrame
+      contentClass="blueprint-course-workspace"
+      eyebrow="Blueprint Course"
+      title={current()?.view.long_name ?? "Blueprint Course"}
+      lede={
+        current() === undefined
+          ? undefined
+          : `Reusable course structure without Students, deadlines, or course delivery settings. Current Revision ${current()!.view.current_revision_tuple.revisionNumber}.`
+      }
+      routeSurface="blueprintCourseDetail"
+    >
       <A class="quiet-link" href="/blueprint-courses">
         Return to Blueprint Courses
       </A>
+      <p>Times shown in {displayTimeZone}.</p>
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
@@ -526,21 +541,17 @@ export function BlueprintCourseDetailWorkspace(
         <Match when={state() === "ready" && current()}>
           {(loaded) => (
             <section class="blueprint-course-detail-editor">
-              <header class="blueprint-course-page-heading">
-                <p class="eyebrow">Blueprint Course</p>
-                <h1>{loaded().view.long_name}</h1>
-                <p class="page-lede">
-                  Reusable course structure without Students, deadlines, or course delivery
-                  settings. Current Revision {loaded().view.current_revision_tuple.revisionNumber}.
-                </p>
-              </header>
               <Show
                 when={
                   loaded().view.availability === "public" ||
                   loaded().view.availability === "archived"
                 }
               >
-                <BlueprintStewardship client={props.client} blueprintCourseId={loaded().view.id} />
+                <BlueprintStewardship
+                  client={props.client}
+                  blueprintCourseId={loaded().view.id}
+                  formatDateTime={formatDateTime}
+                />
               </Show>
               <CourseClassificationEditor
                 value={loaded().view.classification}
@@ -801,11 +812,21 @@ export function BlueprintCourseDetailWorkspace(
                   </Show>
                 </div>
               </section>
-              <BlueprintHistory client={props.client} view={loaded().view} />
+              <BlueprintHistory
+                client={props.client}
+                view={loaded().view}
+                formatDateTime={formatDateTime}
+              />
               <BlueprintCourseExport client={props.client} blueprintCourseId={loaded().view.id} />
               <BlueprintForkCreate client={props.client} source={loaded().view} />
               <Show when={props.proposalClient}>
-                {(client) => <ProposalTargetTools client={client()} target={loaded().view} />}
+                {(client) => (
+                  <ProposalTargetTools
+                    client={client()}
+                    target={loaded().view}
+                    formatDateTime={formatDateTime}
+                  />
+                )}
               </Show>
               <BlueprintForkSource
                 client={props.client}
@@ -853,6 +874,6 @@ export function BlueprintCourseDetailWorkspace(
             "Blueprint Course changes were not saved. Resolve the save error, then try again or stay here.",
         }}
       />
-    </section>
+    </PageFrame>
   );
 }

@@ -2,10 +2,9 @@
 
 import type { ProductRole } from "../../generated/api/ProductRole";
 import type { RouteParamName } from "../../src/navigation/route_params";
-import type { ContentLayout, RibbonScope } from "../../src/route_contract";
+import type { RibbonScope } from "../../src/route_contract";
 import {
   buildRoutePath,
-  type DeclaredRibbonRouteParams,
   type RibbonControlModel,
   type RibbonModel,
   type RibbonTaskAreaModel,
@@ -98,13 +97,16 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 
 function routeHref(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {
   if (catalog.destination.kind !== "route" || catalog.id === "backToAssessments") return undefined;
-  const pairs = catalog.requiredParams.map((name) => {
+  const params: Partial<Record<RouteParamName, string>> =
+    catalog.id === "coursework" || catalog.id === "grades"
+      ? { courseInstanceId: CANONICAL_PARAMS.courseInstanceId }
+      : {};
+  for (const name of catalog.requiredParams ?? []) {
     const value = CANONICAL_PARAMS[name];
     if (value === undefined)
       throw new Error(`No design fixture parameter for ${catalog.id}:${name}.`);
-    return [name, value] as const;
-  });
-  const params: DeclaredRibbonRouteParams = Object.fromEntries(pairs);
+    params[name] = value;
+  }
   const href = buildRoutePath(catalog.destination.routeId, params);
   if (href === undefined) throw new Error(`Cannot make design fixture route for ${catalog.id}.`);
   return href;
@@ -151,23 +153,21 @@ function model(
   role: ProductRole,
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
-  contentLayout: ContentLayout,
-  context: Omit<RibbonModel["context"], "productLabel" | "accountControls">,
+  _unusedContentLayout: string,
+  _contextLabels: Readonly<Record<string, unknown>>,
 ): RibbonModel {
   return {
     scope,
-    contentLayout,
     tabs,
     taskAreas,
     context: {
       productLabel: productLabel(role),
-      ...context,
+      signOutAction: SIGN_OUT,
       accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
         control.productRoles.includes(role),
       ),
     },
     breadcrumbs: [],
-    breadcrumbPreludeReserved: false,
   };
 }
 
@@ -176,7 +176,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   productStudent: model(
     "product",
     "student",
-    [control("courses", { selected: true })],
+    [control("courses", { selected: true }), control("coursework"), control("grades")],
     [],
     "reading",
     { signOutAction: SIGN_OUT },
@@ -201,7 +201,12 @@ export const RIBBON_DESIGN_SCHEMAS = {
   productSysadmin: model(
     "product",
     "sysadmin",
-    [control("courses", { selected: true }), control("instructorAccounts")],
+    [
+      control("courses", { selected: true }),
+      control("questions"),
+      control("instructorAccounts"),
+      control("disciplines"),
+    ],
     [],
     "reading",
     { signOutAction: SIGN_OUT },
@@ -209,7 +214,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   courseStudent: model(
     "courseInstance",
     "student",
-    [control("studentAssessments", { selected: true })],
+    [control("courses"), control("coursework", { selected: true }), control("grades")],
     [],
     "reading",
     { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
@@ -217,14 +222,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   courseInstructor: model(
     "courseInstance",
     "instructor",
-    [
-      control("assessments", { selected: true }),
-      control("students"),
-      control("gradebook"),
-      control("teachingOperations"),
-      control("blueprintUpdates"),
-      control("courseSetup"),
-    ],
+    [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
       area("assessment", "Assessment", [
         control("assessmentOverview", { selected: true }),
@@ -243,7 +241,12 @@ export const RIBBON_DESIGN_SCHEMAS = {
   courseSysadmin: model(
     "courseInstance",
     "sysadmin",
-    [control("teachingOperations", { selected: true })],
+    [
+      control("courses", { selected: true }),
+      control("questions"),
+      control("instructorAccounts"),
+      control("disciplines"),
+    ],
     [],
     "reading",
     {
@@ -254,7 +257,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   attemptStudent: model(
     "assessmentAttempt",
     "student",
-    [control("attempt", { selected: true })],
+    [control("courses"), control("coursework", { selected: true }), control("grades")],
     [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
     "reading",
     {
@@ -263,17 +266,32 @@ export const RIBBON_DESIGN_SCHEMAS = {
       signOutAction: SIGN_OUT,
     },
   ),
-  attemptInstructor: model("assessmentAttempt", "instructor", [], [], "reading", {
-    signOutAction: SIGN_OUT,
-  }),
-  attemptSysadmin: model("assessmentAttempt", "sysadmin", [], [], "reading", {
-    signOutAction: SIGN_OUT,
-  }),
+  attemptInstructor: model(
+    "assessmentAttempt",
+    "instructor",
+    [control("courses"), control("questions"), control("productAssessments")],
+    [],
+    "reading",
+    { signOutAction: SIGN_OUT },
+  ),
+  attemptSysadmin: model(
+    "assessmentAttempt",
+    "sysadmin",
+    [
+      control("courses"),
+      control("questions"),
+      control("instructorAccounts"),
+      control("disciplines"),
+    ],
+    [],
+    "reading",
+    { signOutAction: SIGN_OUT },
+  ),
 } as const satisfies Readonly<Record<string, RibbonModel>>;
 
 function cloneWithCourseTitle(title: string): RibbonModel {
   const base = RIBBON_DESIGN_SCHEMAS.courseInstructor;
-  return model(base.scope, "instructor", base.tabs, base.taskAreas, base.contentLayout, {
+  return model(base.scope, "instructor", base.tabs, base.taskAreas, "reading", {
     ...base.context,
     scopeLabel: title,
   });
@@ -285,14 +303,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
   courseAppearance: model(
     "courseInstance",
     "instructor",
-    [
-      control("assessments"),
-      control("students"),
-      control("gradebook"),
-      control("teachingOperations"),
-      control("blueprintUpdates"),
-      control("courseSetup"),
-    ],
+    [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
       area("courseSetup", "Course setup", [
         control("gradeSettings"),
@@ -312,10 +323,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
   unavailableAdmission: model(
     "courseInstance",
     "instructor",
-    [
-      control("assessments", { selected: true }),
-      control("gradebook", { availability: "Unavailable" }),
-    ],
+    [control("courses", { selected: true }), control("questions", { availability: "Unavailable" })],
     [],
     "fullWidth",
     { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
@@ -323,10 +331,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
   checkingAdmission: model(
     "courseInstance",
     "instructor",
-    [
-      control("assessments", { selected: true }),
-      control("gradebook", { availability: "Checking" }),
-    ],
+    [control("courses", { selected: true }), control("questions", { availability: "Checking" })],
     [],
     "fullWidth",
     { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },

@@ -8,7 +8,11 @@ import { decodeQuestionSearchPage } from "../../../src/api/decoders/question_lib
 import { decodeStudentAssessmentAttemptPresentation } from "../../../src/api/decoders/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptPresentation } from "../../../src/api/assessment_attempt_navigation";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
-import type { CaptureDeclaration, ScenarioDefinition } from "./scenario_types";
+import {
+  viewportCoverage,
+  type CaptureDeclaration,
+  type ScenarioDefinition,
+} from "./scenario_types";
 import { authorHotspot, exerciseHotspot } from "./hotspot_workflow";
 import {
   assignmentCard,
@@ -649,6 +653,7 @@ export const STUDENT_TYPE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       typeCapture(MULTIPLE_CHOICE_EXAMPLE, "tablet"),
       typeCapture(MULTIPLE_CHOICE_EXAMPLE, "square"),
     ]),
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: captureTypes,
   },
 ];

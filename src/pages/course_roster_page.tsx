@@ -7,6 +7,7 @@ import "./course_roster_page.css";
 
 import { parseRosterImportRows } from "./roster_import_template";
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 import { type CourseInstanceRouteId, parseCourseInstanceId } from "../navigation/public_route";
 
 function stateLabel(state: "invitationPending" | "activeStudent"): string {
@@ -132,9 +133,12 @@ export function CourseRosterPage(): JSX.Element {
   }
 
   return (
-    <section class="page roster-page" data-route-surface="courseRoster">
-      <p class="eyebrow">Course Instance roster</p>
-      <h1>Students</h1>
+    <PageFrame
+      contentClass="roster-page"
+      routeSurface="courseRoster"
+      eyebrow="Course Instance roster"
+      title="Students"
+    >
       <Show when={message()}>
         {(feedback) => (
           <p
@@ -283,6 +287,6 @@ export function CourseRosterPage(): JSX.Element {
       <p>
         <A href="/">Return to Course Instances</A>
       </p>
-    </section>
+    </PageFrame>
   );
 }

@@ -1,6 +1,13 @@
 // route_scope_context.tsx - stable presentation scope identity and cached route data.
 
-import { createContext, createSignal, useContext, type Accessor, type JSX } from "solid-js";
+import {
+  createContext,
+  createMemo,
+  createSignal,
+  useContext,
+  type Accessor,
+  type JSX,
+} from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import type {
@@ -9,6 +16,7 @@ import type {
 } from "../features/course_appearance/course_theme_context";
 import { createRouteScopeController, type RouteScopeLoadState } from "./route_scope_controller";
 import type { RouteScopeKey } from "../navigation/route_params";
+import { routeContractForPathname, type ContentLayout } from "../route_contract";
 
 /** URL-syntax scope identity only; route access and service policy remain separate. */
 export type RouteScopeIdentity = RouteScopeKey;
@@ -20,6 +28,8 @@ export interface RouteScopeProviderProps {
 
 interface RouteScopeContextValue {
   readonly identity: Accessor<RouteScopeIdentity>;
+  readonly currentCourseInstanceId: Accessor<string | undefined>;
+  readonly contentLayout: Accessor<ContentLayout>;
   readonly data: Accessor<CourseThemeRouteData | undefined>;
   readonly loadState: Accessor<RouteScopeLoadState>;
   readonly retry: () => void;
@@ -52,6 +62,9 @@ export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element 
     const published = publishedAssessmentTitle();
     return published?.pathname === currentPathname() ? published.title : undefined;
   };
+  const contentLayout = createMemo((): ContentLayout => {
+    return routeContractForPathname(currentPathname())?.pageLayout ?? "reading";
+  });
 
   function setAssessmentTitleForPath(pathname: string, title: string): void {
     // This presentation-only value comes from the existing workspace request.
@@ -61,7 +74,7 @@ export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element 
 
   return (
     <RouteScopeContext.Provider
-      value={{ ...controller, assessmentTitle, setAssessmentTitleForPath }}
+      value={{ ...controller, contentLayout, assessmentTitle, setAssessmentTitleForPath }}
     >
       {props.children}
     </RouteScopeContext.Provider>
@@ -78,6 +91,16 @@ function useRouteScopeContext(): RouteScopeContextValue {
 /** Reads the current synchronous URL-syntax identity; it does not authorize a route. */
 export function useRouteScopeIdentity(): RouteScopeIdentity {
   return useRouteScopeContext().identity();
+}
+
+/** Reads the session-pinned Course Instance for Student tier-one navigation. */
+export function useCurrentCourseInstanceId(): Accessor<string | undefined> {
+  return useRouteScopeContext().currentCourseInstanceId;
+}
+
+/** Reads the current route's declared content geometry through the persistent shell context. */
+export function useRouteContentLayout(): Accessor<ContentLayout> {
+  return useRouteScopeContext().contentLayout;
 }
 
 /**

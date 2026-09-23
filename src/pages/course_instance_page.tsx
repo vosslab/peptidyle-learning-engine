@@ -13,6 +13,14 @@ import {
   type CourseClassificationDraft,
 } from "../components/course_classification_fields";
 import { CourseStudentWorkRecovery } from "../components/course_student_work_recovery";
+import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  courseThemeStyle,
+  courseThemeTokens,
+} from "../features/course_appearance/course_theme_registry";
+import { formatLocalWallClockDateTime } from "../format_datetime";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
 import { parseCourseInstanceId } from "../navigation/public_route";
@@ -43,15 +51,15 @@ function assessmentQuestionsPath(courseInstanceId: string, assessmentId: string)
   return `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}/questions`;
 }
 
-function formatLocalDueDateAndTime(value: string | null): string {
+type AssessmentListRow = {
+  readonly assessmentId: string;
+  readonly model: AssessmentRowModel;
+  readonly position: number;
+};
+
+function formatAssessmentDueDate(value: CourseAssessmentSummary["dueAt"]): string {
   if (value === null) return "No due date";
-  // UTC carries the server-local wall-clock fields without converting them to the browser zone.
-  const neutralCarrier = new Date(`${value}Z`);
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(neutralCarrier);
+  return formatLocalWallClockDateTime(value);
 }
 
 /** Creates a distinct private Blueprint while retaining the source Course Instance unchanged. */
@@ -226,21 +234,36 @@ function CreateBlueprintFromCourseInstance(props: {
   );
 }
 
-function AssessmentRow(props: {
+type AssessmentEditorState = "idle" | "editing" | "saving" | "failed" | "read-only";
+
+export type AssessmentRowModel = {
+  readonly identity: (position: number) => JSX.Element;
+  readonly status: () => JSX.Element;
+  readonly metadata: () => JSX.Element;
+  readonly actions: () => JSX.Element;
+  readonly details: () => JSX.Element;
+  readonly detailsVisible: () => boolean;
+  readonly refresh: (assessment: CourseAssessmentSummary) => void;
+};
+
+type AssessmentRowClient = Pick<
+  ReturnType<typeof useApplicationApi>["client"],
+  "listCourseAssessments" | "saveLiveAssessmentInline"
+>;
+
+export function createAssessmentRowModel(props: {
   readonly courseInstanceId: string;
   readonly assessment: CourseAssessmentSummary;
-  readonly position: number;
-}): JSX.Element {
-  const applicationApi = useApplicationApi();
+  readonly client: AssessmentRowClient;
+}): AssessmentRowModel {
   const [assessment, setAssessment] = createSignal(props.assessment);
-  const [state, setState] = createSignal<"idle" | "editing" | "saving" | "failed" | "read-only">(
-    "idle",
-  );
+  const [state, setState] = createSignal<AssessmentEditorState>("idle");
   const [title, setTitle] = createSignal(assessment().title);
   const [dueDate, setDueDate] = createSignal(dueDateDraft(assessment().dueAt));
   const [dueTime, setDueTime] = createSignal(dueTimeDraft(assessment().dueAt));
   const [message, setMessage] = createSignal("");
   const [needsRefresh, setNeedsRefresh] = createSignal(false);
+  let expectedAssessmentEditNumber = props.assessment.assessmentEditNumber;
   let titleInput: HTMLInputElement | undefined;
   let editButton: HTMLButtonElement | undefined;
   let assessmentQuestionsLink: HTMLAnchorElement | undefined;
@@ -252,6 +275,7 @@ function AssessmentRow(props: {
 
   function beginEditing(): void {
     const current = assessment();
+    expectedAssessmentEditNumber = current.assessmentEditNumber;
     setTitle(current.title);
     setDueDate(dueDateDraft(current.dueAt));
     setDueTime(dueTimeDraft(current.dueAt));
@@ -299,13 +323,14 @@ function AssessmentRow(props: {
     setState("saving");
     setMessage("");
     try {
-      const saved = await applicationApi.client.saveLiveAssessmentInline(
+      const saved = await props.client.saveLiveAssessmentInline(
         props.courseInstanceId,
         assessment().id,
         { title: title(), dueAt },
-        assessment().assessmentEditNumber,
+        expectedAssessmentEditNumber,
       );
       setAssessment(saved);
+      expectedAssessmentEditNumber = saved.assessmentEditNumber;
       setState("idle");
       setMessage("Assessment title and due date saved.");
       queueMicrotask(() => editButton?.focus());
@@ -324,11 +349,12 @@ function AssessmentRow(props: {
     setState("saving");
     setMessage("");
     try {
-      const latest = (
-        await applicationApi.client.listCourseAssessments(props.courseInstanceId)
-      ).find((candidate) => candidate.id === assessment().id);
+      const latest = (await props.client.listCourseAssessments(props.courseInstanceId)).find(
+        (candidate) => candidate.id === assessment().id,
+      );
       if (latest === undefined) throw new Error("Current Assessment was not returned");
       setAssessment(latest);
+      expectedAssessmentEditNumber = latest.assessmentEditNumber;
       setNeedsRefresh(false);
       if (!mayEdit()) {
         setState("read-only");
@@ -348,19 +374,27 @@ function AssessmentRow(props: {
     }
   }
 
-  return (
-    <li class="instructor-list__row instructor-list__row--assessment">
-      <div class="instructor-list__identity">
-        <p class="instructor-list__kind">
-          Assessment {props.position} - {assessmentStatusLabel(assessment().status)}
-        </p>
+  return {
+    refresh: (refreshedAssessment): void => {
+      setAssessment(refreshedAssessment);
+      if (state() === "idle") {
+        expectedAssessmentEditNumber = refreshedAssessment.assessmentEditNumber;
+      }
+    },
+    identity: (position) => (
+      <>
+        <p class="course-instance-assessment__position">Assessment {position}</p>
         <h3>{assessment().title}</h3>
-        <p class="instructor-list__metadata">Assessment {assessment().id}</p>
-        <p class="instructor-list__metadata">
-          Due: {formatLocalDueDateAndTime(assessment().dueAt)} ({assessment().displayTimeZone})
+        <p class="course-instance-assessment__phone-summary">
+          {assessmentStatusLabel(assessment().status)} - Due:{" "}
+          {formatAssessmentDueDate(assessment().dueAt)}
         </p>
-      </div>
-      <div class="instructor-list__actions">
+      </>
+    ),
+    status: () => <p>{assessmentStatusLabel(assessment().status)}</p>,
+    metadata: () => <p>Due: {formatAssessmentDueDate(assessment().dueAt)}</p>,
+    actions: () => (
+      <>
         <A
           ref={(element) => (assessmentQuestionsLink = element)}
           class="quiet-link"
@@ -379,364 +413,455 @@ function AssessmentRow(props: {
             Edit title and due date
           </button>
         </Show>
-      </div>
-      <Show when={state() !== "idle" && state() !== "read-only"}>
-        <form
-          class="assessment-inline-editor"
-          aria-label={`Edit ${assessment().title}`}
-          aria-busy={state() === "saving"}
-          onSubmit={(event) => void save(event)}
-        >
-          <fieldset disabled={state() === "saving"}>
-            <div class="assessment-inline-editor__fields">
-              <label class="assessment-inline-editor__field">
-                Title
-                <input
-                  ref={(element) => (titleInput = element)}
-                  value={title()}
-                  onInput={(event) => setTitle(event.currentTarget.value)}
-                  required
-                />
-              </label>
-              <div
-                class="assessment-inline-editor__schedule"
-                role="group"
-                aria-label="Due date and time"
-              >
-                <label class="assessment-inline-editor__field">
-                  Due date ({assessment().displayTimeZone})
-                  <input
-                    type="date"
-                    value={dueDate()}
-                    onInput={(event) => setDueDate(event.currentTarget.value)}
-                  />
-                </label>
-                <label class="assessment-inline-editor__field">
-                  Due time
-                  <input
-                    type="time"
-                    step="0.001"
-                    value={dueTime()}
-                    onInput={(event) => setDueTime(event.currentTarget.value)}
-                  />
-                </label>
-              </div>
-            </div>
-            <div class="assessment-inline-editor__actions">
-              <button class="primary-action" type="submit">
-                {state() === "saving" ? "Saving title and due date..." : "Save title and due date"}
-              </button>
-              <button class="quiet-action" type="button" onClick={cancelEditing}>
-                Cancel
-              </button>
-              <Show when={needsRefresh()}>
-                <button
-                  class="quiet-action"
-                  type="button"
-                  onClick={() => void refreshCurrentAssessment()}
-                >
-                  Load current Assessment
-                </button>
-              </Show>
-            </div>
-          </fieldset>
-          <Show when={message()}>
-            {(value) => (
-              <p
-                class="assessment-inline-editor__message"
-                role={state() === "failed" ? "alert" : "status"}
-              >
-                {value()}
-              </p>
-            )}
-          </Show>
-        </form>
-      </Show>
-      <Show when={state() === "read-only"}>
-        <section
-          class="assessment-inline-editor"
-          aria-label={`Editing unavailable for ${assessment().title}`}
-        >
-          <p
-            ref={(element) => (readOnlyNotice = element)}
-            class="assessment-inline-editor__message"
-            role="alert"
-            tabindex="-1"
+      </>
+    ),
+    detailsVisible: () => state() !== "idle" || message() !== "",
+    details: () => (
+      <>
+        <Show when={state() !== "idle" && state() !== "read-only"}>
+          <form
+            class="assessment-inline-editor"
+            aria-label={`Edit ${assessment().title}`}
+            aria-busy={state() === "saving"}
+            onSubmit={(event) => void save(event)}
           >
-            {message()}
-          </p>
-          <p class="assessment-inline-editor__message">Unsaved title: {title()}</p>
-          <p class="assessment-inline-editor__message">
-            Unsaved due date and time: {typedDueDateAndTime()}
-          </p>
-          <button class="quiet-action" type="button" onClick={closeReadOnlyEditor}>
-            Close editor
-          </button>
-        </section>
-      </Show>
-      <Show when={state() === "idle" && message()}>
-        {(value) => (
-          <p class="assessment-inline-editor__message" role="status">
-            {value()}
-          </p>
-        )}
-      </Show>
-    </li>
-  );
+            <fieldset disabled={state() === "saving"}>
+              <div class="assessment-inline-editor__fields">
+                <label class="assessment-inline-editor__field">
+                  Title
+                  <input
+                    ref={(element) => (titleInput = element)}
+                    value={title()}
+                    onInput={(event) => setTitle(event.currentTarget.value)}
+                    required
+                  />
+                </label>
+                <div
+                  class="assessment-inline-editor__schedule"
+                  role="group"
+                  aria-label="Due date and time"
+                >
+                  <label class="assessment-inline-editor__field">
+                    Due date
+                    <input
+                      type="date"
+                      value={dueDate()}
+                      onInput={(event) => setDueDate(event.currentTarget.value)}
+                    />
+                  </label>
+                  <label class="assessment-inline-editor__field">
+                    Due time
+                    <input
+                      type="time"
+                      step="0.001"
+                      value={dueTime()}
+                      onInput={(event) => setDueTime(event.currentTarget.value)}
+                    />
+                  </label>
+                </div>
+              </div>
+              <div class="assessment-inline-editor__actions">
+                <button class="primary-action" type="submit">
+                  {state() === "saving"
+                    ? "Saving title and due date..."
+                    : "Save title and due date"}
+                </button>
+                <button class="quiet-action" type="button" onClick={cancelEditing}>
+                  Cancel
+                </button>
+                <Show when={needsRefresh()}>
+                  <button
+                    class="quiet-action"
+                    type="button"
+                    onClick={() => void refreshCurrentAssessment()}
+                  >
+                    Load current Assessment
+                  </button>
+                </Show>
+              </div>
+            </fieldset>
+            <Show when={message()}>
+              {(value) => (
+                <p
+                  class="assessment-inline-editor__message"
+                  role={state() === "failed" ? "alert" : "status"}
+                >
+                  {value()}
+                </p>
+              )}
+            </Show>
+          </form>
+        </Show>
+        <Show when={state() === "read-only"}>
+          <section
+            class="assessment-inline-editor"
+            aria-label={`Editing unavailable for ${assessment().title}`}
+          >
+            <p
+              ref={(element) => (readOnlyNotice = element)}
+              class="assessment-inline-editor__message"
+              role="alert"
+              tabindex="-1"
+            >
+              {message()}
+            </p>
+            <p class="assessment-inline-editor__message">Unsaved title: {title()}</p>
+            <p class="assessment-inline-editor__message">
+              Unsaved due date and time: {typedDueDateAndTime()}
+            </p>
+            <button class="quiet-action" type="button" onClick={closeReadOnlyEditor}>
+              Close editor
+            </button>
+          </section>
+        </Show>
+        <Show when={state() === "idle" && message()}>
+          {(value) => (
+            <p class="assessment-inline-editor__message" role="status">
+              {value()}
+            </p>
+          )}
+        </Show>
+      </>
+    ),
+  };
 }
 
 /** Instructor Course Instance workspace for Teaching Team, roster, and Assessment delivery. */
 export function CourseInstancePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
+  const assessmentRowModels = new Map<string, AssessmentRowModel>();
+  let assessmentModelsCourseInstanceId: string | undefined;
   function courseInstanceId(): ReturnType<typeof parseCourseInstanceId> {
     return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
   const [course, { mutate: mutateCourse }] = createResource(courseInstanceId, async (id) =>
     applicationApi.client.getCourseInstance(id),
   );
-  const [assessments] = createResource(courseInstanceId, async (id) =>
-    applicationApi.client.listCourseAssessments(id),
+  const [assessments, { refetch: refetchAssessments }] = createResource(
+    courseInstanceId,
+    async (id) => applicationApi.client.listCourseAssessments(id),
   );
   const [profile, { refetch: refetchProfile }] = createResource(() =>
     applicationApi.client.getProfile(),
   );
 
+  function assessmentListState(): RecordListState {
+    if (assessments.loading) return { kind: "loading", label: "Loading Assessments..." };
+    if (assessments.error !== undefined) {
+      return {
+        kind: "error",
+        title: "Assessments unavailable",
+        message: "Assessments could not be loaded.",
+        retry: () => void refetchAssessments(),
+        retryLabel: "Retry loading Assessments",
+      };
+    }
+    return { kind: "ready" };
+  }
+
+  function assessmentRows(courseInstanceId: string): ReadonlyArray<AssessmentListRow> {
+    if (assessmentModelsCourseInstanceId !== courseInstanceId) {
+      assessmentRowModels.clear();
+      assessmentModelsCourseInstanceId = courseInstanceId;
+    }
+    return (assessments() ?? []).map((assessment, index) => {
+      let model = assessmentRowModels.get(assessment.id);
+      if (model === undefined) {
+        model = createAssessmentRowModel({
+          client: applicationApi.client,
+          assessment,
+          courseInstanceId,
+        });
+        assessmentRowModels.set(assessment.id, model);
+      } else {
+        model.refresh(assessment);
+      }
+      return {
+        assessmentId: assessment.id,
+        model,
+        position: index + 1,
+      };
+    });
+  }
+
   return (
-    <section class="page" data-route-surface="courseInstance">
+    <>
       <Show when={course.loading}>
-        <p class="loading-state">Loading Course Instance...</p>
+        <PageFrame routeSurface="courseInstanceLoading" title="Course Instance">
+          <p class="loading-state">Loading Course Instance...</p>
+        </PageFrame>
       </Show>
       <Show
         when={course.error === undefined ? course() : undefined}
         fallback={
           <Show when={course.error !== undefined}>
-            <section class="route-error" role="alert">
-              <h1>Course Instance unavailable</h1>
-              <p>
-                This Course Instance is not available through your current Teaching Team access.
-              </p>
-              <A class="primary-link" href="/">
-                Return to Course Instances
-              </A>
-            </section>
+            <PageFrame routeSurface="courseInstanceUnavailable" title="Course Instance unavailable">
+              <section class="route-error" role="alert">
+                <p>
+                  This Course Instance is not available through your current Teaching Team access.
+                </p>
+                <A class="primary-link" href="/">
+                  Return to Course Instances
+                </A>
+              </section>
+            </PageFrame>
           </Show>
         }
       >
         {(view) => (
-          <>
-            <header class="course-instance-page__identity">
-              <p class="eyebrow">Course Instance · {view().courseInstance.id}</p>
-              <h1>{view().courseInstance.longName}</h1>
-            </header>
+          <PageFrame
+            routeSurface="courseInstance"
+            headingId="course-instance-heading"
+            eyebrow={`Course Instance · ${view().courseInstance.id}`}
+            title={view().courseInstance.longName}
+          >
             <section
-              class="course-instance-page__assessments"
-              aria-labelledby="course-assessments-heading"
+              class="course-instance-page__content"
+              style={courseThemeStyle(courseThemeTokens(view().courseInstance.theme))}
             >
-              <header class="course-instance-page__section-heading">
-                <div>
-                  <p class="eyebrow">Teaching workflow</p>
-                  <h2 id="course-assessments-heading">Assessments</h2>
-                  <p class="course-instance-page__section-lede">
-                    Assessments appear in Course order. Open one to edit its Questions and
-                    Properties.
-                  </p>
-                </div>
-                <A
-                  class="primary-link"
-                  href={`/instructor/courses/${view().courseInstance.id}/assessments/new`}
-                >
-                  Create Assessment
-                </A>
-              </header>
-              <Show when={assessments.loading}>
-                <p class="loading-state">Loading Assessments...</p>
-              </Show>
-              <Show when={assessments.error !== undefined}>
-                <p class="route-error" role="alert">
-                  Assessments could not be loaded.
-                </p>
-              </Show>
-              <Show
-                when={assessments.error === undefined && (assessments()?.length ?? 0) > 0}
-                fallback={
-                  <Show when={!assessments.loading && assessments.error === undefined}>
-                    <div class="empty-state course-instance-page__assessment-empty">
-                      <h3>No Assessments yet</h3>
-                      <p>
-                        Assessments organize the ordered activities delivered to Students. Use
-                        Create Assessment to add the first activity for this Course Instance.
-                      </p>
-                    </div>
-                  </Show>
-                }
-              >
-                <ol class="instructor-list course-instance-page__assessment-list">
-                  <For each={assessments()}>
-                    {(assessment, index) => (
-                      <AssessmentRow
-                        courseInstanceId={view().courseInstance.id}
-                        assessment={assessment}
-                        position={index() + 1}
-                      />
-                    )}
-                  </For>
-                </ol>
-              </Show>
-            </section>
-            <section class="course-instance-page__details" aria-labelledby="course-details-heading">
-              <header>
-                <p class="eyebrow">Course administration</p>
-                <h2 id="course-details-heading">Course details</h2>
-                <p class="course-instance-page__section-lede">
-                  Review this teaching period, its classification, source, and Course access.
-                </p>
-              </header>
-              <div class="course-instance-page__detail-grid">
-                <section
-                  class="course-instance-page__detail-group"
-                  aria-labelledby="course-term-heading"
-                >
-                  <h3 id="course-term-heading">Course Term</h3>
-                  <p>
-                    {view().courseInstance.term.startDate} through{" "}
-                    {view().courseInstance.term.endDate}
-                  </p>
-                </section>
-                <section
-                  class="course-instance-page__detail-group"
-                  aria-labelledby="teaching-team-heading"
-                >
-                  <h3 id="teaching-team-heading">Teaching Team</h3>
-                  <p>You are an active co-Instructor for this Course Instance.</p>
-                  <p>
-                    {view().activeInstructorCount} active Instructor
-                    {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.
-                  </p>
-                </section>
-                <section
-                  class="course-instance-page__detail-group course-instance-page__detail-group--wide"
-                  aria-labelledby="course-classification-heading"
-                >
-                  <h3 id="course-classification-heading">Classification</h3>
-                  <CourseClassificationEditor
-                    value={view().courseInstance.classification}
-                    editNumber={view().courseInstance.courseEditNumber}
-                    canEdit
-                    save={async (classification, editNumber) => {
-                      const saved = await applicationApi.client.updateCourseInstanceClassification(
-                        view().courseInstance.id,
-                        classification,
-                        editNumber,
-                      );
-                      mutateCourse({
-                        ...view(),
-                        courseInstance: {
-                          ...view().courseInstance,
-                          classification: saved.classification,
-                          courseEditNumber: saved.courseEditNumber,
-                        },
-                      });
-                    }}
-                    reload={async () => {
-                      const current = await applicationApi.client.getCourseInstance(
-                        view().courseInstance.id,
-                      );
-                      mutateCourse(current);
-                      return {
-                        classification: current.courseInstance.classification,
-                        editNumber: current.courseInstance.courseEditNumber,
-                      };
-                    }}
-                  />
-                </section>
-                <Show when={view().blueprintOrigin}>
-                  {(origin) => (
-                    <section
-                      class="course-instance-page__detail-group course-instance-page__detail-group--wide"
-                      aria-labelledby="blueprint-source-heading"
-                    >
-                      <h3 id="blueprint-source-heading">Blueprint source</h3>
-                      <p data-blueprint-origin>
-                        Adopted from Blueprint{" "}
-                        <A
-                          href={`/blueprint-courses/${origin().adoptedBlueprintRevisionTuple.blueprintCourseId}`}
-                        >
-                          {origin().adoptedBlueprintRevisionTuple.blueprintCourseId}
-                        </A>
-                        , Revision {origin().adoptedBlueprintRevisionTuple.revisionNumber}; source
-                        now Revision {origin().currentBlueprintRevisionTuple.revisionNumber}.
-                      </p>
-                      <Show
-                        when={
-                          BigInt(origin().currentBlueprintRevisionTuple.revisionNumber) >
-                          BigInt(origin().adoptedBlueprintRevisionTuple.revisionNumber)
-                        }
-                      >
-                        <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
-                        <CourseBlueprintUpdateReviewList
-                          courseInstanceId={view().courseInstance.id}
-                        />
-                      </Show>
-                    </section>
-                  )}
-                </Show>
-              </div>
               <section
-                class="course-instance-page__administration"
-                aria-labelledby="course-administration-heading"
+                class="course-instance-page__assessments"
+                aria-labelledby="course-assessments-heading"
               >
-                <h3 id="course-administration-heading">Course tools</h3>
-                <nav class="course-instance-page__actions" aria-label="Course actions">
+                <header class="course-instance-page__section-heading">
+                  <div>
+                    <p class="eyebrow">Teaching workflow</p>
+                    <h2 id="course-assessments-heading">Assessments</h2>
+                    <p class="course-instance-page__section-lede">
+                      Assessments appear in Course order. Open one to edit its Questions and
+                      Properties.
+                    </p>
+                    <Show when={assessments()?.[0]?.displayTimeZone}>
+                      {(displayTimeZone) => (
+                        <p class="course-instance-page__time-zone">
+                          Due dates use your Instructor time zone: {displayTimeZone()}.
+                        </p>
+                      )}
+                    </Show>
+                  </div>
                   <A
-                    class="quiet-link"
-                    href={`/instructor/courses/${view().courseInstance.id}/students`}
+                    class="primary-link"
+                    href={`/instructor/courses/${view().courseInstance.id}/assessments/new`}
                   >
-                    Open Students
+                    Create Assessment
                   </A>
-                  <A
-                    class="quiet-link"
-                    href={`/instructor/courses/${view().courseInstance.id}/appearance`}
-                  >
-                    Appearance
-                  </A>
-                </nav>
-                <CreateBlueprintFromCourseInstance course={view().courseInstance} />
-                <Show
-                  when={profile.error === undefined}
-                  fallback={
-                    <section aria-label="Instructor time zone unavailable">
-                      <p role="alert">
-                        Your Instructor time zone is unavailable. Refresh to try again.
-                      </p>
-                      <button
-                        type="button"
-                        class="quiet-button"
-                        onClick={() => void refetchProfile()}
-                      >
-                        Retry Instructor time zone
-                      </button>
-                    </section>
+                </header>
+                <RecordList
+                  ariaLabel="Assessments"
+                  emptyState={{
+                    title: "No Assessments yet",
+                    message:
+                      "Assessments organize the ordered activities delivered to Students. Use Create Assessment to add the first activity for this Course Instance.",
+                  }}
+                  recordId={(row) => row.assessmentId}
+                  regions={
+                    [
+                      {
+                        id: "identity",
+                        role: "identity",
+                        priority: "required",
+                        width: "minmax(12rem, 1.4fr)",
+                        align: "stretch",
+                        content: (row) => row.model.identity(row.position),
+                      },
+                      {
+                        id: "status",
+                        role: "status",
+                        priority: "high",
+                        width: "minmax(6rem, auto)",
+                        align: "center",
+                        content: (row) => row.model.status(),
+                      },
+                      {
+                        id: "due-date",
+                        role: "metadata",
+                        priority: "medium",
+                        width: "minmax(12rem, 1fr)",
+                        align: "center",
+                        content: (row) => row.model.metadata(),
+                      },
+                      {
+                        id: "actions",
+                        role: "actions",
+                        priority: "required",
+                        width: "auto",
+                        align: "end",
+                        content: (row) => row.model.actions(),
+                      },
+                    ] satisfies ReadonlyArray<RecordRegion<AssessmentListRow>>
                   }
-                >
-                  <Show
-                    when={profile()}
-                    fallback={<p role="status">Loading your Instructor time zone...</p>}
-                  >
-                    {(settings) => (
-                      <CourseStudentWorkRecovery
-                        courseInstanceId={view().courseInstance.id}
-                        client={applicationApi.client}
-                        displayTimeZone={settings().timeZone}
-                      />
-                    )}
-                  </Show>
+                  rows={assessmentRows(view().courseInstance.id)}
+                  state={assessmentListState()}
+                />
+                <Show when={assessmentListState().kind === "ready"}>
+                  <div class="course-instance-page__assessment-editors">
+                    <For each={assessmentRows(view().courseInstance.id)}>
+                      {(row) => (
+                        <Show when={row.model.detailsVisible()}>{row.model.details()}</Show>
+                      )}
+                    </For>
+                  </div>
                 </Show>
               </section>
+              <section
+                class="course-instance-page__details"
+                aria-labelledby="course-details-heading"
+              >
+                <header>
+                  <p class="eyebrow">Course administration</p>
+                  <h2 id="course-details-heading">Course details</h2>
+                  <p class="course-instance-page__section-lede">
+                    Review this teaching period, its classification, source, and Course access.
+                  </p>
+                </header>
+                <div class="course-instance-page__detail-grid">
+                  <section
+                    class="course-instance-page__detail-group"
+                    aria-labelledby="course-term-heading"
+                  >
+                    <h3 id="course-term-heading">Course Term</h3>
+                    <p>
+                      {view().courseInstance.term.startDate} through{" "}
+                      {view().courseInstance.term.endDate}
+                    </p>
+                  </section>
+                  <section
+                    class="course-instance-page__detail-group"
+                    aria-labelledby="teaching-team-heading"
+                  >
+                    <h3 id="teaching-team-heading">Teaching Team</h3>
+                    <p>You are an active co-Instructor for this Course Instance.</p>
+                    <p>
+                      {view().activeInstructorCount} active Instructor
+                      {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.
+                    </p>
+                  </section>
+                  <section
+                    class="course-instance-page__detail-group course-instance-page__detail-group--wide"
+                    aria-labelledby="course-classification-heading"
+                  >
+                    <h3 id="course-classification-heading">Classification</h3>
+                    <CourseClassificationEditor
+                      value={view().courseInstance.classification}
+                      editNumber={view().courseInstance.courseEditNumber}
+                      canEdit
+                      save={async (classification, editNumber) => {
+                        const saved =
+                          await applicationApi.client.updateCourseInstanceClassification(
+                            view().courseInstance.id,
+                            classification,
+                            editNumber,
+                          );
+                        mutateCourse({
+                          ...view(),
+                          courseInstance: {
+                            ...view().courseInstance,
+                            classification: saved.classification,
+                            courseEditNumber: saved.courseEditNumber,
+                          },
+                        });
+                      }}
+                      reload={async () => {
+                        const current = await applicationApi.client.getCourseInstance(
+                          view().courseInstance.id,
+                        );
+                        mutateCourse(current);
+                        return {
+                          classification: current.courseInstance.classification,
+                          editNumber: current.courseInstance.courseEditNumber,
+                        };
+                      }}
+                    />
+                  </section>
+                  <Show when={view().blueprintOrigin}>
+                    {(origin) => (
+                      <section
+                        class="course-instance-page__detail-group course-instance-page__detail-group--wide"
+                        aria-labelledby="blueprint-source-heading"
+                      >
+                        <h3 id="blueprint-source-heading">Blueprint source</h3>
+                        <p data-blueprint-origin>
+                          Adopted from Blueprint{" "}
+                          <A
+                            href={`/blueprint-courses/${origin().adoptedBlueprintRevisionTuple.blueprintCourseId}`}
+                          >
+                            {origin().adoptedBlueprintRevisionTuple.blueprintCourseId}
+                          </A>
+                          , Revision {origin().adoptedBlueprintRevisionTuple.revisionNumber}; source
+                          now Revision {origin().currentBlueprintRevisionTuple.revisionNumber}.
+                        </p>
+                        <Show
+                          when={
+                            BigInt(origin().currentBlueprintRevisionTuple.revisionNumber) >
+                            BigInt(origin().adoptedBlueprintRevisionTuple.revisionNumber)
+                          }
+                        >
+                          <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
+                          <CourseBlueprintUpdateReviewList
+                            courseInstanceId={view().courseInstance.id}
+                          />
+                        </Show>
+                      </section>
+                    )}
+                  </Show>
+                </div>
+                <section
+                  class="course-instance-page__administration"
+                  aria-labelledby="course-administration-heading"
+                >
+                  <h3 id="course-administration-heading">Course tools</h3>
+                  <nav class="course-instance-page__actions" aria-label="Course actions">
+                    <A
+                      class="quiet-link"
+                      href={`/instructor/courses/${view().courseInstance.id}/students`}
+                    >
+                      Open Students
+                    </A>
+                    <A
+                      class="quiet-link"
+                      href={`/instructor/courses/${view().courseInstance.id}/appearance`}
+                    >
+                      Appearance
+                    </A>
+                  </nav>
+                  <CreateBlueprintFromCourseInstance course={view().courseInstance} />
+                  <Show
+                    when={profile.error === undefined}
+                    fallback={
+                      <section aria-label="Instructor time zone unavailable">
+                        <p role="alert">
+                          Your Instructor time zone is unavailable. Refresh to try again.
+                        </p>
+                        <button
+                          type="button"
+                          class="quiet-button"
+                          onClick={() => void refetchProfile()}
+                        >
+                          Retry Instructor time zone
+                        </button>
+                      </section>
+                    }
+                  >
+                    <Show
+                      when={profile()}
+                      fallback={<p role="status">Loading your Instructor time zone...</p>}
+                    >
+                      {(settings) => (
+                        <CourseStudentWorkRecovery
+                          courseInstanceId={view().courseInstance.id}
+                          client={applicationApi.client}
+                          displayTimeZone={settings().timeZone}
+                        />
+                      )}
+                    </Show>
+                  </Show>
+                </section>
+              </section>
             </section>
-          </>
+          </PageFrame>
         )}
       </Show>
-    </section>
+    </>
   );
 }

@@ -56,6 +56,8 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
   courses: "graduation-cap",
   questions: "book-open",
   productAssessments: "clipboard-list",
+  coursework: "clipboard-list",
+  grades: "table-list",
   assessments: "clipboard-list",
   studentAssessments: "clipboard-list",
   students: "users",

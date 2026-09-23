@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { LibraryBloomDiscovery } from "../components/library_bloom_discovery";
+import { PageFrame } from "../components/page_frame";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
@@ -342,20 +343,19 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   });
 
   return (
-    <section
-      class="page library-page"
-      classList={{ "question-pool-task-active": questionPoolTaskActive() }}
-      data-route-surface={props.mode === "browse" ? "library-browse" : "library"}
-    >
-      <p class="eyebrow">Shared educational content</p>
-      <h1>{props.mode === "browse" ? "Browse Question Library" : "Search Question Library"}</h1>
-      <p class="page-lede">
-        {!mayMutateLibrary
+    <PageFrame
+      contentClass={`library-page${questionPoolTaskActive() ? " question-pool-task-active" : ""}`}
+      routeSurface={props.mode === "browse" ? "library-browse" : "library"}
+      eyebrow="Shared educational content"
+      title={props.mode === "browse" ? "Browse Question Library" : "Search Question Library"}
+      lede={
+        !mayMutateLibrary
           ? "Review published Library content and its recorded improvement activity."
           : props.mode === "browse"
             ? "Explore what the library contains, then narrow from a broad subject to exact topics."
-            : "Find a current published question to study, reuse, or assign."}
-      </p>
+            : "Find a current published question to study, reuse, or assign."
+      }
+    >
       <Show when={invalidLinkOptions()}>
         <div role="alert">
           <p>
@@ -807,6 +807,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </Show>
         </LibraryBrowseRows>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

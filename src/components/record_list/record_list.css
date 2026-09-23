@@ -1,0 +1,111 @@
+/* Shared flat records: the list owns tracks and each row inherits them through subgrid. */
+
+.record-list {
+  display: grid;
+  grid-template-columns: var(--record-list-columns-all);
+  align-items: start;
+  overflow-wrap: anywhere;
+}
+
+.record-list__row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  gap: var(--ple-space-2);
+  align-items: start;
+  padding-block: var(--ple-space-2);
+  border-bottom: 1px solid var(--ple-border);
+}
+
+.record-list__row:first-of-type {
+  border-top: 1px solid var(--ple-border);
+}
+
+.record-list__header {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  gap: var(--ple-space-2);
+  align-items: center;
+}
+
+.record-list__header-region {
+  min-inline-size: 0;
+}
+
+.record-list__region {
+  display: grid;
+  gap: var(--ple-space-1);
+  min-inline-size: 0;
+}
+
+.record-list__region--identity {
+  font-weight: 700;
+}
+
+.record-list__region--metadata,
+.record-list__region--status {
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+}
+
+.record-list__region--actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-1);
+}
+
+.record-list__region > :first-child {
+  margin-block-start: 0;
+}
+
+.record-list__region > :last-child {
+  margin-block-end: 0;
+}
+
+.record-list__state {
+  margin: 0;
+  padding: var(--ple-space-3);
+  background: var(--ple-surface-soft);
+}
+
+.record-list__state h2 {
+  margin-top: 0;
+}
+
+.record-list__state--error {
+  border-inline-start: var(--ple-space-1) solid var(--ple-danger);
+}
+
+@media (max-width: 64rem) {
+  .record-list {
+    grid-template-columns: var(--record-list-columns-without-low);
+  }
+
+  .record-list__region[data-record-list-priority="low"],
+  .record-list__header-region[data-record-list-priority="low"] {
+    display: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .record-list {
+    grid-template-columns: var(--record-list-columns-without-medium);
+  }
+
+  .record-list__region[data-record-list-priority="medium"],
+  .record-list__header-region[data-record-list-priority="medium"] {
+    display: none;
+  }
+}
+
+@media (max-width: 32rem) {
+  .record-list {
+    grid-template-columns: var(--record-list-columns-required);
+  }
+
+  .record-list__region[data-record-list-priority="high"],
+  .record-list__header-region[data-record-list-priority="high"] {
+    display: none;
+  }
+}

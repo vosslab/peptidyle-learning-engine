@@ -7,13 +7,6 @@ import { solidPlugin } from "esbuild-plugin-solid";
 import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 
-import {
-  formatAssessmentAttemptTimeLimit,
-  formatAssessmentActivity,
-  formatAssessmentDeliveryTime,
-  toStudentAssessmentPresentationData,
-} from "../src/components/student_assessment_presentation.tsx";
-
 async function loadDecisionDetailsForSsr() {
   const result = await build({
     bundle: true,
@@ -34,10 +27,11 @@ async function loadDecisionDetailsForSsr() {
   if (typeof module.StudentAssessmentDecisionDetails !== "function") {
     throw new Error("Student Assessment decision component export is missing.");
   }
-  return module.StudentAssessmentDecisionDetails;
+  return module;
 }
 
-test("Student detail adapts available entries and Question Pool selections without exposing source identities", () => {
+test("Student detail adapts available entries and Question Pool selections without exposing source identities", async () => {
+  const { toStudentAssessmentPresentationData } = await loadDecisionDetailsForSsr();
   const presentation = toStudentAssessmentPresentationData({
     id: "A7K3M2QAS",
     title: "Protein structure",
@@ -68,31 +62,60 @@ test("Student detail adapts available entries and Question Pool selections witho
   assert.equal("id" in presentation, false);
 });
 
-test("base duration defaults calculate from Questions while explicit and legacy durations remain stored", () => {
+test("base duration defaults calculate from Questions while explicit and legacy durations remain stored", async () => {
+  const { formatAssessmentAttemptTimeLimit } = await loadDecisionDetailsForSsr();
   assert.equal(formatAssessmentAttemptTimeLimit(null, 3), "5 minutes per attempt");
   assert.equal(formatAssessmentAttemptTimeLimit(3_600), "1 hour per attempt");
   assert.equal(formatAssessmentAttemptTimeLimit(90), "90 seconds per attempt");
 });
 
-test("assessment instants use the supplied viewer zone instead of the browser zone", () => {
+test("assessment instants use the supplied viewer zone instead of the browser zone", async () => {
+  const { formatAssessmentActivity, formatAssessmentDeliveryTime } =
+    await loadDecisionDetailsForSsr();
   const timestamp = Date.parse("2026-01-15T18:30:00Z");
   const newYork = "America/New_York";
   const losAngeles = "America/Los_Angeles";
-  const options = { dateStyle: "medium", timeStyle: "short", timeZone: newYork };
-  const expected = new Intl.DateTimeFormat(undefined, options).format(new Date(timestamp));
+  const newYorkDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: newYork,
+  });
+  const losAngelesDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: losAngeles,
+  });
+  const newYorkFormatter = (timestamp) => newYorkDateTimeFormatter.format(timestamp);
+  const losAngelesFormatter = (timestamp) => losAngelesDateTimeFormatter.format(timestamp);
+  const expected = newYorkDateTimeFormatter.format(new Date(timestamp));
 
-  assert.equal(formatAssessmentDeliveryTime(timestamp, newYork), expected);
-  assert.equal(formatAssessmentActivity(timestamp, newYork), expected);
+  assert.equal(formatAssessmentDeliveryTime(timestamp, newYorkFormatter), expected);
+  assert.equal(formatAssessmentActivity(timestamp, newYorkFormatter), expected);
+  assert.equal(formatAssessmentDeliveryTime(null, newYorkFormatter, "No due time"), "No due time");
+  assert.equal(formatAssessmentActivity(null, newYorkFormatter), "No activity yet");
   assert.notEqual(
-    formatAssessmentDeliveryTime(timestamp, losAngeles),
+    formatAssessmentDeliveryTime(timestamp, losAngelesFormatter),
     expected,
     "fixed instant must render in the supplied viewer zone",
   );
 });
 
 test("decision presentation renders one server instant differently in two supplied zones", async () => {
-  const StudentAssessmentDecisionDetails = await loadDecisionDetailsForSsr();
+  const { StudentAssessmentDecisionDetails, formatAssessmentDeliveryTime } =
+    await loadDecisionDetailsForSsr();
   const dueAt = Date.parse("2026-01-15T18:30:00Z");
+  const newYorkDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/New_York",
+  });
+  const losAngelesDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Los_Angeles",
+  });
+  const newYorkFormatter = (timestamp) => newYorkDateTimeFormatter.format(timestamp);
+  const losAngelesFormatter = (timestamp) => losAngelesDateTimeFormatter.format(timestamp);
   const decision = {
     availableAt: Date.parse("2026-01-15T17:30:00Z"),
     dueAt,
@@ -105,8 +128,8 @@ test("decision presentation renders one server instant differently in two suppli
     startDecision: "may_start",
     publicReason: null,
   };
-  const newYorkDue = formatAssessmentDeliveryTime(dueAt, "America/New_York");
-  const losAngelesDue = formatAssessmentDeliveryTime(dueAt, "America/Los_Angeles");
+  const newYorkDue = formatAssessmentDeliveryTime(dueAt, newYorkFormatter);
+  const losAngelesDue = formatAssessmentDeliveryTime(dueAt, losAngelesFormatter);
   const newYorkHtml = renderToString(() =>
     createComponent(StudentAssessmentDecisionDetails, { decision }),
   );

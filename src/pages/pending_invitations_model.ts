@@ -2,6 +2,7 @@
 
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 
 interface InvitationRow {
   readonly id: string;
@@ -32,12 +33,12 @@ export function invitationStateLabel(state: CourseInvitationStateView): string {
 }
 
 /** The server instant is rendered in the authorized viewer zone; it never decides actionability. */
-export function serverExpiryCopy(expiresAt: number, displayTimeZone: AccountTimeZone): string {
-  const rendered = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: displayTimeZone,
-  }).format(new Date(expiresAt));
+export function serverExpiryCopy(
+  expiresAt: number,
+  displayTimeZone: AccountTimeZone,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+): string {
+  const rendered = formatDateTime(expiresAt);
   return `Expires at ${rendered} (${displayTimeZone})`;
 }
 

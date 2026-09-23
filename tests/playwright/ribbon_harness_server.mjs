@@ -1,7 +1,24 @@
 // Compiled-harness startup helpers shared by shell evidence.
 
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+
+import {
+  BROWSER_FONT_ROOT,
+  browserFontPathFromUrl,
+  browserFontUrlsFromStylesheet,
+} from "../../src/browser_font_assets.mjs";
+
+const SHELL_ASSETS = new Map([
+  [
+    "/assets/ribbon-icons.svg",
+    {
+      body: readFileSync(new URL("../../src/ribbon/assets/ribbon-icons.svg", import.meta.url)),
+      contentType: "image/svg+xml",
+    },
+  ],
+]);
 
 function formatBootstrapDiagnostics(pageErrors, consoleErrors) {
   const details = [...pageErrors, ...consoleErrors];
@@ -34,8 +51,59 @@ export async function mountRibbonHarness(page, bundle, pageErrors, consoleErrors
   }
 }
 
-export async function startHarnessServer(markup) {
-  const server = createServer((_request, response) => {
+export async function startHarnessServer(markup, stylesheet, additionalAssets = new Map()) {
+  const fontAssets = new Map(
+    browserFontUrlsFromStylesheet(stylesheet).map((fontUrl) => [
+      fontUrl,
+      readFileSync(
+        new URL(`../../src/assets/fonts/${browserFontPathFromUrl(fontUrl)}`, import.meta.url),
+      ),
+    ]),
+  );
+  const server = createServer((request, response) => {
+    let requestUrl;
+    try {
+      requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+    } catch {
+      response.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+      response.end("Malformed request target");
+      return;
+    }
+    const pathname = requestUrl.pathname;
+    const font = requestUrl.search === "" ? fontAssets.get(pathname) : undefined;
+    if (font !== undefined) {
+      response.writeHead(200, {
+        "content-type": "font/woff2",
+        "cache-control": "no-store",
+      });
+      response.end(font);
+      return;
+    }
+    if (pathname.startsWith(BROWSER_FONT_ROOT)) {
+      response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      response.end("Not found");
+      return;
+    }
+    const shellAsset = SHELL_ASSETS.get(pathname);
+    if (shellAsset !== undefined) {
+      response.writeHead(200, {
+        "content-type": shellAsset.contentType,
+        "cache-control": "no-store",
+      });
+      response.end(shellAsset.body);
+      return;
+    }
+    const asset = additionalAssets.get(pathname);
+    if (asset !== undefined) {
+      response.writeHead(200, { "content-type": asset.contentType });
+      response.end(asset.body);
+      return;
+    }
+    if (pathname !== "/") {
+      response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      response.end("Not found");
+      return;
+    }
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(markup);
   });

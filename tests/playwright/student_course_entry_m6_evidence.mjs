@@ -3,35 +3,30 @@
 // server-owned current-Course projection; navigation uses real visible links.
 
 import assert from "node:assert/strict";
-import { once } from "node:events";
-import { createServer } from "node:http";
 
 import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "playwright";
 
 import { bundleStudentCourseEntryM6Harness } from "../support/student_course_entry_m6_loader.ts";
+import { CANONICAL_VIEWPORTS } from "./screenshot_corpus/manifest.ts";
+import { startHarnessServer } from "./ribbon_harness_server.mjs";
 
 const bundle = await bundleStudentCourseEntryM6Harness();
-const server = createServer((request, response) => {
-  if (request.url?.startsWith("/student_course_entry_m6_harness.js")) {
-    response.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
-    response.end(bundle.javascript);
-    return;
-  }
-  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  response.end(`<!doctype html><body><div id="root"></div><script type="module">
+const harnessServer = await startHarnessServer(
+  `<!doctype html><head><style>${bundle.stylesheet}</style></head><body><div id="root"></div><script type="module">
     import { mountStudentCourseEntryM6Harness } from "/student_course_entry_m6_harness.js";
     const mode = new URLSearchParams(window.location.search).get("mode");
     window.studentCourseEntryM6 = mountStudentCourseEntryM6Harness(document.querySelector("#root"), mode);
-  </script>`);
-});
-server.listen(0, "127.0.0.1");
-await once(server, "listening");
-const address = server.address();
-if (address === null || typeof address === "string")
-  throw new Error("Student Course entry evidence server did not bind TCP.");
-
-const origin = `http://127.0.0.1:${String(address.port)}`;
+  </script>`,
+  bundle.stylesheet,
+  new Map([
+    [
+      "/student_course_entry_m6_harness.js",
+      { body: bundle.javascript, contentType: "text/javascript; charset=utf-8" },
+    ],
+  ]),
+);
+const origin = harnessServer.evidenceUrl;
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext();
 async function criticalOrSeriousViolations(page) {
@@ -40,12 +35,28 @@ async function criticalOrSeriousViolations(page) {
     .filter((violation) => violation.impact === "critical" || violation.impact === "serious")
     .map((violation) => violation.id);
 }
+
+async function assertCourseworkRows(page) {
+  const coursework = page.getByRole("list", { name: "Coursework", exact: true });
+  const rows = coursework.getByRole("listitem");
+  const expectedRows = [
+    ["Protein structure practice", "Resume Regular Assignment"],
+    ["Bonus protein challenge", "Review Bonus Assignment"],
+    ["Peptide quiz", "Open Quiz"],
+  ];
+  assert.equal(await rows.count(), expectedRows.length);
+  for (const [index, [title, action]] of expectedRows.entries()) {
+    const row = rows.nth(index);
+    await row.getByRole("heading", { name: title, exact: true }).waitFor({ state: "visible" });
+    await row.getByRole("link", { name: action, exact: true }).waitFor({ state: "visible" });
+  }
+}
 try {
   const page = await context.newPage();
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  await page.goto(`${origin}/?mode=zero`);
+  await page.goto(`${origin}?mode=zero`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
@@ -54,14 +65,14 @@ try {
   });
   assert.equal(await page.getByRole("article").count(), 0);
 
-  await page.goto(`${origin}/?mode=one`);
-  await page.locator("[data-m6-location]").waitFor({ state: "visible" });
+  await page.goto(`${origin}?mode=one`);
+  await page.locator("[data-m6-location]").waitFor({ state: "attached" });
   await page.waitForFunction(
     () =>
       document.querySelector("[data-m6-location]")?.textContent === "/student/courses/CI7K3M2QAZ",
   );
 
-  await page.goto(`${origin}/?mode=choose`);
+  await page.goto(`${origin}?mode=choose`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
@@ -70,7 +81,7 @@ try {
   });
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student?choose=1");
 
-  await page.goto(`${origin}/?mode=many`);
+  await page.goto(`${origin}?mode=many`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
@@ -80,7 +91,7 @@ try {
   assert.equal(await page.getByRole("article").count(), 2);
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/");
 
-  await page.goto(`${origin}/?mode=landing`);
+  await page.goto(`${origin}?mode=landing`);
   const landingDue = page.locator("[data-assessment-decision-due]").first();
   await landingDue.waitFor({ state: "visible" }).catch(async (error) => {
     throw new Error(
@@ -89,36 +100,29 @@ try {
     );
   });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
+  assert.equal(
+    await page.locator("[data-m6-location]").isVisible(),
+    false,
+    "Landing fixture route probe is not visible",
+  );
   const landingDueText = await landingDue.textContent();
   assert.notEqual(landingDueText, null);
-  const regularCard = page.getByRole("article").filter({
-    has: page.getByRole("heading", { name: "Protein structure practice", exact: true }),
-  });
-  await regularCard
-    .getByText("1 of 4 responses saved", { exact: true })
-    .waitFor({ state: "visible" });
-  assert.equal(await regularCard.getByText(/questions graded|Assessment score/u).count(), 0);
-  const bonusCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: "Bonus protein challenge", exact: true }) });
-  await bonusCard.getByText("Bonus Assignment", { exact: true }).waitFor({ state: "visible" });
-  await bonusCard
-    .getByText("2 of 2 questions graded · Assessment score 3 / 0", { exact: true })
-    .waitFor({ state: "visible" });
-  const withheldCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: "Peptide quiz", exact: true }) });
-  assert.equal(await withheldCard.getByText(/Assessment score/u).count(), 0);
-  assert.equal(await page.getByText(/Score so far/u).count(), 0);
-  assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  for (const width of [1280, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const name of ["Resume Regular Assignment", "Review Bonus Assignment", "Open Quiz"]) {
-      await page.getByRole("link", { name, exact: true }).waitFor({ state: "visible" });
-    }
+  for (const [viewportId, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
+    await page.setViewportSize(viewport);
+    await assertCourseworkRows(page);
+    assert.equal(
+      await page.locator('[data-ribbon-row="top"]').getByText("BCHM 301", { exact: true }).count(),
+      0,
+      `${viewportId}: Student Ribbon top row does not repeat the course short name`,
+    );
+    await page
+      .locator(".page-frame__header")
+      .getByRole("heading", { name: "Biochemistry 301: Proteins and Peptides", exact: true })
+      .waitFor({ state: "visible" });
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       true,
+      `${viewportId}: Coursework scan rows do not create horizontal overflow`,
     );
   }
   await page.getByRole("link", { name: "Resume Regular Assignment", exact: true }).focus();
@@ -137,7 +141,7 @@ try {
     "/assessment-attempts/00000000-0000-0000-0000-000000000006",
   );
 
-  await page.goto(`${origin}/?mode=landing`);
+  await page.goto(`${origin}?mode=landing`);
   await page.getByRole("link", { name: "Review Bonus Assignment", exact: true }).focus();
   await page.keyboard.press("Enter");
   await page
@@ -151,29 +155,17 @@ try {
     "/assessment-attempts/00000000-0000-0000-0000-000000000005/summary",
   );
 
-  await page.goto(`${origin}/?mode=landing`);
+  await page.goto(`${origin}?mode=landing`);
   await page.getByRole("link", { name: "Open Quiz", exact: true }).focus();
   await page.keyboard.press("Enter");
   await page.locator('[data-route-surface="assessmentOverview"]').waitFor({ state: "visible" });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
   const overviewDueText = await page.locator("[data-assessment-decision-due]").textContent();
   assert.equal(overviewDueText, landingDueText);
-  await page.getByText("Can start", { exact: true }).waitFor({ state: "visible" });
-  const timeLimit = page.getByText("1 hour per attempt", { exact: true });
-  const startButton = page.getByRole("button", {
-    name: "Start Quiz",
-    exact: true,
-  });
-  assert.equal(
-    await timeLimit.evaluate(
-      (element, button) =>
-        (element.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
-      await startButton.elementHandle(),
-    ),
-    true,
-  );
+  await page.getByRole("status").filter({ hasText: "Cannot start" }).waitFor({ state: "visible" });
+  assert.equal(await page.getByRole("button", { name: /^Start /u }).count(), 0);
 
-  await page.goto(`${origin}/?mode=landing`);
+  await page.goto(`${origin}?mode=landing`);
   await page.getByRole("link", { name: "Your courses", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("link", { name: "Your courses", exact: true }).click();
   await page.waitForFunction(
@@ -186,7 +178,5 @@ try {
 } finally {
   await context.close();
   await browser.close();
-  await new Promise((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve())),
-  );
+  await harnessServer.close();
 }

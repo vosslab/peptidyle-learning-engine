@@ -227,7 +227,6 @@ try {
       const unselectedTask = ribbon.querySelector(
         ".ple-app-ribbon__tasks .ple-app-ribbon__link:not([aria-current])",
       );
-      const scopeLabel = ribbon.querySelector(".ple-app-ribbon__course-scope-label");
       const areaSeparator = ribbon.querySelector(
         ".ple-app-ribbon__task-area + .ple-app-ribbon__task-area",
       );
@@ -236,7 +235,6 @@ try {
         !(unselectedTab instanceof HTMLElement) ||
         !(selectedTask instanceof HTMLElement) ||
         !(unselectedTask instanceof HTMLElement) ||
-        !(scopeLabel instanceof HTMLElement) ||
         !(areaSeparator instanceof HTMLElement)
       ) {
         throw new Error(
@@ -293,8 +291,6 @@ try {
           firstThemeTab.setAttribute("aria-current", "page");
         }
         const targets = {
-          context: panelRibbon.querySelector(".ple-app-ribbon__course-scope-label"),
-          contextDetails: panelRibbon.querySelector(".ple-app-ribbon__context-details"),
           unselectedTab: panelRibbon.querySelector(
             ".ple-app-ribbon__tabs .ple-app-ribbon__link:not([aria-current])",
           ),
@@ -333,10 +329,6 @@ try {
               foreground: getComputedStyle(focusTarget).outlineColor,
               background: backgroundAt(focusTarget),
             },
-            scopeMarker: {
-              foreground: getComputedStyle(targets.context, "::before").backgroundColor,
-              background: backgroundAt(targets.context),
-            },
             tabUnderline: {
               foreground: getComputedStyle(targets.selectedTab, "::after").backgroundColor,
               background: backgroundAt(targets.selectedTab),
@@ -373,10 +365,6 @@ try {
             })(),
           },
           paints: {
-            scopeMarker: getComputedStyle(
-              panelRibbon.querySelector(".ple-app-ribbon__course-scope-label"),
-              "::before",
-            ).backgroundColor,
             tabUnderline: getComputedStyle(
               panelRibbon.querySelector(
                 '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]',
@@ -555,9 +543,7 @@ try {
         composite(parseColor(pair.foreground), pair.background),
         pair.background,
       );
-      const threshold = ["separator", "focus", "scopeMarker", "tabUnderline"].includes(name)
-        ? 3
-        : 5.5;
+      const threshold = ["separator", "focus", "tabUnderline"].includes(name) ? 3 : 5.5;
       assert.equal(
         ratio >= threshold,
         true,
@@ -571,7 +557,7 @@ try {
       true,
       `${theme.id} keeps the admitted Appearance task reachable without clipping`,
     );
-    const accentPaint = parseColor(theme.paints.scopeMarker);
+    const accentPaint = parseColor(theme.paints.tabUnderline);
     for (const [placement, paint] of Object.entries(theme.paints)) {
       assert.deepEqual(
         parseColor(paint),

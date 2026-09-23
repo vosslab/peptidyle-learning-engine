@@ -13,6 +13,7 @@ export async function bundleRibbonShellHarness(): Promise<RibbonShellBundle> {
   try {
     const result = await build({
       bundle: true,
+      external: ["/assets/fonts/*"],
       entryPoints: [new URL("./ribbon_shell_harness.tsx", import.meta.url).pathname],
       // A classic IIFE lets the browser oracle inject the compiled application
       // directly.  Importing a megabyte-scale nested data URL delays module

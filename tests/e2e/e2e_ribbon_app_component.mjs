@@ -83,7 +83,12 @@ test("every fixture href is a canonical declared route with its catalog paramete
       );
       assert.deepEqual(
         routeParams(target, control.href),
-        Object.fromEntries(catalog.requiredParams.map((name) => [name, fixtureParams[name]])),
+        Object.fromEntries([
+          ...(catalog.requiredParams ?? []).map((name) => [name, fixtureParams[name]]),
+          ...(control.id === "coursework" || control.id === "grades"
+            ? [["courseInstanceId", fixtureParams.courseInstanceId]]
+            : []),
+        ]),
         `${fixtureName}:${control.id} supplies exact target parameters`,
       );
       assert.notEqual(
@@ -118,7 +123,7 @@ test(topologyRowsTestName, async () => {
   assert.match(html, /aria-current="page"/);
   assert.match(html, /aria-haspopup="menu"[^>]*data-ribbon-context-control="profile"/);
   assert.doesNotMatch(html, /ple-app-ribbon__sign-out|data-ribbon-action="signOut"/);
-  assert.match(html, /data-ribbon-task-row="reserved"/);
+  assert.doesNotMatch(html, /data-ribbon-task-row=/);
   assert.equal(
     (html.match(/class="ple-app-ribbon__brand-word"/g) ?? []).length,
     1,
@@ -126,7 +131,6 @@ test(topologyRowsTestName, async () => {
   );
   assert.match(html, /<a class="ple-app-ribbon__brand" href="\/" aria-label="Peptidyle home">/);
   assert.doesNotMatch(html, /ple-app-ribbon__product-name|Peptidyle Learning Engine/);
-  assert.match(html, /Problem Set 7/);
   assert.doesNotMatch(html, /Blueprint Updates|Course Setup/);
   assert.doesNotMatch(html, /role="tab(list)?"/);
   assert.ok(html.indexOf("Peptidyle") < html.indexOf("Instructor"));
@@ -162,27 +166,31 @@ test("required Instructor choices remain visible without inventing unfinished ro
       new RegExp(
         [
           `data-ribbon-control="${control.id}"[^>]*>[\\s\\S]*?`,
-          `class="ple-app-ribbon__control-label">${control.label}</span>[\\s\\S]*?`,
-          `class="ple-app-ribbon__availability-label">Not available yet</span>`,
+          `class="ple-app-ribbon__control-label">${control.label}</span>`,
         ].join(""),
       ),
-      `${control.label} explains its unfinished status visibly and accessibly`,
+      `${control.label} remains visibly identified without obsolete availability annotation`,
     );
   }
 });
 
-test("AppRibbon omits the Task Row when declared route topology has no Task Group", async () => {
+test("AppRibbon reserves an empty task row while retaining Student top-level tabs", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() =>
     createComponent(RealAppRibbon, { model: M6_RIBBON_FIXTURES.courseStudent }),
   );
-  assert.match(html, /data-ribbon-task-row="absent"/);
-  assert.doesNotMatch(html, /aria-label="Ribbon tasks"/);
-  assert.doesNotMatch(html, /data-ribbon-row-frame="tasks"/);
+  assert.doesNotMatch(html, /data-ribbon-task-row=/);
+  assert.match(html, /data-ribbon-row-frame="tasks"/);
+  assert.match(html, /<nav[^>]*aria-label="Ribbon tasks"[^>]*><\/nav>/);
+  assert.match(html, /data-ribbon-control="courses"/);
+  assert.match(html, /data-ribbon-control="coursework"/);
+  assert.match(html, /data-ribbon-control="grades"/);
+  const topRibbon = html.slice(0, html.indexOf('data-ribbon-row-frame="tasks"'));
+  assert.doesNotMatch(topRibbon, /BCHM 355|Biochemistry/);
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row="([^"]+)"/g)].map((match) => match[1]),
-    ["top"],
-    "taskless route topology renders its single dense top bar",
+    ["top", "tasks"],
+    "taskless route topology retains both reserved row frames",
   );
 });
 
@@ -237,7 +245,7 @@ test(modelGlyphDeclarationTestName, async () => {
   const modelDeclaringAssessmentsTextOnly = {
     ...baseline,
     tabs: baseline.tabs.map((control) =>
-      control.id === "assessments"
+      control.id === "productAssessments"
         ? { ...control, iconBearing: false, iconOnlySafe: true }
         : control,
     ),
@@ -245,7 +253,7 @@ test(modelGlyphDeclarationTestName, async () => {
   const unknownGlyphClaim = {
     ...baseline,
     tabs: baseline.tabs.map((control) =>
-      control.id === "assessments"
+      control.id === "productAssessments"
         ? { ...control, id: "unknownDestination", label: "Unknown", iconBearing: true }
         : control,
     ),
@@ -255,13 +263,13 @@ test(modelGlyphDeclarationTestName, async () => {
     createComponent(RealAppRibbon, { model: modelDeclaringAssessmentsTextOnly }),
   );
   const declaredTextOnlyAssessments = declaredTextOnlyHtml.match(
-    /<a[^>]*data-ribbon-control="assessments"[^>]*>([\s\S]*?)<\/a>/,
+    /<a[^>]*data-ribbon-control="productAssessments"[^>]*>([\s\S]*?)<\/a>/,
   )?.[1];
   assert.ok(declaredTextOnlyAssessments, "the model-declared text-only destination still renders");
   assert.match(declaredTextOnlyAssessments, /Assessments/);
   assert.doesNotMatch(declaredTextOnlyAssessments, /<svg|<use |data-ribbon-icon-only-safe/);
   assert.doesNotMatch(
-    declaredTextOnlyHtml.match(/<a[^>]*data-ribbon-control="assessments"[^>]*>/)?.[0] ?? "",
+    declaredTextOnlyHtml.match(/<a[^>]*data-ribbon-control="productAssessments"[^>]*>/)?.[0] ?? "",
     /(?:aria-label|title)=/,
     "an undeclared glyph cannot trigger icon-only naming semantics",
   );
@@ -278,7 +286,7 @@ test(modelGlyphDeclarationTestName, async () => {
 
   const ordinaryHtml = renderToString(() => createComponent(RealAppRibbon, { model: baseline }));
   const ordinaryAssessments = ordinaryHtml.match(
-    /<a[^>]*data-ribbon-control="assessments"[^>]*>([\s\S]*?)<\/a>/,
+    /<a[^>]*data-ribbon-control="productAssessments"[^>]*>([\s\S]*?)<\/a>/,
   )?.[1];
   assert.ok(ordinaryAssessments, "an ordinary declared icon-bearing destination renders");
   assert.equal(
@@ -438,7 +446,6 @@ test(catalogPresentationTestName, async () => {
   assert.deepEqual(
     accentPaintConsumers,
     [
-      { selector: ".ple-app-ribbon__course-scope-label::before", property: "background" },
       {
         selector: '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after',
         property: "background",
@@ -450,7 +457,7 @@ test(catalogPresentationTestName, async () => {
     ].sort((left, right) =>
       `${left.selector}:${left.property}`.localeCompare(`${right.selector}:${right.property}`),
     ),
-    "the derived course accent has exactly its three semantic production paint placements",
+    "the derived course accent paints selected Tabs and Tasks",
   );
   assert.doesNotMatch(
     source,

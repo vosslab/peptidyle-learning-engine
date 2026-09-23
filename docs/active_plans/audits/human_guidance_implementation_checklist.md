@@ -1,5 +1,7 @@
 # Human Guidance implementation compliance checklist
 
+Latest evidence date: 2026-09-16
+
 Source: `docs/HUMAN_GUIDANCE.md`. Human Guidance remains authoritative. This file records
 current implementation status only. `Deferred product behavior`, `How to use this guidance`,
 and `Product vocabulary and glossary` remain authoritative, but are not checklist items.

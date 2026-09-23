@@ -5,6 +5,8 @@ import { For, Show, createResource, type JSX } from "solid-js";
 
 import type { LibraryWatchNotification } from "../api/library_watch_notification";
 import { useApplicationApi } from "../api/application_api";
+import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../format_datetime";
+import { PageFrame } from "../components/page_frame";
 
 function eventLabel(value: LibraryWatchNotification): string {
   switch (value.eventKind) {
@@ -21,10 +23,6 @@ function eventLabel(value: LibraryWatchNotification): string {
 
 function targetLabel(value: LibraryWatchNotification): string {
   return value.targetKind === "question" ? "Published Question" : "Question Pool";
-}
-
-function timestamp(value: number): string {
-  return new Date(value).toLocaleString();
 }
 
 function activityHref(value: LibraryWatchNotification): string | null {
@@ -47,19 +45,16 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
     runtime.client.getLibraryWatchNotifications(),
   );
   const failed = (): boolean => inboxFailed(notifications.error);
+  const formatTimestamp = createDisplayDateTimeFormatter(browserDisplayTimeZone());
 
   return (
-    <section
-      class="page"
-      data-route-surface="libraryWatchNotifications"
-      aria-labelledby="library-watch-notifications-heading"
+    <PageFrame
+      routeSurface="libraryWatchNotifications"
+      headingId="library-watch-notifications-heading"
+      eyebrow="Question Library"
+      title="Watch activity"
+      lede="Changes and stewardship activity for the Published Questions and Question Pools you watch. Your watch list and this inbox are private."
     >
-      <p class="eyebrow">Question Library</p>
-      <h1 id="library-watch-notifications-heading">Watch activity</h1>
-      <p class="page-lede">
-        Changes and stewardship activity for the Published Questions and Question Pools you watch.
-        Your watch list and this inbox are private.
-      </p>
       <Show when={failed()}>
         <section class="inline-error" role="alert">
           <p>Your Watch activity could not load. Check your connection and try again.</p>
@@ -128,7 +123,7 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
                   </Show>
                   <p class="teaching-team-meta">
                     <time datetime={new Date(notification.occurredAt).toISOString()}>
-                      {timestamp(notification.occurredAt)}
+                      {formatTimestamp(notification.occurredAt)}
                     </time>
                   </p>
                 </article>
@@ -137,6 +132,6 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
           </section>
         )}
       </Show>
-    </section>
+    </PageFrame>
   );
 }

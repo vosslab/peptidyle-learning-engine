@@ -21,15 +21,33 @@ if [[ ! -f "$dist" ]]; then
 	echo "dist/index.html is missing; a warm client rebuild cannot be proven." >&2
 	exit 1
 fi
-before="$(stat -f %m "$dist" 2>/dev/null || stat -c %Y "$dist")"
-touch "$style"
+file_mtime() {
+	local path="$1"
+	local mtime
+	mtime="$(stat -c %Y "$path" 2>/dev/null || stat -f %m "$path")"
+	if ! [[ "$mtime" =~ ^[0-9]+$ ]]; then
+		echo "Could not read a numeric modification time for $path." >&2
+		return 1
+	fi
+	printf '%s\n' "$mtime"
+}
+
+before="$(file_mtime "$dist")"
+temporary_directory="$(mktemp -d)"
+style_mtime_reference="$temporary_directory/style.css"
 restore() {
-	git checkout -- "$style" >/dev/null 2>&1 || true
+	local original_status=$?
+	touch -r "$style_mtime_reference" "$style" || true
+	rm -f "$style_mtime_reference" || true
+	rmdir "$temporary_directory" || true
+	exit "$original_status"
 }
 trap restore EXIT
+touch -r "$style" "$style_mtime_reference"
+touch "$style"
 
 ./devel/capture_screenshots.sh --verify
-after="$(stat -f %m "$dist" 2>/dev/null || stat -c %Y "$dist")"
+after="$(file_mtime "$dist")"
 if ! [[ "$after" -gt "$before" ]]; then
 	echo "dist/index.html was not newer after the warm capture run." >&2
 	exit 1

@@ -70,7 +70,7 @@ try {
   );
   let currentRibbon = await currentCase.locator(".ple-app-ribbon").elementHandle();
   assert.notEqual(currentRibbon, null, "current App mounts one Ribbon on an authenticated route");
-  await assertOneStableRibbon(page, "current-production", currentRibbon, true);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   assert.deepEqual(
     await currentCase
       .locator("[data-ribbon-control]")
@@ -162,7 +162,7 @@ try {
 
   await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2QAZ"));
   await waitForPath(page, "current-production", "/courses/CI7K3M2QAZ");
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   const deferredBreadcrumb = currentCase.locator(".ple-shell__breadcrumb-prelude");
   assert.equal(
     await deferredBreadcrumb.count(),
@@ -191,13 +191,7 @@ try {
   assert.equal(
     await currentCase.locator('.ple-app-ribbon[data-ribbon-scope="courseInstance"]').count(),
     1,
-    "the current-source App harness admits the fixed course Ribbon immediately " +
-      "while its scope label is deferred",
-  );
-  assert.equal(
-    await currentCase.locator(".ple-app-ribbon__course-scope-label").count(),
-    0,
-    "unresolved current-source harness course scope has no fabricated course label",
+    "the current-source App harness admits the fixed course Ribbon immediately",
   );
   assert.equal(
     await currentCase.locator("[data-course-instance-id]").count(),
@@ -221,9 +215,8 @@ try {
     1,
     "the current Course Instance surface requests its direct-route Assessment list once",
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   await page.evaluate(() => window.ribbonShell.releaseCourseScope("CI7K3M2QAZ"));
-  await currentCase.locator(".ple-app-ribbon__course-scope-label").waitFor({ state: "visible" });
   await page.waitForFunction(
     () =>
       document
@@ -232,21 +225,36 @@ try {
     undefined,
     { timeout: 3_000 },
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await page.waitForFunction(
+    () =>
+      document.querySelector(
+        '[data-m10-case="current-production"] nav[aria-label="Breadcrumb"] [aria-current="page"]',
+      )?.textContent === "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)",
+    undefined,
+    { timeout: 3_000 },
+  );
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   assert.equal(
     await currentCase.locator('nav[aria-label="Breadcrumb"]').count(),
     1,
     "the resolved deep route renders one shell-owned breadcrumb landmark",
   );
   assert.deepEqual(
-    await currentCase.locator('nav[aria-label="Breadcrumb"] li').allTextContents(),
-    ["Home", "Molecular Biology"],
+    await currentCase.locator('nav[aria-label="Breadcrumb"] li').allInnerTexts(),
+    ["Home", "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)"],
     "the resolved Course root omits its public ID from the human-readable current title",
   );
   assert.equal(
     await currentCase.locator('nav[aria-label="Breadcrumb"] [aria-current="page"]').count(),
     1,
     "the breadcrumb terminal is the only current item",
+  );
+  assert.equal(
+    await currentCase
+      .locator('nav[aria-label="Breadcrumb"] [aria-current="page"]')
+      .getAttribute("href"),
+    "/courses/CI7K3M2QAZ",
+    "the resolved breadcrumb terminal points to the Course route",
   );
   assert.equal(
     await currentCase.locator('nav[aria-label="Breadcrumb"] a').first().getAttribute("href"),
@@ -268,30 +276,29 @@ try {
     "label resolution does not move any Ribbon control geometry",
   );
   assert.equal(
-    await currentCase.locator(".ple-app-ribbon__course-scope-label").innerText(),
-    "CRS CI7K3M2QAZ",
-    "released current-source harness scope supplies the truthful CI7K3M2QAZ label " +
-      "without remounting Ribbon",
-  );
-  assert.equal(
     await page.evaluate(() => window.ribbonShell.assessmentQueryCount()),
     1,
-    "route-scope label release does not restart the direct Course Assessment query",
+    "route-scope release does not restart the direct Course Assessment query",
   );
   assert.equal(
     await page.evaluate(() => window.ribbonShell.courseInstanceQueryCount()),
     1,
-    "route-scope label release does not restart the direct Course Instance query",
+    "route-scope release does not restart the direct Course Instance query",
   );
   assert.equal(
-    await courseInstance.locator(".course-instance-page__identity .eyebrow").textContent(),
-    "Course Instance · CI7K3M2QAZ",
+    await courseInstance.getByText("Course Instance · CI7K3M2QAZ", { exact: true }).isVisible(),
+    true,
     "the Course Instance surface owns its exact public-ID eyebrow",
   );
   assert.equal(
-    await courseInstance.getByRole("heading", { name: "Course CI7K3M2QAZ", level: 1 }).count(),
+    await courseInstance
+      .getByRole("heading", {
+        name: "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)",
+        level: 1,
+      })
+      .count(),
     1,
-    "the Course Instance surface owns exactly one identity h1",
+    "the Course Instance surface uses the descriptive Course name as its identity h1",
   );
   const newAssessment = courseInstance.getByRole("link", { name: "Create Assessment" });
   assert.equal(
@@ -305,9 +312,9 @@ try {
     "Create Assessment uses the canonical instructor Course route",
   );
   assert.equal(
-    await courseInstance.locator("[data-course-title], .course-entry-identity").count(),
+    await courseInstance.locator("[data-course-title], .course-entry-banner-container").count(),
     0,
-    "the Course Instance surface does not retain student Course-home identity",
+    "the Course Instance surface does not include the Student-only Course entry banner",
   );
   assert.equal(
     await courseInstance.getByText("Course home", { exact: true }).count(),
@@ -319,7 +326,7 @@ try {
     1,
     "the Course Instance surface has no duplicate course-title h1",
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   const currentMainFocus = await currentCase.evaluate((root) => {
     const mainContent = root.querySelector("#main-content");
     if (!(mainContent instanceof HTMLElement)) {
@@ -439,6 +446,12 @@ try {
     // actual Ribbon, breadcrumb, and route content at this accessibility size.
     style: ".skip-link:not(:focus) { visibility: hidden !important; }",
   });
+  await page.setViewportSize({ width: 393, height: 852 });
+  await flush(page);
+  await page.screenshot({
+    path: "/private/tmp/ple_course_breadcrumb_393x852_text200.png",
+    style: ".skip-link:not(:focus) { visibility: hidden !important; }",
+  });
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "";
   });
@@ -447,40 +460,42 @@ try {
 
   await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2"));
   await waitForPath(page, "current-production", "/courses/CI7K3M2");
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   assert.deepEqual(
     await currentRibbon.evaluate((ribbon) => ({
       scope: ribbon.getAttribute("data-ribbon-scope"),
-      label: ribbon.querySelector(".ple-app-ribbon__course-scope-label")?.textContent,
-      controls: [...ribbon.querySelectorAll("[data-ribbon-control]")].map((control) => ({
-        unavailable: control.getAttribute("data-ribbon-availability"),
-        href: control.getAttribute("href"),
-      })),
+      tierOneControlIds: [
+        ...ribbon.querySelectorAll('nav[aria-label="Ribbon tabs"] [data-ribbon-control-id]'),
+      ].map((control) => control.getAttribute("data-ribbon-control-id")),
+      taskControls: [
+        ...ribbon.querySelectorAll('nav[aria-label="Ribbon tasks"] [data-ribbon-control]'),
+      ].map((control) => control.getAttribute("data-ribbon-control")),
     })),
     {
       scope: "courseInstance",
-      label: undefined,
-      controls: [],
+      tierOneControlIds: ["courses", "questions", "productAssessments"],
+      taskControls: [],
     },
     "a malformed Course Instance ID keeps the declared data-free Course Instance Ribbon",
   );
 
   await page.evaluate(() => window.ribbonShell.currentNavigate("/assessment-attempts/R-0"));
   await waitForPath(page, "current-production", "/assessment-attempts/R-0");
-  await assertOneStableRibbon(page, "current-production", currentRibbon, true);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
   assert.deepEqual(
     await currentRibbon.evaluate((ribbon) => ({
       scope: ribbon.getAttribute("data-ribbon-scope"),
-      label: ribbon.querySelector(".ple-app-ribbon__course-scope-label")?.textContent,
-      controls: [...ribbon.querySelectorAll("[data-ribbon-control]")].map((control) => ({
-        unavailable: control.getAttribute("data-ribbon-availability"),
-        href: control.getAttribute("href"),
-      })),
+      tierOneControlIds: [
+        ...ribbon.querySelectorAll('nav[aria-label="Ribbon tabs"] [data-ribbon-control-id]'),
+      ].map((control) => control.getAttribute("data-ribbon-control-id")),
+      taskControls: [
+        ...ribbon.querySelectorAll('nav[aria-label="Ribbon tasks"] [data-ribbon-control]'),
+      ].map((control) => control.getAttribute("data-ribbon-control")),
     })),
     {
       scope: "assessmentAttempt",
-      label: undefined,
-      controls: [],
+      tierOneControlIds: ["courses", "questions", "productAssessments"],
+      taskControls: [],
     },
     "a malformed Assessment Attempt ID keeps the declared data-free Attempt Ribbon",
   );
@@ -495,14 +510,14 @@ try {
     null,
     "a valid scoped route restores its declared Ribbon schema after malformed scope handling",
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await assertOneStableRibbon(page, "current-production", currentRibbon);
 
-  for (const [pathname, taskRowReserved] of [
-    ["/library", true],
-    ["/blueprint-courses", true],
-    ["/courses/CI4W8QF9AD", false],
-    ["/assessment-attempts/00000000-0000-0000-0000-000000000001", true],
-    ["/courses/CI7K3M2QAZ", false],
+  for (const pathname of [
+    "/library",
+    "/blueprint-courses",
+    "/courses/CI4W8QF9AD",
+    "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+    "/courses/CI7K3M2QAZ",
   ]) {
     await page.evaluate(
       (nextPathname) => window.ribbonShell.currentNavigate(nextPathname),
@@ -510,7 +525,7 @@ try {
     );
     await waitForPath(page, "current-production", pathname);
     try {
-      await assertOneStableRibbon(page, "current-production", currentRibbon, taskRowReserved);
+      await assertOneStableRibbon(page, "current-production", currentRibbon);
     } catch (error) {
       throw new Error(`current-source Ribbon topology disagreed at ${pathname}`, { cause: error });
     }
@@ -623,57 +638,41 @@ try {
       pathname: "/courses/CI7K3M2QAZ",
       scope: "courseInstance",
       selected: "Assessments",
-      context: "Course CI7K3M2QAZ",
-      taskRowReserved: false,
     },
     {
       pathname: "/instructor/courses/CI7K3M2QAZ/students",
       scope: "courseInstance",
-      selected: "Students",
-      context: "Course CI7K3M2QAZ",
-      taskRowReserved: false,
+      selected: "Assessments",
     },
     {
       pathname: "/instructor/courses/CI7K3M2QAZ/gradebook",
       scope: "courseInstance",
-      selected: "Gradebook",
-      context: "Course CI7K3M2QAZ",
-      taskRowReserved: false,
+      selected: "Assessments",
     },
     {
       pathname: "/library",
       scope: "product",
       selected: "Questions",
-      context: undefined,
-      taskRowReserved: true,
     },
     {
       pathname: "/blueprint-courses",
       scope: "product",
       selected: "Courses",
-      context: undefined,
-      taskRowReserved: true,
     },
     {
       pathname: "/courses/CI4W8QF9AD",
       scope: "courseInstance",
       selected: "Assessments",
-      context: "Course CI4W8QF9AD",
-      taskRowReserved: false,
     },
     {
       pathname: "/assessment-attempts/00000000-0000-0000-0000-000000000001",
       scope: "assessmentAttempt",
       selected: undefined,
-      context: undefined,
-      taskRowReserved: true,
     },
     {
       pathname: "/courses/CI7K3M2QAZ",
       scope: "courseInstance",
       selected: "Assessments",
-      context: "Course CI7K3M2QAZ",
-      taskRowReserved: false,
     },
   ];
   for (const transition of fixtureTransitions) {
@@ -682,7 +681,7 @@ try {
       transition.pathname,
     );
     await waitForPath(page, "fixture-shell", transition.pathname);
-    await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, transition.taskRowReserved);
+    await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
     assert.equal(
       await fixtureCase.locator(`.ple-app-ribbon[data-ribbon-scope="${transition.scope}"]`).count(),
       1,
@@ -700,20 +699,6 @@ try {
         await selected.innerText(),
         transition.selected,
         `fixture projection updates the selected Tab at ${transition.pathname}`,
-      );
-    }
-    const contextLabels = fixtureCase.locator(".ple-app-ribbon__course-scope-label");
-    if (transition.context === undefined) {
-      assert.equal(
-        await contextLabels.count(),
-        0,
-        "product and attempt fixture scopes omit a course label",
-      );
-    } else {
-      assert.equal(
-        await contextLabels.innerText(),
-        transition.context,
-        `fixture projection exposes its truthful course context at ${transition.pathname}`,
       );
     }
   }
@@ -738,22 +723,22 @@ try {
       throw new Error("presentation setter did not update the course theme variables");
     }
   });
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
 
   await page.evaluate(() => window.ribbonShell.throwFixtureContent(true));
   await page.evaluate(() => window.ribbonShell.fixtureNavigate("/courses/CI4W8QF9AD"));
   await fixtureCase.getByRole("alert").waitFor({ state: "visible" });
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
 
   const tab = fixtureCase.getByRole("link", { name: "Assessments" });
   await tab.waitFor({ state: "visible" });
   await tab.click();
   assert.equal(
     await page.evaluate(() => window.ribbonShell.fixturePathname()),
-    "/courses/CI7K3M2QAZ",
+    "/assessments/due-soon",
     "visible Tab activation changes the controlled content route while its error remains contained",
   );
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
   await page.evaluate(() =>
     window.ribbonShell.fixtureNavigate("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF"),
   );
@@ -762,12 +747,14 @@ try {
       window.ribbonShell.fixturePathname() ===
         "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF" &&
       document.querySelector(
-        '[data-m10-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
+        '[data-m10-case="fixture-shell"] section[data-ribbon-row-frame="tasks"]',
       ) !== null,
   );
   await flush(page);
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
-  const task = fixtureCase.getByRole("link", { name: "Questions" });
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+  const task = fixtureCase
+    .getByRole("navigation", { name: "Ribbon tasks" })
+    .getByRole("link", { name: "Questions" });
   await task.waitFor({ state: "visible" });
   await task.focus();
   await page.keyboard.press("Enter");
@@ -777,7 +764,7 @@ try {
     "keyboard Task activation changes the controlled content route while its " +
       "error remains contained",
   );
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
   await fixtureCase.screenshot({
     path: "/private/tmp/ple_ribbon_shell_fixture_shell.png",
     fullPage: true,
@@ -785,8 +772,10 @@ try {
 
   await page.evaluate(() => window.ribbonShell.throwFixtureContent(false));
   await fixtureCase.getByRole("button", { name: "Try this page again" }).click();
-  await fixtureCase.locator("[data-ribbon-fixture-content]").waitFor({ state: "visible" });
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
+  await fixtureCase
+    .getByRole("heading", { name: "Fixture page", exact: true })
+    .waitFor({ state: "visible" });
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
 
   await fixtureCase.evaluate((root) => {
     root.querySelector(".ple-app-ribbon")?.dispatchEvent(

@@ -1,14 +1,17 @@
 // gradebook_page.tsx - focused answer-free Instructor Gradebook.
 
 import { useParams } from "@solidjs/router";
-import { For, Show, createResource, createSignal, onCleanup, type JSX } from "solid-js";
+import { Show, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseGradebook, GradebookExportFormat } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
-import "./instructor_data_tables.css";
+import "./gradebook_record_list.css";
 
 function progressLabel(completion: "inProgress" | "completed" | null): string {
   if (completion === "completed") return "Completed and scored";
@@ -22,53 +25,87 @@ function scoreLabel(work: CourseGradebook["studentWork"][number]): string {
   return work.expiredSubmitting ? "Expired, submitting" : "-";
 }
 
-function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.Element {
+type GradebookStudentWork = CourseGradebook["studentWork"][number];
+
+const gradebookRegions: ReadonlyArray<RecordRegion<GradebookStudentWork>> = [
+  {
+    id: "student",
+    role: "identity",
+    priority: "required",
+    width: "var(--gradebook-student-column)",
+    align: "start",
+    header: "Student",
+    content: (work) => (
+      <>
+        <span class="visually-hidden">Student: </span>
+        <span>{work.rosterName}</span>
+        <small>{work.rosterId}</small>
+      </>
+    ),
+  },
+  {
+    id: "coursework",
+    role: "metadata",
+    priority: "high",
+    width: "var(--gradebook-coursework-column)",
+    align: "start",
+    header: "Coursework",
+    content: (work) => (
+      <>
+        <span class="visually-hidden">Coursework: </span>
+        <span>{work.assessmentTitle}</span>
+      </>
+    ),
+  },
+  {
+    id: "progress",
+    role: "status",
+    priority: "medium",
+    width: "var(--gradebook-progress-column)",
+    align: "start",
+    header: "Progress status",
+    content: (work) => (
+      <>
+        <span class="visually-hidden">Progress status: </span>
+        {progressLabel(work.assessmentAttemptCompletion)}
+      </>
+    ),
+  },
+  {
+    id: "score",
+    role: "status",
+    priority: "required",
+    width: "var(--gradebook-score-column)",
+    align: "end",
+    header: "Current score",
+    content: (work) => (
+      <>
+        <span class="visually-hidden">Current score: </span>
+        {scoreLabel(work)}
+      </>
+    ),
+  },
+];
+
+function GradebookEvidence(props: {
+  readonly rows: ReadonlyArray<GradebookStudentWork>;
+  readonly state: RecordListState;
+}): JSX.Element {
   return (
-    <Show
-      when={props.gradebook.studentWork.length > 0}
-      fallback={
-        <section class="gradebook-empty" aria-label="No student progress to review">
-          <h2>No student progress to review yet</h2>
-          <p>
-            Progress and scores appear here when this Course has active Students and released
-            Coursework.
-          </p>
-        </section>
-      }
-    >
-      <div class="gradebook-table-wrap" role="region" aria-label="Student progress and scores">
-        <table class="gradebook-table">
-          <thead>
-            <tr>
-              <th scope="col">Student</th>
-              <th scope="col">Coursework</th>
-              <th scope="col">Progress status</th>
-              <th scope="col">Current score</th>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={props.gradebook.studentWork}>
-              {(work) => (
-                <tr>
-                  <td>
-                    {/* ASVS 1.2.1: roster names remain escaped text, never markup. */}
-                    <div>{work.rosterName}</div>
-                    <small>{work.rosterId}</small>
-                  </td>
-                  <td>
-                    {/* ASVS 1.2.1: JSX renders the Course title as text, never markup. */}
-                    <div>{work.assessmentTitle}</div>
-                    <small>{work.assessmentId}</small>
-                  </td>
-                  <td>{progressLabel(work.assessmentAttemptCompletion)}</td>
-                  <td>{scoreLabel(work)}</td>
-                </tr>
-              )}
-            </For>
-          </tbody>
-        </table>
-      </div>
-    </Show>
+    <section class="gradebook-record-list" aria-label="Student progress and scores">
+      <RecordList
+        rows={props.rows}
+        regions={gradebookRegions}
+        recordId={(work) => `${work.rosterId}-${work.assessmentId}`}
+        state={props.state}
+        ariaLabel="Student progress and scores"
+        emptyState={{
+          title: "No student progress to review yet",
+          message:
+            "Progress and scores appear here when this Course has active Students and released Coursework.",
+        }}
+      />
+    </section>
   );
 }
 
@@ -85,6 +122,20 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
   onCleanup(() => {
     disposed = true;
   });
+
+  const gradebookState = (): RecordListState => {
+    if (gradebook.loading) {
+      return { kind: "loading", label: "Loading student progress and scores..." };
+    }
+    if (gradebook.error !== undefined) {
+      return {
+        kind: "error",
+        title: "Gradebook unavailable",
+        message: "This Course Instance is not available through your current Instructor access.",
+      };
+    }
+    return { kind: "ready" };
+  };
 
   async function download(format: GradebookExportFormat): Promise<void> {
     if (downloading()) return;
@@ -122,46 +173,32 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
   }
 
   return (
-    <section class="page gradebook-page" data-route-surface="gradebook">
-      <p class="eyebrow">Course progress</p>
-      <h1>Gradebook</h1>
-      <p class="page-lede">Review student progress and scores for released Coursework.</p>
-      <Show when={gradebook.loading}>
-        <p class="loading-state" role="status">
-          Loading student progress and scores...
-        </p>
-      </Show>
-      <Show when={gradebook.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h2>Gradebook unavailable</h2>
-          <p>This Course Instance is not available through your current Instructor access.</p>
+    <PageFrame
+      contentClass="gradebook-page"
+      routeSurface="gradebook"
+      eyebrow="Course progress"
+      title="Gradebook"
+      lede="Review student progress and scores for released Coursework."
+    >
+      <Show when={gradebook()}>
+        <section class="gradebook-export" aria-label="Download point grades">
+          <p>Export Assessment points. Handle Course weighting and percentages in your home LMS.</p>
+          <div class="gradebook-export-actions" aria-busy={downloading()}>
+            <button type="button" disabled={downloading()} onClick={() => void download("csv")}>
+              Download CSV
+            </button>
+            <button type="button" disabled={downloading()} onClick={() => void download("tsv")}>
+              Download TSV
+            </button>
+          </div>
+          <p role="status">{downloadMessage()}</p>
+          <Show when={downloadError()}>
+            <p role="alert">{downloadError()}</p>
+          </Show>
         </section>
       </Show>
-      <Show when={gradebook()}>
-        {(loaded) => (
-          <>
-            <section class="gradebook-export" aria-label="Download point grades">
-              <p>
-                Export Assessment points. Handle Course weighting and percentages in your home LMS.
-              </p>
-              <div class="gradebook-export-actions" aria-busy={downloading()}>
-                <button type="button" disabled={downloading()} onClick={() => void download("csv")}>
-                  Download CSV
-                </button>
-                <button type="button" disabled={downloading()} onClick={() => void download("tsv")}>
-                  Download TSV
-                </button>
-              </div>
-              <p role="status">{downloadMessage()}</p>
-              <Show when={downloadError()}>
-                <p role="alert">{downloadError()}</p>
-              </Show>
-            </section>
-            <GradebookEvidence gradebook={loaded()} />
-          </>
-        )}
-      </Show>
-    </section>
+      <GradebookEvidence rows={gradebook()?.studentWork ?? []} state={gradebookState()} />
+    </PageFrame>
   );
 }
 
@@ -176,12 +213,15 @@ export function GradebookPage(): JSX.Element {
       when={course()}
       keyed
       fallback={
-        <section class="page gradebook-page" data-route-surface="gradebook">
+        <PageFrame
+          contentClass="gradebook-page"
+          routeSurface="gradebook"
+          title="Gradebook unavailable"
+        >
           <section class="route-error" role="alert">
-            <h1>Gradebook unavailable</h1>
             <p>Return to your course list, then open the Gradebook again.</p>
           </section>
-        </section>
+        </PageFrame>
       }
     >
       {(loadedCourse) => <GradebookCoursePage courseInstanceId={loadedCourse} />}

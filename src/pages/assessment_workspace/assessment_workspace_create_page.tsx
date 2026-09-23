@@ -10,6 +10,7 @@ import {
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { AssessmentTemplate } from "../../../generated/api/AssessmentTemplate";
 import { useApplicationApi } from "../../api/application_api";
+import { PageFrame } from "../../components/page_frame";
 import type { LiveAssessmentWorkspaceResponse } from "../../api/assessment_release";
 import { useSessionBootstrap } from "../../auth/session_context";
 import { courseRouteView } from "../../features/course_appearance/course_theme_context";
@@ -147,28 +148,31 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   onMount(() => void loadTemplates());
 
   return (
-    <section class="page assessment-workspace-create" data-route-surface="assessmentCreate">
-      <Show
-        when={mayCreate() && state() !== "unavailable"}
-        fallback={
-          <section class="route-error" role="alert">
-            <p class="eyebrow">Instructor assessment workspace</p>
-            <h1>This assessment workspace is unavailable</h1>
+    <Show
+      when={mayCreate() && state() !== "unavailable"}
+      fallback={
+        <div role="alert">
+          <PageFrame
+            contentClass="assessment-workspace-create route-error"
+            routeSurface="assessmentCreate"
+            eyebrow="Instructor assessment workspace"
+            title="This assessment workspace is unavailable"
+          >
             <p>Return to a course you manage to create an assessment.</p>
             <A class="primary-link" href="/">
               Return to courses
             </A>
-          </section>
-        }
+          </PageFrame>
+        </div>
+      }
+    >
+      <PageFrame
+        contentClass="assessment-workspace-create"
+        routeSurface="assessmentCreate"
+        eyebrow="New assessment"
+        title="Create an Assessment"
+        lede="Choose an Assessment Type and enter a title. Questions and Assessment Properties have their own focused steps next."
       >
-        <header class="assessment-workspace-header">
-          <p class="eyebrow">New assessment</p>
-          <h1>Create an Assessment</h1>
-          <p class="page-lede">
-            Choose an Assessment Type and enter a title. Questions and Assessment Properties have
-            their own focused steps next.
-          </p>
-        </header>
         <form
           class="assessment-editor-panel"
           aria-busy={state() === "saving"}
@@ -339,7 +343,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
             )}
           </Show>
         </form>
-      </Show>
-    </section>
+      </PageFrame>
+    </Show>
   );
 }

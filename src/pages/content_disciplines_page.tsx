@@ -5,6 +5,7 @@ import { For, Show, createMemo, createResource, createSignal, type JSX } from "s
 import type { ContentClassificationItem } from "../api/content_classification";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { PageFrame } from "../components/page_frame";
 
 const unavailableDisciplines: ReadonlyArray<ContentClassificationItem> = [];
 
@@ -105,18 +106,13 @@ export function ContentDisciplinesPage(): JSX.Element {
   }
 
   return (
-    <section
-      class="page"
-      data-route-surface="contentDisciplines"
-      aria-labelledby="content-disciplines-heading"
+    <PageFrame
+      routeSurface="contentDisciplines"
+      headingId="content-disciplines-heading"
+      eyebrow="System administration"
+      title="Disciplines"
+      lede="Manage the stable shared vocabulary used by Courses and Library Objects. Retired Disciplines remain visible for existing content and discovery, but are unavailable for new classification choices."
     >
-      <p class="eyebrow">System administration</p>
-      <h1 id="content-disciplines-heading">Disciplines</h1>
-      <p class="page-lede">
-        Manage the stable shared vocabulary used by Courses and Library Objects. Retired Disciplines
-        remain visible for existing content and discovery, but are unavailable for new
-        classification choices.
-      </p>
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}
       </p>
@@ -204,6 +200,6 @@ export function ContentDisciplinesPage(): JSX.Element {
           </For>
         </section>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

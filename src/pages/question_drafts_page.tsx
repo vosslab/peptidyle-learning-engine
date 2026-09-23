@@ -1,8 +1,11 @@
 // question_drafts_page.tsx - private Authoring Workspace entry and Draft Question list.
 
 import { A, useNavigate } from "@solidjs/router";
-import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
+import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../features/ple_question_json_authoring/question_json_source";
 import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
@@ -28,6 +31,77 @@ type PageMessage = {
   readonly kind: "error" | "success";
   readonly text: string;
 };
+
+function shortContentPreview(questionDescription: string): string | undefined {
+  const normalizedDescription = questionDescription.replace(/\s+/gu, " ").trim();
+  if (normalizedDescription.length === 0) return undefined;
+  const maximumPreviewLength = 180;
+  if (normalizedDescription.length <= maximumPreviewLength) return normalizedDescription;
+  return `${normalizedDescription.slice(0, maximumPreviewLength - 3).trimEnd()}...`;
+}
+
+function createDraftRegions(
+  deleting: () => boolean,
+  requestDelete: (draft: DraftSummary) => void,
+): ReadonlyArray<RecordRegion<DraftSummary>> {
+  return [
+    {
+      id: "draft-question",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (draft) => (
+        <>
+          <A
+            class="draft-question-title"
+            href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
+          >
+            {draft.questionTitle}
+          </A>
+          <Show when={shortContentPreview(draft.questionDescription)}>
+            {(preview) => <p class="draft-question-preview">{preview()}</p>}
+          </Show>
+        </>
+      ),
+    },
+    {
+      id: "edit-number",
+      role: "metadata",
+      priority: "medium",
+      width: "minmax(0, 8rem)",
+      align: "start",
+      content: (draft) => <span>Edit {draft.draftQuestionEditNumber}</span>,
+    },
+    {
+      id: "actions",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (draft) => (
+        <>
+          <A
+            class="quiet-link draft-question-edit"
+            href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
+            aria-label={`Edit draft: ${draft.questionTitle}`}
+          >
+            Edit draft
+          </A>
+          <button
+            class="quiet-action draft-question-delete"
+            type="button"
+            aria-label={`Delete draft: ${draft.questionTitle}`}
+            disabled={deleting()}
+            onClick={() => requestDelete(draft)}
+          >
+            Delete draft
+          </button>
+        </>
+      ),
+    },
+  ];
+}
 
 async function listDrafts(): Promise<ReadonlyArray<DraftSummary>> {
   const response = await fetch("/api/authoring/drafts", {
@@ -82,6 +156,20 @@ export function QuestionDraftsPage(): JSX.Element {
   const [pendingDelete, setPendingDelete] = createSignal<DraftSummary>();
   const [deleteMessage, setDeleteMessage] = createSignal<string>();
   const [message, setMessage] = createSignal<PageMessage>();
+  const draftListState = createMemo<RecordListState>(() => {
+    if (drafts.loading) {
+      return { kind: "loading", label: "Loading your private Draft Questions..." };
+    }
+    if (draftsLoadFailed()) {
+      return {
+        kind: "error",
+        title: "My Question Drafts is unavailable.",
+        message: "Try loading your Draft Questions again.",
+        retry: (): void => void refetch(),
+      };
+    }
+    return { kind: "ready" };
+  });
 
   async function createDraft(): Promise<void> {
     if (creating()) return;
@@ -171,16 +259,15 @@ export function QuestionDraftsPage(): JSX.Element {
     }
   }
 
+  const draftRegions = createDraftRegions(deleting, requestDelete);
+
   return (
-    <main class="page" data-route-surface="questionDrafts">
-      <header>
-        <p class="eyebrow">Private instructor authoring</p>
-        <h1>My Draft Questions</h1>
-        <p>
-          Draft Questions stay in your Authoring Workspace until you publish a validated question.
-        </p>
-      </header>
-      <p>
+    <PageFrame
+      routeSurface="questionDrafts"
+      eyebrow="Private instructor authoring"
+      title="My Draft Questions"
+      lede="Draft Questions stay in your Authoring Workspace until you publish a validated question."
+      actions={
         <button
           class="primary-action"
           type="button"
@@ -189,7 +276,8 @@ export function QuestionDraftsPage(): JSX.Element {
         >
           {creating() ? "Creating private draft..." : "New Draft Question"}
         </button>
-      </p>
+      }
+    >
       <Show when={message()}>
         {(value) => (
           <p class={value().kind === "error" ? "inline-error" : "calm-status"} role="status">
@@ -197,71 +285,17 @@ export function QuestionDraftsPage(): JSX.Element {
           </p>
         )}
       </Show>
-      <Show when={drafts.loading}>
-        <p class="calm-status" role="status">
-          Loading your private Draft Questions...
-        </p>
-      </Show>
-      <Show when={draftsLoadFailed()}>
-        <section class="inline-error" role="alert">
-          <p>My Question Drafts is unavailable.</p>
-          <button class="quiet-action" type="button" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </section>
-      </Show>
-      <Show when={drafts()}>
-        {(items) => (
-          <Show
-            when={items().length > 0}
-            fallback={
-              <p class="calm-status">Create a Draft Question to begin authoring privately.</p>
-            }
-          >
-            <ul class="draft-question-list" aria-label="Private Draft Questions">
-              <For each={items()}>
-                {(draft) => (
-                  <li class="draft-question-row">
-                    <div class="draft-question-content">
-                      <A
-                        class="draft-question-title"
-                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
-                      >
-                        {draft.questionTitle}
-                      </A>
-                      <Show when={draft.questionDescription.length > 0}>
-                        <p class="draft-question-description">{draft.questionDescription}</p>
-                      </Show>
-                    </div>
-                    <p class="draft-question-metadata">
-                      <span>Private draft</span>
-                      <span>Draft Question Edit Number {draft.draftQuestionEditNumber}</span>
-                    </p>
-                    <div class="draft-question-actions">
-                      <A
-                        class="quiet-link draft-question-edit"
-                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
-                        aria-label={`Edit draft: ${draft.questionTitle}`}
-                      >
-                        Edit draft
-                      </A>
-                      <button
-                        class="quiet-action draft-question-delete"
-                        type="button"
-                        aria-label={`Delete draft: ${draft.questionTitle}`}
-                        disabled={deleting()}
-                        onClick={() => requestDelete(draft)}
-                      >
-                        Delete draft
-                      </button>
-                    </div>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        )}
-      </Show>
+      <RecordList
+        rows={drafts() ?? []}
+        regions={draftRegions}
+        recordId={(draft) => draft.draftQuestionId}
+        state={draftListState()}
+        ariaLabel="Private Draft Questions"
+        emptyState={{
+          title: "No Draft Questions yet",
+          message: "Create a Draft Question to begin authoring privately.",
+        }}
+      />
       <Show when={pendingDelete()}>
         {(draft) => (
           <dialog
@@ -316,6 +350,6 @@ export function QuestionDraftsPage(): JSX.Element {
           </dialog>
         )}
       </Show>
-    </main>
+    </PageFrame>
   );
 }

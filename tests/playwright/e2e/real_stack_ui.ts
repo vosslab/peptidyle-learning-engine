@@ -87,7 +87,7 @@ export async function chooseSeededIdentity(page: Page, name: RegExp): Promise<vo
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   await expect(
     page.getByRole("heading", {
-      name: /^(Course Instances you teach|Your Course Instances|Your courses)$/u,
+      name: /^(Course Instances you teach|Your Course Instances|My Active Courses|Your courses)$/u,
     }),
   ).toBeVisible();
 }

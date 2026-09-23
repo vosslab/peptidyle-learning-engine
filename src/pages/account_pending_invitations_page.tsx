@@ -8,6 +8,8 @@ import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCo
 import { ApiRequestError } from "../api/http_client/error";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { PageFrame } from "../components/page_frame";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import {
   appendPendingInvitationPage,
   conflictRecoveryCopy,
@@ -52,7 +54,6 @@ export function AccountPendingInvitationsPage(): JSX.Element {
   const [error, setError] = createSignal<string | null>(null);
   const [announcement, setAnnouncement] = createSignal("");
   const [pendingResponse, setPendingResponse] = createSignal<PendingResponse | null>(null);
-  let heading: HTMLHeadingElement | undefined;
 
   async function load(): Promise<void> {
     if (session.state().kind !== "authenticated") return;
@@ -114,7 +115,11 @@ export function AccountPendingInvitationsPage(): JSX.Element {
         response.action === "accept" ? "Invitation accepted." : "Invitation declined.",
       );
       await load();
-      queueMicrotask(() => heading?.focus());
+      queueMicrotask(() =>
+        document
+          .querySelector<HTMLElement>("#pending-invitations-heading [tabindex='-1']")
+          ?.focus(),
+      );
     } catch (caught) {
       setError(responseErrorCopy(caught));
       if (caught instanceof ApiRequestError && caught.status === 412) await load();
@@ -126,19 +131,13 @@ export function AccountPendingInvitationsPage(): JSX.Element {
   onMount(() => void load());
 
   return (
-    <section
-      class="page pending-invitations-page"
-      data-route-surface="accountPendingInvitations"
-      aria-labelledby="pending-invitations-heading"
+    <PageFrame
+      routeSurface="accountPendingInvitations"
+      headingId="pending-invitations-heading"
+      eyebrow="Account invitations"
+      title={<span tabindex={-1}>Pending teaching invitations</span>}
+      lede="Review invitations addressed to this signed-in account. An invitation is not course authority until you accept it."
     >
-      <p class="eyebrow">Account invitations</p>
-      <h1 ref={(element) => (heading = element)} id="pending-invitations-heading" tabindex={-1}>
-        Pending teaching invitations
-      </h1>
-      <p class="page-lede">
-        Review invitations addressed to this signed-in account. An invitation is not course
-        authority until you accept it.
-      </p>
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}
       </p>
@@ -166,78 +165,85 @@ export function AccountPendingInvitationsPage(): JSX.Element {
             </p>
           }
         >
-          {(current) => (
-            <section class="pending-invitation-list" aria-label="Pending teaching invitations">
-              <For
-                each={current().invitations}
-                fallback={
-                  <section class="auth-panel empty-state">
-                    <h2>No invitations waiting</h2>
-                    <p>When a course instructor invites this account, it appears here.</p>
-                  </section>
-                }
-              >
-                {(invitation) => (
-                  <article class="auth-panel pending-invitation-card">
-                    <div>
-                      <h2>{invitation.courseLabel}</h2>
-                      <p class="teaching-team-meta">{invitationStateLabel(invitation.state)}</p>
-                      <p class="teaching-team-meta">
-                        {serverExpiryCopy(invitation.expiresAt, current().displayTimeZone)}
-                      </p>
-                    </div>
-                    <Show
-                      when={isPendingInvitation(invitation.state)}
-                      fallback={
-                        <p class="teaching-team-meta">This invitation is no longer actionable.</p>
-                      }
-                    >
-                      <div class="action-row">
-                        <button
-                          class="quiet-action"
-                          type="button"
-                          disabled={busy()}
-                          onClick={(event) =>
-                            setPendingResponse({
-                              invitation,
-                              action: "decline",
-                              trigger: event.currentTarget,
-                            })
-                          }
-                        >
-                          Decline
-                        </button>
-                        <button
-                          class="primary-action"
-                          type="button"
-                          disabled={busy()}
-                          onClick={(event) =>
-                            setPendingResponse({
-                              invitation,
-                              action: "accept",
-                              trigger: event.currentTarget,
-                            })
-                          }
-                        >
-                          Accept
-                        </button>
-                      </div>
-                    </Show>
-                  </article>
-                )}
-              </For>
-              <Show when={current().nextCursor !== null}>
-                <button
-                  class="quiet-action"
-                  type="button"
-                  disabled={busy()}
-                  onClick={() => void loadMore()}
+          {(current) => {
+            const formatExpiry = createDisplayDateTimeFormatter(current().displayTimeZone);
+            return (
+              <section class="pending-invitation-list" aria-label="Pending teaching invitations">
+                <For
+                  each={current().invitations}
+                  fallback={
+                    <section class="auth-panel empty-state">
+                      <h2>No invitations waiting</h2>
+                      <p>When a course instructor invites this account, it appears here.</p>
+                    </section>
+                  }
                 >
-                  Load more invitations
-                </button>
-              </Show>
-            </section>
-          )}
+                  {(invitation) => (
+                    <article class="auth-panel pending-invitation-card">
+                      <div>
+                        <h2>{invitation.courseLabel}</h2>
+                        <p class="teaching-team-meta">{invitationStateLabel(invitation.state)}</p>
+                        <p class="teaching-team-meta">
+                          {serverExpiryCopy(
+                            invitation.expiresAt,
+                            current().displayTimeZone,
+                            formatExpiry,
+                          )}
+                        </p>
+                      </div>
+                      <Show
+                        when={isPendingInvitation(invitation.state)}
+                        fallback={
+                          <p class="teaching-team-meta">This invitation is no longer actionable.</p>
+                        }
+                      >
+                        <div class="action-row">
+                          <button
+                            class="quiet-action"
+                            type="button"
+                            disabled={busy()}
+                            onClick={(event) =>
+                              setPendingResponse({
+                                invitation,
+                                action: "decline",
+                                trigger: event.currentTarget,
+                              })
+                            }
+                          >
+                            Decline
+                          </button>
+                          <button
+                            class="primary-action"
+                            type="button"
+                            disabled={busy()}
+                            onClick={(event) =>
+                              setPendingResponse({
+                                invitation,
+                                action: "accept",
+                                trigger: event.currentTarget,
+                              })
+                            }
+                          >
+                            Accept
+                          </button>
+                        </div>
+                      </Show>
+                    </article>
+                  )}
+                </For>
+                <Show when={current().nextCursor !== null}>
+                  <button
+                    class="quiet-action"
+                    type="button"
+                    disabled={busy()}
+                    onClick={() => void loadMore()}
+                  >
+                    Load more invitations
+                  </button>
+                </Show>
+              </section>
+            );
+          }}
         </Show>
         <Show when={pendingResponse()}>
           {(response) => (
@@ -269,6 +275,6 @@ export function AccountPendingInvitationsPage(): JSX.Element {
           )}
         </Show>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

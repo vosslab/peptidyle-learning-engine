@@ -1,0 +1,46 @@
+/* Shared route content geometry and heading rhythm. */
+
+.page-frame {
+  display: grid;
+  align-content: start;
+  gap: var(--ple-space-5);
+  width: min(100%, var(--ple-reading-max-inline));
+  min-inline-size: 0;
+  margin-inline: auto;
+}
+
+.page-frame--full-width {
+  width: 100%;
+}
+
+.page-frame__header {
+  display: grid;
+  gap: var(--ple-space-2);
+  min-inline-size: 0;
+}
+
+.page-frame__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-space-2);
+  min-inline-size: 0;
+}
+
+.page-frame__actions > * {
+  margin: 0;
+}
+
+.page-frame__content {
+  min-inline-size: 0;
+}
+
+.page-frame__eyebrow,
+.page-frame__lede,
+.page-frame__title {
+  margin: 0;
+}
+
+.page-frame__title {
+  font-size: clamp(1.25rem, 1.6vw, 1.6rem);
+}

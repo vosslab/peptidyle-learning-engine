@@ -1,5 +1,7 @@
 # Human Guidance implementation gap map
 
+Date: 2026-09-17 (reconciliation snapshot)
+
 This map records each owning open item from the accepted section audits. Human Guidance is the
 authority. A record is closed only by the named correction milestone or, for guidance that makes
 no implemented-system claim, by the named audit-classification correction.

@@ -5,6 +5,8 @@ import { For, Show, createMemo, createResource, createSignal, type JSX } from "s
 import type { InstructorAccountList, InstructorAccountSummary } from "../api/instructor_account";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { PageFrame } from "../components/page_frame";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { AvatarVisual } from "../features/profile_avatar/provided_avatar_picker";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 import { formatSignInLabel } from "./instructor_account_model";
@@ -148,17 +150,13 @@ export function InstructorAccountsPage(): JSX.Element {
   }
 
   return (
-    <section
-      class="page"
-      data-route-surface="instructorAccounts"
-      aria-labelledby="instructor-accounts-heading"
+    <PageFrame
+      routeSurface="instructorAccounts"
+      headingId="instructor-accounts-heading"
+      eyebrow="System administration"
+      title="Instructor Accounts"
+      lede="Create and manage Instructor Account access. This workspace intentionally lists only an Account ID, state, and last successful sign-in."
     >
-      <p class="eyebrow">System administration</p>
-      <h1 id="instructor-accounts-heading">Instructor Accounts</h1>
-      <p class="page-lede">
-        Create and manage Instructor Account access. This workspace intentionally lists only an
-        Account ID, state, and last successful sign-in.
-      </p>
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}
       </p>
@@ -221,79 +219,82 @@ export function InstructorAccountsPage(): JSX.Element {
       </Show>
       <Show when={accounts() !== undefined && accounts.error === undefined}>
         <Show when={accounts()} keyed>
-          {(list) => (
-            <section aria-label="Instructor Accounts">
-              <p class="page-lede">
-                Last successful sign-in times use your time zone: {list.displayTimeZone}.
-              </p>
-              <For
-                each={list.accounts}
-                fallback={<p class="empty-state">No Instructor Accounts are available.</p>}
-              >
-                {(account) => (
-                  <article class="auth-panel">
-                    <h2>
-                      <Show
-                        when={account.providedAvatarId}
-                        fallback={<RibbonIcon glyph="circle-user" />}
-                      >
-                        {(providedAvatarId) => (
-                          <AvatarVisual avatarId={providedAvatarId()} decorative size={24} />
-                        )}
-                      </Show>{" "}
-                      {account.id}
-                    </h2>
-                    <p>State: {stateLabel(account.state)}</p>
-                    <p>
-                      Last successful sign-in:{" "}
-                      {formatSignInLabel(account.lastSuccessfulSignIn, list.displayTimeZone)}
-                    </p>
-                    <Show when={account.state === "active"}>
-                      <label for={`deactivate-reason-${account.id}`}>
-                        Deactivation reason
-                        <input
-                          id={`deactivate-reason-${account.id}`}
-                          name={`deactivationReason-${account.id}`}
-                          type="text"
-                          value={reasonByAccountId()[account.id] ?? ""}
-                          onInput={(event) => setReason(account.id, event.currentTarget.value)}
-                          maxlength={1000}
-                          required
-                        />
-                      </label>
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        disabled={busyAccountId() === account.id}
-                        onClick={() => void deactivate(account)}
-                      >
-                        {busyAccountId() === account.id
-                          ? "Updating..."
-                          : "Deactivate Instructor Account"}
-                      </button>
-                    </Show>
-                    <Show when={account.state === "deactivated"}>
-                      <button
-                        class="primary-action"
-                        type="button"
-                        disabled={busyAccountId() === account.id}
-                        onClick={() => void reactivate(account)}
-                      >
-                        {busyAccountId() === account.id
-                          ? "Updating..."
-                          : "Reactivate Instructor Account"}
-                      </button>
-                    </Show>
-                    <Show when={account.state === "closed"}>
-                      <p>This Instructor Account is closed and cannot be changed here.</p>
-                    </Show>
-                  </article>
-                )}
-              </For>
-            </section>
-          )}
+          {(list) => {
+            const formatSignIn = createDisplayDateTimeFormatter(list.displayTimeZone);
+            return (
+              <section aria-label="Instructor Accounts">
+                <p class="page-lede">
+                  Last successful sign-in times use your time zone: {list.displayTimeZone}.
+                </p>
+                <For
+                  each={list.accounts}
+                  fallback={<p class="empty-state">No Instructor Accounts are available.</p>}
+                >
+                  {(account) => (
+                    <article class="auth-panel">
+                      <h2>
+                        <Show
+                          when={account.providedAvatarId}
+                          fallback={<RibbonIcon glyph="circle-user" />}
+                        >
+                          {(providedAvatarId) => (
+                            <AvatarVisual avatarId={providedAvatarId()} decorative size={24} />
+                          )}
+                        </Show>{" "}
+                        {account.id}
+                      </h2>
+                      <p>State: {stateLabel(account.state)}</p>
+                      <p>
+                        Last successful sign-in:{" "}
+                        {formatSignInLabel(account.lastSuccessfulSignIn, formatSignIn)}
+                      </p>
+                      <Show when={account.state === "active"}>
+                        <label for={`deactivate-reason-${account.id}`}>
+                          Deactivation reason
+                          <input
+                            id={`deactivate-reason-${account.id}`}
+                            name={`deactivationReason-${account.id}`}
+                            type="text"
+                            value={reasonByAccountId()[account.id] ?? ""}
+                            onInput={(event) => setReason(account.id, event.currentTarget.value)}
+                            maxlength={1000}
+                            required
+                          />
+                        </label>
+                        <button
+                          class="quiet-action"
+                          type="button"
+                          disabled={busyAccountId() === account.id}
+                          onClick={() => void deactivate(account)}
+                        >
+                          {busyAccountId() === account.id
+                            ? "Updating..."
+                            : "Deactivate Instructor Account"}
+                        </button>
+                      </Show>
+                      <Show when={account.state === "deactivated"}>
+                        <button
+                          class="primary-action"
+                          type="button"
+                          disabled={busyAccountId() === account.id}
+                          onClick={() => void reactivate(account)}
+                        >
+                          {busyAccountId() === account.id
+                            ? "Updating..."
+                            : "Reactivate Instructor Account"}
+                        </button>
+                      </Show>
+                      <Show when={account.state === "closed"}>
+                        <p>This Instructor Account is closed and cannot be changed here.</p>
+                      </Show>
+                    </article>
+                  )}
+                </For>
+              </section>
+            );
+          }}
         </Show>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

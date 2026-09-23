@@ -5,7 +5,7 @@
 :root {
   --ple-ribbon-top-block-size: 3rem;
   --ple-ribbon-task-block-size: 2.5rem;
-  --ple-ribbon-reserved-task-size: 0rem;
+  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
 }
 
 .ple-app-ribbon,
@@ -46,9 +46,6 @@
   );
 }
 
-/* A taskful Attempt earns a second Ribbon row. Taskless Student routes use a
- * single dense row, so the shell does not spend phone space on an empty band. */
-
 /* The shell frame owns the viewport floor. This variant only replaces its
  * first content track with the Ribbon block declared by this component. */
 .ple-ribbon-shell-grid {
@@ -57,14 +54,6 @@
   /* Ribbon rows own their horizontal scrollports. Keep their long inline
      control tracks from widening the document at enlarged text. */
   overflow-x: clip;
-}
-
-.ple-ribbon-shell-grid[data-ribbon-task-row="reserved"] {
-  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
-}
-
-.ple-ribbon-shell-grid[data-ribbon-task-row="absent"] {
-  --ple-ribbon-shell-block-size: var(--ple-ribbon-top-block-size);
 }
 
 .ple-app-ribbon {
@@ -93,10 +82,6 @@
   box-shadow:
     0 0.3rem 0.75rem color-mix(in srgb, var(--ple-ink) 11%, transparent),
     inset 0 -1px 0 var(--ple-ribbon-rule);
-}
-
-.ple-app-ribbon[data-ribbon-task-row="reserved"] {
-  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
 }
 
 .ple-app-ribbon__row {
@@ -206,7 +191,6 @@
 }
 
 .ple-app-ribbon__context-identity,
-.ple-app-ribbon__context-details,
 .ple-app-ribbon__task-area {
   display: inline-flex;
   flex: 0 0 auto;
@@ -218,30 +202,6 @@
   gap: var(--ple-ribbon-space-control);
   padding-inline-end: var(--ple-ribbon-space-row);
   border-inline-end: 1px solid var(--ple-ribbon-rule);
-}
-
-.ple-app-ribbon__context-details {
-  gap: var(--ple-ribbon-space-control);
-  color: var(--ple-muted);
-  font-size: 0.84rem;
-  font-weight: 620;
-}
-
-.ple-app-ribbon__course-scope-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ple-ribbon-space-tight);
-  color: var(--ple-ink);
-  font-variant-numeric: tabular-nums;
-  font-weight: 720;
-}
-
-.ple-app-ribbon__course-scope-label::before {
-  inline-size: var(--ple-ribbon-space-tight);
-  block-size: var(--ple-ribbon-space-tight);
-  border-radius: 50%;
-  background: var(--ple-ribbon-course-accent);
-  content: "";
 }
 
 .ple-app-ribbon__icon {
@@ -281,11 +241,6 @@
   letter-spacing: 0.075em;
   line-height: 1;
   text-transform: uppercase;
-}
-
-.ple-app-ribbon__context-details > span + span {
-  padding-inline-start: var(--ple-ribbon-space-control);
-  border-inline-start: 1px solid var(--ple-ribbon-rule);
 }
 
 /* The canonical 1280px Instructor bar needs the same full labels and glyphs
@@ -347,12 +302,6 @@
   border: 1px dashed var(--ple-ribbon-rule);
   color: var(--ple-muted);
   cursor: default;
-}
-
-.ple-app-ribbon__availability-label {
-  font-size: 0.68em;
-  font-weight: 650;
-  letter-spacing: 0.01em;
 }
 
 .ple-app-ribbon__profile-endcap {
@@ -498,6 +447,13 @@
   font-weight: 760;
 }
 
+/* Touch profiles enlarge controls globally, but this row's token is the
+   durable tier-2 geometry. Keep each task target inside that scrollport so a
+   coarse-pointer tablet cannot create clipped vertical label space. */
+.ple-app-ribbon__tasks .ple-app-ribbon__link {
+  min-block-size: var(--ple-ribbon-reserved-task-size);
+}
+
 .ple-app-ribbon__link:hover,
 .ple-app-ribbon__brand:hover,
 .ple-app-ribbon__profile:hover {
@@ -564,6 +520,15 @@
   pointer-events: none;
 }
 
+/* Coarse-pointer task controls retain the same 44px target as the top row.
+   Increasing the shared row token keeps that accessible target inside a
+   stable tier-2 scrollport at tablet and phone widths. */
+@media (pointer: coarse) {
+  :root {
+    --ple-ribbon-task-block-size: 2.75rem;
+  }
+}
+
 @media (max-width: 40rem) {
   :root {
     /* Student phones use two visible navigation levels inside the top bar:
@@ -576,38 +541,20 @@
     --ple-ribbon-space-inline: var(--ple-space-2);
   }
 
-  /* Student layout is content-sized, not an Instructor geometry contract.
-     Identity may wrap its role; destinations retain a full-width line. */
-  .ple-ribbon-shell-grid[data-ribbon-product-role="student"] {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] {
-    block-size: auto;
-    grid-template-rows: auto var(--ple-ribbon-reserved-task-size);
-  }
-
-  .ple-ribbon-shell-grid[data-ribbon-product-role="student"][data-ribbon-task-row="absent"] {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"][data-ribbon-task-row="absent"] {
-    grid-template-rows: auto;
-  }
-
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar {
     display: grid;
     grid-template-rows:
       minmax(0, calc(var(--ple-ribbon-top-block-size) - var(--ple-ribbon-task-block-size)))
       var(--ple-ribbon-task-block-size);
-    block-size: auto;
+    /* The Student phone topology composes two fixed Ribbon tracks. Long
+       identity and destination content scrolls or truncates within them. */
+    block-size: 100%;
     gap: 0;
     padding-inline-end: var(--ple-ribbon-space-inline);
     overflow: hidden;
   }
 
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar::after,
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-details,
   .ple-app-ribbon[data-ribbon-product-role="student"]
     [data-ribbon-row-frame="top"]
     > .ple-app-ribbon__overflow-cue {

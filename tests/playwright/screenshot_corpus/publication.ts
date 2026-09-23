@@ -20,14 +20,6 @@ const ACTIVE_CORPUS_METADATA = [
   "current_capture_receipt.json",
   "coverage_exceptions.json",
 ] as const;
-// Sysadmin capture production is deferred. Keep its files and manifest records available for a
-// later lane, but do not make them part of the current receipt, atlas, or duplicate-byte gate.
-const CURRENT_CORPUS_ROLES: ReadonlySet<ScreenshotRole> = new Set([
-  "public",
-  "instructor",
-  "student",
-]);
-
 export interface PublishedImage {
   readonly id: string;
   readonly path: string;
@@ -74,15 +66,6 @@ function rolePath(root: string, role: ScreenshotRole): string {
   // ASVS 5.3.2: closed role names and containment prevent traversal.
   if (path.dirname(target) !== resolvedRoot) throw new Error("role path escaped its corpus root");
   return target;
-}
-
-function isCurrentCapture(capture: CaptureRecord): boolean {
-  return CURRENT_CORPUS_ROLES.has(capture.role);
-}
-
-function isCurrentPath(capturePath: string): boolean {
-  const role = capturePath.split("/", 1)[0] as ScreenshotRole | undefined;
-  return role !== undefined && CURRENT_CORPUS_ROLES.has(role);
 }
 
 async function actualPngPaths(
@@ -193,14 +176,13 @@ export async function inspectCorpus(
   allowedMetadata: ReadonlyArray<string> = [],
   requiredMetadata: ReadonlyArray<string> = allowedMetadata,
 ): Promise<ReadonlyArray<PublishedImage>> {
-  const currentCaptures = manifest.captures.filter(isCurrentCapture);
-  const expected = currentCaptures.map((capture) => capture.path).sort();
+  const expected = manifest.captures.map((capture) => capture.path).sort();
   comparePathSet(
     expected,
-    (await actualPngPaths(root, allowedMetadata, requiredMetadata)).filter(isCurrentPath),
+    await actualPngPaths(root, allowedMetadata, requiredMetadata),
     "screenshot corpus",
   );
-  const images = await Promise.all(currentCaptures.map((capture) => imageRecord(root, capture)));
+  const images = await Promise.all(manifest.captures.map((capture) => imageRecord(root, capture)));
   const pathsByHash = new Map<string, string>();
   for (const image of images) {
     const duplicateOf = pathsByHash.get(image.sha256);
@@ -288,10 +270,10 @@ export function renderAtlas(manifest: CaptureManifest, imagePrefix: string): str
     "human review.",
     "",
   ];
-  const ordered = manifest.captures
-    .filter(isCurrentCapture)
-    .sort((left, right) => left.gallery.order - right.gallery.order);
-  for (const role of ROLE_IDS.filter((candidate) => CURRENT_CORPUS_ROLES.has(candidate))) {
+  const ordered = [...manifest.captures].sort(
+    (left, right) => left.gallery.order - right.gallery.order,
+  );
+  for (const role of ROLE_IDS) {
     const roleCaptures = ordered.filter((capture) => capture.role === role);
     lines.push(`## ${titleCase(role)}`, "");
     const areas = [...new Set(roleCaptures.map((capture) => capture.area))];

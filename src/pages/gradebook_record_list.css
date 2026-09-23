@@ -1,0 +1,68 @@
+/* Dense Gradebook presentation built from the shared RecordList regions. */
+
+.gradebook-export {
+  margin-block-end: var(--ple-layout-gap);
+}
+
+.gradebook-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-layout-gap);
+}
+
+.gradebook-record-list {
+  --gradebook-student-column: minmax(12rem, 1.3fr);
+  --gradebook-coursework-column: minmax(13rem, 1.5fr);
+  --gradebook-progress-column: minmax(9rem, 1fr);
+  --gradebook-score-column: minmax(7rem, 0.7fr);
+
+  overflow-x: auto;
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.gradebook-record-list .record-list__header {
+  padding: calc(var(--ple-row-padding-block) + 0.03rem) var(--ple-row-padding-inline);
+  background: var(--ple-surface-soft);
+  color: var(--ple-accent-strong);
+  font-size: 0.73rem;
+  font-weight: 740;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.gradebook-record-list .record-list {
+  min-inline-size: var(--ple-gradebook-table-min-inline);
+}
+
+.gradebook-record-list .record-list__row {
+  min-block-size: var(--ple-dense-row-min-height);
+  padding-inline: var(--ple-row-padding-inline);
+}
+
+.gradebook-record-list .record-list__region--identity small {
+  font-weight: 400;
+}
+
+.gradebook-record-list .record-list__region--status:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+@media (max-width: 48rem) {
+  .gradebook-record-list .record-list {
+    min-inline-size: 0;
+  }
+}
+
+@media (max-width: 32rem) {
+  .gradebook-record-list {
+    --gradebook-student-column: minmax(0, 1fr);
+    --gradebook-score-column: minmax(6.75rem, max-content);
+  }
+
+  .gradebook-record-list .record-list__region--identity {
+    inline-size: 100%;
+  }
+}

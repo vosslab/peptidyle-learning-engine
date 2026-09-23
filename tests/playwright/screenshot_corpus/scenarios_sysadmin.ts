@@ -6,7 +6,7 @@ import type { Locator, Page } from "playwright";
 
 import { isCanonicalAccountId } from "../../../src/api/decoders/instructor_account";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import { enterSysadmin, scrollTop } from "./visible_workflows";
 
 // Unique per run so replays on the same stack can create a fresh Account.
@@ -84,7 +84,6 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     if (!isCanonicalAccountId(accountId)) {
       throw new Error("created Instructor Account lacks a canonical public ID");
     }
-    await reloadInstructorAccounts(page);
     let created = instructorAccount(page, accountId);
     await created.waitFor();
     await captureCheckpoint(runtime, "account_created", session);
@@ -93,10 +92,13 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
       .click();
     await created.getByText("State: Deactivated", { exact: true }).waitFor();
+    await captureCheckpoint(runtime, "account_deactivated", session);
+
+    // The backend list order is not a UI ordering contract. Verify persistence after capturing the
+    // visible lifecycle transitions in the client-owned order.
     await reloadInstructorAccounts(page);
     created = instructorAccount(page, accountId);
     await created.getByText("State: Deactivated", { exact: true }).waitFor();
-    await captureCheckpoint(runtime, "account_deactivated", session);
     await created
       .getByRole("button", { name: "Reactivate Instructor Account", exact: true })
       .click();
@@ -125,6 +127,20 @@ export const SYSADMIN_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         featured: true,
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "course_list",
+        reason: "Sysadmin laptop capture is the representative.",
+      },
+      phone: {
+        target: "course_list",
+        reason: "Sysadmin laptop capture is the representative.",
+      },
+      square: {
+        target: "course_list",
+        reason: "Sysadmin laptop capture is the representative.",
+      },
+    }),
     run: sysadminCourses,
   },
   {
@@ -168,6 +184,20 @@ export const SYSADMIN_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Instructor Account creation validation",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "accounts_initial",
+        reason: "Sysadmin laptop capture is the representative.",
+      },
+      phone: {
+        target: "accounts_initial",
+        reason: "Sysadmin laptop capture is the representative.",
+      },
+      square: {
+        target: "accounts_initial",
+        reason: "Sysadmin laptop capture is the representative.",
+      },
+    }),
     run: sysadminAccounts,
   },
 ];

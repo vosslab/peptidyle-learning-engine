@@ -145,6 +145,29 @@ Course, roster, and released Assessment. See
 
 ## Choose the right gate
 
+### Fast UI lane
+
+Use the stack-free Chromium lane while changing current-source UI composition:
+
+```bash
+./launchers/run_fast_ui_checks.sh
+./launchers/run_fast_ui_checks.sh --headed --case record-list-ready
+./launchers/run_fast_ui_checks.sh --headed --case provided-avatar-picker
+./launchers/run_fast_ui_checks.sh --headed --case page-frame-reading
+./launchers/run_fast_ui_checks.sh --headed --case student-coursework
+```
+
+The normal command runs the registered isolated checks headlessly. The headed form opens one named
+fixture directly. The Avatar Picker case lets you switch interactively between Gallery and List.
+`page-frame-reading` and `student-coursework` open the production Student course page with a
+synthetic current-Course projection; the regular headless lane also checks this fixture through the
+Student course entry evidence script. Primitive `RecordList` cases use synthetic rows only to prove
+the primitive API. Route-composition cases render production page markup with only narrow providers
+or data substituted. Neither establishes Live Demo behavior or full-stack parity. The restricted
+same-data parity matrix remains in the existing full-stack Playwright lane; run it only after its
+named seed is available. Live Demo integration, workflows, and screenshots remain separate
+primary-plan evidence.
+
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
 bounded work item.
 

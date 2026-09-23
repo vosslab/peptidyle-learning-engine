@@ -1,7 +1,7 @@
 // Production-stack proof that one Course Appearance persists independently and reaches its members.
 // Selector contract: the admitted Appearance Ribbon task is owned by ribbon_catalog.ts; native
 // theme radios and banner file input/save controls are owned by course_appearance_page.tsx; the
-// enrolled Course-home identity banner is owned by course_entry_identity.tsx.
+// enrolled Course-home banner is owned by course_entry_banner.tsx.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";

@@ -941,7 +941,10 @@ public background-grading machinery.
 from page tasks, and preserves every required destination even when its
 collection is empty. Every required Instructor destination also remains visible
 when its target is incomplete, but it is presented as unavailable rather than
-as a usable link. Sign Out is in the Profile menu.
+as a usable link. The top Ribbon carries PLE identity, Product Role, stable
+navigation, and application controls. Human-readable Course and Assessment
+hierarchy belongs in breadcrumbs, not in route-specific Ribbon labels. Sign Out
+is in the Profile menu.
 
 **Why.** Stable geometry, honest empty states, and visible unavailable tasks
 reduce cognitive load without letting incomplete features masquerade as usable.
@@ -949,6 +952,159 @@ reduce cognitive load without letting incomplete features masquerade as usable.
 **Consequence.** Instructor primary tabs are Courses, Questions, and
 Assessments. Their exact task rows come from Human Guidance. Student work is
 collectively Coursework, while a specific item uses its Assessment Type name.
+
+### Tier-one navigation is role-only
+
+**Decision.** Tier-one Ribbon control IDs are selected by Product Role, not by
+route scope. Instructor tier one is Courses, Questions, and Assessments.
+Student tier one is Courses, Coursework, and Grades; Coursework and Grades are
+pinned to the current Course. Sysadmin tier one follows its Product Role
+catalog. Route-specific tasks belong in tier two.
+
+**Why.** A role has one stable primary navigation model. Moving primary tabs
+between routes makes the shell and a user's available destinations appear to
+change unexpectedly.
+
+**Consequence.** The route contract selects a tier-one area but cannot add or
+remove a tier-one control. The client presents navigation only; the trusted
+server continues to enforce function- and resource-level authorization. This
+keeps client navigation from becoming an authorization boundary (ASVS 8.2.1,
+8.2.2, and 8.3.1).
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s role navigation rules and
+the role catalog in [ribbon_schema.ts](../src/ribbon/ribbon_schema.ts), with
+route resolution in [ribbon_catalog.ts](../src/ribbon/ribbon_catalog.ts).
+
+### Signed-in shell rows have unconditional height
+
+**Decision.** Every signed-in role reserves the breadcrumb and tier-two Ribbon
+rows at each screen size. Tier-two controls vary by route and role; row height
+does not.
+
+**Why.** A changing shell height makes page content jump during navigation and
+when a task row has no current controls.
+
+**Consequence.** An empty tier-two row is valid. Breadcrumb and page-content
+geometry stays stable for Student, Instructor, and Sysadmin routes.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s permanent breadcrumb-row
+rule, [application_shell.tsx](../src/application_shell.tsx), and
+[app_ribbon_density.css](../src/ribbon/app_ribbon_density.css).
+
+### PageFrame owns page-level structure
+
+**Decision.** `PageFrame` owns page identity and fixed page-level layout: the
+required title, optional `eyebrow` and `lede`, optional page-level actions,
+content origin, standard vertical spacing, and width. Reading width is the
+default; a route selects `fullWidth` only for dense content, using the
+page-layout contract rather than the Ribbon contract. The frame root has fixed
+production geometry and is not caller-classed.
+
+**Why.** The WP-C1 baseline found 44 page-heading candidates: 24 used eyebrow,
+title, and lede; 14 used eyebrow and title; four used only an eyebrow; and two
+used only a title. My Active Courses and My Draft Questions also repeat the
+page-level create action before their collections
+([course_list_page.tsx](../src/pages/course_list_page.tsx),
+[question_drafts_page.tsx](../src/pages/question_drafts_page.tsx)). Those
+controls remain supplied by their page, while actions inside a form, editor,
+or record remain task content. The shared frame places admitted page-level
+slots consistently, as [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) requires.
+
+**Consequence.** `PageFrame` places WP-C1-admitted page-level slots in the same
+location and gives page content one fixed origin and spacing region. Callers
+provide only the controls and subject-specific children. A page
+may omit the eyebrow, lede, or actions, while every frame supplies one title.
+Only routes that need dense content select `fullWidth`; ordinary routes inherit
+the reading width. This makes one-off frame-width and root-class overrides
+unavailable to page callers.
+
+**Owner.** [src/components/page_frame.tsx](../src/components/page_frame.tsx)
+and [src/components/page_frame.css](../src/components/page_frame.css).
+
+### Reserve space but never fabricate a control
+
+**Decision.** Reserve structural shell space independently from product
+capabilities. A control appears only for a real workflow. An unavailable
+required Instructor destination is an annotation-free unavailable control,
+not a usable link; empty collections retain their working destination and an
+honest empty state.
+
+**Why.** Space prevents layout movement, while invented or apparently usable
+controls misrepresent the product.
+
+**Consequence.** Student and Sysadmin tier-two rows may remain empty until a
+separate product decision settles their contents. The browser treats control
+visibility as navigation presentation, never as permission evidence.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s required and unavailable
+Instructor destination rules, [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx),
+and [ribbon_selected_tab_visibility.ts](../src/ribbon/ribbon_selected_tab_visibility.ts).
+
+### RecordList and windowing have separate ownership
+
+**Decision.** `RecordList` decides how a record looks: regions, alignment,
+hierarchy, responsive priorities, and loading, empty, and error states. The
+window helper decides which existing records mount: visible range, overscan,
+scroll position, measured heights, and spacer heights.
+
+**Why.** Rendering a shorter slice must not create a second row implementation
+or change a record's identity, order, or layout.
+
+**Consequence.** A windowed list uses the same row markup as an ordinary list.
+Windowing preserves a focused record in its mounted slice and does not own
+record state or presentation.
+
+**Owner.** [record_list.tsx](../src/components/record_list/record_list.tsx),
+[record_list_window.ts](../src/components/record_list/record_list_window.ts),
+and their composition boundary in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md).
+
+### Scan rows show one decision-sized summary
+
+**Decision.** A scan row carries identity, status that affects a decision, one
+decision-relevant value or date, and its main action. IDs and additional
+metadata belong on the detail page or behind progressive disclosure.
+
+**Why.** Repeated records need a compact, comparable decision surface rather
+than a compressed detail page.
+
+**Consequence.** This rule applies only to scan rows. Dense task tables such
+as Gradebook and roster retain the columns their task requires; they are not
+capped by the scan-row summary.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s Instructor list-density
+guidance and the Question Library scan-row regions in
+[library_browse_rows.tsx](../src/pages/library_browse_rows.tsx) and
+[library_browse_record_list.css](../src/pages/library_browse_record_list.css).
+
+### Reorder controls share mechanics, not workflow policy
+
+**Decision.** The six current reorder sites were compared before extracting a
+shared control. The two Blueprint Course editors share deferred-save behavior.
+Fork application, Assessment entries, Assessment-owned Pool members, and
+Student Ordering differ in persistence timing, disabled policy, failure
+recovery, or announcement behavior. The shared layer therefore provides array
+movement plus accessible RecordList controls; each caller keeps its workflow
+policy.
+
+| Site | Save timing | Disabled and failure behavior | Announcement |
+| --- | --- | --- | --- |
+| Blueprint Assessment editor | Local Blueprint draft; outer Blueprint Save persists it | Editor availability governs changes; outer Save retains the draft on failure | Parent change notice describes the unsaved order |
+| Blueprint Pool members editor | Local Blueprint draft; outer Blueprint Save persists it | Editability and list boundaries govern changes; outer Save retains the draft on failure | Parent change notice describes the unsaved member change |
+| Blueprint fork application | One explicit apply request | Busy, locked, invalid, or empty selection blocks apply; conflict or uncertain result requires refresh | Result message reports saved, correction, or refresh state |
+| Assessment entries | Local Assessment draft; Save Questions and order persists it | Busy or reload-required state blocks saving; conflict recovery reloads or discards the draft | RecordList announces each move and returns focus |
+| Assessment-owned Pool members | Local Assessment draft; Save Questions and order persists it | Attestation, availability, dirty state, busy state, and list boundaries govern changes | The editor explains the pending Pool state; it has no move live region |
+| Student Ordering response | Each move updates the response controller | Locked response state and list boundaries block changes; controller owns response-save failure | The response control announces each move and returns focus |
+
+**Why.** Similar move buttons do not establish identical state transitions.
+The comparison preserves the Student response timing required by its workflow
+(ASVS 2.3.1) while removing duplicate array movement and accessible focus
+mechanics.
+
+**Consequence.** A shared reorder component provides generic live move feedback
+and focus restoration. Callers retain save timing, disabled rules, failure
+handling, and workflow/result messages. Text is rendered through Solid JSX,
+and navigation values remain validated routes or links rather than generated
+HTML or unvalidated URL protocols (ASVS 1.2.1 and 1.2.2).
 
 ### Role interfaces expose only real capabilities
 

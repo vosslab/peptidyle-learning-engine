@@ -7,6 +7,8 @@
 import { render } from "solid-js/web";
 import { query, Router } from "@solidjs/router";
 
+import "./browser_environment";
+
 import { createBrowserApiClient } from "./api/browser_client";
 import { browserFetch } from "./api/http_client";
 import { ApplicationApiProvider, createApplicationApi } from "./api/application_api";
@@ -15,15 +17,6 @@ import { createBrowserSessionBoundary } from "./auth/browser_session_boundary";
 import { SessionProvider } from "./auth/session_context";
 import { log } from "./log";
 import { appRoutes, notFoundRoute } from "./routes";
-// The live entry owns inclusion of the Ribbon's future shell geometry.  The
-// entry imports browser-only styles so shared component modules remain usable
-// by the offline Node fast lane.
-import "./ribbon/app_ribbon.css";
-import "./ribbon/app_ribbon_density.css";
-import "./components/student_assessment_presentation.css";
-import "./features/profile_avatar/provided_avatar_picker.css";
-import "./features/profile_avatar/staff_avatar_settings.css";
-import "./styles/assessment_types.css";
 import { WasmRuntimeProvider } from "./wasm/context";
 
 const mountPoint = document.getElementById("root");

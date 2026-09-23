@@ -6,14 +6,19 @@ import type {
   RecoverySelection,
 } from "../api/course_student_work_recovery";
 import { ApiRequestError } from "../api/http_client/error";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { formatAssessmentActivity } from "./student_assessment_presentation";
 
-function formatRecoveryInstant(value: string | null, timeZone: string, unsetLabel: string): string {
+function formatRecoveryInstant(
+  value: string | null,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+  unsetLabel: string,
+): string {
   if (value === null) return unsetLabel;
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp)
     ? "Retained time unavailable"
-    : formatAssessmentActivity(timestamp, timeZone);
+    : formatAssessmentActivity(timestamp, formatDateTime);
 }
 
 function Evidence(props: { readonly label: string; readonly text: string | null }): JSX.Element {
@@ -44,6 +49,7 @@ export function CourseStudentWorkRecovery(props: {
   /** Authenticated Instructor Account preference, never the Course or browser zone. */
   readonly displayTimeZone: string;
 }): JSX.Element {
+  const formatDateTime = createDisplayDateTimeFormatter(props.displayTimeZone);
   const [opened, setOpened] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [selection, setSelection] = createSignal<RecoverySelection>();
@@ -199,19 +205,19 @@ export function CourseStudentWorkRecovery(props: {
                             Started:{" "}
                             {formatRecoveryInstant(
                               attempt.startedAt,
-                              props.displayTimeZone,
+                              formatDateTime,
                               "No retained start time",
                             )}
                             ; submitted:{" "}
                             {formatRecoveryInstant(
                               attempt.submittedAt,
-                              props.displayTimeZone,
+                              formatDateTime,
                               "No retained submission time",
                             )}
                             ; deletion cutoff:{" "}
                             {formatRecoveryInstant(
                               attempt.deleteDueAt,
-                              props.displayTimeZone,
+                              formatDateTime,
                               "No retained deletion cutoff",
                             )}
                           </span>
@@ -251,7 +257,7 @@ export function CourseStudentWorkRecovery(props: {
                   Retained evidence recovered. Original deletion cutoff:{" "}
                   {formatRecoveryInstant(
                     attempt().deleteDueAt,
-                    props.displayTimeZone,
+                    formatDateTime,
                     "No retained deletion cutoff",
                   )}
                   .
@@ -260,21 +266,17 @@ export function CourseStudentWorkRecovery(props: {
                   Archived:{" "}
                   {formatRecoveryInstant(
                     attempt().studentDataArchivedAt,
-                    props.displayTimeZone,
+                    formatDateTime,
                     "No retained archive time",
                   )}
                   ; started:{" "}
                   {formatRecoveryInstant(
                     attempt().startedAt,
-                    props.displayTimeZone,
+                    formatDateTime,
                     "No retained start time",
                   )}
                   ; expiry:{" "}
-                  {formatRecoveryInstant(
-                    attempt().expiresAt,
-                    props.displayTimeZone,
-                    "No retained expiry",
-                  )}
+                  {formatRecoveryInstant(attempt().expiresAt, formatDateTime, "No retained expiry")}
                   .
                 </p>
                 <Evidence label="Exact Attempt facts" text={attempt().attemptFactsText} />

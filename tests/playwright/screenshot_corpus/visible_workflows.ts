@@ -34,7 +34,7 @@ export function courseCard(page: Page, title: string = COURSE_TITLE): Locator {
 
 export function assignmentCard(page: Page, title: string = ASSIGNMENT_TITLE): Locator {
   return page
-    .getByRole("article")
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
@@ -124,7 +124,9 @@ export async function openStudentAssignment(page: Page): Promise<void> {
 /** Opens the active Attempt through its Student Course landing and Assignment card. */
 export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> {
   const card = assignmentCard(page);
-  await card.getByRole("link", { name: `Resume ${ASSESSMENT_TYPE_LABEL}`, exact: true }).click();
+  // The overview auto-resumes an active Attempt when its activeAttemptId loads, so the landing
+  // action leads to the Attempt surface without requiring a transient overview button.
+  await card.locator("a.primary-link").click();
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
 }
 

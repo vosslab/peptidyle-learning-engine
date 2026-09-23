@@ -1,22 +1,25 @@
 // scenarios_student.ts - Student course, invitation, delivery, and denial survey.
 // Selector contract: shared Course and Assessment actions live in visible_workflows.ts:47; Student
-// headings and controls are owned by src/pages/student_courses_page.tsx:29,
+// Course page identity is owned by PageFrame in the Student Course landing and Grades pages;
+// other Student headings and controls are owned by src/pages/student_courses_page.tsx:29,
 // src/pages/student_course_invitation_page.tsx:42, src/pages/assessment_overview_page.tsx,
 // src/pages/assessment_attempt_page.tsx, and src/pages/assessment_attempt_summary_page.tsx.
 
-import type { Locator } from "playwright";
+import type { Locator, Page } from "playwright";
 
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import {
+  directViewportCaptures,
+  viewportCoverage,
+  type ScenarioDefinition,
+} from "./scenario_types";
 import {
   ASSESSMENT_TYPE_LABEL,
   ASSIGNMENT_TITLE,
   COURSE_TITLE,
-  assignmentCard,
   choosePersona,
   courseCard,
   enterInstructor,
-  openStudentAssignment,
   openStudentCourse,
   openStudentCourseChooser,
   resumeStudentAssignmentAttempt,
@@ -26,6 +29,21 @@ import {
 
 const INVITATION_COURSE_SHORT_NAME = "Corpus Invite";
 const INVITATION_COURSE_LONG_NAME = "Screenshot Corpus Invitation Course";
+
+function courseworkRow(page: Page): Locator {
+  return page.locator(".record-list__row").filter({
+    has: page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }),
+  });
+}
+
+async function openStudentAssignment(page: Page): Promise<void> {
+  const coursework = courseworkRow(page);
+  await coursework.waitFor();
+  await coursework
+    .getByRole("link", { name: /^(Open|Resume|Review) Practice Question Assignment$/u })
+    .click();
+  await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
+}
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
@@ -38,12 +56,50 @@ async function captureCheckpoint(
 }
 
 async function studentCourseList(runtime: ScenarioRuntime): Promise<void> {
-  for (const checkpoint of ["course_list_laptop", "course_list_phone"] as const) {
+  for (const checkpoint of [
+    "course_list_laptop",
+    "course_list_tablet",
+    "course_list_phone",
+    "course_list_square",
+  ] as const) {
     const session = await runtime.open(checkpoint);
     try {
       await choosePersona(session.page, "Mary Okafor");
       await openStudentCourseChooser(session.page);
       await courseCard(session.page).waitFor();
+      await captureCheckpoint(runtime, checkpoint, session);
+    } finally {
+      await runtime.close(session);
+    }
+  }
+}
+
+async function studentCourseGrades(runtime: ScenarioRuntime): Promise<void> {
+  for (const checkpoint of [
+    "course_grades_laptop",
+    "course_grades_tablet",
+    "course_grades_phone",
+    "course_grades_square",
+  ] as const) {
+    const session = await runtime.open(checkpoint);
+    try {
+      await choosePersona(session.page, "Mary Okafor");
+      await openStudentCourse(session.page);
+      await session.page
+        .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+        .getByRole("link", { name: "Grades", exact: true })
+        .click();
+      await session.page.locator('[data-route-surface="studentCourseGrades"]').waitFor();
+      await session.page
+        .getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true })
+        .waitFor();
+      await session.page
+        .getByText("Loading grades...", { exact: true })
+        .waitFor({ state: "hidden" });
+      await session.page
+        .locator("dl")
+        .or(session.page.getByText("No Coursework has been graded yet.", { exact: true }))
+        .waitFor();
       await captureCheckpoint(runtime, checkpoint, session);
     } finally {
       await runtime.close(session);
@@ -114,25 +170,27 @@ async function prepareStudentInvitation(
 
 async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
   await prepareStudentInvitation(runtime, "invitation_index_laptop");
-  const session = await runtime.open("invitation_index_laptop");
-  const page = session.page;
-  try {
-    await choosePersona(page, "Mary Okafor");
-    await openStudentCourseChooser(page);
-    await page.getByRole("link", { name: "Course invitations", exact: true }).click();
-    await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
-    const invitation = courseCard(page, INVITATION_COURSE_LONG_NAME);
-    await invitation.waitFor();
-    await captureCheckpoint(runtime, "invitation_index_laptop", session);
-    await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
-    await page
-      .getByRole("heading", { level: 1, name: INVITATION_COURSE_LONG_NAME, exact: true })
-      .waitFor();
-    await page.getByRole("button", { name: "Accept invitation", exact: true }).waitFor();
-    // The invited Student never joins, so this scenario stays stable across replays.
-    await captureCheckpoint(runtime, "invitation_detail_laptop", session);
-  } finally {
-    await runtime.close(session);
+  for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
+    const session = await runtime.open(`invitation_index_${viewport}`);
+    const page = session.page;
+    try {
+      await choosePersona(page, "Mary Okafor");
+      await openStudentCourseChooser(page);
+      await page.getByRole("link", { name: "Course invitations", exact: true }).click();
+      await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
+      const invitation = courseCard(page, INVITATION_COURSE_LONG_NAME);
+      await invitation.waitFor();
+      await captureCheckpoint(runtime, `invitation_index_${viewport}`, session);
+      await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
+      await page
+        .getByRole("heading", { level: 2, name: INVITATION_COURSE_LONG_NAME, exact: true })
+        .waitFor();
+      await page.getByRole("button", { name: "Accept invitation", exact: true }).waitFor();
+      // The invited Student never joins, so this scenario stays stable across replays.
+      await captureCheckpoint(runtime, `invitation_detail_${viewport}`, session);
+    } finally {
+      await runtime.close(session);
+    }
   }
 }
 
@@ -147,12 +205,9 @@ async function captureLanding(
   try {
     await choosePersona(session.page, persona);
     await openStudentCourse(session.page);
-    // The seeded personas start in distinct completion states; replays on the same stack may
-    // have advanced them, and the capture documents the landing as it currently renders.
-    await assignmentCard(session.page)
-      .locator(".student-coursework-card__facts > div")
-      .filter({ has: session.page.getByText("Completion", { exact: true }) })
-      .waitFor();
+    // The named Coursework row appears only after the landing resource has settled. The separate
+    // Assignment-overview workflow covers action navigation.
+    await courseworkRow(session.page).waitFor();
     await captureCheckpoint(runtime, checkpoint, session);
   } finally {
     await runtime.close(session);
@@ -160,10 +215,15 @@ async function captureLanding(
 }
 
 async function studentLandings(runtime: ScenarioRuntime): Promise<void> {
-  await captureLanding(runtime, "not_started_laptop", "Avery Thompson");
-  await captureLanding(runtime, "in_progress_laptop", "Jack Nguyen");
-  await captureLanding(runtime, "completed_laptop", "Mary Okafor");
-  await captureLanding(runtime, "not_started_phone", "Avery Thompson");
+  for (const [checkpointStem, persona] of [
+    ["not_started", "Avery Thompson"],
+    ["in_progress", "Jack Nguyen"],
+    ["completed", "Mary Okafor"],
+  ] as const) {
+    for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
+      await captureLanding(runtime, `${checkpointStem}_${viewport}`, persona);
+    }
+  }
 }
 
 async function captureAssignmentOverview(
@@ -184,30 +244,35 @@ async function captureAssignmentOverview(
 }
 
 async function studentAssignmentOverviews(runtime: ScenarioRuntime): Promise<void> {
-  await captureAssignmentOverview(runtime, "unanswered_laptop", "Avery Thompson");
-  await captureAssignmentOverview(runtime, "unanswered_tablet", "Avery Thompson");
+  for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
+    await captureAssignmentOverview(runtime, `unanswered_${viewport}`, "Avery Thompson");
+  }
 }
 
 async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void> {
-  const session = await runtime.open("overview_history_laptop");
-  try {
-    await choosePersona(session.page, "Mary Okafor");
-    await openStudentCourse(session.page);
-    const assignment = assignmentCard(session.page);
-    await assignment
-      .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
-      .click();
-    await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
-    await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
-    const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
-    await previousAttempt.waitFor();
-    await captureCheckpoint(runtime, "overview_history_laptop", session);
-    await previousAttempt.click();
-    await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
-    await session.page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
-    await captureCheckpoint(runtime, "selected_history_laptop", session);
-  } finally {
-    await runtime.close(session);
+  for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
+    const session = await runtime.open(`overview_history_${viewport}`);
+    try {
+      await choosePersona(session.page, "Mary Okafor");
+      await openStudentCourse(session.page);
+      const assignment = courseworkRow(session.page);
+      await assignment
+        .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+        .click();
+      await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
+      await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
+      const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
+      await previousAttempt.waitFor();
+      await captureCheckpoint(runtime, `overview_history_${viewport}`, session);
+      await previousAttempt.click();
+      await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
+      await session.page
+        .getByRole("heading", { name: "Your recorded work", exact: true })
+        .waitFor();
+      await captureCheckpoint(runtime, `selected_history_${viewport}`, session);
+    } finally {
+      await runtime.close(session);
+    }
   }
 }
 
@@ -289,39 +354,48 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await runtime.close(savedSession);
   }
 
-  const resumedSession = await runtime.open("resume_selected_tablet");
-  try {
-    await choosePersona(resumedSession.page, "Avery Thompson");
-    await openStudentCourse(resumedSession.page);
-    const attemptContextLoaded = resumedSession.page.waitForEvent("requestfinished", {
-      predicate: (request) => {
-        const url = new URL(request.url());
-        return (
-          url.origin === runtime.entryUrl.origin &&
-          /^\/api\/assessment-attempts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/context$/u.test(
-            url.pathname,
-          )
-        );
-      },
-    });
-    await resumeStudentAssignmentAttempt(resumedSession.page);
-    await attemptContextLoaded;
-    await resumedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
-    await attemptSurface(resumedSession).locator("section.question-response-control").waitFor();
-    await resumedSession.privacy.settleResponses();
-    await resumedSession.page.reload({ waitUntil: "commit" });
-    await attemptSurface(resumedSession).waitFor();
-    await attemptQuestion(resumedSession, "Question 1: Saved").waitFor();
-    await attemptQuestion(resumedSession, "Question 1: Saved").click();
-    await resumedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
-    await waitForRestoredResponse(resumedSession);
-    await resumedSession.page.getByText("Response saved.", { exact: true }).waitFor();
-    await captureCheckpoint(runtime, "resume_selected_tablet", resumedSession);
-  } finally {
-    await runtime.close(resumedSession);
+  for (const viewport of ["tablet", "phone", "square"] as const) {
+    const session = await runtime.open(`response_selected_${viewport}`);
+    try {
+      await choosePersona(session.page, "Avery Thompson");
+      await openStudentCourse(session.page);
+      await resumeStudentAssignmentAttempt(session.page);
+      await attemptQuestion(session, "Question 1: Saved").click();
+      await session.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+      await waitForRestoredResponse(session);
+      await captureCheckpoint(runtime, `response_selected_${viewport}`, session);
+      await attemptQuestion(session, "Question 2: Not answered").click();
+      await attemptQuestion(session, "Question 2: Not answered, current").waitFor();
+      await session.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+      await captureCheckpoint(runtime, `assessment_navigation_${viewport}`, session);
+    } finally {
+      await runtime.close(session);
+    }
   }
 
-  const submittedSession = await runtime.open("submitted_phone");
+  for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
+    const resumedSession = await runtime.open(`resume_selected_${viewport}`);
+    try {
+      await choosePersona(resumedSession.page, "Avery Thompson");
+      await openStudentCourse(resumedSession.page);
+      await resumeStudentAssignmentAttempt(resumedSession.page);
+      await resumedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+      await attemptSurface(resumedSession).locator("section.question-response-control").waitFor();
+      await resumedSession.privacy.settleResponses();
+      await resumedSession.page.reload({ waitUntil: "commit" });
+      await attemptSurface(resumedSession).waitFor();
+      await attemptQuestion(resumedSession, "Question 1: Saved").waitFor();
+      await attemptQuestion(resumedSession, "Question 1: Saved").click();
+      await resumedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+      await waitForRestoredResponse(resumedSession);
+      await resumedSession.page.getByText("Response saved.", { exact: true }).waitFor();
+      await captureCheckpoint(runtime, `resume_selected_${viewport}`, resumedSession);
+    } finally {
+      await runtime.close(resumedSession);
+    }
+  }
+
+  const submittedSession = await runtime.open("submitted_laptop");
   try {
     await choosePersona(submittedSession.page, "Avery Thompson");
     await openStudentCourse(submittedSession.page);
@@ -346,9 +420,32 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await submittedSession.page
       .getByRole("heading", { name: "Your recorded work", exact: true })
       .waitFor();
-    await captureCheckpoint(runtime, "submitted_phone", submittedSession);
+    await captureCheckpoint(runtime, "submitted_laptop", submittedSession);
   } finally {
     await runtime.close(submittedSession);
+  }
+
+  for (const viewport of ["tablet", "phone", "square"] as const) {
+    const session = await runtime.open(`submitted_${viewport}`);
+    try {
+      await choosePersona(session.page, "Avery Thompson");
+      await openStudentCourse(session.page);
+      const assignment = courseworkRow(session.page);
+      await assignment
+        .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+        .click();
+      await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
+      const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
+      await previousAttempt.waitFor();
+      await previousAttempt.click();
+      await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
+      await session.page
+        .getByRole("heading", { name: "Your recorded work", exact: true })
+        .waitFor();
+      await captureCheckpoint(runtime, `submitted_${viewport}`, session);
+    } finally {
+      await runtime.close(session);
+    }
   }
 }
 
@@ -373,8 +470,9 @@ async function captureDenial(runtime: ScenarioRuntime, checkpoint: string): Prom
 }
 
 async function studentAuthorization(runtime: ScenarioRuntime): Promise<void> {
-  await captureDenial(runtime, "denial_laptop");
-  await captureDenial(runtime, "denial_phone");
+  for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
+    await captureDenial(runtime, `denial_${viewport}`);
+  }
 }
 
 export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
@@ -382,7 +480,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "student_course_list",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "course_list_laptop",
         area: "courses",
         workflow: "course navigation",
@@ -391,24 +489,33 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         privacyProfile: "student_self",
         caption: "Student courses",
         featured: true,
-      },
-      {
-        checkpoint: "course_list_phone",
-        area: "courses",
-        workflow: "course navigation",
-        state: "course list",
-        viewport: "phone",
-        privacyProfile: "student_self",
-        caption: "Student courses on a phone",
-      },
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentCourseList,
+  },
+  {
+    id: "student_course_grades",
+    role: "student",
+    captures: [
+      ...directViewportCaptures({
+        checkpoint: "course_grades_laptop",
+        area: "courses",
+        workflow: "Course grade summary",
+        state: "self-only grades",
+        viewport: "laptop",
+        privacyProfile: "student_self",
+        caption: "Student Course grades",
+      }),
+    ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
+    run: studentCourseGrades,
   },
   {
     id: "student_invitation",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "invitation_index_laptop",
         area: "courses",
         workflow: "course invitation",
@@ -416,8 +523,8 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_self",
         caption: "Pending Course Invitations",
-      },
-      {
+      }),
+      ...directViewportCaptures({
         checkpoint: "invitation_detail_laptop",
         area: "courses",
         workflow: "course invitation",
@@ -425,15 +532,16 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_self",
         caption: "Course Invitation review",
-      },
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentInvitation,
   },
   {
     id: "student_landings",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "not_started_laptop",
         area: "courses",
         workflow: "seeded assignment progress",
@@ -441,8 +549,8 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_self",
         caption: "Not-started Course landing",
-      },
-      {
+      }),
+      ...directViewportCaptures({
         checkpoint: "in_progress_laptop",
         area: "courses",
         workflow: "seeded assignment progress",
@@ -450,8 +558,8 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_self",
         caption: "In-progress Course landing",
-      },
-      {
+      }),
+      ...directViewportCaptures({
         checkpoint: "completed_laptop",
         area: "courses",
         workflow: "seeded assignment progress",
@@ -460,24 +568,16 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         privacyProfile: "student_self",
         caption: "Completed Course landing",
         featured: true,
-      },
-      {
-        checkpoint: "not_started_phone",
-        area: "courses",
-        workflow: "seeded assignment progress",
-        state: "not started",
-        viewport: "phone",
-        privacyProfile: "student_self",
-        caption: "Not-started Course landing on a phone",
-      },
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentLandings,
   },
   {
     id: "student_assignment_overviews",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "unanswered_laptop",
         area: "assignments",
         workflow: "assignment entry",
@@ -486,24 +586,16 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         privacyProfile: "student_unanswered",
         caption: "Unanswered Assignment overview",
         featured: true,
-      },
-      {
-        checkpoint: "unanswered_tablet",
-        area: "assignments",
-        workflow: "assignment entry",
-        state: "unanswered",
-        viewport: "tablet",
-        privacyProfile: "student_unanswered",
-        caption: "Unanswered Assignment overview on a tablet",
-      },
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentAssignmentOverviews,
   },
   {
     id: "student_assignment_history",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "overview_history_laptop",
         area: "assignments",
         workflow: "assignment history",
@@ -511,8 +603,8 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_self",
         caption: "Assignment overview with previous attempts",
-      },
-      {
+      }),
+      ...directViewportCaptures({
         checkpoint: "selected_history_laptop",
         area: "assignments",
         workflow: "assignment history",
@@ -520,15 +612,16 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_feedback_released",
         caption: "Selected Assignment history",
-      },
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentAssignmentHistory,
   },
   {
     id: "student_assignment_attempt",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "response_selected_laptop",
         area: "assignments",
         workflow: "assignment attempt",
@@ -537,8 +630,8 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         privacyProfile: "student_selected_response",
         caption: "Saved Student Assignment response",
         featured: true,
-      },
-      {
+      }),
+      ...directViewportCaptures({
         checkpoint: "assessment_navigation_laptop",
         area: "assessments",
         workflow: "assessment navigation and progress",
@@ -546,33 +639,34 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "student_self",
         caption: "Student Question navigation, saved progress, and countdown timer",
-      },
-      {
-        checkpoint: "resume_selected_tablet",
+      }),
+      ...directViewportCaptures({
+        checkpoint: "resume_selected_laptop",
         area: "assignments",
         workflow: "assignment attempt",
         state: "reloaded saved response",
-        viewport: "tablet",
+        viewport: "laptop",
         privacyProfile: "student_self",
-        caption: "Reloaded Student Assignment response on a tablet",
-      },
-      {
-        checkpoint: "submitted_phone",
+        caption: "Reloaded Student Assignment response",
+      }),
+      ...directViewportCaptures({
+        checkpoint: "submitted_laptop",
         area: "assignments",
         workflow: "assignment attempt",
         state: "submitted",
-        viewport: "phone",
+        viewport: "laptop",
         privacyProfile: "student_feedback_released",
-        caption: "Submitted Student Assignment on a phone",
-      },
+        caption: "Submitted Student Assignment",
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentAssignmentAttempt,
   },
   {
     id: "student_authorization",
     role: "student",
     captures: [
-      {
+      ...directViewportCaptures({
         checkpoint: "denial_laptop",
         area: "authorization",
         workflow: "role denial",
@@ -580,17 +674,9 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         viewport: "laptop",
         privacyProfile: "authorization_denial",
         caption: "Student authorization denial",
-      },
-      {
-        checkpoint: "denial_phone",
-        area: "authorization",
-        workflow: "role denial",
-        state: "denied",
-        viewport: "phone",
-        privacyProfile: "authorization_denial",
-        caption: "Student authorization denial on a phone",
-      },
+      }),
     ],
+    viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: studentAuthorization,
   },
 ];

@@ -16,7 +16,7 @@ export interface CaptureSession {
   readonly page: Page;
   readonly pageErrors: Error[];
   readonly privacy: PrivacyMonitor;
-  readonly viewport: ViewportId;
+  viewport: ViewportId;
 }
 
 export interface ScenarioRuntime {
@@ -78,10 +78,11 @@ async function assertRibbon(page: Page, capture: CaptureRecord): Promise<void> {
   if (route === undefined) throw new Error(`${capture.id} has no route for Ribbon verification`);
   const ribbon = page.getByRole("region", { name: "PLE application Ribbon", exact: true });
   await ribbon.waitFor();
-  const tabId = route.ribbon.tab;
-  if (tabId === undefined) return;
-  const control = TAB_CATALOG.find((candidate) => candidate.id === tabId);
-  if (control === undefined) throw new Error(`${capture.id} route names an unknown Ribbon tab`);
+  const tierOneArea = route.ribbon.tierOneArea;
+  if (tierOneArea === "account") return;
+  const control = TAB_CATALOG.find((candidate) => candidate.id === tierOneArea);
+  if (control === undefined)
+    throw new Error(`${capture.id} route names an unknown Ribbon tier-one area`);
   const selected = ribbon
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: control.label, exact: true });
@@ -107,6 +108,36 @@ function declarationFor(scenario: ScenarioDefinition, checkpoint: string): Captu
   return matches[0];
 }
 
+function contextOptions(viewport: ViewportId): {
+  readonly colorScheme: "light";
+  readonly deviceScaleFactor: 1;
+  readonly hasTouch: boolean;
+  readonly isMobile: boolean;
+  readonly reducedMotion: "reduce";
+  readonly viewport: { readonly width: number; readonly height: number };
+} {
+  const profile = CANONICAL_VIEWPORTS[viewport];
+  return {
+    colorScheme: "light",
+    deviceScaleFactor: 1,
+    hasTouch: profile.mobile,
+    isMobile: profile.mobile,
+    reducedMotion: "reduce",
+    viewport: { width: profile.width, height: profile.height },
+  };
+}
+
+function configurePage(page: Page, pageErrors: Error[]): void {
+  page.on("pageerror", (error) => pageErrors.push(error));
+  page.setDefaultTimeout(30_000);
+  page.setDefaultNavigationTimeout(60_000);
+}
+
+/** A fresh Playwright context is required when a capture changes touch/mobile emulation. */
+export function requiresFreshViewportContext(from: ViewportId, to: ViewportId): boolean {
+  return CANONICAL_VIEWPORTS[from].mobile !== CANONICAL_VIEWPORTS[to].mobile;
+}
+
 export function createScenarioRuntime(options: {
   readonly browser: Browser;
   readonly entryUrl: URL;
@@ -118,20 +149,10 @@ export function createScenarioRuntime(options: {
 
   async function openSession(checkpoint: string): Promise<CaptureSession> {
     const declaration = declarationFor(options.scenario, checkpoint);
-    const viewport = CANONICAL_VIEWPORTS[declaration.viewport];
-    const context = await options.browser.newContext({
-      colorScheme: "light",
-      deviceScaleFactor: 1,
-      hasTouch: viewport.mobile,
-      isMobile: viewport.mobile,
-      reducedMotion: "reduce",
-      viewport: { width: viewport.width, height: viewport.height },
-    });
+    const context = await options.browser.newContext(contextOptions(declaration.viewport));
     const page = await context.newPage();
     const pageErrors: Error[] = [];
-    page.on("pageerror", (error) => pageErrors.push(error));
-    page.setDefaultTimeout(30_000);
-    page.setDefaultNavigationTimeout(60_000);
+    configurePage(page, pageErrors);
     await page.goto(options.entryUrl.href, { waitUntil: "commit" });
     await page
       .getByRole("heading", {
@@ -147,7 +168,15 @@ export function createScenarioRuntime(options: {
   async function captureCheckpoint(session: CaptureSession, checkpoint: string): Promise<void> {
     const declaration = declarationFor(options.scenario, checkpoint);
     if (session.viewport !== declaration.viewport) {
-      throw new Error(`${checkpoint} uses a session with the wrong viewport`);
+      if (requiresFreshViewportContext(session.viewport, declaration.viewport)) {
+        throw new Error(
+          `${options.scenario.id}:${checkpoint} changes desktop/mobile emulation; ` +
+            "open a fresh session and replay the visible workflow before capture",
+        );
+      }
+      const viewport = CANONICAL_VIEWPORTS[declaration.viewport];
+      await session.page.setViewportSize({ width: viewport.width, height: viewport.height });
+      session.viewport = declaration.viewport;
     }
     const identity = captureIdentity(options.scenario.role, checkpoint, declaration.viewport);
     const routeId = observedRoute(session.page, identity.id);

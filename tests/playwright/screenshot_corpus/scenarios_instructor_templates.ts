@@ -3,7 +3,7 @@
 // focused editor headings are owned by src/pages/assessment_templates_page.tsx.
 
 import type { ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
 const TEMPLATE_NAME = "Weekly Quiz settings";
@@ -73,6 +73,23 @@ export const INSTRUCTOR_TEMPLATE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = 
         caption: "Editable Assessment Template",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "template_editor",
+        reason:
+          "template_editor captures the editable Assessment Template on the Instructor Assessment Templates route as a laptop representative substitution. The tablet layout remains unverified until a tablet replay is captured.",
+      },
+      phone: {
+        target: "template_editor",
+        reason:
+          "template_editor captures the editable Assessment Template on the Instructor Assessment Templates route as a laptop representative substitution. The phone layout remains unverified until a phone replay is captured.",
+      },
+      square: {
+        target: "template_editor",
+        reason:
+          "template_editor captures the editable Assessment Template on the Instructor Assessment Templates route as a laptop representative substitution. The square layout remains unverified until a square replay is captured.",
+      },
+    }),
     run: instructorTemplates,
   },
 ];

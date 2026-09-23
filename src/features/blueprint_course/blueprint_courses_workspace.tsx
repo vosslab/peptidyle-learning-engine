@@ -3,6 +3,7 @@ import { A } from "@solidjs/router";
 import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import { PageFrame } from "../../components/page_frame";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseImport } from "./blueprint_exchange";
@@ -137,18 +138,16 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
     blueprintCourseContinuationPresentation(cursor() !== null, continuationFailed());
 
   return (
-    <main class="page blueprint-course-workspace" data-route-surface="blueprintCourses">
-      <header class="blueprint-course-page-heading">
-        <p class="eyebrow">Blueprint Courses</p>
-        <h1>Build reusable course structure</h1>
-        <Show when={props.proposalClient}>
-          <A href="/blueprint-change-proposals">My Change Proposals</A>
-        </Show>
-        <p class="page-lede">
-          Blueprint Courses contain reusable modules and assessments, with no Students or delivery
-          dates.
-        </p>
-      </header>
+    <PageFrame
+      contentClass="blueprint-course-workspace"
+      eyebrow="Blueprint Courses"
+      title="Build reusable course structure"
+      lede="Blueprint Courses contain reusable modules and assessments, with no Students or delivery dates."
+      routeSurface="blueprintCourses"
+    >
+      <Show when={props.proposalClient}>
+        <A href="/blueprint-change-proposals">My Change Proposals</A>
+      </Show>
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
@@ -263,7 +262,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
           onFailure={(text) => setNotice({ kind: "alert", text })}
         />
       </Show>
-    </main>
+    </PageFrame>
   );
 }
 

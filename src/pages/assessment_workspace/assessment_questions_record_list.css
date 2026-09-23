@@ -1,0 +1,36 @@
+/* Assessment Question Editor RecordList presentation. */
+
+.assessment-workspace-questions .record-list__row {
+  padding: var(--ple-space-3);
+  border-radius: var(--ple-radius-control);
+  background: color-mix(in srgb, var(--ple-surface-soft) 52%, transparent);
+}
+
+.assessment-workspace-questions .record-list__row[data-record-id] {
+  margin-block: var(--ple-space-1);
+}
+
+.assessment-workspace-questions .record-list__region--actions {
+  align-content: start;
+}
+
+.assessment-workspace-questions .record-list__reorder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-1);
+}
+
+.assessment-workspace-questions .record-list__reorder-actions .quiet-action,
+.assessment-workspace-questions .record-list__region--actions > .quiet-action {
+  min-block-size: var(--ple-control-min-height);
+  padding: 0.2rem 0.42rem;
+  font-size: 0.86rem;
+}
+
+.assessment-workspace-questions .record-list__region--actions > .quiet-action {
+  color: var(--ple-danger);
+}
+
+.assessment-workspace-questions .record-list__row:has(.assessment-pool-fork) {
+  border-inline-start: 0.3rem solid var(--ple-accent-strong);
+}

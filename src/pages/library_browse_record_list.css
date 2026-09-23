@@ -1,0 +1,93 @@
+/* Question Library RecordList presentations and variable-height result window. */
+
+.library-browse-record-list__presentations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+  margin-block: var(--ple-space-3);
+}
+.library-browse-record-list__presentations [aria-pressed="true"] {
+  border-color: var(--ple-accent);
+  background: color-mix(in srgb, var(--ple-accent) 12%, var(--ple-card-surface));
+}
+.library-browse-record-list__window {
+  block-size: min(65vh, 33rem);
+  min-block-size: min(7rem, 100%);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--ple-card-surface) 78%, transparent);
+  box-shadow: var(--ple-shadow);
+}
+.library-browse-record-list__window:focus-visible {
+  outline: 2px solid var(--ple-focus);
+  outline-offset: 2px;
+}
+.library-browse-record-list__spacer {
+  min-block-size: 0;
+}
+.library-browse-record-list .record-list__row {
+  padding: var(--ple-space-3) var(--ple-space-4);
+}
+.library-browse-record-list__question {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ple-space-2);
+}
+.library-browse-record-list__selection {
+  display: grid;
+  place-items: center;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+}
+.library-browse-record-list__question h2,
+.library-browse-record-list__question p,
+.library-browse-record-list__classification p,
+.library-browse-record-list__authors {
+  margin: 0;
+}
+.library-browse-record-list__question > div,
+.library-browse-record-list__classification {
+  display: grid;
+  gap: var(--ple-space-1);
+}
+.library-browse-record-list__question h2 {
+  font-size: 1.05rem;
+}
+.library-browse-record-list__question p,
+.library-browse-record-list__classification,
+.library-browse-record-list__authors {
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+}
+.library-browse-record-list__retired {
+  font-style: italic;
+}
+.library-browse-record-list--preview .record-list__row {
+  padding-block: var(--ple-space-4);
+}
+.library-browse-record-list--preview
+  .library-browse-record-list__question
+  p:not(.library-browse-record-list__authors) {
+  color: var(--ple-ink);
+  font-size: 0.96rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 64rem) {
+  .library-browse-record-list .record-list__row {
+    padding-inline: var(--ple-space-3);
+  }
+}
+@media (max-width: 48rem) {
+  .library-browse-record-list__window {
+    block-size: min(62vh, 31rem);
+  }
+}
+@media (max-width: 32rem) {
+  .library-browse-record-list__window {
+    block-size: min(58vh, 28rem);
+  }
+  .library-browse-record-list .record-list__row {
+    padding: var(--ple-space-3) var(--ple-space-2);
+  }
+}

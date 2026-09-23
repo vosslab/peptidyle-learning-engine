@@ -15,6 +15,8 @@ import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintChangeProposalClient } from "../../api/blueprint_change_proposal";
 import { useApplicationApi } from "../../api/application_api";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import { PageFrame } from "../../components/page_frame";
+import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
 import { ProposalReview } from "./proposal_review";
 
 type Client = BlueprintCourseClient & BlueprintChangeProposalClient;
@@ -26,6 +28,7 @@ function recordPath(id: string): string {
 export function ProposalRecords(props: {
   readonly client: BlueprintChangeProposalClient;
   readonly target?: string;
+  readonly formatDateTime: (timestamp: number | Date) => string;
 }): JSX.Element {
   const [page, setPage] = createSignal<BlueprintChangeProposalPageView>();
   const [busy, setBusy] = createSignal(false),
@@ -109,7 +112,7 @@ export function ProposalRecords(props: {
                       : item.targetIsStale
                         ? "Older target basis; acceptance unavailable"
                         : "Proposed"}
-                    . Created {item.createdAt}.
+                    . Created {props.formatDateTime(item.createdAt)}.
                   </p>
                 </article>
               )}
@@ -131,6 +134,7 @@ export function ProposalRecords(props: {
 export function ProposalTargetTools(props: {
   readonly client: Client;
   readonly target: BlueprintCourseView;
+  readonly formatDateTime: (timestamp: number | Date) => string;
 }): JSX.Element {
   const [open, setOpen] = createSignal(false);
   const [sources, setSources] = createSignal<readonly BlueprintCourseSummaryView[]>([]);
@@ -227,7 +231,11 @@ export function ProposalTargetTools(props: {
   return (
     <section class="blueprint-proposal">
       <A href="/blueprint-change-proposals">My Change Proposals across targets</A>
-      <ProposalRecords client={props.client} target={props.target.id} />
+      <ProposalRecords
+        client={props.client}
+        target={props.target.id}
+        formatDateTime={props.formatDateTime}
+      />
       <Show
         when={
           props.target.read_access !== "blueprint_course_owner" &&
@@ -325,26 +333,33 @@ export function ProposalTargetTools(props: {
 
 export function MyChangeProposalsLivePage(): JSX.Element {
   const api = useApplicationApi();
+  const displayTimeZone = browserDisplayTimeZone();
+  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
   return (
-    <main class="page">
-      <h1>My Change Proposals</h1>
-      <p>Your own submissions across target Blueprints, including retained accepted records.</p>
-      <ProposalRecords client={api.client} />
-    </main>
+    <PageFrame
+      title="My Change Proposals"
+      lede="Your own submissions across target Blueprints, including retained accepted records."
+      routeSurface="myChangeProposals"
+    >
+      <p>Times shown in {displayTimeZone}.</p>
+      <ProposalRecords client={api.client} formatDateTime={formatDateTime} />
+    </PageFrame>
   );
 }
 
 export function ChangeProposalDetailLivePage(): JSX.Element {
   const api = useApplicationApi(),
     params = useParams();
+  const displayTimeZone = browserDisplayTimeZone();
+  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
   const [detail, { refetch }] = createResource(
     () => params["proposalId"] ?? "",
     (id) => api.client.getBlueprintChangeProposal(id),
   );
   return (
-    <main class="page">
-      <h1>Review Blueprint Change Proposal</h1>
+    <PageFrame title="Review Blueprint Change Proposal" routeSurface="changeProposalDetail">
       <A href="/blueprint-change-proposals">My Change Proposals</A>
+      <p>Times shown in {displayTimeZone}.</p>
       <Show when={detail.loading}>
         <p role="status">Loading frozen proposal evidence...</p>
       </Show>
@@ -361,12 +376,13 @@ export function ChangeProposalDetailLivePage(): JSX.Element {
           <ProposalReview
             client={api.client}
             detail={value}
+            formatDateTime={formatDateTime}
             refresh={async () => {
               await refetch();
             }}
           />
         )}
       </Show>
-    </main>
+    </PageFrame>
   );
 }

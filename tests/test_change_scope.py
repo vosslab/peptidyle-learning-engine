@@ -95,6 +95,18 @@ def test_schema_edit_restarts_without_a_second_driver_build(tmp_path: pathlib.Pa
 	assert decision.containers == "full_restart"
 
 
+def test_generated_schema_catalog_does_not_restart_the_running_stack(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The fast-check catalog snapshot is not a runtime schema source."""
+	repo = _repo(tmp_path)
+	_write(repo / "schemas" / "catalog_snapshot.json", "{}\n", 300.0)
+	assert change_scope._schema_source_mtime(repo) == 100.0
+	decision = change_scope.decide(repo, 200.0, 200.0)
+	assert decision.build == "none"
+	assert decision.containers == "none"
+
+
 def test_podman_go_created_stamp_does_not_rebuild_application(
 	tmp_path: pathlib.Path,
 ) -> None:
@@ -108,3 +120,18 @@ def test_podman_go_created_stamp_does_not_rebuild_application(
 	decision = change_scope.decide(repo, created, created)
 	assert decision.build == "client"
 	assert decision.containers == "none"
+
+
+def test_png_hashes_include_viewport_subdirectories(tmp_path: pathlib.Path) -> None:
+	"""Review copies include every published responsive rendition."""
+	root = tmp_path / "repository"
+	flat = root / "docs" / "screenshots" / "student" / "course_list.png"
+	nested = root / "docs" / "screenshots" / "student" / "phone" / "course_list.png"
+	flat.parent.mkdir(parents=True)
+	nested.parent.mkdir(parents=True)
+	flat.write_bytes(b"flat")
+	nested.write_bytes(b"phone")
+
+	hashes = capture_screenshots.png_hashes(root)
+
+	assert set(hashes) == {"student/course_list.png", "student/phone/course_list.png"}

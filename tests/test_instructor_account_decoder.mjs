@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeInstructorAccountList } from "../src/api/decoders/instructor_account.ts";
+import { createDisplayDateTimeFormatter } from "../src/format_datetime.ts";
 import { formatSignInLabel } from "../src/pages/instructor_account_model.ts";
 
 const listResponse = {
@@ -43,8 +44,11 @@ test("Sysadmin list carries only the viewer display zone outside closed target s
 
 test("Sysadmin sign-in timestamps render in the supplied viewer zone", () => {
   const instant = Date.parse("2026-01-15T18:30:00Z");
-  assert.equal(formatSignInLabel(instant, "America/New_York"), "Jan 15, 2026, 1:30 PM");
-  assert.equal(formatSignInLabel(instant, "America/Los_Angeles"), "Jan 15, 2026, 10:30 AM");
+  const formatEasternDateTime = createDisplayDateTimeFormatter("America/New_York");
+  const formatPacificDateTime = createDisplayDateTimeFormatter("America/Los_Angeles");
+
+  assert.equal(formatSignInLabel(instant, formatEasternDateTime), "Jan 15, 2026, 1:30 PM");
+  assert.equal(formatSignInLabel(instant, formatPacificDateTime), "Jan 15, 2026, 10:30 AM");
 });
 
 test("Instructor Accounts visibly names the viewer zone for sign-in times", () => {

@@ -20,6 +20,7 @@ import {
   type CourseClassificationDraft,
 } from "../components/course_classification_fields";
 import { CourseClassificationSummary } from "../components/course_classification_summary";
+import { PageFrame } from "../components/page_frame";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
 import "./course_list_page.css";
 
@@ -282,27 +283,32 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   }
 
   return (
-    <section class="page" data-route-surface={isActiveMode() ? "courses" : "inactiveCourses"}>
-      <p class="eyebrow">Teaching</p>
-      <h1>{isActiveMode() ? "My Active Courses" : "My Inactive Courses"}</h1>
-      <Show when={isActiveMode()}>
-        <p class="page-lede">
-          Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review
-          dates and settings before releasing Assessments to students.
-        </p>
-      </Show>
+    <PageFrame
+      routeSurface={isActiveMode() ? "courses" : "inactiveCourses"}
+      eyebrow="Teaching"
+      title={isActiveMode() ? "My Active Courses" : "My Inactive Courses"}
+      lede={
+        isActiveMode()
+          ? "Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review dates and settings before releasing Assessments to students."
+          : undefined
+      }
+      actions={
+        isInstructor() && isActiveMode() ? (
+          <button
+            class="quiet-action course-create-disclosure"
+            type="button"
+            aria-expanded={isCreationExpanded()}
+            aria-controls="create-course-instance"
+            disabled={isCreating()}
+            onClick={() => setCreationDisclosure(!isCreationExpanded())}
+          >
+            <span aria-hidden="true">{isCreationExpanded() ? "\u25be" : "\u25b8"}</span>
+            Create Course Instance
+          </button>
+        ) : undefined
+      }
+    >
       <Show when={isInstructor() && isActiveMode()}>
-        <button
-          class="quiet-action course-create-disclosure"
-          type="button"
-          aria-expanded={isCreationExpanded()}
-          aria-controls="create-course-instance"
-          disabled={isCreating()}
-          onClick={() => setCreationDisclosure(!isCreationExpanded())}
-        >
-          <span aria-hidden="true">{isCreationExpanded() ? "\u25be" : "\u25b8"}</span>
-          Create Course Instance
-        </button>
         <form
           id="create-course-instance"
           class="course-create-form"
@@ -500,7 +506,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
           <For each={visibleCourses()}>{(course) => <CourseInstanceRow course={course} />}</For>
         </div>
       </Show>
-    </section>
+    </PageFrame>
   );
 }
 

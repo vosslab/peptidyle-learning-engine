@@ -34,7 +34,7 @@
 
 /* Citation URLs are the browser application's current editable long-URL
  * surface. Inputs retain their normal single-line scroll/copy behavior. */
-.ple-question-json-authoring[data-route-surface="pleQuestionJsonEditor"]
+.page-frame[data-route-surface="pleQuestionJsonEditor"]
   .ple-question-json-authoring__field
   > input[type="url"] {
   font-family: var(--ple-font-narrow);

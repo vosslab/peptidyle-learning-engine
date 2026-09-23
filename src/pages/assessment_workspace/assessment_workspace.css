@@ -195,7 +195,6 @@
 .assessment-workspace-create {
   display: grid;
   gap: var(--ple-section-gap);
-  max-width: var(--ple-reading-max-inline);
 }
 
 .assessment-workspace-create .assessment-editor-panel,
@@ -276,7 +275,6 @@
 .assessment-workspace-student-view {
   display: grid;
   gap: var(--ple-section-gap);
-  width: min(100%, var(--ple-reading-max-inline));
 }
 
 .student-view-cue {
@@ -384,10 +382,6 @@
   margin: 0;
   max-width: 62ch;
   color: var(--ple-muted);
-}
-
-.assessment-workspace-state {
-  width: min(100%, var(--ple-reading-max-inline));
 }
 
 @media (max-width: 60rem) {

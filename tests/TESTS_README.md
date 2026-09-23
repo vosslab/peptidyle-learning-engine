@@ -13,7 +13,9 @@ tests/
   conftest.py            pytest config; declares collect_ignore
   conftest.py includes:  collect_ignore = ["e2e", "playwright"]
   playwright/            browser-driven evidence, excluded from pytest and the aggregate
-    ribbon_*.mjs         focused compiled-Chromium structural, responsive, and visual fixture evidence
+    record_list_*.mjs    focused production RecordList component contracts
+    fast_ui_*.mjs        stack-free production-route composition and optional headed fixtures
+    ribbon_*.mjs         focused shell, navigation, and responsive browser checks
     e2e/*.spec.ts        scenario-registry-owned production browser scenarios
   e2e/                   non-browser whole-system E2E (shell/Python/Node)
     e2e_*.sh             shell orchestration
@@ -29,12 +31,16 @@ tests/
   `source source_me.sh && python3 tests/e2e/e2e_<name>.py`, or
   `node tests/e2e/e2e_<name>.mjs` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
 - Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
+- Stack-free UI lane: `source source_me.sh && ./launchers/run_fast_ui_checks.sh`
+- Open one registered UI fixture: `source source_me.sh && ./launchers/run_fast_ui_checks.sh --headed --case <name>`
 - Focused Ribbon fixture evidence: `node --import tsx tests/playwright/ribbon_<name>.mjs`
 
-The `tests/playwright/ribbon_*.mjs` scripts compile supplied fixture content and
-inspect it in headless Chromium. They are focused structural, responsive, and
-visual evidence; they are outside `./launchers/all_test.sh` and do not establish
-production-browser acceptance. The `tests/playwright/e2e/*.spec.ts` scenarios
+The stack-free UI lane compiles real production components, styles, and selected
+route compositions into Chromium with deterministic fixture data. It does not
+start backend services and is outside `./launchers/all_test.sh`; the focused
+real-stack parity scenario and screenshot publication remain separate evidence.
+Other focused Ribbon scripts inspect production-source fixtures in Chromium and
+do not establish production-browser acceptance. The `tests/playwright/e2e/*.spec.ts` scenarios
 are selected by the fresh Store-backed M19 browser owner, which accepted its serial
 production-bundle run on 2026-09-07. The aggregate remains limited to its named
 database/object service lanes.

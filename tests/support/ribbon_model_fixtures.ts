@@ -1,9 +1,19 @@
 // ribbon_model_fixtures.ts - catalog-valid presentation models for Ribbon component evidence.
 
 import type { ProductRole } from "../../generated/api/ProductRole";
-import type { RouteParamName } from "../../src/navigation/route_params";
-import type { ContentLayout, RibbonScope } from "../../src/route_contract";
-import { buildRoutePath, type DeclaredRibbonRouteParams } from "../../src/ribbon/ribbon_contract";
+import { routeParams, type RouteParamName } from "../../src/navigation/route_params";
+import {
+  productRoleMayAccessRoute,
+  ROUTE_CONTRACT,
+  type RibbonScope,
+  type RouteContract,
+  type RouteId,
+} from "../../src/route_contract";
+import {
+  buildRoutePath,
+  deriveRibbonModel,
+  type DeclaredRibbonRouteParams,
+} from "../../src/ribbon/ribbon_contract";
 import {
   RIBBON_TASK_CATALOG,
   RIBBON_CONTEXT_CONTROL_CATALOG,
@@ -35,6 +45,66 @@ const CANONICAL_FIXTURE_PARAMS = {
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
+const RIBBON_ROUTE_PRODUCT_ROLES = ["instructor", "student", "sysadmin"] as const;
+
+export interface RibbonRouteMaterialization {
+  readonly productRole: ProductRole;
+  readonly route: RouteContract;
+  readonly pathname: string;
+  readonly model: RibbonModel;
+}
+
+function paramsForRoute(route: RouteContract): DeclaredRibbonRouteParams {
+  const params: Partial<Record<RouteParamName, string>> = {};
+  for (const segment of route.path.split("/")) {
+    if (!segment.startsWith(":")) continue;
+    const name = segment.slice(1) as RouteParamName;
+    params[name] = CANONICAL_FIXTURE_PARAMS[name];
+  }
+  return params;
+}
+
+/**
+ * Builds a Ribbon model only from one declared, signed-in route and role.
+ * This is the shared browser-harness source for complete route/role evidence.
+ */
+export function materializeRibbonRoute(
+  productRole: ProductRole,
+  routeId: RouteId,
+): RibbonRouteMaterialization {
+  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
+  if (route === undefined) throw new Error(`Ribbon fixture has no declared route ${routeId}.`);
+  if (!productRoleMayAccessRoute(route.id, productRole)) {
+    throw new Error(`Ribbon fixture cannot give ${productRole} access to ${route.id}.`);
+  }
+  if (route.id === "signIn") {
+    throw new Error("Ribbon fixture does not materialize the signed-out sign-in route.");
+  }
+  const pathname = buildRoutePath(route.id, paramsForRoute(route));
+  if (pathname === undefined) throw new Error(`Ribbon fixture cannot build ${route.id}.`);
+  const params = routeParams(route, pathname);
+  if (params === undefined) throw new Error(`Ribbon fixture cannot parse ${route.id}.`);
+  const currentCourseInstanceId = params.courseInstanceId;
+  const model = deriveRibbonModel(
+    { route, params, currentCourseInstanceId },
+    { productRole },
+    {
+      assessmentTitle: "Problem Set 7",
+    },
+  );
+  return Object.freeze({ productRole, route, pathname, model });
+}
+
+/** Every signed-in role/route pair that the declared browser boundary admits. */
+export const RIBBON_ROUTE_MATERIALIZATIONS: ReadonlyArray<RibbonRouteMaterialization> =
+  Object.freeze(
+    RIBBON_ROUTE_PRODUCT_ROLES.flatMap((productRole) =>
+      ROUTE_CONTRACT.filter(
+        (route) => route.id !== "signIn" && productRoleMayAccessRoute(route.id, productRole),
+      ).map((route) => materializeRibbonRoute(productRole, route.id)),
+    ),
+  );
+
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
   const control = ALL_CATALOG_CONTROLS.find(
     (candidate): candidate is RibbonCatalogControl<Id> => candidate.id === id,
@@ -59,8 +129,11 @@ function fixtureHrefFor(catalog: RibbonCatalogControl<RibbonDestinationId>): str
     return undefined;
   }
 
-  const mutableParams: Partial<Record<RouteParamName, string>> = {};
-  for (const name of catalog.requiredParams) {
+  const mutableParams: Partial<Record<RouteParamName, string>> =
+    catalog.id === "coursework" || catalog.id === "grades"
+      ? { courseInstanceId: CANONICAL_FIXTURE_PARAMS.courseInstanceId }
+      : {};
+  for (const name of catalog.requiredParams ?? []) {
     const value = CANONICAL_FIXTURE_PARAMS[name];
     if (value === undefined) {
       throw new Error(`Ribbon fixture has no canonical value for ${catalog.id}:${name}.`);
@@ -118,12 +191,11 @@ function model(
   productRole: ProductRole,
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
-  contentLayout: ContentLayout,
-  context: Omit<RibbonModel["context"], "productLabel" | "accountControls">,
+  _unusedContentLayout: string,
+  _contextLabels: Readonly<Record<string, unknown>>,
 ): RibbonModel {
   return {
     scope,
-    contentLayout,
     context: {
       productLabel:
         productRole === "student"
@@ -131,7 +203,7 @@ function model(
           : productRole === "instructor"
             ? "Instructor"
             : "Sysadmin",
-      ...context,
+      signOutAction: SIGN_OUT,
       accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
         control.productRoles.includes(productRole),
       ),
@@ -139,7 +211,6 @@ function model(
     tabs,
     taskAreas,
     breadcrumbs: [],
-    breadcrumbPreludeReserved: false,
   };
 }
 
@@ -151,7 +222,7 @@ export const M6_RIBBON_FIXTURES = {
   productStudent: model(
     "product",
     "student",
-    [control("courses", { selected: true })],
+    [control("courses", { selected: true }), control("coursework"), control("grades")],
     [],
     "reading",
     { signOutAction: SIGN_OUT },
@@ -176,7 +247,12 @@ export const M6_RIBBON_FIXTURES = {
   productSysadmin: model(
     "product",
     "sysadmin",
-    [control("courses", { selected: true }), control("instructorAccounts")],
+    [
+      control("courses", { selected: true }),
+      control("questions"),
+      control("instructorAccounts"),
+      control("disciplines"),
+    ],
     [],
     "reading",
     { signOutAction: SIGN_OUT },
@@ -184,7 +260,7 @@ export const M6_RIBBON_FIXTURES = {
   courseStudent: model(
     "courseInstance",
     "student",
-    [control("studentAssessments", { selected: true })],
+    [control("courses"), control("coursework", { selected: true }), control("grades")],
     [],
     "reading",
     { scopeLabel: COURSE_SHORT_NAME, signOutAction: SIGN_OUT },
@@ -192,14 +268,7 @@ export const M6_RIBBON_FIXTURES = {
   courseInstructor: model(
     "courseInstance",
     "instructor",
-    [
-      control("assessments", { selected: true }),
-      control("students"),
-      control("gradebook"),
-      control("teachingOperations"),
-      control("blueprintUpdates"),
-      control("courseSetup"),
-    ],
+    [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
       area("assessment", "Assessment", [
         control("assessmentOverview", { selected: true }),
@@ -218,7 +287,12 @@ export const M6_RIBBON_FIXTURES = {
   courseSysadmin: model(
     "courseInstance",
     "sysadmin",
-    [control("teachingOperations", { selected: true })],
+    [
+      control("courses", { selected: true }),
+      control("questions"),
+      control("instructorAccounts"),
+      control("disciplines"),
+    ],
     [],
     "reading",
     {
@@ -229,7 +303,7 @@ export const M6_RIBBON_FIXTURES = {
   attemptStudent: model(
     "assessmentAttempt",
     "student",
-    [control("attempt", { selected: true })],
+    [control("courses"), control("coursework", { selected: true }), control("grades")],
     [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
     "reading",
     {
@@ -238,16 +312,31 @@ export const M6_RIBBON_FIXTURES = {
       signOutAction: SIGN_OUT,
     },
   ),
-  attemptInstructor: model("assessmentAttempt", "instructor", [], [], "reading", {
-    signOutAction: SIGN_OUT,
-  }),
-  attemptSysadmin: model("assessmentAttempt", "sysadmin", [], [], "reading", {
-    signOutAction: SIGN_OUT,
-  }),
+  attemptInstructor: model(
+    "assessmentAttempt",
+    "instructor",
+    [control("courses"), control("questions"), control("productAssessments")],
+    [],
+    "reading",
+    { signOutAction: SIGN_OUT },
+  ),
+  attemptSysadmin: model(
+    "assessmentAttempt",
+    "sysadmin",
+    [
+      control("courses"),
+      control("questions"),
+      control("instructorAccounts"),
+      control("disciplines"),
+    ],
+    [],
+    "reading",
+    { signOutAction: SIGN_OUT },
+  ),
   longCourse: model(
     "courseInstance",
     "instructor",
-    [control("assessments", { selected: true }), control("students"), control("gradebook")],
+    [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
       area("assessment", "Assessment", [
         control("assessmentOverview"),
@@ -266,7 +355,7 @@ export const M6_RIBBON_FIXTURES = {
   loadingCourse: model(
     "courseInstance",
     "student",
-    [control("studentAssessments", { selected: true })],
+    [control("courses"), control("coursework", { selected: true }), control("grades")],
     [],
     "reading",
     {
@@ -277,7 +366,7 @@ export const M6_RIBBON_FIXTURES = {
   errorCourse: model(
     "courseInstance",
     "student",
-    [control("studentAssessments", { selected: true })],
+    [control("courses"), control("coursework", { selected: true }), control("grades")],
     [],
     "reading",
     {

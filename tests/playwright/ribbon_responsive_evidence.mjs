@@ -46,13 +46,10 @@ async function ribbonEvidence(page, profileId) {
     const ribbon = document.querySelector(".ple-app-ribbon");
     if (!(ribbon instanceof HTMLElement)) throw new Error("missing compiled AppRibbon");
     const rows = [...document.querySelectorAll("[data-ribbon-row]")];
-    const taskRow = ribbon.dataset.ribbonTaskRow;
-    const expectedRows = taskRow === "reserved" ? 2 : 1;
-    if (rows.length !== expectedRows)
-      throw new Error(`expected ${expectedRows} Ribbon rows, found ${rows.length}`);
+    if (rows.length !== 2) throw new Error(`expected 2 Ribbon rows, found ${rows.length}`);
     const frames = [...ribbon.querySelectorAll(":scope > [data-ribbon-row-frame]")];
-    if (frames.length !== expectedRows)
-      throw new Error(`expected ${expectedRows} direct cue frames, found ${frames.length}`);
+    if (frames.length !== 2)
+      throw new Error(`expected 2 direct cue frames, found ${frames.length}`);
     const documentWidth = document.documentElement.scrollWidth;
     const viewportWidth = document.documentElement.clientWidth;
     const rowEvidence = rows.map((row) => {
@@ -132,7 +129,6 @@ async function ribbonEvidence(page, profileId) {
       profileId: currentProfileId,
       ribbonHeight: ribbon.getBoundingClientRect().height,
       rowEvidence,
-      taskRow,
       tokens: Object.fromEntries(
         [
           "--ple-ribbon-top-block-size",
@@ -213,18 +209,11 @@ function assertResponsiveRows(evidence, profile, expectedWidth) {
     true,
     `${profile}: no document overflow`,
   );
-  const reservesTaskRow = evidence.taskRow === "reserved";
+  assert.equal(evidence.rowEvidence.length, 2, `${profile}: reserves stable Ribbon rows`);
   assert.equal(
-    evidence.rowEvidence.length,
-    reservesTaskRow ? 2 : 1,
-    `${profile}: renders only declared Ribbon rows`,
-  );
-  assert.equal(
-    reservesTaskRow
-      ? evidence.tokens["--ple-ribbon-reserved-task-size"] > 0
-      : evidence.tokens["--ple-ribbon-reserved-task-size"] === 0,
+    evidence.tokens["--ple-ribbon-reserved-task-size"] > 0,
     true,
-    `${profile}: reserved task token follows route topology`,
+    `${profile}: reserves a stable tier-2 row`,
   );
   assert.equal(
     Math.abs(
@@ -233,7 +222,7 @@ function assertResponsiveRows(evidence, profile, expectedWidth) {
           evidence.tokens["--ple-ribbon-reserved-task-size"]),
     ) < 0.25,
     true,
-    `${profile}: Ribbon token is the sum of currently reserved rows`,
+    `${profile}: Ribbon token is the sum of stable rows`,
   );
   for (const row of evidence.rowEvidence) {
     assert.equal(row.whiteSpace, "nowrap", `${profile}: row remains one non-wrapping line`);
@@ -721,6 +710,7 @@ try {
     await restoreSelectedTabVisibility(page);
     await restoreSelectedTaskVisibility(page);
     await assertRoleHomeTabRoundTrips(page, profile.id);
+    let sameZoomRouteBaseline = baseline;
     await page.evaluate(() => window.ribbonResponsive.setFixture("courseInstructor"));
     await flush(page);
 
@@ -760,25 +750,30 @@ try {
       await assertEveryTabReachable(page, "narrow_phone:200-percent-text");
       await restoreSelectedTaskVisibility(page);
       await assertLateSelectedTaskAutoReveal(page, "narrow_phone:200-percent-text");
+      sameZoomRouteBaseline = enlargedText;
     }
 
     await page.evaluate(() => window.ribbonResponsive.setFixture("courseStudent"));
     await flush(page);
-    const taskless = await ribbonEvidence(page, `${profile.id}:taskless`);
-    assert.equal(taskless.taskRow, "absent", `${profile.id}: taskless route declares no Task Row`);
-    assertResponsiveRows(taskless, `${profile.id}:taskless`, declaredWidth);
-    await assertPinnedOverflowCues(page, `${profile.id}:taskless`);
-    await assertEveryTabReachable(page, `${profile.id}:taskless`);
+    const student = await ribbonEvidence(page, `${profile.id}:student`);
+    assertResponsiveRows(student, `${profile.id}:student`, declaredWidth);
+    assert.equal(
+      student.computedBlockSize,
+      sameZoomRouteBaseline.computedBlockSize,
+      `${profile.id}: Student preserves the same-zoom Ribbon block-size token`,
+    );
+    assert.equal(
+      student.ribbonHeight,
+      sameZoomRouteBaseline.ribbonHeight,
+      `${profile.id}: Student preserves the same-zoom content origin`,
+    );
+    await assertPinnedOverflowCues(page, `${profile.id}:student`);
+    await assertEveryTabReachable(page, `${profile.id}:student`);
 
     await page.evaluate(() => window.ribbonResponsive.setFixture("courseInstructor"));
     await flush(page);
-    const taskfulAgain = await ribbonEvidence(page, `${profile.id}:taskful-again`);
-    assert.equal(
-      taskfulAgain.taskRow,
-      "reserved",
-      `${profile.id}: taskless-to-taskful model revision restores the declared Task Row`,
-    );
-    assertResponsiveRows(taskfulAgain, `${profile.id}:taskful-again`, declaredWidth);
+    const instructorAgain = await ribbonEvidence(page, `${profile.id}:instructor-again`);
+    assertResponsiveRows(instructorAgain, `${profile.id}:instructor-again`, declaredWidth);
     await restoreSelectedTaskVisibility(page);
 
     const disposal = await page.evaluate(async () => {

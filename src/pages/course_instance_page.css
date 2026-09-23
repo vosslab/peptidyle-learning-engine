@@ -1,9 +1,5 @@
 /* Course Instance keeps the ordered teaching workflow ahead of administration. */
 
-.course-instance-page__identity {
-  margin-block-end: var(--ple-space-5);
-}
-
 .course-instance-page__assessments,
 .course-instance-page__details {
   display: grid;
@@ -30,20 +26,10 @@
   color: var(--ple-muted);
 }
 
-.course-instance-page__assessment-list {
+.course-instance-page__time-zone {
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.course-instance-page__assessment-empty {
-  display: grid;
-  gap: var(--ple-space-1);
-}
-
-.course-instance-page__assessment-empty h3,
-.course-instance-page__assessment-empty p {
-  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
 }
 
 .course-instance-page__details {
@@ -197,13 +183,35 @@
   }
 }
 
-.instructor-list__row--assessment {
-  grid-template-columns: minmax(0, 1fr) auto;
+.course-instance-page__content .record-list__row {
+  min-block-size: 6.5rem;
+  border-inline-start: var(--ple-space-1) solid var(--ple-theme-accent);
+  padding-inline-start: var(--ple-space-2);
 }
 
-.assessment-inline-editor,
-.assessment-inline-editor__message {
-  grid-column: 1 / -1;
+.course-instance-assessment__position {
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.course-instance-assessment__phone-summary {
+  display: none;
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.course-instance-page__content .record-list__region--actions {
+  align-content: center;
+  justify-content: end;
+}
+
+.course-instance-page__assessment-editors {
+  display: grid;
+  gap: var(--ple-space-2);
 }
 
 .assessment-inline-editor {
@@ -259,10 +267,24 @@
 }
 
 @media (max-width: 48rem) {
-  .instructor-list__row--assessment,
+  .course-instance-page__content .record-list__region--actions {
+    justify-content: start;
+  }
+
   .assessment-inline-editor__fields,
   .assessment-inline-editor__schedule {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 32rem) {
+  .course-instance-assessment__phone-summary {
+    display: block;
+  }
+
+  .assessment-inline-editor__actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

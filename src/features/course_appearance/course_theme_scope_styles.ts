@@ -13,8 +13,7 @@ export const COURSE_THEME_SCOPE_STYLES = `
   color: var(--ple-ink);
 }
 
-.course-theme-scope > .page,
-.course-theme-scope > [data-current-path] > .page {
+.course-theme-scope .page-frame {
   position: relative;
 }
 

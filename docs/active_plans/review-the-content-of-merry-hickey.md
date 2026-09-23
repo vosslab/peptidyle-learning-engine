@@ -2,7 +2,7 @@
 
 ## Context
 
-[human-UI-review.md](../../nsh/PROBLEMS/peptidyle-learning-engine/human-UI-review.md) opens with the
+[human-UI-review.md](../../human-UI-review.md) opens with the
 main complaint: "every layout feels hacked together and custom, when it should use basic tools to
 build from," and asks for "a more fixed modular design that enforces these issues."
 
@@ -11,11 +11,11 @@ The problem is in the design, not in the styling. Four findings from reading the
 - The top Ribbon is keyed by route scope. Entering a Course replaces
   `Courses | Questions | Assessments` with `Assessments | Students | Gradebook | ...`. The bar
   changing on every page is what the current design asks for
-  ([src/ribbon/ribbon_schema.ts:43-75](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/ribbon_schema.ts)).
+  ([src/ribbon/ribbon_schema.ts](../../src/ribbon/ribbon_schema.ts):43-75).
 - Shell height is conditional. The task row collapses when a route declares no tasks, and the
   breadcrumb row draws only when reserved, so the page content slides up and down as you navigate
-  ([src/ribbon/app_ribbon.css:62-68](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/app_ribbon.css),
-  [src/application_shell.tsx:207-213](../../nsh/PROBLEMS/peptidyle-learning-engine/src/application_shell.tsx)).
+  ([src/ribbon/app_ribbon.css](../../src/ribbon/app_ribbon.css):62-68,
+  [src/application_shell.tsx](../../src/application_shell.tsx):207-213).
 - There is no shared list, row, table, or page component. About 45 list sites in ~40 files each
   write their own markup, empty state, loading state, and error state. Reorder is written six times
   with six shapes; one of the six works with a keyboard.
@@ -35,7 +35,8 @@ work around them.
 - One list component owns row alignment, empty and error states, and narrow-screen behavior.
 - One date function owns date text, and the time zone is named once per page rather than per row.
 - Seven different list pages run on the new list component with no page-specific escape hatch.
-- The screenshot set covers all four screen sizes so the new components can be checked visually.
+- Student scenarios have direct laptop, tablet, phone, and square screenshot proof; Instructor and
+  Sysadmin scenarios have direct laptop proof; Public capture scope remains unchanged.
 
 ## Design philosophy
 
@@ -47,7 +48,7 @@ problem: the Ribbon schema, the route contract, and the shell's height rules.
 Trade-off this plan accepts: it spends effort on a route-contract change (adding `tierOneArea` to 39
 routes) that a CSS patch would have avoided. That cost is paid once. The patch would be paid on
 every future page. This follows "fix the design, not the symptom" and "long-term over short-term"
-from [docs/REPO_STYLE.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/REPO_STYLE.md), and uses
+from [docs/REPO_STYLE.md](../../docs/REPO_STYLE.md), and uses
 the pre-production state to change foundations directly.
 
 Rejected alternative: keep the scope-keyed Ribbon and add per-route overrides to force the same tabs
@@ -76,7 +77,8 @@ build in-repo.
 - Build `RecordList` with opt-in presentation variants, reorder, and windowing.
 - Build one date function and move all 16 call sites onto it.
 - Convert seven list pages that each exercise a different pattern.
-- Expand the screenshot set to four screen sizes with a seeded course theme.
+- Expand Student screenshot proof to laptop, tablet, phone, and square views, retain laptop proof
+  for Instructor and Sysadmin, and leave Public capture scope unchanged, with a seeded course theme.
 - Add permanent browser checks for the Ribbon, shell height, and list alignment.
 - Write the follow-up plans for the work this plan defers.
 
@@ -95,17 +97,17 @@ build in-repo.
 
 ## Current state summary
 
-| Area | Now | After |
-| --- | --- | --- |
-| Tier-1 tabs | Keyed by route scope; change per page | Keyed by Product Role; same everywhere |
-| Tier-2 row | Collapses when empty; content shifts | Always present for every role; empty is valid |
-| Breadcrumb row | Drawn only when reserved | Always present when signed in |
-| Page width | `class="page"` in ~38 files, plus 4 private widths | `PageFrame` reads `contentLayout` |
-| `contentLayout` | Set on 39 routes, read by nothing | Read by `PageFrame` |
-| Lists | ~45 hand-written sites, no shared piece | `RecordList`; 7 converted, ~33 queued |
-| Reorder | 6 versions, 1 keyboard-capable | 1 shared version, opt-in |
-| Dates | 3 styles in 16 files, 1 hardcoded to UTC | 1 function, time zone named once per page |
-| Screenshots | Student: 30 laptop, 22 phone, 3 tablet, 1 square | Four sizes per scenario |
+| Area            | Now                                                | After                                                                          |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Tier-1 tabs     | Keyed by route scope; change per page              | Keyed by Product Role; same everywhere                                         |
+| Tier-2 row      | Collapses when empty; content shifts               | Always present for every role; empty is valid                                  |
+| Breadcrumb row  | Drawn only when reserved                           | Always present when signed in                                                  |
+| Page width      | `class="page"` in ~38 files, plus 4 private widths | `PageFrame` reads `contentLayout`                                              |
+| `contentLayout` | Set on 39 routes, read by nothing                  | Read by `PageFrame`                                                            |
+| Lists           | ~45 hand-written sites, no shared piece            | `RecordList`; 7 converted, ~33 queued                                          |
+| Reorder         | 6 versions, 1 keyboard-capable                     | 1 shared version, opt-in                                                       |
+| Dates           | 3 styles in 16 files, 1 hardcoded to UTC           | 1 function, time zone named once per page                                      |
+| Screenshots     | Student: 30 laptop, 22 phone, 3 tablet, 1 square   | Student: four direct views; Instructor and Sysadmin: laptop; Public: unchanged |
 
 ## Architecture boundaries and ownership
 
@@ -121,41 +123,49 @@ edit it. When a sweep leaves a rule or token unused, that stream reports the nam
 removes it in WP-C5. This keeps the "one writer per file" guarantee literally true rather than
 nearly true.
 
-| Workstream | Owns | Review boundary |
-| --- | --- | --- |
-| WS-SHELL | `src/ribbon/**`, `src/route_contract.ts`, `src/application_shell.tsx`, `src/navigation/**` | Ribbon and route contract |
-| WS-CORE | `src/components/page_frame.*`, `src/components/record_list/**`, `src/format_datetime.ts`, and **`src/style.css`** | New shared components and the shared stylesheet |
-| WS-PROOF | The seven pages in the M5 table | List conversion patterns |
-| WS-PAGES | All other `src/pages/**` and `src/features/**` page files | Page heading sweep |
-| WS-EVIDENCE | `tests/playwright/**`, `tests/playwright/screenshot_corpus/**` | Checks and screenshots |
-| WS-DOCS | `docs/**` | Documentation |
+The shared ownership contract is: Ribbon carries PLE identity, Product Role, stable role navigation,
+and application controls; breadcrumbs carry human-readable route hierarchy; PageFrame owns page
+identity, the heading/action slots admitted by WP-C1, width, content origin, and standard spacing;
+page content owns task-specific material. `reading` is the default page width, with route-level
+`fullWidth` only for the established dense layouts. The page-layout choice is separate from Ribbon
+navigation, and callers cannot class the PageFrame root. Page-level action controls remain supplied
+by their page; workflow-internal controls remain in task content.
+
+| Workstream  | Owns                                                                                                              | Review boundary                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| WS-SHELL    | `src/ribbon/**`, `src/route_contract.ts`, `src/application_shell.tsx`, `src/navigation/**`                        | Ribbon and route contract                       |
+| WS-CORE     | `src/components/page_frame.*`, `src/components/record_list/**`, `src/format_datetime.ts`, and **`src/style.css`** | New shared components and the shared stylesheet |
+| WS-PROOF    | The seven pages in the M5 table                                                                                   | List conversion patterns                        |
+| WS-PAGES    | All other `src/pages/**` and `src/features/**` page files                                                         | Page heading sweep                              |
+| WS-EVIDENCE | `tests/playwright/**`, `tests/playwright/screenshot_corpus/**`                                                    | Checks and screenshots                          |
+| WS-DOCS     | `docs/**`                                                                                                         | Documentation                                   |
 
 ### Mapping (milestones / workstreams -> components / patches)
 
-| Milestone / Workstream | Component | Review boundary |
-| --- | --- | --- |
-| M1 / WS-SHELL | Ribbon schema, catalog, route contract, shell | Ribbon and route contract |
-| M2 / WS-EVIDENCE | Ribbon and shell browser checks | Checks |
-| M3 / WS-CORE | `PageFrame`, `RecordList` core, date function | New shared components |
-| M4 / WS-CORE | Variants, reorder, windowing | New shared components |
-| M5 / WS-PROOF | Seven converted pages | List conversion patterns |
-| M6 / WS-PAGES | ~32 swept pages | Page heading sweep |
-| M7 / WS-CORE | Shared stylesheet cleanup | Shared stylesheet |
-| M7 / WS-EVIDENCE | Screenshot set | Screenshots |
-| M8 / WS-DOCS | Docs and follow-up plans | Documentation |
+| Milestone / Workstream | Component                                     | Review boundary           |
+| ---------------------- | --------------------------------------------- | ------------------------- |
+| M1 / WS-SHELL          | Ribbon schema, catalog, route contract, shell | Ribbon and route contract |
+| M2 / WS-EVIDENCE       | Ribbon and shell browser checks               | Checks                    |
+| M3 / WS-CORE           | `PageFrame`, `RecordList` core, date function | New shared components     |
+| M4 / WS-CORE           | Variants, reorder, windowing                  | New shared components     |
+| M5 / WS-PROOF          | Seven converted pages                         | List conversion patterns  |
+| M6 / WS-PAGES          | ~32 swept pages                               | Page heading sweep        |
+| M7 / WS-CORE           | Shared stylesheet cleanup                     | Shared stylesheet         |
+| M7 / WS-EVIDENCE       | Screenshot set                                | Screenshots               |
+| M8 / WS-DOCS           | Docs and follow-up plans                      | Documentation             |
 
 ## Milestone plan
 
-| M | Title | Summary | Goal |
-| --- | --- | --- | --- |
-| M1 | Shell contract | Tier-1 by role; tier-2 for scope; rows always reserved | Same tabs and same height on every signed-in page |
-| M2 | Shell checks | Browser checks for tabs and height | Drift fails the build |
-| M3 | Shared components | `PageFrame`, `RecordList` core, date function | The three pieces exist |
-| M4 | List options | Variants, reorder, windowing, opt-in | Lists pay only for what they use |
-| M5 | Proof: seven pages | Seven patterns on `RecordList` | The component is proven |
-| M6 | Page sweep | `PageFrame` and dates on ~32 pages | One page shape everywhere |
-| M7 | Cleanup and screenshots | Retire dead CSS, then capture four sizes | Visual evidence across sizes |
-| M8 | Docs and handoff | Decisions recorded, follow-ups written | Nothing deferred is lost |
+| M   | Title                   | Summary                                                | Goal                                              |
+| --- | ----------------------- | ------------------------------------------------------ | ------------------------------------------------- |
+| M1  | Shell contract          | Tier-1 by role; tier-2 for scope; rows always reserved | Same tabs and same height on every signed-in page |
+| M2  | Shell checks            | Browser checks for tabs and height                     | Drift fails the build                             |
+| M3  | Shared components       | `PageFrame`, `RecordList` core, date function          | The three pieces exist                            |
+| M4  | List options            | Variants, reorder, windowing, opt-in                   | Lists pay only for what they use                  |
+| M5  | Proof: seven pages      | Seven patterns on `RecordList`                         | The component is proven                           |
+| M6  | Page sweep              | `PageFrame` and dates on ~32 pages                     | One page shape everywhere                         |
+| M7  | Cleanup and screenshots | Retire dead CSS, then capture by role viewport policy  | Role-appropriate visual evidence                  |
+| M8  | Docs and handoff        | Decisions recorded, follow-ups written                 | Nothing deferred is lost                          |
 
 ### Milestone: M1 shell contract
 
@@ -175,7 +185,8 @@ nearly true.
 - Deliverables: WP-B1, WP-B2.
 - Workstreams: WS-EVIDENCE.
 - Entry criteria: M1 exit criteria met.
-- Exit criteria: both runners pass at all four sizes and fail when M1 is reverted.
+- Exit criteria: Student runners pass at laptop, tablet, phone, and square sizes; Instructor and
+  Sysadmin runners pass at laptop size; each fails when M1 is reverted. Public scope is unchanged.
 - Parallel-plan ready: yes. WS-E-tabs (WP-B1) and WS-E-height (WP-B2) write separate files and share
   no state. Maximum 2, because there are two checks.
 
@@ -220,8 +231,8 @@ nearly true.
 - Deliverables: WP-F1, WP-F2, WP-F3.
 - Workstreams: WS-PAGES.
 - Entry criteria: WP-C2 and WP-C4 done.
-- Exit criteria: no `class="page"` outside the component; no `toLocaleString(` or
-  `new Intl.DateTimeFormat(` outside the date function.
+- Exit criteria: no date/time `toLocaleString(` or date/time `new Intl.DateTimeFormat(` call site
+  outside the date function; intentional numeric count formatting may remain.
 - Parallel-plan ready: yes. Split the ~32 pages into three groups by directory: `src/pages/`
   top-level, `src/pages/assessment_workspace/`, and `src/features/`. Groups do not share files.
   Maximum 3. Runs at the same time as M5.
@@ -233,8 +244,13 @@ nearly true.
 - Workstreams: WS-CORE for WP-C5, then WS-EVIDENCE.
 - Entry criteria: M5 and M6 exit criteria met, and both sweeps have reported the rules and tokens
   their pages stopped using.
-- Exit criteria: no CSS variable is read without a definition; every scenario has four sizes or a
-  recorded `covered_by` reason; two capture runs are byte-identical.
+- Exit criteria: no CSS variable is read without a definition; Student surfaces have direct laptop,
+  tablet, phone, and square captures; Instructor and Sysadmin surfaces have direct laptop captures;
+  Public capture scope remains unchanged. A `covered_by` declaration records a representative
+  substitution only: its omitted viewport remains unverified and it is not visual equivalence. One
+  clean Live Demo replay verifies the semantic workflow, manifest closure,
+  privacy, dimensions, and published-artifact integrity. Differing PNG hashes are reported as
+  observed evidence with their apparent cause; they do not fail an arbitrary byte-identity gate.
 - Parallel-plan ready: no, and the order matters. WP-C5 runs first so the screenshots show the final
   stylesheet; WP-G1 and WP-G2 then write the same manifest, and the capture script owns the Live
   Demo. One lane.
@@ -313,7 +329,7 @@ nearly true.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/route_contract.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/route_contract.ts).
+  [src/route_contract.ts](../../src/route_contract.ts).
 - Depends on: none.
 - Acceptance criteria: all 39 routes carry one of `courses`, `questions`, `productAssessments`,
   `coursework`, `grades`, `instructorAccounts`, `disciplines`, `account`. The value is the tab a
@@ -326,8 +342,8 @@ nearly true.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/ribbon_schema.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/ribbon_schema.ts),
-  [src/ribbon/ribbon_contract.ts:360-368](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/ribbon_contract.ts).
+  [src/ribbon/ribbon_schema.ts](../../src/ribbon/ribbon_schema.ts),
+  [src/ribbon/ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts):360-368.
 - Depends on: WP-A1, because selection reads the new field.
 - Acceptance criteria: `SCHEMAS` is replaced by
   `PRODUCT_TIER_ONE: Record<ProductRole, ReadonlyArray<RibbonSchemaSlot>>`; `ribbonSchemaFor` no
@@ -340,8 +356,8 @@ nearly true.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/ribbon_catalog.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/ribbon_catalog.ts),
-  [src/route_contract.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/route_contract.ts).
+  [src/ribbon/ribbon_catalog.ts](../../src/ribbon/ribbon_catalog.ts),
+  [src/route_contract.ts](../../src/route_contract.ts).
 - Depends on: WP-A2.
 - Acceptance criteria: `assessments`, `students`, `gradebook`, `teachingOperations`,
   `blueprintUpdates`, `courseSetup`, `studentAssessments`, and `attempt` move from `TAB_CATALOG` to
@@ -354,15 +370,15 @@ nearly true.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/route_scope_controller.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/route_scope_controller.ts),
-  [src/route_contract.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/route_contract.ts).
+  [src/ribbon/route_scope_controller.ts](../../src/ribbon/route_scope_controller.ts),
+  [src/route_contract.ts](../../src/route_contract.ts).
 - Depends on: WP-A3.
 - Acceptance criteria: `currentCourseInstanceId` is set whenever a `courseInstance` or
   `assessmentAttempt` scope resolves and kept for the session; `coursework` and `grades` build links
   from it through `buildRoutePath`; with no course pinned they point at `/student`; a new route
   `studentCourseGrades` at `/student/courses/:courseInstanceId/grades` shows `assessmentScore` and
   `gradedQuestionCount`, which
-  [src/api/decoders/live_student_course_landing.ts:111-171](../../nsh/PROBLEMS/peptidyle-learning-engine/src/api/decoders/live_student_course_landing.ts)
+  [src/api/decoders/live_student_course_landing.ts](../../src/api/decoders/live_student_course_landing.ts):111-171
   already returns, so no new endpoint is needed.
 - Evidence or review, when useful: from an active Attempt, both links carry that Attempt's course.
 
@@ -370,25 +386,25 @@ nearly true.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/app_ribbon.css](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/app_ribbon.css)
+  [src/ribbon/app_ribbon.css](../../src/ribbon/app_ribbon.css)
   lines 5-9, 62-68, 590-594;
-  [src/application_shell.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/application_shell.tsx);
-  [src/ribbon/ribbon_contract.ts](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/ribbon_contract.ts).
+  [src/application_shell.tsx](../../src/application_shell.tsx);
+  [src/ribbon/ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts).
 - Depends on: WP-A3.
 - Acceptance criteria: **every signed-in role reserves the tier-2 row.** Delete the
   `[data-ribbon-task-row="absent"]` rule, the `0rem` default, the `ribbonTaskRow` memo, and the
   `data-ribbon-task-row` attribute. Remove `breadcrumbPreludeReserved` and draw `BreadcrumbPrelude`
   for every route that has a Ribbon model. No policy constant is added, because there is no longer
   a conditional to name. Square the Ribbon and breadcrumb corners per
-  [docs/HUMAN_GUIDANCE.md:276](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/HUMAN_GUIDANCE.md).
+  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):276.
   Also strip the "Not available yet" text from `UnavailableRibbonChoice`
-  ([src/ribbon/app_ribbon.tsx:112-132](../../nsh/PROBLEMS/peptidyle-learning-engine/src/ribbon/app_ribbon.tsx)),
+  ([src/ribbon/app_ribbon.tsx](../../src/ribbon/app_ribbon.tsx):112-132),
   keeping the label, the disabled look, and the accessible description.
-- Why this shape: two questions were tangled together. *Does the row take space?* and *does the row
-  hold controls?* Separating them removes the conditional layout state instead of parameterizing it.
+- Why this shape: two questions were tangled together. _Does the row take space?_ and _does the row
+  hold controls?_ Separating them removes the conditional layout state instead of parameterizing it.
   The answer to the first is always yes. The answer to the second is yes where the role and workflow
   have real controls -- today, instructors, whose contents are already listed in
-  [docs/HUMAN_GUIDANCE.md:430,490,568](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/HUMAN_GUIDANCE.md).
+  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568.
   Student and sysadmin rows render empty until their contents are decided.
 - Notes: 17 routes declare no tasks, and an empty reserved row is a valid result for them. Empty
   means empty. It is not a reason to invent controls.
@@ -396,7 +412,7 @@ nearly true.
 ### Work package: WP-B1 tab check
 
 - Owner: `tester`.
-- Touch points: `tests/playwright/ribbon_tier_one_invariance.mjs`.
+- Touch points: `tests/playwright/ribbon_shell_contract.mjs`.
 - Depends on: WP-A2.
 - Acceptance criteria: for each role, the tier-1 control **id** sequence is the same on every route
   that role can reach. It reads `data-ribbon-control-id`, not visible text or DOM shape, so wording
@@ -405,13 +421,14 @@ nearly true.
 ### Work package: WP-B2 height check
 
 - Owner: `tester`.
-- Touch points: `tests/playwright/shell_geometry_invariance.mjs`.
+- Touch points: `tests/playwright/ribbon_shell_contract.mjs`.
 - Depends on: WP-A5.
-- Acceptance criteria: for every signed-in route a role can reach, the breadcrumb top offset and the
-  `#main-content` top offset each take one value per screen size. **All three roles are enrolled
-  now**, with no exceptions and no enrolled-role list, because WP-A5 removed the conditional that
-  made an exception necessary. The value may differ per role if the role tag legitimately changes
-  the Ribbon's height; it may not differ per route.
+- Acceptance criteria: for every signed-in route in the covered role-viewport policy, the breadcrumb
+  top offset and the `#main-content` top offset each take one value. Student coverage is laptop,
+  tablet, phone, and square; Instructor and Sysadmin coverage is laptop only; Public scope is
+  unchanged. **All three signed-in roles are enrolled now**, with no exception list, because WP-A5
+  removed the conditional that made an exception necessary. The value may differ per role if the
+  role tag legitimately changes the Ribbon's height; it may not differ per route.
 
 ### Work package: WP-C1 measure page headings
 
@@ -420,9 +437,10 @@ nearly true.
 - Depends on: none.
 - Acceptance criteria: reports, for each of the ~45 files using `class="page"` or `eyebrow`, which of
   eyebrow, title, lede, and action row it uses. A slot belongs in `PageFrame` when it positions or
-  bounds the page rather than saying something about the page's subject, and the count shows pages
-  rebuilding it. Frequency alone does not decide. Time zone text is excluded: it is page content,
-  not layout.
+  bounds the page rather than describing its subject, and the source inventory shows the pattern
+  recurring; frequency alone does not decide. Record the remaining heading shapes and keep
+  subject-specific content out of the frame. Time zone text is excluded: it is page content, not
+  layout.
 - Obvious follow-ons: delete the probe; WP-C2.
 
 ### Work package: WP-C2 build `PageFrame`
@@ -430,11 +448,14 @@ nearly true.
 - Owner: `expert_coder`.
 - Touch points: `src/components/page_frame.tsx`, `src/components/page_frame.css`.
 - Depends on: WP-C1.
-- Acceptance criteria: holds the slots WP-C1 admitted plus `contentLayout`, read from shell context
-  so pages do not restate it; `h1` is `clamp(1.25rem, 1.6vw, 1.6rem)`; the component sets the page
-  width itself so the private widths in `src/style.css` stop being used; nothing about a page's
-  subject leaks into the component. Deleting those now-unused widths happens in WP-C5, once the
-  sweeps confirm no page still relies on them.
+- Acceptance criteria: holds only the slots WP-C1 admitted and reads the page-layout mode from route
+  context so pages do not restate it; `reading` is the default and only routes needing dense content
+  select `fullWidth` in the route contract, outside the Ribbon contract. The `h1` is
+  `clamp(1.25rem, 1.6vw, 1.6rem)`. The frame fixes its own width, root class, content origin, shared
+  spacing, and any recurring page-level action placement found by WP-C1. Workflow-internal actions
+  remain content. Page-specific styles stay inside the content region. Nothing about a page's
+  subject leaks into the component.
+  Deleting now-unused widths happens in WP-C5, once the sweeps confirm no page still relies on them.
 
 ### Work package: WP-C3 build `RecordList` core
 
@@ -445,13 +466,15 @@ nearly true.
   `status`, `actions`), `width`, `align`, `priority`, and a `content` function that may return
   structured markup rather than one value. The list owns `grid-template-columns` and each row is
   `display: grid; grid-template-columns: subgrid`, which is the fix for
-  [src/style.css:327](../../nsh/PROBLEMS/peptidyle-learning-engine/src/style.css) where each row is
+  [src/style.css](../../src/style.css):327 where each row is
   its own grid and columns line up only by luck. Rows are separated by a divider or a light
   alternating background, not a bordered card, per
-  [docs/HUMAN_GUIDANCE.md:293-295](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/HUMAN_GUIDANCE.md).
+  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):293-295.
   Spacing inside a region is one step tighter than between regions. `priority` decides what drops
-  first on a narrow screen so identity and the main action survive. The core holds no variant,
-  reorder, or windowing code.
+  first on a narrow screen so identity and the main action survive. A region may supply an optional
+  visible heading; the shared header row uses the same tracks and priority visibility as its records,
+  so table-like consumers do not maintain a parallel column grid. The core holds no variant, reorder,
+  or windowing code.
 
 ### Work package: WP-C4 build the date function
 
@@ -464,7 +487,7 @@ nearly true.
 ### Work package: WP-C5 retire shared stylesheet rules
 
 - Owner: `expert_coder` in WS-CORE, the single owner of
-  [src/style.css](../../nsh/PROBLEMS/peptidyle-learning-engine/src/style.css).
+  [src/style.css](../../src/style.css).
 - Touch points: `src/style.css` only.
 - Depends on: M5 and M6, because a rule can only be removed once its last user is gone.
 - Acceptance criteria: remove the per-page widths `.assessment-attempt-page`, the `.question-card`
@@ -480,7 +503,9 @@ nearly true.
 ### Work package: WP-D1 presentation variants
 
 - Owner: `coder`.
-- Touch points: `src/components/record_list/record_list_presentation.ts`.
+- Touch points: `src/components/record_list/record_list_presentation.ts` and
+  `src/components/record_list/record_list_presentation.css`, so gallery geometry stays in the
+  presentation option rather than the `RecordList` core.
 - Depends on: WP-C3.
 - Acceptance criteria: each list declares the variants its content supports, and a switcher appears
   only where there is more than one. There is no global `table | comfortable | compact` set and no
@@ -497,14 +522,14 @@ nearly true.
   disabled rule, failure behavior, and announcement. Sites that match on all four use the shared
   control; sites that differ take only the array helper. Six copies do not by themselves prove one
   shape fits. The shared control reuses `reordered()` from
-  [src/features/blueprint_forks/blueprint_fork_apply_model.ts:33](../../nsh/PROBLEMS/peptidyle-learning-engine/src/features/blueprint_forks/blueprint_fork_apply_model.ts)
+  [src/features/blueprint_forks/blueprint_fork_apply_model.ts](../../src/features/blueprint_forks/blueprint_fork_apply_model.ts):33
   and the accessible pattern from
-  [src/components/question_response_controls/ordering.tsx:60-127](../../nsh/PROBLEMS/peptidyle-learning-engine/src/components/question_response_controls/ordering.tsx)
+  [src/components/question_response_controls/ordering.tsx](../../src/components/question_response_controls/ordering.tsx):60-127
   -- focus returns to the moved row and a live region announces the move, the only one of the six
   that works with a keyboard. Drag uses the native `draggable` attribute and pointer events. Move
   buttons show an arrow next to the text.
 - Obvious follow-ons: record the comparison in
-  [docs/DESIGN_DECISIONS.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/DESIGN_DECISIONS.md)
+  [docs/DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md)
   as the reason for the split, then delete the probe.
 
 ### Work package: WP-D3 windowing
@@ -518,28 +543,27 @@ nearly true.
   states. The window helper keeps the visible range, overscan, scroll position, and spacer height.
   The windowed library page renders its records through exactly the same row code as an ordinary
   page, so turning windowing off needs no different row markup. The hand-written window in
-  [src/pages/library_browse_rows.tsx:139-177](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/library_browse_rows.tsx)
+  [src/pages/library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx):139-177
   is replaced by it, and only the library list turns it on.
-- Evidence or review, when useful: `node tests/playwright/record_list_window.mjs` proves five
-  things, which are the ways windowing usually breaks -- rows of differing height do not corrupt
-  scrolling; keyboard focus does not vanish when its row leaves the window; scrolling to a record
-  lands on that record; windowing changes neither row identity nor order; and the same row markup
-  renders with windowing off.
+- Evidence or review, when useful: `node --import tsx tests/playwright/record_list_contracts.mjs`
+  checks the durable windowing behavior: measured row heights select the visible records, a focused
+  record remains available, scrolling to a record mounts it, and the windowed rows retain the shared
+  RecordList regions.
 
 ### Work packages: WP-E1 to WP-E7 convert seven pages
 
 - Owner: `coder`, one per page.
 - Depends on: WP-D1, WP-D2, WP-D3.
 
-| WP | Page | Pattern proved |
-| --- | --- | --- |
-| WP-E1 | [src/pages/question_drafts_page.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/question_drafts_page.tsx) | Simple scan list, one variant |
-| WP-E2 | [src/pages/gradebook_page.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/gradebook_page.tsx) | Dense table, `fullWidth`, many columns |
-| WP-E3 | [src/pages/library_browse_rows.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/library_browse_rows.tsx) | Two variants plus windowing |
-| WP-E4 | [src/pages/assessment_workspace/assessment_workspace_questions_view.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/assessment_workspace/assessment_workspace_questions_view.tsx) | Reorder by keyboard and drag |
-| WP-E5 | [src/pages/course_instance_page.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/course_instance_page.tsx) | Dense rows, per-row actions, theme accent |
-| WP-E6 | [src/pages/student_course_landing_page.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/student_course_landing_page.tsx) | Student list, phone layout keeps action next to identity |
-| WP-E7 | [src/features/profile_avatar/provided_avatar_picker.tsx](../../nsh/PROBLEMS/peptidyle-learning-engine/src/features/profile_avatar/provided_avatar_picker.tsx) | Same records, two genuinely different shapes: `gallery` and `list` |
+| WP    | Page                                                                                                                                                   | Pattern proved                                                     |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| WP-E1 | [src/pages/question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx)                                                                         | Simple scan list, one variant                                      |
+| WP-E2 | [src/pages/gradebook_page.tsx](../../src/pages/gradebook_page.tsx)                                                                                     | Dense table, `fullWidth`, many columns                             |
+| WP-E3 | [src/pages/library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx)                                                                           | Two variants plus windowing                                        |
+| WP-E4 | [src/pages/assessment_workspace/assessment_workspace_questions_view.tsx](../../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx) | Reorder by keyboard and drag                                       |
+| WP-E5 | [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx)                                                                         | Dense rows, per-row actions, theme accent                          |
+| WP-E6 | [src/pages/student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)                                                           | Student list, phone layout keeps action next to identity           |
+| WP-E7 | [src/features/profile_avatar/provided_avatar_picker.tsx](../../src/features/profile_avatar/provided_avatar_picker.tsx)                                 | Same records, two genuinely different shapes: `gallery` and `list` |
 
 - Why WP-E7 is worth a seventh lane: the other six all prove a denser or roomier row. The avatar
   picker proves that one set of records and one selection behavior can render as a grid of images or
@@ -550,11 +574,11 @@ nearly true.
   The core is expected to change during this milestone -- finding its weak spots is the point -- but
   a core change is handed to WS-CORE and applied once, never edited in two lanes.
 - Acceptance criteria, specific rows: drop `assessmentId` from
-  [src/pages/gradebook_page.tsx:43-64](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/gradebook_page.tsx);
+  [src/pages/gradebook_page.tsx](../../src/pages/gradebook_page.tsx):43-64;
   drop the raw `Assessment {id}` line and the per-row time zone from
-  [src/pages/course_instance_page.tsx:355-360](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/course_instance_page.tsx);
+  [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx):355-360;
   in
-  [src/pages/question_drafts_page.tsx:221-261](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/question_drafts_page.tsx)
+  [src/pages/question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx):221-261
   show the title once, drop the `Private draft` badge the page already implies, shorten
   `Draft Question Edit Number 7` to `Edit 7`, and add a short content preview.
 - Evidence or review, when useful: `tests/_temp/row_height_probe.mjs` reports assessment row height,
@@ -571,7 +595,7 @@ nearly true.
   because a page heading is the same few slots everywhere and needs no per-page judgment. The date
   sweep is also full: 16 call sites, mechanical, and it fixes a real bug -- the hardcoded UTC
   formatter at
-  [src/pages/course_instance_page.tsx:50-53](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/course_instance_page.tsx).
+  [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx):50-53.
   The time zone is named once in the page body, never per row.
 - Obvious follow-ons: in each page's **own** stylesheet, move spacing onto the 7-step scale. These
   packages do not edit `src/style.css`; instead each reports the names of rules and tokens its pages
@@ -579,15 +603,20 @@ nearly true.
   the failure being fixed is inconsistent components, which the shared pieces now prevent by
   construction.
 
-### Work package: WP-G1 four sizes per scenario
+### Work package: WP-G1 role viewport coverage
 
 - Owner: `tester`.
 - Touch points:
-  [tests/playwright/screenshot_corpus/](../../nsh/PROBLEMS/peptidyle-learning-engine/tests/playwright/screenshot_corpus).
+  [tests/playwright/screenshot_corpus/](../../tests/playwright/screenshot_corpus).
 - Depends on: M5, M6.
-- Acceptance criteria: each `(role, scenario)` declares all four sizes, or marks one `covered_by`
-  with a reason, which the manifest schema already supports. Today student captures are 30 laptop,
-  22 phone, 3 tablet, 1 square.
+- Acceptance criteria: every Student scenario publishes direct laptop, tablet, phone, and square
+  captures. Instructor and Sysadmin scenarios publish direct laptop captures only. `covered_by`
+  records a documented representative substitution for a viewport that remains unverified; it never
+  claims visual equivalence or replaces direct Student viewport coverage. Public capture scope
+  remains as defined by the current screenshot corpus; WP-G1 adds no Public viewports. After
+  publication, a fresh `image_evaluator` subagent reviews the required role/viewport captures for
+  composition, clipping, overlap, and hidden content. The manager records findings, routes product
+  fixes to their owners, and republishes affected captures using the saved artifacts.
 
 ### Work package: WP-G2 seeded theme variety
 
@@ -595,7 +624,10 @@ nearly true.
 - Touch points: the same scenario files and the capture script.
 - Depends on: WP-G1, because both write the manifest.
 - Acceptance criteria: the course theme comes from a hash of the scenario id, so the set shows
-  several palettes and two runs are still byte-identical. The count seen is reported as evidence,
+  several palettes. One clean Live Demo replay checks the semantic workflow, manifest closure,
+  privacy, dimensions, and published-artifact integrity. It reports any observed differing PNG
+  hashes with their apparent cause; random public IDs and time-derived values may explain an
+  observation but do not create a byte-identity failure. The count seen is reported as evidence,
   not asserted as a number to hit.
 
 ### Work package: WP-H1 write the follow-up plans
@@ -610,17 +642,17 @@ nearly true.
     subtract the seven converted in M5, and state the exact number. The plan is wrong if
     `converted + remaining` does not equal the inventory total, which is the check that stops a site
     being silently dropped. Notes that
-    [src/pages/instructor_data_tables.css](../../nsh/PROBLEMS/peptidyle-learning-engine/src/pages/instructor_data_tables.css)
+    [src/pages/instructor_data_tables.css](../../src/pages/instructor_data_tables.css)
     cannot be deleted until its last user moves, so nobody removes it early.
   - `docs/active_plans/active/student_task_surface_plan.md`: remove undo and restore
-    ([src/components/question_response_controls/common.tsx:441-478](../../nsh/PROBLEMS/peptidyle-learning-engine/src/components/question_response_controls/common.tsx)
+    ([src/components/question_response_controls/common.tsx](../../src/components/question_response_controls/common.tsx):441-478
     plus seven call sites and the `"restored"` state), flatten the five WeBWorK boxes to one, match
     the native question surface to it, add `...` and narrower buttons to question navigation, drop
     the word "Peptidyle" on phones, and measure the attempt vertical budget against the review's
     444px.
   - `docs/active_plans/active/ribbon_destination_completion_plan.md`: My Questions needs no backend
     work, since `QuestionSearchAuthorship::AuthoredByCurrentAccount` already exists at
-    [crates/question_model/src/question_search.rs:55-61](../../nsh/PROBLEMS/peptidyle-learning-engine/crates/question_model/src/question_search.rs);
+    [crates/question_model/src/question_search.rs](../../crates/question_model/src/question_search.rs):55-61;
     Starred needs a `starred_by_current_account` filter, its predicate, and a grant, with an index
     only if `EXPLAIN` on seeded data shows one is needed.
   - `docs/active_plans/decisions/role_tier_two_navigation.md`: what belongs inside the student and
@@ -628,20 +660,20 @@ nearly true.
     only; adding controls cannot move the page content.
   - `docs/active_plans/active/theme_completion_plan.md`: dark halves of the 15 biome palettes,
     already required by
-    [docs/HUMAN_GUIDANCE.md:318-337](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/HUMAN_GUIDANCE.md).
+    [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):318-337.
 
 ### Work package: WP-H2 record the decisions
 
 - Owner: `maintainer`.
 - Depends on: M5.
 - Acceptance criteria: the settled student tier-1 is recorded at
-  [docs/HUMAN_GUIDANCE.md:630](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/HUMAN_GUIDANCE.md),
-  and line 417 is reconciled with the annotation-free control;
-  [docs/DESIGN_DECISIONS.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/DESIGN_DECISIONS.md)
+  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):633,
+  and line 419 is reconciled with the annotation-free control;
+  [docs/DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md)
   gains entries for tier-1 by role, unconditional row heights for every role, the
   reserve-but-never-fabricate rule, the split between `RecordList` and windowing, and the scan-row
   content rule;
-  [docs/CODE_ARCHITECTURE.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/CODE_ARCHITECTURE.md)
+  [docs/CODE_ARCHITECTURE.md](../../docs/CODE_ARCHITECTURE.md)
   describes the UI composition layer.
 - Notes: the scan-row rule says a scan row carries identity, status that affects a decision, one
   value or date that affects a decision, and a main action, with ids and extra metadata moving to
@@ -654,16 +686,72 @@ nearly true.
 - Owner: `maintainer`.
 - Depends on: WP-H1, WP-H2.
 - Acceptance criteria: each SUI-01 through SUI-08 finding in
-  [docs/active_plans/audits/student_ui_stability_and_density_audit_2026-09-21.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/active_plans/audits/student_ui_stability_and_density_audit_2026-09-21.md)
+  [docs/active_plans/audits/student_ui_stability_and_density_audit_2026-09-21.md](audits/student_ui_stability_and_density_audit_2026-09-21.md)
   maps to a milestone here or a named follow-up plan;
-  [docs/CHANGELOG.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/CHANGELOG.md) is updated per
+  [docs/CHANGELOG.md](../../docs/CHANGELOG.md) is updated per
   milestone; no probe remains in `tests/_temp/`.
+
+#### WP-H3 staging disposition
+
+This staging record maps the audit findings without rewriting the historical audit. "Achieved" below
+means source or plan progress only; it is not rendered, keyboard, or capture acceptance. A fresh
+139-capture publication completed for the M7 UI snapshot at that time: Students have direct laptop, tablet,
+phone, and square captures; Instructor and Sysadmin have direct laptop captures; Public scope is
+unchanged. `--verify-static`, the 13/13 screenshot-corpus Node tests, and the atlas Markdown-link
+test passed. One clean `source ./source_me.sh && ./devel/capture_screenshots.sh --fresh --verify`
+replay passed semantic workflow, manifest closure, scenario privacy, dimensions, and
+published-artifact integrity. It retained 130 byte-different replay PNGs in
+`test-results/screenshot-corpus/verify/`; differing bytes are observational because visible IDs and
+dates can vary across clean resets, not failure gates. The same-day fast-check receipt included 9,201
+Python tests. On 2026-09-23, the clean replay was rerun after correcting the Sysadmin capture order:
+the created and deactivated account states are captured from the visible client-owned record before
+reload, then persistence is checked after reload. Replay passed workflow, manifest closure, privacy,
+dimensions, and artifact integrity with 135 byte-different PNGs; visual review confirmed the two
+named lifecycle states are visible. `source ./source_me.sh && ./launchers/run_fast_checks.sh` passed
+9,267 Python tests and the offline Rust, TypeScript, Node, lint, and format checks. The required
+`bash tests/e2e/e2e_screenshot_warm_loop.sh` also passed: the stale client bundle rebuilt and replay
+verification passed in 378 seconds, with 112 observational byte differences. On 2026-09-23, the
+clean `source ./source_me.sh && ./launchers/all_test.sh` rerun exited 0 with 9,267 Python tests and
+all Rust, TypeScript, Node, lint, format, and three live-service acceptance cases green. Its first
+attempt stopped at live acceptance because the manager's parity browser suite was still running;
+that owned suite was stopped, the acceptance tail passed, and the exact aggregate command then
+passed from a clear owner state. The primary-plan UI parity scenario also passed on the real stack.
+Both suites cleaned up their owned Live Demo/browser-suite containers. These full-suite, replay, and
+warm-loop receipts remain evidence for their dated scope. The current WP-F formatter reuse review
+passed its focused four-test suite with independent source approval; `npx tsc --noEmit`, the
+six-file Prettier check, and `git diff --check` passed. At that point,
+`source ./source_me.sh && ./launchers/run_fast_checks.sh` passed 9,268 pytest tests plus Rust,
+TypeScript, Node, lint, and formatting checks. After the responsive Course breadcrumb and synthetic
+Course identity follow-up, the same fast command passed 9,287 pytest tests plus Rust, TypeScript,
+Node, lint, and formatting checks; the focused production-shell Chromium fixture and visual review
+also passed for SUI-03. These shell captures are not a full Assessment-page screenshot. `covered_by`
+identifies only a documented representative substitution, with its omitted viewport still
+unverified. The full suite was not rerun after these final source edits, so full-suite acceptance
+for this final snapshot is unrefreshed. The selected fast and focused gates below are the plan's
+acceptance path; no repeated full-suite run is required.
+
+| Finding | Disposition                                                                                                                                                                                                                     | Remaining gate                                                                                                                                                                                                                                         |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SUI-01  | Achieved source progress in M1; 2026-09-23 shell, semantic replay, and current-integrated-tree `all_test.sh` receipts are recorded above.                                                                                       | The dated full-suite and replay receipts cover their recorded scope; no additional M2 evidence ownership remains open.                                                                                                                                 |
+| SUI-02  | Achieved source progress in M3 `PageFrame` and M6 page sweep.                                                                                                                                                                   | M7 rendered and semantic replay acceptance passed; the dated 2026-09-23 `all_test.sh` receipt is recorded above.                                                                                                                                       |
+| SUI-03  | Implemented: the Course long name is primary; the shared breadcrumb switches to the Instructor-defined short name when the trail does not fit. The Ribbon remains course-free.                                                  | Pass at 1280px (long) and 320/393 at 200% root text (short); PageFrame keeps the long title, with no document overflow or errors. Synthetic fixture, not full-stack. The 320px/200% Instructor Ribbon crowding is outside this plan's viewport policy. |
+| SUI-04  | [student_task_surface_plan.md](active/student_task_surface_plan.md)                                                                                                                                                             | Its width, enlarged-text, and native-PNG acceptance cases remain deferred.                                                                                                                                                                             |
+| SUI-05  | Achieved source progress in M5 WP-E6 Student course-row proof.                                                                                                                                                                  | M7 rendered and semantic replay acceptance passed; the dated 2026-09-23 `all_test.sh` receipt is recorded above.                                                                                                                                       |
+| SUI-06  | [student_task_surface_plan.md](active/student_task_surface_plan.md)                                                                                                                                                             | Cross-surface Student terminology acceptance is deferred; it is not M6 or WP-H2 work.                                                                                                                                                                  |
+| SUI-07  | Achieved source progress for the M6 `PageFrame` outer rail.                                                                                                                                                                     | [RecordList migration item 8](active/record_list_migration_plan.md) retains long-feedback, multipart-response, and multi-Question expansion acceptance; M7 semantic replay passed and the dated 2026-09-23 `all_test.sh` receipt is recorded above.    |
+| SUI-08  | [student_task_surface_plan.md](active/student_task_surface_plan.md) owns the attempt vertical budget; [RecordList migration student sites](active/record_list_migration_plan.md) own compact Coursework and invitation objects. | Both acceptance lanes remain deferred.                                                                                                                                                                                                                 |
 
 ## Acceptance criteria and gates
 
-- Per-patch gate: `source ./source_me.sh && ./launchers/run_fast_checks.sh`.
-- Integration gate: `source ./source_me.sh && ./launchers/all_test.sh`, run once per milestone after
-  its lanes merge.
+- Code-change gate: `source ./source_me.sh && ./launchers/run_fast_checks.sh` after each coherent
+  implementation lane or integrated code change.
+- UI behavior gate: run the focused component/page browser checks for the changed behavior and
+  inspect relevant saved captures for responsive composition. Use the existing real-component
+  Chromium fixtures for iteration and the recorded clean Live Demo replay for final integration.
+- Full-suite status: `source ./source_me.sh && ./launchers/all_test.sh` is broader repository
+  compliance, not a per-milestone gate for this UI plan. Keep existing dated full-suite receipts as
+  historical evidence; do not repeat the full suite solely because a UI milestone or final small
+  source edit completed. Record when the latest source snapshot has no full-suite receipt.
 - Independent review gate, when useful: `reviewer` checks M5 for escape hatches, since that is the
   one judgment a passing test cannot make. It should pay closest attention to WP-E7, where a
   presentation API that is really just a padding switch would show up first.
@@ -671,8 +759,10 @@ nearly true.
 Permanent rules created here:
 
 - Tier-1 control ids are the same for a role on every route.
-- On every signed-in route, the breadcrumb row and the page content each start at one height per
-  screen size, for all three roles. A tier-2 row with no controls still holds its space.
+- On every signed-in route in the covered role-viewport policy, the breadcrumb row and page content
+  each start at one height: Student at laptop, tablet, phone, and square sizes; Instructor and
+  Sysadmin at laptop size. Public scope remains unchanged. A tier-2 row with no controls still holds
+  its space.
 - The page title's left edge does not move across a student workflow.
 - `RecordList` region edges line up across all rows at every screen size.
 - A list with one variant shows no switcher.
@@ -689,21 +779,19 @@ One-time measurements, reported to the changelog and then their probes deleted:
 New browser checks, each a permanent gate:
 
 ```bash
-node tests/playwright/ribbon_tier_one_invariance.mjs
-node tests/playwright/shell_geometry_invariance.mjs
-node tests/playwright/student_course_pinning.mjs
-node tests/playwright/record_list_alignment.mjs
-node tests/playwright/record_list_presentation.mjs
-node tests/playwright/record_list_reorder.mjs
-node tests/playwright/record_list_window.mjs
+node --import tsx tests/playwright/student_course_pinning.mjs
+node --import tsx tests/playwright/record_list_contracts.mjs
+node --import tsx tests/playwright/provided_avatar_picker_presentation.mjs
+node --import tsx tests/playwright/ribbon_shell_contract.mjs
+node --import tsx tests/playwright/fast_ui_route_composition.mjs
 ```
 
 Existing runners that must keep passing:
 
 ```bash
-node tests/playwright/ribbon_geometry_evidence.mjs
-node tests/playwright/ribbon_responsive_evidence.mjs
-node tests/test_screenshot_corpus.mjs
+node --import tsx tests/playwright/ribbon_geometry_evidence.mjs
+node --import tsx tests/playwright/ribbon_responsive_evidence.mjs
+node --import tsx tests/test_screenshot_corpus.mjs
 bash tests/e2e/e2e_screenshot_warm_loop.sh
 ```
 
@@ -714,34 +802,44 @@ source ./source_me.sh && ./devel/capture_screenshots.sh
 source ./source_me.sh && ./devel/capture_screenshots.sh --verify
 ```
 
+Visual review uses saved screenshots from the existing production-shell fixtures and screenshot
+corpus. A fresh `image_evaluator` subagent, using `~/.codex/agents/image_evaluator.toml`, inspects
+the named artifacts; the manager records and routes actionable findings, then recaptures after
+fixes. Existing headless browser checks remain the behavior gates. Headed Chromium is available for
+optional debugging.
+
 Failure semantics: a failing per-patch gate blocks that work package only. A failing integration
 gate blocks the milestone and every milestone that depends on it. When a permanent check fails after
 merge, compare the behavior against the contract written in
-[docs/DESIGN_DECISIONS.md](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/DESIGN_DECISIONS.md),
+[docs/DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md),
 then repair whichever is wrong -- the code or the check. Usually it is the code, and the change is
 reverted. Sometimes the check encoded the contract badly, which is likely during M5, where the
 component is deliberately learning from real consumers; then the check is corrected and the reason
 recorded. A check is a constraint that has to keep earning its place, not a fact.
 
 Fixtures already exist and are reused rather than rebuilt:
-[tests/playwright/ribbon_harness_server.mjs](../../nsh/PROBLEMS/peptidyle-learning-engine/tests/playwright/ribbon_harness_server.mjs),
+[tests/playwright/ribbon_harness_server.mjs](../../tests/playwright/ribbon_harness_server.mjs),
 `tests/support/ribbon_shell_harness.tsx`, `ribbon_responsive_harness.tsx`, and the seeded Live Demo
 behind
-[devel/capture_screenshots.sh](../../nsh/PROBLEMS/peptidyle-learning-engine/devel/capture_screenshots.sh).
-No milestone needs a person to choose a design or approve a picture.
+[devel/capture_screenshots.sh](../../devel/capture_screenshots.sh).
+Shell and route transitions are driven by the existing synthetic fixtures and headless browser
+checks. Screenshot publication saves artifacts for a fresh `image_evaluator` subagent; the manager
+resolves any findings against the documented contracts and records the result. Headed browsing
+remains an optional debugging aid, not a completion gate. Byte- or pixel-identical replay is not
+required when visible IDs or dates are generated at runtime.
 
 ## Risk register
 
-| Risk | Impact | Trigger | Owner | Mitigation |
-| --- | --- | --- | --- | --- |
-| `RecordList` does not fit one of the seven patterns | High. The component is wrong and ~33 later pages would inherit it | A WP-E lane needs a prop that serves only its page | WS-CORE | That is why seven different patterns are converted before the rest. The lane stops, hands the core change to WS-CORE, and it is applied once |
-| Presentation variants turn out to be a padding switch | Medium. The API looks general but only changes spacing | WP-E7's `gallery` cannot be expressed without a new escape hatch | WS-CORE | WP-E7 exists to surface this early. A gallery and a list share records and selection but not geometry, so it is the hardest honest test |
-| Two WP-E lanes edit the core at the same time | Medium. Lost work and conflicting shapes | Two lanes report a core gap in the same window | manager | Only WS-CORE writes the core. Lanes report, they do not patch |
-| Page sweep collides with proof pages | Medium. Two owners on one file | A sweep group includes a proof page | manager | WS-PAGES explicitly excludes the seven. Stated in the ownership table |
-| Tier-1 rework breaks route access | High. A role could see a link it may not use | `tierOneArea` set wrong on a route | WS-SHELL | Access is enforced by `withRouteAccessBoundary` and the server, not the Ribbon. WP-B1 checks the tab list; existing access tests stay green |
-| Scope creep back into list conversion | Medium. The risk this plan was reshaped to avoid | An eighth page is added to M5 because it "looks quick" | manager | M5 is exactly the seven pages in the WP-E table, each admitted for a distinct pattern. A page that repeats a pattern already covered goes to the migration plan, however small it looks |
-| Deferred work is quietly lost | Medium. The review's complaints go unanswered | M8 is skipped as paperwork | WS-DOCS | WP-H1 is an exit condition, and WP-H3 fails if any SUI finding is unmapped |
-| An empty tier-2 row invites someone to fill it | Medium. Invented navigation to avoid blank space | A later page adds a tab with no workflow behind it | WS-SHELL | WP-A5 states that empty means empty and WP-H2 records it as a decision. A control needs a workflow, not a gap to occupy |
+| Risk                                                  | Impact                                                            | Trigger                                                          | Owner    | Mitigation                                                                                                                                                                              |
+| ----------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RecordList` does not fit one of the seven patterns   | High. The component is wrong and ~33 later pages would inherit it | A WP-E lane needs a prop that serves only its page               | WS-CORE  | That is why seven different patterns are converted before the rest. The lane stops, hands the core change to WS-CORE, and it is applied once                                            |
+| Presentation variants turn out to be a padding switch | Medium. The API looks general but only changes spacing            | WP-E7's `gallery` cannot be expressed without a new escape hatch | WS-CORE  | WP-E7 exists to surface this early. A gallery and a list share records and selection but not geometry, so it is the hardest honest test                                                 |
+| Two WP-E lanes edit the core at the same time         | Medium. Lost work and conflicting shapes                          | Two lanes report a core gap in the same window                   | manager  | Only WS-CORE writes the core. Lanes report, they do not patch                                                                                                                           |
+| Page sweep collides with proof pages                  | Medium. Two owners on one file                                    | A sweep group includes a proof page                              | manager  | WS-PAGES explicitly excludes the seven. Stated in the ownership table                                                                                                                   |
+| Tier-1 rework breaks route access                     | High. A role could see a link it may not use                      | `tierOneArea` set wrong on a route                               | WS-SHELL | Access is enforced by `withRouteAccessBoundary` and the server, not the Ribbon. WP-B1 checks the tab list; existing access tests stay green                                             |
+| Scope creep back into list conversion                 | Medium. The risk this plan was reshaped to avoid                  | An eighth page is added to M5 because it "looks quick"           | manager  | M5 is exactly the seven pages in the WP-E table, each admitted for a distinct pattern. A page that repeats a pattern already covered goes to the migration plan, however small it looks |
+| Deferred work is quietly lost                         | Medium. The review's complaints go unanswered                     | M8 is skipped as paperwork                                       | WS-DOCS  | WP-H1 is an exit condition, and WP-H3 fails if any SUI finding is unmapped                                                                                                              |
+| An empty tier-2 row invites someone to fill it        | Medium. Invented navigation to avoid blank space                  | A later page adds a tab with no workflow behind it               | WS-SHELL | WP-A5 states that empty means empty and WP-H2 records it as a decision. A control needs a workflow, not a gap to occupy                                                                 |
 
 ## Documentation close-out requirements
 
@@ -761,7 +859,7 @@ No milestone needs a person to choose a design or approve a picture.
 - Every signed-in role reserves the tier-2 row. Whether a row holds controls is a separate question
   from whether it takes space, and only the first is still open for students and sysadmins. An empty
   student or sysadmin row is correct today. An **instructor** page missing the tier-2 controls that
-  [docs/HUMAN_GUIDANCE.md:430,490,568](../../nsh/PROBLEMS/peptidyle-learning-engine/docs/HUMAN_GUIDANCE.md)
+  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568
   lists for it is a defect in that page, not a reason to reopen the design.
 
 ## Open questions and decisions needed

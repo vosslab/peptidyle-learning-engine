@@ -102,7 +102,7 @@ received="$(request "$path" "$instructor_cookie")"
 [ "$(status "$received")" = 200 ] || { echo "Current Course Instructor could not read Gradebook" >&2; exit 1; }
 python3 -c 'import json,math,re,sys
 value=json.loads(sys.argv[1]); course=sys.argv[2]
-if set(value)!={"courseId","studentWork"} or value["courseId"]!=course:
+if set(value)!={"courseInstanceId","studentWork"} or value["courseInstanceId"]!=course:
     raise SystemExit("Gradebook projection is not closed to its requested Course")
 rows=value["studentWork"]
 if not isinstance(rows,list) or not rows:

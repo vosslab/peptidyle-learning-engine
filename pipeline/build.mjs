@@ -31,6 +31,11 @@ import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
+import {
+  browserFontPathFromUrl,
+  browserFontUrlsFromStylesheet,
+} from "../src/browser_font_assets.mjs";
+
 // This pipeline is part of the shipped build boundary. Its own stable location
 // anchors the repository even when invoked from an arbitrary directory or an
 // exported source tree with no version-control metadata.
@@ -41,57 +46,14 @@ const skipWasm = process.argv.includes("--skip-wasm");
 const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
-const STATIC_STYLESHEETS = [
-  "styles/browser_fonts.css",
-  "style.css",
-  "style_responsive.css",
-  "styles/product_role.css",
-  "styles/accessibility.css",
-  "styles/ple_embed.css",
-];
+const STANDALONE_STYLESHEETS = ["styles/ple_embed.css"];
 const PUBLIC_BROWSER_FILES = ["ple_bridge.js"];
-const BROWSER_FONT_STYLESHEET = "styles/browser_fonts.css";
 const RIBBON_ICON_SPRITE = "assets/ribbon-icons.svg";
 const AVATAR_CATALOG_MANIFEST = "assets/avatar_catalog/manifest.json";
 const AVATAR_CATALOG_SOURCE_DIRECTORY = "assets/avatar_catalog";
 const AVATAR_CATALOG_DIST_DIRECTORY = "assets/avatar_catalog";
 const SAFE_AVATAR_CATALOG_FILE = /^svg\/[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.svg$/u;
-const BROWSER_FONT_BUNDLES = [
-  {
-    family: "Atkinson Hyperlegible Next",
-    assetDir: "assets/fonts/atkinson_hyperlegible_next",
-    assets: [
-      "atkinson_hyperlegible_next_variable.woff2",
-      "atkinson_hyperlegible_next_variable_italic.woff2",
-      "ofl_1_1.txt",
-      "provenance.txt",
-    ],
-    faces: [
-      { style: "normal", asset: "atkinson_hyperlegible_next_variable.woff2" },
-      { style: "italic", asset: "atkinson_hyperlegible_next_variable_italic.woff2" },
-    ],
-  },
-  {
-    family: "Atkinson Hyperlegible Mono",
-    assetDir: "assets/fonts/atkinson_hyperlegible_mono",
-    assets: [
-      "atkinson_hyperlegible_mono_variable.woff2",
-      "atkinson_hyperlegible_mono_variable_italic.woff2",
-      "ofl_1_1.txt",
-      "provenance.txt",
-    ],
-    faces: [
-      { style: "normal", asset: "atkinson_hyperlegible_mono_variable.woff2" },
-      { style: "italic", asset: "atkinson_hyperlegible_mono_variable_italic.woff2" },
-    ],
-  },
-  {
-    family: "IBM Plex Sans Condensed",
-    assetDir: "assets/fonts/ibm_plex_sans_condensed",
-    assets: ["ibm_plex_sans_condensed_regular.woff2", "ofl_1_1.txt", "provenance.txt"],
-    faces: [{ style: "normal", asset: "ibm_plex_sans_condensed_regular.woff2" }],
-  },
-];
+const BROWSER_FONT_DISTRIBUTION_FILES = ["ofl_1_1.txt", "provenance.txt"];
 
 //============================================
 
@@ -151,51 +113,36 @@ function copyWasmBridge() {
 //============================================
 
 /**
- * Copies index.html into dist/, fingerprinting the script and stylesheet URLs.
+ * Copies index.html into dist/, fingerprinting the production script and bundled stylesheet URLs.
  *
  * Cachebusting is not cosmetic here: a stale bundle served from cache is the
  * classic "my change did nothing" bug, and it wastes more time in playtests
  * than it costs to prevent.
  *
  * @param {string} bundleHash short content hash of the built bundle
- * @param {Record<string, string>} stylesheetHashes short content hashes keyed by source path
  * @param {string} componentStylesheetHash short content hash of bundled component styles
  * @returns {void}
  */
-function copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash) {
+function copyIndexHtml(bundleHash, componentStylesheetHash) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
-  let fingerprinted = source
+  const fingerprinted = source
     .replace(/(src=")(\.?\/?main\.js)(")/, `$1/main.js?v=${bundleHash}$3`)
     .replace(/(href=")(\.?\/?main\.css)(")/, `$1/main.css?v=${componentStylesheetHash}$3`);
-  for (const stylesheet of STATIC_STYLESHEETS) {
-    const escapedPath = stylesheet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const stylesheetPattern = new RegExp(`(href=")(\\.?\\/?${escapedPath})(")`);
-    fingerprinted = fingerprinted.replace(
-      stylesheetPattern,
-      `$1/${stylesheet}?v=${stylesheetHashes[stylesheet]}$3`,
-    );
-  }
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
 }
 
 //============================================
 
 /**
- * Copies authored stylesheets into dist/, preserving nested asset paths.
- *
- * @returns {Record<string, string>} short content hashes keyed by source path
+ * Copies standalone authored stylesheets used outside the SPA browser entry.
  */
-function copyStaticStylesheets() {
-  const hashes = {};
-  for (const stylesheet of STATIC_STYLESHEETS) {
+function copyStandaloneStylesheets() {
+  for (const stylesheet of STANDALONE_STYLESHEETS) {
     const sourcePath = path.join(srcDir, stylesheet);
     const targetPath = path.join(distDir, stylesheet);
-    const bytes = fs.readFileSync(sourcePath);
-    hashes[stylesheet] = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 8);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.copyFileSync(sourcePath, targetPath);
   }
-  return hashes;
 }
 
 /** Copies same-origin browser helpers loaded directly by backend-owned documents. */
@@ -234,21 +181,32 @@ function copyRibbonIconSprite() {
  *
  * @returns {void}
  */
-function copyBrowserFontAssets() {
-  for (const bundle of BROWSER_FONT_BUNDLES) {
-    const sourceDir = path.join(srcDir, bundle.assetDir);
-    const targetDir = path.join(distDir, bundle.assetDir);
-    for (const asset of bundle.assets) {
-      const sourcePath = path.join(sourceDir, asset);
-      if (!fs.existsSync(sourcePath)) {
-        throw new Error(
-          `browser font asset missing at ${sourcePath}; restore the locally bundled ${bundle.family} distribution`,
-        );
-      }
-      fs.mkdirSync(targetDir, { recursive: true });
-      fs.copyFileSync(sourcePath, path.join(targetDir, asset));
+function copyBrowserFontAssets(fontUrls) {
+  for (const fontPath of browserFontDistributionPaths(fontUrls)) {
+    const sourcePath = path.join(srcDir, "assets", "fonts", fontPath);
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(
+        `browser font asset missing at ${sourcePath}; restore its local distribution`,
+      );
     }
+    const targetPath = path.join(distDir, "assets", "fonts", fontPath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
   }
+}
+
+/** Returns CSS-declared fonts plus the required records beside each font. */
+function browserFontDistributionPaths(fontUrls) {
+  const fontPaths = fontUrls.map(browserFontPathFromUrl);
+  return [
+    ...new Set([
+      ...fontPaths,
+      ...fontPaths.flatMap((fontPath) => {
+        const fontDirectory = path.dirname(fontPath);
+        return BROWSER_FONT_DISTRIBUTION_FILES.map((file) => path.join(fontDirectory, file));
+      }),
+    ]),
+  ];
 }
 
 //============================================
@@ -300,37 +258,15 @@ function checkAvatarCatalogDelivery() {
 //============================================
 
 /**
- * Verifies that the browser stylesheet names only the copied local font files.
+ * Verifies that the production browser stylesheet names only the copied local font files.
  *
  * @returns {void}
  */
-function checkBrowserFontDelivery() {
-  const stylesheetPath = path.join(distDir, BROWSER_FONT_STYLESHEET);
-  if (!fs.existsSync(stylesheetPath)) {
-    throw new Error(`build finished but dist/${BROWSER_FONT_STYLESHEET} is missing`);
-  }
-  const stylesheet = fs.readFileSync(stylesheetPath, "utf8");
-  const fontFaceBlocks = stylesheet.match(/@font-face\s*\{[^}]*\}/g) ?? [];
-  if (fontFaceBlocks.some((block) => /https?:\/\//i.test(block))) {
-    throw new Error("browser font stylesheet must not refer to remote font assets");
-  }
-  for (const bundle of BROWSER_FONT_BUNDLES) {
-    for (const { style, asset } of bundle.faces) {
-      const fontFace = fontFaceBlocks.find(
-        (block) =>
-          block.includes(`font-family: "${bundle.family}"`) &&
-          new RegExp(`font-style\\s*:\\s*${style}\\s*;`).test(block),
-      );
-      if (!fontFace) {
-        throw new Error(
-          `browser font stylesheet must define a local ${bundle.family} ${style} @font-face rule`,
-        );
-      }
-      if (!fontFace.includes(`/${bundle.assetDir}/${asset}`)) {
-        throw new Error(
-          `browser ${bundle.family} ${style} @font-face rule does not refer to local font asset ${asset}`,
-        );
-      }
+function checkBrowserFontDelivery(fontUrls) {
+  for (const fontUrl of fontUrls) {
+    const deliveredPath = path.join(distDir, fontUrl);
+    if (!fs.existsSync(deliveredPath)) {
+      throw new Error(`production font URL is not delivered: ${fontUrl}`);
     }
   }
 }
@@ -368,6 +304,7 @@ async function main() {
     entryPoints: [path.join(repoRoot, entry)],
     outfile: path.join(distDir, "main.js"),
     bundle: true,
+    external: ["/assets/fonts/*"],
     format: "esm",
     target: "es2020",
     platform: "browser",
@@ -384,13 +321,18 @@ async function main() {
     .update(componentStylesheetBytes)
     .digest("hex")
     .slice(0, 8);
-  const stylesheetHashes = copyStaticStylesheets();
-  copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash);
+  copyStandaloneStylesheets();
+  const fontUrls = browserFontUrlsFromStylesheet(
+    ["main.css", ...STANDALONE_STYLESHEETS]
+      .map((stylesheet) => fs.readFileSync(path.join(distDir, stylesheet), "utf8"))
+      .join("\n"),
+  );
+  copyIndexHtml(bundleHash, componentStylesheetHash);
   copyPublicBrowserFiles();
   copyRibbonIconSprite();
-  copyBrowserFontAssets();
+  copyBrowserFontAssets(fontUrls);
   copyAvatarCatalogAssets();
-  checkBrowserFontDelivery();
+  checkBrowserFontDelivery(fontUrls);
   checkAvatarCatalogDelivery();
 
   copyWasmBridge();
@@ -399,12 +341,12 @@ async function main() {
     "index.html",
     "main.js",
     "main.css",
-    ...STATIC_STYLESHEETS,
+    ...STANDALONE_STYLESHEETS,
     ...PUBLIC_BROWSER_FILES,
     RIBBON_ICON_SPRITE,
     ...avatarCatalogFiles().map((file) => path.join(AVATAR_CATALOG_DIST_DIRECTORY, file)),
-    ...BROWSER_FONT_BUNDLES.flatMap((bundle) =>
-      bundle.assets.map((asset) => path.join(bundle.assetDir, asset)),
+    ...browserFontDistributionPaths(fontUrls).map((fontPath) =>
+      path.join("assets", "fonts", fontPath),
     ),
   ]) {
     if (!fs.existsSync(path.join(distDir, required))) {

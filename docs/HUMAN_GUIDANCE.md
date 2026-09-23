@@ -1,6 +1,7 @@
 # Human guidance
 
 <!-- VENDORED HEADER: START -->
+
 Record the durable guidance Neil Voss states, or approves for preservation here, in his own words:
 first person or close paraphrase, one to three lines per bullet. Material he supplies as a source
 may inform [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) once it is settled, and an entry of uncertain
@@ -46,6 +47,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Agent working principles
 
+- The stack takes a long time to rebuild. Use `./launchers/run_fast_checks.sh` for faster
+  interface checks.
 - Read and learn the core principles in docs/REPO_STYLE.md
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
 - Prefer the smallest coherent design that meets actual requirements and known failure modes.
@@ -414,7 +417,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
 - All required ribbon choices remain visible even when their collection is empty.
-- All required Instructor ribbon choices remain visible even when their target page is not implemented or complete.
+- Required Instructor Ribbon choices whose workflows are unavailable remain visible as unavailable,
+  annotation-free controls. They become usable only when their workflow exists.
 - A working navigation destination remains visible when its collection is empty.
 - A future or unavailable capability should not appear as a usable control until its workflow exists.
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
@@ -627,7 +631,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student navigation and pages should contain only Student interfaces and capabilities.
 - Student content entry should use the response controls provided by Questions and other Student activities.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
-- The complete Student Ribbon task layout does not have a locked-in design yet.
+- Student tier-one navigation is **Courses**, **Coursework**, and **Grades**. Coursework and Grades
+  stay pinned to the current Course. Student tier-two tasks remain unsettled.
 
 #### Student Course and Coursework interface
 

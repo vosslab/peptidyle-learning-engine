@@ -7,6 +7,7 @@ import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseBannerAlternativeText } from "../../generated/api/CourseBannerAlternativeText";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 import {
   courseRouteView,
   useCourseThemePresentation,
@@ -425,13 +426,10 @@ export function CourseAppearancePage(): JSX.Element {
             <Show
               when={loadState() === "rejected"}
               fallback={
-                <section class="page course-appearance" data-route-surface="courseAppearance">
-                  <h1>Course Appearance unavailable</h1>
-                </section>
+                <PageFrame routeSurface="courseAppearance" title="Course Appearance unavailable" />
               }
             >
-              <section class="page course-appearance" data-route-surface="courseAppearance">
-                <h1>Course Appearance could not load</h1>
+              <PageFrame routeSurface="courseAppearance" title="Course Appearance could not load">
                 <p role="alert">
                   Your saved Course Appearance could not be loaded. Check your connection and try
                   again.
@@ -439,19 +437,15 @@ export function CourseAppearancePage(): JSX.Element {
                 <button type="button" onClick={retryScope}>
                   Retry loading Course Appearance
                 </button>
-              </section>
+              </PageFrame>
             </Show>
           }
         >
-          <section
-            class="page course-appearance"
-            data-route-surface="courseAppearance"
-            aria-busy="true"
-            aria-live="polite"
-          >
-            <h1>Loading Course Appearance</h1>
-            <p>Loading saved Course Appearance...</p>
-          </section>
+          <PageFrame routeSurface="courseAppearance" title="Loading Course Appearance">
+            <p aria-busy="true" aria-live="polite">
+              Loading saved Course Appearance...
+            </p>
+          </PageFrame>
         </Show>
       }
     >
@@ -462,20 +456,20 @@ export function CourseAppearancePage(): JSX.Element {
           return current;
         };
         return (
-          <section class="page course-appearance" data-route-surface="courseAppearance">
+          <PageFrame
+            routeSurface="courseAppearance"
+            title="Course Appearance"
+            lede="Choose the palette and banner used throughout this Course Instance."
+          >
             <style>{COURSE_APPEARANCE_STYLES}</style>
             <style>{COURSE_BANNER_5_TO_1_STYLES}</style>
-            <header>
-              <h1>Course Appearance</h1>
-              <p>Choose the palette and banner used throughout this Course Instance.</p>
-            </header>
             <AppearanceThemeEditor courseInstanceId={summary.id} storedAppearance={appearance} />
             <AppearanceBannerEditor
               courseInstanceId={summary.id}
               courseLongName={summary.longName}
               storedAppearance={appearance}
             />
-          </section>
+          </PageFrame>
         );
       }}
     </Show>

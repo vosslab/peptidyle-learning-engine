@@ -20,6 +20,8 @@ import type { StudentResponseFormatCheck } from "../api/decoders/student_respons
 import { ApiRequestError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
 import { AuthorContentFrame } from "../components/author_content_frame";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
+import { PageFrame } from "../components/page_frame";
 import { StudentAssessmentAttemptNavigation } from "../components/student_assessment_attempt_navigation";
 import type { StudentAssessmentAttemptQuestionState } from "../components/student_assessment_attempt_navigation";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
@@ -58,6 +60,7 @@ function errorMessage(error: unknown, fallback: string): string {
 function AttemptExperience(props: {
   readonly context: StudentAssessmentAttemptContext;
 }): JSX.Element {
+  const formatDateTime = createDisplayDateTimeFormatter(props.context.displayTimeZone);
   const runtime = useApplicationApi();
   const navigate = useNavigate();
   const validator = useWasmFacade();
@@ -402,15 +405,12 @@ function AttemptExperience(props: {
   }
 
   return (
-    <section class="page assessment-attempt-page" data-route-surface="assessmentAttempt">
-      <header class="assessment-attempt-header">
-        <div>
-          <p class="eyebrow">
-            {assessmentTypePresentation(props.context.assessment.assessmentType).label} · Attempt{" "}
-            {props.context.attemptNumber}
-          </p>
-          <h1>{props.context.assessment.title}</h1>
-        </div>
+    <PageFrame
+      routeSurface="assessmentAttempt"
+      eyebrow={`${assessmentTypePresentation(props.context.assessment.assessmentType).label} · Attempt ${props.context.attemptNumber}`}
+      title={props.context.assessment.title}
+    >
+      <div class="assessment-attempt-header">
         <Show when={!isSubmitted()}>
           <div>
             <span class="calm-status" role="timer">
@@ -421,16 +421,13 @@ function AttemptExperience(props: {
             <Show when={props.context.expiresAt !== null}>
               <p class="assessment-attempt-expiry">
                 Saved responses submit automatically at{" "}
-                {formatAssessmentDeliveryTime(
-                  props.context.expiresAt,
-                  props.context.displayTimeZone,
-                )}
-                .
+                {formatAssessmentDeliveryTime(props.context.expiresAt, formatDateTime)}. Times shown
+                in {props.context.displayTimeZone}.
               </p>
             </Show>
           </div>
         </Show>
-      </header>
+      </div>
 
       <Show when={!isSubmitted() && !isExpired()}>
         <Show
@@ -599,7 +596,7 @@ function AttemptExperience(props: {
           </Show>
         </section>
       </Show>
-    </section>
+    </PageFrame>
   );
 }
 
@@ -616,7 +613,7 @@ export function AssessmentAttemptPage(): JSX.Element {
       when={context()}
       keyed
       fallback={
-        <section class="page" data-route-surface="assessmentAttempt">
+        <PageFrame routeSurface="assessmentAttempt" title="Assessment Attempt">
           <Show
             when={loadState() === "rejected"}
             fallback={
@@ -632,7 +629,7 @@ export function AssessmentAttemptPage(): JSX.Element {
               Retry
             </button>
           </Show>
-        </section>
+        </PageFrame>
       }
     >
       {(loadedContext) => <AttemptExperience context={loadedContext} />}

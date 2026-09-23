@@ -8,6 +8,7 @@ import {
   serverExpiryCopy,
 } from "../src/pages/pending_invitations_model.ts";
 import { decodePendingCourseInvitationsPage } from "../src/api/decoders/teaching_operations.ts";
+import { createDisplayDateTimeFormatter } from "../src/format_datetime.ts";
 
 test("pending-invitation pagination keeps existing rows and excludes overlapping cursor rows", () => {
   const first = [{ id: "safe-one" }];
@@ -17,16 +18,35 @@ test("pending-invitation pagination keeps existing rows and excludes overlapping
 });
 
 test("pending-invitation copy exposes the current invitation state and viewer-zone expiry", () => {
+  const displayTimeZone = "America/New_York";
+  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
+
   assert.equal(invitationStateLabel("pending"), "Pending response");
   assert.equal(isPendingInvitation("expired"), false);
-  assert.match(serverExpiryCopy(1_789_837_200_000, "America/New_York"), /America\/New_York/u);
-  assert.doesNotMatch(serverExpiryCopy(1_789_837_200_000, "America/New_York"), /1789837200000/u);
+  assert.match(
+    serverExpiryCopy(1_789_837_200_000, displayTimeZone, formatDateTime),
+    /America\/New_York/u,
+  );
+  assert.doesNotMatch(
+    serverExpiryCopy(1_789_837_200_000, displayTimeZone, formatDateTime),
+    /1789837200000/u,
+  );
 });
 
 test("invitation expiry uses the explicit viewer zone", () => {
   const instant = Date.parse("2026-01-15T18:30:00Z");
-  const eastern = serverExpiryCopy(instant, "America/New_York");
-  const pacific = serverExpiryCopy(instant, "America/Los_Angeles");
+  const easternTimeZone = "America/New_York";
+  const pacificTimeZone = "America/Los_Angeles";
+  const eastern = serverExpiryCopy(
+    instant,
+    easternTimeZone,
+    createDisplayDateTimeFormatter(easternTimeZone),
+  );
+  const pacific = serverExpiryCopy(
+    instant,
+    pacificTimeZone,
+    createDisplayDateTimeFormatter(pacificTimeZone),
+  );
 
   assert.match(eastern, /\(America\/New_York\)$/u);
   assert.match(pacific, /\(America\/Los_Angeles\)$/u);

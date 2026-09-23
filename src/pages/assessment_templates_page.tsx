@@ -11,6 +11,7 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { ApiRequestError } from "../api/http_client/error";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
+import { PageFrame } from "../components/page_frame";
 import {
   ASSESSMENT_TYPE_OPTIONS,
   assessmentTypePresentation,
@@ -230,16 +231,13 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
   onMount(() => void loadTemplates());
 
   return (
-    <section class="page assessment-templates" data-route-surface="assessmentTemplates">
-      <header class="assessment-templates-header">
-        <p class="eyebrow">Assessments</p>
-        <h1>My Assessment Templates</h1>
-        <p class="page-lede">
-          Reuse your own Assessment settings. Templates do not contain Questions, Question Pools,
-          points, or Course dates.
-        </p>
-      </header>
-
+    <PageFrame
+      contentClass="assessment-templates"
+      routeSurface="assessmentTemplates"
+      eyebrow="Assessments"
+      title="My Assessment Templates"
+      lede="Reuse your own Assessment settings. Templates do not contain Questions, Question Pools, points, or Course dates."
+    >
       <Show when={status() !== ""}>
         <p
           class="assessment-template-status"
@@ -470,7 +468,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
             "Template changes were not saved. Resolve the page error, then try again or stay here.",
         }}
       />
-    </section>
+    </PageFrame>
   );
 }
 

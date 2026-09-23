@@ -52,6 +52,28 @@ def run_command(argv: list[str], cwd: pathlib.Path, env: dict[str, str] | None =
 		raise SystemExit(result.returncode)
 
 
+def chromium_executable_path(root: pathlib.Path) -> pathlib.Path | None:
+	"""Return the installed Playwright Chromium executable, if available."""
+	try:
+		result = subprocess.run(
+			[
+				"node",
+				"-e",
+				"const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath());",
+			],
+			cwd=root,
+			check=False,
+			capture_output=True,
+			text=True,
+		)
+	except OSError:
+		return None
+	path = pathlib.Path(result.stdout.strip())
+	if result.returncode != 0 or not path.is_file():
+		return None
+	return path
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
 	parser = argparse.ArgumentParser(
 		prog="./devel/capture_screenshots.sh",
@@ -227,11 +249,11 @@ def png_hashes(root: pathlib.Path) -> dict[str, str]:
 		folder = screenshot_root / role
 		if not folder.is_dir():
 			continue
-		for path in sorted(folder.iterdir()):
+		for path in sorted(folder.rglob("*.png")):
 			if path.suffix != ".png" or not path.is_file():
 				continue
 			digest = hashlib.sha256(path.read_bytes()).hexdigest()
-			hashes[f"{role}/{path.name}"] = digest
+			hashes[path.relative_to(screenshot_root).as_posix()] = digest
 	return hashes
 
 
@@ -355,9 +377,13 @@ def main() -> None:
 			{**os.environ, "DEBUG": "", "PWDEBUG": ""},
 		)
 		print_elapsed("verify-static", started)
-	started = print_step("playwright", "devel/setup_playwright.sh")
-	run_command([str(root / "devel" / "setup_playwright.sh")], root)
-	print_elapsed("playwright", started)
+	chromium_path = chromium_executable_path(root)
+	if chromium_path is None:
+		started = print_step("playwright", "devel/setup_playwright.sh")
+		run_command([str(root / "devel" / "setup_playwright.sh")], root)
+		print_elapsed("playwright", started)
+	else:
+		print(f"[playwright] using installed Chromium: {chromium_path}")
 
 	owned_stop = False
 	if args.fresh:

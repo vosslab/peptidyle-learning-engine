@@ -28,14 +28,15 @@
 
 .provided-avatar-picker-introduction {
   color: var(--ple-muted);
-  margin-block: 0.35rem 0.85rem;
+  margin-block: var(--ple-space-1) var(--ple-space-3);
   max-inline-size: 42rem;
 }
 
-.provided-avatar-picker-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+.provided-avatar-picker-presentations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+  margin-block-end: var(--ple-space-3);
 }
 
 .provided-avatar-picker-tile {
@@ -45,10 +46,10 @@
   border-radius: var(--ple-radius-inset);
   cursor: pointer;
   display: grid;
-  gap: 0.25rem;
+  gap: var(--ple-space-1);
   justify-items: center;
   min-block-size: 10.5rem;
-  padding: 0.75rem;
+  padding: var(--ple-space-3);
   text-align: center;
 }
 
@@ -84,4 +85,15 @@
   color: var(--ple-muted);
   font-size: 0.875rem;
   line-height: 1.25;
+}
+
+.provided-avatar-picker-list-choice {
+  align-items: center;
+  display: grid;
+  gap: var(--ple-space-2);
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.provided-avatar-picker-list-choice-selected {
+  color: var(--ple-accent-strong);
 }

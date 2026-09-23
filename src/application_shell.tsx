@@ -15,6 +15,7 @@ import {
 
 import { useApplicationApi } from "./api/application_api";
 import { useSessionBootstrap } from "./auth/session_context";
+import { PageFrame } from "./components/page_frame";
 import type { CourseThemeRouteData } from "./features/course_appearance/course_theme_context";
 import { CourseThemeVariables } from "./features/course_appearance/course_theme_variables";
 import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
@@ -24,6 +25,7 @@ import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contrac
 import {
   RouteScopeProvider,
   useAssessmentTitle,
+  useCurrentCourseInstanceId,
   useRouteScopeData,
 } from "./ribbon/route_scope_context";
 
@@ -32,6 +34,7 @@ export interface ApplicationShellProps {
   readonly ribbonModel: (
     routeData: CourseThemeRouteData | undefined,
     assessmentTitle: string | undefined,
+    currentCourseInstanceId: string | undefined,
   ) => RibbonModel | undefined;
   readonly content: (pathname: string) => JSX.Element;
 }
@@ -45,25 +48,56 @@ function isRibbonSignOutAction(
   return value.id === "signOut" && value.kind === "action";
 }
 
+function courseBreadcrumbNeedsCompactLabel(nav: HTMLElement): boolean {
+  const list = nav.querySelector("ol");
+  const visibleLabel = nav.querySelector("[data-course-breadcrumb-visible]");
+  const measuredLabel = nav.querySelector("[data-course-breadcrumb-measure]");
+  if (
+    !(list instanceof HTMLOListElement) ||
+    !(visibleLabel instanceof HTMLElement) ||
+    !(measuredLabel instanceof HTMLElement)
+  ) {
+    return false;
+  }
+  const fullTrailWidth =
+    list.getBoundingClientRect().width +
+    measuredLabel.getBoundingClientRect().width -
+    visibleLabel.getBoundingClientRect().width;
+  return fullTrailWidth > nav.clientWidth;
+}
+
 interface ContentErrorProps {
   readonly reset: () => void;
 }
 
 function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): JSX.Element {
   const breadcrumbs = (): ReadonlyArray<RibbonBreadcrumbModel> => props.model?.breadcrumbs ?? [];
-  const reserved = (): boolean => props.model?.breadcrumbPreludeReserved === true;
   const [trail, setTrail] = createSignal<HTMLElement>();
+  const [compactCourse, setCompactCourse] = createSignal(false);
   const location = createMemo(() =>
-    JSON.stringify(breadcrumbs().map(({ label, href, current }) => [label, href, current])),
+    JSON.stringify(
+      breadcrumbs().map(({ label, compactLabel, href, current }) => [
+        label,
+        compactLabel,
+        href,
+        current,
+      ]),
+    ),
   );
   let focusRevision = 0;
   createEffect(() => {
     const element = trail();
+    location();
     if (element === undefined) return;
     const observer = new ResizeObserver(() => {
+      setCompactCourse(courseBreadcrumbNeedsCompactLabel(element));
       if (!element.contains(document.activeElement)) element.scrollLeft = 0;
     });
     observer.observe(element);
+    const list = element.querySelector("ol");
+    if (list !== null) observer.observe(list);
+    const measuredLabel = element.querySelector("[data-course-breadcrumb-measure]");
+    if (measuredLabel instanceof HTMLElement) observer.observe(measuredLabel);
     onCleanup(() => {
       observer.disconnect();
     });
@@ -86,7 +120,7 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
     });
   });
   return (
-    <Show when={reserved()}>
+    <Show when={props.model !== undefined}>
       <div
         class="ple-shell__breadcrumb-prelude"
         aria-live="polite"
@@ -115,17 +149,33 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
           >
             <ol>
               <For each={breadcrumbs()}>
-                {(breadcrumb) => (
-                  <li>
-                    <A
-                      href={breadcrumb.href}
-                      end
-                      aria-current={breadcrumb.current ? "page" : undefined}
-                    >
-                      {breadcrumb.label}
-                    </A>
-                  </li>
-                )}
+                {(breadcrumb) => {
+                  const hasCompactLabel = breadcrumb.compactLabel !== undefined;
+                  return (
+                    <li>
+                      <A
+                        href={breadcrumb.href}
+                        end
+                        aria-current={breadcrumb.current ? "page" : undefined}
+                      >
+                        <span data-course-breadcrumb-visible={hasCompactLabel ? "true" : undefined}>
+                          {hasCompactLabel && compactCourse()
+                            ? breadcrumb.compactLabel
+                            : breadcrumb.label}
+                        </span>
+                      </A>
+                      <Show when={hasCompactLabel}>
+                        <span
+                          aria-hidden="true"
+                          class="ple-shell__breadcrumb-measure"
+                          data-course-breadcrumb-measure
+                        >
+                          {breadcrumb.label}
+                        </span>
+                      </Show>
+                    </li>
+                  );
+                }}
               </For>
             </ol>
           </nav>
@@ -137,19 +187,25 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
 
 function ContentError(props: ContentErrorProps): JSX.Element {
   return (
-    <section class="route-error" role="alert">
-      <p class="eyebrow">This page needs another try</p>
-      <h1>The learning space is still available</h1>
-      <p>The current page could not load. Your navigation and active Attempt remain available.</p>
-      <div class="action-row">
-        <button class="primary-action" type="button" onClick={props.reset}>
-          Try this page again
-        </button>
-        <A class="quiet-link" href="/">
-          Return to courses
-        </A>
-      </div>
-    </section>
+    <div role="alert">
+      <PageFrame
+        routeSurface="contentError"
+        headingId="shell-content-error-heading"
+        eyebrow="This page needs another try"
+        title="The learning space is still available"
+        lede="The current page could not load. Your navigation and active Attempt remain available."
+        actions={
+          <>
+            <button class="primary-action" type="button" onClick={props.reset}>
+              Try this page again
+            </button>
+            <A class="quiet-link" href="/">
+              Return to courses
+            </A>
+          </>
+        }
+      />
+    </div>
   );
 }
 
@@ -203,14 +259,10 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     // Ribbon model.
     const routeData = useRouteScopeData();
     const assessmentTitle = useAssessmentTitle();
-    const ribbonModel = createMemo(() => props.ribbonModel(routeData(), assessmentTitle()));
-    const ribbonTaskRow = createMemo(() => {
-      const model = ribbonModel();
-      if (model === undefined) return undefined;
-      // ribbon_contract.ts derives taskAreas from declared taskGroup topology,
-      // not control admission, so this parent geometry stays admission-independent.
-      return model.taskAreas.length > 0 ? "reserved" : "absent";
-    });
+    const currentCourseInstanceId = useCurrentCourseInstanceId();
+    const ribbonModel = createMemo(() =>
+      props.ribbonModel(routeData(), assessmentTitle(), currentCourseInstanceId()),
+    );
     function ContentRegion(): JSX.Element {
       return (
         <main class="shell">
@@ -247,7 +299,6 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
             "ple-shell-frame": true,
             "ple-ribbon-shell-grid": ribbonModel() !== undefined,
           }}
-          data-ribbon-task-row={ribbonTaskRow()}
           data-ribbon-product-role={ribbonModel()?.context.productLabel.toLowerCase()}
         >
           <Show

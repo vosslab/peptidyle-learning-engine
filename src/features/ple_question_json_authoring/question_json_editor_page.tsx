@@ -4,6 +4,7 @@ import { Show, batch, createEffect, createSignal, onMount, type JSX } from "soli
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { parseReviewedQuestionAuthorship } from "../../api/question_authorship";
+import { PageFrame } from "../../components/page_frame";
 import {
   initialPleQuestionJsonEditorState,
   reducePleQuestionJsonEditor,
@@ -171,9 +172,16 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     props.initialGeneralFeedback.draftQuestionEditNumber,
   );
   const [generalFeedbackSaving, setGeneralFeedbackSaving] = createSignal(false);
-  let heading: HTMLHeadingElement | null = null;
+  const headingId = "ple-question-json-authoring-heading";
   let authorshipInput: HTMLTextAreaElement | undefined;
   let headingFocusDelivered = false;
+
+  function focusHeading(): void {
+    const heading = document.getElementById(headingId) as HTMLHeadingElement | null;
+    if (heading === null) return;
+    heading.tabIndex = -1;
+    heading.focus();
+  }
 
   // The draft accessor is the sole render-time source. Each reducer transition updates this
   // draft editor state together with workflow state, so a rendered response editor never captures a stale
@@ -293,8 +301,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         headingFocusDelivered = false;
         return;
       }
-      if (heading !== null) {
-        heading.focus();
+      if (document.getElementById(headingId) !== null) {
+        focusHeading();
         props.onHeadingFocusDelivered?.();
       }
     });
@@ -421,7 +429,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           ? "Your local edits are restored over the newest saved draft. Review and save them before publishing."
           : "Loaded the newest saved draft. Review it before editing.",
       );
-      queueMicrotask(() => heading?.focus());
+      queueMicrotask(focusHeading);
     } catch (error: unknown) {
       const message = authorSafeMessage(error, "The newest draft could not load.");
       transition({
@@ -541,7 +549,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         libraryPath: `/library/${encodeURIComponent(summary.questionId)}`,
       });
       setStatus("Publication complete. Open the published Question to inspect it.");
-      requestAnimationFrame(() => heading?.focus());
+      requestAnimationFrame(focusHeading);
     } catch (error: unknown) {
       transition({
         kind: "publishFailed",
@@ -570,113 +578,113 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   }
 
   return (
-    <main
-      class="page ple-question-json-authoring"
-      data-route-surface="pleQuestionJsonEditor"
+    <div
+      class="ple-question-json-authoring"
       inert={props.replacementPending === true}
       aria-busy={props.replacementPending === true}
     >
       <style>{PLE_QUESTION_JSON_EDITOR_STYLES}</style>
-      <header>
-        <p class="eyebrow">
-          {publishedQuestionId(state()) ? "Publication complete" : "Private instructor authoring"}
-        </p>
-        <h1 ref={(node) => (heading = node)} tabindex="-1">
-          {publishedQuestionId(state()) ? "Question published" : "PLE Question JSON"}
-        </h1>
-        <p>
-          {publishedQuestionId(state())
+      <PageFrame
+        eyebrow={
+          publishedQuestionId(state()) ? "Publication complete" : "Private instructor authoring"
+        }
+        title={publishedQuestionId(state()) ? "Question published" : "PLE Question JSON"}
+        lede={
+          publishedQuestionId(state())
             ? "Your authoring work is complete. This confirmation identifies the Question now available in the Question Library."
-            : "Build a clear student question, save it privately, then review and publish it when it is ready."}
-        </p>
-      </header>
-      <Show when={status()}>
-        {(message) => (
-          <p
-            role="status"
-            aria-label={
-              publishedQuestionId(state()) ? "Publication status" : "Private draft status"
-            }
-          >
-            {message()}
-          </p>
-        )}
-      </Show>
-      <Show when={errorMessage(state())}>
-        {(message) => (
+            : "Build a clear student question, save it privately, then review and publish it when it is ready."
+        }
+        routeSurface="pleQuestionJsonEditor"
+        headingId={headingId}
+      >
+        <Show when={status()}>
+          {(message) => (
+            <p
+              role="status"
+              aria-label={
+                publishedQuestionId(state()) ? "Publication status" : "Private draft status"
+              }
+            >
+              {message()}
+            </p>
+          )}
+        </Show>
+        <Show when={errorMessage(state())}>
+          {(message) => (
+            <section class="ple-question-json-authoring__error" role="alert">
+              <p>{message()}</p>
+              <button type="button" class="quiet-action" onClick={dismissError}>
+                Dismiss
+              </button>
+            </section>
+          )}
+        </Show>
+        <Show when={isConflict()}>
           <section class="ple-question-json-authoring__error" role="alert">
-            <p>{message()}</p>
-            <button type="button" class="quiet-action" onClick={dismissError}>
-              Dismiss
+            <p>A newer saved draft exists. Your local edits remain visible for comparison.</p>
+            <button type="button" class="primary-action" onClick={() => void reload(true)}>
+              Keep local edits and load newest edit number
+            </button>
+            <button type="button" class="primary-action" onClick={() => void reload()}>
+              Discard local edits and reload newest draft
             </button>
           </section>
-        )}
-      </Show>
-      <Show when={isConflict()}>
-        <section class="ple-question-json-authoring__error" role="alert">
-          <p>A newer saved draft exists. Your local edits remain visible for comparison.</p>
-          <button type="button" class="primary-action" onClick={() => void reload(true)}>
-            Keep local edits and load newest edit number
-          </button>
-          <button type="button" class="primary-action" onClick={() => void reload()}>
-            Discard local edits and reload newest draft
-          </button>
-        </section>
-      </Show>
-      <PleQuestionJsonEditorWorkspace
-        source={source}
-        currentSource={currentSource}
-        errors={errors}
-        isLocked={isLocked}
-        canSave={canSave}
-        isSaved={isSaved}
-        canEditGeneralFeedback={canEditGeneralFeedback}
-        hasUnsavedGeneralFeedback={hasUnsavedGeneralFeedback}
-        numericAnswerLiteral={numericAnswerLiteral}
-        hotspotPending={hotspotPending}
-        generalFeedback={generalFeedback}
-        generalFeedbackSaving={generalFeedbackSaving}
-        showInstructorCheck={showInstructorCheck}
-        review={review}
-        authorshipText={authorshipText}
-        disciplineUuid={disciplineUuid}
-        subjectUuid={subjectUuid}
-        topicUuid={topicUuid}
-        subtopicUuid={subtopicUuid}
-        publishedQuestionId={() => publishedQuestionId(state())}
-        publishedSummary={publishedSummary}
-        hotspotDraftQuestionImage={hotspotDraftQuestionImage}
-        instructorAnswerCheck={(draft) => answerCheck(draft) ?? undefined}
-        classificationClient={props.classificationClient}
-        responseValidator={props.responseValidator}
-        questionImagePreviewPath={(asset) =>
-          asset === ""
-            ? ""
-            : (props.questionImageClient?.questionImagePreviewPath(props.draftQuestion, asset) ??
-              "")
-        }
-        onEdit={applyEdit}
-        onNumericAnswerLiteralChange={updateNumericAnswerLiteral}
-        onMoveChoice={moveChoice}
-        onStatus={setStatus}
-        onHotspotPendingChange={setHotspotPending}
-        onHotspotLiteralValidityChange={setHotspotLiteralsValid}
-        onUpload={uploadQuestionImage}
-        onGeneralFeedbackChange={setGeneralFeedback}
-        onSaveGeneralFeedback={() => void saveGeneralFeedback()}
-        onSave={() => void save()}
-        onInspectInstructorAnswer={inspectInstructorAnswer}
-        onOpenPublishReview={openPublishReview}
-        onAuthorshipTextChange={setAuthorshipText}
-        onAuthorshipInput={(element) => {
-          authorshipInput = element;
-        }}
-        onDisciplineChange={setDisciplineUuid}
-        onSubjectChange={setSubjectUuid}
-        onTopicChange={setTopicUuid}
-        onSubtopicChange={setSubtopicUuid}
-        onPublish={() => void publish()}
-      />
-    </main>
+        </Show>
+        <PleQuestionJsonEditorWorkspace
+          source={source}
+          currentSource={currentSource}
+          errors={errors}
+          isLocked={isLocked}
+          canSave={canSave}
+          isSaved={isSaved}
+          canEditGeneralFeedback={canEditGeneralFeedback}
+          hasUnsavedGeneralFeedback={hasUnsavedGeneralFeedback}
+          numericAnswerLiteral={numericAnswerLiteral}
+          hotspotPending={hotspotPending}
+          generalFeedback={generalFeedback}
+          generalFeedbackSaving={generalFeedbackSaving}
+          showInstructorCheck={showInstructorCheck}
+          review={review}
+          authorshipText={authorshipText}
+          disciplineUuid={disciplineUuid}
+          subjectUuid={subjectUuid}
+          topicUuid={topicUuid}
+          subtopicUuid={subtopicUuid}
+          publishedQuestionId={() => publishedQuestionId(state())}
+          publishedSummary={publishedSummary}
+          hotspotDraftQuestionImage={hotspotDraftQuestionImage}
+          instructorAnswerCheck={(draft) => answerCheck(draft) ?? undefined}
+          classificationClient={props.classificationClient}
+          responseValidator={props.responseValidator}
+          questionImagePreviewPath={(asset) =>
+            asset === ""
+              ? ""
+              : (props.questionImageClient?.questionImagePreviewPath(props.draftQuestion, asset) ??
+                "")
+          }
+          onEdit={applyEdit}
+          onNumericAnswerLiteralChange={updateNumericAnswerLiteral}
+          onMoveChoice={moveChoice}
+          onStatus={setStatus}
+          onHotspotPendingChange={setHotspotPending}
+          onHotspotLiteralValidityChange={setHotspotLiteralsValid}
+          onUpload={uploadQuestionImage}
+          onGeneralFeedbackChange={setGeneralFeedback}
+          onSaveGeneralFeedback={() => void saveGeneralFeedback()}
+          onSave={() => void save()}
+          onInspectInstructorAnswer={inspectInstructorAnswer}
+          onOpenPublishReview={openPublishReview}
+          onAuthorshipTextChange={setAuthorshipText}
+          onAuthorshipInput={(element) => {
+            authorshipInput = element;
+          }}
+          onDisciplineChange={setDisciplineUuid}
+          onSubjectChange={setSubjectUuid}
+          onTopicChange={setTopicUuid}
+          onSubtopicChange={setSubtopicUuid}
+          onPublish={() => void publish()}
+        />
+      </PageFrame>
+    </div>
   );
 }

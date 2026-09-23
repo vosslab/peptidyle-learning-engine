@@ -4,7 +4,7 @@
 // are owned by src/components/question_pool_create_dialog.tsx and question_picker.tsx.
 
 import type { ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
 async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
@@ -57,6 +57,23 @@ export const INSTRUCTOR_POOL_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Question Pool creation review",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "pool_creation_review",
+        reason:
+          "pool_creation_review captures the Instructor Question Library's selected Question Pool creation review state as a laptop representative substitution. The tablet layout remains unverified until a tablet replay is captured.",
+      },
+      phone: {
+        target: "pool_creation_review",
+        reason:
+          "pool_creation_review captures the Instructor Question Library's selected Question Pool creation review state as a laptop representative substitution. The phone layout remains unverified until a phone replay is captured.",
+      },
+      square: {
+        target: "pool_creation_review",
+        reason:
+          "pool_creation_review captures the Instructor Question Library's selected Question Pool creation review state as a laptop representative substitution. The square layout remains unverified until a square replay is captured.",
+      },
+    }),
     run: instructorPools,
   },
 ];

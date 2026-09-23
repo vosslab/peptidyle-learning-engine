@@ -2,6 +2,7 @@ import { A, useParams } from "@solidjs/router";
 import { Show, createEffect, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 import { parseCourseInstanceId } from "../navigation/public_route";
 
 /** Student-owned acceptance of one exact course invitation. */
@@ -64,14 +65,16 @@ export function StudentCourseInvitationPage(): JSX.Element {
   }
 
   return (
-    <section class="page" data-route-surface="studentCourseInvitation">
-      <p class="eyebrow">Course invitation</p>
+    <PageFrame
+      routeSurface="studentCourseInvitation"
+      eyebrow="Course invitation"
+      title={acceptedCourse() === course() ? "You joined this course" : "Course invitation"}
+    >
       <Show
         when={acceptedCourse() === course() ? acceptedCourse() : null}
         fallback={
           <>
             <Show when={invitation.loading}>
-              <h1>Course invitation</h1>
               <p role="status">Loading course invitation...</p>
             </Show>
             <Show
@@ -80,7 +83,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
                 (invitation.error !== undefined || invitation()?.id !== course())
               }
             >
-              <h1>Course invitation unavailable</h1>
+              <h2>Course invitation unavailable</h2>
               <p>This invitation is not available.</p>
               <A class="quiet-link" href="/student/course-invitations">
                 Your course invitations
@@ -97,7 +100,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
             >
               {(context) => (
                 <>
-                  <h1>{context().longName}</h1>
+                  <h2>{context().longName}</h2>
                   <p>Instructor: {context().instructorDisplayName}</p>
                   <p>
                     Term:{" "}
@@ -123,7 +126,6 @@ export function StudentCourseInvitationPage(): JSX.Element {
       >
         {(courseInstanceId) => (
           <>
-            <h1>You joined this course</h1>
             <p role="status">Invitation accepted.</p>
             <p>You can now open the course and assigned work.</p>
             <A class="primary-link" href={`/student/courses/${courseInstanceId()}`}>
@@ -132,6 +134,6 @@ export function StudentCourseInvitationPage(): JSX.Element {
           </>
         )}
       </Show>
-    </section>
+    </PageFrame>
   );
 }

@@ -4,10 +4,13 @@ import { createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { MemoryRouter, createMemoryHistory, useLocation } from "@solidjs/router";
 
+import "../../src/browser_environment";
+
 import { ApplicationApiProvider, type ApplicationApi } from "../../src/api/application_api";
 import { App } from "../../src/app";
 import { ApplicationShell } from "../../src/application_shell";
 import { SessionProvider } from "../../src/auth/session_context";
+import { PageFrame } from "../../src/components/page_frame";
 // prettier-ignore
 import {
   useCourseThemePresentation,
@@ -18,6 +21,7 @@ import type { CourseClassification } from "../../generated/api/CourseClassificat
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { ProfileAvatarView } from "../../src/api/profile_avatar";
 import type { CourseAssessmentSummary } from "../../src/api/assessment_release";
+import type { CourseGradebook } from "../../src/api/live_gradebook";
 import type {
   AuthenticatedSession,
   CourseRouteView,
@@ -25,6 +29,9 @@ import type {
   CursorPage,
 } from "../../src/api/contracts";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
+import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
+import type { ProductRole } from "../../generated/api/ProductRole";
+import type { RouteId } from "../../src/route_contract";
 // prettier-ignore
 import type {
   StudentAssessmentLandingSummary,
@@ -37,7 +44,11 @@ import type {
 } from "../../src/ribbon/ribbon_contract";
 import type { RibbonDestinationId } from "../../src/ribbon/ribbon_catalog";
 import { assignmentAttemptContext, courseRouteData } from "./route_scope_provider_fixtures";
-import { M6_RIBBON_FIXTURES } from "./ribbon_model_fixtures";
+import {
+  FAST_UI_QUESTION_LIBRARY_SEED,
+  fastUiQuestionLibraryPage,
+} from "./fast_ui_question_library_fixture";
+import { materializeRibbonRoute, M6_RIBBON_FIXTURES } from "./ribbon_model_fixtures";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   (...arguments_: Arguments): Promise<Result>;
@@ -175,11 +186,12 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       courseInstanceId: CourseInstanceView["courseInstance"]["id"],
     ): Promise<CourseInstanceView> => {
       courseInstanceQueries += 1;
+      const course = instructorCourseRouteData(courseInstanceId).summary;
       return Promise.resolve({
         courseInstance: {
           id: courseInstanceId,
-          shortName: `Course ${courseInstanceId}`,
-          longName: `Course ${courseInstanceId}`,
+          shortName: course.shortName,
+          longName: course.longName,
           classification: FIXTURE_CLASSIFICATION,
           lifecycleState: "active",
           courseEditNumber: "1",
@@ -197,6 +209,25 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       assessmentQueries += 1;
       return Promise.resolve([]);
     },
+    getCourseGradebook: (courseInstanceId: string): Promise<CourseGradebook> =>
+      Promise.resolve({
+        courseInstanceId,
+        studentWork: [
+          {
+            rosterId: "RU-001",
+            rosterName: "Avery Thompson",
+            assessmentId: "A9D2RX5AF",
+            assessmentTitle: "Protein structure practice",
+            assessmentAttemptCompletion: "inProgress",
+            expiredSubmitting: false,
+            score: { pointsEarned: 18, pointsPossible: 20 },
+          },
+        ],
+      }),
+    downloadCourseGradebook: (): Promise<Blob> =>
+      Promise.resolve(new Blob(["roster_id\n"], { type: "text/csv" })),
+    searchQuestionLibrary: (): Promise<QuestionSearchPage> =>
+      Promise.resolve(fastUiQuestionLibraryPage()),
   };
   // The current-source App only reaches the typed query subset above in this
   // controlled browser fixture. The current Course Instance surface receives
@@ -221,7 +252,15 @@ function instructorSession(): AuthenticatedSession {
 /** The controlled current-source course page is an instructor-owned Course Instance surface. */
 function instructorCourseRouteData(courseInstanceId: string): CourseRouteView {
   const course = courseRouteData(courseInstanceId);
-  return { ...course, summary: { ...course.summary, role: "instructor" as const } };
+  return {
+    ...course,
+    summary: {
+      ...course.summary,
+      shortName: "BCHM 355",
+      longName: "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)",
+      role: "instructor",
+    },
+  };
 }
 
 export interface RibbonShellHarness {
@@ -230,10 +269,14 @@ export interface RibbonShellHarness {
   readonly currentNavigate: (pathname: string) => void;
   readonly currentPathname: () => string;
   readonly fixtureNavigate: (pathname: string) => void;
+  /** Navigates a fixture through a declared signed-in Product Role and Route ID. */
+  readonly fixtureNavigateRoute: (productRole: ProductRole, routeId: RouteId) => void;
   readonly fixturePathname: () => string;
   readonly scopeRequestCount: (courseInstanceId: string) => number;
   readonly assessmentQueryCount: () => number;
   readonly courseInstanceQueryCount: () => number;
+  readonly questionLibrarySeed: () => string;
+  readonly questionLibrarySeedRows: () => ReadonlyArray<{ id: string; title: string }>;
   readonly releaseSession: () => void;
   readonly releaseCourseScope: (courseInstanceId: string) => void;
   readonly throwFixtureContent: (value: boolean) => void;
@@ -258,14 +301,13 @@ function withSelectedTaskControl(
 }
 
 function courseFixture(
-  courseInstanceId: string,
-  selectedTab: "assessments" | "students" | "gradebook" = "assessments",
+  selectedTab: "courses" | "questions" | "productAssessments" = "productAssessments",
   taskRowReserved = false,
 ): RibbonModel {
   const source = M6_RIBBON_FIXTURES.courseInstructor;
   return {
     ...source,
-    context: { ...source.context, scopeLabel: `Course ${courseInstanceId}` },
+    context: source.context,
     tabs: withSelectedControl(source.tabs, selectedTab),
     taskAreas: taskRowReserved
       ? withSelectedTaskControl(source.taskAreas, "assessmentOverview")
@@ -298,11 +340,9 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/library") return productFixture("questions");
   if (pathname === "/blueprint-courses") return productFixture("courses");
   if (pathname === "/blueprint-courses/search/public") return productFixture("courses");
-  if (pathname === "/instructor/courses/CI7K3M2QAZ/students")
-    return courseFixture("CI7K3M2QAZ", "students");
-  if (pathname === "/instructor/courses/CI7K3M2QAZ/gradebook")
-    return courseFixture("CI7K3M2QAZ", "gradebook");
-  if (pathname === "/courses/CI4W8QF9AD") return courseFixture("CI4W8QF9AD");
+  if (pathname === "/instructor/courses/CI7K3M2QAZ/students") return courseFixture();
+  if (pathname === "/instructor/courses/CI7K3M2QAZ/gradebook") return courseFixture();
+  if (pathname === "/courses/CI4W8QF9AD") return courseFixture();
   if (pathname === "/assessment-attempts/00000000-0000-0000-0000-000000000001") {
     return {
       ...M6_RIBBON_FIXTURES.attemptInstructor,
@@ -317,11 +357,12 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
     segments[4] === "assessments" &&
     segments[5] !== undefined
   ) {
-    return courseFixture(segments[3], "assessments", true);
+    return courseFixture("productAssessments", true);
   }
-  return courseFixture("CI7K3M2QAZ");
+  return courseFixture();
 }
 
+/** Structural-shell-only content. Fast route cases mount the production App instead. */
 function FixtureContent(props: {
   readonly pathname: string;
   readonly shouldThrow: () => boolean;
@@ -337,12 +378,12 @@ function FixtureContent(props: {
 
   if (props.shouldThrow()) throw new Error("Shell fixture content sentinel failure");
   return (
-    <section class="page" data-ribbon-fixture-content={props.pathname}>
-      Fixture content
+    <PageFrame routeSurface="ribbonShellFixture" title="Fixture page">
+      <p>Fixture content</p>
       <button type="button" data-ribbon-theme-swap onClick={presentOceanTheme}>
         Present Ocean course theme
       </button>
-    </section>
+    </PageFrame>
   );
 }
 
@@ -355,6 +396,9 @@ export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness
   const currentHistory = createMemoryHistory();
   const fixtureHistory = createMemoryHistory();
   const [fixtureShouldThrow, setFixtureShouldThrow] = createSignal(false);
+  const [fixtureMaterializedRoute, setFixtureMaterializedRoute] = createSignal<
+    ReturnType<typeof materializeRibbonRoute> | undefined
+  >(undefined);
   const [signOutActions, setSignOutActions] = createSignal(0);
   let logoutAttempts = 0;
   const currentDeferredScopes = deferredCourseScopes();
@@ -362,7 +406,14 @@ export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness
   const currentPresentation = presentationApi(currentDeferredScopes);
 
   function fixtureNavigate(pathname: string): void {
+    setFixtureMaterializedRoute(undefined);
     fixtureHistory.set({ value: pathname });
+  }
+
+  function fixtureNavigateRoute(productRole: ProductRole, routeId: RouteId): void {
+    const materializedRoute = materializeRibbonRoute(productRole, routeId);
+    setFixtureMaterializedRoute(materializedRoute);
+    fixtureHistory.set({ value: materializedRoute.pathname });
   }
 
   function FixtureInterior(): JSX.Element {
@@ -371,7 +422,7 @@ export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness
       return <FixtureContent pathname={pathname} shouldThrow={fixtureShouldThrow} />;
     }
     function fixtureRibbonModel(): RibbonModel {
-      return fixtureModelForPathname(location.pathname);
+      return fixtureMaterializedRoute()?.model ?? fixtureModelForPathname(location.pathname);
     }
     return (
       <ApplicationShell
@@ -447,10 +498,17 @@ export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness
     currentNavigate: (pathname: string) => currentHistory.set({ value: pathname }),
     currentPathname: currentHistory.get,
     fixtureNavigate,
+    fixtureNavigateRoute,
     fixturePathname: fixtureHistory.get,
     scopeRequestCount: currentDeferredScopes.requestCount,
     assessmentQueryCount: currentPresentation.counts.assessments,
     courseInstanceQueryCount: currentPresentation.counts.courseInstances,
+    questionLibrarySeed: () => FAST_UI_QUESTION_LIBRARY_SEED,
+    questionLibrarySeedRows: () =>
+      fastUiQuestionLibraryPage().items.map((item) => ({
+        id: item.summary.questionId,
+        title: item.summary.metadata.questionTitle,
+      })),
     releaseSession: currentSession.release,
     releaseCourseScope: currentDeferredScopes.release,
     throwFixtureContent: setFixtureShouldThrow,

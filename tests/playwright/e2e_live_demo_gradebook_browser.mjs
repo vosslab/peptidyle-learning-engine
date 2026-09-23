@@ -56,10 +56,31 @@ try {
   await page.locator('[data-route-surface="gradebook"]').waitFor();
   await page.getByRole("heading", { name: "Gradebook", exact: true }).waitFor();
   const evidence = page.getByRole("region", { name: "Student progress and scores" });
-  await evidence.getByText(first.rosterId, { exact: true }).waitFor();
-  await evidence.getByText(first.rosterName, { exact: true }).first().waitFor();
-  await evidence.getByText(first.assessmentTitle, { exact: true }).first().waitFor();
-  await evidence.locator("small").getByText(first.assessmentId, { exact: true }).first().waitFor();
+  const records = evidence.getByRole("list", { name: "Student progress and scores" });
+  await records.waitFor();
+  const record = records
+    .getByRole("listitem")
+    .filter({ has: page.getByText(first.rosterId, { exact: true }) });
+  await record.getByText(first.rosterName, { exact: true }).waitFor();
+  await record.getByText(first.rosterId, { exact: true }).waitFor();
+  await record.getByText(first.assessmentTitle, { exact: true }).waitFor();
+  await record
+    .getByText(
+      first.assessmentAttemptCompletion === "completed"
+        ? "Completed and scored"
+        : first.assessmentAttemptCompletion === "inProgress"
+          ? "In progress"
+          : "Not started",
+      { exact: true },
+    )
+    .waitFor();
+  const score = record.locator('[data-record-region-id="score"]');
+  if (((await score.textContent()) ?? "").trim() === "") {
+    throw new Error("Gradebook browser did not render a score");
+  }
+  if ((await record.getByText(first.assessmentId, { exact: true }).count()) !== 0) {
+    throw new Error("Gradebook browser rendered a raw Assessment ID");
+  }
   const rendered = (await evidence.textContent()) ?? "";
   if (/student response|answer key|source content|grader internals/i.test(rendered)) {
     throw new Error("Gradebook browser rendered non-answer-free evidence");

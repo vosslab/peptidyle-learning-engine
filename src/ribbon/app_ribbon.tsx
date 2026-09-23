@@ -94,6 +94,7 @@ function RibbonLink(props: {
       aria-label={iconOnlySafe() ? props.control.label : undefined}
       title={iconOnlySafe() ? props.control.label : undefined}
       data-ribbon-control={props.control.id}
+      data-ribbon-control-id={props.control.id}
       data-ribbon-presentation={props.control.presentation}
       data-ribbon-icon-only-safe={iconOnlySafe() ? "true" : undefined}
       data-ribbon-pending={pending() ? "true" : undefined}
@@ -114,19 +115,20 @@ function UnavailableRibbonChoice(props: { readonly control: RibbonControlModel }
     props.control.iconBearing ? ribbonGlyphForDestination(props.control.id) : undefined;
   const status = (): string => {
     if (props.control.availability === "Checking") return "Checking availability";
-    return props.control.destination.kind === "future" ? "Not available yet" : "Unavailable";
+    return "Unavailable";
   };
   return (
     <span
       class={`ple-app-ribbon__link ple-app-ribbon__link--${props.control.presentation} ple-app-ribbon__link--unavailable`}
       aria-disabled="true"
       data-ribbon-control={props.control.id}
+      data-ribbon-control-id={props.control.id}
       data-ribbon-presentation={props.control.presentation}
       data-ribbon-availability="unavailable"
     >
       <Show when={glyph()}>{(id) => <RibbonIcon glyph={id()} />}</Show>
       <span class="ple-app-ribbon__control-label">{props.control.label}</span>
-      <span class="ple-app-ribbon__availability-label">{status()}</span>
+      <span class="sr-only">{status()}</span>
     </span>
   );
 }
@@ -268,7 +270,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   const pendingNavigation = createRibbonPendingNavigation({ routingInFlight });
   const selectedTabVisibility = new RibbonSelectedTabVisibilityController();
   const selectedTaskVisibility = new RibbonSelectedTabVisibilityController();
-  const hasReservedTaskRow = (): boolean => props.model.taskAreas.length > 0;
   const tabScrollport: { current: HTMLElement | undefined } = { current: undefined };
   const taskScrollport: { current: HTMLElement | undefined } = { current: undefined };
   const topOverflow = createRibbonOverflowCueState();
@@ -434,7 +435,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   // viewport resize can reveal a now-clipped selected task without changing
   // model state or any Ribbon box geometry.
   createEffect(() => {
-    if (!hasReservedTaskRow()) return;
     const selectedKey = selectedTask()?.id;
     taskOverflow.geometryRevision();
     const version = ++taskObservationVersion;
@@ -471,7 +471,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       aria-label="PLE application Ribbon"
       data-ribbon-product-role={props.model.context.productLabel.toLowerCase()}
       data-ribbon-scope={props.model.scope}
-      data-ribbon-task-row={hasReservedTaskRow() ? "reserved" : "absent"}
     >
       <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="top">
         <section
@@ -493,20 +492,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             >
               {props.model.context.productLabel}
             </span>
-          </div>
-          <div class="ple-app-ribbon__context-details">
-            <Show when={props.model.context.scopeLabel}>
-              {(label) => <span class="ple-app-ribbon__course-scope-label">{label()}</span>}
-            </Show>
-            <Show when={props.model.context.assessmentLabel}>
-              {(label) => <span>{label()}</span>}
-            </Show>
-            <Show when={props.model.context.assessmentTypeLabel}>
-              {(label) => <span>{label()}</span>}
-            </Show>
-            <Show when={props.model.context.assessmentAttemptProgress}>
-              {(label) => <span>{label()}</span>}
-            </Show>
           </div>
           <div class="ple-app-ribbon__tabs-frame">
             <nav class="ple-app-ribbon__tabs" aria-label="Ribbon tabs" ref={setTabRow}>
@@ -593,33 +578,31 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       </span>
       {/* taskAreasFor derives task areas from route topology, not admission state;
           server authorization remains the trusted layer (ASVS 8.3.1). */}
-      <Show when={hasReservedTaskRow()}>
-        <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="tasks">
-          <nav
-            class="ple-app-ribbon__row ple-app-ribbon__tasks"
-            aria-label="Ribbon tasks"
-            data-ribbon-row="tasks"
-            ref={(element): void => {
-              taskScrollport.current = element;
-              taskOverflow.setRow(element);
-            }}
-          >
-            <For each={props.model.taskAreas}>
-              {(area) => (
-                <TaskArea
-                  area={area}
-                  pendingNavigation={pendingNavigation}
-                  showUnavailable={
-                    props.model.context.productLabel === "Instructor" &&
-                    isRequiredInstructorTaskArea(area)
-                  }
-                />
-              )}
-            </For>
-          </nav>
-          <RibbonOverflowCues state={taskOverflow} />
-        </section>
-      </Show>
+      <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="tasks">
+        <nav
+          class="ple-app-ribbon__row ple-app-ribbon__tasks"
+          aria-label="Ribbon tasks"
+          data-ribbon-row="tasks"
+          ref={(element): void => {
+            taskScrollport.current = element;
+            taskOverflow.setRow(element);
+          }}
+        >
+          <For each={props.model.taskAreas}>
+            {(area) => (
+              <TaskArea
+                area={area}
+                pendingNavigation={pendingNavigation}
+                showUnavailable={
+                  props.model.context.productLabel === "Instructor" &&
+                  isRequiredInstructorTaskArea(area)
+                }
+              />
+            )}
+          </For>
+        </nav>
+        <RibbonOverflowCues state={taskOverflow} />
+      </section>
     </section>
   );
 }

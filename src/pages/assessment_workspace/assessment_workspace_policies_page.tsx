@@ -16,6 +16,7 @@ import type {
   SaveBaseAssessmentPolicyInput,
 } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
+import { PageFrame } from "../../components/page_frame";
 import { ApiRequestError } from "../../api/http_client/error";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentFixedQuestionPointsEditor } from "./assessment_fixed_question_points_editor";
@@ -448,15 +449,15 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     "questions",
   );
   return (
-    <section class="assessment-workspace-policies" aria-labelledby="assessment-policies-heading">
-      <header class="assessment-workspace-header">
-        <p class="eyebrow">Assessment workspace</p>
-        <h1 id="assessment-policies-heading">Assessment Properties Editor</h1>
-        <AssessmentWorkspaceIdentity />
-        <p class="page-lede">
-          Times use your Instructor time zone: {workspace.assessment().workspace.displayTimeZone}.
-        </p>
-      </header>
+    <PageFrame
+      contentClass="assessment-workspace-policies"
+      routeSurface="assessmentWorkspace"
+      headingId="assessment-policies-heading"
+      eyebrow="Assessment workspace"
+      title="Assessment Properties Editor"
+      lede={`Times use your Instructor time zone: ${workspace.assessment().workspace.displayTimeZone}.`}
+    >
+      <AssessmentWorkspaceIdentity />
       <p class="assessment-workspace-save-message" role="status">
         {policyState().persistence === "saving"
           ? "Saving"
@@ -891,6 +892,6 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       <AssessmentStudentTimeAccommodations
         ready={!busy() && !needsReload() && allBaseAssessmentPolicyEditsPersisted(policyState())}
       />
-    </section>
+    </PageFrame>
   );
 }

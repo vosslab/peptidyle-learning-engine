@@ -9,6 +9,7 @@ import { CourseListPage } from "./course_list_page";
 import { StudentCoursesPage } from "./student_courses_page";
 import { useApplicationApi } from "../api/application_api";
 import { BlueprintPromotion } from "../features/blueprint_course/blueprint_promotion";
+import { PageFrame } from "../components/page_frame";
 
 /** Resolves the persistent Peptidyle home link to the signed-in role's dashboard. */
 export function RoleHomeResolutionPage(): JSX.Element {
@@ -23,7 +24,20 @@ export function RoleHomeResolutionPage(): JSX.Element {
   });
 
   return (
-    <section class="page" data-route-surface="roleHomeResolution" aria-live="polite">
+    <PageFrame
+      routeSurface="roleHomeResolution"
+      title={
+        session.state().kind === "error"
+          ? "Your workspace could not be opened"
+          : "Choose your teaching workspace"
+      }
+      eyebrow="Peptidyle"
+      lede={
+        session.state().kind === "error"
+          ? undefined
+          : "Sign in to open the dashboard for your Product Role."
+      }
+    >
       <Show
         when={session.state().kind === "loading"}
         fallback={
@@ -31,9 +45,6 @@ export function RoleHomeResolutionPage(): JSX.Element {
             when={session.state().kind === "error"}
             fallback={
               <>
-                <p class="eyebrow">Peptidyle</p>
-                <h1>Choose your teaching workspace</h1>
-                <p class="page-lede">Sign in to open the dashboard for your Product Role.</p>
                 <A class="primary-link" href="/sign-in">
                   Sign in
                 </A>
@@ -41,7 +52,6 @@ export function RoleHomeResolutionPage(): JSX.Element {
             }
           >
             <section class="route-error" role="alert">
-              <h1>Your workspace could not be opened</h1>
               <p>Check your connection, then try again.</p>
               <button class="primary-action" type="button" onClick={() => void session.retry()}>
                 Try again
@@ -52,7 +62,7 @@ export function RoleHomeResolutionPage(): JSX.Element {
       >
         <p class="loading-state">Opening your workspace...</p>
       </Show>
-    </section>
+    </PageFrame>
   );
 }
 
@@ -70,10 +80,13 @@ export function StudentHomePage(): JSX.Element {
 export function SysadminHomePage(): JSX.Element {
   const runtime = useApplicationApi();
   return (
-    <section class="page" data-route-surface="sysadminHome" aria-labelledby="sysadmin-home-heading">
-      <p class="eyebrow">System administration</p>
-      <h1 id="sysadmin-home-heading">System administration</h1>
-      <p class="page-lede">Open the account or scoped course-support operation you need.</p>
+    <PageFrame
+      routeSurface="sysadminHome"
+      headingId="sysadmin-home-heading"
+      eyebrow="System administration"
+      title="System administration"
+      lede="Open the account or scoped course-support operation you need."
+    >
       <nav class="card-grid" aria-label="System administration tools">
         <article class="course-card">
           <h2>Disciplines</h2>
@@ -105,6 +118,6 @@ export function SysadminHomePage(): JSX.Element {
         </article>
       </nav>
       <BlueprintPromotion client={runtime.client} />
-    </section>
+    </PageFrame>
   );
 }

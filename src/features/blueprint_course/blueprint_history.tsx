@@ -15,6 +15,7 @@ import { CourseClassificationSummary } from "../../components/course_classificat
 interface HistoryProps {
   readonly client: BlueprintCourseClient;
   readonly view: BlueprintCourseView;
+  readonly formatDateTime: (timestamp: number | Date) => string;
 }
 
 function historyError(error: unknown): string {
@@ -26,11 +27,6 @@ function historyError(error: unknown): string {
       return "Blueprint history is unavailable for your Account.";
   }
   return "Blueprint history could not load. Try again.";
-}
-
-function recordedTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return Number.isNaN(date.getTime()) ? `Unix milliseconds ${timestamp}` : date.toLocaleString();
 }
 
 function policyLabel(name: string): string {
@@ -60,7 +56,13 @@ export function BlueprintHistory(props: HistoryProps): JSX.Element {
   );
   return (
     <Show when={identity()} keyed>
-      {(_identity) => <HistoryPanel client={props.client} view={props.view} />}
+      {(_identity) => (
+        <HistoryPanel
+          client={props.client}
+          view={props.view}
+          formatDateTime={props.formatDateTime}
+        />
+      )}
     </Show>
   );
 }
@@ -120,6 +122,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
             blueprintCourseId={props.view.id}
             kind="revisions"
             currentRevisionNumber={props.view.current_revision_tuple.revisionNumber}
+            formatDateTime={props.formatDateTime}
             onInspect={(number) => void inspect(number)}
           />
         </Show>
@@ -133,6 +136,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
             blueprintCourseId={props.view.id}
             kind="metadata"
             currentRevisionNumber={props.view.current_revision_tuple.revisionNumber}
+            formatDateTime={props.formatDateTime}
             onInspect={(number) => void inspect(number)}
           />
         </Show>
@@ -180,6 +184,7 @@ interface HistoryPageProps {
   readonly blueprintCourseId: string;
   readonly kind: "revisions" | "metadata";
   readonly currentRevisionNumber: string;
+  readonly formatDateTime: (timestamp: number | Date) => string;
   readonly onInspect: (revisionNumber: string) => void;
 }
 
@@ -257,7 +262,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                       {saved().revisionNumber === props.currentRevisionNumber
                         ? " (latest saved)"
                         : " (historical)"}{" "}
-                      - saved {recordedTime(saved().savedAt)}
+                      - saved {props.formatDateTime(saved().savedAt)}
                     </span>
                     <button
                       type="button"
@@ -273,7 +278,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                 {(metadata) => (
                   <div>
                     {metadata().longName} ({metadata().shortName}) - {metadata().availability};
-                    recorded {recordedTime(metadata().recordedAt)}
+                    recorded {props.formatDateTime(metadata().recordedAt)}
                     <CourseClassificationSummary value={metadata().classification} />
                   </div>
                 )}

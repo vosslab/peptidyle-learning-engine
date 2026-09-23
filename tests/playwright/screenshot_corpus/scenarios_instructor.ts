@@ -8,8 +8,10 @@
 // Publication completion is intentionally outside this corpus until the configured
 // Bloom-classification provider makes the ordinary publication journey available.
 
+import type { Page } from "playwright";
+
 import type { ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import {
   COURSE_TITLE,
   courseCard,
@@ -30,6 +32,42 @@ async function captureCheckpoint(
 ): Promise<void> {
   await scrollTop(pageSession.page);
   await runtime.captureCheckpoint(pageSession, checkpoint);
+}
+
+async function openInstructorProfile(page: Page): Promise<void> {
+  await enterInstructor(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await page.getByRole("heading", { level: 1, name: "Your profile", exact: true }).waitFor();
+  await page.getByRole("heading", { level: 2, name: "Profile image", exact: true }).waitFor();
+  await page.locator(".profile-thumbnail-placeholder").waitFor();
+}
+
+async function navigateInstructorLibraryBrowse(page: Page): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Questions", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+    .getByRole("link", { name: "Browse Question Library", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Browse Question Library", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
+}
+
+async function openInstructorDraftList(page: Page): Promise<void> {
+  await enterInstructor(page);
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Questions", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
+  await page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
+  await page.getByRole("heading", { name: "My Draft Questions", exact: true }).waitFor();
+  await page.getByText("Loading your private Draft Questions...", { exact: true }).waitFor({
+    state: "hidden",
+  });
 }
 
 async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
@@ -76,7 +114,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByText("screenshot-pending", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_roster_pending_invitation", session);
     await session.page
-      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
       .getByRole("link", { name: "Gradebook", exact: true })
       .click();
     await session.page.locator('[data-route-surface="gradebook"]').waitFor();
@@ -108,16 +146,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
 async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open("default");
   try {
-    await enterInstructor(session.page);
-    await session.page.getByRole("button", { name: "Profile", exact: true }).click();
-    await session.page.getByRole("menuitem", { name: "Profile", exact: true }).click();
-    await session.page
-      .getByRole("heading", { level: 1, name: "Your profile", exact: true })
-      .waitFor();
-    await session.page
-      .getByRole("heading", { level: 2, name: "Profile image", exact: true })
-      .waitFor();
-    await session.page.locator(".profile-thumbnail-placeholder").waitFor();
+    await openInstructorProfile(session.page);
     await captureCheckpoint(runtime, "default", session);
   } finally {
     await runtime.close(session);
@@ -134,24 +163,13 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true })
       .waitFor();
     await captureCheckpoint(runtime, "library_filtered", session);
-    const result = session.page.locator("article.question-library-row").filter({
+    const result = session.page.locator(".record-list__row").filter({
       has: session.page.getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true }),
     });
     await result.getByRole("link", { name: "Open question", exact: true }).click();
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await captureCheckpoint(runtime, "published_question_detail", session);
-    await session.page
-      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
-      .getByRole("link", { name: "Questions", exact: true })
-      .click();
-    await session.page
-      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
-      .getByRole("link", { name: "Browse Question Library", exact: true })
-      .click();
-    await session.page
-      .getByRole("heading", { name: "Browse Question Library", exact: true })
-      .waitFor();
-    await session.page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
+    await navigateInstructorLibraryBrowse(session.page);
     await captureCheckpoint(runtime, "library_browse", session);
   } finally {
     await runtime.close(session);
@@ -161,19 +179,7 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
 async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open("draft_list");
   try {
-    await enterInstructor(session.page);
-    await session.page
-      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
-      .getByRole("link", { name: "Questions", exact: true })
-      .click();
-    await session.page
-      .getByRole("heading", { name: "Search Question Library", exact: true })
-      .waitFor();
-    await session.page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
-    await session.page.getByRole("heading", { name: "My Draft Questions", exact: true }).waitFor();
-    await session.page
-      .getByText("Loading your private Draft Questions...", { exact: true })
-      .waitFor({ state: "hidden" });
+    await openInstructorDraftList(session.page);
     await captureCheckpoint(runtime, "draft_list", session);
     await session.page.getByRole("button", { name: "New Draft Question", exact: true }).click();
     await session.page.getByLabel("Question Title").fill(AUTHORING_TITLE);
@@ -318,7 +324,6 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await page.getByRole("combobox", { name: /^Late-work rule/u }).selectOption("mark_late");
     await page.getByText("Saved", { exact: true }).waitFor();
     await page.getByRole("link", { name: "Open Student View", exact: true }).click();
-    await page.locator('section[aria-label="Student View"]').waitFor();
     await page.getByRole("note", { name: "Student View preview", exact: true }).waitFor();
     await page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
     await runtime.captureCheckpoint(session, "assignment_delivery_check");
@@ -413,6 +418,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Assignments Due Soon without current deadlines",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: { target: "course_list", reason: "Instructor laptop capture is the representative." },
+      phone: { target: "course_list", reason: "Instructor laptop capture is the representative." },
+      square: { target: "course_list", reason: "Instructor laptop capture is the representative." },
+    }),
     run: seededInstructor,
   },
   {
@@ -457,6 +467,20 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Browse Question Library",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "library_default",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      phone: {
+        target: "library_default",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      square: {
+        target: "library_default",
+        reason: "Instructor laptop capture is the representative.",
+      },
+    }),
     run: instructorLibrary,
   },
   {
@@ -473,6 +497,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Instructor Profile",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: { target: "default", reason: "Instructor laptop capture is the representative." },
+      phone: { target: "default", reason: "Instructor laptop capture is the representative." },
+      square: { target: "default", reason: "Instructor laptop capture is the representative." },
+    }),
     run: instructorProfile,
   },
   {
@@ -507,6 +536,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Question publication review",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: { target: "draft_list", reason: "Instructor laptop capture is the representative." },
+      phone: { target: "draft_list", reason: "Instructor laptop capture is the representative." },
+      square: { target: "draft_list", reason: "Instructor laptop capture is the representative." },
+    }),
     run: instructorAuthoring,
   },
   {
@@ -541,6 +575,20 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Blueprint Question picker",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "blueprint_list",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      phone: {
+        target: "blueprint_list",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      square: {
+        target: "blueprint_list",
+        reason: "Instructor laptop capture is the representative.",
+      },
+    }),
     run: instructorBlueprint,
   },
   {
@@ -557,6 +605,20 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Search Public Blueprint Courses",
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "filtered_results",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      phone: {
+        target: "filtered_results",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      square: {
+        target: "filtered_results",
+        reason: "Instructor laptop capture is the representative.",
+      },
+    }),
     run: instructorPublicBlueprintSearch,
   },
   {
@@ -601,6 +663,20 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         featured: true,
       },
     ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "assignment_creation",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      phone: {
+        target: "assignment_creation",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      square: {
+        target: "assignment_creation",
+        reason: "Instructor laptop capture is the representative.",
+      },
+    }),
     run: instructorAssignment,
   },
 ];

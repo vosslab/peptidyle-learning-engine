@@ -1,7 +1,7 @@
 // Student-owned answer-free course and available assessment landing.
 
 import { A, useParams } from "@solidjs/router";
-import { createMemo, createResource, For, Show, type JSX } from "solid-js";
+import { createMemo, createResource, Show, type JSX } from "solid-js";
 
 import type {
   LiveStudentAssessmentLandingSummary,
@@ -9,82 +9,143 @@ import type {
 } from "../api/live_student_course_landing";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
-import { StudentAssessmentDecisionDetails } from "../components/student_assessment_presentation";
-import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
+import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
+import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
+import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { parseCourseInstanceId } from "../navigation/public_route";
+import { buildRoutePath } from "../ribbon/ribbon_contract";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
-import { formatPointScore } from "../score_format";
 import { studentCourseworkDisplay } from "./student_coursework_presentation";
 import "./student_course_landing_page.css";
 
-function AssessmentCard(props: {
-  readonly course: LiveStudentCourseLandingSummary;
-  readonly assessment: LiveStudentAssessmentLandingSummary;
-}): JSX.Element {
-  function display(): ReturnType<typeof studentCourseworkDisplay> {
-    return studentCourseworkDisplay(
-      props.assessment.decision.startDecision,
-      props.assessment.assessmentAttemptCompletion,
-      props.assessment.canResumeAssessmentAttempt,
+function assessmentDisplay(
+  assessment: LiveStudentAssessmentLandingSummary,
+): ReturnType<typeof studentCourseworkDisplay> {
+  const display = studentCourseworkDisplay(
+    assessment.decision.startDecision,
+    assessment.assessmentAttemptCompletion,
+    assessment.canResumeAssessmentAttempt,
+  );
+  return display;
+}
+
+function assessmentOverviewPath(courseInstanceId: string, assessmentId: string): string {
+  const path = buildRoutePath("assessmentOverview", { courseInstanceId, assessmentId });
+  if (path === undefined) {
+    throw new Error(
+      "Student Assessment overview route requires canonical Course and Assessment IDs.",
     );
   }
-  function typePresentation(): ReturnType<typeof assessmentTypePresentation> {
-    return assessmentTypePresentation(props.assessment.assessmentType);
-  }
-  return (
-    <article
-      class={`course-card student-coursework-card student-coursework-card--${display().state}`}
-      data-coursework-state={display().state}
-    >
-      <p class="student-coursework-card__state">
-        <strong>{display().stateLabel}</strong>
-      </p>
-      <h3>{props.assessment.title}</h3>
-      <A
-        class="primary-link"
-        href={`/courses/${props.course.id}/assessments/${props.assessment.id}`}
-      >
-        {display().actionVerb} {typePresentation().label}
-      </A>
-      <dl class="student-coursework-card__facts">
-        <div>
-          <dt>Type</dt>
-          <dd
-            class="student-coursework-card__type"
-            style={`--student-coursework-type-color: var(${typePresentation().colorToken})`}
+  return path;
+}
+
+function assessmentAccessLabel(assessment: LiveStudentAssessmentLandingSummary): string {
+  const access = assessment.decision.startDecision === "may_start" ? "Can start" : "Cannot start";
+  const reason = assessment.decision.publicReason;
+  if (reason === null) return access;
+  return `${access}: ${reason}`;
+}
+
+function assessmentRegions(
+  course: LiveStudentCourseLandingSummary,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+): ReadonlyArray<RecordRegion<LiveStudentAssessmentLandingSummary>> {
+  return [
+    {
+      id: "assessment",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1.3fr)",
+      align: "stretch",
+      content: (assessment): JSX.Element => {
+        const type = assessmentTypePresentation(assessment.assessmentType);
+        const display = assessmentDisplay(assessment);
+        const due = formatAssessmentDeliveryTime(
+          assessment.decision.dueAt,
+          formatDateTime,
+          "No due time",
+        );
+        return (
+          <>
+            <h3 class="student-coursework__title">{assessment.title}</h3>
+            <p
+              class="student-coursework__type"
+              style={`--student-coursework-type-color: var(${type.colorToken})`}
+            >
+              <RibbonIcon glyph={type.icon} />
+              <span>{type.label}</span>
+            </p>
+            <p class="student-coursework__facts">
+              <span>{assessmentAccessLabel(assessment)}</span>
+              <span>
+                Due <span data-assessment-decision-due>{due}</span>
+              </span>
+              <span>{display.completionLabel}</span>
+            </p>
+          </>
+        );
+      },
+    },
+    {
+      id: "action",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (assessment): JSX.Element => {
+        const display = assessmentDisplay(assessment);
+        const type = assessmentTypePresentation(assessment.assessmentType);
+        return (
+          <A
+            class="primary-link student-coursework__action"
+            href={assessmentOverviewPath(course.id, assessment.id)}
+            aria-label={`${display.actionVerb} ${type.label}`}
           >
-            <RibbonIcon glyph={typePresentation().icon} />
-            <span>{typePresentation().label}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Completion</dt>
-          <dd>{display().completionLabel}</dd>
-        </div>
-      </dl>
-      <Show when={props.assessment.assessmentAttemptCompletion === "inProgress"}>
-        <p class="student-coursework-card__progress">
-          {props.assessment.savedQuestionCount} of {props.assessment.questionCount} responses saved
-        </p>
-      </Show>
-      <Show when={props.assessment.assessmentAttemptCompletion === "completed"}>
-        <p class="student-coursework-card__grade">
-          {props.assessment.gradedQuestionCount} of {props.assessment.questionCount} questions
-          graded
-          <Show when={props.assessment.assessmentScore}>
-            {(score) => (
-              <>
-                {" · "}
-                Assessment score {formatPointScore(score().pointsEarned, score().pointsPossible)}
-              </>
-            )}
-          </Show>
-        </p>
-      </Show>
-      <section class="student-coursework-card__decision" aria-label="Coursework access and timing">
-        <StudentAssessmentDecisionDetails decision={props.assessment.decision} />
-      </section>
-    </article>
+            {display.actionVerb}
+          </A>
+        );
+      },
+    },
+  ];
+}
+
+function assessmentListState(loading: boolean): RecordListState {
+  if (loading) return { kind: "loading", label: "Loading Coursework..." };
+  return { kind: "ready" };
+}
+
+function AssessmentList(props: {
+  readonly course: LiveStudentCourseLandingSummary;
+  readonly assessments: ReadonlyArray<LiveStudentAssessmentLandingSummary>;
+  readonly loading: boolean;
+}): JSX.Element {
+  const formatDateTime = createMemo(() => {
+    const timeZone = props.assessments[0]?.decision.displayTimeZone;
+    return timeZone === undefined ? undefined : createDisplayDateTimeFormatter(timeZone);
+  });
+  const regions = createMemo(() => {
+    const formatter = formatDateTime();
+    return formatter === undefined ? [] : assessmentRegions(props.course, formatter);
+  });
+  function displayTimeZone(): string | undefined {
+    return props.assessments[0]?.decision.displayTimeZone;
+  }
+
+  return (
+    <>
+      <Show when={displayTimeZone()}>{(timeZone) => <p>Times shown in {timeZone()}.</p>}</Show>
+      <RecordList
+        ariaLabel="Coursework"
+        emptyState={{ title: "No Coursework is available right now." }}
+        recordId={(assessment) => assessment.id}
+        regions={regions()}
+        rows={props.assessments}
+        state={assessmentListState(props.loading)}
+      />
+    </>
   );
 }
 
@@ -118,13 +179,13 @@ export function StudentCourseLandingPage(): JSX.Element {
   }
 
   return (
-    <section class="page" data-route-surface="studentCourseLanding">
+    <PageFrame routeSurface="studentCourseLanding" title={course()?.longName ?? "Coursework"}>
       <Show when={courses.loading}>
         <p class="loading-state">Loading assigned work...</p>
       </Show>
       <Show when={unavailable()}>
         <section class="route-error" role="alert">
-          <h1>Assigned work unavailable</h1>
+          <h2>Assigned work unavailable</h2>
           <p>This assigned work is not available.</p>
           <A class="primary-link" href="/">
             Return to courses
@@ -133,7 +194,7 @@ export function StudentCourseLandingPage(): JSX.Element {
       </Show>
       <Show when={!courses.loading && !unavailable() && course() === undefined}>
         <section class="route-error" role="alert">
-          <h1>Assigned work unavailable</h1>
+          <h2>Assigned work unavailable</h2>
           <p>This assigned work is not available.</p>
           <A class="primary-link" href="/">
             Return to courses
@@ -143,27 +204,21 @@ export function StudentCourseLandingPage(): JSX.Element {
       <Show when={!unavailable() ? course() : undefined}>
         {(current) => (
           <>
-            <CourseEntryIdentity />
+            <CourseEntryBanner />
             <A class="quiet-link" href="/student?choose=1">
               Your courses
             </A>
-            <h2>Coursework</h2>
-            <Show when={assessments.loading}>
-              <p class="loading-state">Loading Coursework...</p>
-            </Show>
-            <Show when={!assessments.loading && (assessments()?.length ?? 0) === 0}>
-              <p class="empty-state">No Coursework is available right now.</p>
-            </Show>
-            <Show when={(assessments()?.length ?? 0) > 0}>
-              <div class="card-grid">
-                <For each={assessments()}>
-                  {(assessment) => <AssessmentCard course={current()} assessment={assessment} />}
-                </For>
-              </div>
-            </Show>
+            <section class="student-coursework" aria-labelledby="student-coursework-heading">
+              <h2 id="student-coursework-heading">Available Coursework</h2>
+              <AssessmentList
+                assessments={assessments() ?? []}
+                course={current()}
+                loading={assessments.loading}
+              />
+            </section>
           </>
         )}
       </Show>
-    </section>
+    </PageFrame>
   );
 }

@@ -25,9 +25,8 @@ const RealAppRibbon = await loadAppRibbonForSsr();
 const fixtureMarkup = Object.entries(M6_RIBBON_FIXTURES)
   .map(([name, model]) => {
     const ribbon = renderToString(() => createComponent(RealAppRibbon, { model }));
-    const taskRow = model.taskAreas.length > 0 ? "reserved" : "absent";
     return [
-      `<div data-fixture="${name}" data-ribbon-task-row="${taskRow}" class="ple-ribbon-shell-grid">`,
+      `<div data-fixture="${name}" class="ple-ribbon-shell-grid">`,
       ribbon,
       '<main class="ribbon-proof-content">Proof content</main>',
       "</div>",
@@ -51,7 +50,6 @@ const documentMarkup = [
 ].join("\n");
 
 function paddingProofMarkup(name, model) {
-  const taskRow = model.taskAreas.length > 0 ? "reserved" : "absent";
   const ribbon = renderToString(() => createComponent(RealAppRibbon, { model }));
   return [
     "<!doctype html><html><head><style>",
@@ -60,7 +58,7 @@ function paddingProofMarkup(name, model) {
     componentCss,
     "html,body{margin:0;inline-size:100%;}",
     "</style></head><body>",
-    `<div class="ple-shell-frame ple-ribbon-shell-grid" data-padding-fixture="${name}" data-ribbon-task-row="${taskRow}">`,
+    `<div class="ple-shell-frame ple-ribbon-shell-grid" data-padding-fixture="${name}">`,
     ribbon,
     '<main class="shell"><section id="main-content"><div data-content-probe>Proof content</div></section></main>',
     "</div></body></html>",
@@ -95,7 +93,6 @@ async function measuredAt(page, width, scale) {
         name: fixture.getAttribute("data-fixture"),
         ribbon: ribbon.getBoundingClientRect().height,
         rows: rows.map((row) => row.getBoundingClientRect().height),
-        taskRow: ribbon.getAttribute("data-ribbon-task-row"),
         tokens: Object.fromEntries(
           [
             "--ple-ribbon-top-block-size",
@@ -160,21 +157,14 @@ try {
       const top = entry.tokens["--ple-ribbon-top-block-size"];
       const reservedTask = entry.tokens["--ple-ribbon-reserved-task-size"];
       const total = entry.tokens["--ple-ribbon-block-size"];
-      const expectedTaskRow = entry.taskRow === "reserved";
-      assert.ok(top > 0 && total > 0, `${entry.name} resolves named row tokens`);
-      assert.equal(
-        expectedTaskRow ? reservedTask > 0 : reservedTask === 0,
-        true,
-        `${entry.name} reserves the task token only for declared topology`,
+      assert.ok(
+        top > 0 && reservedTask > 0 && total > 0,
+        `${entry.name} resolves stable row tokens`,
       );
       near(total, top + reservedTask, `${entry.name} total reserved-row token`);
-      assert.equal(
-        entry.rows.length,
-        1 + Number(expectedTaskRow),
-        `${entry.name} renders declared rows`,
-      );
+      assert.equal(entry.rows.length, 2, `${entry.name} reserves both Ribbon rows`);
       near(entry.rows[0], top, `${entry.name} top bar token`);
-      if (expectedTaskRow) near(entry.rows[1], reservedTask, `${entry.name} task row token`);
+      near(entry.rows[1], reservedTask, `${entry.name} tier-2 row token`);
       near(entry.ribbon, total, `${entry.name} Ribbon block token`);
       near(entry.shellFirstTrack, total, `${entry.name} shell first grid track`);
     }
@@ -189,8 +179,8 @@ try {
     const viewport = profile.contextOptions.viewport;
     assert.ok(viewport, `${profile.id} declares a viewport`);
     for (const [name, model] of [
-      ["taskful", M6_RIBBON_FIXTURES.courseInstructor],
-      ["taskless", M6_RIBBON_FIXTURES.courseStudent],
+      ["instructor", M6_RIBBON_FIXTURES.courseInstructor],
+      ["student", M6_RIBBON_FIXTURES.courseStudent],
     ]) {
       const result = await shellPaddingMeasuredAt(page, viewport, name, model);
       const expectedPadding = Math.min(12, Math.max(8, viewport.width * 0.009));

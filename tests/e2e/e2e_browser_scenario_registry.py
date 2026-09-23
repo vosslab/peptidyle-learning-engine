@@ -10,6 +10,16 @@ def contracts() -> tuple[ScenarioContract, ...]:
 	"""Return real-stack scenario families in fixed execution order."""
 	return (
 		auth.contracts()
-		+ instructor.contracts()
-		+ course_appearance.contracts()
-	)
+			+ instructor.contracts()
+			+ course_appearance.contracts()
+			+ (
+				ScenarioContract(
+					scenario_id="ui_backbone_parity",
+					spec_path="tests/playwright/e2e/ui_backbone_parity.spec.ts",
+					personas=("elena_instructor", "mary_student"),
+					baseline_reads=("seeded_accounts", "base_course"),
+					ui_creates=(),
+					visible_observation="page_frame_coursework_and_library_structure",
+				),
+			)
+		)

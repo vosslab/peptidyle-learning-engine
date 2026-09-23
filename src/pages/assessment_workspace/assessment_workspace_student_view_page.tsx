@@ -19,6 +19,8 @@ import type { StudentQuestionPresentation } from "../../../generated/api/Student
 import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError, AssessmentConflictError } from "../../api/http_client";
 import { OpaqueWebworkPreviewFrame } from "../../components/opaque_webwork_preview_frame";
+import { createDisplayDateTimeFormatter } from "../../format_datetime";
+import { PageFrame } from "../../components/page_frame";
 import {
   QuestionPresentationRenderer,
   type QuestionImageUrlResolver,
@@ -105,7 +107,7 @@ function ErrorState(props: {
 }): JSX.Element {
   return (
     <section class="route-error" role="alert">
-      <h1>{props.unavailable ? "Student View unavailable" : "Student View could not load"}</h1>
+      <h2>{props.unavailable ? "Student View unavailable" : "Student View could not load"}</h2>
       <p>
         {props.unavailable
           ? "This Assessment is not available through your current Course access."
@@ -124,10 +126,10 @@ function DeliveryPolicy(props: {
   readonly manifest: InstructorStudentView;
   readonly questionCount: number;
 }): JSX.Element {
+  const formatDateTime = createDisplayDateTimeFormatter(props.manifest.displayTimeZone);
   return (
     <div class="student-view-assessment-summary">
       <p class="eyebrow">Assessment overview</p>
-      <h1>{props.manifest.title}</h1>
       <Show when={props.manifest.instructions.length > 0}>
         <section aria-labelledby="student-view-instructions">
           <h2 id="student-view-instructions">Instructions</h2>
@@ -149,28 +151,17 @@ function DeliveryPolicy(props: {
           <div>
             <dt>Available</dt>
             <dd>
-              {formatAssessmentDeliveryTime(
-                props.manifest.delivery.available_at,
-                props.manifest.displayTimeZone,
-              )}
+              {formatAssessmentDeliveryTime(props.manifest.delivery.available_at, formatDateTime)}
             </dd>
           </div>
           <div>
             <dt>Due</dt>
-            <dd>
-              {formatAssessmentDeliveryTime(
-                props.manifest.delivery.due_at,
-                props.manifest.displayTimeZone,
-              )}
-            </dd>
+            <dd>{formatAssessmentDeliveryTime(props.manifest.delivery.due_at, formatDateTime)}</dd>
           </div>
           <div>
             <dt>Closes</dt>
             <dd>
-              {formatAssessmentDeliveryTime(
-                props.manifest.delivery.closes_at,
-                props.manifest.displayTimeZone,
-              )}
+              {formatAssessmentDeliveryTime(props.manifest.delivery.closes_at, formatDateTime)}
             </dd>
           </div>
           <div>
@@ -306,7 +297,12 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
   const workspacePath = assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId);
 
   return (
-    <section class="assessment-workspace-student-view" aria-label="Student View">
+    <PageFrame
+      contentClass="assessment-workspace-student-view"
+      routeSurface="assessmentWorkspace"
+      title={manifest()?.title ?? "Student View"}
+      lede="Answer-free preview for the current Student-facing Assessment."
+    >
       <PreviewCue />
       <A class="quiet-link" href={workspacePath}>
         Return to assessment
@@ -476,6 +472,6 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
           )}
         </Match>
       </Switch>
-    </section>
+    </PageFrame>
   );
 }

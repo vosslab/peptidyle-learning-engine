@@ -17,6 +17,7 @@ import {
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
+import { PageFrame } from "../components/page_frame";
 import {
   assessmentAttemptRouteId,
   parseAssessmentId,
@@ -96,7 +97,20 @@ export function AssessmentOverviewPage(): JSX.Element {
   }
 
   return (
-    <section class="page" data-route-surface="assessmentOverview">
+    <PageFrame
+      routeSurface="assessmentOverview"
+      title={access()?.title ?? "Assessment"}
+      eyebrow={
+        access() === undefined ? (
+          "Assessment"
+        ) : (
+          <>
+            <RibbonIcon glyph={assessmentTypePresentation(access()!.assessmentType).icon} />
+            <span>{assessmentTypePresentation(access()!.assessmentType).label}</span>
+          </>
+        )
+      }
+    >
       <Show
         when={access()}
         fallback={
@@ -107,11 +121,6 @@ export function AssessmentOverviewPage(): JSX.Element {
       >
         {(current) => (
           <>
-            <p class="eyebrow">
-              <RibbonIcon glyph={assessmentTypePresentation(current().assessmentType).icon} />
-              <span>{assessmentTypePresentation(current().assessmentType).label}</span>
-            </p>
-            <h1>{current().title}</h1>
             <StudentAssessmentStartFacts
               questionCount={current().questionCount}
               pointsPossible={current().pointsPossible}
@@ -197,6 +206,6 @@ export function AssessmentOverviewPage(): JSX.Element {
           </>
         )}
       </Show>
-    </section>
+    </PageFrame>
   );
 }

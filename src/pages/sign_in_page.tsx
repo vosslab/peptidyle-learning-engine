@@ -6,6 +6,7 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 import type { SeededDemoAccount, SeededDemoAccounts } from "../api/live_demo";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { PageFrame } from "../components/page_frame";
 import {
   isLiveDemoUnavailable,
   seededDemoAvailabilityStatus,
@@ -141,13 +142,12 @@ export function SignInPage(): JSX.Element {
   onMount(() => void loadSeededDemoAccounts());
 
   return (
-    <section class="page auth-page" data-route-surface="signIn">
-      <p class="eyebrow">Live demo</p>
-      <h1>Explore Peptidyle Learning Engine</h1>
-      <p class="page-lede">
-        Select a seeded Account to explore the current disposable demonstration.
-      </p>
-
+    <PageFrame
+      routeSurface="signIn"
+      eyebrow="Live demo"
+      title="Explore Peptidyle Learning Engine"
+      lede="Select a seeded Account to explore the current disposable demonstration."
+    >
       <Show
         when={seededDemo().kind !== "unavailable"}
         fallback={
@@ -248,6 +248,6 @@ export function SignInPage(): JSX.Element {
           </Show>
         </section>
       </Show>
-    </section>
+    </PageFrame>
   );
 }

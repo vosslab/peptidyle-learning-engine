@@ -5,6 +5,8 @@ import { createResource, For, Show, type JSX } from "solid-js";
 
 import type { DueSoonAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { assessmentRouteId, courseInstanceRouteId } from "../navigation/public_route";
 
 import "./assessments_due_soon_page.css";
@@ -22,17 +24,9 @@ function assessmentStatusLabel(status: LiveAssessmentStatus): string {
   }
 }
 
-function formatDueTime(dueAtMillis: number, displayTimeZone: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: displayTimeZone,
-  }).format(new Date(dueAtMillis));
-}
-
 function DueSoonAssessmentRow(props: {
   readonly assessment: DueSoonAssessmentSummary;
-  readonly displayTimeZone: string;
+  readonly formatDueTime: (dueAtMillis: number) => string;
 }): JSX.Element {
   const courseInstanceId = courseInstanceRouteId(props.assessment.courseInstanceId);
   const assessmentId = assessmentRouteId(props.assessment.assessmentId);
@@ -53,7 +47,7 @@ function DueSoonAssessmentRow(props: {
       </div>
       <p class="assessments-due-soon__due">
         <span>Due</span>
-        {formatDueTime(props.assessment.dueAtMillis, props.displayTimeZone)}
+        {props.formatDueTime(props.assessment.dueAtMillis)}
       </p>
       <div class="instructor-list__actions">
         <A class="primary-link" href={assessmentPath}>
@@ -73,12 +67,13 @@ export function AssessmentsDueSoonPage(): JSX.Element {
   const items = (): ReadonlyArray<DueSoonAssessmentSummary> => assessments()?.items ?? [];
 
   return (
-    <section class="page assessments-due-soon" data-route-surface="assessmentsDueSoon">
-      <p class="eyebrow">Assessments</p>
-      <h1>Assessments Due Soon</h1>
-      <p class="page-lede">
-        Review upcoming Assessment deadlines across the Courses you currently teach.
-      </p>
+    <PageFrame
+      contentClass="assessments-due-soon"
+      routeSurface="assessmentsDueSoon"
+      eyebrow="Assessments"
+      title="Assessments Due Soon"
+      lede="Review upcoming Assessment deadlines across the Courses you currently teach."
+    >
       <Show when={assessments.loading}>
         <p class="loading-state" role="status">
           Loading Assessments due soon...
@@ -93,40 +88,40 @@ export function AssessmentsDueSoonPage(): JSX.Element {
         </section>
       </Show>
       <Show when={assessments.error === undefined && assessments()}>
-        {(dueSoon) => (
-          <>
-            <p class="assessments-due-soon__window">
-              Showing the next 7 days in your Account time zone: {dueSoon().displayTimeZone}.
-            </p>
-            <Show
-              when={items().length > 0}
-              fallback={
-                <section class="empty-state">
-                  <h2>No Assessments are due in the next 7 days.</h2>
-                  <p>Manage Coursework to review or set due dates in the Courses you teach.</p>
-                  <A class="primary-link" href="/instructor">
-                    Manage Coursework
-                  </A>
-                </section>
-              }
-            >
-              <ul
-                class="instructor-list assessments-due-soon__list"
-                aria-label="Assessments due in the next 7 days"
+        {(dueSoon) => {
+          const formatDueTime = createDisplayDateTimeFormatter(dueSoon().displayTimeZone);
+          return (
+            <>
+              <p class="assessments-due-soon__window">
+                Showing the next 7 days in your Account time zone: {dueSoon().displayTimeZone}.
+              </p>
+              <Show
+                when={items().length > 0}
+                fallback={
+                  <section class="empty-state">
+                    <h2>No Assessments are due in the next 7 days.</h2>
+                    <p>Manage Coursework to review or set due dates in the Courses you teach.</p>
+                    <A class="primary-link" href="/instructor">
+                      Manage Coursework
+                    </A>
+                  </section>
+                }
               >
-                <For each={items()}>
-                  {(assessment) => (
-                    <DueSoonAssessmentRow
-                      assessment={assessment}
-                      displayTimeZone={dueSoon().displayTimeZone}
-                    />
-                  )}
-                </For>
-              </ul>
-            </Show>
-          </>
-        )}
+                <ul
+                  class="instructor-list assessments-due-soon__list"
+                  aria-label="Assessments due in the next 7 days"
+                >
+                  <For each={items()}>
+                    {(assessment) => (
+                      <DueSoonAssessmentRow assessment={assessment} formatDueTime={formatDueTime} />
+                    )}
+                  </For>
+                </ul>
+              </Show>
+            </>
+          );
+        }}
       </Show>
-    </section>
+    </PageFrame>
   );
 }

@@ -5,6 +5,7 @@ import { For, Show, createEffect, createResource, createSignal, type JSX } from 
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../format_datetime";
 import type {
   LibraryImpactNotice,
   LibraryImprovementPost,
@@ -22,8 +23,11 @@ function activityAnchor(activityId: string): string {
   return `library-activity-${activityId}`;
 }
 
+const displayTimeZone = browserDisplayTimeZone();
+const formatBrowserDateTime = createDisplayDateTimeFormatter(displayTimeZone);
+
 function timestamp(value: number): string {
-  return new Date(value).toLocaleString();
+  return formatBrowserDateTime(value);
 }
 
 function parseRevisionNumber(value: string): number | null {
@@ -243,6 +247,7 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
       aria-label="Library improvement threads and impact notices"
     >
       <h2>Improvement threads and impact notices</h2>
+      <p>Times shown in {displayTimeZone}.</p>
       <Show when={discussion.loading}>
         <p role="status">Loading Library activity...</p>
       </Show>

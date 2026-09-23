@@ -1,4 +1,4 @@
-// course_entry_identity.tsx - course title and optional entry-only banner.
+// course_entry_banner.tsx - optional Course entry artwork.
 
 import { Show, type JSX } from "solid-js";
 
@@ -8,17 +8,10 @@ import { courseBannerImageAlternativeText } from "./course_banner_alternative_te
 import { createCourseBannerUrl } from "./course_banner_delivery";
 import { courseRouteView } from "./course_theme_context";
 
-const COURSE_ENTRY_IDENTITY_STYLES = `
-.course-entry-identity {
-  display: grid;
-  container-type: inline-size;
-  gap: var(--ple-space-2, 0.5rem);
+const COURSE_ENTRY_BANNER_STYLES = `
+.course-entry-banner-container {
   min-width: 0;
   margin-bottom: var(--ple-space-4, 1rem);
-}
-
-.course-entry-identity h1 {
-  max-width: 32ch;
 }
 
 .course-entry-banner-frame {
@@ -43,8 +36,8 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
 }
 `;
 
-/** Renders the authorized Course Route View already loaded by the route scope. */
-export function CourseEntryIdentity(): JSX.Element {
+/** Renders the optional entry banner from the authorized Course Route View. */
+export function CourseEntryBanner(): JSX.Element {
   const runtime = useApplicationApi();
   const routeData = useRouteScopeData();
   const banner = (): ReturnType<typeof courseRouteView>["appearance"]["banner"] | null => {
@@ -53,32 +46,19 @@ export function CourseEntryIdentity(): JSX.Element {
   };
   const deliveryUrl = createCourseBannerUrl(() => banner()?.id ?? null, runtime.client);
   return (
-    <Show when={routeData()} keyed>
-      {(data) => {
-        const course = courseRouteView(data);
-        return (
-          <header class="course-entry-identity" data-course-title>
-            <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
-            <p class="eyebrow">Course home</p>
-            <Show when={banner() !== null && deliveryUrl() !== undefined}>
-              <div class="course-entry-banner-frame">
-                <img
-                  class="course-entry-banner"
-                  src={deliveryUrl()}
-                  alt={
-                    banner() === null
-                      ? ""
-                      : courseBannerImageAlternativeText(banner()!.alternativeText)
-                  }
-                  width="1280"
-                  height="256"
-                />
-              </div>
-            </Show>
-            <h1>{course.summary.longName}</h1>
-          </header>
-        );
-      }}
+    <Show when={banner() !== null && deliveryUrl() !== undefined}>
+      <div class="course-entry-banner-container">
+        <style>{COURSE_ENTRY_BANNER_STYLES}</style>
+        <div class="course-entry-banner-frame">
+          <img
+            class="course-entry-banner"
+            src={deliveryUrl()}
+            alt={courseBannerImageAlternativeText(banner()!.alternativeText)}
+            width="1280"
+            height="256"
+          />
+        </div>
+      </div>
     </Show>
   );
 }

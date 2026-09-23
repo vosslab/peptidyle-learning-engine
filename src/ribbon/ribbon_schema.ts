@@ -1,14 +1,7 @@
 // ribbon_schema.ts - Stable, synchronous Ribbon topology by scope and Product Role.
 
 import type { ProductRole } from "../../generated/api/ProductRole";
-import { RIBBON_TAB_IDS, type RibbonScope, type RibbonTabId } from "../route_contract";
-
-/** The complete set of scopes for which the Application Shell owns a Ribbon. */
-export const RIBBON_SCOPES = [
-  "product",
-  "courseInstance",
-  "assessmentAttempt",
-] as const satisfies ReadonlyArray<RibbonScope>;
+import { RIBBON_TAB_IDS, type RibbonTabId } from "../route_contract";
 
 /**
  * A relationship that may narrow a future suffix of a Ribbon Schema.
@@ -26,9 +19,7 @@ export interface RibbonSchemaSlot {
   readonly relationshipRequirement: RibbonRelationshipRequirement;
 }
 
-type RibbonSchemaTable = Readonly<
-  Record<RibbonScope, Readonly<Record<ProductRole, ReadonlyArray<RibbonSchemaSlot>>>>
->;
+export type ProductTierOne = Readonly<Record<ProductRole, ReadonlyArray<RibbonSchemaSlot>>>;
 
 function universalSlot(id: RibbonTabId): RibbonSchemaSlot {
   return Object.freeze({ id, relationshipRequirement: "none" });
@@ -40,52 +31,34 @@ function immutableSchema(
   return Object.freeze([...slots]);
 }
 
-const SCHEMAS: RibbonSchemaTable = Object.freeze({
-  product: Object.freeze({
-    instructor: immutableSchema(
-      universalSlot("courses"),
-      universalSlot("questions"),
-      universalSlot("productAssessments"),
-    ),
-    student: immutableSchema(universalSlot("courses")),
-    sysadmin: immutableSchema(
-      universalSlot("courses"),
-      universalSlot("questions"),
-      universalSlot("instructorAccounts"),
-      universalSlot("disciplines"),
-    ),
-  }),
-  courseInstance: Object.freeze({
-    instructor: immutableSchema(
-      universalSlot("assessments"),
-      universalSlot("students"),
-      universalSlot("gradebook"),
-      universalSlot("teachingOperations"),
-      universalSlot("blueprintUpdates"),
-      universalSlot("courseSetup"),
-    ),
-    student: immutableSchema(universalSlot("studentAssessments")),
-    sysadmin: immutableSchema(universalSlot("teachingOperations")),
-  }),
-  assessmentAttempt: Object.freeze({
-    instructor: immutableSchema(),
-    student: immutableSchema(universalSlot("attempt")),
-    sysadmin: immutableSchema(),
-  }),
+export const PRODUCT_TIER_ONE: ProductTierOne = Object.freeze({
+  instructor: immutableSchema(
+    universalSlot("courses"),
+    universalSlot("questions"),
+    universalSlot("productAssessments"),
+  ),
+  student: immutableSchema(
+    universalSlot("courses"),
+    universalSlot("coursework"),
+    universalSlot("grades"),
+  ),
+  sysadmin: immutableSchema(
+    universalSlot("courses"),
+    universalSlot("questions"),
+    universalSlot("instructorAccounts"),
+    universalSlot("disciplines"),
+  ),
 });
 
 /**
- * Returns the designed topology for one immutable Product Role and scope.
+ * Returns the designed tier-one topology for one immutable Product Role.
  *
  * This intentionally does not ask whether a destination has shipped or is
  * authorized. The capability registry and route boundary apply those later;
  * topology remains synchronous and stable for the session.
  */
-export function ribbonSchemaFor(
-  scope: RibbonScope,
-  productRole: ProductRole,
-): ReadonlyArray<RibbonSchemaSlot> {
-  return SCHEMAS[scope][productRole];
+export function ribbonSchemaFor(productRole: ProductRole): ReadonlyArray<RibbonSchemaSlot> {
+  return PRODUCT_TIER_ONE[productRole];
 }
 
 /** True when universal positions precede every relationship-narrowed suffix. */

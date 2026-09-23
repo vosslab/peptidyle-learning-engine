@@ -4,6 +4,7 @@ import { A } from "@solidjs/router";
 import { Match, Switch, createResource, createSignal, For, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import { PageFrame } from "../components/page_frame";
 
 function availableTimeZones(current: string): readonly string[] {
   const intl = Intl as typeof Intl & {
@@ -44,10 +45,12 @@ export function AccountSettingsPage(): JSX.Element {
   }
 
   return (
-    <main class="page" data-route-surface="accountSettings">
-      <p class="eyebrow">Account settings</p>
-      <h1>Account settings</h1>
-      <p class="page-lede">Choose how dates and times are shown. This does not change deadlines.</p>
+    <PageFrame
+      routeSurface="accountSettings"
+      eyebrow="Account settings"
+      title="Account settings"
+      lede="Choose how dates and times are shown. This does not change deadlines."
+    >
       <section aria-labelledby="account-settings-time-zone-heading">
         <h2 id="account-settings-time-zone-heading">Time zone</h2>
         <Switch>
@@ -91,6 +94,6 @@ export function AccountSettingsPage(): JSX.Element {
       <A class="quiet-link" href="/">
         Return to your dashboard
       </A>
-    </main>
+    </PageFrame>
   );
 }

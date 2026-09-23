@@ -1,66 +1,24 @@
-/* Student Course landing state hierarchy and responsive Coursework facts. */
+/* Student Course Coursework records retain identity and the next action on phones. */
 
-.student-coursework-card {
-  grid-template-areas:
-    "state action"
-    "title action"
-    "facts action"
-    "grade action"
-    "decision decision";
-  align-items: start;
-  border-color: var(--ple-border);
-  border-inline-start: var(--ple-space-1) solid var(--ple-border-strong);
+.student-coursework {
+  margin-top: var(--ple-space-5);
 }
 
-.student-coursework-card--available,
-.student-coursework-card--inProgress,
-.student-coursework-card--completed {
-  border-inline-start-color: var(--ple-success);
+.student-coursework > h2 {
+  margin: 0 0 var(--ple-space-2);
 }
 
-.student-coursework-card--missed {
-  border-inline-start-color: var(--ple-danger);
-}
-
-.student-coursework-card__state {
-  grid-area: state;
-  margin: 0 0 var(--ple-space-1);
-  color: var(--ple-muted);
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.student-coursework-card h3 {
-  grid-area: title;
+.student-coursework__title,
+.student-coursework__type,
+.student-coursework__facts {
   margin: 0;
+}
+
+.student-coursework__title {
   font-size: 1.08rem;
 }
 
-.student-coursework-card__facts {
-  grid-area: facts;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ple-space-2) var(--ple-space-5);
-  margin: var(--ple-space-3) 0 0;
-}
-
-.student-coursework-card__facts div {
-  min-inline-size: 0;
-}
-
-.student-coursework-card__facts dt {
-  color: var(--ple-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.student-coursework-card__facts dd {
-  margin: var(--ple-space-1) 0 0;
-  overflow-wrap: anywhere;
-}
-
-.student-coursework-card__type {
+.student-coursework__type {
   display: flex;
   gap: var(--ple-space-2);
   align-items: center;
@@ -68,46 +26,28 @@
   font-weight: 700;
 }
 
-.student-coursework-card__type .ple-app-ribbon__icon {
+.student-coursework__type .ple-app-ribbon__icon {
   inline-size: 1em;
   block-size: 1em;
   flex: none;
 }
 
-.student-coursework-card__grade {
-  margin: var(--ple-space-2) 0 0;
+.student-coursework__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--ple-space-2);
   color: var(--ple-muted);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 
-.student-coursework-card__grade {
-  grid-area: grade;
-}
-
-.student-coursework-card__decision {
-  grid-area: decision;
-  margin-top: var(--ple-space-3);
-  padding-top: var(--ple-space-3);
-  border-top: 1px solid var(--ple-border);
-}
-
-@media (max-width: 48rem) {
-  .student-coursework-card {
-    grid-template-areas:
-      "state"
-      "title"
-      "action"
-      "facts"
-      "grade"
-      "decision";
+@media (max-width: 32rem) {
+  .student-coursework .record-list__row {
+    gap: var(--ple-space-1);
+    padding-inline: var(--ple-space-2);
+    padding-block: var(--ple-space-3);
   }
 
-  .student-coursework-card .primary-link {
-    justify-self: start;
-    margin-top: var(--ple-space-2);
-  }
-
-  .student-coursework-card__facts {
-    grid-template-columns: minmax(0, 1fr);
+  .student-coursework__action {
+    white-space: nowrap;
   }
 }
