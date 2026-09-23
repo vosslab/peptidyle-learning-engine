@@ -31,7 +31,7 @@ import type {
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { ProductRole } from "../../generated/api/ProductRole";
-import type { RouteId } from "../../src/route_contract";
+import { routeContractForPathname, type RouteId } from "../../src/route_contract";
 // prettier-ignore
 import type {
   StudentAssessmentLandingSummary,
@@ -300,21 +300,6 @@ function withSelectedTaskControl(
   }));
 }
 
-function courseFixture(
-  selectedTab: "courses" | "questions" | "productAssessments" = "productAssessments",
-  taskRowReserved = false,
-): RibbonModel {
-  const source = M6_RIBBON_FIXTURES.courseInstructor;
-  return {
-    ...source,
-    context: source.context,
-    tabs: withSelectedControl(source.tabs, selectedTab),
-    taskAreas: taskRowReserved
-      ? withSelectedTaskControl(source.taskAreas, "assessmentOverview")
-      : [],
-  };
-}
-
 function productFixture(selectedTab: "courses" | "questions" | "productAssessments"): RibbonModel {
   const source = M6_RIBBON_FIXTURES.productInstructor;
   const taskAreas: ReadonlyArray<RibbonTaskAreaModel> =
@@ -336,30 +321,10 @@ function productFixture(selectedTab: "courses" | "questions" | "productAssessmen
 
 /** Explicit presentation-only projection for the structural shell fixture. */
 function fixtureModelForPathname(pathname: string): RibbonModel {
-  if (pathname === "/") return productFixture("courses");
-  if (pathname === "/library") return productFixture("questions");
-  if (pathname === "/blueprint-courses") return productFixture("courses");
-  if (pathname === "/blueprint-courses/search/public") return productFixture("courses");
-  if (pathname === "/instructor/courses/CI7K3M2QAZ/students") return courseFixture();
-  if (pathname === "/instructor/courses/CI7K3M2QAZ/gradebook") return courseFixture();
-  if (pathname === "/courses/CI4W8QF9AD") return courseFixture();
-  if (pathname === "/assessment-attempts/00000000-0000-0000-0000-000000000001") {
-    return {
-      ...M6_RIBBON_FIXTURES.attemptInstructor,
-      taskAreas: M6_RIBBON_FIXTURES.attemptStudent.taskAreas,
-    };
-  }
-  const segments = pathname.split("/");
-  if (
-    segments[1] === "instructor" &&
-    segments[2] === "courses" &&
-    segments[3] !== undefined &&
-    segments[4] === "assessments" &&
-    segments[5] !== undefined
-  ) {
-    return courseFixture("productAssessments", true);
-  }
-  return courseFixture();
+  const route = routeContractForPathname(pathname);
+  if (route === undefined || route.id === "signIn") return productFixture("courses");
+  const productRole = route.requiredProductRoles.includes("student") ? "student" : "instructor";
+  return materializeRibbonRoute(productRole, route.id).model;
 }
 
 /** Structural-shell-only content. Fast route cases mount the production App instead. */

@@ -10,6 +10,11 @@
 
 ### Fixes and Maintenance
 
+- Instructor Tier 2 now follows the fixed role-and-Tier 1 mappings across deeper routes. Course and
+  Assessment local workflows use page links and breadcrumbs; Gradebook now has a Course actions
+  link. The Assessment row stays Due Soon and Templates because current evidence does not settle a
+  general collection task's name and shape; Browse All remains a future opportunity. Student Tier 2
+  contents and order remain unresolved, preserving the current Student behavior.
 - Removed mechanism-specific font-loading assertions; computed production font-family checks
   remain.
 - RecordList now renders optional region headings on the same subgrid tracks as its rows and applies
@@ -46,6 +51,22 @@
 
 ### Developer Tests and Notes
 
+- Audit follow-up aligned the Ribbon design guides with the fixed role-and-Tier 1 rule and kept
+  unresolved Student Tier 2 contents out of the permanent Task Row topology assertion.
+- After the audit follow-up, the consolidated Ribbon contract passed (18/18) and the route contract
+  passed (4/4).
+- The fixed Instructor rows pass the consolidated Ribbon contract tests (18/18) and route-contract
+  tests (4/4). The focused Chromium shell evidence and four-viewport fast UI lane pass. Matched
+  laptop/phone route captures retain 40px/44px Task Row bounds across all measured transitions.
+- `source ./source_me.sh && python3 local_stack.py acceptance` passed the database baseline,
+  installation-data replay, and Course Appearance PostgreSQL/MinIO coherence oracles. A fresh
+  canonical screenshot publication completed all scenarios and privacy checks; static manifest
+  verification and the screenshot publication tests (9/9) passed.
+- `source ./source_me.sh && ./launchers/run_fast_checks.sh` and `all_test.sh` each reached the
+  Python suite with 9,279 passed and one failure: the local
+  `ribbon_route_scope_audit_2026-09-23.md` links to a missing
+  `docs/screenshots/instructor/average.png`. Targeted Markdown-link checks for the changed guidance,
+  decision, model, and plan documents passed (27/27); the audit was preserved.
 - After the test-surface consolidation, `source source_me.sh && ./launchers/run_fast_ui_checks.sh`
   and the focused browser-scenario contract tests passed; `git diff --check` was clean.
 - In the later test-review snapshot, the focused UI lane, five browser-scenario pytest tests,

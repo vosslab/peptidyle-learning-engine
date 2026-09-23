@@ -9,11 +9,12 @@ permanent noise, and makes the next action easy to recognize.
 
 The Application Shell follows a **precision field console** philosophy: it is an instrument for
 teaching work, not a marketing surface. Context and destination bands always own distinct neutral
-planes; a declared route task group adds the Task band. The course accent signals scoped identity
-and selection instead of decorating the chrome. Subtle rules, tonal depth, and immediate state paint
-establish hierarchy without excess padding, oversized controls, or nested cards. A band reserved by
-the declared route topology remains stable even when capability admission leaves it truthfully
-empty. Route-specific work may fill this console, but may not weaken its visual grammar.
+planes; settled Instructor Task Row destinations follow Product Role and Tier 1 rather than the
+current object route. The course accent signals scoped identity and selection instead of decorating
+the chrome. Subtle rules, tonal depth, and immediate state paint establish hierarchy without excess
+padding, oversized controls, or nested cards. A row reserved by its navigation model remains stable
+even when capability admission leaves it truthfully empty. Route-specific work may fill this console,
+but may not weaken its visual grammar.
 
 Instructor work is composed first for a 1280 by 800 CSS-pixel laptop viewport. Student work is
 composed for that same canonical laptop viewport and for the high-priority 800 by 1280 tablet
@@ -100,17 +101,19 @@ turning each local group into a card or making an ordinary state change rearrang
   reachability; a preference for more empty chrome is not evidence.
 - **Spatial memory is a behavioral contract.** `src/application_shell.tsx` owns the persistent
   shell frame, viewport-height floor, and content origin; `src/ribbon/app_ribbon.tsx` presents the
-  named Ribbon rows selected by declared route topology. Context and Tab remain reserved; Task is
-  reserved exactly when the route declares a task group. Loading, error, theme, label, and
-  capability-admission changes may update content or paint, but may not change that topology or move
-  a visible control. Identity and geometry evidence must prove that a deferred or recovered route
-  does not replace the shell or shift its visible controls.
+  named Ribbon rows from Product Role, Tier 1, and current route context. Context and Tab remain
+  reserved. Settled Instructor Task Rows derive from Product Role and Tier 1; current Student Attempt
+  controls retain their route context while Student Tier 2 remains undecided. Loading, error, theme,
+  label, and capability-admission changes may update content or paint, but may not change the
+  applicable row topology or move a visible control. Identity and geometry evidence must prove that
+  a deferred or recovered route does not replace the shell or shift its visible controls.
 - **Contextual and asynchronous state fills a stable frame.** A page owns its heading, recovery,
   and Page Action at the point where that work occurs. `src/ribbon/ribbon_contract.ts` derives
-  navigation presentation from the declared route, scope, role, and admitted capability; it does
-  not let a late response add a surprise layout. Immediate selected or pending treatment belongs
-  on the activated control, while the keyed content region may resolve separately. Tests must
-  distinguish a truthful absent capability from a hidden loading or authorization failure.
+  settled Instructor task destinations from Product Role and Tier 1, while current Student Attempt
+  controls retain their route context. Capability availability determines whether a destination is
+  admitted without letting a late response add a surprise layout. Immediate selected or pending
+  treatment belongs on the activated control, while the keyed content region may resolve separately.
+  Tests must distinguish a truthful absent capability from a hidden loading or authorization failure.
 - **Responsive states are discrete projections of one interaction system.** Standard, compact,
   narrow, text-enlarged, forced-colors, and reduced-motion presentations retain semantic order,
   visible focus, and reachable controls. A responsive threshold requires evidence of an actual
@@ -222,14 +225,16 @@ omit Unavailable Slots, and preserve the relative order of visible controls. A l
 result can therefore append controls without moving a visible control. This rule supports future
 Course Observer, Student Observer, and Grader relationships that are independent of Product Role.
 
-The Context and Tab Rows are always reserved as the persistent Ribbon's spatial grammar. The Task
-Row is reserved exactly when the declared route supplies a task group and is omitted when it does
-not. Capability admission, loading, deferred labels, and content errors never add or remove a row;
-therefore a declared Task Row remains present even when no Task is admitted. A reserved row is not
-filled with disabled fiction or a placeholder link. This topology-aware density preserves the
-content origin within each route class and keeps admission-independent geometry. Review reserved
-rows only for concrete failures such as clipping, ambiguity, contrast, keyboard reachability, or
-broken reflow.
+The Context and Tab Rows are always reserved as the persistent Ribbon's spatial grammar. For settled
+Instructor Tier 1 areas, Task Row destinations derive from Product Role and Tier 1 and remain the same
+across deeper routes; the current route selects a destination only when it matches. Course- and
+Assessment-specific navigation belongs in page content and breadcrumbs. Student Tier 2 destinations
+and order remain undecided. Current Student Attempt controls retain their route context, and routes
+without task controls do not establish an intentionally empty Student menu. Capability admission,
+loading, deferred labels, and content errors do not add or remove a settled row; a required destination
+remains represented even when unavailable. A reserved row is not filled with disabled fiction or a
+placeholder link. Review row geometry only for concrete failures such as clipping, ambiguity,
+contrast, keyboard reachability, or broken reflow.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,
 text, and color together; color alone is not the indicator.

@@ -1,7 +1,7 @@
 // Production-stack proof that one Course Appearance persists independently and reaches its members.
-// Selector contract: the admitted Appearance Ribbon task is owned by ribbon_catalog.ts; native
-// theme radios and banner file input/save controls are owned by course_appearance_page.tsx; the
-// enrolled Course-home banner is owned by course_entry_banner.tsx.
+// Selector contract: Course actions links are owned by course_instance_page.tsx; native theme
+// radios and banner file input/save controls are owned by course_appearance_page.tsx; the enrolled
+// Course-home banner is owned by course_entry_banner.tsx.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -43,8 +43,8 @@ async function openAppearanceFromCourseActions(page: Page): Promise<void> {
   ).toBeVisible();
   await expect(
     page
-      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
-      .getByRole("link", { name: "Appearance", exact: true }),
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Courses", exact: true }),
   ).toHaveAttribute("aria-current", "page");
 }
 

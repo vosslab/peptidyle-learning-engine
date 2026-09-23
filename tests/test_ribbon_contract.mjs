@@ -160,51 +160,66 @@ test("every signed-in Product Role has one accessible generic Profile end contro
   }
 });
 
-test("Appearance admits only the Instructor Course Setup task and preserves its route", async () => {
-  const instructor = controlsFor("courseAppearance", "instructor");
-  const RealAppRibbon = await loadAppRibbonForSsr();
-  const instructorHtml = renderToString(() =>
-    createComponent(RealAppRibbon, { model: instructor.model }),
-  );
-  assert.match(
-    instructorHtml,
-    /href="\/instructor\/courses\/CI7K3M2QAZ\/appearance"[^>]*data-ribbon-control="appearance"/,
-  );
-  for (const role of ["student", "sysadmin"]) {
-    const model = controlsFor("courseAppearance", role).model;
-    const control = [...model.tabs, ...model.taskAreas.flatMap((area) => area.controls)].find(
-      (candidate) => candidate.id === "appearance",
-    );
+test("Task Row topology follows settled Instructor areas", () => {
+  const instructorGroups = {
+    courses: "instructorCourses",
+    questions: "instructorQuestions",
+    productAssessments: "instructorAssessments",
+  };
+  for (const route of ROUTE_CONTRACT) {
+    const group = instructorGroups[route.ribbon.tierOneArea];
+    if (group === undefined) continue;
+    const model = deriveRibbonModel(routeStateFor(route.id), { productRole: "instructor" }, LABELS);
     assert.equal(
-      control?.availability,
-      "Unavailable",
-      `${role} cannot receive Appearance admission`,
-    );
-    const html = renderToString(() => createComponent(RealAppRibbon, { model }));
-    assert.doesNotMatch(
-      html,
-      /data-ribbon-control="appearance"/,
-      `${role} Ribbon omits Appearance`,
+      model.taskAreas.length > 0,
+      true,
+      `${route.id} has its settled Instructor Task Row`,
     );
   }
 });
 
-test("Task Row topology is exactly the declared task-group topology for every route", () => {
+test("settled Instructor Tier 2 destinations and order stay fixed across deeper routes", () => {
+  const groups = {
+    courses: "instructorCourses",
+    questions: "instructorQuestions",
+    productAssessments: "instructorAssessments",
+  };
+  const rowsByTierOne = new Map();
   for (const route of ROUTE_CONTRACT) {
-    for (const role of PRODUCT_ROLES) {
-      const model = deriveRibbonModel(routeStateFor(route.id), { productRole: role }, LABELS);
-      const instructorProductTaskGroup = [
-        "instructorCourses",
-        "instructorQuestions",
-        "instructorAssessments",
-      ].includes(route.ribbon.taskGroup);
+    const group = groups[route.ribbon.tierOneArea];
+    if (group === undefined) continue;
+    const model = controlsFor(route.id, "instructor").model;
+    const row = model.taskAreas.map((area) => ({
+      id: area.id,
+      label: area.label,
+      controls: area.controls.map(({ id, label, destination }) => ({ id, label, destination })),
+    }));
+    const controls = RIBBON_TASK_CATALOG.filter((control) => control.taskGroup === group);
+    const expected =
+      controls.length === 0
+        ? []
+        : [
+            {
+              id: controls[0].area,
+              label: model.taskAreas[0]?.label,
+              controls: controls.map(({ id, label, destination }) => ({ id, label, destination })),
+            },
+          ];
+    assert.deepEqual(row, expected, `${route.id} has the complete ${route.ribbon.tierOneArea} row`);
+    const selected = model.taskAreas.flatMap((area) =>
+      area.controls.filter((control) => control.selected),
+    );
+    assert.ok(selected.length <= 1, `${route.id} selects at most one Tier 2 destination`);
+    for (const control of selected) {
       assert.equal(
-        model.taskAreas.length > 0,
-        route.ribbon.taskGroup !== undefined &&
-          (!instructorProductTaskGroup || role === "instructor"),
-        `${route.id}/${role}: Task Row topology follows the route contract`,
+        control.destination.kind === "route" && control.destination.routeId === route.id,
+        true,
+        `${route.id} selects only its own destination`,
       );
     }
+    const previous = rowsByTierOne.get(route.ribbon.tierOneArea);
+    if (previous === undefined) rowsByTierOne.set(route.ribbon.tierOneArea, row);
+    else assert.deepEqual(row, previous, `${route.ribbon.tierOneArea} row changed at ${route.id}`);
   }
 });
 
@@ -246,6 +261,7 @@ test("Task Row topology does not report task-control admission", () => {
 test("Instructor Product routes reserve owner-ordered task groups despite unavailable entries", () => {
   const courses = controlsFor("instructorHome", "instructor").model;
   const questions = controlsFor("library", "instructor").model;
+  const assessments = controlsFor("assessmentsDueSoon", "instructor").model;
   assert.deepEqual(
     courses.tabs.map((control) => control.label),
     ["Courses", "Questions", "Assessments"],
@@ -269,6 +285,10 @@ test("Instructor Product routes reserve owner-ordered task groups despite unavai
       "Search Question Library",
       "Browse Question Library",
     ],
+  );
+  assert.deepEqual(
+    assessments.taskAreas.flatMap((area) => area.controls).map((control) => control.label),
+    ["Assessments Due Soon", "My Assessment Templates"],
   );
   for (const control of courses.taskAreas.flatMap((area) => area.controls)) {
     if (control.availability === "Unavailable") assert.equal(control.href, undefined, control.id);
@@ -347,43 +367,6 @@ test("Student Coursework navigation retains collective labels", () => {
   );
 });
 
-// Permanent contract: these canonical links are the Instructor's stable
-// Assessment workspace navigation. A regression would strand Properties or
-// reintroduce an obsolete generic path.
-test("Assessment workspace tasks retain canonical links and one selected task", async () => {
-  const RealAppRibbon = await loadAppRibbonForSsr();
-  const expected = {
-    assessmentWorkspaceOverview: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF",
-    assessmentWorkspaceQuestions: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/questions",
-    assessmentWorkspacePolicies: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/properties",
-  };
-  for (const [routeId, selectedHref] of Object.entries(expected)) {
-    const { model, controls } = controlsFor(routeId, "instructor");
-    const tasks = controls.filter((control) =>
-      ["assessmentOverview", "assessmentQuestions", "assessmentPolicies"].includes(control.id),
-    );
-    assert.deepEqual(
-      tasks.map(({ id, href }) => ({ id, href })),
-      [
-        { id: "assessmentOverview", href: expected.assessmentWorkspaceOverview },
-        { id: "assessmentQuestions", href: expected.assessmentWorkspaceQuestions },
-        { id: "assessmentPolicies", href: expected.assessmentWorkspacePolicies },
-      ],
-      routeId,
-    );
-    assert.deepEqual(
-      tasks.filter((control) => control.selected).map((control) => control.href),
-      [selectedHref],
-    );
-    const html = renderToString(() => createComponent(RealAppRibbon, { model }));
-    assert.match(
-      html,
-      new RegExp(`href="${selectedHref}"[^>]*aria-current="page"[^>]*data-ribbon-control=`),
-      routeId,
-    );
-  }
-});
-
 test("missing source parameters withhold a backed destination without changing its position", () => {
   const entry = CAPABILITY_REGISTRY.backToAssessments;
   const descriptors = Object.getOwnPropertyDescriptors(entry);
@@ -411,7 +394,7 @@ test("missing source parameters withhold a backed destination without changing i
 });
 
 test("relationship admission may check without moving schema-owned positions", () => {
-  const entry = CAPABILITY_REGISTRY.assessments;
+  const entry = CAPABILITY_REGISTRY.myActiveCourses;
   const descriptors = Object.getOwnPropertyDescriptors(entry);
   const before = controlsFor("courseAssessments", "instructor").controls.map(({ id }) => id);
   try {

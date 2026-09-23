@@ -159,7 +159,7 @@ test.describe("UI backbone compact parity on the production PLE stack", () => {
         await chooseSeededIdentity(instructor, /Elena Rivera/u);
         await selectVisibleCourse(instructor, courseTitle);
         await instructor
-          .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+          .getByRole("navigation", { name: "Course actions", exact: true })
           .getByRole("link", { name: "Gradebook", exact: true })
           .click();
         await expect(

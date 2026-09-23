@@ -67,13 +67,21 @@ test("each Product Role has an explicit selected Courses home route", () => {
   }
 });
 
-test("the Instructor inactive Course route retains the Courses task group", () => {
-  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === "instructorInactiveCourses");
-  assert.ok(route);
-  assert.equal(route.path, "/instructor/courses/inactive");
-  assert.deepEqual(route.requiredProductRoles, ["instructor"]);
-  assert.equal(route.ribbon.tierOneArea, "courses");
-  assert.equal(route.ribbon.taskGroup, "instructorCourses");
+test("Instructor routes leave Tier 2 selection to Product Role and Tier 1", () => {
+  for (const route of ROUTE_CONTRACT) {
+    if (!route.requiredProductRoles.includes("instructor")) continue;
+    assert.equal(route.ribbon.taskGroup, undefined, route.id);
+  }
+  const inactiveCourses = ROUTE_CONTRACT.find(
+    (candidate) => candidate.id === "instructorInactiveCourses",
+  );
+  const courseWorkspace = ROUTE_CONTRACT.find((candidate) => candidate.id === "courseAssessments");
+  const assessmentEditor = ROUTE_CONTRACT.find(
+    (candidate) => candidate.id === "assessmentWorkspaceOverview",
+  );
+  assert.equal(inactiveCourses?.ribbon.tierOneArea, "courses");
+  assert.equal(courseWorkspace?.ribbon.tierOneArea, "courses");
+  assert.equal(assessmentEditor?.ribbon.tierOneArea, "productAssessments");
 });
 
 // Permanent contract: the account menu has exactly two authenticated-self

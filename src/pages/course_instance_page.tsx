@@ -820,6 +820,12 @@ export function CourseInstancePage(): JSX.Element {
                     </A>
                     <A
                       class="quiet-link"
+                      href={`/instructor/courses/${view().courseInstance.id}/gradebook`}
+                    >
+                      Gradebook
+                    </A>
+                    <A
+                      class="quiet-link"
                       href={`/instructor/courses/${view().courseInstance.id}/appearance`}
                     >
                       Appearance

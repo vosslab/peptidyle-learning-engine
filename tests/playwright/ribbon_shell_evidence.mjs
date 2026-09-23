@@ -474,7 +474,12 @@ try {
     {
       scope: "courseInstance",
       tierOneControlIds: ["courses", "questions", "productAssessments"],
-      taskControls: [],
+      taskControls: [
+        "myBlueprintCourses",
+        "myActiveCourses",
+        "myInactiveCourses",
+        "searchPublicBlueprintCourses",
+      ],
     },
     "a malformed Course Instance ID keeps the declared data-free Course Instance Ribbon",
   );
@@ -637,12 +642,12 @@ try {
     {
       pathname: "/courses/CI7K3M2QAZ",
       scope: "courseInstance",
-      selected: "Assessments",
+      selected: "Courses",
     },
     {
       pathname: "/instructor/courses/CI7K3M2QAZ/students",
       scope: "courseInstance",
-      selected: "Assessments",
+      selected: "Courses",
     },
     {
       pathname: "/instructor/courses/CI7K3M2QAZ/gradebook",
@@ -662,17 +667,17 @@ try {
     {
       pathname: "/courses/CI4W8QF9AD",
       scope: "courseInstance",
-      selected: "Assessments",
+      selected: "Courses",
     },
     {
       pathname: "/assessment-attempts/00000000-0000-0000-0000-000000000001",
       scope: "assessmentAttempt",
-      selected: undefined,
+      selected: "Coursework",
     },
     {
       pathname: "/courses/CI7K3M2QAZ",
       scope: "courseInstance",
-      selected: "Assessments",
+      selected: "Courses",
     },
   ];
   for (const transition of fixtureTransitions) {
@@ -688,19 +693,11 @@ try {
       `fixture projection exposes ${transition.scope} at ${transition.pathname}`,
     );
     const selected = fixtureCase.locator('nav[aria-label="Ribbon tabs"] a[aria-current="page"]');
-    if (transition.selected === undefined) {
-      assert.equal(
-        await selected.count(),
-        0,
-        "attempt fixture has no fabricated selected destination",
-      );
-    } else {
-      assert.equal(
-        await selected.innerText(),
-        transition.selected,
-        `fixture projection updates the selected Tab at ${transition.pathname}`,
-      );
-    }
+    assert.equal(
+      await selected.innerText(),
+      transition.selected,
+      `fixture projection updates the selected Tab at ${transition.pathname}`,
+    );
   }
 
   await page.evaluate(() => window.ribbonShell.fixtureNavigate("/courses/CI7K3M2QAZ"));
@@ -754,13 +751,13 @@ try {
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
   const task = fixtureCase
     .getByRole("navigation", { name: "Ribbon tasks" })
-    .getByRole("link", { name: "Questions" });
+    .getByRole("link", { name: "My Assessment Templates" });
   await task.waitFor({ state: "visible" });
   await task.focus();
   await page.keyboard.press("Enter");
   assert.equal(
     await page.evaluate(() => window.ribbonShell.fixturePathname()),
-    "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/questions",
+    "/assessment-templates",
     "keyboard Task activation changes the controlled content route while its " +
       "error remains contained",
   );

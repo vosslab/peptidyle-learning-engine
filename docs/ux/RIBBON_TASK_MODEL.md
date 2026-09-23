@@ -15,8 +15,12 @@ not authorization; the server rechecks every protected request.
 The top bar owns application identity, current Product Role, and Profile access.
 Sign Out belongs inside the Profile menu rather than beside the primary tabs.
 The Context Row identifies the current Course, Assessment, or other scope. The
-Task Row contains sibling destinations for the selected primary area. Deep
-pages use breadcrumbs and retain one visible page heading.
+Task Row contains the ordered destinations for the selected primary area. Each
+Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the
+same. Opening a Course, Assessment, Question, or other item does not change the
+Tier 2 choices or their order. The current route selects a destination only
+when it matches. Course- and Assessment-specific navigation belongs in page
+content and breadcrumbs. Deep pages retain one visible page heading.
 
 Loading, denial, an empty collection, or a route error changes the content
 area, not the surrounding Ribbon geometry. Focus moves to the main content
@@ -39,6 +43,10 @@ Their Task Rows are:
 | Questions | My Questions; My Draft Questions; Starred; Watched; Search Question Library; Browse Question Library |
 | Assessments | Assessments Due Soon; My Assessment Templates |
 
+Each row remains fixed across routes that share its primary tab. The current
+Instructor route selects one destination only when it is that destination.
+Course and Assessment workspace links remain in their page workflows.
+
 Search and Browse are different interactions. Search Question Library exposes
 an explicit query/filter workflow. Browse Question Library supports
 discovery without pretending it is the same operation.
@@ -51,9 +59,10 @@ gap to record, not authority to delete that destination from this model.
 
 ## Course Instance navigation
 
-Course pages expose only implemented Course-local teaching tasks and preserve
-the Course identity in context. Every current co-Instructor sees the same
-teaching destinations; the creator or first Instructor has no special set.
+Course pages expose implemented Course-local teaching tasks in their content
+and preserve the Course identity in context. Every current co-Instructor sees
+the same teaching destinations; the creator or first Instructor has no special
+set.
 
 Assessment composition is the **Assessment Question Editor**. Settings are the
 **Assessment Properties Editor**. Create Assessment is a page action in the
@@ -68,6 +77,10 @@ Student work is collectively **Coursework**. A specific item uses its exact
 Assessment Type name. Within an Assessment Attempt, Question navigation and
 saved status stay in the content area while the Ribbon and context remain
 stable.
+
+Human Guidance leaves Student Tier 2 destinations and order unresolved.
+Preserve current route behavior, including Attempt-specific Ribbon controls.
+Routes with no task controls do not establish an intentionally empty menu.
 
 The return action is **Back to Coursework**. The completion action is **Submit
 Assessment** and submits the whole Attempt, finalizing all saved responses

@@ -8,7 +8,7 @@ Status: Read-only screenshot and source audit. No interaction study or source ch
 
 > Tier 2 lists sibling destinations at the deepest active work scope: product collection or the active Course, Assessment, or Attempt workspace. Entering a different scope replaces the prior set. Current-object identity and return to a parent scope belong in context or breadcrumbs; progress and within-work sequences belong in the content. An empty Tier 2 is valid when there are no sibling destinations.
 
-Tier 1 remains the stable role-level taxonomy in Human Guidance. This rule makes Tier 2's *meaning* predictable even when its destinations change: the row always answers, “Where else can I go within the work I am doing now?”
+Tier 1 remains the stable role-level taxonomy in Human Guidance. This rule makes Tier 2's *meaning* predictable even when its destinations change: the row always answers, "Where else can I go within the work I am doing now?"
 
 ## Main finding: Tier 2 content changes while Tier 1 stays selected
 
@@ -51,7 +51,7 @@ Applying the smallest rule would keep **Attempt** identity in context/breadcrumb
 
 ## What already works
 
-- The row bounds and product identity appear comparatively stable in the user-supplied [Instructor average](../../screenshots/instructor/average.png), but the Tier 1 **Assessments** tab is visibly blurred, indicating positional shift across captures. Its exact displacement and any contribution from selected-state rendering remain unmeasured. The separate Tier 2 **Assessments** control also varies. The average's translucency is an averaging artifact, not a rendered application state.
+- The row bounds and product identity appear comparatively stable in the user-supplied `average.png`, but the Tier 1 **Assessments** tab is visibly blurred, indicating positional shift across captures. Its exact displacement and any contribution from selected-state rendering remain unmeasured. The separate Tier 2 **Assessments** control also varies. The average's translucency is an averaging artifact, not a rendered application state.
 - Student captures across laptop, tablet, phone and square sizes show the compact navigation adapting to viewport width while retaining the product identity, Coursework location and reachable Attempt controls.
 - The scope labels, breadcrumbs and contextual page links help users recognize where a route sits, including the Blueprint detail route without a selected task destination.
 - Within each captured viewport and density profile, the reserved two-row Ribbon and fixed-height breadcrumb prelude follow Human Guidance's instruction to keep row space and prevent the content area from jumping when selections change. Responsive profiles intentionally alter dimensions across device classes; the evidence supports route stability within a profile, not identical geometry across all viewports.

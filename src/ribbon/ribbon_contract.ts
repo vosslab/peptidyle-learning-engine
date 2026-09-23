@@ -25,6 +25,7 @@ import {
   routeContractForPathname,
   type RibbonScope,
   type RibbonTabId,
+  type RibbonTaskGroupId,
   type RouteContract,
   type RouteId,
 } from "../route_contract";
@@ -406,17 +407,30 @@ function contextFor(productRole: ProductRole): RibbonContextModel {
   });
 }
 
+function instructorTaskGroupForTierOne(
+  tierOneArea: RouteContract["ribbon"]["tierOneArea"],
+): RibbonTaskGroupId | undefined {
+  switch (tierOneArea) {
+    case "courses":
+      return "instructorCourses";
+    case "questions":
+      return "instructorQuestions";
+    case "productAssessments":
+      return "instructorAssessments";
+    default:
+      return undefined;
+  }
+}
+
 function taskAreasFor(
   routeState: RibbonRouteState,
   productRole: ProductRole,
 ): ReadonlyArray<RibbonTaskAreaModel> {
-  const group = routeState.route.ribbon.taskGroup;
+  const group =
+    productRole === "instructor"
+      ? instructorTaskGroupForTierOne(routeState.route.ribbon.tierOneArea)
+      : routeState.route.ribbon.taskGroup;
   if (group === undefined) return Object.freeze([]);
-  const instructorProductGroup =
-    group === "instructorCourses" ||
-    group === "instructorQuestions" ||
-    group === "instructorAssessments";
-  if (instructorProductGroup && productRole !== "instructor") return Object.freeze([]);
 
   const areas: RibbonTaskAreaModel[] = [];
   for (const control of RIBBON_TASK_CATALOG) {

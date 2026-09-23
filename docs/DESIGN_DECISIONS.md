@@ -950,8 +950,11 @@ is in the Profile menu.
 reduce cognitive load without letting incomplete features masquerade as usable.
 
 **Consequence.** Instructor primary tabs are Courses, Questions, and
-Assessments. Their exact task rows come from Human Guidance. Student work is
-collectively Coursework, while a specific item uses its Assessment Type name.
+Assessments. Human Guidance defines each fixed Instructor task row. A settled
+role and Tier 1 area keep the same ordered destinations across deeper routes;
+object-specific Course and Assessment links stay in page content and
+breadcrumbs. Student work is collectively Coursework, while a specific item
+uses its Assessment Type name.
 
 ### Tier-one navigation is role-only
 
@@ -959,14 +962,17 @@ collectively Coursework, while a specific item uses its Assessment Type name.
 route scope. Instructor tier one is Courses, Questions, and Assessments.
 Student tier one is Courses, Coursework, and Grades; Coursework and Grades are
 pinned to the current Course. Sysadmin tier one follows its Product Role
-catalog. Route-specific tasks belong in tier two.
+catalog. Settled tier-two rows derive from Product Role and Tier 1; object-local
+navigation stays with page content and breadcrumbs.
 
 **Why.** A role has one stable primary navigation model. Moving primary tabs
 between routes makes the shell and a user's available destinations appear to
 change unexpectedly.
 
 **Consequence.** The route contract selects a tier-one area but cannot add or
-remove a tier-one control. The client presents navigation only; the trusted
+remove a tier-one control or change a settled task row. Existing route-scoped
+Student Attempt tasks remain current behavior while Student tier-two contents
+and order are unresolved. The client presents navigation only; the trusted
 server continues to enforce function- and resource-level authorization. This
 keeps client navigation from becoming an authorization boundary (ASVS 8.2.1,
 8.2.2, and 8.3.1).
@@ -978,14 +984,18 @@ route resolution in [ribbon_catalog.ts](../src/ribbon/ribbon_catalog.ts).
 ### Signed-in shell rows have unconditional height
 
 **Decision.** Every signed-in role reserves the breadcrumb and tier-two Ribbon
-rows at each screen size. Tier-two controls vary by route and role; row height
-does not.
+rows at each screen size. Settled tier-two destinations and order remain fixed
+for a Product Role and Tier 1 area; row height does not depend on route state.
 
-**Why.** A changing shell height makes page content jump during navigation and
-when a task row has no current controls.
+**Why.** Fixed destinations keep navigation predictable. Stable row height
+keeps page content from jumping when route state changes or a row renders
+without controls.
 
-**Consequence.** An empty tier-two row is valid. Breadcrumb and page-content
-geometry stays stable for Student, Instructor, and Sysadmin routes.
+**Consequence.** Instructor rows follow the settled Human Guidance mappings.
+Student and Sysadmin tier-two contents remain unresolved; a route that
+currently renders no task controls does not establish an intentionally empty
+menu. Breadcrumb and page-content geometry stays stable for every signed-in
+route.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s permanent breadcrumb-row
 rule, [application_shell.tsx](../src/application_shell.tsx), and
@@ -1032,9 +1042,11 @@ honest empty state.
 **Why.** Space prevents layout movement, while invented or apparently usable
 controls misrepresent the product.
 
-**Consequence.** Student and Sysadmin tier-two rows may remain empty until a
-separate product decision settles their contents. The browser treats control
-visibility as navigation presentation, never as permission evidence.
+**Consequence.** Student and Sysadmin tier-two contents remain unsettled until
+product evidence defines their destinations and order. Current empty-row
+rendering is presentation state, not an approved empty-menu design. The
+browser treats control visibility as navigation presentation, never as
+permission evidence.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s required and unavailable
 Instructor destination rules, [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx),

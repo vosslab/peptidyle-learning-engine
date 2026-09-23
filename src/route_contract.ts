@@ -41,13 +41,16 @@ export type RibbonTaskGroupId =
   | "courseSetup"
   | "assessmentAttempt";
 
+/** Route-local Ribbon tasks currently belong only to the Student Attempt workflow. */
+export type RibbonRouteTaskGroupId = "assessmentAttempt";
+
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
   readonly scope: RibbonScope;
   /** Role-level Ribbon tab that selects this route. */
   readonly tierOneArea: TierOneArea;
-  /** Omitted when the reserved Task Row has no selected task area. */
-  readonly taskGroup?: RibbonTaskGroupId;
+  /** Route-local selection; settled Instructor task rows derive from Product Role and Tier 1. */
+  readonly taskGroup?: RibbonRouteTaskGroupId;
 }
 
 export interface RouteContract {
@@ -111,7 +114,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
     pageLayout: "fullWidth",
   },
@@ -123,7 +125,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
     pageLayout: "fullWidth",
   },
@@ -145,7 +146,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
   },
   {
@@ -156,7 +156,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
   },
   {
@@ -252,7 +251,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "courses",
-      taskGroup: "course",
     },
   },
   {
@@ -294,7 +292,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      taskGroup: "instructorQuestions",
     },
     pageLayout: "fullWidth",
   },
@@ -306,7 +303,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      taskGroup: "instructorQuestions",
     },
     pageLayout: "fullWidth",
   },
@@ -318,7 +314,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      taskGroup: "instructorQuestions",
     },
   },
   {
@@ -329,7 +324,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      taskGroup: "instructorQuestions",
     },
   },
   {
@@ -340,7 +334,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      taskGroup: "instructorQuestions",
     },
     pageLayout: "fullWidth",
   },
@@ -352,7 +345,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      taskGroup: "instructorQuestions",
     },
     pageLayout: "fullWidth",
   },
@@ -364,7 +356,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
   },
   {
@@ -376,7 +367,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
   },
   {
@@ -387,7 +377,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      taskGroup: "instructorCourses",
     },
   },
   {
@@ -398,7 +387,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "productAssessments",
-      taskGroup: "instructorAssessments",
     },
     pageLayout: "fullWidth",
   },
@@ -410,7 +398,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "productAssessments",
-      taskGroup: "instructorAssessments",
     },
     pageLayout: "fullWidth",
   },
@@ -422,7 +409,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "productAssessments",
-      taskGroup: "course",
     },
   },
   {
@@ -433,7 +419,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "productAssessments",
-      taskGroup: "assessment",
     },
     pageLayout: "fullWidth",
   },
@@ -445,7 +430,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "productAssessments",
-      taskGroup: "assessment",
     },
     pageLayout: "fullWidth",
   },
@@ -457,7 +441,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "productAssessments",
-      taskGroup: "assessment",
     },
     pageLayout: "fullWidth",
   },
@@ -469,7 +452,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "productAssessments",
-      taskGroup: "assessment",
     },
     pageLayout: "fullWidth",
   },
@@ -481,7 +463,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "productAssessments",
-      taskGroup: "course",
     },
     pageLayout: "fullWidth",
   },
@@ -493,7 +474,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "courses",
-      taskGroup: "courseSetup",
     },
   },
   {
@@ -504,7 +484,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "courseInstance",
       tierOneArea: "courses",
-      taskGroup: "course",
     },
     pageLayout: "fullWidth",
   },

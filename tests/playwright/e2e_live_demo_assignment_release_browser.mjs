@@ -31,15 +31,6 @@ async function assertAnswerFreePreview(target) {
   }
 }
 
-async function assertRibbonTaskCurrent(tasks, control, destination) {
-  const current = await tasks
-    .locator(`[data-ribbon-control="${control}"]`)
-    .getAttribute("aria-current");
-  if (current !== "page") {
-    throw new Error(`${destination} was not selected in the Ribbon`);
-  }
-}
-
 async function assessmentEntryIds(page) {
   return page
     .getByRole("heading", { name: "Ordered Assessment Entries", exact: true })
@@ -173,18 +164,14 @@ try {
       exact: true,
     })
     .waitFor();
-  const ribbonTasks = page.getByRole("navigation", { name: "Ribbon tasks", exact: true });
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentQuestions", "Questions");
-  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("link", { name: "Review Assessment Properties", exact: true }).click();
   await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentPolicies", "Properties");
   await assessmentBreadcrumb.getByRole("link", { name: assessmentTitle, exact: true }).waitFor();
   await assessmentIdentity.getByText(assessmentTitle, { exact: true }).waitFor();
   await assessmentIdentity.getByText("Unreleased", { exact: true }).waitFor();
 
-  await ribbonTasks.locator('[data-ribbon-control="assessmentQuestions"]').click();
+  await page.getByRole("link", { name: "Edit Questions", exact: true }).click();
   await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentQuestions", "Questions");
   const savedEntryIds = await assessmentEntryIds(page);
   if (
     savedEntryIds.length !== 2 ||
@@ -202,7 +189,7 @@ try {
   if (hasExactEntryOrder(reorderedEntryIds, savedEntryIds)) {
     throw new Error("the local structural Question reorder did not change the saved Entry order");
   }
-  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("link", { name: "Review Assessment Properties", exact: true }).click();
   await page
     .getByRole("heading", { name: "Save Assessment Question changes?", exact: true })
     .waitFor();
@@ -210,22 +197,19 @@ try {
   if (!hasExactEntryOrder(await assessmentEntryIds(page), reorderedEntryIds)) {
     throw new Error("Stay did not retain the exact local structural Question order");
   }
-  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("link", { name: "Review Assessment Properties", exact: true }).click();
   await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
   await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentPolicies", "Properties");
-  await ribbonTasks.locator('[data-ribbon-control="assessmentQuestions"]').click();
+  await page.getByRole("link", { name: "Edit Questions", exact: true }).click();
   await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentQuestions", "Questions");
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
   const reloadedEntryIds = await assessmentEntryIds(page);
   if (!hasExactEntryOrder(reloadedEntryIds, savedEntryIds)) {
     throw new Error("Discard did not restore the exact saved Assessment Entry order");
   }
-  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("link", { name: "Review Assessment Properties", exact: true }).click();
   await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentPolicies", "Properties");
   await page
     .getByRole("group", { name: "Due date and time", exact: true })
     .getByLabel(/Due date/u)
@@ -313,7 +297,7 @@ try {
   await page.getByText("Student View preview", { exact: true }).waitFor();
   await assertAnswerFreePreview(page);
   await page.getByRole("link", { name: "Return to assessment", exact: true }).click();
-  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("link", { name: "Assessment Properties Editor", exact: true }).click();
   await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
 
   await page.getByRole("button", { name: "Check release readiness", exact: true }).click();
@@ -332,13 +316,32 @@ try {
   await page
     .getByRole("heading", { name: "Danger Zone: Unrelease assessment", exact: true })
     .waitFor();
-  await ribbonTasks.locator('[data-ribbon-control="assessmentOverview"]').click();
+  await assessmentBreadcrumb.getByRole("link", { name: assessmentTitle, exact: true }).click();
   await page.getByRole("heading", { name: assessmentTitle, exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assessmentOverview", "Overview");
-  const ribbonTabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
-  await ribbonTabs.locator('[data-ribbon-control="assessments"]').click();
+  await assessmentBreadcrumb.getByRole("link", { name: courseLongName, exact: true }).click();
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTabs, "assessments", "Course Assessments");
+  const courseActions = page.getByRole("navigation", { name: "Course actions", exact: true });
+  await courseActions.getByRole("link", { name: "Gradebook", exact: true }).click();
+  await page.getByRole("heading", { name: "Gradebook", exact: true }).waitFor();
+  const gradebookBreadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
+  await gradebookBreadcrumb.getByRole("link", { name: courseLongName, exact: true }).click();
+  await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
+  await page
+    .getByRole("navigation", { name: "Course actions", exact: true })
+    .getByRole("link", { name: "Open Students", exact: true })
+    .click();
+  await page.locator('[data-route-surface="courseRoster"]').waitFor();
+  const rosterBreadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
+  await rosterBreadcrumb.getByRole("link", { name: courseLongName, exact: true }).click();
+  await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
+  await page
+    .getByRole("navigation", { name: "Course actions", exact: true })
+    .getByRole("link", { name: "Appearance", exact: true })
+    .click();
+  await page.locator('[data-route-surface="courseAppearance"]').waitFor();
+  const appearanceBreadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
+  await appearanceBreadcrumb.getByRole("link", { name: courseLongName, exact: true }).click();
+  await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
   for (const unsupportedPath of [
     `/instructor/courses/${courseInstanceId}/grade-settings`,
     `/instructor/courses/${courseInstanceId}/teaching-operations`,

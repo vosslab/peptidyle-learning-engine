@@ -114,7 +114,12 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByText("screenshot-pending", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_roster_pending_invitation", session);
     await session.page
-      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+      .getByRole("navigation", { name: "Breadcrumb", exact: true })
+      .getByRole("link", { name: COURSE_TITLE, exact: true })
+      .click();
+    await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
+    await session.page
+      .getByRole("navigation", { name: "Course actions", exact: true })
       .getByRole("link", { name: "Gradebook", exact: true })
       .click();
     await session.page.locator('[data-route-surface="gradebook"]').waitFor();
