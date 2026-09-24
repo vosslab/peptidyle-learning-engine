@@ -161,6 +161,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     routeData: CourseThemeRouteData | undefined,
     assessmentTitle: string | undefined,
     currentCourseInstanceId: string | undefined,
+    activeAttemptId: string | undefined,
   ): RibbonModel | undefined {
     const currentPathname = pathname();
     if (isPublicAccountRoute(currentPathname)) return undefined;
@@ -176,7 +177,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     const params = ribbonParamsFor(route, currentPathname, routeData);
     if (params === undefined) return undefined;
     return deriveRibbonModel(
-      { route, params, currentCourseInstanceId },
+      { route, params, currentCourseInstanceId, activeAttemptId },
       { productRole: state.session.account.productRole },
       ribbonLabelsFor(routeData, assessmentTitle),
     );

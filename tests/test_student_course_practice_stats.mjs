@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeStudentCoursePracticeStats } from "../src/api/decoders/student_course_practice_stats.ts";
-import { createStudentCoursePracticeStatsClient } from "../src/api/http_client/student_course_practice_stats.ts";
+import { decodeStudentCourseResponseStats } from "../src/api/decoders/student_course_practice_stats.ts";
+import { createStudentCourseResponseStatsClient } from "../src/api/http_client/student_course_practice_stats.ts";
 
 const first = {
   publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },
@@ -18,13 +18,13 @@ const first = {
   relevantAssessmentAttemptId: "00000000-0000-0000-0000-000000000002",
 };
 
-test("Practice Stats accepts exact revisions, disclosed counts, and ranked results", () => {
-  assert.deepEqual(decodeStudentCoursePracticeStats({ questions: [first] }), {
+test("Response Stats accepts exact revisions, disclosed counts, and ranked results", () => {
+  assert.deepEqual(decodeStudentCourseResponseStats({ questions: [first] }), {
     questions: [first],
   });
 });
 
-test("Practice Stats rejects hidden fields and inconsistent or unranked counts", () => {
+test("Response Stats rejects hidden fields and inconsistent or unranked counts", () => {
   for (const candidate of [
     { ...first, correctAnswer: "hidden" },
     { ...first, timeZone: "America/Chicago" },
@@ -38,10 +38,10 @@ test("Practice Stats rejects hidden fields and inconsistent or unranked counts",
       publishedQuestionRevisionTuple: { publishedQuestionId: "invalid", revisionNumber: 2 },
     },
   ]) {
-    assert.throws(() => decodeStudentCoursePracticeStats({ questions: [candidate] }), DecodeError);
+    assert.throws(() => decodeStudentCourseResponseStats({ questions: [candidate] }), DecodeError);
   }
   assert.deepEqual(
-    decodeStudentCoursePracticeStats({
+    decodeStudentCourseResponseStats({
       questions: [
         {
           ...first,
@@ -54,7 +54,7 @@ test("Practice Stats rejects hidden fields and inconsistent or unranked counts",
   );
   assert.throws(
     () =>
-      decodeStudentCoursePracticeStats({
+      decodeStudentCourseResponseStats({
         questions: [
           first,
           {
@@ -72,20 +72,20 @@ test("Practice Stats rejects hidden fields and inconsistent or unranked counts",
   );
 });
 
-test("Practice Stats client uses the exact Course endpoint and requires no-store", async () => {
+test("Response Stats client uses the exact Course endpoint and requires no-store", async () => {
   const calls = [];
-  const client = createStudentCoursePracticeStatsClient(async (input, init) => {
+  const client = createStudentCourseResponseStatsClient(async (input, init) => {
     calls.push([String(input), init]);
     return new Response(JSON.stringify({ questions: [first] }), {
       status: 200,
       headers: { "content-type": "application/json", "cache-control": "no-store" },
     });
   }, "");
-  assert.deepEqual(await client.getStudentCoursePracticeStats("CI6F2R8TA0"), {
+  assert.deepEqual(await client.getStudentCourseResponseStats("CI6F2R8TA0"), {
     questions: [first],
   });
-  assert.match(calls[0][0], /\/api\/student\/course-instances\/CI6F2R8TA0\/practice-stats$/u);
-  const cacheCheckingClient = createStudentCoursePracticeStatsClient(
+  assert.match(calls[0][0], /\/api\/student\/course-instances\/CI6F2R8TA0\/response-stats$/u);
+  const cacheCheckingClient = createStudentCourseResponseStatsClient(
     async () =>
       new Response(JSON.stringify({ questions: [] }), {
         status: 200,
@@ -94,7 +94,7 @@ test("Practice Stats client uses the exact Course endpoint and requires no-store
     "",
   );
   await assert.rejects(
-    cacheCheckingClient.getStudentCoursePracticeStats("CI6F2R8TA0"),
+    cacheCheckingClient.getStudentCourseResponseStats("CI6F2R8TA0"),
     /no-store/u,
   );
 });

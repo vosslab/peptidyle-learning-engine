@@ -12,19 +12,21 @@ use axum::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use browser_api_contract::{
     student_assessment_decision::StudentAssessmentDecisionSummary,
+    student_course_active_attempt::StudentCourseActiveAttempt,
     student_course_attempt_history::{
         StudentCourseAttemptHistoryEntry, StudentCourseAttemptHistoryPage,
     },
     student_course_practice_stats::{
-        StudentCoursePracticeQuestionStats, StudentCoursePracticeStats,
+        StudentCourseResponseQuestionStats, StudentCourseResponseStats,
     },
     student_course_progress::{AssessmentPointScore, StudentCourseProgressAssessment},
 };
 use learning_data_access::{
     Cursor, LiveStudentCourseAttemptHistoryEntry as StoreAttemptHistoryEntry,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
-    LiveStudentCoursePracticeQuestionStats as StorePracticeQuestionStats,
-    LiveStudentCourseProgressAssessment, PageRequest, PageSize, SessionTokenHash, StoreError,
+    LiveStudentCourseProgressAssessment,
+    LiveStudentCourseResponseQuestionStats as StorePracticeQuestionStats, PageRequest, PageSize,
+    SessionTokenHash, StoreError,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
@@ -61,12 +63,16 @@ pub fn live_student_course_landing_router(
             get(list_course_progress),
         )
         .route(
+            "/api/student/course-instances/{course_instance_id}/active-attempt",
+            get(read_course_active_attempt),
+        )
+        .route(
             "/api/student/course-instances/{course_instance_id}/assessment-attempts",
             get(list_course_attempt_history),
         )
         .route(
-            "/api/student/course-instances/{course_instance_id}/practice-stats",
-            get(list_course_practice_stats),
+            "/api/student/course-instances/{course_instance_id}/response-stats",
+            get(list_course_response_stats),
         )
         .with_state(RouteState { sessions, landing })
 }
@@ -310,6 +316,34 @@ async fn list_course_progress(
     }
 }
 
+async fn read_course_active_attempt(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+) -> Response {
+    let course = match CourseInstanceId::from_str(&course) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let session_hash = match student_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .landing
+        .get_live_student_course_active_attempt(session_hash, course)
+        .await
+    {
+        Ok(active_attempt) => crate::auth::no_store(
+            Json(StudentCourseActiveAttempt {
+                assessment_attempt_id: active_attempt.map(|attempt| attempt.assessment_attempt_id),
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
 async fn list_course_attempt_history(
     State(state): State<RouteState>,
     headers: HeaderMap,
@@ -373,7 +407,7 @@ async fn list_course_attempt_history(
     }
 }
 
-async fn list_course_practice_stats(
+async fn list_course_response_stats(
     State(state): State<RouteState>,
     headers: HeaderMap,
     Path(course): Path<String>,
@@ -388,12 +422,12 @@ async fn list_course_practice_stats(
     };
     match state
         .landing
-        .list_live_student_course_practice_stats(session_hash, course)
+        .list_live_student_course_response_stats(session_hash, course)
         .await
     {
         Ok(questions) => crate::auth::no_store(
-            Json(StudentCoursePracticeStats {
-                questions: questions.into_iter().map(practice_question_stats).collect(),
+            Json(StudentCourseResponseStats {
+                questions: questions.into_iter().map(response_question_stats).collect(),
             })
             .into_response(),
         ),
@@ -401,10 +435,10 @@ async fn list_course_practice_stats(
     }
 }
 
-fn practice_question_stats(
+fn response_question_stats(
     stats: StorePracticeQuestionStats,
-) -> StudentCoursePracticeQuestionStats {
-    StudentCoursePracticeQuestionStats {
+) -> StudentCourseResponseQuestionStats {
+    StudentCourseResponseQuestionStats {
         published_question_revision_tuple: stats.published_question_revision_tuple,
         full_credit_attempt_count: stats.full_credit_attempt_count,
         partial_credit_attempt_count: stats.partial_credit_attempt_count,

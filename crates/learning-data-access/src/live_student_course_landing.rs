@@ -115,10 +115,16 @@ pub struct LiveStudentCourseAttemptHistoryEntry {
     pub assessment_score: Option<LiveAssessmentGradeContribution>,
 }
 
+/// The latest eligible resumable Attempt for the signed-in Student in a Course.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LiveStudentCourseActiveAttempt {
+    pub assessment_attempt_id: AssessmentAttemptId,
+}
+
 /// One exact immutable Published Question Revision's disclosed self-only outcomes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveStudentCoursePracticeQuestionStats {
+pub struct LiveStudentCourseResponseQuestionStats {
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub full_credit_attempt_count: u64,
     pub partial_credit_attempt_count: u64,
@@ -169,6 +175,13 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<LiveStudentCourseProgressAssessment>, StoreError>;
 
+    /// Selects the latest active resumable Attempt after Course membership authorization.
+    async fn get_live_student_course_active_attempt(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+    ) -> Result<Option<LiveStudentCourseActiveAttempt>, StoreError>;
+
     /// Lists the authenticated Student's Course Attempts by bounded keyset pages.
     async fn list_live_student_course_attempt_history(
         &self,
@@ -178,9 +191,9 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
     ) -> Result<crate::Page<LiveStudentCourseAttemptHistoryEntry>, StoreError>;
 
     /// Lists only the current Student's Course-scoped disclosed Question outcomes.
-    async fn list_live_student_course_practice_stats(
+    async fn list_live_student_course_response_stats(
         &self,
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-    ) -> Result<Vec<LiveStudentCoursePracticeQuestionStats>, StoreError>;
+    ) -> Result<Vec<LiveStudentCourseResponseQuestionStats>, StoreError>;
 }

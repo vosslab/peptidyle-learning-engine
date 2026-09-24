@@ -42,7 +42,7 @@ import {
 import { StudentCourseGradesPage } from "./pages/student_course_grades_page";
 import { StudentCourseProgressPage } from "./pages/student_course_progress_page";
 import { StudentCourseAttemptHistoryPage } from "./pages/student_course_attempt_history_page";
-import { StudentCoursePracticeStatsPage } from "./pages/student_course_practice_stats_page";
+import { StudentCourseResponseStatsPage } from "./pages/student_course_practice_stats_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { ContentDisciplinesPage } from "./pages/content_disciplines_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
@@ -75,7 +75,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
   studentCourseProgress: StudentCourseProgressPage,
-  studentCoursePracticeStats: StudentCoursePracticeStatsPage,
+  studentCourseResponseStats: StudentCourseResponseStatsPage,
   studentCourseDueSoon: StudentCourseDueSoonPage,
   studentCourseCompleted: StudentCourseCompletedPage,
   studentCourseAttemptHistory: StudentCourseAttemptHistoryPage,

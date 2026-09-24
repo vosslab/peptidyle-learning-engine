@@ -26,7 +26,7 @@ import { createInstructorAccountClient } from "./http_client/instructor_account"
 import { createCourseGradebookClient } from "./http_client/live_gradebook";
 import { createLiveStudentCourseLandingClient } from "./http_client/live_student_course_landing";
 import { createStudentCourseAttemptHistoryClient } from "./http_client/student_course_attempt_history";
-import { createStudentCoursePracticeStatsClient } from "./http_client/student_course_practice_stats";
+import { createStudentCourseResponseStatsClient } from "./http_client/student_course_practice_stats";
 import { createStudentQuestionDisplayDurationClient } from "./http_client/student_question_display_duration";
 import { createQuestionAvailabilityClient } from "./http_client/question_availability";
 import { createQuestionWatchClient } from "./http_client/question_watch";
@@ -84,7 +84,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createCourseGradebookClient(fetchImplementation, basePath),
     createLiveStudentCourseLandingClient(fetchImplementation, basePath),
     createStudentCourseAttemptHistoryClient(fetchImplementation, basePath),
-    createStudentCoursePracticeStatsClient(fetchImplementation, basePath),
+    createStudentCourseResponseStatsClient(fetchImplementation, basePath),
     createStudentQuestionDisplayDurationClient(fetchImplementation, basePath),
     createQuestionAvailabilityClient(fetchImplementation, basePath),
     createQuestionWatchClient(fetchImplementation, basePath),

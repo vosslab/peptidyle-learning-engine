@@ -225,7 +225,6 @@ export const M6_RIBBON_FIXTURES = {
     [
       area("studentCourses", "Courses", [
         control("studentProgress", { available: false }),
-        control("studentPracticeStats", { available: false }),
       ]),
     ],
     "reading",
@@ -270,6 +269,7 @@ export const M6_RIBBON_FIXTURES = {
         control("allCoursework", { selected: true }),
         control("dueSoon"),
         control("completedCoursework"),
+        control("activeAttempt", { available: false }),
       ]),
     ],
     "reading",
@@ -319,6 +319,7 @@ export const M6_RIBBON_FIXTURES = {
         control("allCoursework"),
         control("dueSoon"),
         control("completedCoursework"),
+        control("activeAttempt", { available: false }),
       ]),
     ],
     "reading",

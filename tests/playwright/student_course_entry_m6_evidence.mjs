@@ -70,14 +70,14 @@ try {
   await page.waitForFunction(
     () =>
       document.querySelector("[data-m6-location]")?.textContent ===
-      "/student/courses/CI7K3M2QAZ/progress",
+      "/student/courses/CI7K3M2QAZ",
   );
 
   await page.goto(`${origin}?mode=choose`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open Progress", exact: true }).waitFor({
+  await page.getByRole("link", { name: "Open Coursework", exact: true }).waitFor({
     state: "visible",
   });
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student?choose=1");
@@ -86,7 +86,7 @@ try {
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open Progress", exact: true }).first().waitFor({
+  await page.getByRole("link", { name: "Open Coursework", exact: true }).first().waitFor({
     state: "visible",
   });
   assert.equal(await page.getByRole("article").count(), 2);

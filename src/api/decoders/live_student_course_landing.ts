@@ -5,6 +5,7 @@ import type {
   AssessmentGradeContribution,
   LiveStudentCourseInvitationSummary,
   LiveStudentCourseLandingSummary,
+  StudentCourseActiveAttempt,
   StudentCourseProgressAssessment,
 } from "../live_student_course_landing";
 import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
@@ -31,6 +32,7 @@ import {
 } from "./shared";
 import { decodeStudentAssessmentDecision } from "./student_assessment_decision";
 import { decodeCourseTerm } from "./course_term";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 
 const ASSESSMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
@@ -310,4 +312,24 @@ export function decodeStudentCourseProgress(
     `${path}.assessments`,
     decodeProgressAssessment,
   );
+}
+
+/** Rejects values outside the safe fixed Coursework Active Attempt shortcut projection. */
+export function decodeStudentCourseActiveAttempt(
+  value: unknown,
+  path = "response",
+): StudentCourseActiveAttempt {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["assessmentAttemptId"]);
+  const rawAttemptId = decodeNullable(
+    field(record, "assessmentAttemptId", path),
+    `${path}.assessmentAttemptId`,
+    decodeString,
+  );
+  const assessmentAttemptId =
+    rawAttemptId === null ? null : parseAssessmentAttemptId(rawAttemptId);
+  if (rawAttemptId !== null && assessmentAttemptId === null) {
+    throw new DecodeError(`${path}.assessmentAttemptId`, "a canonical Assessment Attempt UUID");
+  }
+  return { assessmentAttemptId };
 }

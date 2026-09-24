@@ -40,7 +40,10 @@ CREATE FUNCTION ple_private.read_student_released_assessment_landing_evidence(
     saved_question_count bigint,
     question_count bigint,
     assessment_score_points_earned double precision,
-    assessment_score_points_possible double precision
+    assessment_score_points_possible double precision,
+    resumable_assessment_attempt_id uuid,
+    resumable_assessment_attempt_started_at timestamptz,
+    resumable_latest_activity_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
     -- ASVS 2.3.1: direct internal callers receive the same archive exclusion
@@ -141,7 +144,10 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                          assessment_score_submission.submitted_at,
                          score_policy.due_at, score_policy.closes_at, p_now
                      )
-                THEN grade_evidence.points_possible ELSE NULL END
+                THEN grade_evidence.points_possible ELSE NULL END,
+           resumable.assessment_attempt_id,
+           resumable.started_at,
+           resumable.latest_activity_at
       FROM released_assessment AS assessment
       LEFT JOIN ple_private.student_assessment_accommodation AS accommodation
         ON accommodation.student_record_id = p_student_record_id
@@ -233,9 +239,23 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
           ) AS start_decision
       ) AS decision ON true
       LEFT JOIN LATERAL (
-          SELECT true
-                     AS can_resume_assessment_attempt
+          SELECT true AS can_resume_assessment_attempt,
+                 candidate.assessment_attempt_id,
+                 candidate.started_at,
+                 coalesce(candidate_activity.latest_saved_at, candidate.started_at)
+                     AS latest_activity_at
             FROM ple_private.assessment_attempt AS candidate
+            LEFT JOIN LATERAL (
+                SELECT max(saved.saved_at) AS latest_saved_at
+                  FROM ple_private.issued_question AS issued
+                  JOIN ple_private.question_attempt AS question_attempt
+                    ON question_attempt.course_instance_id = issued.course_instance_id
+                   AND question_attempt.issued_question_id = issued.issued_question_id
+                  JOIN ple_private.assessment_attempt_saved_response AS saved
+                    ON saved.course_instance_id = question_attempt.course_instance_id
+                   AND saved.question_attempt_id = question_attempt.question_attempt_id
+                 WHERE issued.assessment_attempt_id = candidate.assessment_attempt_id
+            ) AS candidate_activity ON true
            WHERE candidate.student_record_id = p_student_record_id
              AND candidate.assessment_id = assessment.assessment_id
              AND NOT EXISTS (
@@ -244,7 +264,9 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                   WHERE candidate_submission.assessment_attempt_id = candidate.assessment_attempt_id
              )
              AND (candidate.expires_at IS NULL OR candidate.expires_at > p_now)
-           ORDER BY candidate.assessment_attempt_number DESC
+           ORDER BY coalesce(candidate_activity.latest_saved_at, candidate.started_at) DESC,
+                    candidate.started_at DESC,
+                    candidate.assessment_attempt_id DESC
            LIMIT 1
       ) AS resumable
         ON decision.start_decision NOT IN ('closed', 'not_yet_available')
@@ -336,7 +358,10 @@ CREATE FUNCTION ple_api.list_released_live_student_assessments(
     saved_question_count bigint,
     question_count bigint,
     assessment_score_points_earned double precision,
-    assessment_score_points_possible double precision
+    assessment_score_points_possible double precision,
+    resumable_assessment_attempt_id uuid,
+    resumable_assessment_attempt_started_at timestamptz,
+    resumable_latest_activity_at timestamptz
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -386,11 +411,30 @@ BEGIN
            evidence.can_resume_assessment_attempt, evidence.graded_question_count,
            evidence.saved_question_count, evidence.question_count,
            evidence.assessment_score_points_earned,
-           evidence.assessment_score_points_possible
+           evidence.assessment_score_points_possible,
+           evidence.resumable_assessment_attempt_id,
+           evidence.resumable_assessment_attempt_started_at,
+           evidence.resumable_latest_activity_at
       FROM ple_private.read_student_released_assessment_landing_evidence(
           course_instance_id_value, student_record_id_value, evaluation_time
       ) AS evidence;
 END
+$$;
+
+-- Coursework's fixed Active Attempt shortcut chooses the latest eligible
+-- resumable Attempt across the authenticated Student's active Course.
+CREATE FUNCTION ple_api.read_student_course_active_attempt(
+    p_course_instance_id text
+) RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api AS $$
+    SELECT assessment.resumable_assessment_attempt_id
+      FROM ple_api.list_released_live_student_assessments(p_course_instance_id) AS assessment
+     WHERE assessment.can_resume_assessment_attempt
+       AND assessment.resumable_assessment_attempt_id IS NOT NULL
+     ORDER BY assessment.resumable_latest_activity_at DESC,
+              assessment.resumable_assessment_attempt_started_at DESC,
+              assessment.resumable_assessment_attempt_id DESC
+     LIMIT 1
 $$;
 
 -- Course-scoped Progress reuses the exact released Assessment, score disclosure,

@@ -165,11 +165,11 @@ human review.
 | --- | --- | --- |
 | [![Screenshot preview of Student Course Progress](screenshots/student/laptop/course_progress.png)](screenshots/student/laptop/course_progress.png)<br>Student Course Progress<br>completed Attempts and score status - laptop<br>Featured | [![Screenshot preview of Student Progress when an Attempt has no released score](screenshots/student/laptop/course_progress_unreleased.png)](screenshots/student/laptop/course_progress_unreleased.png)<br>Student Progress when an Attempt has no released score<br>Attempts with no released score - laptop |  |
 
-#### Practice Stats
+#### Response Stats
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Student Practice Stats](screenshots/student/laptop/practice_stats.png)](screenshots/student/laptop/practice_stats.png)<br>Student Practice Stats<br>released Question outcomes and measured duration - laptop |  |  |
+| [![Screenshot preview of Student Response Stats](screenshots/student/laptop/response_stats.png)](screenshots/student/laptop/response_stats.png)<br>Student Response Stats<br>released Question outcomes and measured duration - laptop |  |  |
 
 #### Seeded Assignment Progress
 
@@ -301,7 +301,7 @@ human review.
 | studentCourseInvitation | captured | student_invitation_detail_laptop, student_invitation_detail_tablet, student_invitation_detail_phone, student_invitation_detail_square |
 | studentCourseLanding | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
 | studentCourseProgress | captured | student_course_progress_laptop, student_course_progress_unreleased_laptop |
-| studentCoursePracticeStats | captured | student_practice_stats_laptop |
+| studentCourseResponseStats | captured | student_response_stats_laptop |
 | studentCourseDueSoon | captured | student_course_due_soon_laptop |
 | studentCourseCompleted | captured | student_course_completed_laptop |
 | studentCourseGrades | captured | student_course_grades_laptop, student_course_grades_tablet, student_course_grades_phone, student_course_grades_square |
@@ -362,7 +362,7 @@ human review.
 | task:blueprintUpdates | deferred | Blueprint Updates has no declared route, page, client method, or registered handler. |
 | task:courseSetup | deferred | Course Setup is a future destination identity, not a declared usable path. |
 | task:studentProgress | captured | student_course_progress_laptop, student_course_progress_unreleased_laptop |
-| task:studentPracticeStats | captured | student_practice_stats_laptop |
+| task:studentResponseStats | captured | student_response_stats_laptop |
 | task:allCoursework | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
 | task:dueSoon | captured | student_course_due_soon_laptop |
 | task:completedCoursework | captured | student_course_completed_laptop |

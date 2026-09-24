@@ -234,9 +234,10 @@ pub use library_watch_notification::{
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
     LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
-    LiveStudentCourseAttemptHistoryEntry, LiveStudentCourseInvitationSummary,
-    LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
-    LiveStudentCoursePracticeQuestionStats, LiveStudentCourseProgressAssessment,
+    LiveStudentCourseActiveAttempt, LiveStudentCourseAttemptHistoryEntry,
+    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
+    LiveStudentCourseLandingSummary, LiveStudentCourseProgressAssessment,
+    LiveStudentCourseResponseQuestionStats,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,

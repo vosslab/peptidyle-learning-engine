@@ -4,6 +4,7 @@ import { A, useNavigate } from "@solidjs/router";
 import {
   createEffect,
   createMemo,
+  createResource,
   createSignal,
   ErrorBoundary,
   For,
@@ -21,6 +22,8 @@ import { CourseThemeVariables } from "./features/course_appearance/course_theme_
 import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
 import { RibbonAccountAvatar } from "./features/profile_avatar/ribbon_account_avatar";
 import { AppRibbon } from "./ribbon/app_ribbon";
+import { parseCourseInstanceId } from "./navigation/public_route";
+import { routeContractForPathname } from "./route_contract";
 import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
 import {
   RouteScopeProvider,
@@ -35,6 +38,7 @@ export interface ApplicationShellProps {
     routeData: CourseThemeRouteData | undefined,
     assessmentTitle: string | undefined,
     currentCourseInstanceId: string | undefined,
+    activeAttemptId: string | undefined,
   ) => RibbonModel | undefined;
   readonly content: (pathname: string) => JSX.Element;
 }
@@ -260,8 +264,38 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     const routeData = useRouteScopeData();
     const assessmentTitle = useAssessmentTitle();
     const currentCourseInstanceId = useCurrentCourseInstanceId();
+    const activeAttemptRequest = createMemo(() => {
+      const route = routeContractForPathname(props.pathname());
+      if (route?.requiredProductRoles.includes("student") !== true) return undefined;
+      const courseInstanceId = parseCourseInstanceId(currentCourseInstanceId() ?? "");
+      const pathname = props.pathname();
+      return courseInstanceId === null ? undefined : { courseInstanceId, pathname };
+    });
+    const [activeAttemptLookup] = createResource(activeAttemptRequest, async (request) => ({
+      courseInstanceId: request.courseInstanceId,
+      pathname: request.pathname,
+      response: await applicationApi.client.getStudentCourseActiveAttempt(request.courseInstanceId),
+    }));
+    const activeAttemptId = createMemo(() => {
+      const request = activeAttemptRequest();
+      const lookup = activeAttemptLookup();
+      if (
+        request === undefined ||
+        lookup === undefined ||
+        request.courseInstanceId !== lookup.courseInstanceId ||
+        request.pathname !== lookup.pathname
+      ) {
+        return undefined;
+      }
+      return lookup.response.assessmentAttemptId ?? undefined;
+    });
     const ribbonModel = createMemo(() =>
-      props.ribbonModel(routeData(), assessmentTitle(), currentCourseInstanceId()),
+      props.ribbonModel(
+        routeData(),
+        assessmentTitle(),
+        currentCourseInstanceId(),
+        activeAttemptId(),
+      ),
     );
     function ContentRegion(): JSX.Element {
       return (

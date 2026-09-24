@@ -57,7 +57,7 @@ import type { InstructorAccountClient } from "./instructor_account";
 import type { CourseGradebookClient } from "./live_gradebook";
 import type { LiveStudentCourseLandingClient } from "./live_student_course_landing";
 import type { StudentCourseAttemptHistoryClient } from "./student_course_attempt_history";
-import type { StudentCoursePracticeStatsClient } from "./student_course_practice_stats";
+import type { StudentCourseResponseStatsClient } from "./student_course_practice_stats";
 import type { StudentQuestionDisplayDurationClient } from "./student_question_display_duration";
 import type { QuestionAvailabilityClient } from "./question_availability";
 import type { QuestionWatchClient } from "./question_watch";
@@ -95,7 +95,7 @@ export interface ApiClient
     CourseGradebookClient,
     LiveStudentCourseLandingClient,
     StudentCourseAttemptHistoryClient,
-    StudentCoursePracticeStatsClient,
+    StudentCourseResponseStatsClient,
     StudentQuestionDisplayDurationClient,
     QuestionAvailabilityClient,
     QuestionWatchClient,

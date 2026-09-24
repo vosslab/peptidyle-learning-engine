@@ -1,8 +1,8 @@
--- Student-only Course Practice Stats from disclosed, exact-revision outcomes.
+-- Student-only Course Response Stats from disclosed, exact-revision outcomes.
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE FUNCTION ple_private.read_student_course_practice_stats(
+CREATE FUNCTION ple_private.read_student_course_response_stats(
     p_course_instance_id text,
     p_student_record_id uuid
 ) RETURNS TABLE (
@@ -122,7 +122,7 @@ $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.list_live_student_course_practice_stats(
+CREATE FUNCTION ple_api.list_live_student_course_response_stats(
     p_course_instance_id text
 ) RETURNS TABLE (
     published_question_id text,
@@ -176,7 +176,7 @@ BEGIN
            stats.disclosed_attempt_count, stats.not_full_credit_count,
            stats.average_display_duration_ms, stats.display_duration_sample_count,
            stats.relevant_assessment_attempt_id
-      FROM ple_private.read_student_course_practice_stats(
+      FROM ple_private.read_student_course_response_stats(
           p_course_instance_id, student_record_id_value
       ) AS stats;
 END

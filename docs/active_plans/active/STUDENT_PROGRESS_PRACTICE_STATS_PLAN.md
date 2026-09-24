@@ -1,19 +1,19 @@
-# Student Progress and Practice Stats
+# Student Progress and Response Stats
 
 ## Product contract
 
-The Student Tier 1 Ribbon remains **Courses | Coursework | Grades**. Tier 1 fixes the ordered
+The Student Tier 1 Ribbon is **Coursework | Grades | Courses**. Tier 1 fixes the ordered
 Tier 2 row; the selected Course supplies page content and destination context. Opening an
 Assessment, Attempt, or review never changes that row.
 
 | Tier 1 | Fixed Tier 2 |
 | --- | --- |
-| Courses | Progress, Practice Stats |
-| Coursework | All Coursework, Due Soon, Completed |
-| Grades | Scores, Attempt History |
+| Coursework | All Coursework, Due Soon, Completed, Active Attempt |
+| Grades | Scores, Response Stats, Attempt History, Latest Feedback |
+| Courses | Progress |
 
 Design for one active Course as the normal case and two as an occasional case. With one active
-Course, `/student` opens its Progress page. With multiple active Courses, `/student` opens the
+Course, `/student` opens its All Coursework page. With multiple active Courses, `/student` opens the
 existing Course chooser. Course-scoped Tier 2 labels and order stay visible without a selection;
 their links are unavailable until a Course is selected. Invitations stay in the Courses workflow.
 
@@ -24,11 +24,12 @@ activity information. It is not classified as below 100%, and it must not disapp
 Only a released, disclosed current or best score below 100% is classified as below 100%. A 100%
 score and a submitted Attempt are separate facts. Do not calculate a weighted Course grade.
 
-Practice Stats reports actual saved outcomes across eligible Assessment types in the Course; it is
-not limited to Practice Question Assignments. Group by exact immutable Published Question revision
-and show only outcomes permitted by the source Assessment's score and per-Question correctness
-disclosure rules. Do not expose another Student's work, cohort statistics, or unreleased correctness.
-Missing display-duration data is **Not recorded**, never zero or a whole-Assessment estimate.
+Response Stats reports actual saved outcomes across eligible Assessment types in the Course; it is
+not limited to Practice Question Assignments. It belongs under Grades because it describes how the
+Student responded. Group by exact immutable Published Question revision and show only outcomes
+permitted by the source Assessment's score and per-Question correctness disclosure rules. Do not
+expose another Student's work, cohort statistics, or unreleased correctness. Missing display-duration
+data is **Not recorded**, never zero or a whole-Assessment estimate.
 
 Due Soon reuses the existing Instructor rolling seven-day convention. Server time determines
 membership in the window; the Account time zone determines display, without an inline time-zone
@@ -38,7 +39,12 @@ does not mean a perfect score. Due Soon and Completed may overlap.
 
 Attempt History lists the signed-in Student's Attempts in the selected Course, newest first, with
 cursor pagination and links to the existing Attempt review. Attempt feedback remains on its
-Attempt review.
+Attempt review. Latest Feedback is a fixed Grades shortcut to the latest Attempt review with
+Student-visible feedback; it stays disabled when no such review is available.
+
+Active Attempt is a fixed Coursework shortcut. It stays disabled when no Attempt can be resumed.
+When one or more can be resumed, it opens the Attempt with the latest recorded activity. A tie uses
+Attempt start time and then Attempt ID; do not add a Course-wide Attempt chooser for this rare case.
 
 Question display duration means approximate **time shown with the Question**. Measure monotonic
 elapsed time only while the Question is current and the browser document is visible. Pause on
@@ -48,7 +54,8 @@ or effort and never affects grading.
 ## Scope and boundaries
 
 - Keep Instructor Tier 2 unchanged.
-- Add Course Progress, Practice Stats, Due Soon, Completed, and Course-wide Attempt History.
+- Add Course Progress, Response Stats, Due Soon, Completed, Active Attempt, and Course-wide Attempt
+  History.
 - Stabilize Student Tier 2 across Course, Assessment, Attempt, and review routes.
 - Reuse existing Assessment progress, score disclosure, Course authorization, and RecordList
   contracts where they fit.
@@ -64,9 +71,9 @@ or effort and never affects grading.
 
 **Packages:** M1a authorities; M1b plan supersession.
 
-Update Human Guidance, Design Decisions, Ribbon task model, this plan, and the changelog. Mark only
-the Student investigation in `fixed_tier_1_to_tier_2_ribbon_contract.md` as superseded; preserve its
-Instructor work. Record the unreleased-score state and the API/UI package boundaries in this plan.
+Update Design Decisions, Ribbon task model, this plan, and the changelog. Mark only the Student
+investigation in `fixed_tier_1_to_tier_2_ribbon_contract.md` as superseded; preserve its Instructor
+work. Record the unreleased-score state and the API/UI package boundaries in this plan.
 
 **Exit:** Product language defines all Tier 2 mappings, Course entry, completion, disclosure, Due
 Soon membership, and duration meaning.
@@ -75,10 +82,10 @@ Soon membership, and duration meaning.
 
 **Packages:** M2a route and catalog contract; M2b Course chooser and one-Course entry.
 
-Derive Student Tier 2 from Student Tier 1, not route task groups. Add Progress, Practice Stats, All
-Coursework, Due Soon, Completed, Scores, and Attempt History destinations. Preserve Course IDs in
-all scoped links. Keep the row labels and order stable when Course selection is absent. Keep
-Instructor behavior unchanged.
+Derive Student Tier 2 from Student Tier 1, not route task groups. Add Progress, All Coursework, Due
+Soon, Completed, Active Attempt, Scores, Response Stats, Attempt History, and Latest Feedback
+destinations. Preserve Course IDs in all scoped links. Keep the row labels and order stable when
+Course selection is absent. Keep Instructor behavior unchanged.
 
 **Exit:** Permanent contract coverage proves fixed labels/order across Student routes and Course
 changes, including Attempts and reviews. One-Course and two-Course entry work.
@@ -126,16 +133,16 @@ lifecycle state or available actions.
 **Exit:** Permanent coverage protects window boundaries and submitted completion; browser evidence
 confirms existing actions and statuses remain available.
 
-### M6 - Deliver outcome-based Practice Stats
+### M6 - Deliver outcome-based Response Stats
 
-**Packages:** M6a Practice Stats API and aggregation; M6b Practice Stats page.
+**Packages:** M6a Response Stats API and aggregation; M6b Response Stats page.
 
-M6a adds `GET /api/student/course-instances/{course_instance_id}/practice-stats`. Group by exact
+M6a adds `GET /api/student/course-instances/{course_instance_id}/response-stats`. Group by exact
 immutable Published Question revision. Return full-credit, partial-credit, incorrect, unanswered,
 disclosed-attempt, and not-full-credit counts only as allowed by each Assessment's disclosure
 policy. Rank by not-full-credit count and include visible numerator and denominator.
 
-M6b adds Courses -> Practice Stats, showing Course-scoped outcomes and a relevant existing Attempt
+M6b adds Grades -> Response Stats, showing Course-scoped outcomes and a relevant existing Attempt
 review link. It displays no cohort metrics or hidden correctness.
 
 **Exit:** API coverage proves self-only aggregation, exact-revision grouping, score disclosure, and
@@ -156,11 +163,11 @@ TypeScript types after Rust contracts are ready.
 
 ### M8 - Measure and show Question display duration
 
-**Packages:** M8a Attempt-page measurement; M8b Practice Stats duration aggregation and display.
+**Packages:** M8a Attempt-page measurement; M8b Response Stats duration aggregation and display.
 
 Measure monotonic elapsed milliseconds while a Question is current and the document is visible.
 Pause on Question change, hidden document, leaving the Attempt, and submission. Resume from the
-saved cumulative value. Checkpoint periodically and at transitions and submission. Practice Stats
+saved cumulative value. Checkpoint periodically and at transitions and submission. Response Stats
 reports average measured duration and sample count per Question, labelled approximate **time shown
 with the Question**.
 
@@ -172,13 +179,13 @@ Values and sample counts are plausible. No claim about attention, effort, or dif
 **Packages:** M9a screenshot scenarios and publication; M9b contract/schema docs; M9c repository
 gates and cleanup.
 
-Capture populated Progress, Practice Stats, a two-Course chooser, and Attempt History with 40
+Capture populated Progress, Response Stats, a two-Course chooser, and Attempt History with 40
 Attempts and a selected review. Retain representative question formats and meaningful response and
 review states without building a full format/state/viewport matrix. Publish with the canonical
 screenshot workflow and inspect scenario definitions, manifest, receipt, atlas, and native PNGs.
 
-Update Human Guidance, Design Decisions, API contracts, generated schema docs, Ribbon task model,
-design guide, and `docs/CHANGELOG.md`. Regenerate disposable development/test schemas and generated
+Update Design Decisions, API contracts, generated schema docs, Ribbon task model, design guide, and
+`docs/CHANGELOG.md`. Keep Human Guidance unchanged. Regenerate disposable development/test schemas and generated
 TypeScript contracts through repository workflows.
 
 **Exit:** Screenshot artifacts are current and visually inspected; responsive layouts are checked;

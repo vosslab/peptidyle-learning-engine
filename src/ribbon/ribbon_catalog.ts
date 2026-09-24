@@ -88,10 +88,11 @@ export type RibbonTaskId =
   | "blueprintUpdates"
   | "courseSetup"
   | "studentProgress"
-  | "studentPracticeStats"
+  | "studentResponseStats"
   | "allCoursework"
   | "dueSoon"
   | "completedCoursework"
+  | "activeAttempt"
   | "studentScores"
   | "studentAttemptHistory"
   | "assessmentOverview"
@@ -442,18 +443,6 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "studentPracticeStats",
-    label: "Practice Stats",
-    destination: { kind: "route", routeId: "studentCoursePracticeStats" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentCourses",
-    area: "studentCourses",
-    role: "supporting",
-    priority: "normal",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
     id: "allCoursework",
     label: "All Coursework",
     destination: { kind: "route", routeId: "studentCourseLanding" },
@@ -490,6 +479,18 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
+    id: "activeAttempt",
+    label: "Active Attempt",
+    destination: { kind: "route", routeId: "assessmentAttempt" },
+    requiredParams: ["assessmentAttemptId"],
+    taskGroup: "studentCoursework",
+    area: "studentCoursework",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
     id: "studentScores",
     label: "Scores",
     destination: { kind: "route", routeId: "studentCourseGrades" },
@@ -498,6 +499,18 @@ export const RIBBON_TASK_CATALOG = [
     area: "studentGrades",
     role: "primary",
     priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "studentResponseStats",
+    label: "Response Stats",
+    destination: { kind: "route", routeId: "studentCourseResponseStats" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentGrades",
+    area: "studentGrades",
+    role: "supporting",
+    priority: "normal",
     presentation: "standard",
     ...pairedIconFlags,
   },

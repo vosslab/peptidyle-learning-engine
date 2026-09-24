@@ -251,16 +251,28 @@ const CAPABILITY_DECLARATIONS = {
       "src/pages/student_course_progress_page.tsx::StudentCourseProgressPage",
     ],
   },
-  studentPracticeStats: {
+  studentResponseStats: {
     kind: "backed",
-    clientMethod: "ApiClient.getStudentCoursePracticeStats",
+    clientMethod: "ApiClient.getStudentCourseResponseStats",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/live_student_course_landing.rs::list_course_practice_stats",
+      handler: "crates/server/src/live_student_course_landing.rs::list_course_response_stats",
     },
     evidence: [
-      "crates/server/src/live_student_course_landing.rs::list_course_practice_stats",
-      "src/pages/student_course_practice_stats_page.tsx::StudentCoursePracticeStatsPage",
+      "crates/server/src/live_student_course_landing.rs::list_course_response_stats",
+      "src/pages/student_course_practice_stats_page.tsx::StudentCourseResponseStatsPage",
+    ],
+  },
+  activeAttempt: {
+    kind: "backed",
+    clientMethod: "ApiClient.getStudentCourseActiveAttempt",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/live_student_course_landing.rs::read_course_active_attempt",
+    },
+    evidence: [
+      "crates/server/src/live_student_course_landing.rs::read_course_active_attempt",
+      "src/application_shell.tsx::Active Attempt Ribbon availability",
     ],
   },
   allCoursework: {

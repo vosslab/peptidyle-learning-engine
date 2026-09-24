@@ -8,12 +8,26 @@
 
 ## 2026-09-24
 
+### Product Direction
+
+- Updated the Student Tier 2 working grouping after Neil placed Practice Stats with Grades and
+  requested an Active Attempt shortcut under Coursework. The Courses Tier 2 row remains open to an
+  additional overview destination.
+- Recorded the Active Attempt selection evidence: only resumable Attempts qualify, and the shortcut
+  uses the Course Attempt with the latest recorded activity without adding a Course-wide chooser.
+- Moved Response Stats under Grades in the route and Ribbon contracts, matching its role as an
+  outcome summary. Recorded the current Student Tier 2 grouping in Design Decisions.
+- Ordered the Student Tier 1 row as Coursework, Grades, Courses. A Student with one active Course
+  now opens All Coursework directly; a Student with multiple active Courses still chooses a Course.
+- Added a Course-authorized Active Attempt read that chooses the most recently active resumable
+  Attempt and drives the always-present Coursework shortcut's disabled/enabled state.
+
 ### Fixes and Maintenance
 
 - Let Students move between Questions or submit an Attempt without resending an already saved
   response; navigation and submission still save edited responses.
 - Updated representative Question-format captures to open All Coursework after Student Course entry
-  now opens Progress by default.
+  changed to match the Student's primary destination.
 - Captured the two-Course chooser at each Student viewport through its explicit chooser route and
   tightened the Progress, Practice Stats, and Course History list captures to self-only privacy
   profiles; selected Attempt review retains the released-feedback profile.

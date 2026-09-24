@@ -1,4 +1,4 @@
-// Student Course Progress, Coursework views, Practice Stats, and Attempt History captures.
+// Student Course Progress, Coursework views, Response Stats, and Attempt History captures.
 
 import type { Locator, Page } from "playwright";
 
@@ -183,11 +183,11 @@ async function studentProgressAndStats(runtime: ScenarioRuntime): Promise<void> 
     await openStudentCourse(page);
     await page.locator('[data-route-surface="studentCourseProgress"]').waitFor();
 
-    await page.getByRole("link", { name: "Practice Stats", exact: true }).click();
-    await page.locator('[data-route-surface="studentCoursePracticeStats"]').waitFor();
-    await page.getByText("Loading Practice Stats...", { exact: true }).waitFor({ state: "hidden" });
-    await page.locator(".student-course-practice-stats__row").first().waitFor();
-    await captureCheckpoint(runtime, "practice_stats_laptop", session);
+    await page.getByRole("link", { name: "Response Stats", exact: true }).click();
+    await page.locator('[data-route-surface="studentCourseResponseStats"]').waitFor();
+    await page.getByText("Loading Response Stats...", { exact: true }).waitFor({ state: "hidden" });
+    await page.locator(".student-course-response-stats__row").first().waitFor();
+    await captureCheckpoint(runtime, "response_stats_laptop", session);
   } finally {
     await runtime.close(session);
   }
@@ -246,9 +246,9 @@ async function studentCourseAttemptHistory(runtime: ScenarioRuntime): Promise<vo
       .getByRole("link", { name: "Courses", exact: true })
       .click();
     await openStudentCourse(page);
-    await page.getByRole("link", { name: "Practice Stats", exact: true }).click();
-    await page.locator('[data-route-surface="studentCoursePracticeStats"]').waitFor();
-    await page.getByText("Loading Practice Stats...", { exact: true }).waitFor({ state: "hidden" });
+    await page.getByRole("link", { name: "Response Stats", exact: true }).click();
+    await page.locator('[data-route-surface="studentCourseResponseStats"]').waitFor();
+    await page.getByText("Loading Response Stats...", { exact: true }).waitFor({ state: "hidden" });
     const historyResponsePromise = page.waitForResponse((response) => {
       return (
         new URL(response.url()).pathname.endsWith("/assessment-attempts") &&
@@ -263,7 +263,7 @@ async function studentCourseAttemptHistory(runtime: ScenarioRuntime): Promise<vo
     submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
     if (submittedAttemptCount < 40) {
       throw new Error(
-        `Course History lost submitted Attempts after navigating through Practice Stats; ` +
+        `Course History lost submitted Attempts after navigating through Response Stats; ` +
           `found ${submittedAttemptCount}. API returned ${historyPayload.items?.length ?? "no items field"} items ` +
           `(${historyResponse.status()}) with Attempt numbers ${historyPayload.items?.map((item) => item.assessmentAttemptNumber).join(", ") ?? "unavailable"}. ` +
           `URL: ${page.url()}; history text: ${await page.locator(".student-course-attempt-history").innerText()}`,
@@ -324,13 +324,13 @@ export const STUDENT_PROGRESS_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Student Completed Coursework",
       },
       {
-        checkpoint: "practice_stats_laptop",
+        checkpoint: "response_stats_laptop",
         area: "courses",
-        workflow: "Practice Stats",
+        workflow: "Response Stats",
         state: "released Question outcomes and measured duration",
         viewport: "laptop",
         privacyProfile: "student_self",
-        caption: "Student Practice Stats",
+        caption: "Student Response Stats",
       },
       {
         checkpoint: "course_attempt_history_laptop",

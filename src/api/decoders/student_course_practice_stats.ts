@@ -1,6 +1,6 @@
-// Strict decoder for self-only Course Practice Stats.
+// Strict decoder for self-only Course Response Stats.
 
-import type { StudentCoursePracticeStats } from "../student_course_practice_stats";
+import type { StudentCourseResponseStats } from "../student_course_practice_stats";
 import {
   DecodeError,
   decodeArray,
@@ -16,7 +16,7 @@ import { field, requireOnlyFields } from "./shared";
 function questionStats(
   value: unknown,
   path: string,
-): StudentCoursePracticeStats["questions"][number] {
+): StudentCourseResponseStats["questions"][number] {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "publishedQuestionRevisionTuple",
@@ -112,7 +112,7 @@ function questionStats(
     displayDurationSampleCount > disclosedAttemptCount ||
     (displayDurationSampleCount === 0) !== (averageDisplayDurationMs === null)
   ) {
-    throw new DecodeError(path, "consistent disclosed Practice Stats counts");
+    throw new DecodeError(path, "consistent disclosed Response Stats counts");
   }
   return {
     publishedQuestionRevisionTuple: { publishedQuestionId, revisionNumber },
@@ -128,10 +128,10 @@ function questionStats(
   };
 }
 
-export function decodeStudentCoursePracticeStats(
+export function decodeStudentCourseResponseStats(
   value: unknown,
   path = "response",
-): StudentCoursePracticeStats {
+): StudentCourseResponseStats {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questions"]);
   const questions = decodeArray(
@@ -150,7 +150,7 @@ export function decodeStudentCoursePracticeStats(
       );
     })
   ) {
-    throw new DecodeError(`${path}.questions`, "Practice Stats ranked by not-full-credit count");
+    throw new DecodeError(`${path}.questions`, "Response Stats ranked by not-full-credit count");
   }
   return { questions };
 }

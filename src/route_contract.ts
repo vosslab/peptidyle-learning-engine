@@ -92,7 +92,7 @@ export interface RouteContract {
     | "studentCourseLanding"
     | "studentCourseGrades"
     | "studentCourseProgress"
-    | "studentCoursePracticeStats"
+    | "studentCourseResponseStats"
     | "studentCourseDueSoon"
     | "studentCourseCompleted"
     | "studentCourseAttemptHistory";
@@ -223,11 +223,11 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "courseInstance", tierOneArea: "courses" },
   },
   {
-    id: "studentCoursePracticeStats",
-    path: "/student/courses/:courseInstanceId/practice-stats",
-    surface: "Student self-only Course Practice Stats",
+    id: "studentCourseResponseStats",
+    path: "/student/courses/:courseInstanceId/response-stats",
+    surface: "Student self-only Course Response Stats",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "courses" },
+    ribbon: { scope: "courseInstance", tierOneArea: "grades" },
   },
   {
     id: "studentCourseDueSoon",

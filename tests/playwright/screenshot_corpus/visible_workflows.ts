@@ -97,7 +97,7 @@ export async function openStudentCourse(page: Page, title: string = COURSE_TITLE
   if (entry === "chooser") {
     const card = courseCard(page, title);
     await card.waitFor();
-    await card.getByRole("link", { name: "Open Progress", exact: true }).click();
+    await card.getByRole("link", { name: "Open Coursework", exact: true }).click();
     await studentCourseHeading(page, title).waitFor();
     return;
   }

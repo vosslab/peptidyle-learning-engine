@@ -36,7 +36,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - No specific AI backend is selected.
 - iMathAS is a desired Question Backend deferred until a later release.
 - H5P is a desired Question Backend deferred until a later release.
-- Future H5P use is limited to Regular Assignments, Bonus Assignments, and Practice Question
+- Future H5P use is limited to Weekly Assignments, Bonus Assignments, and Practice Question
   Assignments.
 - Quizzes and Exams do not use H5P because its runtime exposes answers and correctness to the
   Student browser.
@@ -137,10 +137,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Assessment vocabulary
 
 - **Assessment**: The PLE object that organizes Questions into a graded or practice activity.
-- **Blueprint Assessment**: An Assessment in a **Blueprint Course** containing reusable content and teaching settings without Students, dates, or other Course Instance delivery settings.
+- **Blueprint Assessment**: An Assessment in a **Blueprint Course** that contains reusable content and teaching settings, without Students, dates, or other Course Instance delivery settings.
 - **Course Instance Assessment**: An Assessment in a **Course Instance** that can be released and delivered to **Students**.
-- **Assessment Type**: The pedagogical type of an Assessment: **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
-- **Coursework**: The Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+- **Assessment Type**: The pedagogical type of an Assessment: **Weekly Assignment**, **Unit Review Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
+  - **Weekly Assignment**: A weekly assignment with unlimited Attempts and a regular point value. For example, 10 Questions worth 1 point each, for a total of 10 points.
+  - **Unit Review Assignment**: An exam-review assignment with unlimited Attempts and a low point value. For example, 10 Questions worth 0.1 point each, for a total of 1 point.
+  - **Bonus Assignment**: A challenge assignment with unlimited Attempts and a small number of Questions. For example, 1-2 Questions worth 1 point each, for a total of 1-2 points, but it is extra credit, worth 0 points in the grade book.
+  - **Quiz**: A single-Attempt, timed Assessment. A typical Quiz has 20 Questions worth 1 point each, for a total of 20 points, with a strict completion time of about 30 minutes.
+  - **Exam**: A single-Attempt, timed Assessment. A typical Exam has two parts of 50 Questions each, for a total of 100 points, with a strict completion time of about 75 minutes per part.
+- **Coursework**: The Student-facing collective term for Weekly Assignments, Unit Review Assignments/Exam Reviews, Bonus Assignments, Quizzes, and Exams.
 - **Assessment Attempt**: One **Student** attempt at a Course Instance Assessment.
 - **Assessment Template**: A reusable set of settings for creating Course Instance Assessments. It contains settings rather than Questions.
 - **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
@@ -353,17 +358,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The top Ribbon is the persistent navigation area for signed-in PLE pages.
 - The Ribbon should remain in the same location and use the same overall structure while navigating.
 - Navigation choices should remain in predictable locations as users move between related pages.
-- Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course,
-  Assessment, Question, or other item does not change the Tier 2 choices or their order.
-- I want Student Tier 2 choices to stay fixed within each Tier 1 area: Courses (Progress and Practice
-  Stats), Coursework (All Coursework, Due Soon, and Completed), and Grades (Scores and Attempt History).
-- I want a Student with one active Course to open its Progress page; with multiple active Courses, I want
-  the Student to choose a Course before opening Course-scoped work.
-- Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
+- Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course, Assessment, Question, or other item does not change the Tier 2 choices or their order.
+- Changing a Ribbon selection should change the content below the Ribbon without moving the main content area up or down.
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
-- On narrow Student screens, use a compact navigation arrangement that keeps the product identity,
-  current location, navigation controls, and Profile readable and reachable.
 - See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
 
 ### User top bar interface
@@ -418,15 +416,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Instructor interface
 
 - The Instructor interface should make frequent teaching tasks fast and easy to find.
-- Keep the teaching content central in authoring and inspection workflows, with metadata and
-  supporting explanations arranged compactly around it.
-- Gradebook rows should identify Students by their Course roster names and Coursework by title,
-  with IDs as supporting information where useful.
+- Keep the teaching content central in authoring and inspection workflows, with metadata and supporting explanations arranged compactly around it.
+- Gradebook rows should identify Students by their Course roster names and Coursework by title, with IDs as supporting information where useful.
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
-- All required ribbon choices remain visible even when their collection is empty.
-- Required Instructor Ribbon choices whose workflows are unavailable remain visible as unavailable,
-  annotation-free controls. They become usable only when their workflow exists.
+- All required Ribbon choices remain visible even when their collection is empty.
+- Required Instructor Ribbon choices whose workflows are unavailable remain visible as unavailable, annotation-free controls. They become usable only when their workflow exists.
 - A working navigation destination remains visible when its collection is empty.
 - A future or unavailable capability should not appear as a usable control until its workflow exists.
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
@@ -605,8 +600,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Themes may change Assessment Type colors but preserve the meaning of each Type.
 - Assessment Type should never be communicated by color alone.
 - Icons and labels should remain sufficient to identify the Assessment Type without color.
-- **Regular Assignment** uses the Font Awesome `pen-to-square` icon.
-- **Practice Question Assignment** uses the Font Awesome `arrows-spin` icon.
+- **Weekly Assignment** uses the Font Awesome `pen-to-square` icon.
+- **Unit Review Assignment** uses the Font Awesome `arrows-spin` icon.
 - **Bonus Assignment** uses the Font Awesome `star` icon.
 - **Quiz** uses the Font Awesome `circle-question` icon.
 - **Exam** uses the Font Awesome `file-signature` icon.
@@ -622,58 +617,71 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Student interface
 
+- Guidance about the student interface
+
 #### General Student interface
 
 - The Student interface should focus on current Courses, Coursework, and work that needs attention.
-- **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question
-  Assignments, Bonus Assignments, Quizzes, and Exams.
+- **Coursework** is the Student-facing collective term for Weekly Assignments, Unit Review Assignments, Bonus Assignments, Quizzes, and Exams.
 - Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
-- The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
 - The Student interface should make the next useful action easy to find.
-- The Student menu is simpler than the Instructor menu.
 - Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
-- Student layouts should adapt smoothly at intermediate widths, with readable long titles and
-  controls that wrap or rearrange in the task's reading order.
+- Student layouts should adapt smoothly at intermediate widths, with readable long titles and controls that wrap or rearrange in the task's reading order.
 - Every Student browser action should be usable with the keyboard alone.
 - Student pages should use names meaningful to Students.
 - Student navigation and pages should contain only Student interfaces and capabilities.
 - Student content entry should use the response controls provided by Questions and other Student activities.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
-- I want Student navigation to use **Courses**, **Coursework**, and **Grades**, with Coursework and Grades
-  staying pinned to the selected Course.
+
+#### Student Ribbon interface
+
+- The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
+- Student Tier 1 navigation uses **Coursework**, **Grades**, and **Courses**, in that order.
+- **Coursework** and **Grades** show relevant information across all of the Student's enrolled Courses. When a Student has more than one Course, records clearly identify their Course.
+- **Coursework** and **Grades** each have a stable Tier 2 set. Opening Coursework, an Attempt, a review, or another item does not change the Tier 2 choices or their order.
+- The availability of a contextual Tier 2 destination may change, but the Tier 2 choices and their order remain stable.
+- Student Tier 2 must include the choices below. Additional choices may be added when they provide a useful Student navigation destination.
+
+  - **Coursework**
+    - **All Coursework**: Shows all Coursework across the Student's enrolled Courses.
+    - **Due Soon**: Shows Coursework across the Student's enrolled Courses that is approaching its due date.
+    - **Completed**: Shows Coursework across the Student's enrolled Courses for which the Student has submitted at least one Attempt. Completed does not mean that the Student earned a perfect score.
+    - **Active Attempt**: Returns the Student directly to unfinished Coursework that can still be resumed. It remains visible but disabled when no resumable Attempt is available.
+
+  - **Grades**
+    - **Scores**: Shows the Student's released Coursework scores across their enrolled Courses.
+    - **Response Stats**: Shows statistics about the Student's responses across Coursework, subject to Student-visible score and per-Question feedback rules.
+    - **Attempt History**: Shows the Student's previous Assessment Attempts across their enrolled Courses and provides access to review them when permitted.
+    - **Latest Feedback**: Provides quick access to the most recent feedback available to the Student across their enrolled Courses. It remains visible but disabled when no feedback is available.
+
+  - **Courses**
+    - Tier 2 shows the short names of the Student's currently enrolled Courses.
+    - Selecting a Course opens that Course.
+    - The current Course is visually identified when the Student is viewing Course-specific content.
+    - The Course list changes when the Student's Course enrollment changes; navigating within a Course does not change the list or its order.
+
+- On narrow screens, use a compact navigation arrangement that keeps the product identity, current location, navigation controls, and Profile readable and reachable.
 
 #### Student Course and Coursework interface
 
-- I want a Student with one active Course to open that Course's Progress page. With multiple active
-  Courses, the Student chooses a Course before opening Course-scoped work.
+- A Student with one active Course should open directly to that Course's Progress page. A Student with multiple active Courses should choose a Course before opening Course-scoped work.
 - Students should be able to see their active Courses and Coursework from the main navigation.
-- Course invitations should show the Course name and relevant Instructor and term information
-  before the Student accepts the invitation.
+- Course invitations should show the Course name and relevant Instructor and term information before the Student accepts the invitation.
 - Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
 - Coursework lists should make due dates, Type, and completion status easy to scan.
-- I want Progress to keep an Assessment visible when it has Attempts but no released score, clearly marked
-  **Score not released**.
-- I want submitted work kept distinct from a perfect score; Completed means at least one submitted Attempt.
-- I want Practice Stats to show real Question outcomes across Assessment types, subject to the Student-
-  visible score and per-Question feedback rules.
-- I want measured Question display time labeled as approximate **time shown with the Question**, with its
-  sample count. It does not measure attention or effort and does not affect grades.
+- Progress should keep Coursework visible when it has Attempts but no released score, clearly marked **Score not released**.
+- Submitted work should remain distinct from a perfect score; **Completed** means at least one submitted Attempt.
+- **Response Stats** should show actual Student response outcomes across Assessment Types, subject to Student-visible score and per-Question feedback rules.
+- Measured Question display time should be labeled as approximate **time shown with the Question**, with its sample count. It does not measure attention or effort and does not affect grades.
 - Keep Coursework entries compact in height so Students can scan several items at once.
-- Keep essential Coursework information and the main action visible, with fuller access and timing
-  details available through progressive disclosure.
-- Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
-  **Bonus Assignments**, **Quizzes**, and **Exams**.
+- Keep essential Coursework information and the main action visible, with fuller access and timing details available through progressive disclosure.
+- Coursework lists may provide filters for **Weekly Assignments**, **Unit Review Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.
 - Each Coursework item should clearly show its Assessment Type using its label and Type icon.
-- Before starting Coursework, Students should see its title, Type, Question count, points possible,
-  time limit, and previous Attempts.
-- Present the "Before you start" settings as a compact summary. Keep each label beside its value
-  in aligned rows, using a compact grid when width permits.
-- Group Question count and points together, and group availability, deadlines, and Attempt rules
-  into clearly readable sections with concise spacing.
-- Express unset or unlimited settings in Student language, such as "No closing time" or
-  "Unlimited Attempts". Format dates in the selected display zone.
-- Keep the start action close to this summary so Students can review the rules and begin with
-  minimal scrolling.
+- Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
+- Present the "Before you start" settings as a compact summary. Keep each label beside its value in aligned rows, using a compact grid when width permits.
+- Group Question count and points together, and group availability, deadlines, and Attempt rules into clearly readable sections with concise spacing.
+- Express unset or unlimited settings in Student language, such as "No closing time" or "Unlimited Attempts". Format dates in the selected display zone.
+- Keep the start action close to this summary so Students can review the rules and begin with minimal scrolling.
 
 #### Student Coursework interface
 
@@ -1466,7 +1474,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course Instance Assessments deliver Questions to **Students**.
 - All Assessments use the same underlying Assessment model.
 - **Assignment** is not a separate object or category. The word appears only in the names
-  **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
+  **Weekly Assignment**, **Unit Review Assignment**, and **Bonus Assignment**.
 
 ### Assessment content specifications
 
@@ -1485,22 +1493,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - PLE defines the available Assessment Types.
 - Assessment Type describes the pedagogical purpose of an Assessment and provides appropriate defaults.
-- Assessment Types are **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, and **Exam**.
+- Assessment Types are **Weekly Assignment**, **Unit Review Assignment**, **Bonus Assignment**, **Quiz**, and **Exam**.
 - **Instructors** select an Assessment Type but cannot create new Assessment Types.
 - Blueprint Assessments and Course Instance Assessments use the same Assessment Types.
 - **Instructors** can change Assessment settings independently of the defaults for its Type.
 - Changing Assessment settings does not change its Assessment Type.
-- **Regular Assignments** give **Students** regular practice applying course ideas outside class.
-- Regular Assignments reinforce current learning and may also introduce new topics.
-- Regular Assignments are designed as practice for learning, not merely as one-time assessments.
-- **Practice Question Assignments** provide focused review or study-guide practice using material already covered.
-- Practice Question Assignments may be worth a small number of points or a small amount of extra credit.
-- Practice Question Assignments use the same whole-Attempt submission boundary as every other
+- **Weekly Assignments** give **Students** regular practice applying course ideas outside class.
+- Weekly Assignments reinforce current learning and may also introduce new topics.
+- Weekly Assignments are designed as practice for learning, not merely as one-time assessments.
+- **Unit Review Assignments** provide focused review or study-guide practice using material already covered.
+- Unit Review Assignments may be worth a small number of points or a small amount of extra credit.
+- Unit Review Assignments use the same whole-Attempt submission boundary as every other
   Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
 - **Bonus Assignments** provide optional extra credit.
 - Bonus Assignments are worth zero points possible and add earned points directly to the grade.
 - **Quizzes** assess understanding of recent material.
-- Quizzes may use more restrictive Attempt and collaboration settings than Regular Assignments.
+- Quizzes may use more restrictive Attempt and collaboration settings than Weekly Assignments.
 - **Exams** are individual assessments associated with scheduled exam periods.
 - Exams may use more restrictive Attempt, timing, availability, and feedback settings.
 - Quizzes and Exams allow one Assessment Attempt.
@@ -1565,9 +1573,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Assessment answer and feedback disclosure
 
 - Assessment disclosure settings remain separate and independently configurable.
-- **Regular Assignments** and **Bonus Assignments** should rarely show the correct answer.
+- **Weekly Assignments** and **Bonus Assignments** should rarely show the correct answer.
 - Regular and Bonus Assignments show the **Student's** response and whether it was correct or incorrect.
-- **Practice Question Assignments** show correct answers immediately after Assessment Attempt
+- **Unit Review Assignments** show correct answers immediately after Assessment Attempt
   submission.
 - **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
 - A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
@@ -1594,7 +1602,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Assessments do not have Assessment Attempts.
 - Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
 - **Instructors** control the number of permitted Assessment Attempts.
-- Regular Assignments default to unlimited Attempts.
+- Weekly Assignments default to unlimited Attempts.
 - **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
 - When an Assessment permits multiple Attempts, the highest Assessment Attempt score is used as the
   Student's Assessment score.

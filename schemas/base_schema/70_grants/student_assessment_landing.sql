@@ -10,6 +10,8 @@ SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.list_released_live_student_assessments(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.list_live_student_course_progress(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.read_student_course_active_attempt(text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.list_released_live_student_assessments(text) TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.list_live_student_course_progress(text) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.read_student_course_active_attempt(text) TO ple_app;

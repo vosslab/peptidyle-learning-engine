@@ -78,20 +78,23 @@ Assessment Type name. Within an Assessment Attempt, Question navigation and
 saved status stay in the content area while the Ribbon and context remain
 stable.
 
-Student Tier 2 is fixed by Student Tier 1:
+Student Tier 1 follows the Student's common work sequence, ordered Coursework,
+Grades, Courses. Student Tier 2 stays fixed within each area:
 
 | Tier 1 | Tier 2 |
 | --- | --- |
-| Courses | Progress; Practice Stats |
-| Coursework | All Coursework; Due Soon; Completed |
-| Grades | Scores; Attempt History |
+| Coursework | All Coursework; Due Soon; Completed; Active Attempt |
+| Grades | Scores; Response Stats; Attempt History; Latest Feedback |
+| Courses | Progress; another Course overview is still undecided |
 
-The selected Course supplies content and route context without changing the
-Tier 2 row. A Student with one active Course opens its Progress page from
-`/student`; a Student with multiple active Courses opens the Course chooser.
-Attempt and review routes keep the same row. An Attempt with no released score
-remains visible in Progress as **Score not released** and is not treated as
-below 100%.
+The selected Course supplies content and route context. Navigation within a
+Tier 1 area keeps the same row. A Student with one active Course opens its
+All Coursework page from `/student`; a Student with multiple active Courses opens
+the Course chooser. Active Attempt stays visible but is disabled when no
+resumable Attempt exists. If several are resumable, it links to the one with
+the latest recorded activity; see [the detailed decision](../DESIGN_DECISIONS.md#student-tier-2-groups-follow-tier-1-purposes).
+An Attempt with no released score remains visible in Progress as **Score not
+released** and is not treated as below 100%.
 
 The return action is **Back to Coursework**. The completion action is **Submit
 Assessment** and submits the whole Attempt, finalizing all saved responses

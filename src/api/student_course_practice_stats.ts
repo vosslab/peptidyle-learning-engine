@@ -1,12 +1,12 @@
-// Browser contract for self-only exact-revision Student Course Practice Stats.
+// Browser contract for self-only exact-revision Student Course Response Stats.
 
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { StudentCoursePracticeStats as Contract } from "../../generated/api/StudentCoursePracticeStats";
+import type { StudentCourseResponseStats as Contract } from "../../generated/api/StudentCourseResponseStats";
 
-export type StudentCoursePracticeStats = Contract;
+export type StudentCourseResponseStats = Contract;
 
-export interface StudentCoursePracticeStatsClient {
-  readonly getStudentCoursePracticeStats: (
+export interface StudentCourseResponseStatsClient {
+  readonly getStudentCourseResponseStats: (
     courseInstanceId: CourseInstanceId,
-  ) => Promise<StudentCoursePracticeStats>;
+  ) => Promise<StudentCourseResponseStats>;
 }

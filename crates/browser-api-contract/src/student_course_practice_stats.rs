@@ -1,11 +1,11 @@
-//! Self-only exact Published Question Revision Practice Stats contract.
+//! Self-only exact Published Question Revision Response Stats contract.
 
 use question_model::{AssessmentAttemptId, PublishedQuestionRevisionTuple};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentCoursePracticeQuestionStats {
+pub struct StudentCourseResponseQuestionStats {
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub full_credit_attempt_count: u64,
     pub partial_credit_attempt_count: u64,
@@ -20,8 +20,8 @@ pub struct StudentCoursePracticeQuestionStats {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentCoursePracticeStats {
-    pub questions: Vec<StudentCoursePracticeQuestionStats>,
+pub struct StudentCourseResponseStats {
+    pub questions: Vec<StudentCourseResponseQuestionStats>,
 }
 
 #[cfg(test)]
@@ -31,8 +31,8 @@ mod tests {
 
     #[test]
     fn contract_contains_only_disclosed_counts_and_exact_question_revision() {
-        let stats = StudentCoursePracticeStats {
-            questions: vec![StudentCoursePracticeQuestionStats {
+        let stats = StudentCourseResponseStats {
+            questions: vec![StudentCourseResponseQuestionStats {
                 published_question_revision_tuple: PublishedQuestionRevisionTuple {
                     published_question_id: "7K3M-79QP"
                         .parse::<PublishedQuestionId>()
@@ -52,7 +52,7 @@ mod tests {
                     .expect("Attempt ID"),
             }],
         };
-        let wire = serde_json::to_value(stats).expect("Practice Stats serializes");
+        let wire = serde_json::to_value(stats).expect("Response Stats serializes");
         assert_eq!(
             wire["questions"][0]["publishedQuestionRevisionTuple"]["revisionNumber"],
             3

@@ -1,12 +1,12 @@
-// Same-origin transport for self-only Student Course Practice Stats.
+// Same-origin transport for self-only Student Course Response Stats.
 
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type {
-  StudentCoursePracticeStats,
-  StudentCoursePracticeStatsClient,
+  StudentCourseResponseStats,
+  StudentCourseResponseStatsClient,
 } from "../student_course_practice_stats";
-import { decodeStudentCoursePracticeStats } from "../decoders/student_course_practice_stats";
+import { decodeStudentCourseResponseStats } from "../decoders/student_course_practice_stats";
 import { parseCourseInstanceId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -16,17 +16,17 @@ function statsPath(courseInstanceId: CourseInstanceId): string {
   if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/student/course-instances/${encodeURIComponent(courseInstanceId)}/practice-stats`;
+  return `/api/student/course-instances/${encodeURIComponent(courseInstanceId)}/response-stats`;
 }
 
-export function createStudentCoursePracticeStatsClient(
+export function createStudentCourseResponseStatsClient(
   fetchImplementation: ApiFetch,
   basePath: string,
-): Pick<ApiClient, keyof StudentCoursePracticeStatsClient> {
+): Pick<ApiClient, keyof StudentCourseResponseStatsClient> {
   return {
-    getStudentCoursePracticeStats: async (
+    getStudentCourseResponseStats: async (
       courseInstanceId,
-    ): Promise<StudentCoursePracticeStats> => {
+    ): Promise<StudentCourseResponseStats> => {
       const path = statsPath(courseInstanceId);
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);
@@ -34,7 +34,7 @@ export function createStudentCoursePracticeStatsClient(
       if (response.status !== 200) {
         throw new ApiProtocolError(`API response ${path} must use status 200`);
       }
-      return decodeStudentCoursePracticeStats(await boundedResponseJson(response, path));
+      return decodeStudentCourseResponseStats(await boundedResponseJson(response, path));
     },
   };
 }

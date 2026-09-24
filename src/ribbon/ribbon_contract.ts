@@ -56,6 +56,8 @@ export interface RibbonRouteState {
   readonly params: Exclude<RouteParams, undefined>;
   /** Last resolved Student Course retained by the persistent shell for tier-one links. */
   readonly currentCourseInstanceId?: string;
+  /** Server-selected resumable Attempt for the current Student Course, if any. */
+  readonly activeAttemptId?: string;
 }
 
 /** The immutable session fact the Ribbon may use for presentation admission. */
@@ -344,6 +346,12 @@ function hrefFor(
   productRole: ProductRole,
 ): string | undefined {
   if (availability !== "Available" || control.destination.kind !== "route") return undefined;
+  if (control.id === "activeAttempt") {
+    const attemptId = routeState.activeAttemptId;
+    if (routeState.currentCourseInstanceId === undefined || attemptId === undefined) return undefined;
+    if (parseAssessmentAttemptId(attemptId) === null) return undefined;
+    return buildRoutePath(control.destination.routeId, { assessmentAttemptId: attemptId });
+  }
   if (control.id === "coursework" || control.id === "grades") {
     const courseInstanceId = routeState.currentCourseInstanceId;
     if (courseInstanceId === undefined) return productRoleHomePath("student");
@@ -361,12 +369,20 @@ function hrefFor(
 
 function selectedFor(
   control: RibbonCatalogControl<RibbonDestinationId>,
-  route: RouteContract,
+  routeState: RibbonRouteState,
 ): boolean {
   if (TAB_CATALOG.some((tab) => tab.id === control.id)) {
-    return route.ribbon.tierOneArea === control.id;
+    return routeState.route.ribbon.tierOneArea === control.id;
   }
-  return control.destination.kind === "route" && control.destination.routeId === route.id;
+  if (control.id === "activeAttempt") {
+    return (
+      routeState.activeAttemptId !== undefined &&
+      routeState.params.assessmentAttemptId === routeState.activeAttemptId
+    );
+  }
+  return (
+    control.destination.kind === "route" && control.destination.routeId === routeState.route.id
+  );
 }
 
 function modelForControl<Id extends RibbonDestinationId>(
@@ -380,8 +396,11 @@ function modelForControl<Id extends RibbonDestinationId>(
     productRole,
     relationshipStateFor(entry.relationshipRequirement),
   );
-  const href = hrefFor(control, routeState, admission, productRole);
-  const availability = href === undefined && admission === "Available" ? "Unavailable" : admission;
+  const hasSelectedActiveAttempt =
+    control.id !== "activeAttempt" || routeState.activeAttemptId !== undefined;
+  const admitted = hasSelectedActiveAttempt ? admission : "Unavailable";
+  const href = hrefFor(control, routeState, admitted, productRole);
+  const availability = href === undefined && admitted === "Available" ? "Unavailable" : admitted;
   return Object.freeze({
     id: control.id,
     label: control.label,
@@ -391,7 +410,7 @@ function modelForControl<Id extends RibbonDestinationId>(
         : { kind: "future" as const, futureId: control.destination.futureId },
     ),
     availability,
-    selected: selectedFor(control, routeState.route),
+    selected: selectedFor(control, routeState),
     ...(href === undefined ? {} : { href }),
     role: control.role,
     priority: control.priority,
@@ -636,8 +655,8 @@ function breadcrumbsFor(
         courseBreadcrumbItem(studentCourse ?? currentHref),
         breadcrumbCurrent("All Coursework"),
       ]);
-    case "studentCoursePracticeStats":
-      return Object.freeze(courseTrail("Practice Stats", studentCourse));
+    case "studentCourseResponseStats":
+      return Object.freeze(courseTrail("Response Stats", studentCourse));
     case "studentCourseDueSoon":
       return Object.freeze(courseTrail("Due Soon", studentCourse));
     case "studentCourseCompleted":

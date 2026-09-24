@@ -322,9 +322,9 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
 
 test("Student Tier 2 choices and order stay fixed across routes and Course context", () => {
   const expectedTaskRows = {
-    courses: ["studentProgress", "studentPracticeStats"],
-    coursework: ["allCoursework", "dueSoon", "completedCoursework"],
-    grades: ["studentScores", "studentAttemptHistory"],
+    courses: ["studentProgress"],
+    coursework: ["allCoursework", "dueSoon", "completedCoursework", "activeAttempt"],
+    grades: ["studentScores", "studentResponseStats", "studentAttemptHistory"],
   };
   const firstRowByTierOne = new Map();
   for (const route of ROUTE_CONTRACT) {
@@ -349,19 +349,6 @@ test("Student Coursework keeps its collective Tier 1 label without an Attempt-on
   const attempt = controlsFor("assessmentAttempt", "student").model;
   const attemptTaskControls = attempt.taskAreas.flatMap((area) => area.controls);
   const expectedTabs = [
-    {
-      id: "courses",
-      label: "Courses",
-      destination: { kind: "route", routeId: "courses" },
-      availability: "Available",
-      selected: false,
-      href: "/",
-      role: "primary",
-      priority: "critical",
-      presentation: "standard",
-      iconBearing: true,
-      iconOnlySafe: false,
-    },
     {
       id: "coursework",
       label: "Coursework",
@@ -388,11 +375,29 @@ test("Student Coursework keeps its collective Tier 1 label without an Attempt-on
       iconBearing: true,
       iconOnlySafe: false,
     },
+    {
+      id: "courses",
+      label: "Courses",
+      destination: { kind: "route", routeId: "courses" },
+      availability: "Available",
+      selected: false,
+      href: "/",
+      role: "primary",
+      priority: "critical",
+      presentation: "standard",
+      iconBearing: true,
+      iconOnlySafe: false,
+    },
   ];
   assert.deepEqual(courseLanding.tabs, expectedTabs);
   assert.deepEqual(
     attemptTaskControls.map((control) => control.label),
-    ["All Coursework", "Due Soon", "Completed"],
+    ["All Coursework", "Due Soon", "Completed", "Active Attempt"],
+  );
+  assert.equal(
+    attemptTaskControls.at(-1)?.availability,
+    "Unavailable",
+    "the fixed shortcut stays disabled when no resumable Attempt is reported",
   );
 });
 
@@ -407,9 +412,32 @@ test("Course-scoped Student Tier 2 destinations stay unavailable without Course 
   const controls = model.taskAreas.flatMap((area) => area.controls);
   assert.deepEqual(
     controls.map((control) => control.id),
-    ["allCoursework", "dueSoon", "completedCoursework"],
+    ["allCoursework", "dueSoon", "completedCoursework", "activeAttempt"],
   );
   assert.ok(controls.every((control) => control.href === undefined));
+});
+
+test("Active Attempt links directly to the server-selected resumable Attempt", () => {
+  const routeState = routeStateFor("studentCourseLanding");
+  const attemptId = PARAMETER_VALUES.assessmentAttemptId;
+  const model = deriveRibbonModel(
+    {
+      ...routeState,
+      currentCourseInstanceId: PARAMETER_VALUES.courseInstanceId,
+      activeAttemptId: attemptId,
+    },
+    { productRole: "student" },
+    LABELS,
+  );
+  const activeAttempt = model.taskAreas
+    .flatMap((area) => area.controls)
+    .find((control) => control.id === "activeAttempt");
+  assert.ok(activeAttempt);
+  assert.equal(activeAttempt.availability, "Available");
+  assert.equal(
+    activeAttempt.href,
+    buildRoutePath("assessmentAttempt", { assessmentAttemptId: attemptId }),
+  );
 });
 
 test("relationship admission may check without moving schema-owned positions", () => {

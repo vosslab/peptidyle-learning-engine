@@ -229,13 +229,13 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         "nonmember cannot read Course Progress",
     );
 
-    // Student Work fixture for the same-open-revision Practice Stats aggregation and the
+    // Student Work fixture for the same-open-revision Response Stats aggregation and the
     // authenticated cumulative Question display-duration checkpoint.
-    let mut practice_fixture = admin.begin().await.expect("Practice Stats fixture");
+    let mut practice_fixture = admin.begin().await.expect("Response Stats fixture");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *practice_fixture)
         .await
-        .expect("private Practice Stats fixture role");
+        .expect("private Response Stats fixture role");
     sqlx::query(
         "INSERT INTO ple_private.object_record ( \
              object_record_id, object_address, object_storage_area, object_data_class, \
@@ -313,7 +313,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     .bind(&fixture.assessment_id)
     .execute(&mut *practice_fixture)
     .await
-    .expect("submitted Practice Stats Attempts");
+    .expect("submitted Response Stats Attempts");
     sqlx::query(
         "INSERT INTO ple_private.issued_question ( \
              course_instance_id, issued_question_id, assessment_attempt_id, assessment_entry_id, \
@@ -369,7 +369,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     .bind(id(PRACTICE_QUESTION_ATTEMPT_TWO))
     .execute(&mut *practice_fixture)
     .await
-    .expect("submitted Practice Stats responses");
+    .expect("submitted Response Stats responses");
     sqlx::query(
         "SELECT ple_private.record_direct_automated_grading_result($1, 0.5, clock_timestamp()), \
                 ple_private.record_direct_automated_grading_result($2, 1, clock_timestamp())",
@@ -391,7 +391,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     .bind(id(PRACTICE_ATTEMPT_TWO))
     .execute(&mut *practice_fixture)
     .await
-    .expect("Practice Stats Assessment submissions");
+    .expect("Response Stats Assessment submissions");
     sqlx::query(
         "UPDATE ple_private.question_attempt \
             SET finalized_at = clock_timestamp() \
@@ -425,7 +425,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     practice_fixture
         .commit()
         .await
-        .expect("Practice Stats fixture commit");
+        .expect("Response Stats fixture commit");
 
     assert_eq!(
         store
@@ -492,9 +492,9 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     );
 
     let practice = landing_store
-        .list_live_student_course_practice_stats(token(0xe1), course.clone())
+        .list_live_student_course_response_stats(token(0xe1), course.clone())
         .await
-        .expect("self-only exact-revision Practice Stats");
+        .expect("self-only exact-revision Response Stats");
     assert_eq!(
         practice.len(),
         1,
@@ -514,14 +514,14 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     );
     assert!(
         landing_store
-            .list_live_student_course_practice_stats(token(0xe2), course.clone())
+            .list_live_student_course_response_stats(token(0xe2), course.clone())
             .await
-            .expect("other Student gets only their own Practice Stats")
+            .expect("other Student gets only their own Response Stats")
             .is_empty()
     );
     assert!(
         landing_store
-            .list_live_student_course_practice_stats(token(0xe3), course.clone())
+            .list_live_student_course_response_stats(token(0xe3), course.clone())
             .await
             .is_err()
     );

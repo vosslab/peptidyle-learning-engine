@@ -38,9 +38,9 @@ export const PRODUCT_TIER_ONE: ProductTierOne = Object.freeze({
     universalSlot("productAssessments"),
   ),
   student: immutableSchema(
-    universalSlot("courses"),
     universalSlot("coursework"),
     universalSlot("grades"),
+    universalSlot("courses"),
   ),
   sysadmin: immutableSchema(
     universalSlot("courses"),

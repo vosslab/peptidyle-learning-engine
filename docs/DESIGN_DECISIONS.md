@@ -980,25 +980,43 @@ an authorization boundary (ASVS 8.2.1, 8.2.2, and 8.3.1).
 the role catalog in [ribbon_schema.ts](../src/ribbon/ribbon_schema.ts), with
 route resolution in [ribbon_catalog.ts](../src/ribbon/ribbon_catalog.ts).
 
-### Student Tier 2 is fixed by Student Tier 1
+### Student Tier 2 groups follow Tier 1 purposes
 
-**Decision.** Student Tier 2 rows have fixed choices and order: Courses has
-Progress and Practice Stats; Coursework has All Coursework, Due Soon, and
-Completed; Grades has Scores and Attempt History. Tier 1 determines the row.
-The selected Course determines scoped content and destinations. Assessment,
-Attempt, and review routes retain the same row. A single active Course opens
-Progress from Student home; multiple active Courses open the Course chooser.
+**Decision.** Order the Student Tier 1 row as Coursework, Grades, and Courses.
+The current Tier 2 grouping is Coursework: All Coursework, Due Soon, Completed,
+and Active Attempt; Grades: Scores, Response Stats, Attempt History, and Latest
+Feedback; Courses: Progress. Response Stats belongs with Grades because it
+describes the Student's outcomes. Leave any additional Courses destination
+open until its purpose is established. With one active Course, `/student`
+opens All Coursework; with multiple active Courses, it opens the Course chooser.
 
-**Why.** The Student Ribbon should remain predictable while the ordinary
-workflow stays centered on one selected Course and can handle two Courses.
+**Why.** Coursework is the Student's primary work area. Most Students work in
+one Course, so opening directly to its Coursework removes a repeated selection
+step while keeping Course switching available from Courses.
 
-**Consequence.** Route task groups do not define Student Tier 2. Course-scoped
-links retain the selected Course. Invitations remain in Courses, and Attempt
-feedback remains on its review page.
+**Active Attempt evidence.** A Course can have more than one resumable Attempt
+because the start gate locks and resumes within one Assessment, while the schema
+has no Course-wide active-Attempt constraint. The existing
+`latest_activity_at` is the maximum Attempt `started_at`, `submitted_at`, or
+saved-response `saved_at` within an Assessment. It does not change for viewing a
+Question or for display-duration checkpoints. The landing projection's
+`can_resume_assessment_attempt` applies the current Assessment availability,
+unsubmitted state, and unexpired deadline. The working shortcut rule is to use
+that eligibility and choose the resumable Attempt with the newest
+`latest_activity_at`; a tie uses Attempt start time and then Attempt ID. No
+Course-wide chooser is planned for this uncommon case.
 
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
-[RIBBON_TASK_MODEL.md](ux/RIBBON_TASK_MODEL.md), and the Student route and
-catalog contracts.
+**Implementation consequence.** Keep the Coursework shortcut visible and
+disabled when no Attempt can be resumed. When one or more are resumable, send
+the Student to the selected Attempt. Keep the Latest Feedback shortcut in
+Grades and open the latest Attempt review that contains Student-visible
+feedback; disable it when no such review is available. Keep the other Grades
+links Course-scoped and let the existing Attempt review enforce its score and
+correctness disclosures.
+
+**Owner.** [RIBBON_TASK_MODEL.md](ux/RIBBON_TASK_MODEL.md),
+[API_CONTRACTS.md](API_CONTRACTS.md), the Student route and catalog contracts,
+and the Attempt review disclosure contract.
 
 ### Student Progress separates release from completion
 
@@ -1021,15 +1039,15 @@ least one submitted Attempt.
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
 [API_CONTRACTS.md](API_CONTRACTS.md), and the Student Progress API contract.
 
-### Practice Stats reports actual outcomes across Assessment types
+### Response Stats reports actual outcomes across Assessment types
 
-**Decision.** Practice Stats aggregates the signed-in Student's saved outcomes
+**Decision.** Response Stats aggregates the signed-in Student's saved outcomes
 from eligible submitted Assessments across the selected Course. It is not
 limited to Assessments whose type is Practice Question Assignment. Group by
 the exact immutable Published Question Revision and include an outcome only
 when the Assessment score and per-Question correctness are both released.
 
-**Why.** Practice Stats should describe real recorded Question outcomes, not
+**Why.** Response Stats should describe real recorded Question outcomes, not
 estimated or synthetic results, and should include relevant work across
 Assessment types when its feedback is available to the Student.
 
@@ -1037,7 +1055,7 @@ Assessment types when its feedback is available to the Student.
 measured approximate time shown with the Question. It applies disclosure
 before aggregation and exposes no cohort data or unreleased correctness.
 
-**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md), the Course Practice Stats
+**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md), the Course Response Stats
 reader, and its Student page.
 
 ### Show the time-zone name only on Profile
@@ -1058,7 +1076,7 @@ date-formatting components.
 
 ### Question duration means time shown
 
-**Decision.** Practice Stats may show average measured, approximate time shown
+**Decision.** Response Stats may show average measured, approximate time shown
 with a Question and its sample count. The measurement runs only while that
 Question is current and the browser document is visible. Missing duration is
 not recorded or inferred from Assessment elapsed time.

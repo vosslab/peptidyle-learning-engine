@@ -71,7 +71,7 @@ export function InstructorHomePage(): JSX.Element {
   return <CourseListPage />;
 }
 
-/** Student home keeps current course selection and released work together. */
+/** Student home routes directly to Coursework for the common one-Course case. */
 export function StudentHomePage(): JSX.Element {
   return <StudentCoursesPage />;
 }

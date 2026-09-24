@@ -180,7 +180,6 @@ export const RIBBON_DESIGN_SCHEMAS = {
     [
       area("studentCourses", "Courses", [
         control("studentProgress", { availability: "Unavailable" }),
-        control("studentPracticeStats", { availability: "Unavailable" }),
       ]),
     ],
     "reading",
@@ -225,6 +224,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
         control("allCoursework", { selected: true }),
         control("dueSoon"),
         control("completedCoursework"),
+        control("activeAttempt", { availability: "Unavailable" }),
       ]),
     ],
     "reading",
@@ -274,6 +274,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
         control("allCoursework"),
         control("dueSoon"),
         control("completedCoursework"),
+        control("activeAttempt", { availability: "Unavailable" }),
       ]),
     ],
     "reading",
