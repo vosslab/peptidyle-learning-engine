@@ -31,6 +31,10 @@ CREATE FUNCTION ple_private.read_student_released_assessment_landing_evidence(
     display_time_zone text,
     assessment_attempt_number integer,
     assessment_attempt_completion text,
+    assessment_attempt_count integer,
+    submitted_assessment_attempt_count integer,
+    latest_activity_at timestamptz,
+    assessment_score_is_latest_attempt boolean,
     can_resume_assessment_attempt boolean,
     graded_question_count bigint,
     saved_question_count bigint,
@@ -44,6 +48,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
     -- not conditional on which projection reaches this helper.
     WITH released_assessment AS (
         SELECT assessment.assessment_id,
+               assessment.course_instance_id,
                policy.assessment_title,
                assessment.assessment_type,
                assessment.assessment_status,
@@ -69,6 +74,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
            AND assessment.assessment_status = 'released'
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
          GROUP BY assessment.assessment_id,
+                  assessment.course_instance_id,
                   policy.assessment_title, assessment.assessment_type,
                   assessment.assessment_status,
                   policy.available_at, policy.due_at, policy.closes_at,
@@ -104,6 +110,17 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                WHEN assessment_attempt_submission.assessment_attempt_id IS NULL THEN 'in_progress'
                ELSE 'completed'
            END,
+           started.assessment_attempt_count,
+           started.submitted_assessment_attempt_count,
+           activity.latest_activity_at,
+           CASE WHEN grade_evidence.points_earned IS NOT NULL
+                     AND ple_private.student_assessment_score_is_released(
+                         score_policy.feedback_score,
+                         assessment_score_submission.submitted_at,
+                         score_policy.due_at, score_policy.closes_at, p_now
+                     )
+                THEN grade_evidence.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+                ELSE NULL END,
            coalesce(resumable.can_resume_assessment_attempt, false),
            coalesce(evidence.graded_question_count, 0)::bigint,
            coalesce(saved.saved_question_count, 0)::bigint,
@@ -112,26 +129,18 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                 ELSE coalesce(evidence.question_count, 0)::bigint
            END,
            CASE WHEN grade_evidence.points_earned IS NOT NULL
-                     AND CASE score_policy.feedback_score
-                         WHEN 'during_attempt' THEN true
-                         WHEN 'after_submit' THEN assessment_score_submission.assessment_attempt_id IS NOT NULL
-                         WHEN 'after_due' THEN score_policy.due_at IS NOT NULL
-                              AND p_now >= score_policy.due_at
-                         WHEN 'after_close' THEN score_policy.closes_at IS NOT NULL
-                              AND p_now >= score_policy.closes_at
-                         ELSE false
-                     END
+                     AND ple_private.student_assessment_score_is_released(
+                         score_policy.feedback_score,
+                         assessment_score_submission.submitted_at,
+                         score_policy.due_at, score_policy.closes_at, p_now
+                     )
                 THEN grade_evidence.points_earned ELSE NULL END,
            CASE WHEN grade_evidence.points_possible IS NOT NULL
-                     AND CASE score_policy.feedback_score
-                         WHEN 'during_attempt' THEN true
-                         WHEN 'after_submit' THEN assessment_score_submission.assessment_attempt_id IS NOT NULL
-                         WHEN 'after_due' THEN score_policy.due_at IS NOT NULL
-                              AND p_now >= score_policy.due_at
-                         WHEN 'after_close' THEN score_policy.closes_at IS NOT NULL
-                              AND p_now >= score_policy.closes_at
-                         ELSE false
-                     END
+                     AND ple_private.student_assessment_score_is_released(
+                         score_policy.feedback_score,
+                         assessment_score_submission.submitted_at,
+                         score_policy.due_at, score_policy.closes_at, p_now
+                     )
                 THEN grade_evidence.points_possible ELSE NULL END
       FROM released_assessment AS assessment
       LEFT JOIN ple_private.student_assessment_accommodation AS accommodation
@@ -153,7 +162,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                  END AS assessment_attempt_limit
       ) AS effective ON true
       LEFT JOIN LATERAL (
-          SELECT candidate.assessment_attempt_id, policy.assessment_title,
+          SELECT candidate.course_instance_id, candidate.assessment_attempt_id, policy.assessment_title,
                  candidate.assessment_attempt_number,
                  policy.feedback_score,
                  policy.assessment_attempt_time_limit_seconds,
@@ -167,13 +176,50 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
            LIMIT 1
       ) AS assessment_attempt ON true
       LEFT JOIN ple_private.assessment_submission AS assessment_attempt_submission
-        ON assessment_attempt_submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+        ON assessment_attempt_submission.course_instance_id = assessment_attempt.course_instance_id
+       AND assessment_attempt_submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
       LEFT JOIN LATERAL (
-          SELECT count(*)::integer AS started_assessment_attempt_count
+          SELECT count(*)::integer AS assessment_attempt_count,
+                 count(submission.assessment_attempt_id)::integer
+                     AS submitted_assessment_attempt_count
             FROM ple_private.assessment_attempt AS started_assessment_attempt
+            LEFT JOIN ple_private.assessment_submission AS submission
+              ON submission.course_instance_id = started_assessment_attempt.course_instance_id
+             AND submission.assessment_attempt_id = started_assessment_attempt.assessment_attempt_id
            WHERE started_assessment_attempt.student_record_id = p_student_record_id
              AND started_assessment_attempt.assessment_id = assessment.assessment_id
       ) AS started ON true
+      LEFT JOIN LATERAL (
+          SELECT max(activity.occurred_at) AS latest_activity_at
+            FROM (
+                SELECT attempt.started_at AS occurred_at
+                  FROM ple_private.assessment_attempt AS attempt
+                 WHERE attempt.student_record_id = p_student_record_id
+                   AND attempt.assessment_id = assessment.assessment_id
+                UNION ALL
+                SELECT submission.submitted_at
+                  FROM ple_private.assessment_attempt AS attempt
+                  JOIN ple_private.assessment_submission AS submission
+                    ON submission.course_instance_id = attempt.course_instance_id
+                   AND submission.assessment_attempt_id = attempt.assessment_attempt_id
+                 WHERE attempt.student_record_id = p_student_record_id
+                   AND attempt.assessment_id = assessment.assessment_id
+                UNION ALL
+                SELECT saved.saved_at
+                  FROM ple_private.assessment_attempt AS attempt
+                  JOIN ple_private.issued_question AS issued
+                    ON issued.course_instance_id = attempt.course_instance_id
+                   AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+                  JOIN ple_private.question_attempt AS question_attempt
+                    ON question_attempt.course_instance_id = issued.course_instance_id
+                   AND question_attempt.issued_question_id = issued.issued_question_id
+                  JOIN ple_private.assessment_attempt_saved_response AS saved
+                    ON saved.course_instance_id = question_attempt.course_instance_id
+                   AND saved.question_attempt_id = question_attempt.question_attempt_id
+                 WHERE attempt.student_record_id = p_student_record_id
+                   AND attempt.assessment_id = assessment.assessment_id
+            ) AS activity
+      ) AS activity ON true
       LEFT JOIN LATERAL (
           SELECT ple_private.assessment_start_decision(
               assessment.assessment_status,
@@ -181,7 +227,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
               effective.due_at,
               effective.closes_at,
               effective.assessment_attempt_limit,
-              started.started_assessment_attempt_count,
+              started.assessment_attempt_count,
               assessment.late_work_rule::ple_data.late_work_rule,
               p_now
           ) AS start_decision
@@ -209,12 +255,14 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
           p_student_record_id, assessment.assessment_id
       ) AS grade_evidence ON true
       LEFT JOIN ple_private.assessment_attempt AS assessment_score_attempt
-        ON assessment_score_attempt.assessment_attempt_id = grade_evidence.assessment_attempt_id
+        ON assessment_score_attempt.course_instance_id = assessment.course_instance_id
+       AND assessment_score_attempt.assessment_attempt_id = grade_evidence.assessment_attempt_id
       LEFT JOIN ple_data.assessment_policy_snapshot AS score_policy
         ON score_policy.assessment_policy_snapshot_id
            = assessment_score_attempt.assessment_policy_snapshot_id
       LEFT JOIN ple_private.assessment_submission AS assessment_score_submission
-        ON assessment_score_submission.assessment_attempt_id = assessment_score_attempt.assessment_attempt_id
+        ON assessment_score_submission.course_instance_id = assessment_score_attempt.course_instance_id
+       AND assessment_score_submission.assessment_attempt_id = assessment_score_attempt.assessment_attempt_id
       LEFT JOIN LATERAL (
           -- ASVS 14.2.6: expose only the count, never saved response contents.
           SELECT count(response.question_attempt_id)::bigint AS saved_question_count
@@ -329,8 +377,91 @@ BEGIN
     END IF;
 
     RETURN QUERY
-    SELECT * FROM ple_private.read_student_released_assessment_landing_evidence(
-        course_instance_id_value, student_record_id_value, evaluation_time
-    );
+    SELECT evidence.assessment_id, evidence.assessment_title,
+           evidence.assessment_type, evidence.start_decision,
+           evidence.available_at, evidence.due_at, evidence.closes_at,
+           evidence.time_limit_seconds, evidence.assessment_attempt_limit,
+           evidence.late_work_rule, evidence.evaluated_at, evidence.display_time_zone,
+           evidence.assessment_attempt_number, evidence.assessment_attempt_completion,
+           evidence.can_resume_assessment_attempt, evidence.graded_question_count,
+           evidence.saved_question_count, evidence.question_count,
+           evidence.assessment_score_points_earned,
+           evidence.assessment_score_points_possible
+      FROM ple_private.read_student_released_assessment_landing_evidence(
+          course_instance_id_value, student_record_id_value, evaluation_time
+      ) AS evidence;
+END
+$$;
+
+-- Course-scoped Progress reuses the exact released Assessment, score disclosure,
+-- and Student Work projection used by the Coursework landing.
+-- ASVS 2.2.2/2.3.1/14.2.6: resolve identity from the installed session, require
+-- exact active Student Course membership, and expose only disclosed score totals.
+CREATE FUNCTION ple_api.list_live_student_course_progress(
+    p_course_instance_id text
+) RETURNS TABLE (
+    assessment_id text,
+    assessment_title text,
+    assessment_type text,
+    assessment_attempt_count bigint,
+    submitted_assessment_attempt_count bigint,
+    latest_assessment_attempt_number integer,
+    latest_assessment_attempt_completion text,
+    latest_activity_at timestamptz,
+    assessment_score_points_earned double precision,
+    assessment_score_points_possible double precision,
+    assessment_score_is_latest_attempt boolean
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    course_instance_id_value text;
+    student_record_id_value uuid;
+    evaluation_time timestamptz := pg_catalog.statement_timestamp();
+BEGIN
+    IF p_course_instance_id IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
+    END IF;
+
+    SELECT course.course_instance_id, student.student_record_id
+      INTO course_instance_id_value, student_record_id_value
+      FROM ple_private.account AS account
+      JOIN LATERAL (
+          SELECT event.state
+            FROM ple_private.account_state_event AS event
+           WHERE event.account_id = account.account_id
+           ORDER BY event.occurred_at DESC, event.event_id DESC
+           LIMIT 1
+      ) AS state_event ON state_event.state = 'active'
+      JOIN ple_data.course_membership AS membership
+        ON membership.account_id = account.account_id
+       AND membership.role = 'student'
+       AND ple_data.course_membership_is_active(membership.course_membership_id)
+      JOIN ple_data.course_instance AS course
+        ON course.course_instance_id = membership.course_instance_id
+       AND course.retention_lifecycle_state = 'active'
+      JOIN ple_data.student_record AS student
+        ON student.student_record_id = membership.student_record_id
+       AND student.course_instance_id = course.course_instance_id
+       AND student.student_account_id = account.account_id
+     WHERE account.account_id = ple_api.current_session_account_id()
+       AND account.product_role = 'student'
+       AND course.course_instance_id = p_course_instance_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
+    END IF;
+
+    RETURN QUERY
+    SELECT evidence.assessment_id, evidence.assessment_title,
+           evidence.assessment_type, evidence.assessment_attempt_count::bigint,
+           evidence.submitted_assessment_attempt_count::bigint,
+           evidence.assessment_attempt_number,
+           evidence.assessment_attempt_completion,
+           evidence.latest_activity_at,
+           evidence.assessment_score_points_earned,
+           evidence.assessment_score_points_possible,
+           coalesce(evidence.assessment_score_is_latest_attempt, false)
+      FROM ple_private.read_student_released_assessment_landing_evidence(
+          course_instance_id_value, student_record_id_value, evaluation_time
+      ) AS evidence;
 END
 $$;

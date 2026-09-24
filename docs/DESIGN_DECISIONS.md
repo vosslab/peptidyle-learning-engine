@@ -279,31 +279,31 @@ but do not replace, this server and database boundary.
 plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
 owns the implementation and verification details.
 
-### Account Settings is one self-only time-zone preference
+### Profile is the one time-zone preference page
 
-**Decision.** Every signed-in Product Role uses the same self-only
-`/account-settings` surface and `GET` / `PUT /api/account/settings` boundary.
-Both responses and the only accepted update body have the closed shape
-`{ "timeZone": "exact IANA name" }`. The boundary accepts no Account,
-Course, or Product Role selector. PostgreSQL derives the active Account from
-the authenticated session and atomically reads or replaces that Account's
-exact installed IANA name.
+**Decision.** Every signed-in Product Role checks and edits the Account's exact
+time-zone preference on `/profile`. The page uses the self-only `GET` /
+`PUT /api/account/settings` API boundary. Both responses and the only accepted
+update body have the closed shape `{ "timeZone": "exact IANA name" }`. The
+boundary accepts no Account, Course, or Product Role selector. PostgreSQL
+derives the active Account from the authenticated session and atomically reads
+or replaces that Account's exact installed IANA name. Profile is the only
+preference page.
 
-**Why.** Account Settings needs one small, understandable preference that does
-not let a caller select another Account or accidentally turn a display choice
-into Course authority. One boundary also removes the current split between
-Student time-zone handling and the Instructor Profile editor.
+**Why.** Profile is the one place to check this preference. The API boundary
+does not let a caller select another Account or turn a display choice into
+Course authority.
 
 **Consequence.** A successful update changes date display for the Account and,
 for an Instructor, the wall-clock interpretation of dates entered later. It
-never changes an already stored instant. Profile Settings owns avatar selection
-and Profile-image work. Instructor Profile displays the current Account time
-zone and links to Account Settings; it does not edit the zone itself.
+never changes an already stored instant. Other pages format date and time
+without repeating the zone name. Profile also owns avatar selection and
+Profile-image work.
 
-This Account Settings boundary exposes no passkey, email, TOTP, recovery,
+This Account preference boundary exposes no passkey, email, TOTP, recovery,
 Account-status, or session control. Human Guidance's required Student and
 Instructor passwordless authentication and multiple Student passkeys remain
-owned by Accounts-and-roles milestones, not by Account Settings. The unresolved
+owned by Accounts-and-roles milestones. The unresolved
 credential-lifecycle choices are only self-service enumeration, revocation,
 re-authentication, identity-proofed recovery, notification, and
 session-termination semantics; a separate decision must define those rules
@@ -971,15 +971,107 @@ change unexpectedly.
 
 **Consequence.** The route contract selects a tier-one area but cannot add or
 remove a tier-one control or change a settled task row. Existing route-scoped
-Student Attempt tasks remain current behavior while Student tier-two contents
-and order are unresolved. The client presents navigation only; the trusted
-server continues to enforce function- and resource-level authorization. This
-keeps client navigation from becoming an authorization boundary (ASVS 8.2.1,
-8.2.2, and 8.3.1).
+Student task rows are replaced by the fixed rows in Human Guidance. The client
+presents navigation only; the trusted server continues to enforce function-
+and resource-level authorization. This keeps client navigation from becoming
+an authorization boundary (ASVS 8.2.1, 8.2.2, and 8.3.1).
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s role navigation rules and
 the role catalog in [ribbon_schema.ts](../src/ribbon/ribbon_schema.ts), with
 route resolution in [ribbon_catalog.ts](../src/ribbon/ribbon_catalog.ts).
+
+### Student Tier 2 is fixed by Student Tier 1
+
+**Decision.** Student Tier 2 rows have fixed choices and order: Courses has
+Progress and Practice Stats; Coursework has All Coursework, Due Soon, and
+Completed; Grades has Scores and Attempt History. Tier 1 determines the row.
+The selected Course determines scoped content and destinations. Assessment,
+Attempt, and review routes retain the same row. A single active Course opens
+Progress from Student home; multiple active Courses open the Course chooser.
+
+**Why.** The Student Ribbon should remain predictable while the ordinary
+workflow stays centered on one selected Course and can handle two Courses.
+
+**Consequence.** Route task groups do not define Student Tier 2. Course-scoped
+links retain the selected Course. Invitations remain in Courses, and Attempt
+feedback remains on its review page.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[RIBBON_TASK_MODEL.md](ux/RIBBON_TASK_MODEL.md), and the Student route and
+catalog contracts.
+
+### Student Progress separates release from completion
+
+**Decision.** Progress distinguishes no Attempts, Attempts without a released
+and disclosed score, and released scores below or at 100%. An Assessment with
+Attempts but no released/disclosed score remains visible as **Score not
+released** and is not classified as below 100%. A submitted Attempt is
+completion; it does not imply a perfect score. PLE calculates no weighted
+Course grade.
+
+**Why.** A useful Progress view must preserve work that has not produced a
+Student-visible score and must not imply hidden correctness or conflate
+completion with perfection.
+
+**Consequence.** API projections apply disclosure before returning scores or
+aggregates. Progress may show Attempt and activity information for a score not
+released state, but it shows no withheld score. Completed Coursework means at
+least one submitted Attempt.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[API_CONTRACTS.md](API_CONTRACTS.md), and the Student Progress API contract.
+
+### Practice Stats reports actual outcomes across Assessment types
+
+**Decision.** Practice Stats aggregates the signed-in Student's saved outcomes
+from eligible submitted Assessments across the selected Course. It is not
+limited to Assessments whose type is Practice Question Assignment. Group by
+the exact immutable Published Question Revision and include an outcome only
+when the Assessment score and per-Question correctness are both released.
+
+**Why.** Practice Stats should describe real recorded Question outcomes, not
+estimated or synthetic results, and should include relevant work across
+Assessment types when its feedback is available to the Student.
+
+**Consequence.** The API reports actual outcome counts and, when recorded,
+measured approximate time shown with the Question. It applies disclosure
+before aggregation and exposes no cohort data or unreleased correctness.
+
+**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md), the Course Practice Stats
+reader, and its Student page.
+
+### Show the time-zone name only on Profile
+
+**Decision.** Format times with the selected display time zone, but show its
+name only on the Profile page. Other pages show the formatted date or time
+without repeating a time-zone label.
+
+**Why.** A Student or Instructor reading their own schedule does not need a
+time-zone name repeated beside each time.
+
+**Consequence.** Profile remains the place to check the exact IANA preference.
+Course and Activity pages keep using the selected display zone for formatting
+without adding time-zone text to their task content.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), this decision, and the
+date-formatting components.
+
+### Question duration means time shown
+
+**Decision.** Practice Stats may show average measured, approximate time shown
+with a Question and its sample count. The measurement runs only while that
+Question is current and the browser document is visible. Missing duration is
+not recorded or inferred from Assessment elapsed time.
+
+**Why.** The browser can measure display duration, but it cannot establish
+attention, effort, or difficulty.
+
+**Consequence.** Duration never affects grading. The API stores nullable
+cumulative milliseconds as Student Work, freezes updates at Attempt
+finalization, and aggregates only disclosed Student data.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[DATA_CONTRACTS.md](DATA_CONTRACTS.md), and the Question Attempt duration API.
 
 ### Signed-in shell rows have unconditional height
 
@@ -992,10 +1084,10 @@ keeps page content from jumping when route state changes or a row renders
 without controls.
 
 **Consequence.** Instructor rows follow the settled Human Guidance mappings.
-Student and Sysadmin tier-two contents remain unresolved; a route that
-currently renders no task controls does not establish an intentionally empty
-menu. Breadcrumb and page-content geometry stays stable for every signed-in
-route.
+Student rows follow their fixed Human Guidance mappings. Sysadmin tier-two
+contents remain unresolved; a route that currently renders no task controls
+does not establish an intentionally empty menu. Breadcrumb and page-content
+geometry stays stable for every signed-in route.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s permanent breadcrumb-row
 rule, [application_shell.tsx](../src/application_shell.tsx), and

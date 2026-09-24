@@ -6,11 +6,6 @@
       "reason": "The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes."
     },
     {
-      "id": "accountSettings",
-      "status": "deferred",
-      "reason": "Account Settings requires a fresh Live Demo capture before visual evidence is claimed."
-    },
-    {
       "id": "libraryWatchNotifications",
       "status": "deferred",
       "reason": "The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
@@ -28,7 +23,7 @@
     {
       "id": "assessmentWorkspaceOverview",
       "status": "deferred",
-      "reason": "The legacy multi-tab Assignment workspace is retired."
+      "reason": "Assessment editing uses the current single-page workspace."
     },
     {
       "id": "assessmentTemplates",
@@ -85,7 +80,7 @@
     {
       "id": "tab:attempt",
       "status": "deferred",
-      "reason": "The separate legacy Assignment Attempt Ribbon is not exposed by the default Live Demo."
+      "reason": "Student Attempts open from Course Attempt History and Attempt reviews."
     },
     {
       "id": "tab:disciplines",
@@ -115,17 +110,17 @@
     {
       "id": "task:assessmentOverview",
       "status": "deferred",
-      "reason": "The legacy multi-tab Assignment workspace is retired."
+      "reason": "Assessment editing uses the current single-page workspace."
     },
     {
       "id": "task:assessmentQuestions",
       "status": "deferred",
-      "reason": "The legacy multi-tab Assignment workspace is retired."
+      "reason": "Assessment editing uses the current single-page workspace."
     },
     {
       "id": "task:assessmentPolicies",
       "status": "deferred",
-      "reason": "The legacy multi-tab Assignment workspace is retired."
+      "reason": "Assessment editing uses the current single-page workspace."
     },
     {
       "id": "task:assessmentStudentView",

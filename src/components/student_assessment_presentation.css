@@ -78,43 +78,8 @@
   overflow-wrap: anywhere;
 }
 
-.student-assessment-decision__status,
-.student-assessment-decision__zone {
+.student-assessment-decision__status {
   margin-block: var(--ple-space-2);
-}
-
-.student-assessment-decision__zone {
-  color: var(--ple-muted);
-  font-size: 0.875rem;
-}
-
-.student-time-zone-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(14rem, auto);
-  gap: var(--ple-space-3) var(--ple-space-5);
-  align-items: end;
-  margin-block: var(--ple-space-5);
-  padding: var(--ple-space-4);
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
-  background: var(--ple-surface-soft);
-}
-
-.student-time-zone-control h2,
-.student-time-zone-control p {
-  margin-block: 0 var(--ple-space-2);
-}
-
-.student-time-zone-control form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--ple-space-2);
-  align-items: end;
-}
-
-.student-time-zone-control label {
-  display: grid;
-  gap: var(--ple-space-1);
 }
 
 .student-assignment-card {
@@ -191,11 +156,6 @@
 }
 
 @media (max-width: 56rem) {
-  .student-time-zone-control,
-  .student-time-zone-control form {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .student-assignment-card {
     grid-template-areas:
       "title"

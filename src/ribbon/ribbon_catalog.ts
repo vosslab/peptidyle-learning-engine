@@ -87,15 +87,19 @@ export type RibbonTaskId =
   | "teachingOperations"
   | "blueprintUpdates"
   | "courseSetup"
-  | "studentAssessments"
-  | "attempt"
+  | "studentProgress"
+  | "studentPracticeStats"
+  | "allCoursework"
+  | "dueSoon"
+  | "completedCoursework"
+  | "studentScores"
+  | "studentAttemptHistory"
   | "assessmentOverview"
   | "assessmentQuestions"
   | "assessmentPolicies"
   | "assessmentStudentView"
   | "gradeSettings"
-  | "appearance"
-  | "backToAssessments";
+  | "appearance";
 
 export type RibbonDestinationId = RibbonTabId | RibbonTaskId;
 
@@ -103,10 +107,12 @@ export type RibbonTaskArea =
   | "instructorCourses"
   | "instructorQuestions"
   | "instructorAssessments"
+  | "studentCourses"
+  | "studentCoursework"
+  | "studentGrades"
   | "course"
   | "assessment"
-  | "courseSetup"
-  | "assessmentAttempt";
+  | "courseSetup";
 
 export interface RibbonTaskCatalogEntry extends RibbonCatalogControl<RibbonTaskId> {
   readonly requiredParams: ReadonlyArray<RouteParamName>;
@@ -424,26 +430,86 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "studentAssessments",
-    label: "Coursework",
-    destination: { kind: "route", routeId: "studentCourseLanding" },
+    id: "studentProgress",
+    label: "Progress",
+    destination: { kind: "route", routeId: "studentCourseProgress" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
-    area: "course",
+    taskGroup: "studentCourses",
+    area: "studentCourses",
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "attempt",
-    label: "Attempt",
-    destination: { kind: "route", routeId: "assessmentAttempt" },
-    requiredParams: ["assessmentAttemptId"],
-    taskGroup: "assessmentAttempt",
-    area: "assessmentAttempt",
+    id: "studentPracticeStats",
+    label: "Practice Stats",
+    destination: { kind: "route", routeId: "studentCoursePracticeStats" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentCourses",
+    area: "studentCourses",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "allCoursework",
+    label: "All Coursework",
+    destination: { kind: "route", routeId: "studentCourseLanding" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentCoursework",
+    area: "studentCoursework",
     role: "primary",
     priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "dueSoon",
+    label: "Due Soon",
+    destination: { kind: "route", routeId: "studentCourseDueSoon" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentCoursework",
+    area: "studentCoursework",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "completedCoursework",
+    label: "Completed",
+    destination: { kind: "route", routeId: "studentCourseCompleted" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentCoursework",
+    area: "studentCoursework",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "studentScores",
+    label: "Scores",
+    destination: { kind: "route", routeId: "studentCourseGrades" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentGrades",
+    area: "studentGrades",
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "studentAttemptHistory",
+    label: "Attempt History",
+    destination: { kind: "route", routeId: "studentCourseAttemptHistory" },
+    requiredParams: ["courseInstanceId"],
+    taskGroup: "studentGrades",
+    area: "studentGrades",
+    role: "supporting",
+    priority: "normal",
     presentation: "standard",
     ...pairedIconFlags,
   },
@@ -516,18 +582,6 @@ export const RIBBON_TASK_CATALOG = [
     area: "courseSetup",
     role: "supporting",
     priority: "normal",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "backToAssessments",
-    label: "Back to Coursework",
-    destination: { kind: "route", routeId: "assessmentOverview" },
-    requiredParams: ["courseInstanceId", "assessmentId"],
-    taskGroup: "assessmentAttempt",
-    area: "assessmentAttempt",
-    role: "primary",
-    priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },

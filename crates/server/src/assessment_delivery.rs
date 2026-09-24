@@ -112,6 +112,10 @@ pub fn assessment_delivery_router(
             put(submission::save_selected_response),
         )
         .route(
+            "/api/assessment-attempts/{assessment_attempt}/questions/{position}/display-duration",
+            put(submission::checkpoint_question_display_duration),
+        )
+        .route(
             "/api/assessment-attempts/{assessment_attempt}/submission",
             post(submission::finalize_assessment_attempt),
         )

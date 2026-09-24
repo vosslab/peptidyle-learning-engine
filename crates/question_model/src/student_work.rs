@@ -59,6 +59,8 @@ pub struct StudentAssessmentAttemptProgress {
 pub struct StudentAssessmentAttemptPosition {
     pub position: u32,
     pub response_state: StudentAssessmentAttemptResponseState,
+    /// Nullable cumulative approximate display milliseconds for this Question.
+    pub display_duration_ms: Option<u64>,
 }
 
 /// The only persistence states exposed by Assessment navigation.

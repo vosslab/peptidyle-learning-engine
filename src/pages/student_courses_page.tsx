@@ -11,8 +11,8 @@ function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary })
   return (
     <article class="course-card">
       <h2>{props.course.longName}</h2>
-      <A class="primary-link" href={`/student/courses/${props.course.id}`}>
-        Open assigned work
+      <A class="primary-link" href={`/student/courses/${props.course.id}/progress`}>
+        Open Progress
       </A>
     </article>
   );
@@ -31,7 +31,7 @@ export function StudentCoursesPage(): JSX.Element {
     if (choosingCourses() || currentCourses?.length !== 1) return;
     const currentCourse = currentCourses[0];
     if (currentCourse === undefined) return;
-    navigate(`/student/courses/${currentCourse.id}`, { replace: true });
+    navigate(`/student/courses/${currentCourse.id}/progress`, { replace: true });
   });
 
   return (
@@ -39,7 +39,7 @@ export function StudentCoursesPage(): JSX.Element {
       routeSurface="studentCourses"
       eyebrow="Your learning"
       title="Your courses"
-      lede="Open assigned work in one of your current courses."
+      lede="Open Progress in one of your current courses."
     >
       <A class="quiet-link" href="/student/course-invitations">
         Course invitations

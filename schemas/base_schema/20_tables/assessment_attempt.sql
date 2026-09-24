@@ -212,6 +212,11 @@ CREATE TABLE ple_private.question_attempt (
     issued_at timestamptz NOT NULL,
     deadline_at timestamptz,
     finalized_at timestamptz,
+    -- Cumulative milliseconds the Question was shown while its browser document was visible.
+    -- Null means no duration was recorded (including retained pre-feature Student Work).
+    display_duration_ms bigint CHECK (
+        display_duration_ms IS NULL OR display_duration_ms BETWEEN 0 AND 9007199254740991
+    ),
     delivery_toolchain_id uuid NOT NULL
         REFERENCES ple_private.delivery_toolchain(delivery_toolchain_id),
     source_object_record_id uuid REFERENCES ple_private.object_record(object_record_id),
@@ -230,6 +235,9 @@ CREATE TABLE ple_private.question_attempt (
     CHECK ((source_object_record_id IS NULL) = (source_object_checksum IS NULL)),
     CHECK (finalized_at IS NULL OR finalized_at >= issued_at)
 );
+
+COMMENT ON COLUMN ple_private.question_attempt.display_duration_ms IS
+    'Nullable cumulative approximate milliseconds shown with this Question while its browser document was visible; NULL means not recorded.';
 
 CREATE TABLE ple_private.assessment_submission (
     course_instance_id ple_data.course_instance_id NOT NULL,

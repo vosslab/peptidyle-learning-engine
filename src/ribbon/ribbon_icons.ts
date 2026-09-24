@@ -59,13 +59,11 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
   coursework: "clipboard-list",
   grades: "table-list",
   assessments: "clipboard-list",
-  studentAssessments: "clipboard-list",
   students: "users",
   gradebook: "table-list",
   teachingOperations: "gear",
   blueprintUpdates: "layer-group",
   courseSetup: "gear",
-  attempt: "pen-to-square",
   instructorAccounts: "circle-user",
   disciplines: "book-open",
   myBlueprintCourses: "layer-group",
@@ -86,7 +84,13 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
   assessmentStudentView: "user-graduate",
   gradeSettings: "table-list",
   appearance: "palette",
-  backToAssessments: "arrow-left",
+  studentProgress: "table-list",
+  studentPracticeStats: "book-open",
+  allCoursework: "clipboard-list",
+  dueSoon: "clock",
+  completedCoursework: "list-check",
+  studentScores: "table-list",
+  studentAttemptHistory: "clock",
 } as const satisfies Readonly<Partial<Record<RibbonDestinationId, RibbonGlyphId>>>);
 
 export type RibbonDestinationGlyphId = keyof typeof RIBBON_DESTINATION_GLYPHS;

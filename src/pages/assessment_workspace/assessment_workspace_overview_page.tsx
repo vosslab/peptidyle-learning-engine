@@ -46,10 +46,6 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
                 </Show>
               </dd>
             </div>
-            <div>
-              <dt>Time zone</dt>
-              <dd>{assessment().displayTimeZone}</dd>
-            </div>
           </dl>
         </section>
         <section

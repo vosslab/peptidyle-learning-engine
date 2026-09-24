@@ -142,7 +142,6 @@ function DeliveryPolicy(props: {
       />
       <section aria-labelledby="student-view-delivery-heading">
         <h2 id="student-view-delivery-heading">Current delivery policy</h2>
-        <p>Times are shown in {props.manifest.displayTimeZone}.</p>
         <dl class="assessment-facts">
           <div>
             <dt>Status</dt>

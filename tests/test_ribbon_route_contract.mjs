@@ -9,7 +9,6 @@ import {
   ROUTE_CONTRACT,
 } from "../src/route_contract.ts";
 import { deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
-import { RIBBON_TASK_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
 import { ribbonSchemaFor } from "../src/ribbon/ribbon_schema.ts";
 
 const PRODUCT_ROLES = ["instructor", "student", "sysadmin"];
@@ -22,7 +21,8 @@ test("declared routes select only Ribbon topology and task areas that exist", ()
   for (const route of ROUTE_CONTRACT) {
     assert.equal(Object.hasOwn(route.ribbon, "contentLayout"), false, route.id);
     assert.ok(route.pageLayout === undefined || route.pageLayout === "fullWidth", route.id);
-    const { taskGroup, tierOneArea } = route.ribbon;
+    const { tierOneArea } = route.ribbon;
+    assert.deepEqual(Object.keys(route.ribbon).sort(), ["scope", "tierOneArea"]);
 
     if (tierOneArea !== "account") {
       const applicableRoles =
@@ -34,12 +34,6 @@ test("declared routes select only Ribbon topology and task areas that exist", ()
           `${route.id}/${productRole}`,
         );
       }
-    }
-
-    if (taskGroup !== undefined) {
-      assert.notEqual(tierOneArea, "account", route.id);
-      const taskAreas = RIBBON_TASK_CATALOG.filter((control) => control.taskGroup === taskGroup);
-      assert.notEqual(taskAreas.length, 0, route.id);
     }
   }
 });
@@ -70,7 +64,6 @@ test("each Product Role has an explicit selected Courses home route", () => {
 test("Instructor routes leave Tier 2 selection to Product Role and Tier 1", () => {
   for (const route of ROUTE_CONTRACT) {
     if (!route.requiredProductRoles.includes("instructor")) continue;
-    assert.equal(route.ribbon.taskGroup, undefined, route.id);
   }
   const inactiveCourses = ROUTE_CONTRACT.find(
     (candidate) => candidate.id === "instructorInactiveCourses",
@@ -87,16 +80,15 @@ test("Instructor routes leave Tier 2 selection to Product Role and Tier 1", () =
 // Permanent contract: the account menu has exactly two authenticated-self
 // destinations for every Product Role. A failure means restoring the common
 // route contract, rather than creating a role-specific account route.
-test("Profile and Account settings are common authenticated-self routes", () => {
-  for (const [id, path] of [
-    ["profile", "/profile"],
-    ["accountSettings", "/account-settings"],
-  ]) {
-    const route = ROUTE_CONTRACT.find((candidate) => candidate.id === id);
-    assert.ok(route, id);
-    assert.equal(route.path, path, id);
-    assert.deepEqual(route.requiredProductRoles, ["student", "instructor", "sysadmin"], id);
-    assert.equal(route.ribbon.scope, "product", id);
-    assert.equal(route.ribbon.tierOneArea, "account", id);
-  }
+test("Profile is the only common authenticated-self Account preference route", () => {
+  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === "profile");
+  assert.ok(route, "profile");
+  assert.equal(route.path, "/profile");
+  assert.deepEqual(route.requiredProductRoles, ["student", "instructor", "sysadmin"]);
+  assert.equal(route.ribbon.scope, "product");
+  assert.equal(route.ribbon.tierOneArea, "account");
+  assert.equal(
+    ROUTE_CONTRACT.some((candidate) => candidate.path === "/account-settings"),
+    false,
+  );
 });

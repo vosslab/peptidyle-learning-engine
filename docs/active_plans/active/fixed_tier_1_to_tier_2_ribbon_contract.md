@@ -1,5 +1,10 @@
 # Fixed Tier 1 -> Tier 2 Ribbon Contract
 
+> Only the Student Tier 2 investigation in this plan is superseded by
+> [STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md](STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md).
+> Instructor work, including evaluation of the Instructor's Student View,
+> remains active.
+
 ## Context
 
 Instructor Tier 2 currently changes when an Instructor opens a Course or
@@ -96,17 +101,10 @@ work.
    Instructor identity and avoiding Student state changes; otherwise keep the
    current preview route.
 
-8. **Investigate Student Tier 2.** Compare Human Guidance with the actual
-   Courses, Coursework, Grades, Attempt, and summary routes and captured
-   screens. Treat repeated, role-appropriate workflows as evidence to
-   investigate, not proof of menu contents or order. Require product evidence
-   that establishes fixed destinations and their order.
-
-9. **Preserve Student behavior.** If milestone 8 establishes fixed
-   destinations and order, apply that mapping across the matching Student Tier
-   1 routes and retain every workflow path. Otherwise leave Student navigation
-   behavior as it is and record the unresolved design in the decision
-   documentation.
+8. **Superseded: Student Tier 2.** Implement the settled Student destinations
+   and route behavior in
+   [STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md](STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md).
+   This plan continues to own the Instructor investigation and implementation.
 
 10. **Check touched accessibility behavior.** Reuse existing accessibility and
     browser coverage for the migrated Ribbon controls, page links, focus order,
@@ -117,11 +115,10 @@ work.
     transitions and supported widths. Correct route-caused shifts; keep the
     existing shell geometry and do not require pixel equality.
 
-12. **Update documentation.** Add the fixed-row invariant to Human Guidance
-    while preserving the distinction between that rule and unsettled Student
-    menu contents. Correct the tier-two decision note so it describes Student
-    contents as unknown rather than empty; align the Ribbon model and design
-    guide, then update the changelog.
+12. **Update Instructor documentation.** Keep the fixed-row invariant and
+    settled Instructor mappings aligned across Human Guidance, the Ribbon
+    model, design guide, and changelog. Student documentation is owned by
+    [STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md](STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md).
 
 13. **Integrate and verify.** Remove temporary probes and artifacts. Run
     focused contract and browser checks, capture the final canonical screens,

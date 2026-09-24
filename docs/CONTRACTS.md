@@ -72,8 +72,8 @@ previous code and matching resettable preproduction database together.
 There is no legacy browser redirect or API compatibility layer. The
 preproduction rebuild uses canonical Assessment paths and APIs directly.
 
-Account Settings is a self-owned, all-Product-Role exact IANA display
-preference. `GET` / `PUT /api/account/settings` has the closed
+Profile is the only browser page that names or edits the self-owned, all-Product-Role
+exact IANA display preference. `GET` / `PUT /api/account/settings` has the closed
 `{ "timeZone": "exact IANA name" }` shape and accepts no Account, Course, or
 Product Role selector. PostgreSQL derives the active Account from the
 authenticated session and atomically reads or updates that Account's
@@ -83,9 +83,8 @@ unless the Student already chose a zone. Existing Accounts keep their
 preference. A change updates display and an Instructor's later wall-clock date
 entry interpretation; it never moves an absolute stored deadline.
 
-Profile Settings owns avatar selection and Profile-image work. Instructor
-Profile displays the current Account time zone and links to Account Settings;
-it does not edit the preference. Account Settings exposes no passkey, email,
+Profile also owns avatar selection and Profile-image work. Other pages format
+times without displaying the time-zone name. This preference exposes no passkey, email,
 TOTP, recovery, Account-status, or session control. Required Student and
 Instructor passwordless authentication and multiple Student passkeys remain
 Accounts-and-roles work. Only self-service enumeration, revocation,
@@ -159,7 +158,7 @@ credential and does not bypass MFA.
 | Boundary | Owner and evidence |
 | --- | --- |
 | Sysadmin TOTP session transition | C15 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); future authentication Store, server, and base-schema boundaries |
-| Account Settings time zone | C819-C823 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); closed browser decoder, server validation, and one self-derived PostgreSQL transaction |
+| Profile time-zone preference | C819-C823 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); closed browser decoder, server validation, and one self-derived PostgreSQL transaction |
 
 ## Reusable content
 
@@ -272,6 +271,12 @@ each presentation-scoped four-hex reference to the durable authored
 response-item identity, so evidence readers interpret saved work without a
 mutable source lookup. Saved responses are private mutable input while the
 Attempt is active.
+
+Each Question Attempt may also retain one nullable cumulative millisecond value
+for the approximate time its Question was shown while the Student's browser
+document was visible. This is Student Work on the existing Question Attempt
+row, not a raw event stream. Missing values mean not recorded; no duration is
+derived from whole-Assessment elapsed time.
 
 An author may name only a closed server registry library identifier, currently
 `rdkit`; an author never supplies a URL, CDN domain, local path, package

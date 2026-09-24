@@ -11,16 +11,15 @@ function displayCourseLocalTime(value: string): string {
 export function assessmentAvailabilityCopy(
   status: AssessmentStatus,
   current: InstructorAssessmentAvailabilityView,
-  timeZone: string,
 ): string {
   if (current.state === "unreleased") return "Unreleased. Students cannot access this assessment.";
   if (current.state === "archived") return "Archived. Students cannot access this assessment.";
   if (current.state === "scheduled") {
-    return `Released, scheduled to open at ${displayCourseLocalTime(current.available_at)} ${timeZone}.`;
+    return `Released, scheduled to open at ${displayCourseLocalTime(current.available_at)}.`;
   }
   if (current.state === "available") return "Released, available now.";
   if (status === "released" && current.closed_at !== null) {
-    return `Released, closed since ${displayCourseLocalTime(current.closed_at)} ${timeZone}.`;
+    return `Released, closed since ${displayCourseLocalTime(current.closed_at)}.`;
   }
   return "Closed by instructor. Students cannot start new work.";
 }

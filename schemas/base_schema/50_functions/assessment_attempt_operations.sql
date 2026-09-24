@@ -254,7 +254,8 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_progress(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     assessment_attempt_id uuid, question_count integer,
-    recommended_position integer, issued_position integer, response_state text
+    recommended_position integer, issued_position integer, response_state text,
+    display_duration_ms bigint
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
@@ -268,12 +269,81 @@ BEGIN
            CASE WHEN question_attempt.finalized_at IS NOT NULL
                      AND response.question_attempt_id IS NOT NULL THEN 'submitted'
                 WHEN question_attempt.finalized_at IS NOT NULL THEN 'closed'
-                WHEN response.question_attempt_id IS NOT NULL THEN 'saved' ELSE 'unanswered' END
+                WHEN response.question_attempt_id IS NOT NULL THEN 'saved' ELSE 'unanswered' END,
+           question_attempt.display_duration_ms
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.assessment_attempt_saved_response AS response ON response.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
      ORDER BY issued.issued_position;
+END $$;
+
+
+-- A cumulative Question display checkpoint is self-only, monotone, and
+-- serialized with finalization using the shared Assessment-first lock order.
+CREATE FUNCTION ple_private.checkpoint_student_question_display_duration(
+    p_assessment_attempt_id uuid,
+    p_issued_position integer,
+    p_cumulative_display_duration_ms bigint
+) RETURNS TABLE (question_attempt_id uuid, display_duration_ms bigint)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
+DECLARE question_attempt_id_value uuid;
+DECLARE duration_value bigint;
+BEGIN
+    IF p_issued_position < 0
+       OR p_cumulative_display_duration_ms < 0
+       OR p_cumulative_display_duration_ms > 9007199254740991 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question display duration is invalid';
+    END IF;
+    assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
+        p_assessment_attempt_id
+    );
+    PERFORM ple_private.lock_assessment_for_student_work(assessment_attempt_row.assessment_id);
+    SELECT * INTO assessment_attempt_row
+      FROM ple_private.assessment_attempt AS attempt
+     WHERE attempt.assessment_attempt_id = p_assessment_attempt_id
+     FOR UPDATE;
+    IF EXISTS (
+        SELECT 1 FROM ple_private.assessment_submission AS submission
+         WHERE submission.course_instance_id = assessment_attempt_row.course_instance_id
+           AND submission.assessment_attempt_id = p_assessment_attempt_id
+    ) OR (assessment_attempt_row.expires_at IS NOT NULL
+          AND pg_catalog.clock_timestamp() >= assessment_attempt_row.expires_at) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question display duration is unavailable';
+    END IF;
+    SELECT question_attempt.question_attempt_id,
+           greatest(
+               coalesce(question_attempt.display_duration_ms, 0),
+               p_cumulative_display_duration_ms
+           )
+      INTO question_attempt_id_value, duration_value
+      FROM ple_private.issued_question AS issued
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+     WHERE issued.course_instance_id = assessment_attempt_row.course_instance_id
+       AND issued.assessment_attempt_id = p_assessment_attempt_id
+       AND issued.issued_position = p_issued_position
+       AND question_attempt.finalized_at IS NULL
+     FOR UPDATE OF question_attempt;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question display duration is unavailable';
+    END IF;
+    UPDATE ple_private.question_attempt AS question_attempt
+       SET display_duration_ms = duration_value
+     WHERE question_attempt.course_instance_id = assessment_attempt_row.course_instance_id
+       AND question_attempt.question_attempt_id = question_attempt_id_value
+       AND question_attempt.finalized_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question display duration is unavailable';
+    END IF;
+    RETURN QUERY SELECT question_attempt_id_value, duration_value;
 END $$;
 
 

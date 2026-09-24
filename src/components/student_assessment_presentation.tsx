@@ -103,9 +103,6 @@ export function StudentAssessmentDecisionDetails(props: {
         </strong>
         <Show when={props.decision.publicReason}>{(publicReason) => <> - {publicReason()}</>}</Show>
       </p>
-      <p class="student-assessment-decision__zone">
-        Times shown in {props.decision.displayTimeZone}
-      </p>
       <dl class="assessment-facts">
         <div>
           <dt>Due</dt>
@@ -334,7 +331,6 @@ export function StudentAssessmentPresentation(
       />
       <section aria-labelledby="delivery-details-heading">
         <h2 id="delivery-details-heading">Delivery details</h2>
-        <p>Times are shown in your time zone: {props.assessment.displayTimeZone}.</p>
         <dl class="assessment-facts">
           <div>
             <dt>Available</dt>

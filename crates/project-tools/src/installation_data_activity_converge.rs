@@ -505,11 +505,23 @@ async fn verify_complete_activity(
         .iter()
         .enumerate()
         .map(|(index, position)| {
-            let object =
-                closed_object(position, &["position", "responseState"], "Student progress")?;
+            let object = closed_object(
+                position,
+                &["position", "responseState", "displayDurationMs"],
+                "Student progress",
+            )?;
             ensure!(
                 object.get("position").and_then(Value::as_u64) == Some(index as u64 + 1),
                 "Live Demo Jack Student progress is invalid"
+            );
+            ensure!(
+                object
+                    .get("displayDurationMs")
+                    .is_some_and(|duration| duration.is_null()
+                        || duration
+                            .as_u64()
+                            .is_some_and(|milliseconds| milliseconds <= 9_007_199_254_740_991)),
+                "Live Demo Jack Question display duration is invalid"
             );
             Ok(object.get("responseState").and_then(Value::as_str) == Some("saved"))
         })

@@ -38,6 +38,21 @@ export function assignmentCard(page: Page, title: string = ASSIGNMENT_TITLE): Lo
     .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
+export function courseworkRow(page: Page, title: string = ASSIGNMENT_TITLE): Locator {
+  return page.locator(".record-list__row").filter({
+    has: page.getByRole("heading", { name: title, exact: true }),
+  });
+}
+
+export async function openAllStudentCoursework(page: Page): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Coursework", exact: true })
+    .click();
+  await page.locator('[data-route-surface="studentCourseLanding"]').waitFor();
+  await courseworkRow(page).waitFor();
+}
+
 export async function openInstructorCourse(
   page: Page,
   title: string = COURSE_TITLE,
@@ -82,7 +97,7 @@ export async function openStudentCourse(page: Page, title: string = COURSE_TITLE
   if (entry === "chooser") {
     const card = courseCard(page, title);
     await card.waitFor();
-    await card.getByRole("link", { name: "Open assigned work", exact: true }).click();
+    await card.getByRole("link", { name: "Open Progress", exact: true }).click();
     await studentCourseHeading(page, title).waitFor();
     return;
   }

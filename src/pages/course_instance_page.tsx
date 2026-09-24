@@ -632,13 +632,6 @@ export function CourseInstancePage(): JSX.Element {
                       Assessments appear in Course order. Open one to edit its Questions and
                       Properties.
                     </p>
-                    <Show when={assessments()?.[0]?.displayTimeZone}>
-                      {(displayTimeZone) => (
-                        <p class="course-instance-page__time-zone">
-                          Due dates use your Instructor time zone: {displayTimeZone()}.
-                        </p>
-                      )}
-                    </Show>
                   </div>
                   <A
                     class="primary-link"
@@ -835,24 +828,19 @@ export function CourseInstancePage(): JSX.Element {
                   <Show
                     when={profile.error === undefined}
                     fallback={
-                      <section aria-label="Instructor time zone unavailable">
-                        <p role="alert">
-                          Your Instructor time zone is unavailable. Refresh to try again.
-                        </p>
+                      <section aria-label="Course date display unavailable">
+                        <p role="alert">Course dates are unavailable. Refresh to try again.</p>
                         <button
                           type="button"
                           class="quiet-button"
                           onClick={() => void refetchProfile()}
                         >
-                          Retry Instructor time zone
+                          Retry Course dates
                         </button>
                       </section>
                     }
                   >
-                    <Show
-                      when={profile()}
-                      fallback={<p role="status">Loading your Instructor time zone...</p>}
-                    >
+                    <Show when={profile()} fallback={<p role="status">Loading Course dates...</p>}>
                       {(settings) => (
                         <CourseStudentWorkRecovery
                           courseInstanceId={view().courseInstance.id}

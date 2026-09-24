@@ -1,0 +1,74 @@
+/* Practice outcomes stay grouped by exact Published Question Revision. */
+
+.student-course-practice-stats {
+  margin-top: var(--ple-space-5);
+}
+
+.student-course-practice-stats > p {
+  max-width: 75ch;
+}
+
+.student-course-practice-stats__list {
+  display: grid;
+  gap: var(--ple-space-2);
+  margin: var(--ple-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-course-practice-stats__row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(22rem, 2fr) auto;
+  gap: var(--ple-space-3);
+  align-items: center;
+  padding: var(--ple-space-3);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-md);
+  background: var(--ple-surface);
+}
+
+.student-course-practice-stats__identity h3,
+.student-course-practice-stats__identity p {
+  margin: 0;
+}
+
+.student-course-practice-stats__identity p {
+  color: var(--ple-muted);
+}
+
+.student-course-practice-stats__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-1) var(--ple-space-3);
+  margin: 0;
+}
+
+.student-course-practice-stats__counts div {
+  display: flex;
+  gap: var(--ple-space-1);
+}
+
+.student-course-practice-stats__counts dt {
+  color: var(--ple-muted);
+}
+
+.student-course-practice-stats__counts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.student-course-practice-stats__action {
+  white-space: nowrap;
+}
+
+@media (max-width: 56rem) {
+  .student-course-practice-stats__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ple-space-2);
+    align-items: start;
+  }
+
+  .student-course-practice-stats__action {
+    justify-self: start;
+  }
+}

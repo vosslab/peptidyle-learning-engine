@@ -184,11 +184,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
                         <h2>{invitation.courseLabel}</h2>
                         <p class="teaching-team-meta">{invitationStateLabel(invitation.state)}</p>
                         <p class="teaching-team-meta">
-                          {serverExpiryCopy(
-                            invitation.expiresAt,
-                            current().displayTimeZone,
-                            formatExpiry,
-                          )}
+                          {serverExpiryCopy(invitation.expiresAt, formatExpiry)}
                         </p>
                       </div>
                       <Show

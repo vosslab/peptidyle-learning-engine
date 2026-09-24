@@ -160,10 +160,12 @@ const TASK_AREA_LABELS: Readonly<Record<RibbonTaskArea, string>> = Object.freeze
   instructorCourses: "Courses",
   instructorQuestions: "Questions",
   instructorAssessments: "Assessments",
+  studentCourses: "Courses",
+  studentCoursework: "Coursework",
+  studentGrades: "Grades",
   course: "Course",
   assessment: "Assessment",
   courseSetup: "Course setup",
-  assessmentAttempt: "Attempt",
 });
 
 const RESOLVED_RELATIONSHIP: RibbonRelationshipState = Object.freeze({
@@ -422,6 +424,21 @@ function instructorTaskGroupForTierOne(
   }
 }
 
+function studentTaskGroupForTierOne(
+  tierOneArea: RouteContract["ribbon"]["tierOneArea"],
+): RibbonTaskGroupId | undefined {
+  switch (tierOneArea) {
+    case "courses":
+      return "studentCourses";
+    case "coursework":
+      return "studentCoursework";
+    case "grades":
+      return "studentGrades";
+    default:
+      return undefined;
+  }
+}
+
 function taskAreasFor(
   routeState: RibbonRouteState,
   productRole: ProductRole,
@@ -429,7 +446,9 @@ function taskAreasFor(
   const group =
     productRole === "instructor"
       ? instructorTaskGroupForTierOne(routeState.route.ribbon.tierOneArea)
-      : routeState.route.ribbon.taskGroup;
+      : productRole === "student"
+        ? studentTaskGroupForTierOne(routeState.route.ribbon.tierOneArea)
+        : undefined;
   if (group === undefined) return Object.freeze([]);
 
   const areas: RibbonTaskAreaModel[] = [];
@@ -518,7 +537,7 @@ function breadcrumbsFor(
   const blueprints = breadcrumbLink("blueprintCourses");
   const courseParams = { courseInstanceId: routeState.params.courseInstanceId };
   const courseAssessments = breadcrumbLink("courseAssessments", courseParams);
-  const studentCourse = breadcrumbLink("studentCourseLanding", courseParams);
+  const studentCourse = breadcrumbLink("studentCourseProgress", courseParams);
   const assessmentParams = {
     courseInstanceId: routeState.params.courseInstanceId,
     assessmentId: routeState.params.assessmentId,
@@ -562,8 +581,6 @@ function breadcrumbsFor(
       return Object.freeze([home, breadcrumbCurrent("My Inactive Courses")]);
     case "profile":
       return Object.freeze([home, breadcrumbCurrent("Profile settings")]);
-    case "accountSettings":
-      return Object.freeze([home, breadcrumbCurrent("Account settings")]);
     case "pendingCourseInvitations":
     case "studentCourseInvitations":
       return Object.freeze([home, breadcrumbCurrent("Course Invitations")]);
@@ -610,10 +627,25 @@ function breadcrumbsFor(
     case "assessmentTemplates":
       return Object.freeze([home, breadcrumbCurrent("My Assessment Templates")]);
     case "courseAssessments":
-    case "studentCourseLanding":
       return Object.freeze([home, courseBreadcrumbItem(currentHref, true)]);
+    case "studentCourseProgress":
+      return Object.freeze([home, courseBreadcrumbItem(currentHref, true)]);
+    case "studentCourseLanding":
+      return Object.freeze([
+        home,
+        courseBreadcrumbItem(studentCourse ?? currentHref),
+        breadcrumbCurrent("All Coursework"),
+      ]);
+    case "studentCoursePracticeStats":
+      return Object.freeze(courseTrail("Practice Stats", studentCourse));
+    case "studentCourseDueSoon":
+      return Object.freeze(courseTrail("Due Soon", studentCourse));
+    case "studentCourseCompleted":
+      return Object.freeze(courseTrail("Completed", studentCourse));
     case "studentCourseGrades":
-      return Object.freeze(courseTrail("Grades", studentCourse));
+      return Object.freeze(courseTrail("Scores", studentCourse));
+    case "studentCourseAttemptHistory":
+      return Object.freeze(courseTrail("Attempt History", studentCourse));
     case "questionDetail":
       return library === undefined
         ? Object.freeze([])

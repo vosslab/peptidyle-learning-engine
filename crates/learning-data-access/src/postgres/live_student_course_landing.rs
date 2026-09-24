@@ -2,7 +2,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
+    AssessmentAttemptCompletion, AssessmentAttemptId, AssessmentId, AssessmentType,
+    CourseInstanceId, CourseTerm, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    QuestionRevisionNumber, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -10,8 +12,10 @@ use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
     LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
-    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
-    LiveStudentCourseLandingSummary, SessionTokenHash, StoreError,
+    LiveStudentCourseAttemptHistoryEntry, LiveStudentCourseInvitationSummary,
+    LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
+    LiveStudentCoursePracticeQuestionStats, LiveStudentCourseProgressAssessment, Page, PageRequest,
+    SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the active Student Course landing.
@@ -131,6 +135,278 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(assessments)
     }
+
+    async fn list_live_student_course_progress(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+    ) -> Result<Vec<LiveStudentCourseProgressAssessment>, StoreError> {
+        let mut transaction = self.begin(session_token_hash).await?;
+        let rows = sqlx::query(
+            "SELECT assessment_id, assessment_title, assessment_type, \
+             assessment_attempt_count, submitted_assessment_attempt_count, \
+             latest_assessment_attempt_number, latest_assessment_attempt_completion, \
+             CASE WHEN latest_activity_at IS NULL THEN NULL ELSE \
+                 floor(extract(epoch FROM latest_activity_at) * 1000)::bigint END \
+                 AS latest_activity_at_millis, \
+             assessment_score_points_earned, assessment_score_points_possible, \
+             assessment_score_is_latest_attempt \
+             FROM ple_api.list_live_student_course_progress($1)",
+        )
+        .bind(course_instance_id.as_string())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let progress = rows
+            .iter()
+            .map(decode_progress_assessment)
+            .collect::<Result<Vec<_>, _>>()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(progress)
+    }
+
+    async fn list_live_student_course_attempt_history(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+        page: PageRequest,
+    ) -> Result<Page<LiveStudentCourseAttemptHistoryEntry>, StoreError> {
+        let after = page.after.as_ref().map(crate::Cursor::as_str);
+        let limit = usize::from(page.size.get());
+        let mut transaction = self.begin(session_token_hash).await?;
+        let rows = sqlx::query(
+            "SELECT continuation_key, assessment_attempt_id, assessment_id, assessment_title, \
+             assessment_attempt_number, started_at_millis, submitted_at_millis, \
+             assessment_score_points_earned, assessment_score_points_possible \
+             FROM ple_api.list_live_student_course_attempt_history($1, $2, $3)",
+        )
+        .bind(course_instance_id.as_string())
+        .bind(after)
+        .bind(i32::from(page.size.get()))
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let items = rows
+            .iter()
+            .take(limit)
+            .map(decode_attempt_history_entry)
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = if rows.len() > limit {
+            let key: String = rows[limit - 1]
+                .try_get("continuation_key")
+                .map_err(map_sqlx_error)?;
+            Some(crate::Cursor::parse(key).map_err(|_| invalid("Attempt History cursor"))?)
+        } else {
+            None
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(Page { items, next_cursor })
+    }
+
+    async fn list_live_student_course_practice_stats(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+    ) -> Result<Vec<LiveStudentCoursePracticeQuestionStats>, StoreError> {
+        let mut transaction = self.begin(session_token_hash).await?;
+        let rows = sqlx::query(
+            "SELECT published_question_id, revision_number, full_credit_attempt_count, \
+             partial_credit_attempt_count, incorrect_attempt_count, unanswered_attempt_count, \
+             disclosed_attempt_count, not_full_credit_count, average_display_duration_ms, \
+             display_duration_sample_count, relevant_assessment_attempt_id \
+             FROM ple_api.list_live_student_course_practice_stats($1)",
+        )
+        .bind(course_instance_id.as_string())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let stats = rows
+            .iter()
+            .map(decode_practice_question_stats)
+            .collect::<Result<Vec<_>, _>>()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(stats)
+    }
+}
+
+fn decode_practice_question_stats(
+    row: &sqlx::postgres::PgRow,
+) -> Result<LiveStudentCoursePracticeQuestionStats, StoreError> {
+    let published_question_id: String = row
+        .try_get("published_question_id")
+        .map_err(map_sqlx_error)?;
+    let published_question_id = published_question_id
+        .parse::<PublishedQuestionId>()
+        .map_err(|_| invalid("Published Question ID"))?;
+    let revision_number = row
+        .try_get::<i32, _>("revision_number")
+        .map_err(map_sqlx_error)?;
+    let revision_number = QuestionRevisionNumber::new(
+        u32::try_from(revision_number).map_err(|_| invalid("Question Revision Number"))?,
+    )
+    .map_err(|_| invalid("Question Revision Number"))?;
+    let full_credit_attempt_count = count_u64(row, "full_credit_attempt_count")?;
+    let partial_credit_attempt_count = count_u64(row, "partial_credit_attempt_count")?;
+    let incorrect_attempt_count = count_u64(row, "incorrect_attempt_count")?;
+    let unanswered_attempt_count = count_u64(row, "unanswered_attempt_count")?;
+    let disclosed_attempt_count = count_u64(row, "disclosed_attempt_count")?;
+    let not_full_credit_count = count_u64(row, "not_full_credit_count")?;
+    let average_display_duration_ms =
+        optional_finite_nonnegative(row, "average_display_duration_ms")?;
+    let display_duration_sample_count = count_u64(row, "display_duration_sample_count")?;
+    let summed_attempt_count = full_credit_attempt_count
+        .checked_add(partial_credit_attempt_count)
+        .and_then(|value| value.checked_add(incorrect_attempt_count))
+        .and_then(|value| value.checked_add(unanswered_attempt_count))
+        .ok_or_else(|| invalid("Practice Stats outcome count"))?;
+    let expected_not_full_credit_count = partial_credit_attempt_count
+        .checked_add(incorrect_attempt_count)
+        .and_then(|value| value.checked_add(unanswered_attempt_count))
+        .ok_or_else(|| invalid("Practice Stats outcome count"))?;
+    let relevant_attempt_id: uuid::Uuid = row
+        .try_get("relevant_assessment_attempt_id")
+        .map_err(map_sqlx_error)?;
+    if disclosed_attempt_count == 0
+        || summed_attempt_count != disclosed_attempt_count
+        || not_full_credit_count != expected_not_full_credit_count
+        || display_duration_sample_count > disclosed_attempt_count
+        || ((display_duration_sample_count == 0) != average_display_duration_ms.is_none())
+    {
+        return Err(invalid("Practice Stats outcome counts"));
+    }
+    Ok(LiveStudentCoursePracticeQuestionStats {
+        published_question_revision_tuple: PublishedQuestionRevisionTuple {
+            published_question_id,
+            revision_number,
+        },
+        full_credit_attempt_count,
+        partial_credit_attempt_count,
+        incorrect_attempt_count,
+        unanswered_attempt_count,
+        disclosed_attempt_count,
+        not_full_credit_count,
+        average_display_duration_ms,
+        display_duration_sample_count,
+        relevant_assessment_attempt_id: AssessmentAttemptId::from_uuid(relevant_attempt_id),
+    })
+}
+
+fn decode_attempt_history_entry(
+    row: &sqlx::postgres::PgRow,
+) -> Result<LiveStudentCourseAttemptHistoryEntry, StoreError> {
+    let attempt_number = row
+        .try_get::<i32, _>("assessment_attempt_number")
+        .map_err(map_sqlx_error)?;
+    let started_at = row
+        .try_get::<i64, _>("started_at_millis")
+        .map_err(map_sqlx_error)?;
+    let submitted_at = row
+        .try_get::<Option<i64>, _>("submitted_at_millis")
+        .map_err(map_sqlx_error)?;
+    let points_earned = optional_finite_nonnegative(row, "assessment_score_points_earned")?;
+    let points_possible = optional_finite_nonnegative(row, "assessment_score_points_possible")?;
+    let assessment_score = match (points_earned, points_possible) {
+        (Some(points_earned), Some(points_possible)) => Some(LiveAssessmentGradeContribution {
+            points_earned,
+            points_possible,
+        }),
+        (None, None) => None,
+        _ => return Err(invalid("Attempt History score")),
+    };
+    if attempt_number <= 0
+        || started_at < 0
+        || submitted_at.is_some_and(|value| value < started_at)
+        || (assessment_score.is_some() && submitted_at.is_none())
+    {
+        return Err(invalid("Attempt History record"));
+    }
+    let attempt_id: uuid::Uuid = row
+        .try_get("assessment_attempt_id")
+        .map_err(map_sqlx_error)?;
+    Ok(LiveStudentCourseAttemptHistoryEntry {
+        assessment_attempt_id: AssessmentAttemptId::from_uuid(attempt_id),
+        assessment_id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+        assessment_title: name(
+            row.try_get("assessment_title").map_err(map_sqlx_error)?,
+            "Assessment title",
+        )?,
+        assessment_attempt_number: u32::try_from(attempt_number)
+            .map_err(|_| invalid("Assessment Attempt number"))?,
+        started_at: Timestamp::from_unix_millis(started_at),
+        submitted_at: submitted_at.map(Timestamp::from_unix_millis),
+        assessment_score,
+    })
+}
+
+fn decode_progress_assessment(
+    row: &sqlx::postgres::PgRow,
+) -> Result<LiveStudentCourseProgressAssessment, StoreError> {
+    let assessment_type = serde_json::from_value::<AssessmentType>(serde_json::Value::String(
+        row.try_get("assessment_type").map_err(map_sqlx_error)?,
+    ))
+    .map_err(|_| invalid("Assessment Type"))?;
+    let assessment_attempt_count = count(row, "assessment_attempt_count")?;
+    let submitted_assessment_attempt_count = count(row, "submitted_assessment_attempt_count")?;
+    let latest_assessment_attempt_number = row
+        .try_get::<Option<i32>, _>("latest_assessment_attempt_number")
+        .map_err(map_sqlx_error)?
+        .map(u32::try_from)
+        .transpose()
+        .map_err(|_| invalid("latest Assessment Attempt number"))?;
+    let latest_assessment_attempt_completion = match row
+        .try_get::<Option<String>, _>("latest_assessment_attempt_completion")
+        .map_err(map_sqlx_error)?
+        .as_deref()
+    {
+        None => None,
+        Some("in_progress") => Some(AssessmentAttemptCompletion::InProgress),
+        Some("completed") => Some(AssessmentAttemptCompletion::Completed),
+        Some(_) => return Err(invalid("latest Assessment Attempt completion")),
+    };
+    let latest_activity_at_millis = row
+        .try_get::<Option<i64>, _>("latest_activity_at_millis")
+        .map_err(map_sqlx_error)?;
+    let points_earned = optional_finite_nonnegative(row, "assessment_score_points_earned")?;
+    let points_possible = optional_finite_nonnegative(row, "assessment_score_points_possible")?;
+    let assessment_score = match (points_earned, points_possible) {
+        (Some(points_earned), Some(points_possible)) => Some(LiveAssessmentGradeContribution {
+            points_earned,
+            points_possible,
+        }),
+        (None, None) => None,
+        _ => return Err(invalid("Assessment grade contribution")),
+    };
+    let assessment_score_is_latest_attempt: bool = row
+        .try_get("assessment_score_is_latest_attempt")
+        .map_err(map_sqlx_error)?;
+    if submitted_assessment_attempt_count > assessment_attempt_count
+        || (assessment_attempt_count == 0
+            && (submitted_assessment_attempt_count != 0
+                || latest_assessment_attempt_number.is_some()
+                || latest_assessment_attempt_completion.is_some()
+                || latest_activity_at_millis.is_some()))
+        || (assessment_attempt_count > 0
+            && (latest_assessment_attempt_number.is_none()
+                || latest_assessment_attempt_completion.is_none()
+                || latest_activity_at_millis.is_none()))
+        || (assessment_score.is_some() && submitted_assessment_attempt_count == 0)
+        || (assessment_score_is_latest_attempt && assessment_score.is_none())
+        || latest_activity_at_millis.is_some_and(|value| value < 0)
+    {
+        return Err(invalid("Course Progress"));
+    }
+    Ok(LiveStudentCourseProgressAssessment {
+        assessment_id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+        title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
+        assessment_type,
+        assessment_attempt_count,
+        submitted_assessment_attempt_count,
+        latest_assessment_attempt_number,
+        latest_assessment_attempt_completion,
+        latest_activity_at_millis,
+        assessment_score,
+        assessment_score_is_latest_attempt,
+    })
 }
 
 fn decode_course(
@@ -253,6 +529,11 @@ fn decode_invitation(
 fn count(row: &sqlx::postgres::PgRow, column: &str) -> Result<u32, StoreError> {
     u32::try_from(row.try_get::<i64, _>(column).map_err(map_sqlx_error)?)
         .map_err(|_| invalid(column))
+}
+
+fn count_u64(row: &sqlx::postgres::PgRow, column: &str) -> Result<u64, StoreError> {
+    let value: i64 = row.try_get(column).map_err(map_sqlx_error)?;
+    u64::try_from(value).map_err(|_| invalid("Practice Stats count"))
 }
 
 fn optional_finite_nonnegative(

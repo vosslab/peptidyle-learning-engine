@@ -37,7 +37,7 @@ async function criticalOrSeriousViolations(page) {
 }
 
 async function assertCourseworkRows(page) {
-  const coursework = page.getByRole("list", { name: "Coursework", exact: true });
+  const coursework = page.getByRole("list", { name: "Available Coursework", exact: true });
   const rows = coursework.getByRole("listitem");
   const expectedRows = [
     ["Protein structure practice", "Resume Regular Assignment"],
@@ -69,14 +69,15 @@ try {
   await page.locator("[data-m6-location]").waitFor({ state: "attached" });
   await page.waitForFunction(
     () =>
-      document.querySelector("[data-m6-location]")?.textContent === "/student/courses/CI7K3M2QAZ",
+      document.querySelector("[data-m6-location]")?.textContent ===
+      "/student/courses/CI7K3M2QAZ/progress",
   );
 
   await page.goto(`${origin}?mode=choose`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open assigned work", exact: true }).waitFor({
+  await page.getByRole("link", { name: "Open Progress", exact: true }).waitFor({
     state: "visible",
   });
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student?choose=1");
@@ -85,7 +86,7 @@ try {
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open assigned work", exact: true }).first().waitFor({
+  await page.getByRole("link", { name: "Open Progress", exact: true }).first().waitFor({
     state: "visible",
   });
   assert.equal(await page.getByRole("article").count(), 2);

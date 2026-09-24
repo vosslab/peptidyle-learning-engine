@@ -238,6 +238,41 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         })
     }
 
+    async fn checkpoint_student_question_display_duration(
+        &self,
+        token: SessionTokenHash,
+        assessment_attempt: AssessmentAttemptId,
+        position: u32,
+        cumulative_display_duration_ms: u64,
+    ) -> Result<u64, StoreError> {
+        let position = positive_position(position)?;
+        let duration = i64::try_from(cumulative_display_duration_ms).map_err(|_| {
+            StoreError::InvalidRecord("Question display duration is invalid".to_string())
+        })?;
+        let mut tx = self.begin(token).await?;
+        let row = sqlx::query(
+            "SELECT display_duration_ms \
+             FROM ple_api.checkpoint_student_question_display_duration($1, $2, $3)",
+        )
+        .bind(assessment_attempt.as_uuid())
+        .bind(position)
+        .bind(duration)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let stored_duration: i64 = row.try_get("display_duration_ms").map_err(map_sqlx_error)?;
+        let stored_duration = u64::try_from(stored_duration).map_err(|_| {
+            StoreError::InvalidRecord("Question display duration is invalid".to_string())
+        })?;
+        if stored_duration < cumulative_display_duration_ms {
+            return Err(StoreError::InvalidRecord(
+                "Question display duration checkpoint is invalid".to_string(),
+            ));
+        }
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(stored_duration)
+    }
+
     async fn student_assessment_attempt_saved_response(
         &self,
         token: SessionTokenHash,
@@ -310,6 +345,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
             "SELECT assessment_attempt_id, question_count, recommended_position, issued_position, response_state \
+             , display_duration_ms \
              FROM ple_api.read_student_assessment_attempt_progress($1)",
         )
         .bind(assessment_attempt.as_uuid())
@@ -329,6 +365,16 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                         &row.try_get::<String, _>("response_state")
                             .map_err(map_sqlx_error)?,
                     )?,
+                    display_duration_ms: row
+                        .try_get::<Option<i64>, _>("display_duration_ms")
+                        .map_err(map_sqlx_error)?
+                        .map(u64::try_from)
+                        .transpose()
+                        .map_err(|_| {
+                            StoreError::InvalidRecord(
+                                "Question display duration is invalid".to_string(),
+                            )
+                        })?,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;

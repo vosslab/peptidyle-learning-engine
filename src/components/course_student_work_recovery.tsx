@@ -153,7 +153,6 @@ export function CourseStudentWorkRecovery(props: {
             Access retained evidence for this Course until its original deletion cutoff. Recovery
             does not restore ordinary access or extend retention.
           </p>
-          <p>Times shown in your Instructor time zone: {props.displayTimeZone}.</p>
           <button type="button" class="quiet-button" onClick={close}>
             Close recovery
           </button>

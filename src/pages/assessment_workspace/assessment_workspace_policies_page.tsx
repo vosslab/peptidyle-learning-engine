@@ -455,7 +455,6 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       headingId="assessment-policies-heading"
       eyebrow="Assessment workspace"
       title="Assessment Properties Editor"
-      lede={`Times use your Instructor time zone: ${workspace.assessment().workspace.displayTimeZone}.`}
     >
       <AssessmentWorkspaceIdentity />
       <p class="assessment-workspace-save-message" role="status">
@@ -512,7 +511,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
             aria-label="Available date and time"
           >
             <label class="assessment-editor-field">
-              Available date ({workspace.assessment().workspace.displayTimeZone})
+              Available date
               <input
                 type="date"
                 value={availableDate()}
@@ -560,7 +559,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           </div>
           <div class="assessment-workspace-schedule" role="group" aria-label="Due date and time">
             <label class="assessment-editor-field">
-              Due date ({workspace.assessment().workspace.displayTimeZone})
+              Due date
               <input
                 type="date"
                 value={dueDate()}
@@ -585,7 +584,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           </div>
           <div class="assessment-workspace-schedule" role="group" aria-label="Closes date and time">
             <label class="assessment-editor-field">
-              Closes date ({workspace.assessment().workspace.displayTimeZone})
+              Closes date
               <input
                 type="date"
                 value={closesDate()}

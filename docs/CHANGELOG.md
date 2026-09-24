@@ -6,17 +6,105 @@
 
 > September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
 
-## 2026-09-23
+## 2026-09-24
 
 ### Fixes and Maintenance
 
+- Let Students move between Questions or submit an Attempt without resending an already saved
+  response; navigation and submission still save edited responses.
+- Updated representative Question-format captures to open All Coursework after Student Course entry
+  now opens Progress by default.
+- Captured the two-Course chooser at each Student viewport through its explicit chooser route and
+  tightened the Progress, Practice Stats, and Course History list captures to self-only privacy
+  profiles; selected Attempt review retains the released-feedback profile.
+- Made screenshot-matrix checks validate each scenario's declared direct captures and
+  representative viewport substitutions.
+- Split the Student Course capture workflow and connected PostgreSQL oracle into focused modules,
+  keeping each authored source file within the repository's line limit.
+- Updated the connected PostgreSQL runner to invoke the module-qualified access oracle after the
+  split, so its fixture completes before the downstream expiry oracle reads it.
+
+## 2026-09-23
+
+### Additions and New Features
+
+- Settled fixed Student Tier 2 destinations and Course-scoped Progress, Practice Stats, Coursework,
+  and Attempt History behavior in the active implementation plan. Progress retains Attempts without
+  a released score in a distinct **Score not released** state.
+- Added the authenticated Course Progress API using the signed-in Student's exact active Course
+  membership. Its Rust-owned contract exposes Attempt activity while withholding undisclosed scores
+  and score-freshness details.
+- Added the Course Progress page and its fixed Courses -> Progress destination. Every released
+  Assessment stays in the list, with submitted completion and perfect-score status shown separately;
+  activity times follow the browser's local display time.
+- Added a self-only, Course-authorized Attempt History API with cursor pagination and per-Attempt
+  score disclosure, plus a Grades -> Attempt History page that links submitted Attempts to their
+  existing review and preserves access to older pages.
+- Added Student Coursework Due Soon and Completed views. Due Soon uses the server-evaluated instant
+  and the existing half-open rolling seven-day window; Completed uses the submitted-Attempt count,
+  independently of score perfection or a newer open Attempt.
+- Added self-only Course Practice Stats from actual submitted outcomes across eligible Assessment
+  types, grouped by exact Published Question Revision (not only Practice Question Assignments). The
+  API applies both Assessment-score and per-item-correctness disclosure before aggregation; the page
+  shows each outcome numerator and denominator and links to a relevant existing Attempt review. Measured
+  approximate time shown with the Question includes its sample count; unmeasured durations remain
+  not recorded.
+- Added nullable cumulative Question display-duration storage within Question Attempt Student Work,
+  a self-authorized monotone checkpoint route that closes at finalization, and per-Question saved
+  values in Attempt progress for reload recovery.
+
+### Behavior or Interface Changes
+
+- Documented the intended Student home behavior: one active Course opens Progress; multiple active
+  Courses open the chooser, while selected-Course content keeps the Tier 2 row fixed by Tier 1.
+- Student Tier 2 now derives from the selected Student Tier 1 area on every route. Course, Assessment,
+  Attempt, and review navigation keep the same ordered row; Attempt return navigation uses the shared
+  All Coursework destination instead of an Attempt-specific row.
+- Moved the time-zone preference editor onto Profile and removed the obsolete Account Settings route.
+  Other pages format times with that preference without repeating a time-zone label.
+- Removed the time-zone name from Instructor Assessment availability messages. Dates and times remain
+  formatted for the reader, while Profile stays the only page that identifies the selected zone.
+
+### Fixes and Maintenance
+
+- Updated Student Course-entry browser checks for the `Open Progress` destination and the
+  `Available Coursework` list label, and completed the Practice Stats PostgreSQL fixture with the
+  exact private Question-source Object Address required by the schema.
+- Updated the shared Student Course screenshot helper to select `Open Progress` when the Student has
+  multiple active Courses.
 - Instructor Tier 2 now follows the fixed role-and-Tier 1 mappings across deeper routes. Course and
   Assessment local workflows use page links and breadcrumbs; Gradebook now has a Course actions
   link. The Assessment row stays Due Soon and Templates because current evidence does not settle a
   general collection task's name and shape; Browse All remains a future opportunity. Student Tier 2
-  contents and order remain unresolved, preserving the current Student behavior.
+  contents and order remained unresolved before the fixed Student contract was recorded above.
 - Removed mechanism-specific font-loading assertions; computed production font-family checks
   remain.
+- Updated the Instructor Accounts contract to verify that sign-in times use the viewer's display
+  zone without naming it on that page.
+- Kept the connected Attempt-expiry oracle compatible with an already-present immutable source
+  binding for its shared fixture Question, and gave its zero-credit Gradebook check an isolated
+  Student with no earlier scored Attempt.
+- Updated Live Demo Student progress convergence to validate the nullable Question display-duration
+  field added to the answer-free Attempt progress contract.
+- Reused the shared Assessment-entry matcher in the response capture so a rerun can resume an
+  interrupted Attempt as well as start a new one.
+- Added explicit TypeScript return types to new Student Course transport, page, and screenshot helpers
+  identified by the repository's lint gate.
+- Applied Prettier to the Student navigation, Progress, Attempt History, Practice Stats, duration, and
+  Profile files required by the repository format check.
+- Corrected Student screenshot declarations to use laptop captures with documented representative
+  coverage for other viewports, matching the scenario evidence actually produced.
+- Removed the obsolete Account Settings redirect and selected the newest Attempt for the Course
+  History review screenshot.
+- Bounded the Course History screenshot fixture at 40 or more submitted Attempts, checked that its
+  rows advance and remain available after navigating through Practice Stats, and selected the newest
+  submitted Attempt for review. Jack remains the no-released-score example, and Avery remains
+  available for question-response captures. Current screenshot coverage descriptions use current
+  surface names.
+- Updated frontend route tests to require the Account Settings path to remain absent.
+- Kept Human Guidance limited to concise first-person guidance and recorded detailed Student behavior
+  contracts in Design Decisions. Clarified that Practice Stats summarizes actual disclosed outcomes
+  across eligible Assessment types.
 - RecordList now renders optional region headings on the same subgrid tracks as its rows and applies
   the same responsive priority hiding to both. The production Gradebook no longer owns a parallel
   fractional column grid. Its Chromium route check confirms matching header/region order and aligned
@@ -50,6 +138,31 @@
 - The Canonical Blueprint JSON textarea now uses the shared monospace font token.
 
 ### Developer Tests and Notes
+
+- Student Ribbon contract, route-contract, catalog, and component checks passed (35/35).
+- Course Progress Rust API compilation, generated contract, strict browser decoding/client, and
+  score-state presentation checks passed. The focused Node checks passed 16/16; the Rust wire
+  contract test passed 1/1. The disposable PostgreSQL integration test compiled and is queued for
+  the full live-stack gate.
+- Course Attempt History contract, cursor binding, strict browser decoder/client, fixed Ribbon,
+  Due Soon boundary, and Completed-membership checks passed. The focused coursework/history Node
+  checks passed 7/7; API compilation and both Rust wire/cursor tests passed. The PostgreSQL oracle
+  compiled but could not start because the configured acceptance runtime locator is unavailable.
+- Course Practice Stats Rust API compilation and generated TypeScript contract pass. The first live
+  schema replay exposed a missing Course ID in the Progress query's lateral projection; the select
+  now carries the stored ID into its submission join. The replay also exposed the same omitted ID in
+  the released-Assessment CTE; that projection now includes it, and a fresh database replay is pending.
+- A fresh live schema replay exposed an ambiguous `assessment_id` in the Student Coursework
+  projection. The returned columns now use the projection alias; rerun the database acceptance after
+  this correction.
+- The next schema replay showed the two new Course API function files were missing from the
+  canonical install and grant include lists. Both are now included in base-schema replay; database
+  acceptance remains pending.
+- The Practice Stats and Attempt History private projections now run under the Student Work owner;
+  their authenticated API wrappers resolve the signed-in Student and Course before calling the
+  private readers. The history projection casts its public ID domain to the declared browser-safe
+  text result.
+- Updated the isolated one-Course entry browser contract to expect the settled Progress destination.
 
 - Audit follow-up aligned the Ribbon design guides with the fixed role-and-Tier 1 rule and kept
   unresolved Student Tier 2 contents out of the permanent Task Row topology assertion.

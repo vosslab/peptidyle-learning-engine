@@ -13,6 +13,25 @@ export interface StudentCourseworkDisplay {
   readonly actionVerb: "Resume" | "Review" | "Open";
 }
 
+const DUE_SOON_WINDOW_MILLIS = 7 * 24 * 60 * 60 * 1000;
+
+/** Uses the API's server-evaluated instant and the existing rolling seven-day window. */
+export function isInStudentDueSoonWindow(
+  dueAtMillis: number | null,
+  evaluatedAtMillis: number,
+): boolean {
+  return (
+    dueAtMillis !== null &&
+    dueAtMillis >= evaluatedAtMillis &&
+    dueAtMillis < evaluatedAtMillis + DUE_SOON_WINDOW_MILLIS
+  );
+}
+
+/** Completed view membership is a submitted Attempt fact, separate from score or latest state. */
+export function hasSubmittedStudentAttempt(submittedAttemptCount: number): boolean {
+  return Number.isInteger(submittedAttemptCount) && submittedAttemptCount > 0;
+}
+
 /** Maps server-owned access and Attempt evidence to a compact learner-facing state. */
 export function studentCourseworkDisplay(
   startDecision: AssessmentStartDecision,

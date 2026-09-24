@@ -6,6 +6,7 @@ import { createMemo, createResource, Show, type JSX } from "solid-js";
 import type {
   LiveStudentAssessmentLandingSummary,
   LiveStudentCourseLandingSummary,
+  StudentCourseProgressAssessment,
 } from "../api/live_student_course_landing";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
@@ -19,6 +20,10 @@ import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 import { studentCourseworkDisplay } from "./student_coursework_presentation";
+import {
+  hasSubmittedStudentAttempt,
+  isInStudentDueSoonWindow,
+} from "./student_coursework_presentation";
 import "./student_course_landing_page.css";
 
 function assessmentDisplay(
@@ -52,6 +57,8 @@ function assessmentAccessLabel(assessment: LiveStudentAssessmentLandingSummary):
 function assessmentRegions(
   course: LiveStudentCourseLandingSummary,
   formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+  view: StudentCourseworkView,
+  completedAssessmentIds: ReadonlySet<string>,
 ): ReadonlyArray<RecordRegion<LiveStudentAssessmentLandingSummary>> {
   return [
     {
@@ -83,7 +90,11 @@ function assessmentRegions(
               <span>
                 Due <span data-assessment-decision-due>{due}</span>
               </span>
-              <span>{display.completionLabel}</span>
+              <span>
+                {view === "completed" && completedAssessmentIds.has(assessment.id)
+                  ? "Submitted Attempt on record"
+                  : display.completionLabel}
+              </span>
             </p>
           </>
         );
@@ -121,6 +132,8 @@ function AssessmentList(props: {
   readonly course: LiveStudentCourseLandingSummary;
   readonly assessments: ReadonlyArray<LiveStudentAssessmentLandingSummary>;
   readonly loading: boolean;
+  readonly view: StudentCourseworkView;
+  readonly completedAssessmentIds: ReadonlySet<string>;
 }): JSX.Element {
   const formatDateTime = createMemo(() => {
     const timeZone = props.assessments[0]?.decision.displayTimeZone;
@@ -128,29 +141,61 @@ function AssessmentList(props: {
   });
   const regions = createMemo(() => {
     const formatter = formatDateTime();
-    return formatter === undefined ? [] : assessmentRegions(props.course, formatter);
+    return formatter === undefined
+      ? []
+      : assessmentRegions(props.course, formatter, props.view, props.completedAssessmentIds);
   });
-  function displayTimeZone(): string | undefined {
-    return props.assessments[0]?.decision.displayTimeZone;
-  }
 
   return (
-    <>
-      <Show when={displayTimeZone()}>{(timeZone) => <p>Times shown in {timeZone()}.</p>}</Show>
-      <RecordList
-        ariaLabel="Coursework"
-        emptyState={{ title: "No Coursework is available right now." }}
-        recordId={(assessment) => assessment.id}
-        regions={regions()}
-        rows={props.assessments}
-        state={assessmentListState(props.loading)}
-      />
-    </>
+    <RecordList
+      ariaLabel={courseworkHeading(props.view)}
+      emptyState={{ title: emptyCourseworkMessage(props.view) }}
+      recordId={(assessment) => assessment.id}
+      regions={regions()}
+      rows={props.assessments}
+      state={assessmentListState(props.loading)}
+    />
   );
+}
+
+export type StudentCourseworkView = "all" | "dueSoon" | "completed";
+
+function courseworkHeading(view: StudentCourseworkView): string {
+  switch (view) {
+    case "all":
+      return "Available Coursework";
+    case "dueSoon":
+      return "Due Soon";
+    case "completed":
+      return "Completed Coursework";
+  }
+}
+
+function emptyCourseworkMessage(view: StudentCourseworkView): string {
+  switch (view) {
+    case "all":
+      return "No Coursework is available right now.";
+    case "dueSoon":
+      return "No Assessments are due in the next 7 days.";
+    case "completed":
+      return "No Assessments have a submitted Attempt yet.";
+  }
 }
 
 /** Student-owned entry point for answer-free current Course work. */
 export function StudentCourseLandingPage(): JSX.Element {
+  return <StudentCourseworkPage view="all" />;
+}
+
+export function StudentCourseDueSoonPage(): JSX.Element {
+  return <StudentCourseworkPage view="dueSoon" />;
+}
+
+export function StudentCourseCompletedPage(): JSX.Element {
+  return <StudentCourseworkPage view="completed" />;
+}
+
+function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
   function courseInstanceId(): ReturnType<typeof parseCourseInstanceId> {
@@ -172,14 +217,50 @@ export function StudentCourseLandingPage(): JSX.Element {
     return applicationApi.client.listLiveStudentAssessments(current.id);
   }
   const [assessments] = createResource(course, loadAssessments);
+  const [progress] = createResource(
+    () => (props.view === "completed" ? course() : undefined),
+    (current) => applicationApi.client.getStudentCourseProgress(current.id),
+  );
+  const completedAssessmentIds = createMemo<ReadonlySet<string>>(() => {
+    const submitted = (progress() ?? [])
+      .filter((assessment: StudentCourseProgressAssessment) =>
+        hasSubmittedStudentAttempt(assessment.submittedAssessmentAttemptCount),
+      )
+      .map((assessment: StudentCourseProgressAssessment) => assessment.id);
+    return new Set(submitted);
+  });
+  const visibleAssessments = createMemo(() => {
+    const rows = assessments() ?? [];
+    if (props.view === "dueSoon") {
+      return rows.filter((assessment) =>
+        isInStudentDueSoonWindow(assessment.decision.dueAt, assessment.decision.evaluatedAt),
+      );
+    }
+    if (props.view === "completed") {
+      return rows.filter((assessment) => completedAssessmentIds().has(assessment.id));
+    }
+    return rows;
+  });
   function unavailable(): boolean {
     return (
-      courseInstanceId() === null || courses.error !== undefined || assessments.error !== undefined
+      courseInstanceId() === null ||
+      courses.error !== undefined ||
+      assessments.error !== undefined ||
+      (props.view === "completed" && progress.error !== undefined)
     );
   }
 
   return (
-    <PageFrame routeSurface="studentCourseLanding" title={course()?.longName ?? "Coursework"}>
+    <PageFrame
+      routeSurface={
+        props.view === "all"
+          ? "studentCourseLanding"
+          : props.view === "dueSoon"
+            ? "studentCourseDueSoon"
+            : "studentCourseCompleted"
+      }
+      title={course()?.longName ?? "Coursework"}
+    >
       <Show when={courses.loading}>
         <p class="loading-state">Loading assigned work...</p>
       </Show>
@@ -209,11 +290,22 @@ export function StudentCourseLandingPage(): JSX.Element {
               Your courses
             </A>
             <section class="student-coursework" aria-labelledby="student-coursework-heading">
-              <h2 id="student-coursework-heading">Available Coursework</h2>
+              <h2 id="student-coursework-heading">{courseworkHeading(props.view)}</h2>
+              <Show when={props.view === "dueSoon"}>
+                <p>Assessments with due dates in the next 7 days, based on server time.</p>
+              </Show>
+              <Show when={props.view === "completed"}>
+                <p>
+                  Each listed Assessment has at least one submitted Attempt. A newer Attempt may
+                  still be in progress.
+                </p>
+              </Show>
               <AssessmentList
-                assessments={assessments() ?? []}
+                assessments={visibleAssessments()}
                 course={current()}
-                loading={assessments.loading}
+                loading={assessments.loading || (props.view === "completed" && progress.loading)}
+                view={props.view}
+                completedAssessmentIds={completedAssessmentIds()}
               />
             </section>
           </>

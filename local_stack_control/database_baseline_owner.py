@@ -321,7 +321,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
 			"-p", "learning-data-access", "--features", "postgres",
 			"--test", "assessment_access_postgres",
-			"access_reader_projects_one_authoritative_decision_and_effective_policy",
+			"access_reader::access_reader_projects_one_authoritative_decision_and_effective_policy",
 			"--", "--ignored", "--exact", "--test-threads=1",
 		],
 		authoring_environment,

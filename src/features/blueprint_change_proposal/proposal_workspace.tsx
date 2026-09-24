@@ -341,7 +341,6 @@ export function MyChangeProposalsLivePage(): JSX.Element {
       lede="Your own submissions across target Blueprints, including retained accepted records."
       routeSurface="myChangeProposals"
     >
-      <p>Times shown in {displayTimeZone}.</p>
       <ProposalRecords client={api.client} formatDateTime={formatDateTime} />
     </PageFrame>
   );
@@ -359,7 +358,6 @@ export function ChangeProposalDetailLivePage(): JSX.Element {
   return (
     <PageFrame title="Review Blueprint Change Proposal" routeSurface="changeProposalDetail">
       <A href="/blueprint-change-proposals">My Change Proposals</A>
-      <p>Times shown in {displayTimeZone}.</p>
       <Show when={detail.loading}>
         <p role="status">Loading frozen proposal evidence...</p>
       </Show>

@@ -26,12 +26,6 @@
   color: var(--ple-muted);
 }
 
-.course-instance-page__time-zone {
-  margin: 0;
-  color: var(--ple-muted);
-  font-size: 0.88rem;
-}
-
 .course-instance-page__details {
   margin-block-start: var(--ple-section-gap);
   padding-block-start: var(--ple-section-gap);

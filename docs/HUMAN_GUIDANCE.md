@@ -355,7 +355,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Navigation choices should remain in predictable locations as users move between related pages.
 - Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course,
   Assessment, Question, or other item does not change the Tier 2 choices or their order.
-- The Student Tier 2 choices have not been decided yet. An empty Student Tier 2 is not a design decision.
+- I want Student Tier 2 choices to stay fixed within each Tier 1 area: Courses (Progress and Practice
+  Stats), Coursework (All Coursework, Due Soon, and Completed), and Grades (Scores and Attempt History).
+- I want a Student with one active Course to open its Progress page; with multiple active Courses, I want
+  the Student to choose a Course before opening Course-scoped work.
 - Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
@@ -373,7 +376,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Role-specific navigation appears between the product identity and Profile.
 - Profile appears at the far right as an icon-only avatar.
 - Clicking the Profile avatar opens the Profile menu.
-- The Profile menu contains Profile settings, account settings, and Sign Out.
+- I want the Profile menu to contain Profile and Sign Out.
+- I want Profile to be the only page that names the Account's time zone; other pages should show times
+  without repeating the zone name.
 - Sign Out belongs in the Profile menu rather than the main top bar.
 - See **Ribbon and page layout** for the overall navigation and page-position rules.
 
@@ -634,17 +639,25 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student navigation and pages should contain only Student interfaces and capabilities.
 - Student content entry should use the response controls provided by Questions and other Student activities.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
-- Student tier-one navigation is **Courses**, **Coursework**, and **Grades**. Coursework and Grades
-  stay pinned to the current Course. Student tier-two tasks remain unsettled.
+- I want Student navigation to use **Courses**, **Coursework**, and **Grades**, with Coursework and Grades
+  staying pinned to the selected Course.
 
 #### Student Course and Coursework interface
 
-- Students enrolled in one active Course should go directly into that Course.
+- I want a Student with one active Course to open that Course's Progress page. With multiple active
+  Courses, the Student chooses a Course before opening Course-scoped work.
 - Students should be able to see their active Courses and Coursework from the main navigation.
 - Course invitations should show the Course name and relevant Instructor and term information
   before the Student accepts the invitation.
 - Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
 - Coursework lists should make due dates, Type, and completion status easy to scan.
+- I want Progress to keep an Assessment visible when it has Attempts but no released score, clearly marked
+  **Score not released**.
+- I want submitted work kept distinct from a perfect score; Completed means at least one submitted Attempt.
+- I want Practice Stats to show real Question outcomes across Assessment types, subject to the Student-
+  visible score and per-Question feedback rules.
+- I want measured Question display time labeled as approximate **time shown with the Question**, with its
+  sample count. It does not measure attention or effort and does not affect grades.
 - Keep Coursework entries compact in height so Students can scan several items at once.
 - Keep essential Coursework information and the main action visible, with fuller access and timing
   details available through progressive disclosure.
@@ -658,7 +671,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Group Question count and points together, and group availability, deadlines, and Attempt rules
   into clearly readable sections with concise spacing.
 - Express unset or unlimited settings in Student language, such as "No closing time" or
-  "Unlimited Attempts", and show the time zone once beside the timing group.
+  "Unlimited Attempts". Format dates in the selected display zone.
 - Keep the start action close to this summary so Students can review the rules and begin with
   minimal scrolling.
 
@@ -936,6 +949,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Student's time zone defaults to the Instructor's time zone during the invite phase.
 - Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
 - Changing a display time zone changes how a deadline is shown, not the deadline itself.
+- I want times in my account formatted in the selected display zone, with the zone name shown only on
+  Profile.
 
 ## Question specifications
 

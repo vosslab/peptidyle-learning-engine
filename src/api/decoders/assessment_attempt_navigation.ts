@@ -141,7 +141,14 @@ export function decodeStudentAssessmentAttemptProgress(
     `${path}.positions`,
     (item, itemPath) => {
       const position = decodeRecord(item, itemPath);
-      requireOnlyFields(position, itemPath, ["position", "responseState"]);
+      requireOnlyFields(position, itemPath, ["position", "responseState", "displayDurationMs"]);
+      const displayDurationMs =
+        position.displayDurationMs === null
+          ? null
+          : decodeNonnegativeInteger(
+              field(position, "displayDurationMs", itemPath),
+              `${itemPath}.displayDurationMs`,
+            );
       return {
         position: decodePositiveInteger(
           field(position, "position", itemPath),
@@ -151,6 +158,7 @@ export function decodeStudentAssessmentAttemptProgress(
           field(position, "responseState", itemPath),
           `${itemPath}.responseState`,
         ),
+        displayDurationMs,
       };
     },
   );

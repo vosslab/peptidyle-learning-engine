@@ -77,10 +77,10 @@ test("Student Assessment Attempt progress rejects answer-bearing and extra field
     questionCount: 2,
     recommendedPosition: 2,
     positions: [
-      { position: 1, responseState: "unanswered" },
-      { position: 2, responseState: "saved" },
-      { position: 3, responseState: "submitted" },
-      { position: 4, responseState: "closed" },
+      { position: 1, responseState: "unanswered", displayDurationMs: null },
+      { position: 2, responseState: "saved", displayDurationMs: 1250 },
+      { position: 3, responseState: "submitted", displayDurationMs: null },
+      { position: 4, responseState: "closed", displayDurationMs: null },
     ],
   };
   projection.questionCount = 4;
@@ -91,7 +91,17 @@ test("Student Assessment Attempt progress rejects answer-bearing and extra field
   assert.throws(() =>
     decodeStudentAssessmentAttemptProgress({
       ...projection,
-      positions: [{ position: 1, responseState: "submitted", response: "secret" }],
+      positions: [{ position: 1, responseState: "unanswered", displayDurationMs: -1 }],
+      questionCount: 1,
+      recommendedPosition: 1,
+    }),
+  );
+  assert.throws(() =>
+    decodeStudentAssessmentAttemptProgress({
+      ...projection,
+      positions: [
+        { position: 1, responseState: "submitted", displayDurationMs: null, response: "secret" },
+      ],
     }),
   );
 });
@@ -370,7 +380,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
           assessmentAttemptId: "00000000-0000-0000-0000-00000000000d",
           questionCount: 1,
           recommendedPosition: 1,
-          positions: [{ position: 1, responseState: "unanswered" }],
+          positions: [{ position: 1, responseState: "unanswered", displayDurationMs: null }],
         }),
       ),
   });

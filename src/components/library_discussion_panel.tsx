@@ -247,7 +247,6 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
       aria-label="Library improvement threads and impact notices"
     >
       <h2>Improvement threads and impact notices</h2>
-      <p>Times shown in {displayTimeZone}.</p>
       <Show when={discussion.loading}>
         <p role="status">Loading Library activity...</p>
       </Show>

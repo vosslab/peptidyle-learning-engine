@@ -54,7 +54,7 @@ test("every fixture href is a canonical declared route with its catalog paramete
       const catalog = catalogById.get(control.id);
       assert.ok(catalog, `${fixtureName}:${control.id} is catalogued`);
       const documentedUnavailable =
-        catalog.destination.kind !== "route" || catalog.id === "backToAssessments";
+        catalog.destination.kind !== "route" || control.availability === "Unavailable";
       if (documentedUnavailable) {
         assert.equal(
           control.availability,
@@ -174,14 +174,17 @@ test("required Instructor choices remain visible without inventing unfinished ro
   }
 });
 
-test("AppRibbon reserves an empty task row while retaining Student top-level tabs", async () => {
+test("AppRibbon renders the fixed Student Coursework row", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() =>
     createComponent(RealAppRibbon, { model: M6_RIBBON_FIXTURES.courseStudent }),
   );
   assert.doesNotMatch(html, /data-ribbon-task-row=/);
   assert.match(html, /data-ribbon-row-frame="tasks"/);
-  assert.match(html, /<nav[^>]*aria-label="Ribbon tasks"[^>]*><\/nav>/);
+  assert.match(html, /data-ribbon-task-area="studentCoursework"/);
+  for (const label of ["All Coursework", "Due Soon", "Completed"]) {
+    assert.match(html, new RegExp(`>${label}<`));
+  }
   assert.match(html, /data-ribbon-control="courses"/);
   assert.match(html, /data-ribbon-control="coursework"/);
   assert.match(html, /data-ribbon-control="grades"/);
@@ -190,7 +193,7 @@ test("AppRibbon reserves an empty task row while retaining Student top-level tab
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row="([^"]+)"/g)].map((match) => match[1]),
     ["top", "tasks"],
-    "taskless route topology retains both reserved row frames",
+    "the fixed Student task row retains its reserved frame",
   );
 });
 

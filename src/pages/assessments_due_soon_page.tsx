@@ -93,7 +93,7 @@ export function AssessmentsDueSoonPage(): JSX.Element {
           return (
             <>
               <p class="assessments-due-soon__window">
-                Showing the next 7 days in your Account time zone: {dueSoon().displayTimeZone}.
+                Showing Assessments due in the next 7 days.
               </p>
               <Show
                 when={items().length > 0}

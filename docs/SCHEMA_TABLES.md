@@ -741,6 +741,7 @@ Columns:
 | issued_at | timestamptz | NOT NULL |
 | deadline_at | timestamptz | NULL |
 | finalized_at | timestamptz | NULL |
+| display_duration_ms | bigint | NULL |
 | delivery_toolchain_id | uuid | NOT NULL |
 | source_object_record_id | uuid | NULL |
 | source_object_checksum | bytea | NULL |
@@ -752,6 +753,7 @@ Constraints:
 - UNIQUE (course_instance_id, issued_question_id)
 - CHECK question_seed: `(question_seed >= 0 AND question_seed <= 18446744073709551615)`
 - CHECK generated_parameter_sha256: `(generated_parameter_sha256 ~ '^[0-9a-f]{64}$')`
+- CHECK display_duration_ms: `( display_duration_ms IS NULL OR display_duration_ms BETWEEN 0 AND 9007199254740991 )`
 - CHECK source_object_checksum: `(source_object_checksum IS NULL OR octet_length(source_object_checksum) = 32)`
 - CHECK rendered_question_sha256: `(octet_length(rendered_question_sha256) = 32)`
 

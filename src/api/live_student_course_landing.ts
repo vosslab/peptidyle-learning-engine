@@ -6,6 +6,7 @@ import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
+import type { StudentCourseProgressAssessment as StudentCourseProgressAssessmentContract } from "../../generated/api/StudentCourseProgressAssessment";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
 export interface LiveStudentCourseLandingSummary {
@@ -40,6 +41,9 @@ export interface LiveStudentAssessmentLandingSummary {
   readonly assessmentScore?: AssessmentGradeContribution;
 }
 
+/** Self-only activity and disclosed score typed from the Rust browser contract. */
+export type StudentCourseProgressAssessment = StudentCourseProgressAssessmentContract;
+
 /** Point contribution for one Assessment; Bonus work may contribute n / 0. */
 export interface AssessmentGradeContribution {
   readonly pointsEarned: number;
@@ -55,4 +59,7 @@ export interface LiveStudentCourseLandingClient {
   readonly listLiveStudentAssessments: (
     courseInstanceId: CourseInstanceId,
   ) => Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>>;
+  readonly getStudentCourseProgress: (
+    courseInstanceId: CourseInstanceId,
+  ) => Promise<ReadonlyArray<StudentCourseProgressAssessment>>;
 }

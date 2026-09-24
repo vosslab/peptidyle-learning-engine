@@ -239,7 +239,31 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
     ],
   },
-  studentAssessments: {
+  studentProgress: {
+    kind: "backed",
+    clientMethod: "ApiClient.getStudentCourseProgress",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/live_student_course_landing.rs::list_course_progress",
+    },
+    evidence: [
+      "crates/server/src/live_student_course_landing.rs::list_course_progress",
+      "src/pages/student_course_progress_page.tsx::StudentCourseProgressPage",
+    ],
+  },
+  studentPracticeStats: {
+    kind: "backed",
+    clientMethod: "ApiClient.getStudentCoursePracticeStats",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/live_student_course_landing.rs::list_course_practice_stats",
+    },
+    evidence: [
+      "crates/server/src/live_student_course_landing.rs::list_course_practice_stats",
+      "src/pages/student_course_practice_stats_page.tsx::StudentCoursePracticeStatsPage",
+    ],
+  },
+  allCoursework: {
     kind: "backed",
     clientMethod: "ApiClient.listLiveStudentAssessments",
     serverEvidence: {
@@ -292,17 +316,56 @@ const CAPABILITY_DECLARATIONS = {
     reason: "Course Setup is a future destination identity, not a declared usable path.",
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::courseSetup"],
   },
-  attempt: {
+  dueSoon: {
     kind: "backed",
-    clientMethod: "ApiClient.startLiveAssessment",
+    clientMethod: "ApiClient.listLiveStudentAssessments",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
+      handler:
+        "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
-      "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
-      "src/pages/assessment_attempt_page.tsx::AssessmentAttemptPage",
+      "src/pages/student_course_landing_page.tsx::StudentCourseDueSoonPage",
+      "src/pages/student_coursework_presentation.ts::isInStudentDueSoonWindow",
+    ],
+  },
+  completedCoursework: {
+    kind: "backed",
+    clientMethod: "ApiClient.getStudentCourseProgress",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler:
+        "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
+    },
+    evidence: [
+      "src/pages/student_course_landing_page.tsx::StudentCourseCompletedPage",
+      "src/pages/student_coursework_presentation.ts::hasSubmittedStudentAttempt",
+    ],
+  },
+  studentScores: {
+    kind: "backed",
+    clientMethod: "ApiClient.listLiveStudentAssessments",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler:
+        "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
+    },
+    evidence: [
+      "src/pages/student_course_grades_page.tsx::StudentCourseGradesPage",
+      "src/api/http_client/live_student_course_landing.ts::createLiveStudentCourseLandingClient",
+    ],
+  },
+  studentAttemptHistory: {
+    kind: "backed",
+    clientMethod: "ApiClient.listStudentCourseAttemptHistory",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler:
+        "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
+    },
+    evidence: [
+      "src/pages/student_course_attempt_history_page.tsx::StudentCourseAttemptHistoryPage",
+      "src/api/http_client/student_course_attempt_history.ts::createStudentCourseAttemptHistoryClient",
     ],
   },
   instructorAccounts: {
@@ -541,20 +604,6 @@ const CAPABILITY_DECLARATIONS = {
       "crates/server/src/course_appearance.rs::course_appearance_router",
       "crates/learning-data-access/src/course_theme.rs::CourseThemeStore",
       "crates/learning-data-access/src/course_banner.rs::CourseBannerStore",
-    ],
-  },
-  backToAssessments: {
-    kind: "backed",
-    clientMethod: "ApiClient.getLiveAssessmentAccess",
-    serverEvidence: {
-      kind: "registeredHandler",
-      handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
-    },
-    evidence: [
-      "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
-      "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
-      "src/pages/assessment_overview_page.tsx::AssessmentOverviewPage",
-      "src/app.tsx::ribbonParamsFor",
     ],
   },
 } as const satisfies RibbonCapabilityDeclarations;

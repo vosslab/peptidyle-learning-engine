@@ -1,0 +1,76 @@
+/* Course progress keeps completion, released scores, and Attempt activity distinct. */
+
+.student-course-progress {
+  margin-top: var(--ple-space-5);
+}
+
+.student-course-progress > h2 {
+  margin: 0 0 var(--ple-space-2);
+}
+
+.student-course-progress__completion,
+.student-course-progress__disclosure {
+  max-width: 70ch;
+  margin: 0 0 var(--ple-space-2);
+}
+
+.student-course-progress__disclosure {
+  color: var(--ple-muted);
+  font-size: 0.92rem;
+}
+
+.student-course-progress__list {
+  display: grid;
+  gap: var(--ple-space-2);
+  margin: var(--ple-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-course-progress__row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1fr) auto;
+  gap: var(--ple-space-3);
+  align-items: center;
+  padding: var(--ple-space-3);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-md);
+  background: var(--ple-surface);
+}
+
+.student-course-progress__identity h3,
+.student-course-progress__identity p,
+.student-course-progress__status p {
+  margin: 0;
+}
+
+.student-course-progress__identity p,
+.student-course-progress__status p {
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+}
+
+.student-course-progress__status strong {
+  display: block;
+  margin-bottom: var(--ple-space-1);
+}
+
+.student-course-progress__status p + p {
+  margin-top: var(--ple-space-1);
+}
+
+.student-course-progress__action {
+  white-space: nowrap;
+}
+
+@media (max-width: 48rem) {
+  .student-course-progress__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ple-space-2);
+    align-items: start;
+  }
+
+  .student-course-progress__action {
+    justify-self: start;
+  }
+}

@@ -36,21 +36,18 @@ export type RibbonTaskGroupId =
   | "instructorCourses"
   | "instructorQuestions"
   | "instructorAssessments"
+  | "studentCourses"
+  | "studentCoursework"
+  | "studentGrades"
   | "course"
   | "assessment"
-  | "courseSetup"
-  | "assessmentAttempt";
-
-/** Route-local Ribbon tasks currently belong only to the Student Attempt workflow. */
-export type RibbonRouteTaskGroupId = "assessmentAttempt";
+  | "courseSetup";
 
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
   readonly scope: RibbonScope;
   /** Role-level Ribbon tab that selects this route. */
   readonly tierOneArea: TierOneArea;
-  /** Route-local selection; settled Instructor task rows derive from Product Role and Tier 1. */
-  readonly taskGroup?: RibbonRouteTaskGroupId;
 }
 
 export interface RouteContract {
@@ -86,7 +83,6 @@ export interface RouteContract {
     | "courseAppearance"
     | "signIn"
     | "profile"
-    | "accountSettings"
     | "courseRoster"
     | "instructorAccounts"
     | "contentDisciplines"
@@ -94,7 +90,12 @@ export interface RouteContract {
     | "studentCourseInvitations"
     | "studentCourseInvitation"
     | "studentCourseLanding"
-    | "studentCourseGrades";
+    | "studentCourseGrades"
+    | "studentCourseProgress"
+    | "studentCoursePracticeStats"
+    | "studentCourseDueSoon"
+    | "studentCourseCompleted"
+    | "studentCourseAttemptHistory";
   readonly path: string;
   readonly surface: string;
   /** Product Role gate for the route; each route declares the Product Roles it serves. */
@@ -180,13 +181,6 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "product", tierOneArea: "account" },
   },
   {
-    id: "accountSettings",
-    path: "/account-settings",
-    surface: "Authenticated Account Settings",
-    requiredProductRoles: ["student", "instructor", "sysadmin"],
-    ribbon: { scope: "product", tierOneArea: "account" },
-  },
-  {
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
@@ -217,14 +211,49 @@ export const ROUTE_CONTRACT = [
   {
     id: "studentCourseLanding",
     path: "/student/courses/:courseInstanceId",
-    surface: "Student answer-free Course Instance and released Assessment landing",
+    surface: "Student Course Instance All Coursework",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+  },
+  {
+    id: "studentCourseProgress",
+    path: "/student/courses/:courseInstanceId/progress",
+    surface: "Student self-only Course Progress",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tierOneArea: "courses" },
+  },
+  {
+    id: "studentCoursePracticeStats",
+    path: "/student/courses/:courseInstanceId/practice-stats",
+    surface: "Student self-only Course Practice Stats",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tierOneArea: "courses" },
+  },
+  {
+    id: "studentCourseDueSoon",
+    path: "/student/courses/:courseInstanceId/due-soon",
+    surface: "Student Course Coursework Due Soon view",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+  },
+  {
+    id: "studentCourseCompleted",
+    path: "/student/courses/:courseInstanceId/completed",
+    surface: "Student Course Completed Coursework view",
     requiredProductRoles: ["student"],
     ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
   },
   {
     id: "studentCourseGrades",
     path: "/student/courses/:courseInstanceId/grades",
-    surface: "Student self-only Course Instance grades",
+    surface: "Student self-only Course Scores",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tierOneArea: "grades" },
+  },
+  {
+    id: "studentCourseAttemptHistory",
+    path: "/student/courses/:courseInstanceId/attempt-history",
+    surface: "Student self-only Course Attempt History",
     requiredProductRoles: ["student"],
     ribbon: { scope: "courseInstance", tierOneArea: "grades" },
   },
@@ -270,7 +299,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "assessmentAttempt",
       tierOneArea: "coursework",
-      taskGroup: "assessmentAttempt",
     },
   },
   {
@@ -281,7 +309,6 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "assessmentAttempt",
       tierOneArea: "coursework",
-      taskGroup: "assessmentAttempt",
     },
   },
   {

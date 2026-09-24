@@ -11,6 +11,23 @@
 -- Attempt continues to expose current progress or expiry instead.
 -- ASVS 1.2.4, 8.2.1-8.2.3, 8.3.1, 14.2.6: fixed parameters and a private
 -- execution grant preserve the authorized, minimum-field Gradebook boundary.
+CREATE FUNCTION ple_private.student_assessment_score_is_released(
+    p_feedback_score ple_data.feedback_release,
+    p_submitted_at timestamptz,
+    p_due_at timestamptz,
+    p_closes_at timestamptz,
+    p_now timestamptz
+) RETURNS boolean LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog AS $$
+    SELECT CASE p_feedback_score
+        WHEN 'during_attempt' THEN true
+        WHEN 'after_submit' THEN p_submitted_at IS NOT NULL
+        WHEN 'after_due' THEN p_due_at IS NOT NULL AND p_now >= p_due_at
+        WHEN 'after_close' THEN p_closes_at IS NOT NULL AND p_now >= p_closes_at
+        ELSE false
+    END
+$$;
+
 CREATE FUNCTION ple_private.read_assessment_gradebook_evidence(
     p_student_record_id uuid,
     p_assessment_id text
@@ -197,4 +214,3 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
      WHERE NOT EXISTS (SELECT 1 FROM gradebook)
      ORDER BY roster_id NULLS FIRST, assessment_id NULLS FIRST
 $$;
-

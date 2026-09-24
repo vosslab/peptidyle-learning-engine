@@ -9,6 +9,7 @@ GRANT EXECUTE ON FUNCTION ple_private.read_student_released_assessment_landing_e
 SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.list_released_live_student_assessments(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.list_live_student_course_progress(text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.list_released_live_student_assessments(text) TO ple_app;
-
+GRANT EXECUTE ON FUNCTION ple_api.list_live_student_course_progress(text) TO ple_app;

@@ -79,6 +79,16 @@ BEGIN
        OR NEW.course_instance_id IS DISTINCT FROM OLD.course_instance_id THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Question Attempt reproduction evidence is immutable';
     END IF;
+    IF OLD.display_duration_ms IS NOT NULL
+       AND (NEW.display_duration_ms IS NULL OR NEW.display_duration_ms < OLD.display_duration_ms) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question display duration is cumulative';
+    END IF;
+    IF OLD.finalized_at IS NOT NULL
+       AND NEW.display_duration_ms IS DISTINCT FROM OLD.display_duration_ms THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Finalized Question display duration is immutable';
+    END IF;
     IF OLD.finalized_at IS NOT NULL AND NEW.finalized_at IS DISTINCT FROM OLD.finalized_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Attempt finalization is forward-only';
     END IF;

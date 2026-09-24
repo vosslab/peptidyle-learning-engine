@@ -6,6 +6,9 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+use browser_api_contract::student_question_display_duration::{
+    StudentQuestionDisplayDurationCheckpoint, StudentQuestionDisplayDurationCheckpointRequest,
+};
 use learning_data_access::{
     LiveAssessmentDeliveryStore, StudentAssessmentAttemptFinalization,
     StudentAssessmentAttemptFinalizationPreparationOutcome,
@@ -32,6 +35,49 @@ use question_model::response::{
 #[serde(deny_unknown_fields)]
 pub(super) struct SavedResponseRequest {
     response: StudentResponse,
+}
+
+/// Stores the cumulative milliseconds this Question has been shown while visible.
+pub(super) async fn checkpoint_question_display_duration(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path((assessment_attempt, position)): Path<(String, u32)>,
+    Json(request): Json<StudentQuestionDisplayDurationCheckpointRequest>,
+) -> Response {
+    let assessment_attempt = match assessment_attempt.parse::<AssessmentAttemptId>() {
+        Ok(value) if position > 0 => value,
+        _ => return concealed(),
+    };
+    if request.cumulative_display_duration_ms > 9_007_199_254_740_991 {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "Question display duration is invalid",
+        );
+    }
+    let token = match student(&state, &headers).await {
+        Ok(value) => value,
+        Err(value) => return *value,
+    };
+    match state
+        .delivery
+        .checkpoint_student_question_display_duration(
+            token,
+            assessment_attempt,
+            position,
+            request.cumulative_display_duration_ms,
+        )
+        .await
+    {
+        Ok(cumulative_display_duration_ms) => crate::auth::no_store(
+            Json(StudentQuestionDisplayDurationCheckpoint {
+                assessment_attempt_id: assessment_attempt,
+                position,
+                cumulative_display_duration_ms,
+            })
+            .into_response(),
+        ),
+        Err(value) => submission_store_error(value),
+    }
 }
 
 /// Saves one response selected by a public Assessment Attempt and fixed

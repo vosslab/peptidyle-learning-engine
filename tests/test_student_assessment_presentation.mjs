@@ -100,7 +100,7 @@ test("assessment instants use the supplied viewer zone instead of the browser zo
   );
 });
 
-test("decision presentation renders one server instant differently in two supplied zones", async () => {
+test("decision presentation uses the supplied zone without printing its name", async () => {
   const { StudentAssessmentDecisionDetails, formatAssessmentDeliveryTime } =
     await loadDecisionDetailsForSsr();
   const dueAt = Date.parse("2026-01-15T18:30:00Z");
@@ -143,7 +143,8 @@ test("decision presentation renders one server instant differently in two suppli
   assert.ok(newYorkHtml.includes(newYorkDue));
   assert.ok(losAngelesHtml.includes(losAngelesDue));
   assert.match(newYorkHtml, /Can start/u);
-  assert.match(newYorkHtml, /Times shown in America\/New_York/u);
+  assert.doesNotMatch(newYorkHtml, /America\/New_York|time zone/iu);
+  assert.doesNotMatch(losAngelesHtml, /America\/Los_Angeles|time zone/iu);
   assert.doesNotMatch(newYorkHtml, /Cannot start/u);
 
   const closedReason = "This Assessment is closed for new work.";

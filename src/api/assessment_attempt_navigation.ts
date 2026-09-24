@@ -17,6 +17,7 @@ export interface StudentAssessmentAttemptProgress {
   readonly positions: ReadonlyArray<{
     readonly position: number;
     readonly responseState: StudentAssessmentAttemptResponseState;
+    readonly displayDurationMs: number | null;
   }>;
 }
 

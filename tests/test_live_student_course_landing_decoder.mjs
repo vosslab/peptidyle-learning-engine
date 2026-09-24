@@ -6,6 +6,7 @@ import {
   decodeLiveStudentAssessmentLandings,
   decodeLiveStudentCourseLandings,
   decodeLiveStudentCourseInvitations,
+  decodeStudentCourseProgress,
 } from "../src/api/decoders/live_student_course_landing.ts";
 
 test("Student Course landing carries both Course Instance names", () => {
@@ -181,4 +182,72 @@ test("Student Course landing requires the closed server decision summary", () =>
       }),
     DecodeError,
   );
+});
+
+function progressAssessment(overrides = {}) {
+  return {
+    id: "A5D9Q3XAH",
+    title: "Peptide practice",
+    assessmentType: "regular_assignment",
+    assessmentAttemptCount: 0,
+    submittedAssessmentAttemptCount: 0,
+    latestAssessmentAttemptNumber: null,
+    latestAssessmentAttemptCompletion: null,
+    latestActivityAt: null,
+    ...overrides,
+  };
+}
+
+test("Course Progress preserves Attempt activity when no score has been released", () => {
+  const value = {
+    assessments: [
+      progressAssessment({
+        assessmentAttemptCount: 2,
+        submittedAssessmentAttemptCount: 1,
+        latestAssessmentAttemptNumber: 2,
+        latestAssessmentAttemptCompletion: "inProgress",
+        latestActivityAt: 1_786_000_000_000,
+      }),
+    ],
+  };
+  assert.deepEqual(decodeStudentCourseProgress(value), value.assessments);
+  assert.equal(decodeStudentCourseProgress(value)[0].assessmentScore, undefined);
+});
+
+test("Course Progress accepts disclosed best score with freshness and empty Assessment state", () => {
+  const value = {
+    assessments: [
+      progressAssessment(),
+      progressAssessment({
+        assessmentAttemptCount: 2,
+        submittedAssessmentAttemptCount: 2,
+        latestAssessmentAttemptNumber: 2,
+        latestAssessmentAttemptCompletion: "completed",
+        latestActivityAt: 1_786_000_000_000,
+        assessmentScore: { pointsEarned: 7, pointsPossible: 8 },
+        assessmentScoreIsLatestAttempt: false,
+      }),
+    ],
+  };
+  assert.deepEqual(decodeStudentCourseProgress(value), value.assessments);
+});
+
+test("Course Progress rejects inconsistent activity and undisclosed freshness claims", () => {
+  for (const candidate of [
+    progressAssessment({ submittedAssessmentAttemptCount: 1 }),
+    progressAssessment({ assessmentAttemptCount: 1 }),
+    progressAssessment({ assessmentAttemptCount: 1, latestActivityAt: -1 }),
+    progressAssessment({ assessmentScoreIsLatestAttempt: true }),
+    progressAssessment({
+      assessmentAttemptCount: 1,
+      submittedAssessmentAttemptCount: 0,
+      latestAssessmentAttemptNumber: 1,
+      latestAssessmentAttemptCompletion: "completed",
+      latestActivityAt: 1_786_000_000_000,
+      assessmentScore: { pointsEarned: 1, pointsPossible: 1 },
+    }),
+    progressAssessment({ answerKey: "private" }),
+  ]) {
+    assert.throws(() => decodeStudentCourseProgress({ assessments: [candidate] }), DecodeError);
+  }
 });

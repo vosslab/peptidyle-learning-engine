@@ -103,6 +103,8 @@
 \ir 50_functions/grading.sql
 \ir 50_functions/grading_access.sql
 \ir 50_functions/student_assessment_landing.sql
+\ir 50_functions/student_course_attempt_history.sql
+\ir 50_functions/student_course_practice_stats.sql
 \ir 50_functions/assessment_attempt_history.sql
 \ir 50_functions/archived_student_work_recovery.sql
 \ir 50_functions/statistics.sql

@@ -178,11 +178,20 @@ $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_progress(uuid)
 RETURNS TABLE (assessment_attempt_id uuid, question_count integer,
-    recommended_position integer, issued_position integer, response_state text)
+    recommended_position integer, issued_position integer, response_state text,
+    display_duration_ms bigint)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT assessment_attempt_id, question_count,
-           recommended_position + 1, issued_position + 1, response_state
+           recommended_position + 1, issued_position + 1, response_state,
+           display_duration_ms
       FROM ple_private.read_student_assessment_attempt_progress($1)
+$$;
+
+CREATE FUNCTION ple_api.checkpoint_student_question_display_duration(uuid, integer, bigint)
+RETURNS TABLE (display_duration_ms bigint)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
+    SELECT display_duration_ms
+      FROM ple_private.checkpoint_student_question_display_duration($1, $2 - 1, $3)
 $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_saved_response(uuid, integer)
@@ -213,4 +222,3 @@ CREATE FUNCTION ple_api.save_student_assessment_accommodation(
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT * FROM ple_private.save_student_assessment_accommodation($1, $2, $3, $4, $5, $6, $7, $8, $9)
 $$;
-

@@ -578,6 +578,15 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
         response: StudentResponse,
     ) -> Result<StudentAssessmentAttemptSavedResponse, StoreError>;
 
+    /// Stores a monotone cumulative display-duration checkpoint for one open Question.
+    async fn checkpoint_student_question_display_duration(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assessment_attempt: AssessmentAttemptId,
+        position: u32,
+        cumulative_display_duration_ms: u64,
+    ) -> Result<u64, StoreError>;
+
     /// Reads the canonical saved response for one owned active issued position.
     ///
     /// `None` means that this exact Question has no saved working response.

@@ -4,22 +4,34 @@ use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State, rejection::QueryRejection},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::get,
 };
-use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use browser_api_contract::{
+    student_assessment_decision::StudentAssessmentDecisionSummary,
+    student_course_attempt_history::{
+        StudentCourseAttemptHistoryEntry, StudentCourseAttemptHistoryPage,
+    },
+    student_course_practice_stats::{
+        StudentCoursePracticeQuestionStats, StudentCoursePracticeStats,
+    },
+    student_course_progress::{AssessmentPointScore, StudentCourseProgressAssessment},
+};
 use learning_data_access::{
-    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore, SessionTokenHash,
-    StoreError,
+    Cursor, LiveStudentCourseAttemptHistoryEntry as StoreAttemptHistoryEntry,
+    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
+    LiveStudentCoursePracticeQuestionStats as StorePracticeQuestionStats,
+    LiveStudentCourseProgressAssessment, PageRequest, PageSize, SessionTokenHash, StoreError,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
     AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
-    ProductRole,
+    ProductRole, Timestamp,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -43,6 +55,18 @@ pub fn live_student_course_landing_router(
         .route(
             "/api/course-instances/{course_instance_id}/assessment-landing",
             get(list_assessments),
+        )
+        .route(
+            "/api/student/course-instances/{course_instance_id}/progress",
+            get(list_course_progress),
+        )
+        .route(
+            "/api/student/course-instances/{course_instance_id}/assessment-attempts",
+            get(list_course_attempt_history),
+        )
+        .route(
+            "/api/student/course-instances/{course_instance_id}/practice-stats",
+            get(list_course_practice_stats),
         )
         .with_state(RouteState { sessions, landing })
 }
@@ -107,6 +131,27 @@ struct AssessmentSummary {
     question_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     assessment_score: Option<learning_data_access::LiveAssessmentGradeContribution>,
+}
+
+#[derive(Serialize)]
+struct CourseProgressResponse {
+    assessments: Vec<StudentCourseProgressAssessment>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AttemptHistoryQuery {
+    page_size: Option<u16>,
+    cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AttemptHistoryCursor {
+    version: u8,
+    course_instance_id: CourseInstanceId,
+    page_size: u16,
+    after: String,
 }
 
 async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -205,6 +250,254 @@ async fn list_assessments(
     }
 }
 
+async fn list_course_progress(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+) -> Response {
+    let course = match CourseInstanceId::from_str(&course) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let session_hash = match student_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 2.2.2/2.3.1 and 14.2.6: the Store re-derives the signed-in Student,
+    // checks exact active Course Membership, and returns only released scores.
+    match state
+        .landing
+        .list_live_student_course_progress(session_hash, course)
+        .await
+    {
+        Ok(assessments) => crate::auth::no_store(
+            Json(CourseProgressResponse {
+                assessments: assessments
+                    .into_iter()
+                    .map(|assessment: LiveStudentCourseProgressAssessment| {
+                        let assessment_score_is_latest_attempt = assessment
+                            .assessment_score
+                            .as_ref()
+                            .map(|_| assessment.assessment_score_is_latest_attempt);
+                        StudentCourseProgressAssessment {
+                            id: assessment.assessment_id,
+                            title: assessment.title,
+                            assessment_type: assessment.assessment_type,
+                            assessment_attempt_count: assessment.assessment_attempt_count,
+                            submitted_assessment_attempt_count: assessment
+                                .submitted_assessment_attempt_count,
+                            latest_assessment_attempt_number: assessment
+                                .latest_assessment_attempt_number,
+                            latest_assessment_attempt_completion: assessment
+                                .latest_assessment_attempt_completion,
+                            latest_activity_at: assessment
+                                .latest_activity_at_millis
+                                .map(Timestamp::from_unix_millis),
+                            assessment_score: assessment.assessment_score.map(|score| {
+                                AssessmentPointScore {
+                                    points_earned: score.points_earned,
+                                    points_possible: score.points_possible,
+                                }
+                            }),
+                            assessment_score_is_latest_attempt,
+                        }
+                    })
+                    .collect(),
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn list_course_attempt_history(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+    query: Result<Query<AttemptHistoryQuery>, QueryRejection>,
+) -> Response {
+    let Query(query) = match query {
+        Ok(value) => value,
+        Err(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Student Attempt History page is invalid",
+            );
+        }
+    };
+    let course = match CourseInstanceId::from_str(&course) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let session_hash = match student_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let page = match attempt_history_page_request(&course, &query) {
+        Some(value) => value,
+        None => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Student Attempt History page is invalid",
+            );
+        }
+    };
+    let page_size = page.size.get();
+    match state
+        .landing
+        .list_live_student_course_attempt_history(session_hash, course.clone(), page)
+        .await
+    {
+        Ok(page) => {
+            let next_cursor = match page.next_cursor {
+                Some(after) => match encode_attempt_history_cursor(course, page_size, after) {
+                    Some(value) => Some(value),
+                    None => {
+                        return route_error(
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "Student Attempt History unavailable",
+                        );
+                    }
+                },
+                None => None,
+            };
+            crate::auth::no_store(
+                Json(StudentCourseAttemptHistoryPage {
+                    items: page.items.into_iter().map(attempt_history_entry).collect(),
+                    next_cursor,
+                })
+                .into_response(),
+            )
+        }
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn list_course_practice_stats(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+) -> Response {
+    let course = match CourseInstanceId::from_str(&course) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let session_hash = match student_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .landing
+        .list_live_student_course_practice_stats(session_hash, course)
+        .await
+    {
+        Ok(questions) => crate::auth::no_store(
+            Json(StudentCoursePracticeStats {
+                questions: questions.into_iter().map(practice_question_stats).collect(),
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+fn practice_question_stats(
+    stats: StorePracticeQuestionStats,
+) -> StudentCoursePracticeQuestionStats {
+    StudentCoursePracticeQuestionStats {
+        published_question_revision_tuple: stats.published_question_revision_tuple,
+        full_credit_attempt_count: stats.full_credit_attempt_count,
+        partial_credit_attempt_count: stats.partial_credit_attempt_count,
+        incorrect_attempt_count: stats.incorrect_attempt_count,
+        unanswered_attempt_count: stats.unanswered_attempt_count,
+        disclosed_attempt_count: stats.disclosed_attempt_count,
+        not_full_credit_count: stats.not_full_credit_count,
+        average_display_duration_ms: stats.average_display_duration_ms,
+        display_duration_sample_count: stats.display_duration_sample_count,
+        relevant_assessment_attempt_id: stats.relevant_assessment_attempt_id,
+    }
+}
+
+fn attempt_history_page_request(
+    course: &CourseInstanceId,
+    query: &AttemptHistoryQuery,
+) -> Option<PageRequest> {
+    let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
+    let after = match query.cursor.as_ref() {
+        Some(token) => {
+            if token.len() > 512 {
+                return None;
+            }
+            let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
+            let cursor: AttemptHistoryCursor = serde_json::from_slice(&bytes).ok()?;
+            if cursor.version != 1
+                || cursor.course_instance_id != *course
+                || cursor.page_size != size.get()
+                || !valid_attempt_history_key(&cursor.after)
+            {
+                return None;
+            }
+            Some(Cursor::parse(cursor.after).ok()?)
+        }
+        None => None,
+    };
+    Some(PageRequest { after, size })
+}
+
+fn valid_attempt_history_key(key: &str) -> bool {
+    let Some((timestamp, attempt_id)) = key.split_once('|') else {
+        return false;
+    };
+    let bytes = timestamp.as_bytes();
+    if bytes.len() != 27
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'.'
+        || bytes[26] != b'Z'
+    {
+        return false;
+    }
+    if bytes.iter().enumerate().any(|(index, byte)| {
+        !matches!(index, 4 | 7 | 10 | 13 | 16 | 19 | 26) && !byte.is_ascii_digit()
+    }) {
+        return false;
+    }
+    uuid::Uuid::parse_str(attempt_id).is_ok_and(|value| value.to_string() == attempt_id)
+}
+
+fn encode_attempt_history_cursor(
+    course_instance_id: CourseInstanceId,
+    page_size: u16,
+    after: Cursor,
+) -> Option<String> {
+    serde_json::to_vec(&AttemptHistoryCursor {
+        version: 1,
+        course_instance_id,
+        page_size,
+        after: after.as_str().to_owned(),
+    })
+    .ok()
+    .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
+}
+
+fn attempt_history_entry(entry: StoreAttemptHistoryEntry) -> StudentCourseAttemptHistoryEntry {
+    StudentCourseAttemptHistoryEntry {
+        assessment_attempt_id: entry.assessment_attempt_id,
+        assessment_id: entry.assessment_id,
+        assessment_title: entry.assessment_title,
+        assessment_attempt_number: entry.assessment_attempt_number,
+        started_at: entry.started_at,
+        submitted_at: entry.submitted_at,
+        assessment_score: entry.assessment_score.map(|score| AssessmentPointScore {
+            points_earned: score.points_earned,
+            points_possible: score.points_possible,
+        }),
+    }
+}
+
 async fn student_session_hash(
     state: &RouteState,
     headers: &HeaderMap,
@@ -277,11 +570,16 @@ fn route_error(status: StatusCode, message: &'static str) -> Response {
 
 #[cfg(test)]
 mod tests {
+    use learning_data_access::{Cursor, PageRequest};
     use learning_data_access::{LiveStudentCourseInvitationSummary, StoreError};
     use question_model::{CourseInstanceId, CourseTerm, ProductRole};
     use serde_json::json;
 
-    use super::{CourseInvitationSummary, store_error_response, student_profile_role_is_allowed};
+    use super::{
+        AttemptHistoryQuery, CourseInvitationSummary, attempt_history_page_request,
+        encode_attempt_history_cursor, store_error_response, student_profile_role_is_allowed,
+        valid_attempt_history_key,
+    };
 
     #[test]
     fn pending_invitation_projects_only_pre_acceptance_course_context() {
@@ -332,5 +630,39 @@ mod tests {
         assert!(student_profile_role_is_allowed(ProductRole::Student));
         assert!(!student_profile_role_is_allowed(ProductRole::Instructor));
         assert!(!student_profile_role_is_allowed(ProductRole::Sysadmin));
+    }
+
+    #[test]
+    fn attempt_history_cursor_is_bound_to_course_and_page_size() {
+        let course = CourseInstanceId::new("CI6F2R8TA0").expect("Course Instance ID");
+        let after = Cursor::parse(
+            "2026-09-23T13:14:15.000001Z|00000000-0000-0000-0000-000000000001".into(),
+        )
+        .expect("stable continuation key");
+        assert!(valid_attempt_history_key(after.as_str()));
+        assert!(!valid_attempt_history_key("2026-09-23T13:14:15Z|bad"));
+        let token = encode_attempt_history_cursor(course.clone(), 25, after.clone())
+            .expect("opaque cursor encodes");
+        let query = AttemptHistoryQuery {
+            page_size: Some(25),
+            cursor: Some(token),
+        };
+        let page = attempt_history_page_request(&course, &query).expect("bound page parses");
+        assert_eq!(
+            page,
+            PageRequest::after(after, learning_data_access::PageSize::new(25).unwrap())
+        );
+        let other_course = CourseInstanceId::new("CI7K3M2QAZ").expect("other Course ID");
+        assert!(attempt_history_page_request(&other_course, &query).is_none());
+        assert!(
+            attempt_history_page_request(
+                &course,
+                &AttemptHistoryQuery {
+                    page_size: Some(20),
+                    cursor: query.cursor.clone(),
+                }
+            )
+            .is_none()
+        );
     }
 }

@@ -7,6 +7,7 @@ import {
   decodeLiveStudentAssessmentLandings,
   decodeLiveStudentCourseInvitations,
   decodeLiveStudentCourseLandings,
+  decodeStudentCourseProgress,
 } from "../decoders/live_student_course_landing";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch, type RequestOptions } from "./request";
@@ -18,6 +19,13 @@ function assessmentLandingPath(courseInstanceId: CourseInstanceId): string {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessment-landing`;
+}
+
+function progressPath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
+    throw new ApiProtocolError("Course Instance ID must be canonical");
+  }
+  return `/api/student/course-instances/${encodeURIComponent(courseInstanceId)}/progress`;
 }
 
 async function landingJson<T>(
@@ -62,6 +70,13 @@ export function createLiveStudentCourseLandingClient(
         basePath,
         assessmentLandingPath(courseInstanceId),
         decodeLiveStudentAssessmentLandings,
+      ),
+    getStudentCourseProgress: (courseInstanceId) =>
+      landingJson(
+        fetchImplementation,
+        basePath,
+        progressPath(courseInstanceId),
+        decodeStudentCourseProgress,
       ),
   };
 }

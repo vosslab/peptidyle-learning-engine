@@ -396,6 +396,14 @@ async function openOrResumePracticeAssignment(page: Page, card: Locator): Promis
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
 }
 
+async function openAllStudentCoursework(page: Page): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Coursework", exact: true })
+    .click();
+  await page.locator('[data-route-surface="studentCourseLanding"]').waitFor();
+}
+
 async function waitForControl(session: CaptureSession, example: Example): Promise<void> {
   const page = session.page;
   if (example.backend === "webwork") {
@@ -507,6 +515,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       // must not turn the phone baseline into a selected-response capture on replay.
       await choosePersona(page, viewport === "laptop" ? "Avery Thompson" : "Jack Nguyen");
       await openStudentCourse(page);
+      await openAllStudentCoursework(page);
       const card = assignmentCard(page, ASSESSMENT_TITLE);
       let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
       const navigation = page.getByRole("navigation", {
@@ -523,8 +532,12 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
             navigation.getByRole("button", { name: "Next question", exact: true }).click(),
           );
         }
-        if (question.position !== position)
-          throw new Error("Student navigation did not deliver the next issued Question position.");
+        if (question.position !== position) {
+          throw new Error(
+            `Student navigation at ${viewport} requested Question ${String(position)} but ` +
+              `delivered Question ${String(question.position)}.`,
+          );
+        }
         await page
           .getByText(`Question ${position} of ${EXPECTED_QUESTION_COUNT}`, { exact: true })
           .waitFor();
@@ -557,6 +570,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       const page = session.page;
       await choosePersona(page, "Mary Okafor");
       await openStudentCourse(page);
+      await openAllStudentCoursework(page);
       const card = assignmentCard(page, ASSESSMENT_TITLE);
       let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
       const navigation = page.getByRole("navigation", {
@@ -572,8 +586,12 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
             navigation.getByRole("button", { name: "Next question", exact: true }).click(),
           );
         }
-        if (question.position !== position)
-          throw new Error("Student navigation did not deliver the next issued Question position.");
+        if (question.position !== position) {
+          throw new Error(
+            `Student navigation at ${viewport} requested Question ${String(position)} but ` +
+              `delivered Question ${String(question.position)}.`,
+          );
+        }
         await page
           .getByText(`Question ${position} of ${EXPECTED_QUESTION_COUNT}`, { exact: true })
           .waitFor();
@@ -605,6 +623,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
     try {
       await choosePersona(session.page, "Mary Okafor");
       await openStudentCourse(session.page);
+      await openAllStudentCoursework(session.page);
       await openOrResumePracticeAssignment(
         session.page,
         assignmentCard(session.page, workflowTitle),

@@ -17,39 +17,26 @@ test("pending-invitation pagination keeps existing rows and excludes overlapping
   assert.deepEqual(appendPendingInvitationPage(first, next), [first[0], next[1]]);
 });
 
-test("pending-invitation copy exposes the current invitation state and viewer-zone expiry", () => {
+test("pending-invitation copy uses the viewer zone without repeating its name", () => {
   const displayTimeZone = "America/New_York";
   const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
 
   assert.equal(invitationStateLabel("pending"), "Pending response");
   assert.equal(isPendingInvitation("expired"), false);
-  assert.match(
-    serverExpiryCopy(1_789_837_200_000, displayTimeZone, formatDateTime),
-    /America\/New_York/u,
-  );
-  assert.doesNotMatch(
-    serverExpiryCopy(1_789_837_200_000, displayTimeZone, formatDateTime),
-    /1789837200000/u,
-  );
+  assert.match(serverExpiryCopy(1_789_837_200_000, formatDateTime), /Expires at/u);
+  assert.doesNotMatch(serverExpiryCopy(1_789_837_200_000, formatDateTime), /1789837200000/u);
 });
 
 test("invitation expiry uses the explicit viewer zone", () => {
   const instant = Date.parse("2026-01-15T18:30:00Z");
   const easternTimeZone = "America/New_York";
   const pacificTimeZone = "America/Los_Angeles";
-  const eastern = serverExpiryCopy(
-    instant,
-    easternTimeZone,
-    createDisplayDateTimeFormatter(easternTimeZone),
-  );
-  const pacific = serverExpiryCopy(
-    instant,
-    pacificTimeZone,
-    createDisplayDateTimeFormatter(pacificTimeZone),
-  );
+  const eastern = serverExpiryCopy(instant, createDisplayDateTimeFormatter(easternTimeZone));
+  const pacific = serverExpiryCopy(instant, createDisplayDateTimeFormatter(pacificTimeZone));
 
-  assert.match(eastern, /\(America\/New_York\)$/u);
-  assert.match(pacific, /\(America\/Los_Angeles\)$/u);
+  assert.notEqual(eastern, pacific);
+  assert.doesNotMatch(eastern, /America\/New_York/u);
+  assert.doesNotMatch(pacific, /America\/Los_Angeles/u);
 });
 
 test("pending invitation decoder requires an outer viewer zone and rejects target-zone leakage", () => {

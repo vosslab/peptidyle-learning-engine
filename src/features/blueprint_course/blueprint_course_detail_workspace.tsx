@@ -520,7 +520,6 @@ export function BlueprintCourseDetailWorkspace(
       <A class="quiet-link" href="/blueprint-courses">
         Return to Blueprint Courses
       </A>
-      <p>Times shown in {displayTimeZone}.</p>
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>

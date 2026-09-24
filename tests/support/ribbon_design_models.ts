@@ -96,7 +96,7 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 }
 
 function routeHref(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {
-  if (catalog.destination.kind !== "route" || catalog.id === "backToAssessments") return undefined;
+  if (catalog.destination.kind !== "route") return undefined;
   const params: Partial<Record<RouteParamName, string>> =
     catalog.id === "coursework" || catalog.id === "grades"
       ? { courseInstanceId: CANONICAL_PARAMS.courseInstanceId }
@@ -177,7 +177,12 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "product",
     "student",
     [control("courses", { selected: true }), control("coursework"), control("grades")],
-    [],
+    [
+      area("studentCourses", "Courses", [
+        control("studentProgress", { availability: "Unavailable" }),
+        control("studentPracticeStats", { availability: "Unavailable" }),
+      ]),
+    ],
     "reading",
     { signOutAction: SIGN_OUT },
   ),
@@ -215,7 +220,13 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "courseInstance",
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
-    [],
+    [
+      area("studentCoursework", "Coursework", [
+        control("allCoursework", { selected: true }),
+        control("dueSoon"),
+        control("completedCoursework"),
+      ]),
+    ],
     "reading",
     { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
   ),
@@ -258,7 +269,13 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "assessmentAttempt",
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
-    [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
+    [
+      area("studentCoursework", "Coursework", [
+        control("allCoursework"),
+        control("dueSoon"),
+        control("completedCoursework"),
+      ]),
+    ],
     "reading",
     {
       assessmentLabel: "Problem Set 7",

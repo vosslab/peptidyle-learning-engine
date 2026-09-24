@@ -48,15 +48,19 @@ function routeStateFor(routeId) {
   assert.ok(route, `route ${routeId} must exist`);
   const pathname = buildRoutePath(route.id, paramsForRoute(route));
   assert.ok(pathname, `route ${route.id} must build`);
-  const params = routeParams(route, pathname);
-  assert.ok(params, `route ${route.id} must extract`);
-  return { route, params };
+  const declaredParams = routeParams(route, pathname);
+  assert.ok(declaredParams, `route ${route.id} must extract`);
+  return { route, params: { ...declaredParams } };
 }
 
 function controlsFor(routeId, productRole) {
   const routeState = routeStateFor(routeId);
+  const params =
+    routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
+      ? { ...routeState.params, courseInstanceId: PARAMETER_VALUES.courseInstanceId }
+      : routeState.params;
   const model = deriveRibbonModel(
-    { ...routeState, currentCourseInstanceId: routeState.params.courseInstanceId },
+    { ...routeState, params, currentCourseInstanceId: params.courseInstanceId },
     { productRole },
     LABELS,
   );
@@ -117,7 +121,7 @@ test("admission withholds unavailable controls and respects declared role ceilin
 
 // Permanent contract: every signed-in role reaches the same self-owned account
 // commands through the compact Profile menu. A regression would either strand a
-// role from Profile/Account settings or scatter Sign out back into the top bar.
+// role from Profile or scatter Sign out back into the top bar.
 test("every signed-in Product Role has one accessible generic Profile end control", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   for (const [role, routeId] of [
@@ -316,9 +320,34 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
   assert.doesNotMatch(html, /ple-app-ribbon__product-name/);
 });
 
-test("Student Coursework navigation retains collective labels", () => {
+test("Student Tier 2 choices and order stay fixed across routes and Course context", () => {
+  const expectedTaskRows = {
+    courses: ["studentProgress", "studentPracticeStats"],
+    coursework: ["allCoursework", "dueSoon", "completedCoursework"],
+    grades: ["studentScores", "studentAttemptHistory"],
+  };
+  const firstRowByTierOne = new Map();
+  for (const route of ROUTE_CONTRACT) {
+    if (!route.requiredProductRoles.includes("student")) continue;
+    const expected = expectedTaskRows[route.ribbon.tierOneArea];
+    if (expected === undefined) continue;
+    const model = controlsFor(route.id, "student").model;
+    const row = model.taskAreas.flatMap((area) => area.controls.map((control) => control.id));
+    assert.deepEqual(row, expected, `${route.id} retains its fixed Student Tier 2 row`);
+    const previous = firstRowByTierOne.get(route.ribbon.tierOneArea);
+    if (previous === undefined) firstRowByTierOne.set(route.ribbon.tierOneArea, row);
+    else assert.deepEqual(row, previous, `${route.id} did not change its Tier 1 row`);
+    for (const control of model.taskAreas.flatMap((area) => area.controls)) {
+      if (control.href === undefined) continue;
+      assert.match(control.href, /\/student\/courses\/CI7K3M2QAZ(?:\/|$)/, control.id);
+    }
+  }
+});
+
+test("Student Coursework keeps its collective Tier 1 label without an Attempt-only row", () => {
   const courseLanding = controlsFor("studentCourseLanding", "student").model;
-  const attemptControls = controlsFor("assessmentAttempt", "student").controls;
+  const attempt = controlsFor("assessmentAttempt", "student").model;
+  const attemptTaskControls = attempt.taskAreas.flatMap((area) => area.controls);
   const expectedTabs = [
     {
       id: "courses",
@@ -361,36 +390,26 @@ test("Student Coursework navigation retains collective labels", () => {
     },
   ];
   assert.deepEqual(courseLanding.tabs, expectedTabs);
-  assert.equal(
-    attemptControls.find((control) => control.id === "backToAssessments")?.label,
-    "Back to Coursework",
+  assert.deepEqual(
+    attemptTaskControls.map((control) => control.label),
+    ["All Coursework", "Due Soon", "Completed"],
   );
 });
 
-test("missing source parameters withhold a backed destination without changing its position", () => {
-  const entry = CAPABILITY_REGISTRY.backToAssessments;
-  const descriptors = Object.getOwnPropertyDescriptors(entry);
-  const before = controlsFor("assessmentAttempt", "student").controls.map(({ id }) => id);
-  try {
-    Object.assign(entry, {
-      relationshipRequirement: "none",
-      capability: {
-        kind: "backed",
-        clientMethod: "TestApi.read",
-        serverEvidence: { kind: "noServerCall", justification: "Test-only admission boundary." },
-        evidence: ["tests/test_ribbon_contract.mjs"],
-      },
-    });
-    const controls = controlsFor("assessmentAttempt", "student").controls;
-    const back = controls.find((control) => control.id === entry.id);
-    assert.deepEqual(
-      controls.map(({ id }) => id),
-      before,
-    );
-    assert.equal(back?.href, undefined);
-  } finally {
-    restoreDescriptors(entry, descriptors);
-  }
+test("Course-scoped Student Tier 2 destinations stay unavailable without Course context", () => {
+  const routeState = routeStateFor("assessmentAttempt");
+  const params = { assessmentAttemptId: routeState.params.assessmentAttemptId };
+  const model = deriveRibbonModel(
+    { route: routeState.route, params },
+    { productRole: "student" },
+    LABELS,
+  );
+  const controls = model.taskAreas.flatMap((area) => area.controls);
+  assert.deepEqual(
+    controls.map((control) => control.id),
+    ["allCoursework", "dueSoon", "completedCoursework"],
+  );
+  assert.ok(controls.every((control) => control.href === undefined));
 });
 
 test("relationship admission may check without moving schema-owned positions", () => {

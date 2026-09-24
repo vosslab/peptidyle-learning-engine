@@ -74,6 +74,8 @@ function expectedPrivacyProfile(capture) {
   if (
     (capture.scenario === "student_assignment_history" &&
       capture.checkpoint.startsWith("selected_history_")) ||
+    (capture.scenario === "student_progress_stats_attempt_history" &&
+      capture.checkpoint === "course_attempt_history_selected_laptop") ||
     (capture.scenario === "student_assignment_attempt" &&
       capture.checkpoint.startsWith("submitted_"))
   ) {
@@ -121,7 +123,25 @@ test("the screenshot matrix captures each role at its required viewport scope", 
     if (LAPTOP_ONLY_ROLES.has(scenario.role)) {
       assert.deepEqual(capturedViewports, ["laptop"], scenario.id);
     } else if (scenario.role === "student") {
-      assert.deepEqual(capturedViewports, [...VIEWPORT_IDS].sort(), scenario.id);
+      const directlyCaptured = [...VIEWPORT_IDS]
+        .filter((viewport) => scenario.viewportCoverage[viewport].status === "captured")
+        .sort();
+      assert.deepEqual(capturedViewports, directlyCaptured, scenario.id);
+      for (const viewport of VIEWPORT_IDS) {
+        const coverage = scenario.viewportCoverage[viewport];
+        if (coverage.status === "captured") {
+          assert.ok(
+            scenario.captures.some((capture) => capture.viewport === viewport),
+            `${scenario.id}:${viewport} is marked captured without a capture`,
+          );
+        } else {
+          assert.ok(
+            scenario.captures.some((capture) => capture.checkpoint === coverage.target),
+            `${scenario.id}:${viewport} references a missing representative checkpoint`,
+          );
+          assert.ok(coverage.reason.trim().length > 0, `${scenario.id}:${viewport} needs a reason`);
+        }
+      }
     } else {
       assert.equal(scenario.role, "public", scenario.id);
       assert.deepEqual(capturedViewports, PUBLIC_VIEWPORTS, scenario.id);

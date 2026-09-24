@@ -28,6 +28,7 @@ import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
+import { QuestionDisplayDurationClock } from "../question_display_duration_clock";
 import type { ResponseSaveOutcome } from "../components/question_response_controls/common";
 import {
   saveCapturedBackendOwnedResponse,
@@ -95,10 +96,64 @@ function AttemptExperience(props: {
   let expiryRefresh: Promise<void> | undefined;
   let finishAssessmentButton: HTMLButtonElement | undefined;
   let backendOwnedCapture: BackendOwnedCapture | undefined;
+  const questionDisplayClocks = new Map<number, QuestionDisplayDurationClock>();
+
+  function questionDisplayClock(selectedPosition: number): QuestionDisplayDurationClock {
+    const existing = questionDisplayClocks.get(selectedPosition);
+    if (existing !== undefined) return existing;
+    const savedMilliseconds =
+      progress()?.positions.find((item) => item.position === selectedPosition)?.displayDurationMs ??
+      null;
+    const clock = new QuestionDisplayDurationClock(savedMilliseconds);
+    questionDisplayClocks.set(selectedPosition, clock);
+    return clock;
+  }
+
+  function resumeQuestionDisplayClock(): void {
+    const selectedPosition = currentPosition();
+    if (
+      selectedPosition === null ||
+      document.visibilityState !== "visible" ||
+      presentation()?.position !== selectedPosition ||
+      isSubmitted() ||
+      submissionState() !== "idle" ||
+      isExpired()
+    )
+      return;
+    questionDisplayClock(selectedPosition).resume(performance.now());
+  }
+
+  async function checkpointQuestionDisplayDuration(pause: boolean): Promise<void> {
+    const selectedPosition = currentPosition();
+    if (selectedPosition === null) return;
+    const clock = questionDisplayClock(selectedPosition);
+    const now = performance.now();
+    const cumulativeDisplayDurationMs = pause ? clock.pause(now) : clock.checkpoint(now);
+    if (cumulativeDisplayDurationMs === 0) return;
+    try {
+      const receipt = await runtime.client.checkpointStudentQuestionDisplayDuration(
+        props.context.assessmentAttemptId,
+        selectedPosition,
+        cumulativeDisplayDurationMs,
+      );
+      clock.observeStoredMilliseconds(receipt.cumulativeDisplayDurationMs);
+    } catch {
+      // Keep the local cumulative value and retry at the next checkpoint or transition.
+    }
+  }
 
   const currentPosition = (): number | null => position();
   const isSubmitted = (): boolean => submissionState() === "submitted";
   const isExpired = (): boolean => remainingMilliseconds() === 0;
+  function currentResponseIsSaved(): boolean {
+    const currentPresentation = presentation();
+    return (
+      saveState() === "saved" &&
+      currentPresentation !== undefined &&
+      currentPresentation.position === currentPosition() &&
+      currentPresentation.savedResponse !== null
+    );
+  }
 
   async function loadProgress(): Promise<void> {
     progressRequest += 1;
@@ -134,6 +189,7 @@ function AttemptExperience(props: {
   }
 
   async function loadPresentation(nextPosition: number): Promise<void> {
+    void checkpointQuestionDisplayDuration(true);
     presentationRequest += 1;
     const request = presentationRequest;
     setPresentation(undefined);
@@ -157,6 +213,7 @@ function AttemptExperience(props: {
         setResponseValid(true);
         setSaveState("saved");
       }
+      globalThis.requestAnimationFrame(resumeQuestionDisplayClock);
     } catch (error: unknown) {
       if (request !== presentationRequest) return;
       setLoadError(errorMessage(error, "Could not load this Question."));
@@ -184,6 +241,7 @@ function AttemptExperience(props: {
       setSaveState("saving");
       setSaveError(null);
       try {
+        await checkpointQuestionDisplayDuration(false);
         await runtime.client.saveStudentAssessmentAttemptResponse(
           props.context.assessmentAttemptId,
           selected,
@@ -216,7 +274,8 @@ function AttemptExperience(props: {
 
   async function activatePosition(nextPosition: number): Promise<void> {
     if (nextPosition === currentPosition() || isSubmitted() || isExpired()) return;
-    if (!(await saveCurrentResponse())) return;
+    void checkpointQuestionDisplayDuration(true);
+    if (!currentResponseIsSaved() && !(await saveCurrentResponse())) return;
     setPosition(nextPosition);
   }
 
@@ -228,6 +287,7 @@ function AttemptExperience(props: {
   async function saveCurrentResponseBeforeAttemptSubmission(): Promise<boolean> {
     const selected = currentPosition();
     if (selected === null || presentation()?.position !== selected) return false;
+    if (currentResponseIsSaved()) return true;
     const active = responseState.current(selected);
     const responseIsComplete = active !== undefined && active.valid && responseValid();
     if (!responseIsComplete) {
@@ -247,6 +307,7 @@ function AttemptExperience(props: {
 
   async function submitAttempt(): Promise<void> {
     if (submissionState() === "submitting" || isSubmitted()) return;
+    await checkpointQuestionDisplayDuration(true);
     setSubmissionState("submitting");
     setSubmissionError(null);
     try {
@@ -336,7 +397,10 @@ function AttemptExperience(props: {
       .then((next) => {
         if (request !== timerRequest) return;
         setRemainingMilliseconds(next);
-        if (next === 0) void refreshAfterExpiry();
+        if (next === 0) {
+          void checkpointQuestionDisplayDuration(true);
+          void refreshAfterExpiry();
+        }
       })
       .catch(() => {
         if (request === timerRequest) setTimerUnavailable(true);
@@ -373,8 +437,22 @@ function AttemptExperience(props: {
     void loadProgress();
     tickTimer();
     const interval = globalThis.setInterval(tickTimer, 1_000);
+    const durationInterval = globalThis.setInterval(() => {
+      if (document.visibilityState === "visible") void checkpointQuestionDisplayDuration(false);
+    }, 15_000);
+    const visibilityChanged = (): void => {
+      if (document.visibilityState === "visible") resumeQuestionDisplayClock();
+      else void checkpointQuestionDisplayDuration(true);
+    };
+    const pageHidden = (): void => void checkpointQuestionDisplayDuration(true);
+    document.addEventListener("visibilitychange", visibilityChanged);
+    window.addEventListener("pagehide", pageHidden);
     onCleanup(() => {
       globalThis.clearInterval(interval);
+      globalThis.clearInterval(durationInterval);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+      window.removeEventListener("pagehide", pageHidden);
+      void checkpointQuestionDisplayDuration(true);
       if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
     });
   });
@@ -421,8 +499,7 @@ function AttemptExperience(props: {
             <Show when={props.context.expiresAt !== null}>
               <p class="assessment-attempt-expiry">
                 Saved responses submit automatically at{" "}
-                {formatAssessmentDeliveryTime(props.context.expiresAt, formatDateTime)}. Times shown
-                in {props.context.displayTimeZone}.
+                {formatAssessmentDeliveryTime(props.context.expiresAt, formatDateTime)}.
               </p>
             </Show>
           </div>

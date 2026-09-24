@@ -251,11 +251,14 @@ function TaskArea(props: {
   );
 }
 
-function isRequiredInstructorTaskArea(area: RibbonTaskAreaModel): boolean {
+function isRequiredTaskArea(area: RibbonTaskAreaModel): boolean {
   return (
     area.id === "instructorCourses" ||
     area.id === "instructorQuestions" ||
-    area.id === "instructorAssessments"
+    area.id === "instructorAssessments" ||
+    area.id === "studentCourses" ||
+    area.id === "studentCoursework" ||
+    area.id === "studentGrades"
   );
 }
 
@@ -540,24 +543,14 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
           >
             <Show when={profileLink()}>
               {(control) => (
-                <>
-                  <a
-                    class="ple-app-ribbon__profile-menu-item"
-                    role="menuitem"
-                    href={control().href}
-                    onClick={() => closeProfileMenu()}
-                  >
-                    {control().label}
-                  </a>
-                  <a
-                    class="ple-app-ribbon__profile-menu-item"
-                    role="menuitem"
-                    href="/account-settings"
-                    onClick={() => closeProfileMenu()}
-                  >
-                    Account settings
-                  </a>
-                </>
+                <a
+                  class="ple-app-ribbon__profile-menu-item"
+                  role="menuitem"
+                  href={control().href}
+                  onClick={() => closeProfileMenu()}
+                >
+                  {control().label}
+                </a>
               )}
             </Show>
             <button
@@ -593,10 +586,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               <TaskArea
                 area={area}
                 pendingNavigation={pendingNavigation}
-                showUnavailable={
-                  props.model.context.productLabel === "Instructor" &&
-                  isRequiredInstructorTaskArea(area)
-                }
+                showUnavailable={isRequiredTaskArea(area)}
               />
             )}
           </For>

@@ -102,8 +102,8 @@ turning each local group into a card or making an ordinary state change rearrang
 - **Spatial memory is a behavioral contract.** `src/application_shell.tsx` owns the persistent
   shell frame, viewport-height floor, and content origin; `src/ribbon/app_ribbon.tsx` presents the
   named Ribbon rows from Product Role, Tier 1, and current route context. Context and Tab remain
-  reserved. Settled Instructor Task Rows derive from Product Role and Tier 1; current Student Attempt
-  controls retain their route context while Student Tier 2 remains undecided. Loading, error, theme,
+  reserved. Settled Instructor Task Rows derive from Product Role and Tier 1; Student Task Rows derive
+  from Student Tier 1 and stay fixed through Attempt routes. Loading, error, theme,
   label, and capability-admission changes may update content or paint, but may not change the
   applicable row topology or move a visible control. Identity and geometry evidence must prove that
   a deferred or recovered route does not replace the shell or shift its visible controls.
@@ -160,7 +160,8 @@ The Instructor Product Schema's three Tabs are the owner's taxonomy of teaching 
 derivation from the present route hierarchy. Blueprint Courses, active Courses, rosters, and Course
 settings belong below Courses; Question discovery and owned Draft Questions belong below Questions;
 templates, due-soon work, editing, and release belong below Assessments. Student navigation uses
-Coursework and specific Assessment Type names rather than the internal Assessment object name.
+Coursework and specific Assessment Type names rather than the internal Assessment object name. Its
+fixed task rows are documented in Human Guidance.
 Sysadmin navigation exposes platform administration without granting ambient Course or FERPA access.
 
 Product Role is available with the Authenticated Session, so one Account uses one stable schema for
@@ -229,12 +230,11 @@ The Context and Tab Rows are always reserved as the persistent Ribbon's spatial 
 Instructor Tier 1 areas, Task Row destinations derive from Product Role and Tier 1 and remain the same
 across deeper routes; the current route selects a destination only when it matches. Course- and
 Assessment-specific navigation belongs in page content and breadcrumbs. Student Tier 2 destinations
-and order remain undecided. Current Student Attempt controls retain their route context, and routes
-without task controls do not establish an intentionally empty Student menu. Capability admission,
-loading, deferred labels, and content errors do not add or remove a settled row; a required destination
-remains represented even when unavailable. A reserved row is not filled with disabled fiction or a
-placeholder link. Review row geometry only for concrete failures such as clipping, ambiguity,
-contrast, keyboard reachability, or broken reflow.
+derive from Student Tier 1 and remain stable through Course, Assessment, Attempt, and review routes.
+Capability admission, loading, deferred labels, and content errors do not add or remove a settled row;
+a required destination remains represented even when unavailable. A reserved row is not filled with
+disabled fiction or a placeholder link. Review row geometry only for concrete failures such as
+clipping, ambiguity, contrast, keyboard reachability, or broken reflow.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,
 text, and color together; color alone is not the indicator.

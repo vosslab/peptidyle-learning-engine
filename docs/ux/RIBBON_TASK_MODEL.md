@@ -78,9 +78,20 @@ Assessment Type name. Within an Assessment Attempt, Question navigation and
 saved status stay in the content area while the Ribbon and context remain
 stable.
 
-Human Guidance leaves Student Tier 2 destinations and order unresolved.
-Preserve current route behavior, including Attempt-specific Ribbon controls.
-Routes with no task controls do not establish an intentionally empty menu.
+Student Tier 2 is fixed by Student Tier 1:
+
+| Tier 1 | Tier 2 |
+| --- | --- |
+| Courses | Progress; Practice Stats |
+| Coursework | All Coursework; Due Soon; Completed |
+| Grades | Scores; Attempt History |
+
+The selected Course supplies content and route context without changing the
+Tier 2 row. A Student with one active Course opens its Progress page from
+`/student`; a Student with multiple active Courses opens the Course chooser.
+Attempt and review routes keep the same row. An Attempt with no released score
+remains visible in Progress as **Score not released** and is not treated as
+below 100%.
 
 The return action is **Back to Coursework**. The completion action is **Submit
 Assessment** and submits the whole Attempt, finalizing all saved responses

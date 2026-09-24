@@ -1,7 +1,7 @@
 // profile_page.tsx - role-neutral authenticated-self Profile surface.
 
 import { A } from "@solidjs/router";
-import { Match, Show, Switch, createResource, createSignal, type JSX } from "solid-js";
+import { For, Match, Show, Switch, createResource, createSignal, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
@@ -24,10 +24,25 @@ import { StaffAvatarSettings } from "../features/profile_avatar/staff_avatar_set
 export function ProfilePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
-  const [profile] = createResource(() => applicationApi.client.getProfile());
+  const [profile, { mutate: mutateProfile }] = createResource(() =>
+    applicationApi.client.getProfile(),
+  );
   const [avatar, { mutate }] = createResource(() => applicationApi.client.getProfileAvatar());
   const [avatarSaving, setAvatarSaving] = createSignal(false);
   const [avatarMessage, setAvatarMessage] = createSignal("");
+  const [timeZoneDraft, setTimeZoneDraft] = createSignal<string>();
+  const [timeZoneSaving, setTimeZoneSaving] = createSignal(false);
+  const [timeZoneMessage, setTimeZoneMessage] = createSignal("");
+  const selectedTimeZone = (): string => timeZoneDraft() ?? profile()?.timeZone ?? "UTC";
+  const timeZones = (): readonly string[] => {
+    const intl = Intl as typeof Intl & {
+      readonly supportedValuesOf?: (key: "timeZone") => readonly string[];
+    };
+    const supported = intl.supportedValuesOf?.("timeZone") ?? [];
+    return [...new Set([...supported, "UTC", selectedTimeZone()])].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  };
   const selfRoleLabel = (): string => {
     const state = session.state();
     if (state.kind !== "authenticated") return "Account";
@@ -59,6 +74,25 @@ export function ProfilePage(): JSX.Element {
   function recordAvatarChange(nextAvatar: ProfileAvatarView): void {
     mutate(nextAvatar);
     dispatchProfileAvatarChanged();
+  }
+
+  async function saveTimeZone(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (timeZoneSaving()) return;
+    setTimeZoneSaving(true);
+    setTimeZoneMessage("");
+    try {
+      const saved = await applicationApi.client.updateAccountSettings({
+        timeZone: selectedTimeZone(),
+      });
+      mutateProfile(saved);
+      setTimeZoneDraft(saved.timeZone);
+      setTimeZoneMessage("Your time zone was saved.");
+    } catch {
+      setTimeZoneMessage("Your time zone could not be saved. Try again.");
+    } finally {
+      setTimeZoneSaving(false);
+    }
   }
 
   async function selectProvidedAvatar(providedAvatarId: string): Promise<void> {
@@ -94,8 +128,34 @@ export function ProfilePage(): JSX.Element {
           <Match when={profile.error !== undefined}>
             <p role="alert">Your time zone is unavailable. Refresh to try again.</p>
           </Match>
-          <Match when={profile()}>{(settings) => <p>{settings().timeZone}</p>}</Match>
+          <Match when={profile()}>
+            {(settings) => (
+              <form aria-busy={timeZoneSaving()} onSubmit={(event) => void saveTimeZone(event)}>
+                <label for="profile-time-zone">
+                  Time zone
+                  <select
+                    id="profile-time-zone"
+                    value={timeZoneDraft() ?? settings().timeZone}
+                    disabled={timeZoneSaving()}
+                    onInput={(event) => setTimeZoneDraft(event.currentTarget.value)}
+                  >
+                    <For each={timeZones()}>
+                      {(timeZone) => <option value={timeZone}>{timeZone}</option>}
+                    </For>
+                  </select>
+                </label>
+                <button class="primary-action" type="submit" disabled={timeZoneSaving()}>
+                  {timeZoneSaving() ? "Saving..." : "Save time zone"}
+                </button>
+              </form>
+            )}
+          </Match>
         </Switch>
+        <Show when={timeZoneSaving() || timeZoneMessage()}>
+          <p class="calm-status" role="status" aria-live="polite">
+            {timeZoneSaving() ? "Saving your time zone..." : timeZoneMessage()}
+          </p>
+        </Show>
       </section>
       <section aria-labelledby="profile-avatar-heading">
         <h2 id="profile-avatar-heading">Avatar Gallery</h2>

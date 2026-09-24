@@ -5,6 +5,7 @@ import type {
   AssessmentGradeContribution,
   LiveStudentCourseInvitationSummary,
   LiveStudentCourseLandingSummary,
+  StudentCourseProgressAssessment,
 } from "../live_student_course_landing";
 import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
 import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
@@ -172,6 +173,93 @@ function decodeAssessmentSummary(
   };
 }
 
+function decodeProgressAssessment(value: unknown, path: string): StudentCourseProgressAssessment {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "title",
+    "assessmentType",
+    "assessmentAttemptCount",
+    "submittedAssessmentAttemptCount",
+    "latestAssessmentAttemptNumber",
+    "latestAssessmentAttemptCompletion",
+    "latestActivityAt",
+    "assessmentScore",
+    "assessmentScoreIsLatestAttempt",
+  ]);
+  const assessmentAttemptCount = decodeNonnegativeInteger(
+    field(record, "assessmentAttemptCount", path),
+    `${path}.assessmentAttemptCount`,
+  );
+  const submittedAssessmentAttemptCount = decodeNonnegativeInteger(
+    field(record, "submittedAssessmentAttemptCount", path),
+    `${path}.submittedAssessmentAttemptCount`,
+  );
+  const latestAssessmentAttemptNumber = decodeNullable(
+    field(record, "latestAssessmentAttemptNumber", path),
+    `${path}.latestAssessmentAttemptNumber`,
+    decodePositiveInteger,
+  );
+  const latestAssessmentAttemptCompletion = decodeNullable(
+    field(record, "latestAssessmentAttemptCompletion", path),
+    `${path}.latestAssessmentAttemptCompletion`,
+    (candidate, candidatePath) =>
+      decodeStringEnum(candidate, candidatePath, ASSESSMENT_ATTEMPT_COMPLETIONS),
+  );
+  const latestActivityAt = decodeNullable(
+    field(record, "latestActivityAt", path),
+    `${path}.latestActivityAt`,
+    decodeNonnegativeInteger,
+  );
+  const assessmentScore =
+    record.assessmentScore === undefined
+      ? undefined
+      : decodeAssessmentGradeContribution(record.assessmentScore, `${path}.assessmentScore`);
+  const assessmentScoreIsLatestAttempt =
+    record.assessmentScoreIsLatestAttempt === undefined
+      ? undefined
+      : decodeBoolean(
+          record.assessmentScoreIsLatestAttempt,
+          `${path}.assessmentScoreIsLatestAttempt`,
+        );
+  if (
+    submittedAssessmentAttemptCount > assessmentAttemptCount ||
+    (assessmentAttemptCount === 0 &&
+      (latestAssessmentAttemptNumber !== null ||
+        latestAssessmentAttemptCompletion !== null ||
+        latestActivityAt !== null ||
+        submittedAssessmentAttemptCount !== 0 ||
+        assessmentScore !== undefined ||
+        assessmentScoreIsLatestAttempt !== undefined)) ||
+    (assessmentAttemptCount > 0 &&
+      (latestAssessmentAttemptNumber === null ||
+        latestAssessmentAttemptNumber > assessmentAttemptCount ||
+        latestAssessmentAttemptCompletion === null ||
+        latestActivityAt === null)) ||
+    (assessmentScore !== undefined && submittedAssessmentAttemptCount === 0) ||
+    (assessmentScore !== undefined && assessmentScoreIsLatestAttempt === undefined) ||
+    (assessmentScore === undefined && assessmentScoreIsLatestAttempt !== undefined)
+  ) {
+    throw new DecodeError(path, "internally consistent self-only Course Progress");
+  }
+  return {
+    id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
+    title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
+    assessmentType: decodeStringEnum(
+      field(record, "assessmentType", path),
+      `${path}.assessmentType`,
+      ASSESSMENT_TYPE_VALUES,
+    ),
+    assessmentAttemptCount,
+    submittedAssessmentAttemptCount,
+    latestAssessmentAttemptNumber,
+    latestAssessmentAttemptCompletion,
+    latestActivityAt,
+    ...(assessmentScore === undefined ? {} : { assessmentScore }),
+    ...(assessmentScoreIsLatestAttempt === undefined ? {} : { assessmentScoreIsLatestAttempt }),
+  };
+}
+
 /** Rejects anything beyond the current Student's minimal Course landing projection. */
 export function decodeLiveStudentCourseLandings(
   value: unknown,
@@ -207,5 +295,19 @@ export function decodeLiveStudentAssessmentLandings(
     field(record, "assessments", path),
     `${path}.assessments`,
     decodeAssessmentSummary,
+  );
+}
+
+/** Rejects any fields outside the authenticated Student's Course Progress projection. */
+export function decodeStudentCourseProgress(
+  value: unknown,
+  path = "response",
+): ReadonlyArray<StudentCourseProgressAssessment> {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["assessments"]);
+  return decodeArray(
+    field(record, "assessments", path),
+    `${path}.assessments`,
+    decodeProgressAssessment,
   );
 }

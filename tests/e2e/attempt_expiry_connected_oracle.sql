@@ -11,7 +11,7 @@
 BEGIN;
 SET CONSTRAINTS ALL DEFERRED;
 
--- The Assessment Access fixture supplies Student Records eb02/eb06, Entry
+-- The Assessment Access fixture supplies Student Records eb02/eb06/eb18, Entry
 -- ed02, and native Question Revision 1. Course Instance and Assessment IDs
 -- are minted public IDs; resolve them from that live catalog.
 SET LOCAL ROLE ple_data_owner;
@@ -23,6 +23,7 @@ DECLARE
     question_id_value text;
     expiry_student_id text;
     other_student_id text;
+    expiry_oracle_student_id text;
     instructor_id_value text;
 BEGIN
     SELECT record.course_instance_id, record.student_account_id
@@ -33,6 +34,11 @@ BEGIN
       INTO STRICT other_student_id
       FROM ple_data.student_record AS record
      WHERE record.student_record_id = '00000000-0000-0000-0000-00000000eb06'
+       AND record.course_instance_id = course_id_value;
+    SELECT record.student_account_id
+      INTO STRICT expiry_oracle_student_id
+      FROM ple_data.student_record AS record
+     WHERE record.student_record_id = '00000000-0000-0000-0000-00000000eb18'
        AND record.course_instance_id = course_id_value;
     SELECT membership.account_id
       INTO STRICT instructor_id_value
@@ -69,6 +75,7 @@ BEGIN
     PERFORM set_config('ple.test_direct_question_id', question_id_value, true);
     PERFORM set_config('ple.test_direct_expiry_student_id', expiry_student_id, true);
     PERFORM set_config('ple.test_direct_other_student_id', other_student_id, true);
+    PERFORM set_config('ple.test_direct_expiry_oracle_student_id', expiry_oracle_student_id, true);
     PERFORM set_config('ple.test_direct_instructor_id', instructor_id_value, true);
 END
 $$;
@@ -97,7 +104,7 @@ INSERT INTO ple_private.question_revision_source_binding (
 ) VALUES (
     current_setting('ple.test_direct_question_id'), 1, 'ple', 'pleQuestionJson',
     'e3000000-0000-0000-0000-000000000001', repeat('e3', 32), pg_catalog.transaction_timestamp()
-);
+) ON CONFLICT (published_question_id, revision_number) DO NOTHING;
 
 -- Save A, prepare it, then save B at the same millisecond. Response bytes are
 -- part of the immutable snapshot fence, so stale backend work leaves no
@@ -322,6 +329,15 @@ INSERT INTO ple_private.course_roster_profile (
     'expiry-student-920001', 'Synthetic Expiry Student', pg_catalog.transaction_timestamp()
 )
 ON CONFLICT DO NOTHING;
+INSERT INTO ple_private.course_roster_profile (
+    course_roster_profile_id, course_instance_id, student_account_id, roster_id, roster_name, created_at
+) VALUES (
+    'e3000000-0000-0000-0000-000000000005',
+    current_setting('ple.test_direct_course_id'),
+    current_setting('ple.test_direct_expiry_oracle_student_id'),
+    'expiry-oracle-student-920003', 'Synthetic Expiry Oracle Student', pg_catalog.transaction_timestamp()
+)
+ON CONFLICT DO NOTHING;
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.student_assessment_accommodation (
     accommodation_id, course_instance_id, student_record_id, assessment_id, available_at, due_at,
@@ -329,10 +345,10 @@ INSERT INTO ple_private.student_assessment_accommodation (
 ) VALUES (
     'e3000000-0000-0000-0000-000000000002',
     current_setting('ple.test_direct_course_id'),
-    '00000000-0000-0000-0000-00000000eb02',
+    '00000000-0000-0000-0000-00000000eb18',
     current_setting('ple.test_direct_assessment_id'),
     clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour',
-    clock_timestamp() + interval '2 hours', 1, 1, pg_catalog.transaction_timestamp()
+    clock_timestamp() + interval '2 hours', 1, 2, pg_catalog.transaction_timestamp()
 )
 ON CONFLICT (student_record_id, assessment_id) DO UPDATE
    SET available_at = EXCLUDED.available_at,
@@ -342,12 +358,12 @@ ON CONFLICT (student_record_id, assessment_id) DO UPDATE
        assessment_attempt_limit = EXCLUDED.assessment_attempt_limit,
        accommodation_edit_number = ple_private.student_assessment_accommodation.accommodation_edit_number + 1;
 SET LOCAL ROLE ple_api_owner;
--- The generic baseline maps Student record eb02 to the minted Student Account.
-SELECT set_config('ple.session_account_id', current_setting('ple.test_direct_expiry_student_id'), true);
+-- The isolated Student has no prior score, so Gradebook can verify zero-credit expiry directly.
+SELECT set_config('ple.session_account_id', current_setting('ple.test_direct_expiry_oracle_student_id'), true);
 SELECT assessment_attempt_id, assessment_attempt_number, resumed
   FROM ple_api.start_assessment_attempt(
     'e3000000-0000-0000-0000-000000000020',
-    '00000000-0000-0000-0000-00000000eb02',
+    '00000000-0000-0000-0000-00000000eb18',
     current_setting('ple.test_direct_assessment_id'),
     '[]'::jsonb,
     jsonb_build_array(jsonb_build_object(

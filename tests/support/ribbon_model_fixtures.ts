@@ -114,18 +114,17 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 }
 
 /**
- * `backToAssessments` needs a source Course Instance ID that an attempt-only
- * fixture does not own. Future entries have no backing route. Every other
- * catalog route must build here, so catalog drift fails at fixture creation.
+ * Future entries have no backing route. Every route-backed catalog entry must
+ * build here, so catalog drift fails at fixture creation.
  */
 function isDocumentedUnavailableFixtureControl(
   catalog: RibbonCatalogControl<RibbonDestinationId>,
 ): boolean {
-  return catalog.destination.kind !== "route" || catalog.id === "backToAssessments";
+  return catalog.destination.kind !== "route";
 }
 
 function fixtureHrefFor(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {
-  if (catalog.destination.kind !== "route" || catalog.id === "backToAssessments") {
+  if (catalog.destination.kind !== "route") {
     return undefined;
   }
 
@@ -159,8 +158,8 @@ function control<Id extends RibbonDestinationId>(
   const catalog = catalogControl(id);
   const href = fixtureHrefFor(catalog);
   const documentedUnavailable = isDocumentedUnavailableFixtureControl(catalog);
-  const available = !documentedUnavailable;
-  if (options.available !== undefined && options.available !== available) {
+  const available = options.available ?? !documentedUnavailable;
+  if (options.available === true && documentedUnavailable) {
     throw new Error(`Ribbon fixture cannot override admission for ${catalog.id}.`);
   }
   return {
@@ -223,7 +222,12 @@ export const M6_RIBBON_FIXTURES = {
     "product",
     "student",
     [control("courses", { selected: true }), control("coursework"), control("grades")],
-    [],
+    [
+      area("studentCourses", "Courses", [
+        control("studentProgress", { available: false }),
+        control("studentPracticeStats", { available: false }),
+      ]),
+    ],
     "reading",
     { signOutAction: SIGN_OUT },
   ),
@@ -261,7 +265,13 @@ export const M6_RIBBON_FIXTURES = {
     "courseInstance",
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
-    [],
+    [
+      area("studentCoursework", "Coursework", [
+        control("allCoursework", { selected: true }),
+        control("dueSoon"),
+        control("completedCoursework"),
+      ]),
+    ],
     "reading",
     { scopeLabel: COURSE_SHORT_NAME, signOutAction: SIGN_OUT },
   ),
@@ -304,7 +314,13 @@ export const M6_RIBBON_FIXTURES = {
     "assessmentAttempt",
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
-    [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
+    [
+      area("studentCoursework", "Coursework", [
+        control("allCoursework"),
+        control("dueSoon"),
+        control("completedCoursework"),
+      ]),
+    ],
     "reading",
     {
       assessmentLabel: "Problem Set 7",

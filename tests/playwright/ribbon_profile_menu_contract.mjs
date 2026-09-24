@@ -57,10 +57,7 @@ try {
   const profile = page.getByRole("button", { name: "Profile", exact: true });
   const menu = page.getByRole("menu", { name: "Profile menu", exact: true });
   const profileLink = page.getByRole("menuitem", { name: "Profile", exact: true });
-  const accountSettings = page.getByRole("menuitem", {
-    name: "Account settings",
-    exact: true,
-  });
+  const accountSettings = page.getByRole("menuitem", { name: "Account settings", exact: true });
   const signOut = page.getByRole("menuitem", { name: "Sign out", exact: true });
 
   assert.equal(await page.getByRole("button", { name: "Sign out", exact: true }).count(), 0);
@@ -70,11 +67,10 @@ try {
     await profile.click();
     await menu.waitFor({ state: "visible" });
     assert.equal(await profileLink.count(), 1, `${role} has one Profile command`);
-    assert.equal(await accountSettings.count(), 1, `${role} has one Account settings command`);
+    assert.equal(await accountSettings.count(), 0, `${role} has no second time-zone page`);
     assert.equal(await signOut.count(), 1, `${role} has one Sign out command`);
     assert.equal(await profileLink.getAttribute("href"), "/profile", role);
-    assert.equal(await accountSettings.getAttribute("href"), "/account-settings", role);
-    assert.equal(await page.locator('a[href="/account-settings"]').count(), 1);
+    assert.equal(await page.locator('a[href="/account-settings"]').count(), 0);
     await page.keyboard.press("Escape");
   }
 
@@ -85,18 +81,8 @@ try {
   await menu.waitFor({ state: "visible" });
   assert.equal(await profileLink.evaluate((element) => document.activeElement === element), true);
   await page.keyboard.press("ArrowDown");
-  assert.equal(
-    await accountSettings.evaluate((element) => document.activeElement === element),
-    true,
-  );
-  await page.keyboard.press("ArrowDown");
   assert.equal(await signOut.evaluate((element) => document.activeElement === element), true);
   await page.keyboard.press("ArrowUp");
-  assert.equal(
-    await accountSettings.evaluate((element) => document.activeElement === element),
-    true,
-  );
-  await page.keyboard.press("Home");
   assert.equal(await profileLink.evaluate((element) => document.activeElement === element), true);
   await page.keyboard.press("Escape");
   assert.equal(await menu.count(), 0);

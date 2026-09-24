@@ -2,15 +2,7 @@
 
 //! Connected PostgreSQL oracle for server-owned Student Assessment Access.
 
-use learning_data_access::postgres::{
-    PostgresLiveAssessmentDeliveryStore, PostgresLiveStudentCourseLandingStore, lazy_pool,
-};
-use learning_data_access::{
-    AssessmentStartDecision, LiveAssessmentDeliveryStore, LiveStudentCourseLandingStore,
-    SessionTokenHash,
-};
-use question_model::{AssessmentId, AssessmentType, CourseInstanceId};
-use sqlx::Row;
+use learning_data_access::SessionTokenHash;
 use uuid::Uuid;
 
 const STUDENT_SESSION: u128 = 0xea03;
@@ -19,12 +11,25 @@ const SYSADMIN_SESSION: u128 = 0xea07;
 const STUDENT_RECORD: u128 = 0xeb02;
 const STUDENT_MEMBERSHIP: u128 = 0xeb03;
 const INSTRUCTOR_MEMBERSHIP: u128 = 0xeb04;
+const EXPIRY_ORACLE_STUDENT_RECORD: u128 = 0xeb18;
+const EXPIRY_ORACLE_STUDENT_MEMBERSHIP: u128 = 0xeb19;
 const OTHER_STUDENT_RECORD: u128 = 0xeb06;
 const OTHER_STUDENT_MEMBERSHIP: u128 = 0xeb07;
 const OTHER_STUDENT_SESSION: u128 = 0xeb08;
 const OTHER_COURSE_STUDENT_RECORD: u128 = 0xeb0a;
 const OTHER_COURSE_STUDENT_MEMBERSHIP: u128 = 0xeb0b;
 const OTHER_COURSE_INSTRUCTOR_MEMBERSHIP: u128 = 0xeb0c;
+const PROGRESS_ATTEMPT: u128 = 0xeb0d;
+const HISTORY_ATTEMPT: u128 = 0xeb0e;
+const DISPLAY_QUESTION_ATTEMPT: u128 = 0xeb0f;
+const PRACTICE_ATTEMPT_ONE: u128 = 0xeb10;
+const PRACTICE_ATTEMPT_TWO: u128 = 0xeb11;
+const PRACTICE_QUESTION_ATTEMPT_ONE: u128 = 0xeb12;
+const PRACTICE_QUESTION_ATTEMPT_TWO: u128 = 0xeb13;
+const PRACTICE_ISSUED_QUESTION_ONE: u128 = 0xeb14;
+const PRACTICE_ISSUED_QUESTION_TWO: u128 = 0xeb15;
+const PRACTICE_SUBMISSION_ONE: u128 = 0xeb16;
+const PRACTICE_SUBMISSION_TWO: u128 = 0xeb17;
 const BLUEPRINT_MODULE: u128 = 0xec02;
 const BLUEPRINT_ASSESSMENT: u128 = 0xec03;
 const ASSESSMENT_ENTRY: u128 = 0xed02;
@@ -108,6 +113,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     let student_id = mint_account(&mut tx, "student").await;
     let other_student_id = mint_account(&mut tx, "student").await;
     let nonmember_id = mint_account(&mut tx, "student").await;
+    let expiry_oracle_student_id = mint_account(&mut tx, "student").await;
     let sysadmin_id = mint_account(&mut tx, "sysadmin").await;
     sqlx::query(
         "UPDATE ple_private.account_time_zone SET time_zone = 'America/Denver' \
@@ -298,6 +304,17 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
          (student_record_id, course_instance_id, student_account_id, created_at) \
          VALUES ($1, $2, $3, pg_catalog.transaction_timestamp())",
     )
+    .bind(id(EXPIRY_ORACLE_STUDENT_RECORD))
+    .bind(&course_id)
+    .bind(&expiry_oracle_student_id)
+    .execute(&mut *tx)
+    .await
+    .expect("isolated Attempt-expiry Student Record");
+    sqlx::query(
+        "INSERT INTO ple_data.student_record \
+         (student_record_id, course_instance_id, student_account_id, created_at) \
+         VALUES ($1, $2, $3, pg_catalog.transaction_timestamp())",
+    )
     .bind(id(OTHER_COURSE_STUDENT_RECORD))
     .bind(&other_course_id)
     .bind(&student_id)
@@ -328,6 +345,18 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     .execute(&mut *tx)
     .await
     .expect("other Student Course Membership");
+    sqlx::query(
+        "INSERT INTO ple_data.course_membership \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
+         VALUES ($1, $2, $3, 'student', $4, clock_timestamp())",
+    )
+    .bind(id(EXPIRY_ORACLE_STUDENT_MEMBERSHIP))
+    .bind(&course_id)
+    .bind(&expiry_oracle_student_id)
+    .bind(id(EXPIRY_ORACLE_STUDENT_RECORD))
+    .execute(&mut *tx)
+    .await
+    .expect("isolated Attempt-expiry Course Membership");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
          (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
@@ -428,246 +457,5 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     }
 }
 
-#[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
-async fn access_reader_projects_one_authoritative_decision_and_effective_policy() {
-    let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
-    let migration_url = runtime.migration_url().expose();
-    let admin = lazy_pool(migration_url).expect("migration pool");
-    let fixture = seed(&admin).await;
-    let course_instance_id = fixture.course_id.clone();
-    let assessment_id = fixture.assessment_id.clone();
-    let course = CourseInstanceId::new(&course_instance_id).expect("Course Instance ID");
-    let assessment = AssessmentId::new(&assessment_id).expect("Assessment ID");
-
-    let application_url = std::env::var("DATABASE_URL").expect("application database URL");
-    let application = lazy_pool(&application_url).expect("application pool");
-    // ASVS 8.2.2 and 8.3.1: an authenticated app session has access only to
-    // its exact Student Work identity, at the trusted database boundary.
-    assert!(
-        authenticated_student_record_ownership(
-            &application,
-            token(0xe1),
-            fixture.course_id.as_str(),
-            id(STUDENT_RECORD),
-        )
-        .await,
-        "the authenticated Student may access their exact Student Work record",
-    );
-    assert!(
-        !authenticated_student_record_ownership(
-            &application,
-            token(0xe2),
-            fixture.course_id.as_str(),
-            id(STUDENT_RECORD),
-        )
-        .await,
-        "another Student in the Course cannot access this Student Work record",
-    );
-    assert!(
-        !authenticated_student_record_ownership(
-            &application,
-            token(0xe3),
-            fixture.course_id.as_str(),
-            id(STUDENT_RECORD),
-        )
-        .await,
-        "a nonmember cannot access this Student Work record",
-    );
-    assert!(
-        !authenticated_student_record_ownership(
-            &application,
-            token(0xe1),
-            fixture.course_id.as_str(),
-            id(OTHER_COURSE_STUDENT_RECORD),
-        )
-        .await,
-        "the same Account cannot combine one Course with Student Work from another Course",
-    );
-    assert!(
-        !authenticated_student_record_ownership(
-            &application,
-            token(0xe4),
-            fixture.course_id.as_str(),
-            id(STUDENT_RECORD),
-        )
-        .await,
-        "an ordinary Sysadmin cannot access Student Work without Student ownership",
-    );
-    let store = PostgresLiveAssessmentDeliveryStore::new(application.clone());
-    let access = store
-        .live_assessment_access(token(0xe1), course.clone(), assessment.clone())
-        .await
-        .expect("authorized Student Assessment Access");
-    assert_eq!(
-        access.decision.start_decision,
-        AssessmentStartDecision::NotYetAvailable
-    );
-    assert_eq!(
-        access.decision.public_reason.as_deref(),
-        Some("This Assessment is not yet available.")
-    );
-    assert_eq!(access.question_count, 1);
-    assert_eq!(access.assessment_type, AssessmentType::RegularAssignment);
-    assert_eq!(access.points_possible, 2.0);
-    assert_eq!(access.decision.time_limit_seconds, Some(600));
-    assert_eq!(access.decision.attempt_limit, Some(2));
-
-    let landing_store = PostgresLiveStudentCourseLandingStore::new(application.clone());
-    let landing = landing_store
-        .list_released_live_student_assessments(token(0xe1), course.clone())
-        .await
-        .expect("authorized Student Assessment landing");
-    assert_eq!(landing.len(), 1, "scheduled Assessment remains visible");
-    assert_eq!(
-        landing[0].assessment_type,
-        AssessmentType::RegularAssignment
-    );
-    assert!(!landing[0].can_resume_assessment_attempt);
-    let landing_decision = &landing[0].decision;
-    assert_eq!(
-        landing_decision.start_decision,
-        access.decision.start_decision
-    );
-    assert_eq!(landing_decision.available_at, access.decision.available_at);
-    assert_eq!(landing_decision.due_at, access.decision.due_at);
-    assert_eq!(landing_decision.closes_at, access.decision.closes_at);
-    assert_eq!(
-        landing_decision.time_limit_seconds,
-        access.decision.time_limit_seconds
-    );
-    assert_eq!(
-        landing_decision.attempt_limit,
-        access.decision.attempt_limit
-    );
-    assert_eq!(
-        landing_decision.late_work_rule,
-        access.decision.late_work_rule
-    );
-    assert_eq!(
-        landing_decision.display_time_zone,
-        access.decision.display_time_zone
-    );
-    assert_eq!(
-        landing_decision.public_reason,
-        access.decision.public_reason
-    );
-
-    let mut tx = application.begin().await.expect("application transaction");
-    sqlx::query("SET LOCAL ROLE ple_auth")
-        .execute(&mut *tx)
-        .await
-        .expect("authentication role");
-    sqlx::query("SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))")
-        .bind(token(0xe1).to_string())
-        .fetch_one(&mut *tx)
-        .await
-        .expect("install Student session");
-    sqlx::query("SET LOCAL ROLE ple_app")
-        .execute(&mut *tx)
-        .await
-        .expect("application role");
-    let row = sqlx::query(
-        "SELECT start_decision, assessment_attempt_limit AS attempt_limit, late_work_rule, display_time_zone, \
-                evaluated_at < available_at AS evaluation_before_available, \
-                available_at < due_at AS available_before_due, \
-                due_at < closes_at AS due_before_close \
-           FROM ple_api.read_student_assessment_access($1, $2)",
-    )
-    .bind(&course_instance_id)
-    .bind(&assessment_id)
-    .fetch_one(&mut *tx)
-    .await
-    .expect("complete Assessment Access projection");
-    assert_eq!(
-        row.try_get::<String, _>("start_decision")
-            .expect("start decision"),
-        "not_yet_available"
-    );
-    assert_eq!(
-        row.try_get::<i32, _>("attempt_limit")
-            .expect("Attempt limit"),
-        2
-    );
-    assert_eq!(
-        row.try_get::<String, _>("late_work_rule")
-            .expect("late-work rule"),
-        "reject"
-    );
-    assert_eq!(
-        row.try_get::<String, _>("display_time_zone")
-            .expect("display time zone"),
-        "America/Denver"
-    );
-    assert!(
-        row.try_get::<bool, _>("evaluation_before_available")
-            .expect("available boundary")
-    );
-    assert!(
-        row.try_get::<bool, _>("available_before_due")
-            .expect("due boundary")
-    );
-    assert!(
-        row.try_get::<bool, _>("due_before_close")
-            .expect("close boundary")
-    );
-    tx.commit().await.expect("application read commit");
-
-    let mut exact = admin.begin().await.expect("exact-boundary transaction");
-    sqlx::query("SET LOCAL ROLE ple_private_owner")
-        .execute(&mut *exact)
-        .await
-        .expect("private exact-boundary role");
-    let row = sqlx::query(
-        "SELECT \
-         ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
-             '2026-01-01 09:59:59.999+00') AS before_available, \
-         ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
-             '2026-01-01 10:00:00+00') AS at_available, \
-         ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
-             '2026-01-01 20:00:00+00') AS at_due, \
-         ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
-             '2026-01-01 20:00:00.001+00') AS after_due, \
-         ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
-             '2026-01-01 23:00:00+00') AS at_close, \
-         ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 2, 'reject'::ple_data.late_work_rule, \
-             '2026-01-01 20:00:00.001+00') AS limit_before_late",
-    )
-    .fetch_one(&mut *exact)
-    .await
-    .expect("exact Assessment Start Decision boundaries");
-    assert_eq!(
-        row.try_get::<String, _>("before_available")
-            .expect("before available"),
-        "not_yet_available"
-    );
-    assert_eq!(
-        row.try_get::<String, _>("at_available")
-            .expect("at available"),
-        "may_start"
-    );
-    assert_eq!(
-        row.try_get::<String, _>("at_due").expect("at due"),
-        "may_start"
-    );
-    assert_eq!(
-        row.try_get::<String, _>("after_due").expect("after due"),
-        "late_work_refused"
-    );
-    assert_eq!(
-        row.try_get::<String, _>("at_close").expect("at close"),
-        "closed"
-    );
-    assert_eq!(
-        row.try_get::<String, _>("limit_before_late")
-            .expect("Attempt limit before late work"),
-        "attempt_limit_reached"
-    );
-    exact.commit().await.expect("exact-boundary commit");
-}
+#[path = "assessment_access_postgres/access_reader.rs"]
+mod access_reader;

@@ -36,7 +36,7 @@ Backend from authenticated context and stored relationships.
 | Blueprint Course | Stable identity plus immutable changed-content Revisions | Visibility follows Private, Public, or Archived state | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
 | Canonical Blueprint JSON | Complete Blueprint comparison and exchange representation; not primary persistence | Authorized import, export, comparison, and proposal review only | [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) |
 | Course Instance Assessment | Current Course configuration; no Assessment Revision family | Instructor editor or Student Coursework projection | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
-| Assessment Attempt | Course, Student, timing, saved responses, and whole-Assessment submission state | The authorized Student's current Attempt and permitted result | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
+| Assessment Attempt | Course, Student, timing, saved responses, nullable cumulative Question display milliseconds, and whole-Assessment submission state | The authorized Student's current Attempt and permitted result | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Student response | Student-authored response saved while an Attempt is open | Typed native response or bounded backend-owned form data | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Credit and feedback | Question Backend's immutable credit fraction and permitted feedback | Hidden until the applicable disclosure point | [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) |
 | Binary object | Object metadata plus typed server key | Logical asset ID or authorized bytes only | [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) |
@@ -50,6 +50,7 @@ An Assessment Attempt is the submission boundary.
 | --- | --- | --- |
 | Render | Request one Question in the open Attempt | Select the Assessment Question and exact backend-owned state; return an answer-free presentation. |
 | Save response | Save a complete response while the Attempt is open | Validate ownership and shape, replace the working response, and retain the minimum evidence needed to interpret it. |
+| Check Question display duration | Send a nonnegative cumulative millisecond checkpoint while the Question is current and visible | Resolve Question ownership from the authenticated open Attempt and issued position; store the monotone cumulative value with the existing Question Attempt row and reject writes after finalization. |
 | Incomplete response | Leave a response incomplete | Do not save it as a complete response and do not grade it. |
 | Submit Assessment | Submit the whole Attempt | Close the Attempt and finalize all saved responses together as Student Work. |
 | Unanswered at submission | Submit with no complete saved response at a position | Keep the position visibly unanswered; assign zero credit and incorrect status without sending it to a backend. |

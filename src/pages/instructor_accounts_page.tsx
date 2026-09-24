@@ -223,9 +223,6 @@ export function InstructorAccountsPage(): JSX.Element {
             const formatSignIn = createDisplayDateTimeFormatter(list.displayTimeZone);
             return (
               <section aria-label="Instructor Accounts">
-                <p class="page-lede">
-                  Last successful sign-in times use your time zone: {list.displayTimeZone}.
-                </p>
                 <For
                   each={list.accounts}
                   fallback={<p class="empty-state">No Instructor Accounts are available.</p>}

@@ -31,12 +31,18 @@ import { AssessmentAttemptPage } from "./pages/assessment_attempt_page";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { ProfilePage } from "./pages/profile_page";
-import { AccountSettingsPage } from "./pages/account_settings_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
-import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
+import {
+  StudentCourseCompletedPage,
+  StudentCourseDueSoonPage,
+  StudentCourseLandingPage,
+} from "./pages/student_course_landing_page";
 import { StudentCourseGradesPage } from "./pages/student_course_grades_page";
+import { StudentCourseProgressPage } from "./pages/student_course_progress_page";
+import { StudentCourseAttemptHistoryPage } from "./pages/student_course_attempt_history_page";
+import { StudentCoursePracticeStatsPage } from "./pages/student_course_practice_stats_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { ContentDisciplinesPage } from "./pages/content_disciplines_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
@@ -63,12 +69,16 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentHome: StudentHomePage,
   sysadminHome: SysadminHomePage,
   profile: ProfilePage,
-  accountSettings: AccountSettingsPage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
   studentCourseInvitations: StudentCourseInvitationsPage,
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
+  studentCourseProgress: StudentCourseProgressPage,
+  studentCoursePracticeStats: StudentCoursePracticeStatsPage,
+  studentCourseDueSoon: StudentCourseDueSoonPage,
+  studentCourseCompleted: StudentCourseCompletedPage,
+  studentCourseAttemptHistory: StudentCourseAttemptHistoryPage,
   studentCourseGrades: StudentCourseGradesPage,
   instructorAccounts: InstructorAccountsPage,
   contentDisciplines: ContentDisciplinesPage,

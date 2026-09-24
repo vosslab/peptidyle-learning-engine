@@ -1,6 +1,5 @@
 // Pure presentation helpers for account-owned pending Course Invitations.
 
-import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 
@@ -35,11 +34,10 @@ export function invitationStateLabel(state: CourseInvitationStateView): string {
 /** The server instant is rendered in the authorized viewer zone; it never decides actionability. */
 export function serverExpiryCopy(
   expiresAt: number,
-  displayTimeZone: AccountTimeZone,
   formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
 ): string {
   const rendered = formatDateTime(expiresAt);
-  return `Expires at ${rendered} (${displayTimeZone})`;
+  return `Expires at ${rendered}`;
 }
 
 export function isPendingInvitation(state: CourseInvitationStateView): boolean {
