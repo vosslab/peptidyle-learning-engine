@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "manifestSha256": "bf1721a2c11bdf61d03216a0b709b215ba9ea3dfb0bf3c4c9ad197218ae286f7",
+  "manifestSha256": "ec297a5bfb8c5f924a3e011adbe10e616810d2a67b185f403fabf65106cb7894",
   "paths": [
     "instructor/assignment_creation.png",
     "instructor/assignment_delivery_check.png",
@@ -40,11 +40,10 @@
     "public/phone/sign_in.png",
     "student/laptop/assessment_navigation.png",
     "student/laptop/completed.png",
-    "student/laptop/course_attempt_history_selected.png",
     "student/laptop/course_attempt_history.png",
     "student/laptop/course_completed.png",
     "student/laptop/course_due_soon.png",
-    "student/laptop/course_grades.png",
+    "student/laptop/course_landing.png",
     "student/laptop/course_list.png",
     "student/laptop/course_progress_unreleased.png",
     "student/laptop/course_progress.png",
@@ -52,9 +51,9 @@
     "student/laptop/in_progress.png",
     "student/laptop/invitation_detail.png",
     "student/laptop/invitation_index.png",
+    "student/laptop/latest_feedback.png",
     "student/laptop/not_started.png",
     "student/laptop/overview_history.png",
-    "student/laptop/practice_stats.png",
     "student/laptop/question_answered_fib.png",
     "student/laptop/question_answered_hotspot.png",
     "student/laptop/question_answered_ma.png",
@@ -74,14 +73,16 @@
     "student/laptop/question_unanswered_order.png",
     "student/laptop/question_unanswered_webwork.png",
     "student/laptop/response_selected.png",
+    "student/laptop/response_stats.png",
     "student/laptop/resume_selected.png",
+    "student/laptop/scores.png",
     "student/laptop/selected_history.png",
     "student/laptop/submitted.png",
-    "student/laptop/two_course_chooser.png",
+    "student/laptop/two_course_list.png",
     "student/laptop/unanswered.png",
     "student/phone/assessment_navigation.png",
     "student/phone/completed.png",
-    "student/phone/course_grades.png",
+    "student/phone/course_landing.png",
     "student/phone/course_list.png",
     "student/phone/denial.png",
     "student/phone/in_progress.png",
@@ -109,13 +110,14 @@
     "student/phone/question_unanswered_webwork.png",
     "student/phone/response_selected.png",
     "student/phone/resume_selected.png",
+    "student/phone/scores.png",
     "student/phone/selected_history.png",
     "student/phone/submitted.png",
-    "student/phone/two_course_chooser.png",
+    "student/phone/two_course_list.png",
     "student/phone/unanswered.png",
     "student/square/assessment_navigation.png",
     "student/square/completed.png",
-    "student/square/course_grades.png",
+    "student/square/course_landing.png",
     "student/square/course_list.png",
     "student/square/denial.png",
     "student/square/in_progress.png",
@@ -126,13 +128,14 @@
     "student/square/question_unanswered_mc.png",
     "student/square/response_selected.png",
     "student/square/resume_selected.png",
+    "student/square/scores.png",
     "student/square/selected_history.png",
     "student/square/submitted.png",
-    "student/square/two_course_chooser.png",
+    "student/square/two_course_list.png",
     "student/square/unanswered.png",
     "student/tablet/assessment_navigation.png",
     "student/tablet/completed.png",
-    "student/tablet/course_grades.png",
+    "student/tablet/course_landing.png",
     "student/tablet/course_list.png",
     "student/tablet/denial.png",
     "student/tablet/in_progress.png",
@@ -143,9 +146,10 @@
     "student/tablet/question_unanswered_mc.png",
     "student/tablet/response_selected.png",
     "student/tablet/resume_selected.png",
+    "student/tablet/scores.png",
     "student/tablet/selected_history.png",
     "student/tablet/submitted.png",
-    "student/tablet/two_course_chooser.png",
+    "student/tablet/two_course_list.png",
     "student/tablet/unanswered.png",
     "sysadmin/account_created.png",
     "sysadmin/account_deactivated.png",
@@ -159,147 +163,147 @@
       "path": "instructor/assignment_creation.png",
       "width": 1280,
       "height": 800,
-      "sha256": "c435d1b92b5d34a1903107667b3af96d3aab599d97844ea3b3be5f6b820afb54"
+      "sha256": "5474eae79b6bed6f01a217ee32bfbef06d357efad3ea59647b5f74ff25277088"
     },
     {
       "id": "instructor_assignment_delivery_check",
       "path": "instructor/assignment_delivery_check.png",
       "width": 1280,
       "height": 800,
-      "sha256": "ad7e04db03a163347caf7e975cb24c303271e5af3a5c7fe41f21dd6933106a4d"
+      "sha256": "625ad1a0e42e772e228f239e3f78f42abd32d6e657c0efd325506a16729cf7d7"
     },
     {
       "id": "instructor_assignment_policies_released",
       "path": "instructor/assignment_policies_released.png",
       "width": 1280,
       "height": 800,
-      "sha256": "12d3f049276611283f1fbb3821f8e93b424fc2b18d2fcdba07bec4551e6e48c7"
+      "sha256": "746c71b7a59f04dfc7197c5cfc67b2e570beec19dfdb0be0f91556e3ee616aec"
     },
     {
       "id": "instructor_assignment_questions_draft",
       "path": "instructor/assignment_questions_draft.png",
       "width": 1280,
       "height": 800,
-      "sha256": "25bcf669055088041d6a1f0a90b666300c968bbeb57223a5dd259eac34fd40a8"
+      "sha256": "bba88e84811fd4bfaf3373876f26f3a3f07a58ca7cd2972d004bbf666522306a"
     },
     {
       "id": "instructor_assignments_due_soon_empty",
       "path": "instructor/assignments_due_soon_empty.png",
       "width": 1280,
       "height": 800,
-      "sha256": "352a7ae136d35579d612b4fe8f196de9b2a9da2967ab0bbe6f67b09665feb28c"
+      "sha256": "a61c440acbeec32231d6bd8a5cd5e1c70a3dd5b98eb5d965df99de1c246b0673"
     },
     {
       "id": "instructor_blueprint_detail",
       "path": "instructor/blueprint_detail.png",
       "width": 1280,
       "height": 800,
-      "sha256": "d3f428f8d70a1bb0dfb1390415e94e80304814e4c8777c0cbd9bc51cf81251a6"
+      "sha256": "3050b6b039417ca25fc6f7b1d6b2b1269bb65a14facc75b13c9938bbca513176"
     },
     {
       "id": "instructor_blueprint_list",
       "path": "instructor/blueprint_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "6e1b0d839f6f74ed77a8ae585031a085727a0b3e34d5f12f9b82caf77b9379bc"
+      "sha256": "88eeb205049a3f571aa8d817b477797f23a283b6f4d2cced8b78a5f78c70b66e"
     },
     {
       "id": "instructor_blueprint_question_picker",
       "path": "instructor/blueprint_question_picker.png",
       "width": 1280,
       "height": 800,
-      "sha256": "2370f4ca19de926da3c09b4ccd4fc0b6f067972bec048ce915321adf5b1372ba"
+      "sha256": "7f778ace0753e904a7d0033017d149b872fbc95d31d8a683058bda0280deab12"
     },
     {
       "id": "instructor_course_assignment_workspace",
       "path": "instructor/course_assignment_workspace.png",
       "width": 1280,
       "height": 800,
-      "sha256": "0b31a3d16ee14d13540dc151c4d75b602da34c4df1724181402071f91f2be16c"
+      "sha256": "5f8702f8f8d24080bc163c7ad5268d7369398247fe8861182525382eb8d8c681"
     },
     {
       "id": "instructor_course_list",
       "path": "instructor/course_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "111dc4c4fc9cc25f8a390234842c0424532715e5f31f8ddb3872147eb5377812"
+      "sha256": "323cceb376367fcd99b2f2f5c1f7e931fa61e030a01c00190b11379f66b83f76"
     },
     {
       "id": "instructor_course_roster_active",
       "path": "instructor/course_roster_active.png",
       "width": 1280,
       "height": 800,
-      "sha256": "30ed9958ce5da448342eb5bc8ded8117020fed91faa7023ca2217516ead5fc37"
+      "sha256": "600bacd11147548d19115e6776a7f46a6d06d2e577bed6b9d00b35cd2f9262a2"
     },
     {
       "id": "instructor_course_roster_pending_invitation",
       "path": "instructor/course_roster_pending_invitation.png",
       "width": 1280,
       "height": 800,
-      "sha256": "97d21e9d045ea445f1751a1ac83756f2ffd1fd5c27219876987aac826cba93ff"
+      "sha256": "ca97268d226034d6e16cc61f6a3cc18447cf54afc16dc869f2b429a682671022"
     },
     {
       "id": "instructor_default",
       "path": "instructor/default.png",
       "width": 1280,
       "height": 800,
-      "sha256": "3e4d56ac5bf64ea598b4bff8d2f575d81b164c0c800ef00fa2f96374c1a92cf7"
+      "sha256": "dd73b9ede41f615fa8794aac2208c67298b13a3f8d249d0c6fb968a6e6bdecd9"
     },
     {
       "id": "instructor_draft_list",
       "path": "instructor/draft_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "0f6f3deed642932f5d2855cac467c080ae9918f6672ffef83767381f202925fa"
+      "sha256": "8a9376c3c9d678c0fd2d9be90a20fc8cbd4ac83b34c4bf14707bc73114b444f4"
     },
     {
       "id": "instructor_filtered_results",
       "path": "instructor/filtered_results.png",
       "width": 1280,
       "height": 800,
-      "sha256": "1c74ce5c6fad34229bb832c2aedf3720a29d7d59c95100d82c23baa21885f134"
+      "sha256": "d3ba14b58bea39a54dc3e1213460901f6032959faf40a273707d6d0d1d799dc1"
     },
     {
       "id": "instructor_gradebook",
       "path": "instructor/gradebook.png",
       "width": 1280,
       "height": 800,
-      "sha256": "01f78bc7001cee8df1baea38552d56419221286873619077d805575ed991164d"
+      "sha256": "663fd40819b742e0075d5d72cf01d5fd21460f2f268165050d56e2eab010f8d2"
     },
     {
       "id": "instructor_inactive_courses_list",
       "path": "instructor/inactive_courses_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "bbd1de4a489a7338ee936f16bfcfd6fb4a41dc50941e5ecbb1abfa90360c6ad9"
+      "sha256": "0432ffc4e80c0f2cd9222ed4c1781c561159d9f75479f7c9dc8bb7342b0cef34"
     },
     {
       "id": "instructor_library_browse",
       "path": "instructor/library_browse.png",
       "width": 1280,
       "height": 800,
-      "sha256": "3eaf9e87c19b5b558b0706b0b50e54ac9082b880fb45d281e4445a7b1933b2de"
+      "sha256": "f75aedeece235371c22800050e5ae53c0e6e582b3b917a8a105ad3ddb390b0d6"
     },
     {
       "id": "instructor_library_default",
       "path": "instructor/library_default.png",
       "width": 1280,
       "height": 800,
-      "sha256": "cd3aff5e1a6c1bed271882f5b152b4ff30725f65e4d1aaca5d6b5c5080dbb77f"
+      "sha256": "a703cbe6549631037c9230173a881ca0333bff39003adfb1312c37a155d884c7"
     },
     {
       "id": "instructor_library_filtered",
       "path": "instructor/library_filtered.png",
       "width": 1280,
       "height": 800,
-      "sha256": "96a3b479acdd4d2a25ae30b32acf8af89bb4c97a563cce05edd0caa7b0dc44c6"
+      "sha256": "12649193d28ace29419b4e8650544cc3a7c60ba8de8f0c3c7db268056129c2fe"
     },
     {
       "id": "instructor_pool_creation_review",
       "path": "instructor/pool_creation_review.png",
       "width": 1280,
       "height": 800,
-      "sha256": "fc4c3250a8fdee71326486f917303d78811edb7fcca1af65e78d8328c0784c3d"
+      "sha256": "23296a6603aaaaf6236076b887f768a0d24c1b0043026e24ebd8794364f693dc"
     },
     {
       "id": "instructor_publication_review",
@@ -313,77 +317,77 @@
       "path": "instructor/published_question_detail.png",
       "width": 1280,
       "height": 800,
-      "sha256": "324f406d45d3dc5304c444ba40981be4e191cec10c985a4bd65fadf9931d7ad3"
+      "sha256": "e8802a710c3b3b4110bbbe37779a80faa8e7776ad5895340eee7bb8da3f7170c"
     },
     {
       "id": "instructor_saved_editor",
       "path": "instructor/saved_editor.png",
       "width": 1280,
       "height": 800,
-      "sha256": "3240dfae16e757e29b87cb99fa376edc1edfa9aed75a71aa954251688afcd1c6"
+      "sha256": "a6884913c28a9413d7282bedc6401670a07096dd06f07c1ea288262f49605ffe"
     },
     {
       "id": "instructor_template_editor",
       "path": "instructor/template_editor.png",
       "width": 1280,
       "height": 800,
-      "sha256": "24717117d054faeca70879c873ec7dab1923cc451d22535212c818cf7fd85723"
+      "sha256": "ab430a6620a46bdd1a6df332264c2d5618da007a197c24dbb15dcb6d0add9d54"
     },
     {
       "id": "instructor_webwork_chi_square",
       "path": "instructor/webwork_chi_square.png",
       "width": 1280,
       "height": 800,
-      "sha256": "97f9221449d84f2a977ebc4b4a4caeaed782b855919385e095af464714f155c6"
+      "sha256": "2d571378e627d34f4f2f1a2cf5c89b6b1dab042948ab52af9168897606e65ae2"
     },
     {
       "id": "instructor_webwork_chromosome_shapes",
       "path": "instructor/webwork_chromosome_shapes.png",
       "width": 1280,
       "height": 800,
-      "sha256": "782abc8435356f1fc51a07247a534f784864111aa26b2721b38b831625236a9e"
+      "sha256": "de9847d22088340729ae6b0c21fb11764c4d6290616084d282641bb298ef47bb"
     },
     {
       "id": "instructor_webwork_dna_structure",
       "path": "instructor/webwork_dna_structure.png",
       "width": 1280,
       "height": 800,
-      "sha256": "cfe8401216a3b341a5a4ce76cc63e23b23da2555ab2920a030c1d065c77b388b"
+      "sha256": "f80a1c17379cb224b173e7c187d6cfdc3922a5470fbd05305e8e1d0056b98dc3"
     },
     {
       "id": "instructor_webwork_generated_example",
       "path": "instructor/webwork_generated_example.png",
       "width": 1280,
       "height": 800,
-      "sha256": "2bc29817efb658bf7c6495b18aee78c8a348deb8bd69beb38b2971f3eae0bc18"
+      "sha256": "ae667066e32a31bd15b0f5e49e4f15d4d45f78e454441a29c983c37020f44416"
     },
     {
       "id": "instructor_webwork_hla_genotype",
       "path": "instructor/webwork_hla_genotype.png",
       "width": 1280,
       "height": 800,
-      "sha256": "5482a20ed9ccc1050547b766e84e1ab05effe82e7bfcb8ccd6101ad8bccb64a6"
+      "sha256": "5cf28727dcb61876bd2edd6eb00c0c82a12298d9067fc1f7164fc3c8f962ba19"
     },
     {
       "id": "instructor_webwork_meiosis_prophase",
       "path": "instructor/webwork_meiosis_prophase.png",
       "width": 1280,
       "height": 800,
-      "sha256": "f2c2b8b38daaf64bf76b3a96d049441fac25c37cd5301e89eb3a1106177c15b9"
+      "sha256": "c2a3d0af605bdb9b759fd6cd652d02d1629ac606cf0e9c484f35c175a57d462c"
     },
     {
       "id": "instructor_webwork_monohybrid_matching",
       "path": "instructor/webwork_monohybrid_matching.png",
       "width": 1280,
       "height": 800,
-      "sha256": "c1e65c63003e1fa3fabc93c4fa45d51876210e5041a1ba1bd53ccf4b89a4d7cd"
+      "sha256": "d5daf2cad7d8302a735db5f0249149830f66201ee15eb5f12928c3f47d5bd5a6"
     },
     {
       "id": "instructor_webwork_x_linked_counts",
       "path": "instructor/webwork_x_linked_counts.png",
       "width": 1280,
       "height": 800,
-      "sha256": "59defaecf17ed729ee7afffbd520b8dea91c5a86ab0e48d6ef809d83312fa60f"
+      "sha256": "11b3df455e92de50c5a14e2c45431f21725174e2315750aced900d4443656fd8"
     },
     {
       "id": "public_session_renewal_laptop",
@@ -411,798 +415,826 @@
       "path": "student/laptop/assessment_navigation.png",
       "width": 1280,
       "height": 800,
-      "sha256": "a65fbb8aa3ab8fd2457cc33c951bbb96920c0e1bdbeec008edf782545c01e6c3"
+      "sha256": "e3a40858ee6addf910e8e5d0500b8340a239f6c2b9f38be17f89e988b67de271"
     },
     {
       "id": "student_completed_laptop",
       "path": "student/laptop/completed.png",
       "width": 1280,
       "height": 800,
-      "sha256": "ad3055d33c41e0a3f152ed036421aaa30a6f144bd13456d72eb472d1210fafdc"
-    },
-    {
-      "id": "student_course_attempt_history_selected_laptop",
-      "path": "student/laptop/course_attempt_history_selected.png",
-      "width": 1280,
-      "height": 800,
-      "sha256": "65a08060832d5351eb4c9cfc31c6f0d4c2a0b41ec7f70fef1d20413ec7128f08"
+      "sha256": "57fce64996601d7fbc511e99ed3993c95ff7f8f206023412cb7fdc7ee38aca2b"
     },
     {
       "id": "student_course_attempt_history_laptop",
       "path": "student/laptop/course_attempt_history.png",
       "width": 1280,
       "height": 800,
-      "sha256": "3a98a3e8ebd13c5bf0976e208db41e779a5ff2484cb8ad15b94c90e7fe93bb89"
+      "sha256": "e46758ac697c0d5ee7d0e7acede0188af140ce9c3c5ec43ee5fef4293e8bfcb9"
     },
     {
       "id": "student_course_completed_laptop",
       "path": "student/laptop/course_completed.png",
       "width": 1280,
       "height": 800,
-      "sha256": "e022d695a3169b02cfbf0fdab6f8975703025f61af464d11f951f073a635ec46"
+      "sha256": "05f68fab08a4f0217b2f5133a7f0f8b87887591aa39318ba6b814b6ae81511ed"
     },
     {
       "id": "student_course_due_soon_laptop",
       "path": "student/laptop/course_due_soon.png",
       "width": 1280,
       "height": 800,
-      "sha256": "2945eac741cb27d25a86d0f71478b0467009a8f0643cfb3239641ec4efccac92"
+      "sha256": "ed83d7e4e140a6a8f7773cc2d8a8ae9f1d688dbb7f2c6713c9ec838f72741ff0"
     },
     {
-      "id": "student_course_grades_laptop",
-      "path": "student/laptop/course_grades.png",
+      "id": "student_course_landing_laptop",
+      "path": "student/laptop/course_landing.png",
       "width": 1280,
       "height": 800,
-      "sha256": "b229bda51aa0ad0c45759b44931697c225df586f872e50c8639d6f8e3991e722"
+      "sha256": "50b2ddfeb57e4788ab9ae9525529d95d9bd2dece18c8a2530d65262b788e32d0"
     },
     {
       "id": "student_course_list_laptop",
       "path": "student/laptop/course_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "c2c742c08a31c56bcdbb2dda5f3abe45613f99d68da629c68d5792825fc14a9c"
+      "sha256": "eaa608b3f0f6413fd1ea7b52166b36b7134f199f2cdae2006003241282360be9"
     },
     {
       "id": "student_course_progress_unreleased_laptop",
       "path": "student/laptop/course_progress_unreleased.png",
       "width": 1280,
       "height": 800,
-      "sha256": "a0799e54b23dcde21b4e62b1a64983e887090a99beaf5391b1321d54eed92f9c"
+      "sha256": "ae9e38f82fafbe89c15763f96bb7adcbd01538723399bcc5a7e9b8e8b43c5641"
     },
     {
       "id": "student_course_progress_laptop",
       "path": "student/laptop/course_progress.png",
       "width": 1280,
       "height": 800,
-      "sha256": "da4440de51ad82b1e6187d941acc4eb04e7481f0748d86d136a17d20fc04d1b1"
+      "sha256": "5034b2f7257d68f32c7641fadce306f8c1cf2e14c9d3200cdd1ebe1d116fd595"
     },
     {
       "id": "student_denial_laptop",
       "path": "student/laptop/denial.png",
       "width": 1280,
       "height": 800,
-      "sha256": "5f9c8d3ba011f4be7d8b73a0aecfcd8acf763243e499d2b425b03655007821a0"
+      "sha256": "67bb483e9a0efa06699a4b6ff1cdc585e95868f3b6e2e772fbe3eac1c362bafb"
     },
     {
       "id": "student_in_progress_laptop",
       "path": "student/laptop/in_progress.png",
       "width": 1280,
       "height": 800,
-      "sha256": "7222e2aed2bd30916f17cc390b0c7fd3a4f4830eea5464fc828e066c6e1321a6"
+      "sha256": "f7236131366fe8ecabe2b68e91cba7759dfe5ef2df43d6e0869612ba143758fb"
     },
     {
       "id": "student_invitation_detail_laptop",
       "path": "student/laptop/invitation_detail.png",
       "width": 1280,
       "height": 800,
-      "sha256": "be8f8b5b4007da080854af48f00cdc0a4f20cee3192dae98fc4f628273e24d8d"
+      "sha256": "20268efbf6cefe814b5e08bc11616a42182398778e8aad4fc5d60621ab5d2a2b"
     },
     {
       "id": "student_invitation_index_laptop",
       "path": "student/laptop/invitation_index.png",
       "width": 1280,
       "height": 800,
-      "sha256": "245904130e360b9df57d004a72aece5c346f63b188f0e69ec2f490e78908c2b2"
+      "sha256": "d53ec492b1068e223c0a7e6e42ddf665faaf60426751c2c2b3df340b7ab7710e"
+    },
+    {
+      "id": "student_latest_feedback_laptop",
+      "path": "student/laptop/latest_feedback.png",
+      "width": 1280,
+      "height": 800,
+      "sha256": "f0c8cc9791b229f5d36b91974b3aab288f539001e0e2f3a32941a09e50716ba9"
     },
     {
       "id": "student_not_started_laptop",
       "path": "student/laptop/not_started.png",
       "width": 1280,
       "height": 800,
-      "sha256": "0900229721ddcad999884b3e458d193fe80fa95388eede2c5063c057b7859d75"
+      "sha256": "2b58e4b7925fb6763c1dd58918493dd22e4f1ae46ea49f5166cfd13dc5e9d274"
     },
     {
       "id": "student_overview_history_laptop",
       "path": "student/laptop/overview_history.png",
       "width": 1280,
       "height": 800,
-      "sha256": "db0efa7996b3d0e553ec52ea322b7d138c915be87e688ea40afedde85462fce9"
-    },
-    {
-      "id": "student_practice_stats_laptop",
-      "path": "student/laptop/practice_stats.png",
-      "width": 1280,
-      "height": 800,
-      "sha256": "d01d54e399fbf8afc8d30e8e6c1331d0ffcada6b7826f0b80cf670c6ea1c7da3"
+      "sha256": "582b264a4a3a231904c897aad464a611694891163da174406c406be27e80423e"
     },
     {
       "id": "student_question_answered_fib_laptop",
       "path": "student/laptop/question_answered_fib.png",
       "width": 1280,
       "height": 800,
-      "sha256": "e1ccc163dbac663b994f7a74b97ef9bebe1876abf664734b33f52a7e2a048c3f"
+      "sha256": "b5fbf23baf43b4f0e505e4aa5edea5e5609297ddbe1b7eb41f07cd1dc4cf4929"
     },
     {
       "id": "student_question_answered_hotspot_laptop",
       "path": "student/laptop/question_answered_hotspot.png",
       "width": 1280,
       "height": 800,
-      "sha256": "ba6c20dfbbbb70f1c6c9239ad7d40fc34e86a772f5e60a70f67cb6534402f328"
+      "sha256": "697b769b0bb6e88d2760472f9cef16384188b7470d289a9ffff801a19596ed8e"
     },
     {
       "id": "student_question_answered_ma_laptop",
       "path": "student/laptop/question_answered_ma.png",
       "width": 1280,
       "height": 800,
-      "sha256": "b4559d2e416ad702d5ee4547a50b53c6f28621f92560036ba1841d3b2774fb54"
+      "sha256": "967a9c06a8c04cbaa6cfc2df2a409a08dfe4ef54e43d5d7224661ef7151f0e2d"
     },
     {
       "id": "student_question_answered_match_laptop",
       "path": "student/laptop/question_answered_match.png",
       "width": 1280,
       "height": 800,
-      "sha256": "af094fb026b6647a7d5f6dcbd84020dd50e23f572546febe4561cd725b463281"
+      "sha256": "71df272e8a1261a4b5c2a2f59cd605f73826dc6f8da376d09deb2eb4ed73a7b0"
     },
     {
       "id": "student_question_answered_mc_laptop",
       "path": "student/laptop/question_answered_mc.png",
       "width": 1280,
       "height": 800,
-      "sha256": "cb77a96b290b1de301d98ff28b0395368e351d29b6b9ee08889b570c1680c971"
+      "sha256": "bc2f2533363f72bed356661b7cf17f36e8dc318594b33cbf6053e570d7e3842b"
     },
     {
       "id": "student_question_answered_multi_fib_laptop",
       "path": "student/laptop/question_answered_multi_fib.png",
       "width": 1280,
       "height": 800,
-      "sha256": "2f6d0545f15d99c98173ac3ccaade68350005409d531c4809b75d7f4b80a2dca"
+      "sha256": "b851f15c42fdb2691968b8d5ca6c5eafb3ab372a7b174e729c7e749fa305b4f7"
     },
     {
       "id": "student_question_answered_num_laptop",
       "path": "student/laptop/question_answered_num.png",
       "width": 1280,
       "height": 800,
-      "sha256": "0b8de744858f5e837e18d7a69581644c12098259fd2081df9882a479255fb91e"
+      "sha256": "75915692398b7f5f12769c1c545c38964c3cf0b78ed7429bdb71b237c6b02a9b"
     },
     {
       "id": "student_question_answered_order_laptop",
       "path": "student/laptop/question_answered_order.png",
       "width": 1280,
       "height": 800,
-      "sha256": "170ee89200a4af5af1cb48a3e5e3d7f043a8dccafab20e72231051e5477075e3"
+      "sha256": "91db03ea9944b454b511ba780b054d952943fc2e2ca18a36f799810ba2afb9ab"
     },
     {
       "id": "student_question_answered_webwork_laptop",
       "path": "student/laptop/question_answered_webwork.png",
       "width": 1280,
       "height": 800,
-      "sha256": "94be54652eac8b7edb54c90f64a8e4de37a8cfa54315b9416f324ebe7e46eaec"
+      "sha256": "5901be2bb004a4b4108b91b64fd956299c66dd654cd87f77003993b0d455e45a"
     },
     {
       "id": "student_question_unanswered_fib_laptop",
       "path": "student/laptop/question_unanswered_fib.png",
       "width": 1280,
       "height": 800,
-      "sha256": "227b637d719ca71ac953bb4acd680d3e3352cbccfb9bf42f1e63217d09486112"
+      "sha256": "a0e52f700d4a812c316485c16f9ac2ac2dc6595cc03b8aa645e125e4c8e5d630"
     },
     {
       "id": "student_question_unanswered_hotspot_laptop",
       "path": "student/laptop/question_unanswered_hotspot.png",
       "width": 1280,
       "height": 800,
-      "sha256": "b1d7fcd7ab5efc512cd1517dcd2046cbaffacf3037f4b83297eee24ddc53f118"
+      "sha256": "81762a9c0f07bf229139199904539abe20efd90456cce105018aaec082595d1d"
     },
     {
       "id": "student_question_unanswered_ma_laptop",
       "path": "student/laptop/question_unanswered_ma.png",
       "width": 1280,
       "height": 800,
-      "sha256": "d3e32a4b92b41381e565a0f592201267e24cd361c7cc89ea6c48d43e756e87f1"
+      "sha256": "006077b580b4922cb093bccd5e03d32aa489b273b25bc88b3d943f0b9025f688"
     },
     {
       "id": "student_question_unanswered_match_laptop",
       "path": "student/laptop/question_unanswered_match.png",
       "width": 1280,
       "height": 800,
-      "sha256": "1348568bf883e0e7af8e2000eaf058cb18e92e334e9eee2e511d2cc6ec4aed42"
+      "sha256": "9152cce215ca8c106bed117cded989785a10d77902fcc4540c525c985371b6fe"
     },
     {
       "id": "student_question_unanswered_mc_laptop",
       "path": "student/laptop/question_unanswered_mc.png",
       "width": 1280,
       "height": 800,
-      "sha256": "c995eb9f1bac4e660a2ba32e0b74f1bcafd65a372ec3ecbc48aab97ad6fc272b"
+      "sha256": "92a061f3357de603f8dbf587f9468e52ac9354adf68632a4b95c2a503211e4a8"
     },
     {
       "id": "student_question_unanswered_multi_fib_laptop",
       "path": "student/laptop/question_unanswered_multi_fib.png",
       "width": 1280,
       "height": 800,
-      "sha256": "be89781bd5dded16118d79c539de08fb29ca0e38e1820b6c7f48198391e3dbd3"
+      "sha256": "625008af87025eb2111d151a33813bd89afc563e75d0b62c7ede975f9994f67d"
     },
     {
       "id": "student_question_unanswered_num_laptop",
       "path": "student/laptop/question_unanswered_num.png",
       "width": 1280,
       "height": 800,
-      "sha256": "ae9eed539378ba143ebdd45f50ce38ab4f28b8a0f7f9107ce9f89b90e055e4f0"
+      "sha256": "eb612cc1c39a073864b028bc50e0bf02cdf20b5cc0abc672098ed0c9f9ee46bb"
     },
     {
       "id": "student_question_unanswered_order_laptop",
       "path": "student/laptop/question_unanswered_order.png",
       "width": 1280,
       "height": 800,
-      "sha256": "2b8c8a5a37425f01c9b0ad15aac31c869e053f1d19000ca6e161fc7c1e7e0e04"
+      "sha256": "50afa1e4433ce8e17a7ccf9736e9992621ac6f8a75f5b9537379e5d7a98025ec"
     },
     {
       "id": "student_question_unanswered_webwork_laptop",
       "path": "student/laptop/question_unanswered_webwork.png",
       "width": 1280,
       "height": 800,
-      "sha256": "beecd737e3579a789b0b30446406aceade6feaa70f6497884d31e52b91e12d15"
+      "sha256": "85685688097c74eb708c3a32966fdd5ca5564736b4ee6d175b627c79407324bc"
     },
     {
       "id": "student_response_selected_laptop",
       "path": "student/laptop/response_selected.png",
       "width": 1280,
       "height": 800,
-      "sha256": "0fe5e227888588ba5540e921a376f889d680a950cdb9e4409b1e92eaa5938008"
+      "sha256": "d9e2a9f0723b5a158f1958395f129210cd24171babf822ae28144595d42139fe"
+    },
+    {
+      "id": "student_response_stats_laptop",
+      "path": "student/laptop/response_stats.png",
+      "width": 1280,
+      "height": 800,
+      "sha256": "5ad63970d4062ce4b1785513c82fc9fcbb6496d2b43875103700b90098f8f55b"
     },
     {
       "id": "student_resume_selected_laptop",
       "path": "student/laptop/resume_selected.png",
       "width": 1280,
       "height": 800,
-      "sha256": "4272e854b40fc20c3b82902acdc1f54a8597dfcda8bd01bcab6d2646951ed3a2"
+      "sha256": "d6a1bf0feca3a96ad2aa5249b8d4604cddf5436cf245f80f696c499878287dd5"
+    },
+    {
+      "id": "student_scores_laptop",
+      "path": "student/laptop/scores.png",
+      "width": 1280,
+      "height": 800,
+      "sha256": "2c207fd4c196cd4cf4f5b8bbcb866ff7a64053c913bbdfdda60aeac0c7150b9e"
     },
     {
       "id": "student_selected_history_laptop",
       "path": "student/laptop/selected_history.png",
       "width": 1280,
       "height": 800,
-      "sha256": "d5ea81d996dddb7d9350280ef51ab09ef2840e8ea28bd3c20b1bd6289588823c"
+      "sha256": "38fae7d035bbf9fb44f06a15a2aba4e3c75ade9b0a87509c252fea3716dd19f5"
     },
     {
       "id": "student_submitted_laptop",
       "path": "student/laptop/submitted.png",
       "width": 1280,
       "height": 800,
-      "sha256": "dcb591218002af8db8be2ea6b97317303bf7fb5e315d84178a18d0d46d31adb2"
+      "sha256": "8bcc637406784d162618e95035f430f27e6ed2231b59a4dd1543aab4635c3cd4"
     },
     {
-      "id": "student_two_course_chooser_laptop",
-      "path": "student/laptop/two_course_chooser.png",
+      "id": "student_two_course_list_laptop",
+      "path": "student/laptop/two_course_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "c94e6275bd7faae9889e624423eeeffe5b92f7f893472ae9ded76050d58d2df3"
+      "sha256": "1be3cc0a6af458aa921fa8536985fd7934cf4c82f974ad4a3deb191b4b068e2f"
     },
     {
       "id": "student_unanswered_laptop",
       "path": "student/laptop/unanswered.png",
       "width": 1280,
       "height": 800,
-      "sha256": "5037db4ede51fc7b22d3ef6a0e8984a069d57221ded0aa4ac140733ca9eee810"
+      "sha256": "22049f62380e96272f806548f1c58dd48aa2518355a86feaa7c17719dfe9428a"
     },
     {
       "id": "student_assessment_navigation_phone",
       "path": "student/phone/assessment_navigation.png",
       "width": 393,
       "height": 852,
-      "sha256": "4db611774e83418d786240e52ca1dcfe5656f0b65bae5ebd7dc8c83569392b12"
+      "sha256": "e96ec014cfecde2bd808ba82af0fff5f51135aa8420fda2d4a9e0e2b8efb804e"
     },
     {
       "id": "student_completed_phone",
       "path": "student/phone/completed.png",
       "width": 393,
       "height": 852,
-      "sha256": "8eda9ff157251e13da3c532c86e9bf0a1df6eac0cf90bc1369fee31048599c8d"
+      "sha256": "4bf9ff486ab41fd5905fd85d002361a6d2d3464c4b950ec582472d8d195546e3"
     },
     {
-      "id": "student_course_grades_phone",
-      "path": "student/phone/course_grades.png",
+      "id": "student_course_landing_phone",
+      "path": "student/phone/course_landing.png",
       "width": 393,
       "height": 852,
-      "sha256": "db7016aa1da9a126f141cb6ba77b853d6b76e41f4db0946a789dfd55f69f0abc"
+      "sha256": "df3c29391e9ff87f0678a4f911b02e81e0f23738d1b10d15015d4088556f3dda"
     },
     {
       "id": "student_course_list_phone",
       "path": "student/phone/course_list.png",
       "width": 393,
       "height": 852,
-      "sha256": "03b422a535c3e11684be584f1c5dbe576ebdbd89cc3101e24c464a86becfe46c"
+      "sha256": "a8c2f1623523260ec1b21d9699a3331828f639df73572f5ac4f3ceb4522feed7"
     },
     {
       "id": "student_denial_phone",
       "path": "student/phone/denial.png",
       "width": 393,
       "height": 852,
-      "sha256": "51877947ac910056f1c630f4ed20cff5bf3d29bbb2e262d55ea36a2704acf36b"
+      "sha256": "0b8c2e48647838501cb2d6e11c94aa38b04b3ad40049ad42d5005080d87f5f7c"
     },
     {
       "id": "student_in_progress_phone",
       "path": "student/phone/in_progress.png",
       "width": 393,
       "height": 852,
-      "sha256": "f005c2e5a787d73262a8c2fbaec4ca3363be0fabcb169819c07e68ae2e7e0a3e"
+      "sha256": "eae1b8a7e006f2dbf9c2bafc542928e431ee137921350977c789e59f3d4dd5ce"
     },
     {
       "id": "student_invitation_detail_phone",
       "path": "student/phone/invitation_detail.png",
       "width": 393,
       "height": 852,
-      "sha256": "ff52b372d9978df2f75271d6f8138f40635ea810e339508d70061a19169e6ae6"
+      "sha256": "35d74ce1297869ab9d4331f8a2c3de651944428d4f437bcb5c775dba851c8259"
     },
     {
       "id": "student_invitation_index_phone",
       "path": "student/phone/invitation_index.png",
       "width": 393,
       "height": 852,
-      "sha256": "752a72d3850048f9e4b56ed1f0f1307e6b9f5c5bedc10328a89268a5defcf3ab"
+      "sha256": "7f17d33587c8e93b1ce1999e428af250ec3c52b3a7efd6168cddd7e7a23913d9"
     },
     {
       "id": "student_not_started_phone",
       "path": "student/phone/not_started.png",
       "width": 393,
       "height": 852,
-      "sha256": "188bb6733ce283d2cadd63e9f29a0511370a39d680b171026e9314e78392bc65"
+      "sha256": "068b2be3408082a9c216f394eba267beff3698ef8c6d46c6798b66cb933b2dd1"
     },
     {
       "id": "student_overview_history_phone",
       "path": "student/phone/overview_history.png",
       "width": 393,
       "height": 852,
-      "sha256": "43c6f2c2f74291707c1fc816d1cc71431909928eff995c9d6889c8f1d0339c37"
+      "sha256": "08c77969da75ca008bcbaa8baf89777cdaf73f846a1730acefc7a1892fc3031d"
     },
     {
       "id": "student_question_answered_fib_phone",
       "path": "student/phone/question_answered_fib.png",
       "width": 393,
       "height": 852,
-      "sha256": "0982904bfe204f66759555f6ae5d44b8652c28a42d233714f3b51209a4635024"
+      "sha256": "a8112938d7fd00b6c8721370a9947e9e704daab97d9d9bc92a47bb1caaae36a9"
     },
     {
       "id": "student_question_answered_hotspot_phone",
       "path": "student/phone/question_answered_hotspot.png",
       "width": 393,
       "height": 852,
-      "sha256": "4c10ea4c7f383a9dd36b4a3d48bf958f6d44af202873f2db4724824ba66ae14e"
+      "sha256": "5a2775c32dcb97d0a03b7a33d2ecc7fe4539456eaf8ba3a478756795aca6f98b"
     },
     {
       "id": "student_question_answered_ma_phone",
       "path": "student/phone/question_answered_ma.png",
       "width": 393,
       "height": 852,
-      "sha256": "485d4b3e1769aa2cdaf71a2455fa540fc8a0927336b045fec39945f5733d148e"
+      "sha256": "d67ad64e280525844a63d2fc6f2da169e583910885afa5e0a2d9df91c7a0fc61"
     },
     {
       "id": "student_question_answered_match_phone",
       "path": "student/phone/question_answered_match.png",
       "width": 393,
       "height": 852,
-      "sha256": "9e912ad100563eba557017c867a0460d87b88bc0675f6b6146d17fc0352356dd"
+      "sha256": "246131abd7da9deb13c74562cf0b3380f895ee04023cb652cf297d3ad389db41"
     },
     {
       "id": "student_question_answered_mc_phone",
       "path": "student/phone/question_answered_mc.png",
       "width": 393,
       "height": 852,
-      "sha256": "5f6f3e0bf54cb21570b34546a34c2f4dab1923a64a55666493f455bfd71c0b6d"
+      "sha256": "cb3c21aad68f28645ee0262ad1d45ac13ba89b9c87c0d73cbe2c4360857bd7c3"
     },
     {
       "id": "student_question_answered_multi_fib_phone",
       "path": "student/phone/question_answered_multi_fib.png",
       "width": 393,
       "height": 852,
-      "sha256": "bca814365932574a575845ae1fdf081473177aaec8c7e59ca749edd335e7c067"
+      "sha256": "696d94f59091bb0c7544a173664a7cb887163393de4e3e7708c348efbd00797a"
     },
     {
       "id": "student_question_answered_num_phone",
       "path": "student/phone/question_answered_num.png",
       "width": 393,
       "height": 852,
-      "sha256": "698ed4f12dcff2c61418ec4eb7d1db11a67d6968bdcd5fb362ba65c7dfaba2cc"
+      "sha256": "d41a7f110aa3f5f9c09bc777a11afda30b523fdc532166736c12389f06596007"
     },
     {
       "id": "student_question_answered_order_phone",
       "path": "student/phone/question_answered_order.png",
       "width": 393,
       "height": 852,
-      "sha256": "10fc4a1d58982adf04981f5189d779559c7de61e251ec17bbfa6f4d0f0bf4d88"
+      "sha256": "4af193025f15e791a4b54cd891dd732d0dc4a9501e114adbcf91eab8c094e12b"
     },
     {
       "id": "student_question_answered_webwork_phone",
       "path": "student/phone/question_answered_webwork.png",
       "width": 393,
       "height": 852,
-      "sha256": "1f14ec117269bab9d0d8d05864adf7f8a605fd19dcb0134bbb222deefc9ebcc3"
+      "sha256": "bf6637abf768ba8321c67794870022ca6036eddd351151af9171c77346da3863"
     },
     {
       "id": "student_question_unanswered_fib_phone",
       "path": "student/phone/question_unanswered_fib.png",
       "width": 393,
       "height": 852,
-      "sha256": "d0e003e9f7ba67ba312e17193c19bf77b1d0dfea7b86d9faba7666970ffdead3"
+      "sha256": "cdb9fa86ab70e7da020752ecb8f0b5384084b5fa74281ef40e03001b4d5ce85a"
     },
     {
       "id": "student_question_unanswered_hotspot_phone",
       "path": "student/phone/question_unanswered_hotspot.png",
       "width": 393,
       "height": 852,
-      "sha256": "4fafadfa7e4c7bcfb165fdd5e8e9c1908472c35fb68e07c9b4609cb0f26a2cec"
+      "sha256": "16b07c671584324304566df87362a9747ee62943a6f13f7597082d5657d53b63"
     },
     {
       "id": "student_question_unanswered_ma_phone",
       "path": "student/phone/question_unanswered_ma.png",
       "width": 393,
       "height": 852,
-      "sha256": "2a0763e5a1d8a5173ee6c5cc39a8d3ba93a42ae12c087cc9957145c744dfdc0c"
+      "sha256": "80ab5dde6a6d4588f6114493c9a735ee959b15c59ea018bd7a91bed2cd3a896a"
     },
     {
       "id": "student_question_unanswered_match_phone",
       "path": "student/phone/question_unanswered_match.png",
       "width": 393,
       "height": 852,
-      "sha256": "3bbc716149f42e5e3b6a6cfff2ce8f3e33b7e8c36ae4542fa98b3ea553862e73"
+      "sha256": "c0c2538075d41e8d5bb2c64eb750a57d46057c413987abdb4ca8720ae6bb4aad"
     },
     {
       "id": "student_question_unanswered_mc_phone",
       "path": "student/phone/question_unanswered_mc.png",
       "width": 393,
       "height": 852,
-      "sha256": "ef37e4e5476fba2d1d0836f974df894b3286d0434c2f3024b03311e8f9aa66ad"
+      "sha256": "25afacd7e3b195cddbc437bc60e18b9eb5a8a4c42e800787d15070c31a8cd058"
     },
     {
       "id": "student_question_unanswered_multi_fib_phone",
       "path": "student/phone/question_unanswered_multi_fib.png",
       "width": 393,
       "height": 852,
-      "sha256": "3380fab20813b8cc5a3eb304500f441bee71c6a824e1d7d31330b5c00414d254"
+      "sha256": "f0ac1fc2e9843db7d7b2632127e3cee249965200110f776e1d56c82d3a6ec473"
     },
     {
       "id": "student_question_unanswered_num_phone",
       "path": "student/phone/question_unanswered_num.png",
       "width": 393,
       "height": 852,
-      "sha256": "c6230f4d399d3c04b4ebbc3cff2ebbdc39f2867609890a6515689f422deb649d"
+      "sha256": "fb2138620b2cd3708ddf495eb3987c5e16278a54a68f401466965e5bc75dfbd2"
     },
     {
       "id": "student_question_unanswered_order_phone",
       "path": "student/phone/question_unanswered_order.png",
       "width": 393,
       "height": 852,
-      "sha256": "970b6fefc2081f4f5fe11128793bc36bbfe10ee2464ee7e4cda65efe7dc0cac1"
+      "sha256": "e96d219409a31dcbc48351f272ade7c4037795ec4e8654556a64570a859ee5d3"
     },
     {
       "id": "student_question_unanswered_webwork_phone",
       "path": "student/phone/question_unanswered_webwork.png",
       "width": 393,
       "height": 852,
-      "sha256": "78726500d370abfd3f0f40eb0a3cd9c2eac15ae7f20f313cf4bdc1a039285bfd"
+      "sha256": "3277efe444de2e5a794866be96a78e3aecb44cfa9e5f17ce57f3b36f55ed185f"
     },
     {
       "id": "student_response_selected_phone",
       "path": "student/phone/response_selected.png",
       "width": 393,
       "height": 852,
-      "sha256": "3c2513025936f055b8a3e419162046e8ca251297f03203d1acc035a61f87279d"
+      "sha256": "b4e75221fe45316ba30464de5e86576a44df2ee7610902d9e6f02c32e0b5b2ec"
     },
     {
       "id": "student_resume_selected_phone",
       "path": "student/phone/resume_selected.png",
       "width": 393,
       "height": 852,
-      "sha256": "7859f68534ebf31cbeb9462006b0db074f7f3048a54563efad6460ac37ab0d6d"
+      "sha256": "91240e7ddca28614e1ff80743138ea7d1817d3cf8830ffb527d81dabe0ef5c89"
+    },
+    {
+      "id": "student_scores_phone",
+      "path": "student/phone/scores.png",
+      "width": 393,
+      "height": 852,
+      "sha256": "fd77d4e86db039fcec121afeebada73428e34355580e96e3cab2fc8a47d3ef1f"
     },
     {
       "id": "student_selected_history_phone",
       "path": "student/phone/selected_history.png",
       "width": 393,
       "height": 852,
-      "sha256": "2ca572fef800144c9a68684565c7126f05796e3fd6a4acf8cad526c278ada1b7"
+      "sha256": "bee5090c9bc3228f547285a54fc1f80e6a201ccdf7069057c85d737c490c1b1a"
     },
     {
       "id": "student_submitted_phone",
       "path": "student/phone/submitted.png",
       "width": 393,
       "height": 852,
-      "sha256": "e5308c655f483f9642d28d3db8590e28ac085b10ca4b550ae9164152d683dc28"
+      "sha256": "f212921a5a4c81e5c35fbcaea1bcb23c2ef4c941c630721c6e2bc5917f7e8722"
     },
     {
-      "id": "student_two_course_chooser_phone",
-      "path": "student/phone/two_course_chooser.png",
+      "id": "student_two_course_list_phone",
+      "path": "student/phone/two_course_list.png",
       "width": 393,
       "height": 852,
-      "sha256": "65a0f1fb35ba3423cd1c2bfa7cf5d90a354a6c3cc627f467a0f0cf3567825129"
+      "sha256": "668f8ba44e6fdbedcd71b09054f217abcd9045db4fbf6bc659a2f9487514f6fb"
     },
     {
       "id": "student_unanswered_phone",
       "path": "student/phone/unanswered.png",
       "width": 393,
       "height": 852,
-      "sha256": "a03730f45bc695a0125a87ceb684e682843f7c47051056efca44930189073359"
+      "sha256": "a045d8e23a010e6e56817700502e4851481d91604da901c7154775c44a442fab"
     },
     {
       "id": "student_assessment_navigation_square",
       "path": "student/square/assessment_navigation.png",
       "width": 800,
       "height": 800,
-      "sha256": "7b453f0f0fe2dd1523ffce8f1524ab111759acf6a07f3567fa03acb1d4de1a6c"
+      "sha256": "687e3615ce8fdeee638d75a3d38ba80660d78a76331fb5d0e489ad29c38a461a"
     },
     {
       "id": "student_completed_square",
       "path": "student/square/completed.png",
       "width": 800,
       "height": 800,
-      "sha256": "22994f69818e098dfcce6c6f43aa260eff6f953deda3934baf37135dba790b6a"
+      "sha256": "c23e2a4ba55223eccc48afa6b5791400bdb8b9f9fb2126ab09996981e707e38a"
     },
     {
-      "id": "student_course_grades_square",
-      "path": "student/square/course_grades.png",
+      "id": "student_course_landing_square",
+      "path": "student/square/course_landing.png",
       "width": 800,
       "height": 800,
-      "sha256": "8eb09140f0ea586fd20a294f4339dc7eaca02216a9909aeba765538d11e8e163"
+      "sha256": "9919a3ebeec1d4aff443c886a74a1e63bdefa2f13540487f975cd222404a8b89"
     },
     {
       "id": "student_course_list_square",
       "path": "student/square/course_list.png",
       "width": 800,
       "height": 800,
-      "sha256": "57e4a4655d788cfb0814f9c292952bcc8d46516dbf7ef77c2b09c4f57614b9b7"
+      "sha256": "7fd3caee4be9d066fdf148597b6327aeea44a5de5fedc371f731b45714251d64"
     },
     {
       "id": "student_denial_square",
       "path": "student/square/denial.png",
       "width": 800,
       "height": 800,
-      "sha256": "7574b0409b404ce2881e03ca3a3f226592011017a8695a7b17ea777e6c9d19e2"
+      "sha256": "c49d707d6c4e1a16f0d0ca91152da1e41492891cb3c6d6f26846692ede7de935"
     },
     {
       "id": "student_in_progress_square",
       "path": "student/square/in_progress.png",
       "width": 800,
       "height": 800,
-      "sha256": "79dbdc1aacb8f99f57cbf15cdcc8e0435c47a0b759570e0b92af3584620bf7a0"
+      "sha256": "e6336d49fd6da646cd363c5eb96f04340df90d6ea87f7a230629a4f78cf52818"
     },
     {
       "id": "student_invitation_detail_square",
       "path": "student/square/invitation_detail.png",
       "width": 800,
       "height": 800,
-      "sha256": "e784f5050b181cd71ecf79197ef60603fedea335b1a511ea79f18a45d437722a"
+      "sha256": "811dea88ab18469a9ebc3bc12c7ab555ebc103fb7dd6be8bc02683c668810350"
     },
     {
       "id": "student_invitation_index_square",
       "path": "student/square/invitation_index.png",
       "width": 800,
       "height": 800,
-      "sha256": "adda8984158fc08179094052b5e7613c2e4f9ee919bb8912445d64e153268eec"
+      "sha256": "97e708be2fcec9dfb459cd9531d716c0343150643bf7cd87b0170042d7c9d201"
     },
     {
       "id": "student_not_started_square",
       "path": "student/square/not_started.png",
       "width": 800,
       "height": 800,
-      "sha256": "4e6303fd68df24ba291496fa683f688cccbb6ef2a3b787ae1fb58913bc858855"
+      "sha256": "1c7c904b4d4f9ce7e0821ad2b14bc13fabf40ddeddae6bedb541aa029260e388"
     },
     {
       "id": "student_overview_history_square",
       "path": "student/square/overview_history.png",
       "width": 800,
       "height": 800,
-      "sha256": "66b56dcf5ca506b704a0bb8867ab9d090ffe9ac90e6f9ce541ace40f0501ea99"
+      "sha256": "fbcc728391a61f8a9f3ca2781595e9022e7bfa7667e98f8c6abdb2494bc88899"
     },
     {
       "id": "student_question_unanswered_mc_square",
       "path": "student/square/question_unanswered_mc.png",
       "width": 800,
       "height": 800,
-      "sha256": "a6578266fe13448e4060acbb0ac25f7f7ed290925d7100acd37f3ec75cbe54ed"
+      "sha256": "4eaf1471e29326960b5fdb4d7a7f57c9b3153d16d496a65473fc5c37ac235dfe"
     },
     {
       "id": "student_response_selected_square",
       "path": "student/square/response_selected.png",
       "width": 800,
       "height": 800,
-      "sha256": "6a91af1d82ea55267c0b7670436493e8c399f5cfa1bc03c4b0ec8437fb5c7069"
+      "sha256": "7d8fe66e73be918e7d7c0a8dbf26ae33a488b28f1651abe3c5611b29caab4652"
     },
     {
       "id": "student_resume_selected_square",
       "path": "student/square/resume_selected.png",
       "width": 800,
       "height": 800,
-      "sha256": "332b3f18a31cdf4f44acba1c23f00b71e2ad3229c7e590d790b47c6782226985"
+      "sha256": "406a8878c9f67ae1166225235769ce8cfff635cdda4b42cce50c11145e553006"
+    },
+    {
+      "id": "student_scores_square",
+      "path": "student/square/scores.png",
+      "width": 800,
+      "height": 800,
+      "sha256": "5d0a36b4354624f6bfdc172384a9aac66bdd55f418db7c64d9a56ccca5e00325"
     },
     {
       "id": "student_selected_history_square",
       "path": "student/square/selected_history.png",
       "width": 800,
       "height": 800,
-      "sha256": "12161c22a60b7e2e8c64ce56a789823cadf656a61401ad8e5093e99b5fd0b73d"
+      "sha256": "7bfc330675dade6078de73e9ad524db4165f960cf3383bc982ce76dd66e27f9a"
     },
     {
       "id": "student_submitted_square",
       "path": "student/square/submitted.png",
       "width": 800,
       "height": 800,
-      "sha256": "b0bf437ce3e081b952e2aeae6cb2778cff1b50a02579e40c7f76bb6d6c721a1c"
+      "sha256": "2ea07b7121a92de423710dd9c3992e6aa1eb4b016f7b6219106b9a64747d7240"
     },
     {
-      "id": "student_two_course_chooser_square",
-      "path": "student/square/two_course_chooser.png",
+      "id": "student_two_course_list_square",
+      "path": "student/square/two_course_list.png",
       "width": 800,
       "height": 800,
-      "sha256": "16b83584d9717411ed9a6da9efbc18c51efb3261df09141eba3f1f89d32c7080"
+      "sha256": "3920455f9952db2a60b3bc4f78341022fe4a50e51a2eb0d0005880793144f2bc"
     },
     {
       "id": "student_unanswered_square",
       "path": "student/square/unanswered.png",
       "width": 800,
       "height": 800,
-      "sha256": "d400777d7073649b3ed04ca64466c2763ac1dc13639917992084967e8b6a7957"
+      "sha256": "57d80d5b9346649e8d7f248257c2f599e27d4c52defdf24e3e53c25aad24f846"
     },
     {
       "id": "student_assessment_navigation_tablet",
       "path": "student/tablet/assessment_navigation.png",
       "width": 800,
       "height": 1280,
-      "sha256": "24df6db4b7fff88b05189ec7b69215b20f4e64cc6a8be69308fe36300fbd007b"
+      "sha256": "77fd51738ce5ec99b868309f3dae6628ab880c48aa60bc3d9312048f3d2aa6e5"
     },
     {
       "id": "student_completed_tablet",
       "path": "student/tablet/completed.png",
       "width": 800,
       "height": 1280,
-      "sha256": "06fb8bbfb606d7031d12ba4279f6b482400c6ab3d5de1310a5b66d8e63ba63ed"
+      "sha256": "a3f3bedd791e74edc7c8f5b7be2e5406612aab23bf7d03a4c29c810a18b7004a"
     },
     {
-      "id": "student_course_grades_tablet",
-      "path": "student/tablet/course_grades.png",
+      "id": "student_course_landing_tablet",
+      "path": "student/tablet/course_landing.png",
       "width": 800,
       "height": 1280,
-      "sha256": "be413f63ffc9dff5e5ce7ae9c9ab5746eb754eb99cdbdb5f4ce778ce239695d2"
+      "sha256": "f743e843dfbcf055fe0c4761c9e8dd42fa0863b82870baa44da3b3d79934b555"
     },
     {
       "id": "student_course_list_tablet",
       "path": "student/tablet/course_list.png",
       "width": 800,
       "height": 1280,
-      "sha256": "0eb4fbd5296746665b0d182c75af0753f08d1b155da591c23027d74dab37dd9a"
+      "sha256": "3c13a273103c6cf5de1eed1e325e6a8104719bbed47d74540304b3ab1a2237a0"
     },
     {
       "id": "student_denial_tablet",
       "path": "student/tablet/denial.png",
       "width": 800,
       "height": 1280,
-      "sha256": "afcb3d22180e977910f9a8f397a659eda823dde8a77ead5aa765ee13ef03a50b"
+      "sha256": "1b6b7b1bcdc44d0a4eb5131cb5914017c7b6cc0a7a974f8cb3d3cd134f936521"
     },
     {
       "id": "student_in_progress_tablet",
       "path": "student/tablet/in_progress.png",
       "width": 800,
       "height": 1280,
-      "sha256": "863131e4e9774015e066ce4fcea54a0b261dba803e964871d048e25a375ac83e"
+      "sha256": "aa99b3af897997b1f77d7108c960f317df5f40379bfefb6c29d4a6ee86229f7d"
     },
     {
       "id": "student_invitation_detail_tablet",
       "path": "student/tablet/invitation_detail.png",
       "width": 800,
       "height": 1280,
-      "sha256": "12d44e69e7161f05dda3357dd17cc6225f8e98fd5535ddd5db82d780e7522dde"
+      "sha256": "7c60a428dbf821e3d063c850f2b7f609f4ce9989ee5941c38a2f31118491e1a3"
     },
     {
       "id": "student_invitation_index_tablet",
       "path": "student/tablet/invitation_index.png",
       "width": 800,
       "height": 1280,
-      "sha256": "2f22e6e62c49004e1d082caace420dbe3cce735cd4bf6c5cce68e5facf6c1ed9"
+      "sha256": "b30a94ffcc683394cb238bb6fce565a59a5a536ecafdb632b422ce333a083e2e"
     },
     {
       "id": "student_not_started_tablet",
       "path": "student/tablet/not_started.png",
       "width": 800,
       "height": 1280,
-      "sha256": "e86f9c6689cd03519389868ca45514af8c952537e616aab2dc60867b51252b27"
+      "sha256": "dd40597ecb6214c406b4daa31f7944c3f828b19cdabb298cbb76f8302d9aca5d"
     },
     {
       "id": "student_overview_history_tablet",
       "path": "student/tablet/overview_history.png",
       "width": 800,
       "height": 1280,
-      "sha256": "76dfed6784910ef51fd85c4b384591834fc33e4e51f1367a73c863fc6923a4ab"
+      "sha256": "d0f213e9d8b02db54327a1f41c9bfcdbeef7e607fe069aedf18c96ee10cb8c56"
     },
     {
       "id": "student_question_unanswered_mc_tablet",
       "path": "student/tablet/question_unanswered_mc.png",
       "width": 800,
       "height": 1280,
-      "sha256": "d88ff224718bed819f16969d9b5d439acef66950fdc48678255615850c677591"
+      "sha256": "0e1731456d117aed5cb9cf462175c2cfcb55551c2ede27c965d13828c263689a"
     },
     {
       "id": "student_response_selected_tablet",
       "path": "student/tablet/response_selected.png",
       "width": 800,
       "height": 1280,
-      "sha256": "117ed01a5784ca15968fc7f47fdc74d69125379760c9a03b9e84386ac80fe8cf"
+      "sha256": "5577c1fcdd61d788f57891209f3178ef9503f508555d25efde395b523498bfcc"
     },
     {
       "id": "student_resume_selected_tablet",
       "path": "student/tablet/resume_selected.png",
       "width": 800,
       "height": 1280,
-      "sha256": "fa98f5740003c1dfc71324cd5279bb0f55cf7e49ef31093ca50d8ce99cef0457"
+      "sha256": "07070b0210475538047d63c7e614f29dff9c2aa9ad43cfaf1e7ddd7a89ae5a29"
+    },
+    {
+      "id": "student_scores_tablet",
+      "path": "student/tablet/scores.png",
+      "width": 800,
+      "height": 1280,
+      "sha256": "86342f12cc03d471d22b9e7f3dccd86cef335985d7753ff7d5650b6d169c47a3"
     },
     {
       "id": "student_selected_history_tablet",
       "path": "student/tablet/selected_history.png",
       "width": 800,
       "height": 1280,
-      "sha256": "f6d9b0d6d09a45a47ebedea7580b02caaf8245a1c4d24ee3d08a5b037364e42c"
+      "sha256": "c860291f0ea001f81be3b7ba592af745c61f9e16e1e8628cb0b444626c1b04b7"
     },
     {
       "id": "student_submitted_tablet",
       "path": "student/tablet/submitted.png",
       "width": 800,
       "height": 1280,
-      "sha256": "255dd87214498acbb99a2582a20f9b512cd9717a2c602f4bcc5185e6c5995c2a"
+      "sha256": "075d6aadc5ab64e1c5a5e5910d4948f8650ef63031665af19291649f17431940"
     },
     {
-      "id": "student_two_course_chooser_tablet",
-      "path": "student/tablet/two_course_chooser.png",
+      "id": "student_two_course_list_tablet",
+      "path": "student/tablet/two_course_list.png",
       "width": 800,
       "height": 1280,
-      "sha256": "c10eeb26724a498989c3a57c65b53d4bd7e49ac7b40bd8857b8db3abd5f69e12"
+      "sha256": "077b22528218af9e01d284053eca64439538bab9b89ac82055da8b3be6474c7a"
     },
     {
       "id": "student_unanswered_tablet",
       "path": "student/tablet/unanswered.png",
       "width": 800,
       "height": 1280,
-      "sha256": "6ed5d7857ca0c4e8b544fed005297cbbd371443c49423208a0e1066eee04fc51"
+      "sha256": "4ca435194b3f55f5788f24c8973a170f1348c9a1a868435c322f8820700049b7"
     },
     {
       "id": "sysadmin_account_created",
       "path": "sysadmin/account_created.png",
       "width": 1280,
       "height": 800,
-      "sha256": "e7eec202114a4dec7966e65ddc56924df6cab0b7ce5ace14dcda022487c974bf"
+      "sha256": "aca66994d081f97d603ce74ab3f80ae71cf9d8ea011e0101b9f6d6f33c465703"
     },
     {
       "id": "sysadmin_account_deactivated",
       "path": "sysadmin/account_deactivated.png",
       "width": 1280,
       "height": 800,
-      "sha256": "6ea95ca2e88315db9f08da280dfa04b9667bb5f9608b4d75912d48959ed80b71"
+      "sha256": "d9af460df0192f2bbb865f15dc0560480b62b739e6429a7ee614b84e1a03fd32"
     },
     {
       "id": "sysadmin_account_validation",
       "path": "sysadmin/account_validation.png",
       "width": 1280,
       "height": 800,
-      "sha256": "6d0e8665f61abcb0d6cb3ca069915fd26737f0ea0ccad79b36c795d0565cd1b6"
+      "sha256": "6766a27393b4dea4c889442b7e386e56d65bc827effd6de1b6d23f83f45cab77"
     },
     {
       "id": "sysadmin_accounts_initial",
       "path": "sysadmin/accounts_initial.png",
       "width": 1280,
       "height": 800,
-      "sha256": "900b6870776fd4e1884f6b4b2d36f3dfaaab8edda8a26cf8f0c97c42523dd121"
+      "sha256": "fd73c19497455f74890e2ba15e45bb50e7928cc871f5a317fd1ce70aac0f05cd"
     },
     {
       "id": "sysadmin_course_list",
       "path": "sysadmin/course_list.png",
       "width": 1280,
       "height": 800,
-      "sha256": "732dd87acb2ff7222402e8d82a2199da8f08d57fe80ed37c705e543a2e903797"
+      "sha256": "63687610e305ea73baeff6349a412dfc1f186f21b057388b1c4a928971a11aca"
     }
   ]
 }

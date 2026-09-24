@@ -677,11 +677,11 @@
       "id": "student_course_list_laptop",
       "path": "student/laptop/course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
       "workflow": "course navigation",
       "state": "course list",
-      "scenario": "student_course_list",
+      "scenario": "student_courses_navigation",
       "checkpoint": "course_list_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
@@ -695,11 +695,11 @@
       "id": "student_course_list_tablet",
       "path": "student/tablet/course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
       "workflow": "course navigation",
       "state": "course list",
-      "scenario": "student_course_list",
+      "scenario": "student_courses_navigation",
       "checkpoint": "course_list_tablet",
       "viewport": "tablet",
       "privacyProfile": "student_self",
@@ -713,11 +713,11 @@
       "id": "student_course_list_phone",
       "path": "student/phone/course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
       "workflow": "course navigation",
       "state": "course list",
-      "scenario": "student_course_list",
+      "scenario": "student_courses_navigation",
       "checkpoint": "course_list_phone",
       "viewport": "phone",
       "privacyProfile": "student_self",
@@ -731,11 +731,11 @@
       "id": "student_course_list_square",
       "path": "student/square/course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
       "workflow": "course navigation",
       "state": "course list",
-      "scenario": "student_course_list",
+      "scenario": "student_courses_navigation",
       "checkpoint": "course_list_square",
       "viewport": "square",
       "privacyProfile": "student_self",
@@ -746,74 +746,74 @@
       }
     },
     {
-      "id": "student_course_grades_laptop",
-      "path": "student/laptop/course_grades.png",
+      "id": "student_course_landing_laptop",
+      "path": "student/laptop/course_landing.png",
       "role": "student",
-      "routeId": "studentCourseGrades",
+      "routeId": "studentCourseLanding",
       "area": "courses",
-      "workflow": "Course grade summary",
-      "state": "self-only grades",
-      "scenario": "student_course_grades",
-      "checkpoint": "course_grades_laptop",
+      "workflow": "course navigation",
+      "state": "Course-specific context",
+      "scenario": "student_courses_navigation",
+      "checkpoint": "course_landing_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
         "order": 41,
-        "caption": "Student Course grades",
+        "caption": "Course-specific overview",
         "featured": false
       }
     },
     {
-      "id": "student_course_grades_tablet",
-      "path": "student/tablet/course_grades.png",
+      "id": "student_course_landing_tablet",
+      "path": "student/tablet/course_landing.png",
       "role": "student",
-      "routeId": "studentCourseGrades",
+      "routeId": "studentCourseLanding",
       "area": "courses",
-      "workflow": "Course grade summary",
-      "state": "self-only grades",
-      "scenario": "student_course_grades",
-      "checkpoint": "course_grades_tablet",
+      "workflow": "course navigation",
+      "state": "Course-specific context",
+      "scenario": "student_courses_navigation",
+      "checkpoint": "course_landing_tablet",
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
         "order": 42,
-        "caption": "Student Course grades on a tablet",
+        "caption": "Course-specific overview on a tablet",
         "featured": false
       }
     },
     {
-      "id": "student_course_grades_phone",
-      "path": "student/phone/course_grades.png",
+      "id": "student_course_landing_phone",
+      "path": "student/phone/course_landing.png",
       "role": "student",
-      "routeId": "studentCourseGrades",
+      "routeId": "studentCourseLanding",
       "area": "courses",
-      "workflow": "Course grade summary",
-      "state": "self-only grades",
-      "scenario": "student_course_grades",
-      "checkpoint": "course_grades_phone",
+      "workflow": "course navigation",
+      "state": "Course-specific context",
+      "scenario": "student_courses_navigation",
+      "checkpoint": "course_landing_phone",
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
         "order": 43,
-        "caption": "Student Course grades on a phone",
+        "caption": "Course-specific overview on a phone",
         "featured": false
       }
     },
     {
-      "id": "student_course_grades_square",
-      "path": "student/square/course_grades.png",
+      "id": "student_course_landing_square",
+      "path": "student/square/course_landing.png",
       "role": "student",
-      "routeId": "studentCourseGrades",
+      "routeId": "studentCourseLanding",
       "area": "courses",
-      "workflow": "Course grade summary",
-      "state": "self-only grades",
-      "scenario": "student_course_grades",
-      "checkpoint": "course_grades_square",
+      "workflow": "course navigation",
+      "state": "Course-specific context",
+      "scenario": "student_courses_navigation",
+      "checkpoint": "course_landing_square",
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
         "order": 44,
-        "caption": "Student Course grades on a square",
+        "caption": "Course-specific overview on a square",
         "featured": false
       }
     },
@@ -962,15 +962,15 @@
       }
     },
     {
-      "id": "student_two_course_chooser_laptop",
-      "path": "student/laptop/two_course_chooser.png",
+      "id": "student_two_course_list_laptop",
+      "path": "student/laptop/two_course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
-      "workflow": "Course selection",
+      "workflow": "Course list",
       "state": "two active Courses",
-      "scenario": "student_two_course_chooser",
-      "checkpoint": "two_course_chooser_laptop",
+      "scenario": "student_two_course_list",
+      "checkpoint": "two_course_list_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
@@ -980,15 +980,15 @@
       }
     },
     {
-      "id": "student_two_course_chooser_tablet",
-      "path": "student/tablet/two_course_chooser.png",
+      "id": "student_two_course_list_tablet",
+      "path": "student/tablet/two_course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
-      "workflow": "Course selection",
+      "workflow": "Course list",
       "state": "two active Courses",
-      "scenario": "student_two_course_chooser",
-      "checkpoint": "two_course_chooser_tablet",
+      "scenario": "student_two_course_list",
+      "checkpoint": "two_course_list_tablet",
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
@@ -998,15 +998,15 @@
       }
     },
     {
-      "id": "student_two_course_chooser_phone",
-      "path": "student/phone/two_course_chooser.png",
+      "id": "student_two_course_list_phone",
+      "path": "student/phone/two_course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
-      "workflow": "Course selection",
+      "workflow": "Course list",
       "state": "two active Courses",
-      "scenario": "student_two_course_chooser",
-      "checkpoint": "two_course_chooser_phone",
+      "scenario": "student_two_course_list",
+      "checkpoint": "two_course_list_phone",
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
@@ -1016,15 +1016,15 @@
       }
     },
     {
-      "id": "student_two_course_chooser_square",
-      "path": "student/square/two_course_chooser.png",
+      "id": "student_two_course_list_square",
+      "path": "student/square/two_course_list.png",
       "role": "student",
-      "routeId": "studentHome",
+      "routeId": "studentCourses",
       "area": "courses",
-      "workflow": "Course selection",
+      "workflow": "Course list",
       "state": "two active Courses",
-      "scenario": "student_two_course_chooser",
-      "checkpoint": "two_course_chooser_square",
+      "scenario": "student_two_course_list",
+      "checkpoint": "two_course_list_square",
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
@@ -1041,7 +1041,7 @@
       "area": "courses",
       "workflow": "Course Progress",
       "state": "completed Attempts and score status",
-      "scenario": "student_progress_stats_attempt_history",
+      "scenario": "student_progress_response_stats_history",
       "checkpoint": "course_progress_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
@@ -1059,7 +1059,7 @@
       "area": "courses",
       "workflow": "Course Progress",
       "state": "Attempts with no released score",
-      "scenario": "student_progress_stats_attempt_history",
+      "scenario": "student_progress_response_stats_history",
       "checkpoint": "course_progress_unreleased_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
@@ -1070,236 +1070,128 @@
       }
     },
     {
-      "id": "student_practice_stats_laptop",
-      "path": "student/laptop/practice_stats.png",
+      "id": "student_scores_laptop",
+      "path": "student/laptop/scores.png",
       "role": "student",
-      "routeId": "studentCoursePracticeStats",
-      "area": "courses",
-      "workflow": "Practice Stats",
-      "state": "released Question outcomes and measured duration",
-      "scenario": "student_progress_stats_attempt_history",
-      "checkpoint": "practice_stats_laptop",
+      "routeId": "studentScores",
+      "area": "grades",
+      "workflow": "released Coursework scores",
+      "state": "self-only grades",
+      "scenario": "student_scores",
+      "checkpoint": "scores_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
         "order": 59,
-        "caption": "Student Practice Stats",
+        "caption": "Student Scores",
         "featured": false
       }
     },
     {
-      "id": "student_not_started_laptop",
-      "path": "student/laptop/not_started.png",
+      "id": "student_scores_tablet",
+      "path": "student/tablet/scores.png",
       "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "not started",
-      "scenario": "student_landings",
-      "checkpoint": "not_started_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 60,
-        "caption": "Not-started Course landing",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_not_started_tablet",
-      "path": "student/tablet/not_started.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "not started",
-      "scenario": "student_landings",
-      "checkpoint": "not_started_tablet",
+      "routeId": "studentScores",
+      "area": "grades",
+      "workflow": "released Coursework scores",
+      "state": "self-only grades",
+      "scenario": "student_scores",
+      "checkpoint": "scores_tablet",
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 61,
-        "caption": "Not-started Course landing on a tablet",
+        "order": 60,
+        "caption": "Student Scores on a tablet",
         "featured": false
       }
     },
     {
-      "id": "student_not_started_phone",
-      "path": "student/phone/not_started.png",
+      "id": "student_scores_phone",
+      "path": "student/phone/scores.png",
       "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "not started",
-      "scenario": "student_landings",
-      "checkpoint": "not_started_phone",
+      "routeId": "studentScores",
+      "area": "grades",
+      "workflow": "released Coursework scores",
+      "state": "self-only grades",
+      "scenario": "student_scores",
+      "checkpoint": "scores_phone",
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 62,
-        "caption": "Not-started Course landing on a phone",
+        "order": 61,
+        "caption": "Student Scores on a phone",
         "featured": false
       }
     },
     {
-      "id": "student_not_started_square",
-      "path": "student/square/not_started.png",
+      "id": "student_scores_square",
+      "path": "student/square/scores.png",
       "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "not started",
-      "scenario": "student_landings",
-      "checkpoint": "not_started_square",
+      "routeId": "studentScores",
+      "area": "grades",
+      "workflow": "released Coursework scores",
+      "state": "self-only grades",
+      "scenario": "student_scores",
+      "checkpoint": "scores_square",
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 63,
-        "caption": "Not-started Course landing on a square",
+        "order": 62,
+        "caption": "Student Scores on a square",
         "featured": false
       }
     },
     {
-      "id": "student_in_progress_laptop",
-      "path": "student/laptop/in_progress.png",
+      "id": "student_response_stats_laptop",
+      "path": "student/laptop/response_stats.png",
       "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "in progress",
-      "scenario": "student_landings",
-      "checkpoint": "in_progress_laptop",
+      "routeId": "studentResponseStats",
+      "area": "grades",
+      "workflow": "Response Stats",
+      "state": "released Question outcomes and measured duration",
+      "scenario": "student_progress_response_stats_history",
+      "checkpoint": "response_stats_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 63,
+        "caption": "Student Response Stats",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_course_attempt_history_laptop",
+      "path": "student/laptop/course_attempt_history.png",
+      "role": "student",
+      "routeId": "studentAttemptHistory",
+      "area": "grades",
+      "workflow": "Course Attempt History and Latest Feedback",
+      "state": "at least 40 submitted Attempts and released feedback shortcut enabled",
+      "scenario": "student_progress_response_stats_history",
+      "checkpoint": "course_attempt_history_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
         "order": 64,
-        "caption": "In-progress Course landing",
+        "caption": "Student Attempt History with Latest Feedback available",
         "featured": false
       }
     },
     {
-      "id": "student_in_progress_tablet",
-      "path": "student/tablet/in_progress.png",
+      "id": "student_latest_feedback_laptop",
+      "path": "student/laptop/latest_feedback.png",
       "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "in progress",
-      "scenario": "student_landings",
-      "checkpoint": "in_progress_tablet",
-      "viewport": "tablet",
-      "privacyProfile": "student_self",
+      "routeId": "assessmentAttemptSummary",
+      "area": "grades",
+      "workflow": "Latest Feedback shortcut",
+      "state": "released feedback review opened from Grades",
+      "scenario": "student_progress_response_stats_history",
+      "checkpoint": "latest_feedback_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_feedback_released",
       "gallery": {
         "order": 65,
-        "caption": "In-progress Course landing on a tablet",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_in_progress_phone",
-      "path": "student/phone/in_progress.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "in progress",
-      "scenario": "student_landings",
-      "checkpoint": "in_progress_phone",
-      "viewport": "phone",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 66,
-        "caption": "In-progress Course landing on a phone",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_in_progress_square",
-      "path": "student/square/in_progress.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "in progress",
-      "scenario": "student_landings",
-      "checkpoint": "in_progress_square",
-      "viewport": "square",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 67,
-        "caption": "In-progress Course landing on a square",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_completed_laptop",
-      "path": "student/laptop/completed.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "completed",
-      "scenario": "student_landings",
-      "checkpoint": "completed_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 68,
-        "caption": "Completed Course landing",
-        "featured": true
-      }
-    },
-    {
-      "id": "student_completed_tablet",
-      "path": "student/tablet/completed.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "completed",
-      "scenario": "student_landings",
-      "checkpoint": "completed_tablet",
-      "viewport": "tablet",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 69,
-        "caption": "Completed Course landing on a tablet",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_completed_phone",
-      "path": "student/phone/completed.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "completed",
-      "scenario": "student_landings",
-      "checkpoint": "completed_phone",
-      "viewport": "phone",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 70,
-        "caption": "Completed Course landing on a phone",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_completed_square",
-      "path": "student/square/completed.png",
-      "role": "student",
-      "routeId": "studentCourseLanding",
-      "area": "courses",
-      "workflow": "seeded assignment progress",
-      "state": "completed",
-      "scenario": "student_landings",
-      "checkpoint": "completed_square",
-      "viewport": "square",
-      "privacyProfile": "student_self",
-      "gallery": {
-        "order": 71,
-        "caption": "Completed Course landing on a square",
+        "caption": "Attempt review opened from Latest Feedback",
         "featured": false
       }
     },
@@ -1307,16 +1199,16 @@
       "id": "student_course_due_soon_laptop",
       "path": "student/laptop/course_due_soon.png",
       "role": "student",
-      "routeId": "studentCourseDueSoon",
+      "routeId": "studentDueSoon",
       "area": "coursework",
       "workflow": "Student Due Soon Coursework",
       "state": "server-bounded next seven days",
-      "scenario": "student_progress_stats_attempt_history",
+      "scenario": "student_progress_response_stats_history",
       "checkpoint": "course_due_soon_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 72,
+        "order": 66,
         "caption": "Student Coursework Due Soon",
         "featured": false
       }
@@ -1325,53 +1217,233 @@
       "id": "student_course_completed_laptop",
       "path": "student/laptop/course_completed.png",
       "role": "student",
-      "routeId": "studentCourseCompleted",
+      "routeId": "studentCompleted",
       "area": "coursework",
       "workflow": "Student Completed Coursework",
       "state": "submitted Attempts",
-      "scenario": "student_progress_stats_attempt_history",
+      "scenario": "student_progress_response_stats_history",
       "checkpoint": "course_completed_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 73,
+        "order": 67,
         "caption": "Student Completed Coursework",
         "featured": false
       }
     },
     {
-      "id": "student_course_attempt_history_laptop",
-      "path": "student/laptop/course_attempt_history.png",
+      "id": "student_not_started_laptop",
+      "path": "student/laptop/not_started.png",
       "role": "student",
-      "routeId": "studentCourseAttemptHistory",
-      "area": "grades",
-      "workflow": "Course Attempt History",
-      "state": "at least 40 submitted Attempts",
-      "scenario": "student_progress_stats_attempt_history",
-      "checkpoint": "course_attempt_history_laptop",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "no resumable Attempt; Active Attempt disabled",
+      "scenario": "student_landings",
+      "checkpoint": "not_started_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 74,
-        "caption": "Student Course Attempt History",
+        "order": 68,
+        "caption": "Not-started Course landing",
         "featured": false
       }
     },
     {
-      "id": "student_course_attempt_history_selected_laptop",
-      "path": "student/laptop/course_attempt_history_selected.png",
+      "id": "student_not_started_tablet",
+      "path": "student/tablet/not_started.png",
       "role": "student",
-      "routeId": "assessmentAttemptSummary",
-      "area": "grades",
-      "workflow": "Course Attempt History",
-      "state": "latest submitted Attempt review",
-      "scenario": "student_progress_stats_attempt_history",
-      "checkpoint": "course_attempt_history_selected_laptop",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "no resumable Attempt; Active Attempt disabled",
+      "scenario": "student_landings",
+      "checkpoint": "not_started_tablet",
+      "viewport": "tablet",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 69,
+        "caption": "Not-started Course landing on a tablet",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_not_started_phone",
+      "path": "student/phone/not_started.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "no resumable Attempt; Active Attempt disabled",
+      "scenario": "student_landings",
+      "checkpoint": "not_started_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 70,
+        "caption": "Not-started Course landing on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_not_started_square",
+      "path": "student/square/not_started.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "no resumable Attempt; Active Attempt disabled",
+      "scenario": "student_landings",
+      "checkpoint": "not_started_square",
+      "viewport": "square",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 71,
+        "caption": "Not-started Course landing on a square",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_in_progress_laptop",
+      "path": "student/laptop/in_progress.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "resumable Attempt available; Active Attempt enabled",
+      "scenario": "student_landings",
+      "checkpoint": "in_progress_laptop",
       "viewport": "laptop",
-      "privacyProfile": "student_feedback_released",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 72,
+        "caption": "In-progress Course landing",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_in_progress_tablet",
+      "path": "student/tablet/in_progress.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "resumable Attempt available; Active Attempt enabled",
+      "scenario": "student_landings",
+      "checkpoint": "in_progress_tablet",
+      "viewport": "tablet",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 73,
+        "caption": "In-progress Course landing on a tablet",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_in_progress_phone",
+      "path": "student/phone/in_progress.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "resumable Attempt available; Active Attempt enabled",
+      "scenario": "student_landings",
+      "checkpoint": "in_progress_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 74,
+        "caption": "In-progress Course landing on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_in_progress_square",
+      "path": "student/square/in_progress.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "Coursework and Active Attempt",
+      "state": "resumable Attempt available; Active Attempt enabled",
+      "scenario": "student_landings",
+      "checkpoint": "in_progress_square",
+      "viewport": "square",
+      "privacyProfile": "student_self",
       "gallery": {
         "order": 75,
-        "caption": "Latest submitted Attempt review opened from Course History",
+        "caption": "In-progress Course landing on a square",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_completed_laptop",
+      "path": "student/laptop/completed.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "seeded assignment progress",
+      "state": "completed",
+      "scenario": "student_landings",
+      "checkpoint": "completed_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 76,
+        "caption": "Completed Course landing",
+        "featured": true
+      }
+    },
+    {
+      "id": "student_completed_tablet",
+      "path": "student/tablet/completed.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "seeded assignment progress",
+      "state": "completed",
+      "scenario": "student_landings",
+      "checkpoint": "completed_tablet",
+      "viewport": "tablet",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 77,
+        "caption": "Completed Course landing on a tablet",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_completed_phone",
+      "path": "student/phone/completed.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "seeded assignment progress",
+      "state": "completed",
+      "scenario": "student_landings",
+      "checkpoint": "completed_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 78,
+        "caption": "Completed Course landing on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_completed_square",
+      "path": "student/square/completed.png",
+      "role": "student",
+      "routeId": "studentHome",
+      "area": "coursework",
+      "workflow": "seeded assignment progress",
+      "state": "completed",
+      "scenario": "student_landings",
+      "checkpoint": "completed_square",
+      "viewport": "square",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 79,
+        "caption": "Completed Course landing on a square",
         "featured": false
       }
     },
@@ -1388,7 +1460,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 76,
+        "order": 80,
         "caption": "Unanswered Assignment overview",
         "featured": true
       }
@@ -1406,7 +1478,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 77,
+        "order": 81,
         "caption": "Unanswered Assignment overview on a tablet",
         "featured": false
       }
@@ -1424,7 +1496,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 78,
+        "order": 82,
         "caption": "Unanswered Assignment overview on a phone",
         "featured": false
       }
@@ -1442,7 +1514,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 79,
+        "order": 83,
         "caption": "Unanswered Assignment overview on a square",
         "featured": false
       }
@@ -1460,7 +1532,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 80,
+        "order": 84,
         "caption": "Assignment overview with previous attempts",
         "featured": false
       }
@@ -1478,7 +1550,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 81,
+        "order": 85,
         "caption": "Assignment overview with previous attempts on a tablet",
         "featured": false
       }
@@ -1496,7 +1568,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 82,
+        "order": 86,
         "caption": "Assignment overview with previous attempts on a phone",
         "featured": false
       }
@@ -1514,7 +1586,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 83,
+        "order": 87,
         "caption": "Assignment overview with previous attempts on a square",
         "featured": false
       }
@@ -1532,7 +1604,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 84,
+        "order": 88,
         "caption": "Latest Attempt review from Assignment history",
         "featured": false
       }
@@ -1550,7 +1622,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 85,
+        "order": 89,
         "caption": "Latest Attempt review from Assignment history on a tablet",
         "featured": false
       }
@@ -1568,7 +1640,7 @@
       "viewport": "phone",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 86,
+        "order": 90,
         "caption": "Latest Attempt review from Assignment history on a phone",
         "featured": false
       }
@@ -1586,7 +1658,7 @@
       "viewport": "square",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 87,
+        "order": 91,
         "caption": "Latest Attempt review from Assignment history on a square",
         "featured": false
       }
@@ -1604,7 +1676,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 88,
+        "order": 92,
         "caption": "Saved Student Assignment response",
         "featured": true
       }
@@ -1622,7 +1694,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 89,
+        "order": 93,
         "caption": "Saved Student Assignment response on a tablet",
         "featured": false
       }
@@ -1640,7 +1712,7 @@
       "viewport": "phone",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 90,
+        "order": 94,
         "caption": "Saved Student Assignment response on a phone",
         "featured": false
       }
@@ -1658,7 +1730,7 @@
       "viewport": "square",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 91,
+        "order": 95,
         "caption": "Saved Student Assignment response on a square",
         "featured": false
       }
@@ -1676,7 +1748,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 92,
+        "order": 96,
         "caption": "Reloaded Student Assignment response",
         "featured": false
       }
@@ -1694,7 +1766,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 93,
+        "order": 97,
         "caption": "Reloaded Student Assignment response on a tablet",
         "featured": false
       }
@@ -1712,7 +1784,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 94,
+        "order": 98,
         "caption": "Reloaded Student Assignment response on a phone",
         "featured": false
       }
@@ -1730,7 +1802,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 95,
+        "order": 99,
         "caption": "Reloaded Student Assignment response on a square",
         "featured": false
       }
@@ -1748,7 +1820,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 96,
+        "order": 100,
         "caption": "Submitted Student Assignment",
         "featured": false
       }
@@ -1766,7 +1838,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 97,
+        "order": 101,
         "caption": "Submitted Student Assignment on a tablet",
         "featured": false
       }
@@ -1784,7 +1856,7 @@
       "viewport": "phone",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 98,
+        "order": 102,
         "caption": "Submitted Student Assignment on a phone",
         "featured": false
       }
@@ -1802,7 +1874,7 @@
       "viewport": "square",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 99,
+        "order": 103,
         "caption": "Submitted Student Assignment on a square",
         "featured": false
       }
@@ -1820,7 +1892,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 100,
+        "order": 104,
         "caption": "Student Question navigation, saved progress, and countdown timer",
         "featured": false
       }
@@ -1838,7 +1910,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 101,
+        "order": 105,
         "caption": "Student Question navigation, saved progress, and countdown timer on a tablet",
         "featured": false
       }
@@ -1856,7 +1928,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 102,
+        "order": 106,
         "caption": "Student Question navigation, saved progress, and countdown timer on a phone",
         "featured": false
       }
@@ -1874,7 +1946,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 103,
+        "order": 107,
         "caption": "Student Question navigation, saved progress, and countdown timer on a square",
         "featured": false
       }
@@ -1892,7 +1964,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 104,
+        "order": 108,
         "caption": "Student MC response controls on a laptop",
         "featured": false
       }
@@ -1910,7 +1982,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 105,
+        "order": 109,
         "caption": "Student MC response controls on a phone",
         "featured": false
       }
@@ -1928,7 +2000,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 106,
+        "order": 110,
         "caption": "Student MC response controls after saving a response on a laptop",
         "featured": false
       }
@@ -1946,7 +2018,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 107,
+        "order": 111,
         "caption": "Student MC response controls after saving a response on a phone",
         "featured": false
       }
@@ -1964,7 +2036,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 108,
+        "order": 112,
         "caption": "Student MA response controls on a laptop",
         "featured": false
       }
@@ -1982,7 +2054,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 109,
+        "order": 113,
         "caption": "Student MA response controls on a phone",
         "featured": false
       }
@@ -2000,7 +2072,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 110,
+        "order": 114,
         "caption": "Student MA response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2018,7 +2090,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 111,
+        "order": 115,
         "caption": "Student MA response controls after saving a response on a phone",
         "featured": false
       }
@@ -2036,7 +2108,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 112,
+        "order": 116,
         "caption": "Student FIB response controls on a laptop",
         "featured": false
       }
@@ -2054,7 +2126,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 113,
+        "order": 117,
         "caption": "Student FIB response controls on a phone",
         "featured": false
       }
@@ -2072,7 +2144,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 114,
+        "order": 118,
         "caption": "Student FIB response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2090,7 +2162,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 115,
+        "order": 119,
         "caption": "Student FIB response controls after saving a response on a phone",
         "featured": false
       }
@@ -2108,7 +2180,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 116,
+        "order": 120,
         "caption": "Student MULTI-FIB response controls on a laptop",
         "featured": false
       }
@@ -2126,7 +2198,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 117,
+        "order": 121,
         "caption": "Student MULTI-FIB response controls on a phone",
         "featured": false
       }
@@ -2144,7 +2216,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 118,
+        "order": 122,
         "caption": "Student MULTI-FIB response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2162,7 +2234,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 119,
+        "order": 123,
         "caption": "Student MULTI-FIB response controls after saving a response on a phone",
         "featured": false
       }
@@ -2180,7 +2252,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 120,
+        "order": 124,
         "caption": "Student NUM response controls on a laptop",
         "featured": false
       }
@@ -2198,7 +2270,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 121,
+        "order": 125,
         "caption": "Student NUM response controls on a phone",
         "featured": false
       }
@@ -2216,7 +2288,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 122,
+        "order": 126,
         "caption": "Student NUM response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2234,7 +2306,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 123,
+        "order": 127,
         "caption": "Student NUM response controls after saving a response on a phone",
         "featured": false
       }
@@ -2252,7 +2324,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 124,
+        "order": 128,
         "caption": "Student MATCH response controls on a laptop",
         "featured": false
       }
@@ -2270,7 +2342,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 125,
+        "order": 129,
         "caption": "Student MATCH response controls on a phone",
         "featured": false
       }
@@ -2288,7 +2360,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 126,
+        "order": 130,
         "caption": "Student MATCH response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2306,7 +2378,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 127,
+        "order": 131,
         "caption": "Student MATCH response controls after saving a response on a phone",
         "featured": false
       }
@@ -2324,7 +2396,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 128,
+        "order": 132,
         "caption": "Student ORDER response controls on a laptop",
         "featured": false
       }
@@ -2342,7 +2414,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 129,
+        "order": 133,
         "caption": "Student ORDER response controls on a phone",
         "featured": false
       }
@@ -2360,7 +2432,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 130,
+        "order": 134,
         "caption": "Student ORDER response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2378,7 +2450,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 131,
+        "order": 135,
         "caption": "Student ORDER response controls after saving a response on a phone",
         "featured": false
       }
@@ -2396,7 +2468,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 132,
+        "order": 136,
         "caption": "Student HOTSPOT uploaded-image response controls on a laptop",
         "featured": false
       }
@@ -2414,7 +2486,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 133,
+        "order": 137,
         "caption": "Student HOTSPOT uploaded-image response controls on a phone",
         "featured": false
       }
@@ -2432,7 +2504,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 134,
+        "order": 138,
         "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2450,7 +2522,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 135,
+        "order": 139,
         "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a phone",
         "featured": false
       }
@@ -2468,7 +2540,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 136,
+        "order": 140,
         "caption": "Student WeBWorK response controls on a laptop",
         "featured": false
       }
@@ -2486,7 +2558,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 137,
+        "order": 141,
         "caption": "Student WeBWorK response controls on a phone",
         "featured": false
       }
@@ -2504,7 +2576,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 138,
+        "order": 142,
         "caption": "Student WeBWorK response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2522,7 +2594,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 139,
+        "order": 143,
         "caption": "Student WeBWorK response controls after saving a response on a phone",
         "featured": false
       }
@@ -2540,7 +2612,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 140,
+        "order": 144,
         "caption": "Student MC response controls on a tablet",
         "featured": false
       }
@@ -2558,7 +2630,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 141,
+        "order": 145,
         "caption": "Student MC response controls on a square",
         "featured": false
       }
@@ -2576,7 +2648,7 @@
       "viewport": "laptop",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 142,
+        "order": 146,
         "caption": "Student authorization denial",
         "featured": false
       }
@@ -2594,7 +2666,7 @@
       "viewport": "tablet",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 143,
+        "order": 147,
         "caption": "Student authorization denial on a tablet",
         "featured": false
       }
@@ -2612,7 +2684,7 @@
       "viewport": "phone",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 144,
+        "order": 148,
         "caption": "Student authorization denial on a phone",
         "featured": false
       }
@@ -2630,7 +2702,7 @@
       "viewport": "square",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 145,
+        "order": 149,
         "caption": "Student authorization denial on a square",
         "featured": false
       }
@@ -2648,7 +2720,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 146,
+        "order": 150,
         "caption": "System administration home",
         "featured": true
       }
@@ -2666,7 +2738,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 147,
+        "order": 151,
         "caption": "Instructor Accounts",
         "featured": false
       }
@@ -2684,7 +2756,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 148,
+        "order": 152,
         "caption": "Created Instructor Account",
         "featured": false
       }
@@ -2702,7 +2774,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 149,
+        "order": 153,
         "caption": "Deactivated Instructor Account",
         "featured": false
       }
@@ -2720,7 +2792,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 150,
+        "order": 154,
         "caption": "Instructor Account creation validation",
         "featured": false
       }
@@ -2761,14 +2833,32 @@
         "routeId": "studentHome",
         "status": "captured",
         "captureIds": [
+          "student_not_started_laptop",
+          "student_not_started_tablet",
+          "student_not_started_phone",
+          "student_not_started_square",
+          "student_in_progress_laptop",
+          "student_in_progress_tablet",
+          "student_in_progress_phone",
+          "student_in_progress_square",
+          "student_completed_laptop",
+          "student_completed_tablet",
+          "student_completed_phone",
+          "student_completed_square"
+        ]
+      },
+      {
+        "routeId": "studentCourses",
+        "status": "captured",
+        "captureIds": [
           "student_course_list_laptop",
           "student_course_list_tablet",
           "student_course_list_phone",
           "student_course_list_square",
-          "student_two_course_chooser_laptop",
-          "student_two_course_chooser_tablet",
-          "student_two_course_chooser_phone",
-          "student_two_course_chooser_square"
+          "student_two_course_list_laptop",
+          "student_two_course_list_tablet",
+          "student_two_course_list_phone",
+          "student_two_course_list_square"
         ]
       },
       {
@@ -2822,18 +2912,10 @@
         "routeId": "studentCourseLanding",
         "status": "captured",
         "captureIds": [
-          "student_not_started_laptop",
-          "student_not_started_tablet",
-          "student_not_started_phone",
-          "student_not_started_square",
-          "student_in_progress_laptop",
-          "student_in_progress_tablet",
-          "student_in_progress_phone",
-          "student_in_progress_square",
-          "student_completed_laptop",
-          "student_completed_tablet",
-          "student_completed_phone",
-          "student_completed_square"
+          "student_course_landing_laptop",
+          "student_course_landing_tablet",
+          "student_course_landing_phone",
+          "student_course_landing_square"
         ]
       },
       {
@@ -2845,38 +2927,38 @@
         ]
       },
       {
-        "routeId": "studentCoursePracticeStats",
+        "routeId": "studentResponseStats",
         "status": "captured",
         "captureIds": [
-          "student_practice_stats_laptop"
+          "student_response_stats_laptop"
         ]
       },
       {
-        "routeId": "studentCourseDueSoon",
+        "routeId": "studentDueSoon",
         "status": "captured",
         "captureIds": [
           "student_course_due_soon_laptop"
         ]
       },
       {
-        "routeId": "studentCourseCompleted",
+        "routeId": "studentCompleted",
         "status": "captured",
         "captureIds": [
           "student_course_completed_laptop"
         ]
       },
       {
-        "routeId": "studentCourseGrades",
+        "routeId": "studentScores",
         "status": "captured",
         "captureIds": [
-          "student_course_grades_laptop",
-          "student_course_grades_tablet",
-          "student_course_grades_phone",
-          "student_course_grades_square"
+          "student_scores_laptop",
+          "student_scores_tablet",
+          "student_scores_phone",
+          "student_scores_square"
         ]
       },
       {
-        "routeId": "studentCourseAttemptHistory",
+        "routeId": "studentAttemptHistory",
         "status": "captured",
         "captureIds": [
           "student_course_attempt_history_laptop"
@@ -2978,7 +3060,7 @@
         "routeId": "assessmentAttemptSummary",
         "status": "captured",
         "captureIds": [
-          "student_course_attempt_history_selected_laptop",
+          "student_latest_feedback_laptop",
           "student_selected_history_laptop",
           "student_selected_history_tablet",
           "student_selected_history_phone",
@@ -3184,10 +3266,10 @@
         "id": "tab:grades",
         "status": "captured",
         "captureIds": [
-          "student_course_grades_laptop",
-          "student_course_grades_tablet",
-          "student_course_grades_phone",
-          "student_course_grades_square"
+          "student_scores_laptop",
+          "student_scores_tablet",
+          "student_scores_phone",
+          "student_scores_square"
         ]
       },
       {
@@ -3329,21 +3411,6 @@
         "reason": "Course Setup is a future destination identity, not a declared usable path."
       },
       {
-        "id": "task:studentProgress",
-        "status": "captured",
-        "captureIds": [
-          "student_course_progress_laptop",
-          "student_course_progress_unreleased_laptop"
-        ]
-      },
-      {
-        "id": "task:studentPracticeStats",
-        "status": "captured",
-        "captureIds": [
-          "student_practice_stats_laptop"
-        ]
-      },
-      {
         "id": "task:allCoursework",
         "status": "captured",
         "captureIds": [
@@ -3376,13 +3443,76 @@
         ]
       },
       {
+        "id": "task:activeAttempt",
+        "status": "captured",
+        "captureIds": [
+          "student_response_selected_laptop",
+          "student_response_selected_tablet",
+          "student_response_selected_phone",
+          "student_response_selected_square",
+          "student_resume_selected_laptop",
+          "student_resume_selected_tablet",
+          "student_resume_selected_phone",
+          "student_resume_selected_square",
+          "student_assessment_navigation_laptop",
+          "student_assessment_navigation_tablet",
+          "student_assessment_navigation_phone",
+          "student_assessment_navigation_square",
+          "student_question_unanswered_mc_laptop",
+          "student_question_unanswered_mc_phone",
+          "student_question_answered_mc_laptop",
+          "student_question_answered_mc_phone",
+          "student_question_unanswered_ma_laptop",
+          "student_question_unanswered_ma_phone",
+          "student_question_answered_ma_laptop",
+          "student_question_answered_ma_phone",
+          "student_question_unanswered_fib_laptop",
+          "student_question_unanswered_fib_phone",
+          "student_question_answered_fib_laptop",
+          "student_question_answered_fib_phone",
+          "student_question_unanswered_multi_fib_laptop",
+          "student_question_unanswered_multi_fib_phone",
+          "student_question_answered_multi_fib_laptop",
+          "student_question_answered_multi_fib_phone",
+          "student_question_unanswered_num_laptop",
+          "student_question_unanswered_num_phone",
+          "student_question_answered_num_laptop",
+          "student_question_answered_num_phone",
+          "student_question_unanswered_match_laptop",
+          "student_question_unanswered_match_phone",
+          "student_question_answered_match_laptop",
+          "student_question_answered_match_phone",
+          "student_question_unanswered_order_laptop",
+          "student_question_unanswered_order_phone",
+          "student_question_answered_order_laptop",
+          "student_question_answered_order_phone",
+          "student_question_unanswered_hotspot_laptop",
+          "student_question_unanswered_hotspot_phone",
+          "student_question_answered_hotspot_laptop",
+          "student_question_answered_hotspot_phone",
+          "student_question_unanswered_webwork_laptop",
+          "student_question_unanswered_webwork_phone",
+          "student_question_answered_webwork_laptop",
+          "student_question_answered_webwork_phone",
+          "student_question_unanswered_mc_tablet",
+          "student_question_unanswered_mc_square"
+        ]
+      },
+      {
         "id": "task:studentScores",
         "status": "captured",
         "captureIds": [
-          "student_course_grades_laptop",
-          "student_course_grades_tablet",
-          "student_course_grades_phone",
-          "student_course_grades_square"
+          "student_scores_laptop",
+          "student_scores_tablet",
+          "student_scores_phone",
+          "student_scores_square"
+        ]
+      },
+      {
+        "id": "task:studentResponseStats",
+        "status": "captured",
+        "captureIds": [
+          "student_response_stats_laptop"
         ]
       },
       {
@@ -3390,6 +3520,21 @@
         "status": "captured",
         "captureIds": [
           "student_course_attempt_history_laptop"
+        ]
+      },
+      {
+        "id": "task:studentLatestFeedback",
+        "status": "captured",
+        "captureIds": [
+          "student_latest_feedback_laptop",
+          "student_selected_history_laptop",
+          "student_selected_history_tablet",
+          "student_selected_history_phone",
+          "student_selected_history_square",
+          "student_submitted_laptop",
+          "student_submitted_tablet",
+          "student_submitted_phone",
+          "student_submitted_square"
         ]
       },
       {

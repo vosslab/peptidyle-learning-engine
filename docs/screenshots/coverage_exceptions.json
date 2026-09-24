@@ -36,11 +36,6 @@
       "reason": "Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
     },
     {
-      "id": "studentCourseGrades",
-      "status": "deferred",
-      "reason": "Student Course Grades has four declared capture checkpoints and awaits the next authorized Live Demo publication."
-    },
-    {
       "id": "contentDisciplines",
       "status": "deferred",
       "reason": "The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
@@ -71,11 +66,6 @@
       "id": "tab:courseSetup",
       "status": "deferred",
       "reason": "Course Setup is a future Ribbon destination without a complete current workflow."
-    },
-    {
-      "id": "tab:grades",
-      "status": "deferred",
-      "reason": "Student Grades has four declared capture checkpoints and awaits the next authorized Live Demo publication."
     },
     {
       "id": "tab:attempt",
