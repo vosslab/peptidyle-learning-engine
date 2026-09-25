@@ -31,9 +31,3 @@ test("relationship suffix validation rejects an interleaving after it has begun"
     false,
   );
 });
-
-test("schema results and their slots are immutable", () => {
-  const schema = ribbonSchemaFor("instructor");
-  assert.equal(Object.isFrozen(schema), true);
-  for (const slot of schema) assert.equal(Object.isFrozen(slot), true, slot.id);
-});

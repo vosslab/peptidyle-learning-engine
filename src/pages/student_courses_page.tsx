@@ -1,7 +1,7 @@
 // Student-owned current course index.
 
-import { A, useLocation, useNavigate } from "@solidjs/router";
-import { createEffect, createResource, For, Show, type JSX } from "solid-js";
+import { A } from "@solidjs/router";
+import { createResource, For, Show, type JSX } from "solid-js";
 
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
@@ -12,34 +12,23 @@ function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary })
     <article class="course-card">
       <h2>{props.course.longName}</h2>
       <A class="primary-link" href={`/student/courses/${props.course.id}`}>
-        Open Coursework
+        Open Course
       </A>
     </article>
   );
 }
 
-/** Lists only the signed-in Student's current courses. */
+/** Lists the signed-in Student's current Courses and invitations. */
 export function StudentCoursesPage(): JSX.Element {
   const applicationApi = useApplicationApi();
-  const location = useLocation();
-  const navigate = useNavigate();
   const [courses] = createResource(() => applicationApi.client.listLiveStudentCourses());
-  const choosingCourses = (): boolean => new URLSearchParams(location.search).get("choose") === "1";
-
-  createEffect(() => {
-    const currentCourses = courses();
-    if (choosingCourses() || currentCourses?.length !== 1) return;
-    const currentCourse = currentCourses[0];
-    if (currentCourse === undefined) return;
-    navigate(`/student/courses/${currentCourse.id}`, { replace: true });
-  });
 
   return (
     <PageFrame
       routeSurface="studentCourses"
       eyebrow="Your learning"
       title="Your courses"
-      lede="Open Coursework in one of your current courses."
+      lede="Open one of your Courses. Coursework and Grades include all of your current Courses."
     >
       <A class="quiet-link" href="/student/course-invitations">
         Course invitations

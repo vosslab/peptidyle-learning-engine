@@ -39,8 +39,8 @@ test("declared routes select only Ribbon topology and task areas that exist", ()
 });
 
 // Permanent contract: each authenticated Product Role keeps one explicit home
-// destination. A regression would strand a role at an ambiguous shared root.
-test("each Product Role has an explicit selected Courses home route", () => {
+// destination. Student home opens Coursework; its Courses tab opens the Course list.
+test("each Product Role has an explicit selected home route", () => {
   for (const productRole of PRODUCT_ROLES) {
     const routeId = productRoleHomeRouteId(productRole);
     const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
@@ -48,33 +48,18 @@ test("each Product Role has an explicit selected Courses home route", () => {
     assert.equal(route.path, productRoleHomePath(productRole), productRole);
     assert.deepEqual(route.requiredProductRoles, [productRole], productRole);
     assert.equal(route.ribbon.scope, "product", productRole);
-    assert.equal(route.ribbon.tierOneArea, "courses", productRole);
+    const selectedHomeArea = productRole === "student" ? "coursework" : "courses";
+    assert.equal(route.ribbon.tierOneArea, selectedHomeArea, productRole);
     assert.equal(
       ribbonSchemaFor(productRole).some((slot) => slot.id === "courses"),
       true,
       productRole,
     );
     const model = deriveRibbonModel({ route, params: {} }, { productRole }, {});
-    const courses = model.tabs.find((control) => control.id === "courses");
-    assert.equal(courses?.selected, true, productRole);
-    assert.equal(courses?.href, route.path, productRole);
+    const homeTab = model.tabs.find((control) => control.id === selectedHomeArea);
+    assert.equal(homeTab?.selected, true, productRole);
+    assert.equal(homeTab?.href, route.path, productRole);
   }
-});
-
-test("Instructor routes leave Tier 2 selection to Product Role and Tier 1", () => {
-  for (const route of ROUTE_CONTRACT) {
-    if (!route.requiredProductRoles.includes("instructor")) continue;
-  }
-  const inactiveCourses = ROUTE_CONTRACT.find(
-    (candidate) => candidate.id === "instructorInactiveCourses",
-  );
-  const courseWorkspace = ROUTE_CONTRACT.find((candidate) => candidate.id === "courseAssessments");
-  const assessmentEditor = ROUTE_CONTRACT.find(
-    (candidate) => candidate.id === "assessmentWorkspaceOverview",
-  );
-  assert.equal(inactiveCourses?.ribbon.tierOneArea, "courses");
-  assert.equal(courseWorkspace?.ribbon.tierOneArea, "courses");
-  assert.equal(assessmentEditor?.ribbon.tierOneArea, "productAssessments");
 });
 
 // Permanent contract: the account menu has exactly two authenticated-self

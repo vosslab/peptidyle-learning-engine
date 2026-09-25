@@ -22,7 +22,7 @@ function progress(overrides = {}) {
   };
 }
 
-test("Course Progress keeps attempted Assessments visible while a score is unreleased", () => {
+test("Course Progress preserves Attempt activity and completion when the score is unreleased", () => {
   const assessment = progress({
     assessmentAttemptCount: 2,
     submittedAssessmentAttemptCount: 1,
@@ -34,7 +34,6 @@ test("Course Progress keeps attempted Assessments visible while a score is unrel
   assert.equal(studentAssessmentScoreStateLabel(assessment), "Score not released");
   assert.equal(studentAssessmentActivityLabel(assessment), "Latest Attempt 2 in progress");
   assert.match(studentAssessmentScoreDescription(assessment), /1 submitted Attempt/);
-  assert.match(studentAssessmentScoreDescription(assessment), /stays visible/);
   assert.equal(completedStudentAssessmentCount([assessment]), 1);
 });
 

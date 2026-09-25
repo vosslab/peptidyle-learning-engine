@@ -215,8 +215,8 @@
 
 .ple-app-ribbon__brand-mark {
   display: grid;
-  inline-size: calc(var(--ple-ribbon-space-inline) + var(--ple-ribbon-space-control));
-  block-size: calc(var(--ple-ribbon-space-inline) + var(--ple-ribbon-space-control));
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
   place-items: center;
   border-radius: var(--ple-radius-control) var(--ple-radius-control) var(--ple-radius-control)
     var(--ple-ribbon-space-tight);
@@ -230,6 +230,13 @@
 }
 
 .ple-app-ribbon__product-role {
+  /* Every signed-in role reserves the Instructor-sized badge so the first
+     destination has one stable inline start across non-phone Ribbons. */
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  inline-size: 6rem;
+  justify-content: center;
   color: var(--ple-muted);
   background: color-mix(in srgb, var(--ple-card-surface) 62%, transparent);
   border: 1px solid var(--ple-ribbon-rule);
@@ -244,11 +251,10 @@
 }
 
 /* The canonical 1280px Instructor bar needs the same full labels and glyphs
-   as wider desktops. Its dense band only tightens the existing inline-control
-   token; the task row and shell-owned breadcrumb prelude retain their ordinary
-   spacing. */
+   as wider desktops. Tighten only Tier 1 controls; the shared identity block
+   retains the same geometry at every non-phone viewport. */
 @media (min-width: 64rem) and (max-width: 80rem) {
-  .ple-app-ribbon__top-bar {
+  .ple-app-ribbon__tabs .ple-app-ribbon__link {
     --ple-ribbon-space-control: var(--ple-space-1);
   }
 }
@@ -298,6 +304,21 @@
   font-weight: 680;
 }
 
+/* Reserve the selected label's width in every state. The hidden grid item
+   participates in sizing, while the visible text keeps the same start edge. */
+.ple-app-ribbon__control-label {
+  display: inline-grid;
+}
+
+.ple-app-ribbon__control-label::after {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  content: attr(data-ribbon-label);
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .ple-app-ribbon__link--unavailable {
   border: 1px dashed var(--ple-ribbon-rule);
   color: var(--ple-muted);
@@ -316,11 +337,11 @@
   block-size: 2rem;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid var(--ple-ribbon-rule);
+  border: 1px solid var(--ple-ribbon-rule, var(--ple-border));
   border-radius: var(--ple-radius-inset);
   padding: 0;
   color: var(--ple-muted);
-  background: var(--ple-ribbon-interaction-surface);
+  background: var(--ple-ribbon-interaction-surface, var(--ple-surface-soft));
 }
 
 .ple-app-ribbon__profile img {
@@ -363,8 +384,8 @@
   background: var(--ple-ribbon-interaction-surface);
 }
 
-/* Tabs answer which destination: this is the strongest repeated rhythm, with
-   unchanged boxes and an underline/weight pair that survives loss of color. */
+/* Tabs answer which destination: the selected surface, underline, and modest
+   weight change mark the choice without moving neighboring tabs. */
 .ple-app-ribbon__tabs {
   display: inline-flex;
   flex: 0 0 auto;
@@ -402,7 +423,7 @@
   color: var(--ple-ink);
   background: var(--ple-ribbon-interaction-surface);
   box-shadow: inset 0 0 0 1px var(--ple-ribbon-rule-quiet);
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
@@ -428,14 +449,6 @@
   /* This task-area boundary uses the all-theme text-safe neutral rather than
      the intentionally softer structural border token. */
   border-inline-start: 1px solid var(--ple-muted);
-}
-
-.ple-app-ribbon__task-area-label {
-  color: var(--ple-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
 }
 
 .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
@@ -531,9 +544,6 @@
 
 @media (max-width: 40rem) {
   :root {
-    /* Student phones use two visible navigation levels inside the top bar:
-       identity and destinations. The token names the complete bar. */
-    --ple-ribbon-top-block-size: 5.5rem;
     --ple-ribbon-task-block-size: 2.75rem;
   }
 
@@ -541,60 +551,51 @@
     --ple-ribbon-space-inline: var(--ple-space-2);
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar {
-    display: grid;
-    grid-template-rows:
-      minmax(0, calc(var(--ple-ribbon-top-block-size) - var(--ple-ribbon-task-block-size)))
-      var(--ple-ribbon-task-block-size);
-    /* The Student phone topology composes two fixed Ribbon tracks. Long
-       identity and destination content scrolls or truncates within them. */
+  /* Signed-in phone Ribbons retain the ordinary identity-to-destination
+     order. The compact P mark makes room for the same role-specific Tier 1
+     navigation without introducing a role-specific topology. */
+  .ple-app-ribbon__top-bar {
+    gap: var(--ple-ribbon-space-tight);
     block-size: 100%;
-    gap: 0;
-    padding-inline-end: var(--ple-ribbon-space-inline);
+    padding-inline-end: calc(
+      2rem + var(--ple-ribbon-space-inline) + var(--ple-ribbon-space-control)
+    );
     overflow: hidden;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar::after,
-  .ple-app-ribbon[data-ribbon-product-role="student"]
-    [data-ribbon-row-frame="top"]
-    > .ple-app-ribbon__overflow-cue {
+  .ple-app-ribbon__top-bar::after,
+  .ple-app-ribbon__row-frame[data-ribbon-row-frame="top"] > .ple-app-ribbon__overflow-cue {
     display: none;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-identity {
-    flex-wrap: nowrap;
-    align-content: center;
-    gap: var(--ple-ribbon-space-tight);
-    overflow: hidden;
+  .ple-app-ribbon__context-identity {
+    flex: 0 0 auto;
+    gap: 0;
     min-block-size: 2.75rem;
-    max-inline-size: calc(100% - 2.75rem - var(--ple-ribbon-space-control));
-    padding-inline-end: var(--ple-ribbon-space-tight);
+    padding-inline-end: 0;
     border-inline-end: 0;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__brand {
-    min-inline-size: 0;
-    flex: 1 1 auto;
-    gap: var(--ple-ribbon-space-tight);
+  .ple-app-ribbon__brand {
+    min-inline-size: 2.75rem;
+    flex: 0 0 auto;
+    gap: 0;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__brand-word {
-    min-inline-size: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .ple-app-ribbon__brand-mark {
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__profile-endcap {
-    inset-block-start: 0.375rem;
+  .ple-app-ribbon__brand-word {
+    display: none;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__product-role {
-    padding-inline: var(--ple-ribbon-space-tight);
-    letter-spacing: 0;
+  .ple-app-ribbon__product-role {
+    display: none;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs-frame {
+  .ple-app-ribbon__tabs-frame {
     position: relative;
     display: flex;
     align-self: stretch;
@@ -602,27 +603,27 @@
     overflow: clip;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs {
+  .ple-app-ribbon__tabs {
     flex: 1 1 0;
     margin-inline-start: 0;
+    gap: 0;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-padding-inline: var(--ple-ribbon-space-cue);
     scrollbar-width: thin;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs .ple-app-ribbon__link {
+  .ple-app-ribbon__tabs .ple-app-ribbon__link {
     font-size: 0.9rem;
+    padding-inline: var(--ple-ribbon-space-tight);
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs::after {
+  .ple-app-ribbon__tabs::after {
     flex: 0 0 var(--ple-ribbon-space-cue);
     content: "";
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"]
-    .ple-app-ribbon__tabs-frame
-    > .ple-app-ribbon__overflow-cue {
+  .ple-app-ribbon__tabs-frame > .ple-app-ribbon__overflow-cue {
     display: block;
   }
 }

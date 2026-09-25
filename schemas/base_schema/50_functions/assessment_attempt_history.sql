@@ -227,6 +227,91 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
       JOIN ple_data.course_instance AS course ON course.course_instance_id = history.course_instance_id
 $$;
 
+-- Return only the newest submitted Attempt that has at least one released
+-- feedback category. The Attempt review rechecks every disclosure rule.
+-- ASVS 2.3.1/14.2.6: the API owner resolves active Course membership; this
+-- private read rechecks exact Student ownership and returns only a disclosed Attempt.
+SET LOCAL ROLE ple_private_owner;
+
+CREATE FUNCTION ple_private.read_student_latest_feedback_attempt(
+    p_course_instance_id text,
+    p_student_record_id uuid
+)
+RETURNS TABLE (assessment_attempt_id uuid, submitted_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+    SELECT attempt.assessment_attempt_id,
+           submission.submitted_at
+      FROM ple_data.assessment AS assessment
+      JOIN ple_private.assessment_attempt AS attempt
+        ON attempt.assessment_id = assessment.assessment_id
+       AND attempt.course_instance_id = assessment.course_instance_id
+       AND attempt.student_record_id = p_student_record_id
+      JOIN ple_private.assessment_submission AS submission
+        ON submission.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = attempt.assessment_policy_snapshot_id
+     WHERE assessment.course_instance_id = p_course_instance_id
+       AND ple_api.current_session_account_owns_student_record(
+           p_course_instance_id, p_student_record_id
+       )
+       AND ple_api.course_student_work_is_ordinarily_visible(p_course_instance_id)
+       AND (
+           ple_private.student_assessment_score_is_released(
+               policy.feedback_score, submission.submitted_at,
+               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
+           )
+           OR ple_private.student_assessment_score_is_released(
+               policy.feedback_per_item_correctness, submission.submitted_at,
+               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
+           )
+           OR ple_private.student_assessment_score_is_released(
+               policy.feedback_submitted_response, submission.submitted_at,
+               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
+           )
+           OR ple_private.student_assessment_score_is_released(
+               policy.feedback_question_answer, submission.submitted_at,
+               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
+           )
+           OR ple_private.student_assessment_score_is_released(
+               policy.feedback_question_answer_explanation, submission.submitted_at,
+               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
+           )
+           OR ple_private.student_assessment_score_is_released(
+               policy.feedback_class_statistics, submission.submitted_at,
+               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
+           )
+       )
+     ORDER BY submission.submitted_at DESC, attempt.assessment_attempt_id DESC
+     LIMIT 1
+$$;
+
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.read_student_latest_feedback_attempt()
+RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+    SELECT feedback.assessment_attempt_id
+      FROM ple_data.course_membership AS membership
+      JOIN ple_data.course_instance AS course
+        ON course.course_instance_id = membership.course_instance_id
+       AND course.retention_lifecycle_state = 'active'
+       AND ple_api.course_student_work_is_ordinarily_visible(course.course_instance_id)
+      JOIN ple_data.student_record AS student
+        ON student.student_record_id = membership.student_record_id
+       AND student.course_instance_id = course.course_instance_id
+       AND student.student_account_id = membership.account_id
+      CROSS JOIN LATERAL ple_private.read_student_latest_feedback_attempt(
+          course.course_instance_id, student.student_record_id
+      ) AS feedback
+     WHERE membership.account_id = ple_api.current_session_account_id()
+       AND membership.role = 'student'
+       AND ple_data.course_membership_is_active(membership.course_membership_id)
+       AND ple_api.current_session_account_has_active_role('student')
+     ORDER BY feedback.submitted_at DESC, feedback.assessment_attempt_id DESC
+     LIMIT 1
+$$;
+
 SET LOCAL ROLE ple_private_owner;
 
 

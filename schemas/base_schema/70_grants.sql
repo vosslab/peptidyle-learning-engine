@@ -71,7 +71,7 @@ RESET ROLE;
 \ir 70_grants/grading_access.sql
 \ir 70_grants/student_assessment_landing.sql
 \ir 70_grants/student_course_attempt_history.sql
-\ir 70_grants/student_course_practice_stats.sql
+\ir 70_grants/student_course_response_stats.sql
 \ir 70_grants/assessment_attempt_history.sql
 \ir 70_grants/archived_student_work_recovery.sql
 \ir 70_grants/statistics.sql

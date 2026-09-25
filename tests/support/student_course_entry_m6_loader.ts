@@ -1,4 +1,4 @@
-// Compile the Student current-Course entry harness for browser evidence.
+// Compile the Student Course navigation harness for browser evidence.
 
 import { build } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";

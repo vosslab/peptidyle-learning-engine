@@ -21,14 +21,16 @@ import type { CourseThemeRouteData } from "./features/course_appearance/course_t
 import { CourseThemeVariables } from "./features/course_appearance/course_theme_variables";
 import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
 import { RibbonAccountAvatar } from "./features/profile_avatar/ribbon_account_avatar";
-import { AppRibbon } from "./ribbon/app_ribbon";
-import { parseCourseInstanceId } from "./navigation/public_route";
+import { AppRibbon, SignedOutRibbonAvatar } from "./ribbon/app_ribbon";
 import { routeContractForPathname } from "./route_contract";
 import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
 import {
+  loadStudentRibbonNavigation,
+  type StudentRibbonNavigation,
+} from "./ribbon/student_ribbon_navigation";
+import {
   RouteScopeProvider,
   useAssessmentTitle,
-  useCurrentCourseInstanceId,
   useRouteScopeData,
 } from "./ribbon/route_scope_context";
 
@@ -37,8 +39,7 @@ export interface ApplicationShellProps {
   readonly ribbonModel: (
     routeData: CourseThemeRouteData | undefined,
     assessmentTitle: string | undefined,
-    currentCourseInstanceId: string | undefined,
-    activeAttemptId: string | undefined,
+    studentNavigation: StudentRibbonNavigation | undefined,
   ) => RibbonModel | undefined;
   readonly content: (pathname: string) => JSX.Element;
 }
@@ -263,39 +264,28 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     // Ribbon model.
     const routeData = useRouteScopeData();
     const assessmentTitle = useAssessmentTitle();
-    const currentCourseInstanceId = useCurrentCourseInstanceId();
-    const activeAttemptRequest = createMemo(() => {
+    const studentNavigationPath = createMemo(() => {
+      const identity = session.state();
+      if (identity.kind !== "authenticated" || identity.session.account.productRole !== "student") {
+        return undefined;
+      }
       const route = routeContractForPathname(props.pathname());
-      if (route?.requiredProductRoles.includes("student") !== true) return undefined;
-      const courseInstanceId = parseCourseInstanceId(currentCourseInstanceId() ?? "");
-      const pathname = props.pathname();
-      return courseInstanceId === null ? undefined : { courseInstanceId, pathname };
-    });
-    const [activeAttemptLookup] = createResource(activeAttemptRequest, async (request) => ({
-      courseInstanceId: request.courseInstanceId,
-      pathname: request.pathname,
-      response: await applicationApi.client.getStudentCourseActiveAttempt(request.courseInstanceId),
-    }));
-    const activeAttemptId = createMemo(() => {
-      const request = activeAttemptRequest();
-      const lookup = activeAttemptLookup();
       if (
-        request === undefined ||
-        lookup === undefined ||
-        request.courseInstanceId !== lookup.courseInstanceId ||
-        request.pathname !== lookup.pathname
+        route?.requiredProductRoles.includes("student") !== true ||
+        !["coursework", "grades", "courses"].includes(route.ribbon.tierOneArea)
       ) {
         return undefined;
       }
-      return lookup.response.assessmentAttemptId ?? undefined;
+      return props.pathname();
     });
+    const [studentNavigationLookup] = createResource(studentNavigationPath, () =>
+      loadStudentRibbonNavigation(applicationApi.client),
+    );
+    const studentNavigation = createMemo(() =>
+      studentNavigationPath() === undefined ? undefined : studentNavigationLookup(),
+    );
     const ribbonModel = createMemo(() =>
-      props.ribbonModel(
-        routeData(),
-        assessmentTitle(),
-        currentCourseInstanceId(),
-        activeAttemptId(),
-      ),
+      props.ribbonModel(routeData(), assessmentTitle(), studentNavigation()),
     );
     function ContentRegion(): JSX.Element {
       return (
@@ -345,6 +335,24 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
                   </span>
                   <span>Peptidyle</span>
                 </A>
+                <Show
+                  when={session.state().kind === "authenticated"}
+                  fallback={<SignedOutRibbonAvatar />}
+                >
+                  <A
+                    class="ple-app-ribbon__profile"
+                    href="/profile"
+                    aria-label="Profile"
+                    title="Profile"
+                  >
+                    <RibbonAccountAvatar
+                      client={applicationApi.client}
+                      renderProvidedAvatar={(providedAvatarId) => (
+                        <AvatarVisual avatarId={providedAvatarId} decorative size={24} />
+                      )}
+                    />
+                  </A>
+                </Show>
               </header>
             }
           >

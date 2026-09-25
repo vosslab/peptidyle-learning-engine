@@ -639,14 +639,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student Tier 1 navigation uses **Coursework**, **Grades**, and **Courses**, in that order.
 - **Coursework** and **Grades** show relevant information across all of the Student's enrolled Courses. When a Student has more than one Course, records clearly identify their Course.
 - **Coursework** and **Grades** each have a stable Tier 2 set. Opening Coursework, an Attempt, a review, or another item does not change the Tier 2 choices or their order.
-- The availability of a contextual Tier 2 destination may change, but the Tier 2 choices and their order remain stable.
+- I accept grayed-out Tier 2 choices; keep each in place instead of hiding or removing it, then dynamically inserting or restoring it.
 - Student Tier 2 must include the choices below. Additional choices may be added when they provide a useful Student navigation destination.
 
   - **Coursework**
     - **All Coursework**: Shows all Coursework across the Student's enrolled Courses.
     - **Due Soon**: Shows Coursework across the Student's enrolled Courses that is approaching its due date.
     - **Completed**: Shows Coursework across the Student's enrolled Courses for which the Student has submitted at least one Attempt. Completed does not mean that the Student earned a perfect score.
-    - **Active Attempt**: Returns the Student directly to unfinished Coursework that can still be resumed. It remains visible but disabled when no resumable Attempt is available.
+    - **Active Attempt**: I want a quick return to an Assessment with a running clock. Keep it visible but disabled when no Attempt's clock is running.
 
   - **Grades**
     - **Scores**: Shows the Student's released Coursework scores across their enrolled Courses.
@@ -664,7 +664,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Student Course and Coursework interface
 
-- A Student with one active Course should open directly to that Course's Progress page. A Student with multiple active Courses should choose a Course before opening Course-scoped work.
+- I use Coursework and Grades across all my enrolled Courses; opening a Course from Courses does not pin or filter those global views.
+- When I view Course-specific content, the Ribbon, breadcrumb, PageFrame, and relevant records should make the Course clear.
 - Students should be able to see their active Courses and Coursework from the main navigation.
 - Course invitations should show the Course name and relevant Instructor and term information before the Student accepts the invitation.
 - Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.

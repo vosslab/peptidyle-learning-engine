@@ -8,10 +8,12 @@ import type {
   StudentCourseProgressAssessment,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
+import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { PageFrame } from "../components/page_frame";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
 import {
   completedStudentAssessmentCount,
   studentAssessmentActivityLabel,
@@ -28,15 +30,17 @@ function assessmentPath(courseInstanceId: string, assessmentId: string): string 
   return path;
 }
 
-const localDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 function ProgressRow(props: {
   readonly course: LiveStudentCourseLandingSummary;
   readonly assessment: StudentCourseProgressAssessment;
+  readonly formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined;
 }): JSX.Element {
+  const latestActivityDateTime = (): string | undefined => {
+    const timestamp = props.assessment.latestActivityAt;
+    if (timestamp === null) return undefined;
+    return props.formatDateTime()?.(timestamp);
+  };
+
   return (
     <li class="student-course-progress__row">
       <div class="student-course-progress__identity">
@@ -47,10 +51,8 @@ function ProgressRow(props: {
           {props.assessment.submittedAssessmentAttemptCount > 0 &&
             ` * ${props.assessment.submittedAssessmentAttemptCount} submitted`}
         </p>
-        <Show when={props.assessment.latestActivityAt !== null}>
-          <p>
-            Latest activity: {localDateTimeFormatter.format(props.assessment.latestActivityAt!)}
-          </p>
+        <Show when={latestActivityDateTime()}>
+          {(dateTime) => <p>Latest activity: {dateTime()}</p>}
         </Show>
       </div>
       <div class="student-course-progress__status">
@@ -62,7 +64,7 @@ function ProgressRow(props: {
         class="quiet-link student-course-progress__action"
         href={assessmentPath(props.course.id, props.assessment.id)}
       >
-        Open Assessment
+        Open {assessmentTypePresentation(props.assessment.assessmentType).label}
       </A>
     </li>
   );
@@ -76,6 +78,11 @@ export function StudentCourseProgressPage(): JSX.Element {
     return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
   const [courses] = createResource(() => applicationApi.client.listLiveStudentCourses());
+  const [accountSettings] = createResource(() => applicationApi.client.getAccountSettings());
+  const formatDateTime = createMemo(() => {
+    const timeZone = accountSettings()?.timeZone;
+    return timeZone === undefined ? undefined : createDisplayDateTimeFormatter(timeZone);
+  });
   const course = createMemo(() => {
     const id = courseInstanceId();
     return id === null ? undefined : courses()?.find((candidate) => candidate.id === id);
@@ -95,8 +102,8 @@ export function StudentCourseProgressPage(): JSX.Element {
         <section class="route-error" role="alert">
           <h2>Course Progress unavailable</h2>
           <p>This Course Progress is not available.</p>
-          <A class="primary-link" href="/student">
-            Return to courses
+          <A class="primary-link" href="/student/courses">
+            Return to Courses
           </A>
         </section>
       </Show>
@@ -104,7 +111,7 @@ export function StudentCourseProgressPage(): JSX.Element {
         {(current) => (
           <>
             <CourseEntryBanner />
-            <A class="quiet-link" href="/student?choose=1">
+            <A class="quiet-link" href="/student/courses">
               Your courses
             </A>
             <section
@@ -113,31 +120,37 @@ export function StudentCourseProgressPage(): JSX.Element {
             >
               <h2 id="student-course-progress-heading">Course Progress</h2>
               <Show when={assessments.loading}>
-                <p class="loading-state">Loading Assessment progress...</p>
+                <p class="loading-state">Loading Coursework progress...</p>
               </Show>
               <Show when={!assessments.loading && assessments.error === undefined}>
                 <p class="student-course-progress__completion">
                   {completedStudentAssessmentCount(assessments() ?? [])} of{" "}
-                  {assessments()?.length ?? 0} released Assessments completed with at least one
+                  {assessments()?.length ?? 0} released Coursework items completed with at least one
                   submitted Attempt.
                 </p>
                 <p class="student-course-progress__disclosure">
-                  Every released Assessment remains listed. Attempts with no released score are
+                  Every released Coursework item remains listed. Attempts with no released score are
                   marked "Score not released"; completion and a perfect score are separate.
                 </p>
                 <Show when={assessments()?.length === 0}>
-                  <p class="empty-state">No Assessments have been released for this Course yet.</p>
+                  <p class="empty-state">No Coursework has been released for this Course yet.</p>
                 </Show>
-                <ul class="student-course-progress__list" aria-label="Assessment progress">
+                <ul class="student-course-progress__list" aria-label="Coursework progress">
                   <For each={assessments()}>
-                    {(assessment) => <ProgressRow assessment={assessment} course={current()} />}
+                    {(assessment) => (
+                      <ProgressRow
+                        assessment={assessment}
+                        course={current()}
+                        formatDateTime={formatDateTime}
+                      />
+                    )}
                   </For>
                 </ul>
               </Show>
               <Show when={assessments.error !== undefined}>
                 <section class="route-error" role="alert">
-                  <h3>Assessment progress unavailable</h3>
-                  <p>Assessment progress could not be loaded right now.</p>
+                  <h3>Coursework progress unavailable</h3>
+                  <p>Coursework progress could not be loaded right now.</p>
                 </section>
               </Show>
             </section>

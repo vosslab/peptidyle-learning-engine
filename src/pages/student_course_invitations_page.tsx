@@ -41,7 +41,7 @@ export function StudentCourseInvitationsPage(): JSX.Element {
       title="Course invitations"
       lede="Review a pending invitation before joining a course."
     >
-      <A class="quiet-link" href="/">
+      <A class="quiet-link" href="/student/courses">
         Your courses
       </A>
       <Show when={invitations.loading}>

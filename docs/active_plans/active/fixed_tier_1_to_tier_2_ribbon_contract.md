@@ -1,7 +1,8 @@
 # Fixed Tier 1 -> Tier 2 Ribbon Contract
 
-> Only the Student Tier 2 investigation in this plan is superseded by
-> [STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md](STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md).
+> Only the Student Tier 2 investigation in this plan is superseded by the approved
+> [Student Progress and Response Stats plan](../../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md) and
+> [Human Guidance](../../HUMAN_GUIDANCE.md).
 > Instructor work, including evaluation of the Instructor's Student View,
 > remains active.
 
@@ -9,8 +10,8 @@
 
 Instructor Tier 2 currently changes when an Instructor opens a Course or
 Assessment, even though Tier 1 stays the same. Human Guidance settles the
-Instructor choices and the fixed-row rule. It leaves Student Tier 2 unknown;
-unknown does not mean empty.
+Instructor choices and the fixed-row rule. The Student investigation below has
+been superseded by the approved Student contract above.
 
 ## Objectives
 
@@ -38,13 +39,8 @@ Preserve the settled Instructor mappings:
   Question Library, Browse Question Library.
 - **Assessments:** Assessments Due Soon, My Assessment Templates.
 
-Investigate the Student routes, screens, and workflows. Preserve current
-Student behavior during this plan unless evidence settles both fixed
-destinations and their order. Human Guidance deliberately leaves Student Tier
-2 open, so repeated workflow evidence identifies tasks to investigate but does
-not by itself establish a menu design. When evidence does not establish the
-destinations and order, record Student Tier 2 as unresolved, preserve current
-behavior, and never describe its contents as intentionally empty.
+Use the approved Student mapping in Human Guidance and Design Decisions; do not
+reopen its destinations, order, or Course context in this Instructor-focused plan.
 
 Review product evidence for a useful cross-Course Assessments destination,
 including Browse All. A route does not need to exist already if Human Guidance
@@ -103,7 +99,7 @@ work.
 
 8. **Superseded: Student Tier 2.** Implement the settled Student destinations
    and route behavior in
-   [STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md](STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md).
+   [STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md](../../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md).
    This plan continues to own the Instructor investigation and implementation.
 
 10. **Check touched accessibility behavior.** Reuse existing accessibility and
@@ -117,8 +113,8 @@ work.
 
 12. **Update Instructor documentation.** Keep the fixed-row invariant and
     settled Instructor mappings aligned across Human Guidance, the Ribbon
-    model, design guide, and changelog. Student documentation is owned by
-    [STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md](STUDENT_PROGRESS_PRACTICE_STATS_PLAN.md).
+    model, design guide, and changelog. Student documentation follows the
+    [completed Student plan](../../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md).
 
 13. **Integrate and verify.** Remove temporary probes and artifacts. Run
     focused contract and browser checks, capture the final canonical screens,

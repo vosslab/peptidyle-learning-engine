@@ -68,8 +68,7 @@
 }
 
 [data-ribbon-treatment="atlas"] .ple-app-ribbon__product-role,
-[data-ribbon-treatment="atlas"] .ple-app-ribbon__context-details,
-[data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area-label {
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__context-details {
   color: var(--ple-muted, #536174);
   font-size: 0.7rem;
   font-weight: 780;
@@ -195,12 +194,6 @@
   margin-inline-start: var(--ple-space-3, 0.75rem);
   padding-inline-start: var(--ple-space-3, 0.75rem);
   border-inline-start: 1px solid var(--atlas-rule);
-}
-
-[data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area-label {
-  align-self: center;
-  margin-inline-end: var(--ple-space-1, 0.25rem);
-  padding-inline: var(--ple-space-1, 0.25rem);
 }
 
 [data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks .ple-app-ribbon__link {

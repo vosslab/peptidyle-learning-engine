@@ -13,6 +13,7 @@ pub mod blueprint_course;
 pub mod student_assessment_decision;
 pub mod student_course_active_attempt;
 pub mod student_course_attempt_history;
-pub mod student_course_practice_stats;
 pub mod student_course_progress;
+pub mod student_course_response_stats;
+pub mod student_latest_feedback;
 pub mod student_question_display_duration;

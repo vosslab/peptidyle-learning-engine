@@ -34,13 +34,11 @@ async function expectUsedCourse(page: Page, heading: string, openLinkName: strin
 async function enterThenReenterUsedCourse(page: Page, name: RegExp): Promise<void> {
   await page.goto("/sign-in");
   await chooseSeededIdentityAtSignIn(page, name);
-  const firstEntry = await enterStudentCourse(page, "Biochemistry 301: Proteins and Peptides");
-  expect(firstEntry).toBe("course");
+  await enterStudentCourse(page, "Biochemistry 301: Proteins and Peptides");
   await expect(page.getByRole("link", { name: "Your courses", exact: true })).toBeVisible();
   await signOutVisible(page);
   await chooseSeededIdentityAtSignIn(page, name);
-  const secondEntry = await enterStudentCourse(page, "Biochemistry 301: Proteins and Peptides");
-  expect(secondEntry).toBe("course");
+  await enterStudentCourse(page, "Biochemistry 301: Proteins and Peptides");
   await expect(page.getByRole("link", { name: "Your courses", exact: true })).toBeVisible();
 }
 

@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -407,7 +408,7 @@ Question-ID order. Stale selection returns a whole `412`; invalid selection or p
 `422`; inaccessible targets use the normal nonenumerating denial. If a response is ambiguous, the
 client refreshes current metadata and Edit Numbers before deciding whether to submit another
 command; this boundary promises atomic CAS, not exactly-once delivery or replay receipts. The
-numeric batch maximum and future addition of another *stored shared search metadata field* are
+numeric batch maximum and future addition of another _stored shared search metadata field_ are
 operational/schema decisions. A future field must join the same closed patch and CAS contract; no
 arbitrary JSON field patch is permitted.
 
@@ -935,6 +936,23 @@ public background-grading machinery.
 
 ## Interface
 
+### Account endcap keeps one visual size
+
+**Decision.** The right-side Account avatar has the same outer box, corner shape,
+icon size, and alignment across responsive Ribbon layouts. Touch navigation
+spacing does not enlarge this control. Public headers show the same visual box
+with a neutral, labeled Not signed in icon when there is no authenticated Account.
+
+**Why.** The Account location stays recognizable as navigation rearranges, and
+the public header does not imply that a signed-out visitor has a Profile menu.
+
+**Consequence.** The shared Ribbon avatar style owns the visual dimensions.
+The public shell uses a noninteractive signed-out indicator and shows the
+Account's avatar as a Profile link when a session is authenticated.
+
+**Owner.** `src/ribbon/app_ribbon.css`, `src/ribbon/app_ribbon_density.css`, and
+`src/application_shell.tsx`.
+
 ### One stable Ribbon frame serves role-specific work
 
 **Decision.** The shell keeps stable page geometry, separates global context
@@ -942,7 +960,8 @@ from page tasks, and preserves every required destination even when its
 collection is empty. Every required Instructor destination also remains visible
 when its target is incomplete, but it is presented as unavailable rather than
 as a usable link. The top Ribbon carries PLE identity, Product Role, stable
-navigation, and application controls. Human-readable Course and Assessment
+navigation, and application controls; the compact signed-in phone treatment is
+defined below. Human-readable Course and Assessment
 hierarchy belongs in breadcrumbs, not in route-specific Ribbon labels. Sign Out
 is in the Profile menu.
 
@@ -956,14 +975,73 @@ object-specific Course and Assessment links stay in page content and
 breadcrumbs. Student work is collectively Coursework, while a specific item
 uses its Assessment Type name.
 
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[app_ribbon.tsx](../src/ribbon/app_ribbon.tsx), and
+[app_ribbon_density.css](../src/ribbon/app_ribbon_density.css).
+
+### Tier 2 uses the space for destinations
+
+**Decision.** Do not repeat the selected Tier 1 label as a visible caption in
+the Tier 2 row. Keep the Tier 2 navigation landmark and its individual,
+descriptive destination names.
+
+**Why.** The selected Tier 1 already identifies the row's subject. The caption
+was plain text inside the named navigation landmark, not a semantic group label
+or relationship. The links keep their own accessible names; the caption only
+repeats information in the reading order and uses space needed by destinations.
+
+**Consequence.** Student and Instructor Tier 2 rows use the full row for their
+destinations. Area wrappers remain available for layout grouping; no visible
+section caption is rendered.
+
+**Owner.** [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx) and
+[app_ribbon.css](../src/ribbon/app_ribbon.css).
+
+### Signed-in phone Ribbon keeps Tier 1 beside the P mark
+
+**Decision.** At phone width, keep the P mark, the signed-in role's Tier 1
+navigation, and the fixed Profile box together on the top row. Hide the full
+Peptidyle wordmark and Product Role badge there; keep Tier 2 in its normal row
+beneath.
+
+**Why.** The phone view should read as a compact version of the same Ribbon.
+Moving Tier 1 to a second top-bar row and pushing the Product Role badge to the
+far edge breaks the identity-to-navigation order.
+
+**Consequence.** The phone top row stays one row tall, reserves space for the
+fixed Profile box, and tightens Tier 1 spacing to fit the role's navigation.
+
+**Owner.** [app_ribbon.css](../src/ribbon/app_ribbon.css) and
+[app_ribbon_density.css](../src/ribbon/app_ribbon_density.css).
+
+### Non-phone signed-in identity uses one layout
+
+**Decision.** Across non-phone Student, Instructor, and Sysadmin views, keep
+the same identity sequence and geometry: P mark, Peptidyle wordmark, and a
+reserved-width Product Role badge. Public pages keep their separate signed-out
+header.
+
+**Why.** The left edge of the Ribbon should stay in the same place across
+signed-in roles and non-phone viewport sizes. Role text can change inside its
+badge without moving the brand or navigation.
+
+**Consequence.** Product Role and pointer type change content or interaction
+targets, not the non-phone identity layout. Phone uses the one signed-in
+compact exception defined above.
+
+**Owner.** [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx),
+[app_ribbon.css](../src/ribbon/app_ribbon.css), and
+[app_ribbon_density.css](../src/ribbon/app_ribbon_density.css).
+
 ### Tier-one navigation is role-only
 
 **Decision.** Tier-one Ribbon control IDs are selected by Product Role, not by
 route scope. Instructor tier one is Courses, Questions, and Assessments.
-Student tier one is Courses, Coursework, and Grades; Coursework and Grades are
-pinned to the current Course. Sysadmin tier one follows its Product Role
-catalog. Settled tier-two rows derive from Product Role and Tier 1; object-local
-navigation stays with page content and breadcrumbs.
+Student tier one is Coursework, Grades, and Courses. Coursework and Grades
+show records across enrolled Courses; Courses provides direct access to each
+Course. Sysadmin tier one follows its Product Role catalog. Settled tier-two
+rows derive from Product Role and Tier 1; object-local navigation stays with
+page content and breadcrumbs.
 
 **Why.** A role has one stable primary navigation model. Moving primary tabs
 between routes makes the shell and a user's available destinations appear to
@@ -980,19 +1058,65 @@ an authorization boundary (ASVS 8.2.1, 8.2.2, and 8.3.1).
 the role catalog in [ribbon_schema.ts](../src/ribbon/ribbon_schema.ts), with
 route resolution in [ribbon_catalog.ts](../src/ribbon/ribbon_catalog.ts).
 
+**Implementation boundary.** Declare ordered Tier 2 membership beside Tier 1
+in `PRODUCT_TIER_TWO`. The Ribbon model expands the Student Course-list slot
+after reading that schema, while ordinary destinations resolve through the
+catalog. The small `student_ribbon_navigation` helper loads the Student Course
+list in the Courses API order, selects the most recently active Attempt with a
+running clock, and resolves Latest Feedback.
+The Application Shell invokes it for Student Tier 2 data but does not own
+Student-specific query or sort rules. This is presentation data and never
+grants access.
+
+### Attempt History groups by Course
+
+**Decision.** Grades -> Attempt History shows one section per enrolled Course.
+Each Course section lists that Course's Attempts newest first and has its own
+cursor navigation. The interface does not promise one globally chronological
+list across Courses.
+
+**Why.** Students normally have one Course and occasionally two. Course
+sections identify where each Attempt belongs and reuse the existing
+Course-authorized history and cursor behavior without another aggregation
+layer.
+
+**Owner.** The Student Attempt History page and the Course-scoped Attempt
+History API in [API_CONTRACTS.md](API_CONTRACTS.md).
+
+**Consequence.** Attempts are newest-first within each Course section and
+older records remain available through that Course's cursor navigation.
+
+### Student Due Soon uses the existing seven-day window
+
+**Decision.** Student Due Soon uses the same rolling next-seven-day window as
+Instructor Assessments Due Soon, evaluated against the server-provided instant.
+
+**Why.** The existing window gives Students and Instructors one consistent
+meaning for Due Soon; it is a product convention, not a pedagogical threshold.
+
+**Consequence.** The window includes deadlines at the evaluation instant and
+excludes deadlines at or beyond seven days from that instant.
+
+**Owner.** [student_coursework_presentation.ts](../src/pages/student_coursework_presentation.ts)
+and the Instructor Assessments Due Soon API.
+
 ### Student Tier 2 groups follow Tier 1 purposes
 
-**Decision.** Order the Student Tier 1 row as Coursework, Grades, and Courses.
-The current Tier 2 grouping is Coursework: All Coursework, Due Soon, Completed,
-and Active Attempt; Grades: Scores, Response Stats, Attempt History, and Latest
-Feedback; Courses: Progress. Response Stats belongs with Grades because it
-describes the Student's outcomes. Leave any additional Courses destination
-open until its purpose is established. With one active Course, `/student`
-opens All Coursework; with multiple active Courses, it opens the Course chooser.
+**Decision.** Order Student Tier 1 as Coursework, Grades, and Courses.
+Coursework and Grades show the Student's records across all enrolled Courses,
+and identify the Course when more than one Course contributes records.
+Coursework Tier 2 is All Coursework, Due Soon, Completed, and Active Attempt.
+Grades Tier 2 is Scores, Response Stats, Attempt History, and Latest Feedback.
+Courses Tier 2 lists the short names of currently enrolled Courses in stable
+order shared with the Courses list; selecting a name opens that Course and
+selects its Courses Tier 2 link while Course-specific content is open. No
+persistent Course selection filters or changes global Coursework or Grades.
+Active Attempt is a resume shortcut within Coursework; the Tier 1 Coursework
+link remains the stable entry point, and breadcrumbs identify the specific page.
 
-**Why.** Coursework is the Student's primary work area. Most Students work in
-one Course, so opening directly to its Coursework removes a repeated selection
-step while keeping Course switching available from Courses.
+**Why.** Coursework and Grades describe work and results across a Student's
+enrollment. Courses provides direct access to each Course without requiring a
+Course selection before opening Coursework or Grades.
 
 **Active Attempt evidence.** A Course can have more than one resumable Attempt
 because the start gate locks and resumes within one Assessment, while the schema
@@ -1001,21 +1125,30 @@ has no Course-wide active-Attempt constraint. The existing
 saved-response `saved_at` within an Assessment. It does not change for viewing a
 Question or for display-duration checkpoints. The landing projection's
 `can_resume_assessment_attempt` applies the current Assessment availability,
-unsubmitted state, and unexpired deadline. The working shortcut rule is to use
-that eligibility and choose the resumable Attempt with the newest
-`latest_activity_at`; a tie uses Attempt start time and then Attempt ID. No
-Course-wide chooser is planned for this uncommon case.
+unsubmitted state, and unexpired deadline. Active Attempt is enabled only for
+an unsubmitted Attempt whose server-owned expiry is in the future, so its
+clock is running. The shortcut chooses the eligible Attempt with the newest
+`latest_activity_at`; across Course Instances, a tie uses Attempt start time
+and then Attempt ID. No chooser is added for the uncommon case of multiple
+live timed Attempts.
 
-**Implementation consequence.** Keep the Coursework shortcut visible and
-disabled when no Attempt can be resumed. When one or more are resumable, send
-the Student to the selected Attempt. Keep the Latest Feedback shortcut in
-Grades and open the latest Attempt review that contains Student-visible
-feedback; disable it when no such review is available. Keep the other Grades
-links Course-scoped and let the existing Attempt review enforce its score and
-correctness disclosures.
+**Consequence.** Course-specific operations pass an explicit Course ID and the
+server checks the signed-in Student's active Course membership. Global
+Coursework and Grades pages may compose those Course-scoped reads when that is
+the simplest contract. A cross-Course read is used when the product action is
+itself cross-Course, as with Active Attempt and Latest Feedback. Keep Active
+Attempt in its fixed Coursework Tier 2 position, disabled when no Attempt
+clock is running across the Student's Courses; otherwise send the Student to
+the most recently active timed Attempt. Keep Latest Feedback visible in Grades
+and open the latest Attempt review with Student-visible feedback across all
+Courses; the Attempt review remains in Grades. Disable Latest Feedback when none
+is available. Coursework and Grades page records identify their Course when
+multiple Courses contribute entries. Existing Attempt review rules continue to
+enforce score and correctness disclosure.
 
 **Owner.** [RIBBON_TASK_MODEL.md](ux/RIBBON_TASK_MODEL.md),
-[API_CONTRACTS.md](API_CONTRACTS.md), the Student route and catalog contracts,
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), [API_CONTRACTS.md](API_CONTRACTS.md),
+the Student route and catalog contracts,
 and the Attempt review disclosure contract.
 
 ### Student Progress separates release from completion
@@ -1041,21 +1174,23 @@ least one submitted Attempt.
 
 ### Response Stats reports actual outcomes across Assessment types
 
-**Decision.** Response Stats aggregates the signed-in Student's saved outcomes
-from eligible submitted Assessments across the selected Course. It is not
-limited to Assessments whose type is Practice Question Assignment. Group by
-the exact immutable Published Question Revision and include an outcome only
-when the Assessment score and per-Question correctness are both released.
+**Decision.** Grades shows Response Stats for every enrolled Course in a
+separately identified Course section. Within a Course, aggregate the signed-in
+Student's saved outcomes from eligible submitted Assessments across Assessment
+types, grouping by the exact immutable Published Question Revision. Do not
+merge counts between Courses. Include an outcome only when the Assessment
+score and per-Question correctness are both released.
 
 **Why.** Response Stats should describe real recorded Question outcomes, not
-estimated or synthetic results, and should include relevant work across
-Assessment types when its feedback is available to the Student.
+estimated or synthetic results. The all-Course page retains Course context,
+while each Course section includes relevant outcomes across Assessment types.
 
-**Consequence.** The API reports actual outcome counts and, when recorded,
-measured approximate time shown with the Question. It applies disclosure
-before aggregation and exposes no cohort data or unreleased correctness.
+**Consequence.** The existing Course-scoped API reports actual outcome counts
+and, when recorded, measured approximate time shown with the Question. It
+applies disclosure before aggregation and exposes no cohort data or unreleased
+correctness.
 
-**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md), the Course Response Stats
+**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md), the Student Response Stats
 reader, and its Student page.
 
 ### Show the time-zone name only on Profile
@@ -1152,11 +1287,12 @@ honest empty state.
 **Why.** Space prevents layout movement, while invented or apparently usable
 controls misrepresent the product.
 
-**Consequence.** Student and Sysadmin tier-two contents remain unsettled until
+**Consequence.** Sysadmin tier-two contents remain unsettled until
 product evidence defines their destinations and order. Current empty-row
 rendering is presentation state, not an approved empty-menu design. The
-browser treats control visibility as navigation presentation, never as
-permission evidence.
+Student's fixed rows are defined in **Student Tier 2 groups follow Tier 1
+purposes**. The browser treats control visibility as navigation presentation,
+never as permission evidence.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s required and unavailable
 Instructor destination rules, [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx),
@@ -1208,14 +1344,14 @@ recovery, or announcement behavior. The shared layer therefore provides array
 movement plus accessible RecordList controls; each caller keeps its workflow
 policy.
 
-| Site | Save timing | Disabled and failure behavior | Announcement |
-| --- | --- | --- | --- |
-| Blueprint Assessment editor | Local Blueprint draft; outer Blueprint Save persists it | Editor availability governs changes; outer Save retains the draft on failure | Parent change notice describes the unsaved order |
-| Blueprint Pool members editor | Local Blueprint draft; outer Blueprint Save persists it | Editability and list boundaries govern changes; outer Save retains the draft on failure | Parent change notice describes the unsaved member change |
-| Blueprint fork application | One explicit apply request | Busy, locked, invalid, or empty selection blocks apply; conflict or uncertain result requires refresh | Result message reports saved, correction, or refresh state |
-| Assessment entries | Local Assessment draft; Save Questions and order persists it | Busy or reload-required state blocks saving; conflict recovery reloads or discards the draft | RecordList announces each move and returns focus |
-| Assessment-owned Pool members | Local Assessment draft; Save Questions and order persists it | Attestation, availability, dirty state, busy state, and list boundaries govern changes | The editor explains the pending Pool state; it has no move live region |
-| Student Ordering response | Each move updates the response controller | Locked response state and list boundaries block changes; controller owns response-save failure | The response control announces each move and returns focus |
+| Site                          | Save timing                                                  | Disabled and failure behavior                                                                         | Announcement                                                           |
+| ----------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Blueprint Assessment editor   | Local Blueprint draft; outer Blueprint Save persists it      | Editor availability governs changes; outer Save retains the draft on failure                          | Parent change notice describes the unsaved order                       |
+| Blueprint Pool members editor | Local Blueprint draft; outer Blueprint Save persists it      | Editability and list boundaries govern changes; outer Save retains the draft on failure               | Parent change notice describes the unsaved member change               |
+| Blueprint fork application    | One explicit apply request                                   | Busy, locked, invalid, or empty selection blocks apply; conflict or uncertain result requires refresh | Result message reports saved, correction, or refresh state             |
+| Assessment entries            | Local Assessment draft; Save Questions and order persists it | Busy or reload-required state blocks saving; conflict recovery reloads or discards the draft          | RecordList announces each move and returns focus                       |
+| Assessment-owned Pool members | Local Assessment draft; Save Questions and order persists it | Attestation, availability, dirty state, busy state, and list boundaries govern changes                | The editor explains the pending Pool state; it has no move live region |
+| Student Ordering response     | Each move updates the response controller                    | Locked response state and list boundaries block changes; controller owns response-save failure        | The response control announces each move and returns focus             |
 
 **Why.** Similar move buttons do not establish identical state transitions.
 The comparison preserves the Student response timing required by its workflow
@@ -1462,13 +1598,14 @@ terminal for sending; the boundary makes no inbox-delivery claim and has no
 delivery callback or provider exactly-once promise. A recorded pre-acceptance
 failure clears the lease and sets
 `next_attempt_at = failed_at + min(3600 seconds, 60 seconds * 2^(attempt_count
+
 - 1))`. An action no longer due cannot retry, and an accepted receipt never
-resends. `NotConfigured` records a non-send failure and never reports fake
+resends. `NotConfigured`records a non-send failure and never reports fake
 success. A late run attempts required earlier notices in due-time order, then
 performs the due transition after successfully recorded failure; it stops only
 the notice lane for an unknown typed Store state and always continues retention
 transitions. Provider credentials are operational configuration; the Live Demo
-remains `NotConfigured` and is not delivery evidence.
+remains`NotConfigured` and is not delivery evidence.
 
 One isolated retention process has exactly two independently attested,
 non-inheriting database profiles/pools: C215's retention executor and C848's
@@ -1698,11 +1835,9 @@ is not a current product type.
 
 ## Unresolved decisions
 
-The complete Student Ribbon task layout and the complete Sysadmin Ribbon task
-layout do not have locked-in designs yet. Product documentation should not turn
-implementation choices, hypothetical capabilities, tunable FERPA retention
-intervals, or speculative failure machinery into additional unresolved product
-questions.
+The complete Sysadmin Ribbon layout is unresolved. Product documentation should
+not turn hypothetical capabilities, tunable FERPA retention intervals, or
+speculative failure machinery into additional unresolved product questions.
 
 See the temporary
 [COMPLIANCE_SUMMARY.md](archive/reports/human_guidance_compliance/COMPLIANCE_SUMMARY.md)

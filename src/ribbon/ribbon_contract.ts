@@ -25,7 +25,6 @@ import {
   routeContractForPathname,
   type RibbonScope,
   type RibbonTabId,
-  type RibbonTaskGroupId,
   type RouteContract,
   type RouteId,
 } from "../route_contract";
@@ -45,19 +44,29 @@ import {
   type RibbonContextControlId,
   type RibbonDestination,
   type RibbonDestinationId,
+  type RibbonStudentCourseId,
   type RibbonTaskArea,
   type RibbonTaskId,
 } from "./ribbon_catalog";
-import { ribbonSchemaFor, type RibbonRelationshipRequirement } from "./ribbon_schema";
+import {
+  ribbonSchemaFor,
+  ribbonTierTwoSchemaFor,
+  type RibbonRelationshipRequirement,
+} from "./ribbon_schema";
 
 /** Exactly the synchronous facts that identify the route being rendered. */
 export interface RibbonRouteState {
   readonly route: RouteContract;
   readonly params: Exclude<RouteParams, undefined>;
-  /** Last resolved Student Course retained by the persistent shell for tier-one links. */
-  readonly currentCourseInstanceId?: string;
-  /** Server-selected resumable Attempt for the current Student Course, if any. */
+  /** Server-selected unsubmitted Attempt with a running clock across enrolled Courses, if any. */
   readonly activeAttemptId?: string;
+  /** Server-selected latest Attempt review that currently exposes feedback. */
+  readonly latestFeedbackAttemptId?: string;
+  /** Current enrolled Student Courses, in their stable Ribbon order. */
+  readonly studentCourses?: ReadonlyArray<{
+    readonly id: string;
+    readonly shortName: string;
+  }>;
 }
 
 /** The immutable session fact the Ribbon may use for presentation admission. */
@@ -114,7 +123,10 @@ export interface RibbonContextControlModel {
 }
 
 /** One designed Ribbon position, retained even while admission withholds it. */
-export interface RibbonControlModel<Id extends RibbonDestinationId = RibbonDestinationId> {
+export interface RibbonControlModel<
+  Id extends RibbonDestinationId | RibbonStudentCourseId =
+    RibbonDestinationId | RibbonStudentCourseId,
+> {
   readonly id: Id;
   readonly label: string;
   readonly destination: RibbonDestination;
@@ -130,8 +142,7 @@ export interface RibbonControlModel<Id extends RibbonDestinationId = RibbonDesti
 
 export interface RibbonTaskAreaModel {
   readonly id: RibbonTaskArea;
-  readonly label: string;
-  readonly controls: ReadonlyArray<RibbonControlModel<RibbonTaskId>>;
+  readonly controls: ReadonlyArray<RibbonControlModel<RibbonTaskId | RibbonStudentCourseId>>;
 }
 
 /** A shell-owned location in the route-derived breadcrumb trail. */
@@ -157,18 +168,6 @@ const PRODUCT_LABELS = {
   instructor: "Instructor",
   sysadmin: "Sysadmin",
 } as const;
-
-const TASK_AREA_LABELS: Readonly<Record<RibbonTaskArea, string>> = Object.freeze({
-  instructorCourses: "Courses",
-  instructorQuestions: "Questions",
-  instructorAssessments: "Assessments",
-  studentCourses: "Courses",
-  studentCoursework: "Coursework",
-  studentGrades: "Grades",
-  course: "Course",
-  assessment: "Assessment",
-  courseSetup: "Course setup",
-});
 
 const RESOLVED_RELATIONSHIP: RibbonRelationshipState = Object.freeze({
   kind: "resolved",
@@ -348,14 +347,20 @@ function hrefFor(
   if (availability !== "Available" || control.destination.kind !== "route") return undefined;
   if (control.id === "activeAttempt") {
     const attemptId = routeState.activeAttemptId;
-    if (routeState.currentCourseInstanceId === undefined || attemptId === undefined) return undefined;
+    if (attemptId === undefined) return undefined;
     if (parseAssessmentAttemptId(attemptId) === null) return undefined;
     return buildRoutePath(control.destination.routeId, { assessmentAttemptId: attemptId });
   }
+  if (control.id === "studentLatestFeedback") {
+    const attemptId = routeState.latestFeedbackAttemptId;
+    if (attemptId === undefined || parseAssessmentAttemptId(attemptId) === null) return undefined;
+    return buildRoutePath(control.destination.routeId, { assessmentAttemptId: attemptId });
+  }
   if (control.id === "coursework" || control.id === "grades") {
-    const courseInstanceId = routeState.currentCourseInstanceId;
-    if (courseInstanceId === undefined) return productRoleHomePath("student");
-    return buildRoutePath(control.destination.routeId, { courseInstanceId });
+    return buildRoutePath(control.destination.routeId, {});
+  }
+  if (control.id === "courses" && productRole === "student") {
+    return buildRoutePath("studentCourses", {});
   }
   // The Courses tab is the role's stable home, not the anonymous root resolver.
   // This preserves direct role navigation even if a caller does not first visit `/`.
@@ -380,6 +385,15 @@ function selectedFor(
       routeState.params.assessmentAttemptId === routeState.activeAttemptId
     );
   }
+  if (control.id === "studentLatestFeedback") {
+    return (
+      routeState.latestFeedbackAttemptId !== undefined &&
+      routeState.params.assessmentAttemptId === routeState.latestFeedbackAttemptId
+    );
+  }
+  if (typeof control.id === "string" && control.id.startsWith("studentCourse:")) {
+    return control.id === `studentCourse:${routeState.params.courseInstanceId ?? ""}`;
+  }
   return (
     control.destination.kind === "route" && control.destination.routeId === routeState.route.id
   );
@@ -396,9 +410,13 @@ function modelForControl<Id extends RibbonDestinationId>(
     productRole,
     relationshipStateFor(entry.relationshipRequirement),
   );
-  const hasSelectedActiveAttempt =
-    control.id !== "activeAttempt" || routeState.activeAttemptId !== undefined;
-  const admitted = hasSelectedActiveAttempt ? admission : "Unavailable";
+  const hasContextualTarget =
+    control.id === "activeAttempt"
+      ? routeState.activeAttemptId !== undefined
+      : control.id === "studentLatestFeedback"
+        ? routeState.latestFeedbackAttemptId !== undefined
+        : true;
+  const admitted = hasContextualTarget ? admission : "Unavailable";
   const href = hrefFor(control, routeState, admitted, productRole);
   const availability = href === undefined && admitted === "Available" ? "Unavailable" : admitted;
   return Object.freeze({
@@ -428,63 +446,64 @@ function contextFor(productRole: ProductRole): RibbonContextModel {
   });
 }
 
-function instructorTaskGroupForTierOne(
-  tierOneArea: RouteContract["ribbon"]["tierOneArea"],
-): RibbonTaskGroupId | undefined {
-  switch (tierOneArea) {
-    case "courses":
-      return "instructorCourses";
-    case "questions":
-      return "instructorQuestions";
-    case "productAssessments":
-      return "instructorAssessments";
-    default:
-      return undefined;
-  }
-}
-
-function studentTaskGroupForTierOne(
-  tierOneArea: RouteContract["ribbon"]["tierOneArea"],
-): RibbonTaskGroupId | undefined {
-  switch (tierOneArea) {
-    case "courses":
-      return "studentCourses";
-    case "coursework":
-      return "studentCoursework";
-    case "grades":
-      return "studentGrades";
-    default:
-      return undefined;
-  }
-}
-
 function taskAreasFor(
   routeState: RibbonRouteState,
   productRole: ProductRole,
 ): ReadonlyArray<RibbonTaskAreaModel> {
-  const group =
-    productRole === "instructor"
-      ? instructorTaskGroupForTierOne(routeState.route.ribbon.tierOneArea)
-      : productRole === "student"
-        ? studentTaskGroupForTierOne(routeState.route.ribbon.tierOneArea)
-        : undefined;
-  if (group === undefined) return Object.freeze([]);
+  const tierTwo = ribbonTierTwoSchemaFor(productRole, routeState.route.ribbon.tierOneArea);
+  if (tierTwo.length === 0) return Object.freeze([]);
 
-  const areas: RibbonTaskAreaModel[] = [];
-  for (const control of RIBBON_TASK_CATALOG) {
-    if (control.taskGroup !== group) continue;
-    const existing = areas[areas.length - 1];
-    if (existing === undefined || existing.id !== control.area) {
-      areas.push({
-        id: control.area,
-        label: TASK_AREA_LABELS[control.area],
-        controls: [],
+  const areas: Array<{
+    id: RibbonTaskArea;
+    controls: Array<RibbonControlModel<RibbonTaskId | RibbonStudentCourseId>>;
+  }> = [];
+  for (const slot of tierTwo) {
+    if (slot.kind === "currentStudentCourses") {
+      const area: RibbonTaskArea = "studentCourses";
+      let modelArea = areas.find((candidate) => candidate.id === area);
+      if (modelArea === undefined) {
+        modelArea = { id: area, controls: [] };
+        areas.push(modelArea);
+      }
+      const controls = (routeState.studentCourses ?? []).flatMap((course) => {
+        const courseInstanceId = parseCourseInstanceId(course.id);
+        if (courseInstanceId === null) return [];
+        const href = buildRoutePath("studentCourseLanding", { courseInstanceId });
+        if (href === undefined) return [];
+        return [
+          Object.freeze({
+            id: `studentCourse:${courseInstanceId}` as const,
+            label: course.shortName,
+            destination: Object.freeze({
+              kind: "route" as const,
+              routeId: "studentCourseLanding" as const,
+            }),
+            availability: "Available" as const,
+            selected: routeState.params.courseInstanceId === courseInstanceId,
+            href,
+            role: "primary" as const,
+            priority: "critical" as const,
+            presentation: "standard" as const,
+            iconBearing: false,
+            iconOnlySafe: false,
+          }),
+        ];
       });
+      modelArea.controls.push(...controls);
+      continue;
     }
-    const area = areas[areas.length - 1];
-    if (area === undefined) throw new Error("Ribbon task area construction failed.");
-    const controlModel = modelForControl(control, routeState, productRole);
-    (area.controls as RibbonControlModel<RibbonTaskId>[]).push(controlModel);
+
+    const control = RIBBON_TASK_CATALOG.find((candidate) => candidate.id === slot.id);
+    if (control === undefined) throw new Error(`Ribbon schema references unknown task ${slot.id}.`);
+    let modelArea = areas.find((candidate) => candidate.id === control.area);
+    if (modelArea === undefined) {
+      modelArea = {
+        id: control.area,
+        controls: [],
+      };
+      areas.push(modelArea);
+    }
+    modelArea.controls.push(modelForControl(control, routeState, productRole));
   }
   return Object.freeze(
     areas.map((area) => Object.freeze({ ...area, controls: Object.freeze([...area.controls]) })),
@@ -510,30 +529,6 @@ function breadcrumbLink(
 
 function breadcrumbLinkItem(label: string, href: string): RibbonBreadcrumbModel {
   return Object.freeze({ label, href, current: false });
-}
-
-/**
- * Breadcrumbs use the Course's human-readable title, not the public ID
- * sometimes prepended by legacy display projections. Only the resolved route's
- * own ID is eligible, so title text that merely resembles an ID remains
- * untouched.
- */
-function courseBreadcrumbLabel(
-  courseLongName: string | undefined,
-  courseInstanceId: string | undefined,
-): string {
-  if (courseLongName === undefined || courseInstanceId === undefined)
-    return courseLongName ?? "Course";
-  const prefixes = [
-    `Course ${courseInstanceId}:`,
-    `Course ${courseInstanceId} -`,
-    `${courseInstanceId}:`,
-    `${courseInstanceId} -`,
-  ];
-  const prefix = prefixes.find((candidate) => courseLongName.startsWith(candidate));
-  if (prefix === undefined) return courseLongName;
-  const title = courseLongName.slice(prefix.length).trim();
-  return title === "" ? "Course" : title;
 }
 
 function breadcrumbsFor(
@@ -563,10 +558,7 @@ function breadcrumbsFor(
   };
   const instructorAssessment = breadcrumbLink("assessmentWorkspaceOverview", assessmentParams);
   const studentAssessment = breadcrumbLink("assessmentOverview", assessmentParams);
-  const courseLabel = courseBreadcrumbLabel(
-    labels.courseLongName ?? labels.courseShortName,
-    routeState.params.courseInstanceId,
-  );
+  const courseLabel = labels.courseLongName ?? labels.courseShortName ?? "Course";
   const courseCompactLabel =
     labels.courseLongName !== undefined &&
     labels.courseShortName !== undefined &&
@@ -596,6 +588,8 @@ function breadcrumbsFor(
     case "studentHome":
     case "sysadminHome":
       return Object.freeze([{ ...home, current: true }]);
+    case "studentCourses":
+      return Object.freeze([home, breadcrumbCurrent("Courses")]);
     case "instructorInactiveCourses":
       return Object.freeze([home, breadcrumbCurrent("My Inactive Courses")]);
     case "profile":
@@ -655,16 +649,16 @@ function breadcrumbsFor(
         courseBreadcrumbItem(studentCourse ?? currentHref),
         breadcrumbCurrent("All Coursework"),
       ]);
-    case "studentCourseResponseStats":
-      return Object.freeze(courseTrail("Response Stats", studentCourse));
-    case "studentCourseDueSoon":
-      return Object.freeze(courseTrail("Due Soon", studentCourse));
-    case "studentCourseCompleted":
-      return Object.freeze(courseTrail("Completed", studentCourse));
-    case "studentCourseGrades":
-      return Object.freeze(courseTrail("Scores", studentCourse));
-    case "studentCourseAttemptHistory":
-      return Object.freeze(courseTrail("Attempt History", studentCourse));
+    case "studentResponseStats":
+      return Object.freeze([home, breadcrumbCurrent("Response Stats")]);
+    case "studentDueSoon":
+      return Object.freeze([home, breadcrumbCurrent("Due Soon")]);
+    case "studentCompleted":
+      return Object.freeze([home, breadcrumbCurrent("Completed")]);
+    case "studentScores":
+      return Object.freeze([home, breadcrumbCurrent("Scores")]);
+    case "studentAttemptHistory":
+      return Object.freeze([home, breadcrumbCurrent("Attempt History")]);
     case "questionDetail":
       return library === undefined
         ? Object.freeze([])

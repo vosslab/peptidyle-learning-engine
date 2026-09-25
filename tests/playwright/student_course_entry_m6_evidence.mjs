@@ -1,6 +1,4 @@
-// Browser component evidence for src/pages/student_courses_page.tsx and
-// src/pages/student_course_landing_page.tsx. The harness controls only the
-// server-owned current-Course projection; navigation uses real visible links.
+// Browser evidence for the Student Course list, cross-Course home, and Course landing.
 
 import assert from "node:assert/strict";
 
@@ -64,33 +62,42 @@ try {
     state: "visible",
   });
   assert.equal(await page.getByRole("article").count(), 0);
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
 
   await page.goto(`${origin}?mode=one`);
-  await page.locator("[data-m6-location]").waitFor({ state: "attached" });
-  await page.waitForFunction(
-    () =>
-      document.querySelector("[data-m6-location]")?.textContent ===
-      "/student/courses/CI7K3M2QAZ",
-  );
-
-  await page.goto(`${origin}?mode=choose`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open Coursework", exact: true }).waitFor({
+  await page.getByRole("link", { name: "Open Course", exact: true }).waitFor({
     state: "visible",
   });
-  assert.equal(await page.locator("[data-m6-location]").textContent(), "/student?choose=1");
+  assert.equal(await page.getByRole("article").count(), 1);
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
 
   await page.goto(`${origin}?mode=many`);
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open Coursework", exact: true }).first().waitFor({
+  await page.getByRole("link", { name: "Open Course", exact: true }).first().waitFor({
     state: "visible",
   });
   assert.equal(await page.getByRole("article").count(), 2);
-  assert.equal(await page.locator("[data-m6-location]").textContent(), "/");
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
+
+  await page.goto(`${origin}?mode=home`);
+  await page.getByRole("heading", { name: "All Coursework", exact: true }).waitFor({
+    state: "visible",
+  });
+  await page
+    .getByRole("heading", {
+      name: "BCHM 301: Biochemistry 301: Proteins and Peptides",
+      exact: true,
+    })
+    .waitFor({ state: "visible" });
+  await page
+    .getByRole("heading", { name: "BIOL 302: Molecular Genetics: Gene Regulation", exact: true })
+    .waitFor({ state: "visible" });
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/student");
 
   await page.goto(`${origin}?mode=landing`);
   const landingDue = page.locator("[data-assessment-decision-due]").first();
@@ -170,7 +177,7 @@ try {
   await page.getByRole("link", { name: "Your courses", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("link", { name: "Your courses", exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelector("[data-m6-location]")?.textContent === "/student?choose=1",
+    () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses",
   );
   await page
     .getByRole("heading", { name: "Your courses", exact: true })

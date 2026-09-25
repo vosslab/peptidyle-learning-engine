@@ -18,6 +18,7 @@ import {
   assignmentCard,
   choosePersona,
   enterInstructor,
+  openAllStudentCoursework,
   openInstructorCourse,
   openStudentCourse,
   scrollTop,
@@ -359,6 +360,7 @@ async function prepare(
 async function readQuestion(
   page: Page,
   action: () => Promise<unknown>,
+  expectedPosition?: number,
 ): Promise<StudentAssessmentAttemptPresentation> {
   const delivered = page.waitForResponse((response) => {
     const url = new URL(response.url());
@@ -367,6 +369,8 @@ async function readQuestion(
       /^\/api\/assessment-attempts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/student-question$/u.test(
         url.pathname,
       ) &&
+      (expectedPosition === undefined ||
+        url.searchParams.get("position") === String(expectedPosition)) &&
       response.status() === 200
     );
   });
@@ -394,14 +398,6 @@ async function openOrResumePracticeAssignment(page: Page, card: Locator): Promis
     await resume.click();
   }
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
-}
-
-async function openAllStudentCoursework(page: Page): Promise<void> {
-  await page
-    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
-    .getByRole("link", { name: "Coursework", exact: true })
-    .click();
-  await page.locator('[data-route-surface="studentCourseLanding"]').waitFor();
 }
 
 async function waitForControl(session: CaptureSession, example: Example): Promise<void> {
@@ -524,12 +520,14 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       });
       const covered = new Set<ExampleSlug>();
       const first = navigation.getByRole("button", { name: /^Question 1:/u });
-      if (question.position !== 1) question = await readQuestion(page, () => first.click());
+      if (question.position !== 1) question = await readQuestion(page, () => first.click(), 1);
       else await first.click();
       for (let position = 1; position <= EXPECTED_QUESTION_COUNT; position += 1) {
         if (position > 1) {
-          question = await readQuestion(page, () =>
-            navigation.getByRole("button", { name: "Next question", exact: true }).click(),
+          question = await readQuestion(
+            page,
+            () => navigation.getByRole("button", { name: "Next question", exact: true }).click(),
+            position,
           );
         }
         if (question.position !== position) {
@@ -578,12 +576,14 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         exact: true,
       });
       const first = navigation.getByRole("button", { name: /^Question 1:/u });
-      if (question.position !== 1) question = await readQuestion(page, () => first.click());
+      if (question.position !== 1) question = await readQuestion(page, () => first.click(), 1);
       else await first.click();
       for (let position = 1; position <= EXPECTED_QUESTION_COUNT; position += 1) {
         if (position > 1) {
-          question = await readQuestion(page, () =>
-            navigation.getByRole("button", { name: "Next question", exact: true }).click(),
+          question = await readQuestion(
+            page,
+            () => navigation.getByRole("button", { name: "Next question", exact: true }).click(),
+            position,
           );
         }
         if (question.position !== position) {

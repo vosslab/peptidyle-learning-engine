@@ -22,7 +22,7 @@ import type {
   RibbonModel,
   RibbonTaskAreaModel,
 } from "./ribbon_contract";
-import type { RibbonDestinationId } from "./ribbon_catalog";
+import type { RibbonDestinationId, RibbonStudentCourseId } from "./ribbon_catalog";
 import {
   ribbonGlyphForContext,
   ribbonGlyphForDestination,
@@ -49,10 +49,29 @@ export interface AppRibbonProps {
   readonly renderProfileAvatar?: () => JSX.Element;
 }
 
-function visibleControl<Id extends RibbonDestinationId>(
+/** Public account endcap with the same visual geometry as the signed-in Profile control. */
+export function SignedOutRibbonAvatar(): JSX.Element {
+  return (
+    <span
+      class="ple-app-ribbon__profile"
+      role="img"
+      aria-label="Not signed in"
+      title="Not signed in"
+    >
+      <RibbonIcon glyph={ribbonGlyphForContext("profile")} />
+    </span>
+  );
+}
+
+function visibleControl<Id extends RibbonDestinationId | RibbonStudentCourseId>(
   control: RibbonControlModel<Id>,
 ): control is RibbonControlModel<Id> & { href: string } {
   return control.availability === "Available" && control.href !== undefined;
+}
+
+function glyphForControl(control: RibbonControlModel): RibbonGlyphId | undefined {
+  if (!control.iconBearing || control.id.startsWith("studentCourse:")) return undefined;
+  return ribbonGlyphForDestination(control.id as RibbonDestinationId);
 }
 
 function visibleAccountControl(
@@ -79,8 +98,7 @@ function RibbonLink(props: {
   // The closed map supplies a glyph only after the presentation model has
   // explicitly declared that this particular control earns one. This keeps a
   // model revision from acquiring a plausible-but-undeclared visual meaning.
-  const glyph = (): RibbonGlyphId | undefined =>
-    props.control.iconBearing ? ribbonGlyphForDestination(props.control.id) : undefined;
+  const glyph = (): RibbonGlyphId | undefined => glyphForControl(props.control);
   const iconOnlySafe = (): boolean =>
     props.control.iconBearing && props.control.iconOnlySafe && glyph() !== undefined;
   const pending = (): boolean =>
@@ -105,14 +123,15 @@ function RibbonLink(props: {
       }}
     >
       <Show when={glyph()}>{(id) => <RibbonIcon glyph={id()} />}</Show>
-      <span class="ple-app-ribbon__control-label">{props.control.label}</span>
+      <span class="ple-app-ribbon__control-label" data-ribbon-label={props.control.label}>
+        {props.control.label}
+      </span>
     </a>
   );
 }
 
 function UnavailableRibbonChoice(props: { readonly control: RibbonControlModel }): JSX.Element {
-  const glyph = (): RibbonGlyphId | undefined =>
-    props.control.iconBearing ? ribbonGlyphForDestination(props.control.id) : undefined;
+  const glyph = (): RibbonGlyphId | undefined => glyphForControl(props.control);
   const status = (): string => {
     if (props.control.availability === "Checking") return "Checking availability";
     return "Unavailable";
@@ -127,7 +146,9 @@ function UnavailableRibbonChoice(props: { readonly control: RibbonControlModel }
       data-ribbon-availability="unavailable"
     >
       <Show when={glyph()}>{(id) => <RibbonIcon glyph={id()} />}</Show>
-      <span class="ple-app-ribbon__control-label">{props.control.label}</span>
+      <span class="ple-app-ribbon__control-label" data-ribbon-label={props.control.label}>
+        {props.control.label}
+      </span>
       <span class="sr-only">{status()}</span>
     </span>
   );
@@ -236,7 +257,6 @@ function TaskArea(props: {
   return (
     <Show when={controls().length > 0}>
       <span class="ple-app-ribbon__task-area" data-ribbon-task-area={props.area.id}>
-        <span class="ple-app-ribbon__task-area-label">{props.area.label}</span>
         <For each={controls()}>
           {(control) =>
             visibleControl(control) ? (
@@ -294,8 +314,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
     onCleanup(() => query.removeEventListener("change", update));
   });
   createEffect(() => {
-    const row =
-      narrowScreen() && props.model.context.productLabel === "Student" ? tabRow() : topRow();
+    const row = narrowScreen() ? tabRow() : topRow();
     if (row === undefined) return;
     tabScrollport.current = row;
     topOverflow.setRow(row);

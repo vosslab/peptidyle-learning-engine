@@ -32,17 +32,6 @@ export const RIBBON_TAB_IDS = [
 
 export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
 
-export type RibbonTaskGroupId =
-  | "instructorCourses"
-  | "instructorQuestions"
-  | "instructorAssessments"
-  | "studentCourses"
-  | "studentCoursework"
-  | "studentGrades"
-  | "course"
-  | "assessment"
-  | "courseSetup";
-
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
   readonly scope: RibbonScope;
@@ -56,6 +45,7 @@ export interface RouteContract {
     | "instructorHome"
     | "instructorInactiveCourses"
     | "studentHome"
+    | "studentCourses"
     | "sysadminHome"
     | "courseAssessments"
     | "assessmentOverview"
@@ -90,12 +80,12 @@ export interface RouteContract {
     | "studentCourseInvitations"
     | "studentCourseInvitation"
     | "studentCourseLanding"
-    | "studentCourseGrades"
+    | "studentScores"
     | "studentCourseProgress"
-    | "studentCourseResponseStats"
-    | "studentCourseDueSoon"
-    | "studentCourseCompleted"
-    | "studentCourseAttemptHistory";
+    | "studentResponseStats"
+    | "studentDueSoon"
+    | "studentCompleted"
+    | "studentAttemptHistory";
   readonly path: string;
   readonly surface: string;
   /** Product Role gate for the route; each route declares the Product Roles it serves. */
@@ -162,7 +152,14 @@ export const ROUTE_CONTRACT = [
   {
     id: "studentHome",
     path: "/student",
-    surface: "Student learning home dashboard",
+    surface: "All Coursework across the Student's enrolled Courses",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "product", tierOneArea: "coursework" },
+  },
+  {
+    id: "studentCourses",
+    path: "/student/courses",
+    surface: "Student's current Course list and invitations",
     requiredProductRoles: ["student"],
     ribbon: { scope: "product", tierOneArea: "courses" },
   },
@@ -199,7 +196,7 @@ export const ROUTE_CONTRACT = [
     path: "/student/course-invitations",
     surface: "Student pending Course Invitation index",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "product", tierOneArea: "account" },
+    ribbon: { scope: "product", tierOneArea: "courses" },
   },
   {
     id: "studentCourseInvitation",
@@ -211,9 +208,9 @@ export const ROUTE_CONTRACT = [
   {
     id: "studentCourseLanding",
     path: "/student/courses/:courseInstanceId",
-    surface: "Student Course Instance All Coursework",
+    surface: "Student Course content",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+    ribbon: { scope: "courseInstance", tierOneArea: "courses" },
   },
   {
     id: "studentCourseProgress",
@@ -223,39 +220,39 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "courseInstance", tierOneArea: "courses" },
   },
   {
-    id: "studentCourseResponseStats",
-    path: "/student/courses/:courseInstanceId/response-stats",
-    surface: "Student self-only Course Response Stats",
+    id: "studentResponseStats",
+    path: "/student/grades/response-stats",
+    surface: "Student self-only Response Stats across enrolled Courses",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "grades" },
+    ribbon: { scope: "product", tierOneArea: "grades" },
   },
   {
-    id: "studentCourseDueSoon",
-    path: "/student/courses/:courseInstanceId/due-soon",
-    surface: "Student Course Coursework Due Soon view",
+    id: "studentDueSoon",
+    path: "/student/due-soon",
+    surface: "Student Coursework due soon across enrolled Courses",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+    ribbon: { scope: "product", tierOneArea: "coursework" },
   },
   {
-    id: "studentCourseCompleted",
-    path: "/student/courses/:courseInstanceId/completed",
-    surface: "Student Course Completed Coursework view",
+    id: "studentCompleted",
+    path: "/student/completed",
+    surface: "Student completed Coursework across enrolled Courses",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+    ribbon: { scope: "product", tierOneArea: "coursework" },
   },
   {
-    id: "studentCourseGrades",
-    path: "/student/courses/:courseInstanceId/grades",
-    surface: "Student self-only Course Scores",
+    id: "studentScores",
+    path: "/student/grades",
+    surface: "Student released Scores across enrolled Courses",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "grades" },
+    ribbon: { scope: "product", tierOneArea: "grades" },
   },
   {
-    id: "studentCourseAttemptHistory",
-    path: "/student/courses/:courseInstanceId/attempt-history",
-    surface: "Student self-only Course Attempt History",
+    id: "studentAttemptHistory",
+    path: "/student/grades/attempt-history",
+    surface: "Student Attempt History across enrolled Courses",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "grades" },
+    ribbon: { scope: "product", tierOneArea: "grades" },
   },
   {
     id: "instructorAccounts",
@@ -304,11 +301,11 @@ export const ROUTE_CONTRACT = [
   {
     id: "assessmentAttemptSummary",
     path: "/assessment-attempts/:assessmentAttemptId/summary",
-    surface: "Assessment Attempt result and practice re-entry",
+    surface: "Assessment Attempt results and feedback",
     requiredProductRoles: ["student"],
     ribbon: {
       scope: "assessmentAttempt",
-      tierOneArea: "coursework",
+      tierOneArea: "grades",
     },
   },
   {

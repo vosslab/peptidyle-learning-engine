@@ -16,16 +16,17 @@ use browser_api_contract::{
     student_course_attempt_history::{
         StudentCourseAttemptHistoryEntry, StudentCourseAttemptHistoryPage,
     },
-    student_course_practice_stats::{
+    student_course_progress::{AssessmentPointScore, StudentCourseProgressAssessment},
+    student_course_response_stats::{
         StudentCourseResponseQuestionStats, StudentCourseResponseStats,
     },
-    student_course_progress::{AssessmentPointScore, StudentCourseProgressAssessment},
+    student_latest_feedback::StudentLatestFeedback,
 };
 use learning_data_access::{
     Cursor, LiveStudentCourseAttemptHistoryEntry as StoreAttemptHistoryEntry,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseProgressAssessment,
-    LiveStudentCourseResponseQuestionStats as StorePracticeQuestionStats, PageRequest, PageSize,
+    LiveStudentCourseResponseQuestionStats as StoreResponseQuestionStats, PageRequest, PageSize,
     SessionTokenHash, StoreError,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
@@ -66,6 +67,7 @@ pub fn live_student_course_landing_router(
             "/api/student/course-instances/{course_instance_id}/active-attempt",
             get(read_course_active_attempt),
         )
+        .route("/api/student/latest-feedback", get(read_latest_feedback))
         .route(
             "/api/student/course-instances/{course_instance_id}/assessment-attempts",
             get(list_course_attempt_history),
@@ -337,6 +339,28 @@ async fn read_course_active_attempt(
         Ok(active_attempt) => crate::auth::no_store(
             Json(StudentCourseActiveAttempt {
                 assessment_attempt_id: active_attempt.map(|attempt| attempt.assessment_attempt_id),
+                started_at: active_attempt.map(|attempt| attempt.started_at),
+                latest_activity_at: active_attempt.map(|attempt| attempt.latest_activity_at),
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn read_latest_feedback(State(state): State<RouteState>, headers: HeaderMap) -> Response {
+    let session_hash = match student_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .landing
+        .get_live_student_latest_feedback_attempt(session_hash)
+        .await
+    {
+        Ok(assessment_attempt_id) => crate::auth::no_store(
+            Json(StudentLatestFeedback {
+                assessment_attempt_id,
             })
             .into_response(),
         ),
@@ -436,7 +460,7 @@ async fn list_course_response_stats(
 }
 
 fn response_question_stats(
-    stats: StorePracticeQuestionStats,
+    stats: StoreResponseQuestionStats,
 ) -> StudentCourseResponseQuestionStats {
     StudentCourseResponseQuestionStats {
         published_question_revision_tuple: stats.published_question_revision_tuple,

@@ -296,44 +296,6 @@ test("an in-flight save locks the response and cannot issue a duplicate request"
   assert.equal(saveCalls, 1);
 });
 
-test("reset replaces a stale format check with the restored local response without saving", async () => {
-  let resolveFirst;
-  const firstValidation = new Promise((resolve) => {
-    resolveFirst = resolve;
-  });
-  const seen = [];
-  let saveCalls = 0;
-  const controller = createRoot(() =>
-    createResponseController({
-      attemptId: "attempt-reset",
-      responseFormat: numericResponseFormat,
-      validator: {
-        mode: "wasm",
-        validateResponseFormat: async (_responseFormat, response) => {
-          seen.push(response.value);
-          if (response.value === 9) return firstValidation;
-          return { issues: [] };
-        },
-      },
-      onEscape: () => undefined,
-      onSave: async () => {
-        saveCalls += 1;
-        return { kind: "accepted" };
-      },
-    }),
-  );
-
-  const stale = controller.validate({ kind: "numeric", value: 9 });
-  await controller.reset({ kind: "numeric", value: 3 });
-  resolveFirst({ issues: [{ kind: "numericNotFinite" }] });
-  await stale;
-
-  assert.deepEqual(seen, [9, 3]);
-  assert.equal(controller.phase().kind, "restored");
-  assert.equal(controller.canSave(), true);
-  assert.equal(saveCalls, 0);
-});
-
 test("a rejected save keeps the response editable for a corrected save retry", async () => {
   const saved = [];
   const controller = createRoot(() =>
@@ -362,7 +324,6 @@ test("a rejected save keeps the response editable for a corrected save retry", a
   assert.equal(controller.phase().kind, "failed");
   assert.equal(controller.invalid(), true);
   assert.equal(controller.locked(), false);
-  assert.equal(controller.canReset(), true);
 
   await controller.validate(corrected);
   assert.equal(controller.canSave(), true);
@@ -372,7 +333,6 @@ test("a rejected save keeps the response editable for a corrected save retry", a
   assert.deepEqual(saved, [refused, corrected]);
 
   assert.equal(controller.locked(), false);
-  assert.equal(controller.canReset(), true);
   const changed = { kind: "numeric", value: 9 };
   await controller.edit(changed);
   assert.equal(controller.canSave(), true);

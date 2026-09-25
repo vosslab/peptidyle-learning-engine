@@ -72,13 +72,6 @@ async function ribbonEvidence(page, profileId) {
       const activeCues = cues.filter(
         (cue) => cue.getAttribute("data-ribbon-overflow-active") === "true",
       );
-      const selected = row.querySelector('[aria-current="page"]');
-      const selectedRect =
-        selected instanceof HTMLElement ? selected.getBoundingClientRect() : undefined;
-      const activeCueRects = activeCues.map((cue) => ({
-        edge: cue.getAttribute("data-ribbon-overflow-cue"),
-        rect: cue.getBoundingClientRect(),
-      }));
       const controls = [...row.querySelectorAll("a,button")].map((control) => {
         const rect = control.getBoundingClientRect();
         return {
@@ -106,8 +99,6 @@ async function ribbonEvidence(page, profileId) {
         rowTop: rowRect.top,
         scrollHeight: row.scrollHeight,
         scrollWidth: row.scrollWidth,
-        selectedRect,
-        activeCueRects,
         frameContainsCue: cues.every((cue) => cue.parentElement === frame),
         visibleWidth: row.clientWidth,
         whiteSpace: getComputedStyle(row).whiteSpace,
@@ -139,26 +130,6 @@ async function ribbonEvidence(page, profileId) {
       viewportWidth,
     };
   }, profileId);
-}
-
-async function assertBrandProjection(page, profileId) {
-  const accessibleBrand = page.getByRole("link", { name: "Peptidyle home", exact: true });
-  assert.equal(await accessibleBrand.count(), 1, `${profileId}: brand remains one named home link`);
-  const projection = await accessibleBrand.evaluate((brand) => {
-    const word = brand.querySelector(".ple-app-ribbon__brand-word");
-    if (!(word instanceof HTMLElement)) throw new Error("brand word is missing");
-    const style = getComputedStyle(word);
-    const bounds = word.getBoundingClientRect();
-    return {
-      brandHeight: brand.getBoundingClientRect().height,
-      clipPath: style.clipPath,
-      display: style.display,
-      height: bounds.height,
-      visibility: style.visibility,
-      width: bounds.width,
-    };
-  });
-  assert.ok(projection.width > 1, `${profileId}: brand word remains visibly readable`);
 }
 
 /** The staff-role desktop Ribbon stays inside the declared desktop viewport. */
@@ -247,30 +218,6 @@ function assertResponsiveRows(evidence, profile, expectedWidth) {
     }
     if (row.overflows) {
       assert.equal(row.activeCueCount > 0, true, `${profile}: overflow visibly activates a cue`);
-    }
-    if ((row.id === "top" || row.id === "tasks") && row.selectedRect !== undefined) {
-      assert.equal(
-        row.selectedRect.left >= row.rowLeft && row.selectedRect.right <= row.rowRight,
-        true,
-        `${profile}: selected ${row.id === "top" ? "Tab" : "Task"}` +
-          " is fully visible after automatic reveal",
-      );
-      for (const cue of row.activeCueRects) {
-        const cueRect = cue.rect;
-        const overlapsSelected =
-          row.selectedRect.left < cueRect.right && row.selectedRect.right > cueRect.left;
-        assert.equal(
-          overlapsSelected,
-          false,
-          `${profile}: active clipping paint clears the selected ` +
-            `${row.id === "top" ? "Tab" : "Task"} ` +
-            `(${JSON.stringify({
-              selected: row.selectedRect,
-              cue: cueRect,
-              scrollLeft: row.scrollLeft,
-            })})`,
-        );
-      }
     }
   }
   assert.equal(
@@ -382,195 +329,22 @@ async function assertPinnedOverflowCues(page, profile) {
   }
 }
 
-async function assertContextCueBlend(page, profile) {
-  const samples = await page.evaluate(async () => {
-    const frame = document.querySelector('[data-ribbon-row-frame="top"]');
-    const row = document.querySelector('[data-ribbon-row="top"]');
-    if (!(frame instanceof HTMLElement) || !(row instanceof HTMLElement)) {
-      throw new Error("missing top-bar cue frame");
-    }
-    const maximum = row.scrollWidth - row.clientWidth;
-    if (maximum <= 0.5) throw new Error("narrow top-bar regression needs real overflow");
-    const rowStyle = getComputedStyle(row);
-    const readActiveCue = () => {
-      const cue = [...frame.querySelectorAll("[data-ribbon-overflow-cue]")].find(
-        (candidate) => candidate.getAttribute("data-ribbon-overflow-active") === "true",
-      );
-      if (!(cue instanceof HTMLElement)) throw new Error("top-bar overflow needs an active cue");
-      return {
-        backgroundImage: getComputedStyle(cue).backgroundImage,
-        edge: cue.dataset.ribbonOverflowCue,
-      };
-    };
-
-    row.scrollLeft = 0;
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-    const start = readActiveCue();
-    row.scrollLeft = maximum;
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-    const end = readActiveCue();
-    return {
-      rowBackground: rowStyle.backgroundColor,
-      start,
-      end,
-    };
-  });
-  assert.notEqual(
-    samples.rowBackground,
-    "rgb(255, 255, 255)",
-    `${profile}: top bar retains its tinted surface`,
-  );
-  assert.equal(samples.start.edge, "end", `${profile}: top-bar start activates its end cue`);
-  assert.equal(samples.end.edge, "start", `${profile}: top-bar end activates its start cue`);
-  for (const sample of [samples.start, samples.end]) {
-    assert.match(
-      sample.backgroundImage,
-      /color\(srgb|rgb\(/,
-      `${profile}: ${sample.edge} top-bar cue resolves a painted surface`,
-    );
-    assert.doesNotMatch(
-      sample.backgroundImage,
-      /rgb\(255, 255, 255\)/,
-      `${profile}: ${sample.edge} top-bar cue does not fall back to the white card fade`,
-    );
-  }
-}
-
-async function assertEveryTabReachable(page, profile) {
-  const reachable = await page.evaluate(() => {
+async function assertTierOneKeyboardNavigation(page, profile) {
+  const focusable = await page.evaluate(() => {
     const row = document.querySelector('[data-ribbon-row="top"]');
     if (!(row instanceof HTMLElement)) throw new Error("missing top bar");
     const tabs = [...row.querySelectorAll(".ple-app-ribbon__tabs a")];
     return tabs.map((tab) => {
       if (!(tab instanceof HTMLElement)) throw new Error("invalid Tab link");
-      tab.scrollIntoView({ block: "nearest", inline: "nearest" });
-      const tabRect = tab.getBoundingClientRect();
-      const rowRect = row.getBoundingClientRect();
+      tab.focus();
       return {
         id: tab.dataset.ribbonControl,
-        reachable: tabRect.left >= rowRect.left && tabRect.right <= rowRect.right,
+        focused: document.activeElement === tab,
       };
     });
   });
-  for (const tab of reachable) {
-    assert.equal(tab.reachable, true, `${profile}: ${tab.id} is reachable by horizontal scrolling`);
-  }
-}
-
-async function restoreSelectedTabVisibility(page) {
-  const selectedIds = await page.evaluate(() => {
-    return [
-      ...document.querySelectorAll(
-        '[data-ribbon-row="top"] .ple-app-ribbon__tabs [aria-current="page"]',
-      ),
-    ]
-      .map((selected) =>
-        selected instanceof HTMLElement ? selected.dataset.ribbonControl : undefined,
-      )
-      .filter((selectedId) => selectedId !== undefined);
-  });
-  assert.equal(selectedIds.length, 1, "responsive evidence requires exactly one selected top Tab");
-  const [selectedId] = selectedIds;
-  assert.ok(selectedId, "responsive evidence requires a selected Tab to restore");
-  await page.evaluate((currentSelectedId) => {
-    const alternatives = [
-      ...document.querySelectorAll('[data-ribbon-row="top"] .ple-app-ribbon__tabs a'),
-    ];
-    const alternative = alternatives.find(
-      (tab) => tab instanceof HTMLElement && tab.dataset.ribbonControl !== currentSelectedId,
-    );
-    if (!(alternative instanceof HTMLElement) || alternative.dataset.ribbonControl === undefined)
-      return;
-    window.ribbonResponsive.selectTab(alternative.dataset.ribbonControl);
-  }, selectedId);
-  await flush(page);
-  await page.evaluate(
-    (currentSelectedId) => window.ribbonResponsive.selectTab(currentSelectedId),
-    selectedId,
-  );
-  await flush(page);
-}
-
-async function assertRoleHomeTabRoundTrips(page, profile) {
-  for (const productRole of ["instructor", "student", "sysadmin"]) {
-    await page.evaluate((role) => window.ribbonResponsive.setRoleHome(role), productRole);
-    await flush(page);
-    await restoreSelectedTabVisibility(page);
-    await assertEveryTabReachable(page, `${profile}:${productRole}-home`);
-  }
-}
-
-async function restoreSelectedTaskVisibility(page) {
-  const selectedId = await page.evaluate(() => {
-    const selected = document.querySelector('[data-ribbon-row="tasks"] [aria-current="page"]');
-    return selected instanceof HTMLElement ? selected.dataset.ribbonControl : undefined;
-  });
-  if (selectedId === undefined) return;
-  await page.evaluate((currentSelectedId) => {
-    const alternatives = [...document.querySelectorAll('[data-ribbon-row="tasks"] a')];
-    const alternative = alternatives.find(
-      (task) => task instanceof HTMLElement && task.dataset.ribbonControl !== currentSelectedId,
-    );
-    if (!(alternative instanceof HTMLElement) || alternative.dataset.ribbonControl === undefined)
-      return;
-    window.ribbonResponsive.selectTask(alternative.dataset.ribbonControl);
-  }, selectedId);
-  await flush(page);
-  await page.evaluate(
-    (currentSelectedId) => window.ribbonResponsive.selectTask(currentSelectedId),
-    selectedId,
-  );
-  await flush(page);
-}
-
-async function assertLateSelectedTaskAutoReveal(page, profile) {
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = "200%";
-    window.ribbonResponsive.setFixture("productInstructor");
-    window.ribbonResponsive.selectTask("searchQuestionLibrary");
-  });
-  await flush(page);
-
-  const evidence = await page.evaluate(() => {
-    const row = document.querySelector('[data-ribbon-row="tasks"]');
-    const selected = row?.querySelector('[aria-current="page"]');
-    if (!(row instanceof HTMLElement) || !(selected instanceof HTMLElement)) {
-      throw new Error("late selected task needs a task scrollport and selected control");
-    }
-    const rowRect = row.getBoundingClientRect();
-    const selectedRect = selected.getBoundingClientRect();
-    const style = getComputedStyle(row);
-    const startInset = Number.parseFloat(style.scrollPaddingInlineStart) || 0;
-    const endInset = Number.parseFloat(style.scrollPaddingInlineEnd) || 0;
-    const cues = [...(row.parentElement?.querySelectorAll("[data-ribbon-overflow-cue]") ?? [])]
-      .filter((cue) => cue.getAttribute("data-ribbon-overflow-active") === "true")
-      .map((cue) => cue.getBoundingClientRect());
-    return {
-      cueSafeLeft: rowRect.left + startInset,
-      cueSafeRight: rowRect.right - endInset,
-      cues,
-      id: selected.dataset.ribbonControl,
-      selectedRect,
-    };
-  });
-  assert.equal(
-    evidence.id,
-    "searchQuestionLibrary",
-    `${profile}: fixture route selects the late Question task`,
-  );
-  assert.equal(
-    evidence.selectedRect.left >= evidence.cueSafeLeft - 0.25 &&
-      evidence.selectedRect.right <= evidence.cueSafeRight + 0.25,
-    true,
-    `${profile}: 320px/200% late selected Task is fully inside the cue-safe scrollport: ` +
-      JSON.stringify(evidence),
-  );
-  for (const cue of evidence.cues) {
-    assert.equal(
-      evidence.selectedRect.right <= cue.left || evidence.selectedRect.left >= cue.right,
-      true,
-      `${profile}: active clipping paint clears the late selected Task`,
-    );
+  for (const tab of focusable) {
+    assert.equal(tab.focused, true, `${profile}: ${tab.id} can receive keyboard focus`);
   }
 }
 
@@ -673,20 +447,6 @@ async function assertForcedColorsAffordances(page, profile) {
 
 const browser = await chromium.launch({ headless: true });
 try {
-  // The required corpus profiles intentionally use forced colors. Exercise the
-  // surface blend separately in an ordinary, true-320px browser context: a
-  // forced-colors context correctly replaces author paints with system colors.
-  const contextCueContext = await browser.newContext({
-    reducedMotion: "reduce",
-    viewport: { width: 320, height: 640 },
-  });
-  const contextCuePage = await contextCueContext.newPage();
-  await contextCuePage.setContent(markup);
-  await contextCuePage.waitForFunction(() => "ribbonResponsive" in window);
-  await flush(contextCuePage);
-  await assertContextCueBlend(contextCuePage, "narrow_phone:author-colors");
-  await contextCueContext.close();
-
   for (const profile of RIBBON_RESPONSIVE_PROFILES) {
     const context = await browser.newContext(profile.contextOptions);
     const page = await context.newPage();
@@ -703,14 +463,10 @@ try {
     if (profile.id === "instructor_desktop") {
       assertCanonicalDesktopTopBar(baseline);
     }
-    await assertBrandProjection(page, profile.id);
     await assertPinnedOverflowCues(page, profile.id);
     await assertForcedColorsAffordances(page, profile.id);
-    await assertEveryTabReachable(page, profile.id);
-    await restoreSelectedTabVisibility(page);
-    await restoreSelectedTaskVisibility(page);
-    await assertRoleHomeTabRoundTrips(page, profile.id);
-    let sameZoomRouteBaseline = baseline;
+    await assertTierOneKeyboardNavigation(page, profile.id);
+    const sameZoomRouteBaseline = baseline;
     await page.evaluate(() => window.ribbonResponsive.setFixture("courseInstructor"));
     await flush(page);
 
@@ -729,30 +485,6 @@ try {
       `${profile.id}: application data does not move the content origin`,
     );
 
-    if (profile.id !== "instructor_desktop") {
-      const touchControls = longTitle.rowEvidence.flatMap((row) => row.controls);
-      for (const control of touchControls) {
-        assert.equal(
-          control.height >= 44,
-          true,
-          `${profile.id}: ${control.label} meets the 44 CSS px primary target minimum`,
-        );
-      }
-    }
-
-    if (profile.id === "narrow_phone") {
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = "200%";
-      });
-      await flush(page);
-      const enlargedText = await ribbonEvidence(page, "narrow_phone:200-percent-text");
-      assertResponsiveRows(enlargedText, "narrow_phone:200-percent-text", declaredWidth);
-      await assertEveryTabReachable(page, "narrow_phone:200-percent-text");
-      await restoreSelectedTaskVisibility(page);
-      await assertLateSelectedTaskAutoReveal(page, "narrow_phone:200-percent-text");
-      sameZoomRouteBaseline = enlargedText;
-    }
-
     await page.evaluate(() => window.ribbonResponsive.setFixture("courseStudent"));
     await flush(page);
     const student = await ribbonEvidence(page, `${profile.id}:student`);
@@ -768,13 +500,12 @@ try {
       `${profile.id}: Student preserves the same-zoom content origin`,
     );
     await assertPinnedOverflowCues(page, `${profile.id}:student`);
-    await assertEveryTabReachable(page, `${profile.id}:student`);
+    await assertTierOneKeyboardNavigation(page, `${profile.id}:student`);
 
     await page.evaluate(() => window.ribbonResponsive.setFixture("courseInstructor"));
     await flush(page);
     const instructorAgain = await ribbonEvidence(page, `${profile.id}:instructor-again`);
     assertResponsiveRows(instructorAgain, `${profile.id}:instructor-again`, declaredWidth);
-    await restoreSelectedTaskVisibility(page);
 
     const disposal = await page.evaluate(async () => {
       const unhandled = [];

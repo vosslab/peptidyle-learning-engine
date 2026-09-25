@@ -675,7 +675,8 @@ def discover_files(
 	only what is genuinely per-test. Discovery always scans all tracked files
 	via git ls-files with no env-var dependency.
 
-	Exclusion uses three layers, applied in this order:
+	Exclusion uses three layers, applied in this order, after paths missing
+	from the working tree are discarded:
 
 	- Layer 1, universal exclusions (vendored, this module): built-in skipped
 	  directories and scratch paths via path_has_skip_dir; identical across all repos.
@@ -733,7 +734,7 @@ def discover_files(
 	if test_key is not None:
 		hygiene_patterns += list(registry.get(test_key, []))
 
-	# Steps 4-9: apply the filter pipeline in contract order.
+	# Steps 4-10: apply the filter pipeline in contract order.
 	matches = []
 	for abs_path in abs_paths:
 		# Step 4: repo-relative POSIX path for skip-dir and extra_filter.
@@ -746,14 +747,14 @@ def discover_files(
 			ext = os.path.splitext(abs_path)[1].lower()
 			if ext not in extension_set:
 				continue
-		# Step 7: Layer 2 -- repo-local hygiene excludes from conftest.
+		# Step 7: a tracked file deleted from the working tree has no content to inspect.
+		if not os.path.isfile(abs_path):
+			continue
+		# Step 8: Layer 2 -- repo-local hygiene excludes from conftest.
 		if any(fnmatch.fnmatchcase(rel, pattern) for pattern in hygiene_patterns):
 			continue
-		# Step 8: Layer 3 -- per-test selection filter on the relative path.
+		# Step 9: Layer 3 -- per-test selection filter on the relative path.
 		if extra_filter is not None and not extra_filter(rel):
-			continue
-		# Step 9: keep only real files.
-		if not os.path.isfile(abs_path):
 			continue
 		matches.append(abs_path)
 

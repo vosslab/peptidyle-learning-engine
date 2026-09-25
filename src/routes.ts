@@ -17,6 +17,7 @@ import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
 import { InactiveCourseListPage } from "./pages/course_list_page";
+import { StudentCoursesPage } from "./pages/student_courses_page";
 import {
   InstructorHomePage,
   RoleHomeResolutionPage,
@@ -35,14 +36,14 @@ import { AccountPendingInvitationsPage } from "./pages/account_pending_invitatio
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import {
-  StudentCourseCompletedPage,
-  StudentCourseDueSoonPage,
+  StudentCompletedPage,
+  StudentDueSoonPage,
   StudentCourseLandingPage,
 } from "./pages/student_course_landing_page";
-import { StudentCourseGradesPage } from "./pages/student_course_grades_page";
+import { StudentScoresPage } from "./pages/student_course_grades_page";
 import { StudentCourseProgressPage } from "./pages/student_course_progress_page";
-import { StudentCourseAttemptHistoryPage } from "./pages/student_course_attempt_history_page";
-import { StudentCourseResponseStatsPage } from "./pages/student_course_practice_stats_page";
+import { StudentAttemptHistoryPage } from "./pages/student_course_attempt_history_page";
+import { StudentResponseStatsPage } from "./pages/student_course_response_stats_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { ContentDisciplinesPage } from "./pages/content_disciplines_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
@@ -67,6 +68,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   instructorHome: InstructorHomePage,
   instructorInactiveCourses: InactiveCourseListPage,
   studentHome: StudentHomePage,
+  studentCourses: StudentCoursesPage,
   sysadminHome: SysadminHomePage,
   profile: ProfilePage,
   signIn: SignInPage,
@@ -75,11 +77,11 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
   studentCourseProgress: StudentCourseProgressPage,
-  studentCourseResponseStats: StudentCourseResponseStatsPage,
-  studentCourseDueSoon: StudentCourseDueSoonPage,
-  studentCourseCompleted: StudentCourseCompletedPage,
-  studentCourseAttemptHistory: StudentCourseAttemptHistoryPage,
-  studentCourseGrades: StudentCourseGradesPage,
+  studentResponseStats: StudentResponseStatsPage,
+  studentDueSoon: StudentDueSoonPage,
+  studentCompleted: StudentCompletedPage,
+  studentAttemptHistory: StudentAttemptHistoryPage,
+  studentScores: StudentScoresPage,
   instructorAccounts: InstructorAccountsPage,
   contentDisciplines: ContentDisciplinesPage,
   courseAssessments: CourseInstancePage,

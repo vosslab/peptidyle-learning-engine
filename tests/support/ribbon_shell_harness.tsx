@@ -308,7 +308,6 @@ function productFixture(selectedTab: "courses" | "questions" | "productAssessmen
       : [
           {
             id: selectedTab === "courses" ? "instructorCourses" : "instructorAssessments",
-            label: selectedTab === "courses" ? "Courses" : "Assessments",
             controls: [],
           },
         ];

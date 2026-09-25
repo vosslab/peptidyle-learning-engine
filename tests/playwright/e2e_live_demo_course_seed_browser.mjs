@@ -50,14 +50,17 @@ async function enterSeededStudentCourse(page) {
     name: courseLongName,
     exact: true,
   });
+  if (await courseHeading.isVisible()) return;
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Courses", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
   const courseCard = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: courseLongName, exact: true }) });
-  await expect
-    .poll(async () => (await courseHeading.isVisible()) || (await courseCard.count()) === 1)
-    .toBe(true);
-  if (await courseHeading.isVisible()) return;
-  await courseCard.getByRole("link", { name: "Open assigned work", exact: true }).click();
+  await expect(courseCard).toHaveCount(1);
+  await courseCard.getByRole("link", { name: "Open Course", exact: true }).click();
   await expect(courseHeading).toBeVisible();
 }
 

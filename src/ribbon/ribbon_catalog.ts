@@ -1,7 +1,7 @@
 // ribbon_catalog.ts - declared Ribbon navigation inventory, independent of capability admission.
 
 import type { ProductRole } from "../../generated/api/ProductRole";
-import { type RibbonTabId, type RibbonTaskGroupId, type RouteId } from "../route_contract";
+import { type RibbonTabId, type RouteId } from "../route_contract";
 import type { RouteParamName } from "../navigation/route_params";
 
 /** A navigation control's place in its task, never its physical size. */
@@ -87,7 +87,6 @@ export type RibbonTaskId =
   | "teachingOperations"
   | "blueprintUpdates"
   | "courseSetup"
-  | "studentProgress"
   | "studentResponseStats"
   | "allCoursework"
   | "dueSoon"
@@ -95,6 +94,7 @@ export type RibbonTaskId =
   | "activeAttempt"
   | "studentScores"
   | "studentAttemptHistory"
+  | "studentLatestFeedback"
   | "assessmentOverview"
   | "assessmentQuestions"
   | "assessmentPolicies"
@@ -103,6 +103,9 @@ export type RibbonTaskId =
   | "appearance";
 
 export type RibbonDestinationId = RibbonTabId | RibbonTaskId;
+
+/** Runtime identity for one dynamically listed Student Course destination. */
+export type RibbonStudentCourseId = `studentCourse:${string}`;
 
 export type RibbonTaskArea =
   | "instructorCourses"
@@ -117,7 +120,6 @@ export type RibbonTaskArea =
 
 export interface RibbonTaskCatalogEntry extends RibbonCatalogControl<RibbonTaskId> {
   readonly requiredParams: ReadonlyArray<RouteParamName>;
-  readonly taskGroup: RibbonTaskGroupId;
   readonly area: RibbonTaskArea;
 }
 
@@ -174,7 +176,7 @@ export const TAB_CATALOG = [
   {
     id: "coursework",
     label: "Coursework",
-    destination: { kind: "route", routeId: "studentCourseLanding" },
+    destination: { kind: "route", routeId: "studentHome" },
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -183,7 +185,7 @@ export const TAB_CATALOG = [
   {
     id: "grades",
     label: "Grades",
-    destination: { kind: "route", routeId: "studentCourseGrades" },
+    destination: { kind: "route", routeId: "studentScores" },
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -219,7 +221,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "My Blueprint Courses",
     destination: { kind: "route", routeId: "blueprintCourses" },
     requiredParams: [],
-    taskGroup: "instructorCourses",
     area: "instructorCourses",
     role: "primary",
     priority: "critical",
@@ -231,7 +232,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "My Active Courses",
     destination: { kind: "route", routeId: "instructorHome" },
     requiredParams: [],
-    taskGroup: "instructorCourses",
     area: "instructorCourses",
     role: "supporting",
     priority: "normal",
@@ -243,7 +243,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "My Inactive Courses",
     destination: { kind: "route", routeId: "instructorInactiveCourses" },
     requiredParams: [],
-    taskGroup: "instructorCourses",
     area: "instructorCourses",
     role: "supporting",
     priority: "normal",
@@ -255,7 +254,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Search Public Blueprint Courses",
     destination: { kind: "route", routeId: "publicBlueprintSearch" },
     requiredParams: [],
-    taskGroup: "instructorCourses",
     area: "instructorCourses",
     role: "supporting",
     priority: "normal",
@@ -267,7 +265,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "My Questions",
     destination: { kind: "future", futureId: "myQuestions" },
     requiredParams: [],
-    taskGroup: "instructorQuestions",
     area: "instructorQuestions",
     role: "primary",
     priority: "critical",
@@ -279,7 +276,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "My Draft Questions",
     destination: { kind: "route", routeId: "questionDrafts" },
     requiredParams: [],
-    taskGroup: "instructorQuestions",
     area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
@@ -291,7 +287,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Starred",
     destination: { kind: "future", futureId: "starredQuestions" },
     requiredParams: [],
-    taskGroup: "instructorQuestions",
     area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
@@ -303,7 +298,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Watched",
     destination: { kind: "route", routeId: "libraryWatchNotifications" },
     requiredParams: [],
-    taskGroup: "instructorQuestions",
     area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
@@ -315,7 +309,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Search Question Library",
     destination: { kind: "route", routeId: "library" },
     requiredParams: [],
-    taskGroup: "instructorQuestions",
     area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
@@ -327,7 +320,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Browse Question Library",
     destination: { kind: "route", routeId: "libraryBrowse" },
     requiredParams: [],
-    taskGroup: "instructorQuestions",
     area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
@@ -339,7 +331,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Assessments Due Soon",
     destination: { kind: "route", routeId: "assessmentsDueSoon" },
     requiredParams: [],
-    taskGroup: "instructorAssessments",
     area: "instructorAssessments",
     role: "primary",
     priority: "critical",
@@ -351,7 +342,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "My Assessment Templates",
     destination: { kind: "route", routeId: "assessmentTemplates" },
     requiredParams: [],
-    taskGroup: "instructorAssessments",
     area: "instructorAssessments",
     role: "supporting",
     priority: "normal",
@@ -363,7 +353,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Assessments",
     destination: { kind: "route", routeId: "courseAssessments" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
     area: "course",
     role: "primary",
     priority: "critical",
@@ -375,7 +364,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Students",
     destination: { kind: "route", routeId: "courseRoster" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
     area: "course",
     role: "supporting",
     priority: "normal",
@@ -387,7 +375,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Gradebook",
     destination: { kind: "route", routeId: "gradebook" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
     area: "course",
     role: "supporting",
     priority: "normal",
@@ -399,7 +386,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Teaching Operations",
     destination: { kind: "future", futureId: "teachingOperations" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
     area: "course",
     role: "supporting",
     priority: "normal",
@@ -411,7 +397,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Blueprint Updates",
     destination: { kind: "future", futureId: "blueprintUpdates" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
     area: "course",
     role: "supporting",
     priority: "normal",
@@ -423,7 +408,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Course Setup",
     destination: { kind: "future", futureId: "courseSetup" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "course",
     area: "course",
     role: "supporting",
     priority: "normal",
@@ -431,23 +415,10 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "studentProgress",
-    label: "Progress",
-    destination: { kind: "route", routeId: "studentCourseProgress" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentCourses",
-    area: "studentCourses",
-    role: "primary",
-    priority: "critical",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
     id: "allCoursework",
     label: "All Coursework",
-    destination: { kind: "route", routeId: "studentCourseLanding" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentCoursework",
+    destination: { kind: "route", routeId: "studentHome" },
+    requiredParams: [],
     area: "studentCoursework",
     role: "primary",
     priority: "critical",
@@ -457,9 +428,8 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "dueSoon",
     label: "Due Soon",
-    destination: { kind: "route", routeId: "studentCourseDueSoon" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentCoursework",
+    destination: { kind: "route", routeId: "studentDueSoon" },
+    requiredParams: [],
     area: "studentCoursework",
     role: "supporting",
     priority: "normal",
@@ -469,9 +439,8 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "completedCoursework",
     label: "Completed",
-    destination: { kind: "route", routeId: "studentCourseCompleted" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentCoursework",
+    destination: { kind: "route", routeId: "studentCompleted" },
+    requiredParams: [],
     area: "studentCoursework",
     role: "supporting",
     priority: "normal",
@@ -483,7 +452,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Active Attempt",
     destination: { kind: "route", routeId: "assessmentAttempt" },
     requiredParams: ["assessmentAttemptId"],
-    taskGroup: "studentCoursework",
     area: "studentCoursework",
     role: "supporting",
     priority: "normal",
@@ -493,9 +461,8 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "studentScores",
     label: "Scores",
-    destination: { kind: "route", routeId: "studentCourseGrades" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentGrades",
+    destination: { kind: "route", routeId: "studentScores" },
+    requiredParams: [],
     area: "studentGrades",
     role: "primary",
     priority: "critical",
@@ -505,9 +472,8 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "studentResponseStats",
     label: "Response Stats",
-    destination: { kind: "route", routeId: "studentCourseResponseStats" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentGrades",
+    destination: { kind: "route", routeId: "studentResponseStats" },
+    requiredParams: [],
     area: "studentGrades",
     role: "supporting",
     priority: "normal",
@@ -517,9 +483,19 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "studentAttemptHistory",
     label: "Attempt History",
-    destination: { kind: "route", routeId: "studentCourseAttemptHistory" },
-    requiredParams: ["courseInstanceId"],
-    taskGroup: "studentGrades",
+    destination: { kind: "route", routeId: "studentAttemptHistory" },
+    requiredParams: [],
+    area: "studentGrades",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "studentLatestFeedback",
+    label: "Latest Feedback",
+    destination: { kind: "route", routeId: "assessmentAttemptSummary" },
+    requiredParams: ["assessmentAttemptId"],
     area: "studentGrades",
     role: "supporting",
     priority: "normal",
@@ -531,7 +507,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Overview",
     destination: { kind: "route", routeId: "assessmentWorkspaceOverview" },
     requiredParams: ["courseInstanceId", "assessmentId"],
-    taskGroup: "assessment",
     area: "assessment",
     role: "primary",
     priority: "critical",
@@ -543,7 +518,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Questions",
     destination: { kind: "route", routeId: "assessmentWorkspaceQuestions" },
     requiredParams: ["courseInstanceId", "assessmentId"],
-    taskGroup: "assessment",
     area: "assessment",
     role: "primary",
     priority: "critical",
@@ -555,7 +529,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Properties",
     destination: { kind: "route", routeId: "assessmentWorkspacePolicies" },
     requiredParams: ["courseInstanceId", "assessmentId"],
-    taskGroup: "assessment",
     area: "assessment",
     role: "supporting",
     priority: "normal",
@@ -567,7 +540,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Student View",
     destination: { kind: "route", routeId: "assessmentWorkspaceStudentView" },
     requiredParams: ["courseInstanceId", "assessmentId"],
-    taskGroup: "assessment",
     area: "assessment",
     role: "supporting",
     priority: "normal",
@@ -579,7 +551,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Grade Settings",
     destination: { kind: "future", futureId: "gradeSettings" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "courseSetup",
     area: "courseSetup",
     role: "primary",
     priority: "critical",
@@ -591,7 +562,6 @@ export const RIBBON_TASK_CATALOG = [
     label: "Appearance",
     destination: { kind: "route", routeId: "courseAppearance" },
     requiredParams: ["courseInstanceId"],
-    taskGroup: "courseSetup",
     area: "courseSetup",
     role: "supporting",
     priority: "normal",

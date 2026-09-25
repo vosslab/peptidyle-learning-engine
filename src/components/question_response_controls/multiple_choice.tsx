@@ -57,7 +57,6 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
   const restored =
     props.initialResponse?.kind === "multipleChoice" ? props.initialResponse.selected : [];
   const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemId>>(restored);
-  let firstChoice!: HTMLInputElement;
   const controller = createResponseController(props, {
     kind: "multipleChoice",
     selected: [...restored],
@@ -80,12 +79,6 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
   }
   function save(): void {
     void controller.save(response());
-  }
-  function reset(): void {
-    const next = [...restored];
-    setSelected(next);
-    void controller.reset({ kind: "multipleChoice", selected: next });
-    queueMicrotask(() => firstChoice.focus());
   }
   function handleKeyDown(event: KeyboardEvent): void {
     const target = event.target;
@@ -154,13 +147,6 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
                   name={`response-${props.attemptId}`}
                   value={choice.id}
                   checked={selected().includes(choice.id)}
-                  ref={
-                    index() === 0
-                      ? (element): void => {
-                          firstChoice = element;
-                        }
-                      : undefined
-                  }
                   onChange={() => choose(choice.id)}
                 />
                 <span class="choice-number" aria-hidden="true">
@@ -175,10 +161,8 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
         disabled={!controller.canSave() || controller.locked()}
-        resetDisabled={controller.locked()}
         onSave={save}
         saveLabel={props.saveLabel}
-        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

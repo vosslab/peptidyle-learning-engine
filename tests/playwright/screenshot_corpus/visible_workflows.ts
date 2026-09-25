@@ -8,7 +8,6 @@ import {
   chooseSeededIdentityAtSignIn,
   courseChoice,
   restoreViewportOrigin,
-  waitForStudentCourseEntry,
 } from "../e2e/real_stack_ui";
 
 export const COURSE_TITLE = "Biochemistry 301: Proteins and Peptides";
@@ -49,7 +48,7 @@ export async function openAllStudentCoursework(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Coursework", exact: true })
     .click();
-  await page.locator('[data-route-surface="studentCourseLanding"]').waitFor();
+  await page.locator('[data-route-surface="studentHome"]').waitFor();
   await courseworkRow(page).waitFor();
 }
 
@@ -68,60 +67,34 @@ export async function openInstructorCourse(
 }
 
 export async function openStudentCourse(page: Page, title: string = COURSE_TITLE): Promise<void> {
-  const canonicalEntry = await page.waitForFunction((expectedTitle) => {
-    for (const heading of document.querySelectorAll("h1")) {
-      const style = window.getComputedStyle(heading);
-      if (
-        heading.textContent?.trim() === expectedTitle &&
-        style.visibility !== "hidden" &&
-        style.display !== "none"
-      ) {
-        return "course";
-      }
-    }
-
-    if (window.location.pathname !== "/student") return null;
-    const cards = [...document.querySelectorAll("article.course-card")].filter((card) => {
-      const style = window.getComputedStyle(card);
-      return style.visibility !== "hidden" && style.display !== "none";
-    });
-    const hasExpectedCourse = cards.some((card) =>
-      [...card.querySelectorAll("h2")].some(
-        (heading) => heading.textContent?.trim() === expectedTitle,
-      ),
-    );
-    const choosingCourses = new URLSearchParams(window.location.search).get("choose") === "1";
-    return hasExpectedCourse && (choosingCourses || cards.length > 1) ? "chooser" : null;
-  }, title);
-  const entry = await canonicalEntry.jsonValue();
-  if (entry === "chooser") {
-    const card = courseCard(page, title);
-    await card.waitFor();
-    await card.getByRole("link", { name: "Open Coursework", exact: true }).click();
-    await studentCourseHeading(page, title).waitFor();
+  if (
+    await studentCourseHeading(page, title)
+      .isVisible()
+      .catch(() => false)
+  )
     return;
-  }
-  if (entry === "course") return;
-  throw new Error("Student Course entry did not reach a visible Course or chooser state.");
+  await openStudentCourseList(page);
+  const card = courseCard(page, title);
+  await card.waitFor();
+  await card.getByRole("link", { name: "Open Course", exact: true }).click();
+  await studentCourseHeading(page, title).waitFor();
 }
 
-/** Opens the visible chooser from the one-Course landing without bypassing normal navigation. */
-export async function openStudentCourseChooser(page: Page): Promise<void> {
-  const entry = await waitForStudentCourseEntry(page, COURSE_TITLE);
-  if (entry === "course") {
-    await page.getByRole("link", { name: "Your courses", exact: true }).click();
-    await page.waitForURL(
-      (url) => url.pathname === "/student" && url.searchParams.get("choose") === "1",
-    );
-    await studentCourseChooserHeading(page).waitFor();
-  }
+/** Opens the fixed Student Courses destination through Tier 1 navigation. */
+export async function openStudentCourseList(page: Page): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Courses", exact: true })
+    .click();
+  await page.waitForURL((url) => url.pathname === "/student/courses");
+  await studentCourseListHeading(page).waitFor();
 }
 
 function studentCourseHeading(page: Page, title: string): Locator {
   return page.getByRole("heading", { level: 1, name: title, exact: true });
 }
 
-function studentCourseChooserHeading(page: Page): Locator {
+function studentCourseListHeading(page: Page): Locator {
   return page.getByRole("heading", { name: "Your courses", exact: true });
 }
 

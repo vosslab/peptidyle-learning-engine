@@ -34,10 +34,12 @@ const BLUEPRINT_MODULE: u128 = 0xec02;
 const BLUEPRINT_ASSESSMENT: u128 = 0xec03;
 const ASSESSMENT_ENTRY: u128 = 0xed02;
 const OTHER_STUDENT_ACCOMMODATION: u128 = 0xed03;
+const STUDENT_RESUME_ACCOMMODATION: u128 = 0xed04;
 const PUBLISHED_QUESTION: &str = "BCDE-2FGH";
 
 struct AccessFixture {
     course_id: String,
+    other_course_id: String,
     assessment_id: String,
 }
 
@@ -453,6 +455,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     tx.commit().await.expect("fixture commit");
     AccessFixture {
         course_id,
+        other_course_id,
         assessment_id,
     }
 }

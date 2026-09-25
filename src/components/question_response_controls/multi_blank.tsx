@@ -27,7 +27,6 @@ export function MultiBlankResponse(
     text: restored.get(blank.id) ?? "",
   }));
   const [answers, setAnswers] = createSignal(initialAnswers);
-  let firstBlank!: HTMLInputElement;
   const response = (): StudentResponse => ({ kind: "multiBlank", answers: [...answers()] });
   // Completion is a local progress cue only.
   // It deliberately does not normalize or grade text.
@@ -41,12 +40,6 @@ export function MultiBlankResponse(
   }
   function save(): void {
     void controller.save(response());
-  }
-  function reset(): void {
-    const next = initialAnswers.map((answer) => ({ ...answer }));
-    setAnswers(next);
-    void controller.reset({ kind: "multiBlank", answers: next });
-    queueMicrotask(() => firstBlank.focus());
   }
   return (
     <section
@@ -84,13 +77,6 @@ export function MultiBlankResponse(
                   type="text"
                   maxlength={"maxCharacters" in blank ? blank.maxCharacters : blank.maxLength}
                   value={answers().find((answer) => answer.slot === blank.id)?.text ?? ""}
-                  ref={
-                    index() === 0
-                      ? (element): void => {
-                          firstBlank = element;
-                        }
-                      : undefined
-                  }
                   onInput={(event) => update(blank.id, event.currentTarget.value)}
                 />
               </label>
@@ -101,10 +87,8 @@ export function MultiBlankResponse(
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
         disabled={!controller.canSave() || controller.locked()}
-        resetDisabled={controller.locked()}
         onSave={save}
         saveLabel={props.saveLabel}
-        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

@@ -28,7 +28,6 @@ export interface RouteScopeProviderProps {
 
 interface RouteScopeContextValue {
   readonly identity: Accessor<RouteScopeIdentity>;
-  readonly currentCourseInstanceId: Accessor<string | undefined>;
   readonly contentLayout: Accessor<ContentLayout>;
   readonly data: Accessor<CourseThemeRouteData | undefined>;
   readonly loadState: Accessor<RouteScopeLoadState>;
@@ -91,11 +90,6 @@ function useRouteScopeContext(): RouteScopeContextValue {
 /** Reads the current synchronous URL-syntax identity; it does not authorize a route. */
 export function useRouteScopeIdentity(): RouteScopeIdentity {
   return useRouteScopeContext().identity();
-}
-
-/** Reads the session-pinned Course Instance for Student tier-one navigation. */
-export function useCurrentCourseInstanceId(): Accessor<string | undefined> {
-  return useRouteScopeContext().currentCourseInstanceId;
 }
 
 /** Reads the current route's declared content geometry through the persistent shell context. */

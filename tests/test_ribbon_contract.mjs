@@ -14,6 +14,7 @@ import {
 } from "../src/route_contract.ts";
 import { CAPABILITY_REGISTRY } from "../src/ribbon/capability_registry.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
+import { ribbonTierTwoSchemaFor } from "../src/ribbon/ribbon_schema.ts";
 import { loadAppRibbonForSsr } from "./support/ribbon_component_ssr.ts";
 import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 
@@ -53,16 +54,26 @@ function routeStateFor(routeId) {
   return { route, params: { ...declaredParams } };
 }
 
-function controlsFor(routeId, productRole) {
+function controlsFor(routeId, productRole, labels = LABELS) {
   const routeState = routeStateFor(routeId);
   const params =
     routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
-      ? { ...routeState.params, courseInstanceId: PARAMETER_VALUES.courseInstanceId }
+      ? {
+          ...routeState.params,
+          courseInstanceId: PARAMETER_VALUES.courseInstanceId,
+          assessmentId: PARAMETER_VALUES.assessmentId,
+        }
       : routeState.params;
   const model = deriveRibbonModel(
-    { ...routeState, params, currentCourseInstanceId: params.courseInstanceId },
+    {
+      ...routeState,
+      params,
+      ...(productRole === "student"
+        ? { studentCourses: [{ id: PARAMETER_VALUES.courseInstanceId, shortName: "BCHM 355" }] }
+        : {}),
+    },
     { productRole },
-    LABELS,
+    labels,
   );
   return { model, controls: [...model.tabs, ...model.taskAreas.flatMap((area) => area.controls)] };
 }
@@ -164,24 +175,6 @@ test("every signed-in Product Role has one accessible generic Profile end contro
   }
 });
 
-test("Task Row topology follows settled Instructor areas", () => {
-  const instructorGroups = {
-    courses: "instructorCourses",
-    questions: "instructorQuestions",
-    productAssessments: "instructorAssessments",
-  };
-  for (const route of ROUTE_CONTRACT) {
-    const group = instructorGroups[route.ribbon.tierOneArea];
-    if (group === undefined) continue;
-    const model = deriveRibbonModel(routeStateFor(route.id), { productRole: "instructor" }, LABELS);
-    assert.equal(
-      model.taskAreas.length > 0,
-      true,
-      `${route.id} has its settled Instructor Task Row`,
-    );
-  }
-});
-
 test("settled Instructor Tier 2 destinations and order stay fixed across deeper routes", () => {
   const groups = {
     courses: "instructorCourses",
@@ -198,7 +191,11 @@ test("settled Instructor Tier 2 destinations and order stay fixed across deeper 
       label: area.label,
       controls: area.controls.map(({ id, label, destination }) => ({ id, label, destination })),
     }));
-    const controls = RIBBON_TASK_CATALOG.filter((control) => control.taskGroup === group);
+    const controls = ribbonTierTwoSchemaFor("instructor", route.ribbon.tierOneArea).map((slot) => {
+      assert.equal(slot.kind, "destination");
+      return RIBBON_TASK_CATALOG.find((control) => control.id === slot.id);
+    });
+    assert.ok(controls.every((control) => control !== undefined));
     const expected =
       controls.length === 0
         ? []
@@ -322,11 +319,15 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
 
 test("Student Tier 2 choices and order stay fixed across routes and Course context", () => {
   const expectedTaskRows = {
-    courses: ["studentProgress"],
+    courses: ["studentCourse:CI7K3M2QAZ"],
     coursework: ["allCoursework", "dueSoon", "completedCoursework", "activeAttempt"],
-    grades: ["studentScores", "studentResponseStats", "studentAttemptHistory"],
+    grades: [
+      "studentScores",
+      "studentResponseStats",
+      "studentAttemptHistory",
+      "studentLatestFeedback",
+    ],
   };
-  const firstRowByTierOne = new Map();
   for (const route of ROUTE_CONTRACT) {
     if (!route.requiredProductRoles.includes("student")) continue;
     const expected = expectedTaskRows[route.ribbon.tierOneArea];
@@ -334,62 +335,51 @@ test("Student Tier 2 choices and order stay fixed across routes and Course conte
     const model = controlsFor(route.id, "student").model;
     const row = model.taskAreas.flatMap((area) => area.controls.map((control) => control.id));
     assert.deepEqual(row, expected, `${route.id} retains its fixed Student Tier 2 row`);
-    const previous = firstRowByTierOne.get(route.ribbon.tierOneArea);
-    if (previous === undefined) firstRowByTierOne.set(route.ribbon.tierOneArea, row);
-    else assert.deepEqual(row, previous, `${route.id} did not change its Tier 1 row`);
     for (const control of model.taskAreas.flatMap((area) => area.controls)) {
-      if (control.href === undefined) continue;
-      assert.match(control.href, /\/student\/courses\/CI7K3M2QAZ(?:\/|$)/, control.id);
+      if (control.id.startsWith("studentCourse:")) {
+        assert.equal(control.href, "/student/courses/CI7K3M2QAZ", control.id);
+      } else if (control.id === "activeAttempt" || control.id === "studentLatestFeedback") {
+        assert.equal(control.href, undefined, control.id);
+      } else {
+        assert.match(control.href ?? "", /^\/student(?:\/|$)/, control.id);
+      }
     }
   }
+  assert.equal(
+    routeStateFor("assessmentAttemptSummary").route.ribbon.tierOneArea,
+    "grades",
+    "submitted Attempt results keep the Grades navigation context",
+  );
 });
 
 test("Student Coursework keeps its collective Tier 1 label without an Attempt-only row", () => {
   const courseLanding = controlsFor("studentCourseLanding", "student").model;
-  const attempt = controlsFor("assessmentAttempt", "student").model;
+  const attempt = controlsFor("assessmentAttempt", "student", {
+    courseShortName: "BCHM 355",
+    courseLongName: "Biochemistry 301",
+  }).model;
+  const courseList = controlsFor("studentCourses", "student").model;
+  const courseControl = (model) =>
+    model.taskAreas
+      .flatMap((area) => area.controls)
+      .find((control) => control.id.startsWith("studentCourse:"));
+  assert.equal(courseControl(courseLanding)?.selected, true);
+  assert.equal(courseControl(courseList)?.selected, false);
+  assert.equal(
+    attempt.breadcrumbs.some((item) => item.label === "Biochemistry 301"),
+    true,
+    "an Attempt breadcrumb identifies its explicit Course context",
+  );
   const attemptTaskControls = attempt.taskAreas.flatMap((area) => area.controls);
-  const expectedTabs = [
-    {
-      id: "coursework",
-      label: "Coursework",
-      destination: { kind: "route", routeId: "studentCourseLanding" },
-      availability: "Available",
-      selected: true,
-      href: "/student/courses/CI7K3M2QAZ",
-      role: "primary",
-      priority: "critical",
-      presentation: "standard",
-      iconBearing: true,
-      iconOnlySafe: false,
-    },
-    {
-      id: "grades",
-      label: "Grades",
-      destination: { kind: "route", routeId: "studentCourseGrades" },
-      availability: "Available",
-      selected: false,
-      href: "/student/courses/CI7K3M2QAZ/grades",
-      role: "primary",
-      priority: "critical",
-      presentation: "standard",
-      iconBearing: true,
-      iconOnlySafe: false,
-    },
-    {
-      id: "courses",
-      label: "Courses",
-      destination: { kind: "route", routeId: "courses" },
-      availability: "Available",
-      selected: false,
-      href: "/",
-      role: "primary",
-      priority: "critical",
-      presentation: "standard",
-      iconBearing: true,
-      iconOnlySafe: false,
-    },
-  ];
-  assert.deepEqual(courseLanding.tabs, expectedTabs);
+  assert.deepEqual(
+    courseLanding.tabs.map(({ id, label, href }) => ({ id, label, href })),
+    [
+      { id: "coursework", label: "Coursework", href: "/student" },
+      { id: "grades", label: "Grades", href: "/student/grades" },
+      { id: "courses", label: "Courses", href: "/student/courses" },
+    ],
+  );
+  assert.equal(courseLanding.tabs.find((tab) => tab.id === "courses")?.selected, true);
   assert.deepEqual(
     attemptTaskControls.map((control) => control.label),
     ["All Coursework", "Due Soon", "Completed", "Active Attempt"],
@@ -401,7 +391,7 @@ test("Student Coursework keeps its collective Tier 1 label without an Attempt-on
   );
 });
 
-test("Course-scoped Student Tier 2 destinations stay unavailable without Course context", () => {
+test("global Student Tier 2 destinations stay available without Course context", () => {
   const routeState = routeStateFor("assessmentAttempt");
   const params = { assessmentAttemptId: routeState.params.assessmentAttemptId };
   const model = deriveRibbonModel(
@@ -414,16 +404,18 @@ test("Course-scoped Student Tier 2 destinations stay unavailable without Course 
     controls.map((control) => control.id),
     ["allCoursework", "dueSoon", "completedCoursework", "activeAttempt"],
   );
-  assert.ok(controls.every((control) => control.href === undefined));
+  assert.deepEqual(
+    controls.map((control) => control.href),
+    ["/student", "/student/due-soon", "/student/completed", undefined],
+  );
 });
 
 test("Active Attempt links directly to the server-selected resumable Attempt", () => {
-  const routeState = routeStateFor("studentCourseLanding");
+  const routeState = routeStateFor("studentHome");
   const attemptId = PARAMETER_VALUES.assessmentAttemptId;
   const model = deriveRibbonModel(
     {
       ...routeState,
-      currentCourseInstanceId: PARAMETER_VALUES.courseInstanceId,
       activeAttemptId: attemptId,
     },
     { productRole: "student" },
@@ -612,7 +604,7 @@ test("deferred assessment-attempt summary retains only its linked current breadc
   );
 });
 
-test("course breadcrumbs omit their own leading public ID from resolved titles", () => {
+test("Course breadcrumbs preserve the authored long name", () => {
   const state = routeStateFor("courseAssessments");
   for (const courseLongName of [
     "Course CI7K3M2QAZ: Molecular Biology",
@@ -621,7 +613,7 @@ test("course breadcrumbs omit their own leading public ID from resolved titles",
     const model = deriveRibbonModel(state, { productRole: "instructor" }, { courseLongName });
     assert.deepEqual(
       model.breadcrumbs.map(({ label }) => label),
-      ["Home", "Molecular Biology"],
+      ["Home", courseLongName],
     );
   }
 });

@@ -17,6 +17,7 @@ import {
   type RibbonContextLabels,
   type RibbonModel,
 } from "./ribbon/ribbon_contract";
+import type { StudentRibbonNavigation } from "./ribbon/student_ribbon_navigation";
 
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
 
@@ -160,8 +161,7 @@ export function App(props: RouteSectionProps): JSX.Element {
   function ribbonModel(
     routeData: CourseThemeRouteData | undefined,
     assessmentTitle: string | undefined,
-    currentCourseInstanceId: string | undefined,
-    activeAttemptId: string | undefined,
+    studentNavigation: StudentRibbonNavigation | undefined,
   ): RibbonModel | undefined {
     const currentPathname = pathname();
     if (isPublicAccountRoute(currentPathname)) return undefined;
@@ -177,7 +177,13 @@ export function App(props: RouteSectionProps): JSX.Element {
     const params = ribbonParamsFor(route, currentPathname, routeData);
     if (params === undefined) return undefined;
     return deriveRibbonModel(
-      { route, params, currentCourseInstanceId, activeAttemptId },
+      {
+        route,
+        params,
+        studentCourses: studentNavigation?.studentCourses,
+        activeAttemptId: studentNavigation?.activeAttemptId,
+        latestFeedbackAttemptId: studentNavigation?.latestFeedbackAttemptId,
+      },
       { productRole: state.session.account.productRole },
       ribbonLabelsFor(routeData, assessmentTitle),
     );

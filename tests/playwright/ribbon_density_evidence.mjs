@@ -297,7 +297,6 @@ try {
           selectedTab: panelRibbon.querySelector(
             '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]',
           ),
-          taskArea: panelRibbon.querySelector(".ple-app-ribbon__task-area-label"),
           unselectedTask: panelRibbon.querySelector(
             ".ple-app-ribbon__tasks .ple-app-ribbon__link:not([aria-current])",
           ),

@@ -119,6 +119,8 @@ pub struct LiveStudentCourseAttemptHistoryEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LiveStudentCourseActiveAttempt {
     pub assessment_attempt_id: AssessmentAttemptId,
+    pub started_at: Timestamp,
+    pub latest_activity_at: Timestamp,
 }
 
 /// One exact immutable Published Question Revision's disclosed self-only outcomes.
@@ -181,6 +183,12 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Option<LiveStudentCourseActiveAttempt>, StoreError>;
+
+    /// Selects the newest submitted Attempt with at least one currently released feedback item.
+    async fn get_live_student_latest_feedback_attempt(
+        &self,
+        session_token_hash: SessionTokenHash,
+    ) -> Result<Option<AssessmentAttemptId>, StoreError>;
 
     /// Lists the authenticated Student's Course Attempts by bounded keyset pages.
     async fn list_live_student_course_attempt_history(

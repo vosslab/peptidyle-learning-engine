@@ -457,7 +457,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
   - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` and the `application data does not move the content origin` assertion verify the content origin.
 - [x] Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
-  - Evidence (test): `tests/playwright/ribbon_geometry_evidence.mjs` `chromeAboveContent` verifies reserved row tokens and shell track geometry.
+  - Evidence (source and visual review): `src/ribbon/app_ribbon_density.css` reserves the two Ribbon rows and the shell uses their combined height; the canonical screenshot corpus shows the reserved row across captured roles and viewports. The route-stability browser contract checks that page content does not jump when route data changes.
 - [x] Page actions should appear near the content they affect rather than changing the Ribbon layout.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` renders only catalog navigation and Sign Out in `AppRibbon`; task content stays in `ApplicationShell` content.
 - [ ] On narrow Student screens, use a compact navigation arrangement that keeps the product identity,
@@ -947,7 +947,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] The Student interface should focus on current Courses, Coursework, and work that needs attention.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` lists current courses; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` lists assigned work.
 - [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question
-  Assignments, Bonus Assignments, Quizzes, and Exams.
+      Assignments, Bonus Assignments, Quizzes, and Exams.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` labels the collective section and its loading and empty states "Coursework," while each item receives one canonical Type from the typed projection.
   - Mismatch: the actual PostgreSQL landing Store proved the same closed Type column with Regular Assignment and the compiled SolidJS/mock-API browser evidence was accepted, but the connected Student HTTP workflow was not run; this broad Student-facing terminology row remains runtime-unverified.
 - [ ] Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
@@ -964,7 +964,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
   - Mismatch: needs runtime evidence for the four required Student viewport classes; `tests/playwright/student_course_entry_m6_evidence.mjs` does not cover them.
 - [ ] Student layouts should adapt smoothly at intermediate widths, with readable long titles and
-  controls that wrap or rearrange in the task's reading order.
+      controls that wrap or rearrange in the task's reading order.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Every Student browser action should be usable with the keyboard alone.
   - Mismatch: needs keyboard-only journey evidence; `src/pages/assignment_attempt_page.tsx` has keyboard-operable controls but no complete Student journey test.
@@ -977,18 +977,22 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
   - Owner: 03_shell.md / General interface design (first occurrence; identical requirement and status).
-- [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
-  - Reason: HG: no locked-in design.
-  - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
+- [x] Student Tier 2 choices and order stay fixed within each Student Tier 1 area.
+  - Evidence (authority): `docs/HUMAN_GUIDANCE.md` defines the Coursework, Grades, and Courses rows.
+  - Evidence (contract): `tests/test_ribbon_contract.mjs` checks fixed rows across routes and verifies
+    that Course selection comes from explicit Course route context.
 
 #### Student Course and Coursework interface
 
-- [x] Students enrolled in one active Course should go directly into that Course.
-  - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` redirects the one-entry `courses()` result to its Course reference.
+- [x] The Student home opens All Coursework for every enrollment count; Courses provides deliberate
+      entry to Course-specific content.
+  - Evidence (source): `src/route_contract.ts` declares `/student` as all-Course Coursework and
+    `src/pages/role_home_pages.tsx` renders `StudentAllCourseworkPage`; Course cards link to explicit
+    Course routes without redirecting based on enrollment count.
 - [x] Students should be able to see their active Courses and Coursework from the main navigation.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` provides the current-Course index; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` provides its work.
 - [ ] Course invitations should show the Course name and relevant Instructor and term information
-  before the Student accepts the invitation.
+      before the Student accepts the invitation.
   - Verification pending: source and independent review show Course, Instructor, and term before acceptance.
   - Verification pending: the self-only projection omits identities; transient states conceal context.
   - Verification pending: actual-role PostgreSQL covers self, foreign, expired, accepted, and enrolled invitations.
@@ -1003,7 +1007,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Keep Coursework entries compact in height so Students can scan several items at once.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Keep essential Coursework information and the main action visible, with fuller access and timing
-  details available through progressive disclosure.
+      details available through progressive disclosure.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
   **Bonus Assignments**, **Quizzes**, and **Exams**.
@@ -1011,21 +1015,21 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
 - [x] Before starting Coursework, Students should see its title, Type, Question count, points possible,
-  time limit, and previous Attempts.
+      time limit, and previous Attempts.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` presents the title, specific Type, Question count, points possible, time limit, and previous Attempts before start.
   - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentStartFacts` owns the compact Question, points, and time-limit facts.
   - Evidence (runtime): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` was exercised by accepted isolated actual-server/exact-main Student proof `/private/tmp/ple-course-empty-artifacts.JCFLm9` after a real roster import/claim. It opened a Released direct Practice Assessment before Start and showed title, Practice Type, one Question, one point, the exact one-hour limit, and an explicit zero-previous-Attempt state; an Unreleased sibling was omitted and an outsider received 404. A separate accepted native Student HTTP/browser run `/private/tmp/ple-course-empty-artifacts.ONrLSK` whole-submitted a real graded 1/1 Attempt, then reopened the overview before starting another. The same six facts included an actual "Previous attempts" Attempt 1 Submitted link; its clicked history showed recorded PKU response and 1/1 score. The overview's previous-Attempt score is optional under the current DTO, so this row does not require that optional value or claim every Student viewport.
 - [ ] Present the "Before you start" settings as a compact summary. Keep each label beside its value
-  in aligned rows, using a compact grid when width permits.
+      in aligned rows, using a compact grid when width permits.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Group Question count and points together, and group availability, deadlines, and Attempt rules
-  into clearly readable sections with concise spacing.
+      into clearly readable sections with concise spacing.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Express unset or unlimited settings in Student language, such as "No closing time" or
-  "Unlimited Attempts", and show the time zone once beside the timing group.
+      "Unlimited Attempts", and show the time zone once beside the timing group.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Keep the start action close to this summary so Students can review the rules and begin with
-  minimal scrolling.
+      minimal scrolling.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 #### Student Coursework interface
@@ -1033,7 +1037,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Students see one Question at a time while completing Coursework.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
 - [x] While completing Coursework, navigation should provide access to every Question and its saved
-  status, with direct jumps between Questions.
+      status, with direct jumps between Questions.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` renders every position, saved-status label, and position button.
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
@@ -1050,30 +1054,29 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Submission status should be obvious and use plain language.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Submitting Assessment...", "Your answers were accepted", and plain-language save or submission errors from the submission state.
 - [x] Present Question navigation as a compact horizontal row of numbered controls, with distinct
-  current-Question and saved-status cues.
+      current-Question and saved-status cues.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [x] For long Question sets, use forum-style pagination with Previous and Next controls, the first
-  and last Question numbers, a range around the current Question, and ellipses for omitted ranges.
+      and last Question numbers, a range around the current Question, and ellipses for omitted ranges.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [x] Adapt the visible number range to the available width while keeping every Question reachable.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [x] Keep the Question prompt and response controls near the top of the working area. Give the
-  title, timing summary, and Question navigation only the space needed to orient Students.
+      title, timing summary, and Question navigation only the space needed to orient Students.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [ ] Make the current Question, saved-response status, and keyboard-focused control visually distinct
-  so Students can recognize where they are, what work is saved, and which action they will activate.
+      so Students can recognize where they are, what work is saved, and which action they will activate.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
   - Verification pending: accepted active-navigation current/saved/focus cues are partial proof; meaningful saved-response and keyboard-focus distinction across native response controls/actions and submitted-state presentation still need scoped rendered verification. The prior styling-only row is not acceptance of this changed whole wording.
 - [ ] Label response actions by their effect, such as "Save response" and "Clear response", so Students
-  can distinguish recording their work from changing it or submitting the whole Coursework.
-  - Evidence (source): `src/components/question_response_controls/common.tsx` `Actions` labels its shared reset action `Restore initial response`, matching the mount-captured response restored by each native control; `src/components/question_response_controls/ordering.tsx` `OrderingResponse` retains its distinct `Reset order` label.
-  - Evidence (runtime): temporary isolated native-control proof `/private/tmp/ple-response-restore-label.md` edits a nonempty mount baseline, activates `Restore initial response`, and observes the initial response again without an application backend. This bounded component proof does not establish a full Student workflow or persistence behavior.
-  - Verification pending: this correction establishes the shared reset label's local effect, but rendered save/change/submission distinction across the whole Student Coursework workflow, including saved-status and submitted-state presentation, remains unverified.
+      can distinguish recording their work from changing it or submitting the whole Coursework.
+  - Evidence (source): `src/components/question_response_controls/common.tsx` labels the save action `Save response`; `src/components/question_response_controls/matching.tsx` labels the per-pair action `Clear response`. Restore/reset response actions were removed.
+  - Verification pending: rendered save/change/submission distinction across the whole Student Coursework workflow, including saved-status and submitted-state presentation, remains unverified. The earlier restore/reset proof does not apply to current controls.
 - [ ] Group response feedback near the response controls and keep routine saved-status messages brief.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
@@ -1084,7 +1087,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Completed Coursework should remain easy to find and review.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` lists and links previous Attempts; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` presents the selected Attempt's score and recorded work.
 - [ ] Group each reviewed Question's number, result, points, recorded response, and permitted feedback
-  into a compact, clearly separated unit.
+      into a compact, clearly separated unit.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 ### Sysadmin interface
@@ -1128,6 +1131,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] The complete Sysadmin Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Sysadmin Ribbon task layout can be verified until the design is locked.
+
 ## Data and history
 
 - [ ] Answers, keys, grading, and correctness decisions should stay on the server, out of reach of **Students**.
@@ -1239,7 +1243,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 ### Content classification
 
 - [ ] PLE uses one shared global content classification vocabulary for **Courses** and **Library
-  Objects**.
+      Objects**.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Every Course has exactly one **Discipline**.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1250,14 +1254,14 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] **Topic** and **Subtopic** are optional for Library Objects.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Courses retain the hierarchy because their classification supports Course organization, search,
-  filtering, and discovery.
+      filtering, and discovery.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
   - Mismatch: Partial SQL foundation gives Subject-Discipline associations and one-parent Topic/Subtopic relationships, but no complete content classification behavior exists.
 - [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
   - Mismatch: `content_discipline` exists as an owner-only SQL vocabulary table, but authenticated management and content use remain absent.
 - [ ] **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
-  Biochemistry, or Ecology.
+      Biochemistry, or Ecology.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
   - Mismatch: `content_topic.subject_uuid` has a mandatory parent foreign key, but Topic management and content use remain absent.
@@ -1272,7 +1276,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] A Subtopic belongs to one Topic.
   - Mismatch: The SQL foreign key enforces one Subtopic parent, but authenticated management and complete product behavior remain open.
 - [ ] Course and Library Object selections follow the hierarchy: the Subject is associated with the
-  selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
+      selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Courses and Library Objects select from the same shared global vocabulary.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1285,10 +1289,10 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] **Instructors** may create new Subjects within a selected Discipline.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
-  offers the existing Subject.
+      offers the existing Subject.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] PLE requires explicit Instructor acceptance before associating the existing Subject with the
-  selected Discipline.
+      selected Discipline.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Creating or selecting vocabulary should fit naturally into the classification workflow.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1299,12 +1303,12 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Classification selection, browsing, and filtering begin with Discipline.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
-  progressively narrowing the available choices at each level.
+      progressively narrowing the available choices at each level.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
   - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
 - [ ] After selecting a Subject, search interfaces may offer an explicit option to include content
-  associated with that Subject across its other Disciplines.
+      associated with that Subject across its other Disciplines.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
   - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
@@ -1368,31 +1372,31 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 ### Course retention and lifecycle
 
 - [ ] Course retention should follow Course Instance dates and its six-month Active lifetime rather than
-  a fixed academic calendar.
+      a fixed academic calendar.
   - Mismatch: Course Instance storage has no six-month Active lifetime or retention deadline.
 - [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA
-  retention clock.
+      retention clock.
   - Mismatch: Assessment deadlines exist, but no Course FERPA retention clock is derived from them.
 - [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the
-  six-month Active lifetime.
+      six-month Active lifetime.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies` lock the Course first, reject a Due date after its immutable `active_until_at`, and invoke `ple_data.synchronize_course_assessment_deadline` after an accepted change.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` stores the current maximum Assessment Due date and moves the active Course retention anchor to that date, or to `active_until_at` when no Due date remains.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies`, covering release, a cleared last Due date, cap rollback, stale CAS, wrong-Instructor denial, deterministic concurrent saves to two Assessments, an archive race, and frozen archived/deleted retention anchors.
 - [ ] Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Mismatch: The FERPA retention-clock transition is absent.
 - [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and
-  permanent deletion transitions.
+      permanent deletion transitions.
   - Mismatch: No configured FERPA retention policy or its transitions exists.
 - [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
-  creation.
+      creation.
   - Mismatch: No six-month inactivity transition or Instructor warning exists.
 - [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
-  FERPA retention and deletion.
+      FERPA retention and deletion.
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `ple_data.enforce_course_instance_retention_schedule` derives and preserves the immutable six-month `active_until_at`; `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment` and its sibling save functions reject every saved Due date beyond that cutoff.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` bounds the active retention anchor by the accepted current maximum Due date or that immutable cutoff and does not move an archived or deleted anchor.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
 - [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
-  delete Student records.
+      delete Student records.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` separates `ple_api.archive_course_student_records` from `ple_api.delete_course_student_records`; the latter requires the archived state and performs the deletion transaction.
   - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate exercised archive then bounded deletion, but notification, configured intervals, worker scheduling, and connected interface behavior remain open.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
@@ -1440,7 +1444,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] An Edit Number is only a counter and does not identify a stored historical object.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `assessment_edit_number` is a current-state concurrency field rather than a revision foreign key.
 - [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
-  each object.
+      each object.
   - Mismatch: Question and Blueprint revisions have positive sequential numbers, but Question Pools have no Revision Number.
 - [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
   - Mismatch: Question and Blueprint Revision Numbers identify immutable rows, but the absent Question Pool Revision leaves this general Revision Number behavior incomplete.
@@ -1492,10 +1496,11 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_access` returns stored deadlines and separately reads `display_time_zone`.
 - [x] Changing a display time zone changes how a deadline is shown, not the deadline itself.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.
+
 ## Question specifications
 
 - [x] Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
-  the same Question Library.
+      the same Question Library.
   - Evidence (source): `crates/server/src/question_library/paging.rs` `QuestionSearchFilter` supplies the shared Library query filter without a subject partition.
 - [ ] Questions are strictly and deterministically automated; grading does not require an **Instructor**.
   - Mismatch: needs runtime grading evidence for every supported backend.
@@ -1530,7 +1535,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `validate_question_publication` guards publication.
   - Verification pending: audit ordinary Draft publication, not only fork publication, against current validation and required Library metadata.
 - [ ] Question Publication Validation requires Discipline, Subject, and all other required Question
-  Library metadata before publication.
+      Library metadata before publication.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ### Question formats and type specifications
@@ -1540,7 +1545,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] QTI is for import, export, and archival interchange rather than the internal source model.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `workspace_import` treats `qti` as an import format, not a source binding.
 - [x] A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
-  Assets.
+      Assets.
   - Evidence (source): `crates/adapters/qti/src/model.rs` `QtiPackageArchive` and `QtiPackageExtractedImage` are import-only; `question_image_asset_id()` is derived at Question bind.
 - [x] MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` CHECK lists all eight types.
@@ -1580,19 +1585,19 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 #### Native Question response presentation
 
 - [x] Native MATCH Questions should present prompts with a shared choice bank on laptop and desktop
-  screens. Display the full set of choices once alongside the prompts.
+      screens. Display the full set of choices once alongside the prompts.
   - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
   - Evidence (runtime): `src/components/question_response_controls/matching.tsx` `MatchingResponse`, supplied `/private/tmp/ple-matching-saved-1280.png` and `/private/tmp/ple-attempt-compact-1280.png` show all four bank choices once beside the prompt slots. Independent source review `/private/tmp/ple-demo-ui-source-review.md` and bounded acceptance `/private/tmp/ple-ui-bounded-acceptance.md` support this shared-bank laptop/desktop presentation only; keyboard changing/clearing and whole-Attempt grading are separate requirements.
 - [x] MATCH Questions should support drag-and-drop and an equally capable keyboard-only method for
-  assigning, changing, and clearing matches.
+      assigning, changing, and clearing matches.
   - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
   - Evidence (runtime): `src/components/question_response_controls/matching.tsx` `MatchingResponse`, supplied parent 2026-09-16 actual current-demo Avery R-4 laptop proof (session 87294, exit 0): normal Tab traversal without programmatic focus plus Space/Enter cleared the first two saved matches, selected bank choices, swapped both assignments, then cleared/reassigned the original choices. All four original choice strings were restored exactly, and Tab/Enter Save was accepted. The existing native mouse drag and accepted Save receipt is independently accepted in `/private/tmp/ple-ui-bounded-acceptance.md`; fresh keyboard evidence is recorded in `/private/tmp/ple-latest-hg-checklist-reconciliation.md`. This closes assigning/changing/clearing parity only, not adapted grading or full pointer/touch bank reachability.
 - [ ] Question response layouts may adapt to available screen space while preserving the same content,
-  response meaning, and grading behavior. Narrow layouts may repeat choices when that improves use.
+      response meaning, and grading behavior. Narrow layouts may repeat choices when that improves use.
   - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
   - Verification pending: bounded partial/reset and exact Save/reload receipts retain response identity; adapted narrow response layouts still need proof of preserved content, response meaning, and grading behavior. No particular choice-repetition design is imposed.
 - [ ] MATCH Questions should make each prompt's assigned choice easy to recognize and keep the choice
-  bank reachable while Students assign, change, and clear matches using keyboard, pointer, or touch.
+      bank reachable while Students assign, change, and clear matches using keyboard, pointer, or touch.
   - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
   - Verification pending: supplied desktop captures show assigned choice text, and bounded receipts show keyboard/click assignment and mouse drag. Bank reachability throughout changing/clearing with keyboard, pointer, and touch remains unobserved. Grading is not an acceptance prerequisite for this interaction-reachability row.
 
@@ -1676,7 +1681,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` invokes recorded teaching-content projection only for the native PLE source variant; the WeBWorK source remains opaque.
   - Evidence (runtime): the C910 actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`; the history read succeeded after the renderer stopped and exposed no choice, correct, or incorrect feedback reconstructed from the PGML source or rendered output.
 - [ ] PLE-managed Hints, Question Feedback, and Worked Solutions remain separate from backend-generated
-  interaction feedback.
+      interaction feedback.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
@@ -1685,7 +1690,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] PLE stores the immutable credit fraction as the grading outcome.
   - Mismatch: needs test or runtime evidence linking backend credit to stored outcome.
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
-  state.
+      state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
 - [ ] Assessment scores are calculated from stored credit fractions and current Question point values.
   - Mismatch: needs test or runtime scoring evidence.
@@ -1759,7 +1764,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Published Question metadata may include authorship, attribution, license, and source information.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `validate_question_publication` requires exact source, contiguous revision authorship and license records, keeping them associated with the Published Question Revision.
 - [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and
-  **Worked Solutions**.
+      **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
@@ -1777,12 +1782,12 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
 - [ ] Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
-  or Question Image Assets creates a new Question Revision.
+      or Question Image Assets creates a new Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 - [ ] Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
-  search metadata update the Published Question metadata while preserving the current Question Revision.
+      search metadata update the Published Question metadata while preserving the current Question Revision.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
@@ -1802,7 +1807,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
   - Evidence (runtime): `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_new_question_lineage` passed the accepted C879 3-by-3 PostgreSQL publication proof: each exact source Revision license was preserved across three supported compatible CC licenses and every mismatched requested license was rejected.
 - [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
-  threads, and impact notices.
+      threads, and impact notices.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
@@ -1885,7 +1890,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
-  threads, and impact notices.
+      threads, and impact notices.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
@@ -1900,16 +1905,16 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
   - Verification pending: Accepted actual-role Blueprint-owned append proof rejects classification mismatch atomically, and witnessed two-connection admission/reclassification wait and dual commit preserve Pool classification. Rebuilt connected append acceptance remains pending.
 - [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
-  when included in a Question Pool.
+      when included in a Question Pool.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Pools may have their own authorship, attribution, license, and source information where
-  appropriate.
+      appropriate.
   - Mismatch: The accepted Pool Title/Description/classification/Tags slice does not establish Pool-owned authorship, attribution, license, or source information; audit these separate fields and their authoring/read boundaries.
 - [x] Question Pool metadata describes the Pool rather than duplicating metadata from its member
-  Published Questions.
+      Published Questions.
   - Evidence (runtime): Accepted SQL/source proof establishes independent Title/Description, empty creation Tags, optional narrower hierarchy, classification retention after Question reclassification, and historical fork preservation. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` confirms separately authored Pool text through creation, retry, list, and current reads. No historical Pool HTTP route is claimed. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
 - [ ] Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
-  **Worked Solutions**.
+      **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
@@ -1939,7 +1944,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
   - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
 - [ ] **Instructors** should be able to select many Library objects and update shared metadata such as
-  Discipline, Subject, Topic, Subtopic, Tags, or other search fields together.
+      Discipline, Subject, Topic, Subtopic, Tags, or other search fields together.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
@@ -1953,7 +1958,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
 - [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag**
-  vocabulary.
+      vocabulary.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Every Library Object has exactly one **Discipline** and one **Subject**.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1987,7 +1992,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` keys Question statistics by `(question_id, revision_number)` and preserves those identity-free rows through `ple_api.delete_course_student_records`.
   - Verification pending: no Pool Revision/use/selection statistics model exists, and the 2026-09-16 actual-role PostgreSQL 17 purge gate exercised neither submitted Work nor aggregate rows.
 - [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit,
-  and unanswered results.
+      and unanswered results.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` retains accepted graded-Attempt and correct counts by exact Question Revision, and `question_revision_choice_statistics` retains eligible choice counts.
   - Verification pending: the complete result-count model, released Instructor Statistics surface, disclosure/privacy rules, and connected acceptance remain open.
 - [x] Eligible Question Types may also retain aggregate answer-choice counts.
@@ -1996,7 +2001,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
   - Verification pending: `schemas/base_schema/20_tables/statistics.sql` supplies only Question Revision aggregates, which the deletion transition preserves. Pool Revision/use/selection statistics and their privacy/retention oracle are not implemented.
 - [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and
-  privacy thresholds are met.
+      privacy thresholds are met.
   - Verification pending: `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
 - [ ] Aggregate statistics contain counts rather than Student Attempts or identifiable Student records.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` stores count fields by Question Revision and choice, while `schemas/base_schema/50_functions/course_retention_transitions.sql` deletes private Attempt roots and keeps existing identity-free aggregate rows.
@@ -2005,13 +2010,13 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` explicitly preserves existing identity-free aggregate rows; `schemas/base_schema/20_tables/statistics.sql` documents retained Question Revision statistics after Course Student-record deletion.
   - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate exercised no submitted Student Work or aggregate rows. Pool statistics, privacy thresholds, and connected retention acceptance remain open.
 - [ ] Student data retention removes the underlying Student evidence without removing approved aggregate
-  statistics.
+      statistics.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` removes private Attempt roots and Course Student evidence while preserving existing identity-free aggregate rows.
   - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate proved bounded deletion but had no submitted Student Work or aggregate-statistics fixture. Approved aggregate policy, Pool coverage, and connected acceptance remain open.
 - [ ] Removing Student names alone does not make statistics anonymous.
   - Mismatch: no released Question Statistics policy establishes this behavior.
 - [ ] Shared statistics should be shown only when individual Students cannot reasonably be identified
-  from the aggregate.
+      from the aggregate.
   - Mismatch: `QuestionStatistics` is currently `Unavailable`; no shared-view privacy threshold exists.
 - [ ] Course-specific analysis remains FERPA-sensitive when individual Students could be inferred.
   - Mismatch: aggregate analysis structures exist, but no complete FERPA-sensitive product workflow was verified.
@@ -2019,7 +2024,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 #### Question Library Bloom classification metadata
 
 - [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
-  Knowledge Dimension.
+      Knowledge Dimension.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` stores non-null pairs by exact immutable Question or Pool Revision. `crates/question_model/src/bloom_classification.rs` defines the browser-safe pair and its independent Edit Number; Question and exact Pool reads project it through `src/pages/library_page_model.ts` and `src/pages/library_pool_discovery.tsx`.
   - Verification pending: classifier/provider selection and orchestration plus connected browser reads remain open; fresh actual-role proof closes the SQL boundary.
 - [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
@@ -2036,14 +2041,14 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of protected candidate/receipt binding and Pool Library admission.
   - Verification pending: classifier/provider selection and orchestration, typed API/UI projection, and connected search/reporting remain open.
 - [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
-  Library.
+      Library.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of deferred completeness and Question plus Pool Library admission through one-use protected receipts.
   - Verification pending: configured classifier/provider orchestration and connected publication/browser acceptance remain open.
 - [ ] AI assigns the initial Bloom Classification as part of publication.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records the closed SQL preparation boundary: protected candidate/receipt binding, one use, rollback restoration, and publication admission.
   - Verification pending: application-owned classifier/provider selection, semantic classification, and connected publication proof remain open.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
-  Question Pool Revision.
+      Question Pool Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` CAS-updates only paired metadata and its classification Edit Number. Typed Question and Pool Stores bind complete-pair commands to exact Revisions; `crates/server/src/question_library.rs` and `src/api/http_client/bloom_classification.ts` expose their routes. `src/components/bloom_classification.tsx` retains drafts, reloads stale state without retrying, and returns focus after completion; Question and Pool detail editors bind exact Revision targets.
   - Verification pending: the 2026-09-16 PostgreSQL 17 gate proved bounded authorization/no-op/stale behavior. Connected two-Instructor, denied-role, and browser correction/focus proof remains open.
 - [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
@@ -2065,13 +2070,13 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `set_current_question_star` records an active Instructor's Star only for a Published Question; `src/components/question_star_control.tsx` `QuestionStarControl` provides the visible Star and count surface.
   - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 with an active vetted Instructor's actual HTTP Star action and exact closed Star projection.
 - [ ] Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published
-  Question or Question Pool.
+      Question or Question Pool.
   - Verification pending: current SQL/LDA proof covers Question/Pool stewardship persistence; connected authorized identity-list projection and browser proof remain open.
 - [ ] Watch means subscription.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records current private Question/Pool Watch persistence proof.
   - Verification pending: connected subscription controls and browser proof remain open.
 - [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
-  forks, improvement threads, and impact notices.
+      forks, improvement threads, and impact notices.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for private Revision, fork, improvement-thread, and impact-notice delivery.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 - [ ] An **Instructor's** watch list remains private.
@@ -2080,6 +2085,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records the private recipient SQL boundary.
   - Verification pending: connected anonymous/Student denial and browser proof remain open.
+
 ## Course specifications
 
 - [ ] **Courses** organize reusable teaching content and its delivery to **Students**.
@@ -2546,6 +2552,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Reason: This is an illustrative name example, not an implementation requirement.
 - [x] Course Instance names are properties of the Course Instance and are not derived from Blueprint Course names.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` requires independently supplied `short_name` and `long_name`.
+
 ## Assessment specifications
 
 - [ ] **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
@@ -2562,7 +2569,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` and `crates/learning-data-access/src/assessment_release.rs` `LiveAssessmentWorkspace` share canonical Assessment Type, title, instructions, activity rules, and Student feedback rules. `crates/learning-data-access/src/postgres/course_blueprint_adoption.rs` `assessment_input` materializes `SaveLiveAssessmentInput` through `assessment_values_json` into ordinary `ple_data.assessment` rows; distinct reusable and delivery storage/lifecycle projections are not separate pedagogical models.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 connected `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` passed 1 test with 0 ignored. Its `crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs` `assert_adoption_projection` verified preserved Assessment Type, mixed ordered Pool/Fixed entries, nondefault points/scoring/retry/timing/activity/feedback rules, exact Revision pins, fresh independent daughter Pool IDs, and unset delivery dates. Supplemental read-only SQL verified two adopted Regular Assignments retained the source Type and were Unreleased with null dates. Artifact: `/private/tmp/ple-shared-assessment-adoption-artifacts.IkYuXY`. This architecture receipt does not establish every Type's Student delivery or completion.
 - [ ] **Assignment** is not a separate object or category. The word appears only in the names
-  **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
+      **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
   - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
@@ -2579,7 +2586,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Question Pools are copied by forking when added to another Assessment.
   - Verification pending: Source-contributor audit must confirm the import path creates an Assessment-owned fork rather than a reusable Pool copy; broad runtime evidence remains pending.
 - [ ] A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
-  as its source.
+      as its source.
   - Verification pending: Source-contributor audit must confirm the import path carries every exact source Question ID and Revision into the new fork; broad runtime evidence remains pending.
 - [ ] A forked Question Pool can be changed independently without changing its source Question Pool.
   - Verification pending: Source-contributor audit must confirm independent fork revision writes and source preservation; broad runtime evidence remains pending.
@@ -2624,7 +2631,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Practice Question Assignments may be worth a small number of points or a small amount of extra credit.
   - Evidence (source): `src/pages/assessment_workspace/assessment_fixed_question_points_editor.tsx` `AssessmentFixedQuestionPointsEditor` edits nonnegative Question point values independently of Type; `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` offers `extraCredit` entry scoring. `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` retains earned points while `grade_contribution_points_possible` excludes extra-credit points from the denominator for Practice as well as other Types. The Instructor chooses the amount; no arbitrary numeric definition of small is imposed.
 - [ ] Practice Question Assignments use the same whole-Attempt submission boundary as every other
-  Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
+      Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
   - Evidence (runtime): accepted PostgreSQL 17 proof through the ordinary start, whole-submission, and history APIs returned zero history response-source rows before submission and one after submission; the native PLE summary then preserved the disclosed correct answer.
   - Mismatch: Backend-owned answers currently project as absent. Opaque WeBWorK post-submit answer disclosure remains unimplemented and requires renderer/adapter work without answer extraction, so the cross-backend row remains open.
 - [x] **Bonus Assignments** provide optional extra credit.
@@ -2743,7 +2750,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Validation should catch missing, invalid, or unreasonable values and explain what the **Instructor** needs to fix.
   - Mismatch: The accepted evidence demonstrates five actionable date issues (missing Due, 24-hour and Course Active-limit boundaries, and two date-order violations), correction, and rerun through `schemas/base_schema/50_functions/assessment_release_validation.sql` `ple_data.assessment_release_issues` and `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage`. It does not establish missing, invalid, or unreasonable validation beyond dates; the required-setting valid-range and Question-validity rows remain open.
 - [x] Release Validation should require a due date at least 24 hours in the future and no later than the
-  Course Instance's six-month Active limit.
+      Course Instance's six-month Active limit.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_release_validation.sql` `ple_data.assessment_release_issues` rejects a missing Due date, a Due date less than 24 hours ahead at release, and a Due date after `course_instance.active_until_at`.
   - Evidence (runtime): accepted fresh PostgreSQL 17 actual-API receipt exercised the missing-Due, 24-hour, and Course Active-limit boundaries from `schemas/base_schema/50_functions/assessment_release_validation.sql` `ple_data.assessment_release_issues`.
 - [x] Release Validation should check that release, due, and other dates occur in a valid order.
@@ -2789,7 +2796,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `create_assessment` defaults `submitted_response` and `per_item_correctness` to `after_submit`; `crates/server/src/assessment_delivery/history.rs` `project_history` projects those fields independently through the existing server-redacted summary.
   - Evidence (test): accepted actual-component proof exercised `src/pages/assessment_attempt_page.tsx` `submitAttempt`, navigating an accepted whole submission to that summary while preserving existing failure behavior on the Attempt page.
 - [ ] **Practice Question Assignments** show correct answers immediately after Assessment Attempt
-  submission.
+      submission.
   - Evidence (source): the Rust, SQL, Blueprint, and curriculum-publication creation boundaries default Practice `question_answer` to `after_submit` while Question Feedback and answer explanation remain independent.
   - Evidence (runtime): accepted PostgreSQL 17 ordinary start and whole-submit proof found zero response-source rows before submission and one after; the native PLE summary preserved the disclosed correct answer.
   - Mismatch: Backend-owned answers currently project as absent, and opaque WeBWorK answer disclosure remains unimplemented. This universal row stays open pending safe backend-owned disclosure without answer extraction.
@@ -2800,7 +2807,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Mismatch: Opaque WeBWorK answer display remains unimplemented.
   - Verification pending: Connected HTTP correct-answer display/release must verify that the current gate controls the projection.
 - [x] A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
-  PLE submits it automatically.
+      PLE submits it automatically.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` inserts one submitted-Attempt record for `student` or `deadline` finalization.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Quiz Student submission, generic deadline finalization, and expired-pending Exam denial through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
   - Decision: The accepted composition uses the type-independent submission authority. Quiz/Exam worker finalization was not directly run.
@@ -2872,7 +2879,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` counts issued Attempts only with an effective finite limit; `NULL` permits another.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed unlimited perfect/nonperfect retries and expired-unlimited new Attempt through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`. A separate isolated actual-server native Practice proof published the checked-in PKU Question through Draft authoring, enrolled the Student through roster import/claim, saved and submitted its correct response for a disclosed 1/1 score, then issued a distinct second Assessment Attempt despite that perfect score. This proves this one unlimited Practice transport case, not the Regular Assignment default or a complete Student browser journey.
 - [x] When an Assessment permits multiple Attempts, the highest Assessment Attempt score is used as the
-  Student's Assessment score.
+      Student's Assessment score.
   - Evidence (source): `schemas/base_schema/50_functions/grading_access.sql` `read_assessment_gradebook_evidence` independently selects the highest grading-complete submitted Attempt by earned points, then uses the latest Attempt only when no score is established; `ple_api.read_course_gradebook` consumes that private answer-free helper.
   - Evidence (runtime): accepted actual PostgreSQL 17 evidence exercised `schemas/base_schema/50_functions/grading_access.sql` `ple_api.read_course_gradebook`, proving an earlier higher earned score beats a later lower score and a later unfinished or pending Attempt does not replace it. Current Question points recalculated the selected score from `8` to `16`; a Bonus contribution retained a zero possible denominator; and a latest unscored expired Attempt remained the fallback when no completed score existed.
   - Evidence (source): `schemas/base_schema/50_functions/student_assessment_landing.sql` `ple_private.read_student_released_assessment_landing_evidence` keeps progress, completion, and resume state on the latest Attempt but obtains the Assessment score from the selected highest Attempt and applies that Attempt's copied disclosure timing. `src/api/decoders/live_student_course_landing.ts` `decodeAssessmentSummary` requires direct `assessmentScore` and rejects the retired `score` alias; `src/pages/student_course_landing_page.tsx` labels it `Assessment score`.
@@ -2900,7 +2907,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` labels closed issued Questions with no submission as **Unanswered** and reserves unavailable-response wording for submitted Questions whose saved response is not released.
   - Evidence (runtime): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent`, accepted authenticated Avery R-4 submitted/expired history at `/private/tmp/ple-unanswered-history-fixed-1280.png` and `/private/tmp/ple-unanswered-history-fixed-390.png`, shows Q1, Q3, and Q4 as **Unanswered**, incorrect `0 / 1`; Q2 retains all four exact MATCH pairs and correct `1 / 1`; total is `1 / 4`.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
-  Question Backend.
+      Question Backend.
   - Evidence (source): `schemas/base_schema/50_functions/grading.sql` `ple_private.score_recorded_credit` treats null retained credit as unanswered zero earned points while retaining current points possible; evaluated zero credit remains a distinct grading outcome.
   - Evidence (runtime): `schemas/base_schema/50_functions/assessment_attempt_operations_api.sql` `ple_api.prepare_student_assessment_attempt_finalization` was invoked by `/private/tmp/ple-unanswered-connected-proof/run.sh --isolated` running the non-versioned temporary fixture `/private/tmp/ple-unanswered-connected-proof/proof.sql` against fresh PostgreSQL 17; its ordinary prepare/commit, history, and Gradebook calls observed no unanswered submission/result, one evaluated-zero result/receipt, incorrect history, `0 / 8` versus `8 / 8`, then `0 / 13` versus `13 / 13`; artifact `/private/tmp/ple-unanswered-connected-artifacts.vUexkI/proof.log` (exit 0). This is not a permanent test and does not exercise Attempt expiry.
 - [ ] PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
@@ -2908,7 +2915,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
   - Mismatch: No verified pre-submission backend evaluation behavior was found.
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
-  state.
+      state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
   - Owner: 07_questions.md / Question Backend grading and feedback (first occurrence; identical requirement and status).
 - [ ] The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
@@ -2924,7 +2931,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/assessment_release_validation.sql` defines `ple_data.assessment_delivered_question_count`; `schemas/base_schema/50_functions/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` calls it before advancing the parent Assessment Edit Number.
   - Evidence (runtime): accepted fresh PostgreSQL 17 proof exercised `schemas/base_schema/50_functions/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork`, imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
 - [ ] A Question Pool counts as the number of Questions selected from it for the Assessment Question
-  limit and default time calculation; selecting 3 of 199 Questions counts as 3.
+      limit and default time calculation; selecting 3 of 199 Questions counts as 3.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_release_validation.sql` `ple_data.assessment_delivered_question_count` sums `selection_count` for available Pool entries; `schemas/base_schema/50_functions/assessment_pool_forks.sql` supplies that positive selected count on import.
   - Verification pending: No accepted connected multi-selection Pool timing proof establishes the new exact Human Guidance identity. The existing 250 import receipt is retained for the overall bound only.
 - [ ] The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
@@ -2943,7 +2950,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (runtime): `src/pages/assessment_workspace/assessment_student_time_accommodations.tsx` `AssessmentStudentTimeAccommodations`, supplied parent 2026-09-16 current-demo browser/HTTP receipt: Elena selected active-roster Avery, saved 1.5X and 2X, and authenticated GET confirmed effective 2700 and 3600 seconds from base 1800. Custom 100 saved at the 86400-second cap; Standard restored 1800. Actual controls and accepted writes were observed; `/private/tmp/ple-accommodation-live-restored.png` records restored state.
   - Verification pending: independent source review and remaining calculated-default/override, malformed-input, authorization-denial, and concurrency boundaries are not established by this bounded supplied receipt.
 - [ ] Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit
-  up to 24 hours.
+      up to 24 hours.
   - Evidence (runtime): `src/pages/assessment_workspace/assessment_student_time_accommodations.tsx` `AssessmentStudentTimeAccommodations`, supplied parent 2026-09-16 actual current-demo controls/HTTP proof: base 1800 resolves to 2700 at 1.5X, 3600 at 2X, and 86400 with capped=true at custom 100. Standard restores 1800 uncapped. Avery's authenticated `/api/assessment-attempts/R-4/context` reads before and after retain expiresAt=1789577036608 exactly; original null multiplier was restored. Artifact `/private/tmp/ple-accommodation-live-restored.png`. This is valid-write, effective-cap, and active-clock-nonextension evidence only.
   - Verification pending: independent source review plus remaining calculated-default/override, malformed-input, authorization-denial, and race boundaries are required before whole-row acceptance.
 - N/A Attempt time limits help **Students** develop an accurate sense of expected working speed.
@@ -3006,13 +3013,13 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/50_functions/grading.sql` `ple_private.score_recorded_credit` distinguishes null retained credit from an evaluated zero-credit result, returning zero earned points for unanswered work even under `full_credit` while retaining the current denominator.
   - Evidence (runtime): `schemas/base_schema/50_functions/assessment_attempt_operations_api.sql` `ple_api.prepare_student_assessment_attempt_finalization` was invoked by `/private/tmp/ple-unanswered-connected-proof/run.sh --isolated` running the non-versioned temporary fixture `/private/tmp/ple-unanswered-connected-proof/proof.sql` against fresh PostgreSQL 17; its ordinary prepare/commit calls verified `0 / 8` unanswered versus `8 / 8` evaluated zero, no unanswered submission/result, one evaluated result/receipt and Assessment submission across both replays, incorrect history, `0 / 13`, `13 / 13`, and Gradebook `13 / 26`; artifact `/private/tmp/ple-unanswered-connected-artifacts.vUexkI/proof.log` (exit 0). This is not a permanent test and does not exercise Attempt expiry.
 - [x] When an Assessment has multiple submitted Attempts, the highest Assessment Attempt score is the
-  Student's Assessment score.
+      Student's Assessment score.
   - Evidence (source): `schemas/base_schema/50_functions/grading_access.sql` `read_assessment_gradebook_evidence` selects the highest grading-complete submitted Attempt by earned points; `schemas/base_schema/50_functions/student_assessment_landing.sql` consumes that same helper while retaining latest-Attempt progress separately. The retired configurable grade-rule enum, field, SQL columns, and editor choices are absent from the production model and UI.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 lifecycle proof exercised `schemas/base_schema/50_functions/grading_access.sql` `ple_api.read_course_gradebook` and the Student landing helper across four submitted or issued Attempts with individual scores `12`, `4`, `16`, and `NULL`. Instructor Gradebook and Student landing both projected `12 / 16`, `12 / 16`, and `16 / 16`; the fourth in-progress Attempt did not replace the selected `16 / 16` score, while Student landing continued to show latest-Attempt state. Artifact: `/private/tmp/ple-highest-score-proof/artifacts.rQxVs8/proof.log` (exit 0). This privileged fixture and simulated backend proof does not establish HTTP, rendering, actual backend grading, or unlimited-Attempt eligibility.
 - [x] PLE uses Question point values directly to calculate Assessment scores.
   - Evidence (test): `crates/question_model/src/student_work/grading.rs` `current_points_recalculate_without_changing_recorded_credit` tests current point values rescale recorded credit directly.
 - [ ] PLE does not use separate Question weights, Grade Categories, weighted categories, Course Grade
-  Schemes, or Course percentage calculations.
+      Schemes, or Course percentage calculations.
   - Mismatch: Absence of every prohibited model was not verified.
 - [ ] For the pilot, grade export uses CSV or TSV only and exports point-based Assessment scores.
   - Evidence (source): `crates/server/src/live_gradebook/export.rs` `COLUMNS` fixes the seven exported fields as `roster_id`, `roster_name`, `assessment_id`, `assessment_title`, `status`, `points_earned`, and `points_possible`; `encode` produces quoted CSV or TSV from the authorized Gradebook projection only.

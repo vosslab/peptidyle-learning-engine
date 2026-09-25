@@ -16,11 +16,17 @@ REVOKE ALL ON FUNCTION ple_private.read_student_assessment_attempt_history(uuid)
 
 GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_attempt_history(uuid) TO ple_api_owner;
 
+REVOKE ALL ON FUNCTION ple_private.read_student_latest_feedback_attempt(text, uuid) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_private.read_student_latest_feedback_attempt(text, uuid) TO ple_api_owner;
+
 SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.read_student_assessment_attempt_history(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.read_student_latest_feedback_attempt() FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history(uuid) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.read_student_latest_feedback_attempt() TO ple_app;
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -53,4 +59,3 @@ REVOKE ALL ON FUNCTION ple_api.read_archived_course_student_work_for_retention(t
 
 GRANT EXECUTE ON FUNCTION ple_api.read_archived_course_student_work_for_retention(text)
     TO ple_course_retention_executor;
-

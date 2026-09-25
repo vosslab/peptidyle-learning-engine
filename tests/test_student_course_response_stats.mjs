@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeStudentCourseResponseStats } from "../src/api/decoders/student_course_practice_stats.ts";
-import { createStudentCourseResponseStatsClient } from "../src/api/http_client/student_course_practice_stats.ts";
+import { decodeStudentCourseResponseStats } from "../src/api/decoders/student_course_response_stats.ts";
+import { createStudentCourseResponseStatsClient } from "../src/api/http_client/student_course_response_stats.ts";
 
 const first = {
   publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },

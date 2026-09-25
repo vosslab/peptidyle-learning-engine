@@ -142,7 +142,8 @@ Student Coursework case) and the `fullWidth` Instructor `GradebookPage` route na
   contract.
 - `launchers/` and `docs/DEVELOPMENT.md`: the single command front door and developer instructions.
 - `docs/active_plans/review-the-content-of-merry-hickey.md`: authority for the underlying production
-  conversions and their seven representative consumers.
+  conversions and their seven representative consumers. Its earlier Student navigation proposal is
+  superseded by [Human Guidance](../../HUMAN_GUIDANCE.md) and the settled Course-context decision.
 
 ## Work packages
 

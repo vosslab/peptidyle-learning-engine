@@ -1,4 +1,4 @@
-// Compiled browser harness for the Student current-Course entry decisions.
+// Compiled browser harness for the fixed Student Course and Coursework routes.
 
 import { MemoryRouter, Route, createMemoryHistory, query, useLocation } from "@solidjs/router";
 import type { JSX } from "solid-js";
@@ -14,7 +14,10 @@ import type {
   LiveStudentCourseLandingSummary,
 } from "../../src/api/live_student_course_landing";
 import { AssessmentOverviewPage } from "../../src/pages/assessment_overview_page";
-import { StudentCourseLandingPage } from "../../src/pages/student_course_landing_page";
+import {
+  StudentAllCourseworkPage,
+  StudentCourseLandingPage,
+} from "../../src/pages/student_course_landing_page";
 import { StudentCoursesPage } from "../../src/pages/student_courses_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 import type { RouteScopeQueries } from "../../src/ribbon/route_scope_controller";
@@ -27,7 +30,7 @@ import type {
   AssessmentAttemptRouteId,
 } from "../../src/navigation/public_route";
 
-type StudentCourseEntryCase = "zero" | "one" | "choose" | "many" | "landing";
+type StudentCourseEntryCase = "zero" | "one" | "many" | "home" | "landing";
 
 const FIXTURE_CLASSIFICATION = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
@@ -111,11 +114,13 @@ function coursesFor(
     case "zero":
       return [];
     case "one":
-    case "choose":
-    case "landing":
       return [COURSE_ONE];
     case "many":
       return [COURSE_ONE, COURSE_TWO];
+    case "home":
+      return [COURSE_ONE, COURSE_TWO];
+    case "landing":
+      return [COURSE_ONE];
   }
 }
 
@@ -139,7 +144,7 @@ export interface StudentCourseEntryM6Harness {
   readonly location: () => string;
 }
 
-/** Mounts the production Student pages with only their current-Course projection controlled. */
+/** Mounts production Student pages with controlled Course and Coursework projections. */
 export function mountStudentCourseEntryM6Harness(
   target: HTMLElement,
   caseName: StudentCourseEntryCase,
@@ -149,9 +154,9 @@ export function mountStudentCourseEntryM6Harness(
     value:
       caseName === "landing"
         ? "/student/courses/CI7K3M2QAZ"
-        : caseName === "choose"
-          ? "/student?choose=1"
-          : "/",
+        : caseName === "home"
+          ? "/student"
+          : "/student/courses",
   });
   const courses = coursesFor(caseName);
   const currentDecision = (): StudentAssessmentDecisionSummary => ({
@@ -174,12 +179,17 @@ export function mountStudentCourseEntryM6Harness(
           instructions: "",
           questions: [],
         }),
-      listLiveStudentAssessments: () =>
-        Promise.resolve(
-          caseName === "landing"
-            ? [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT]
-            : [],
-        ),
+      listLiveStudentAssessments: (courseInstanceId: string) => {
+        if (caseName === "landing") {
+          return Promise.resolve([currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT]);
+        }
+        if (caseName === "home") {
+          return Promise.resolve(
+            courseInstanceId === COURSE_ONE.id ? [currentAssessment()] : [BONUS_ASSESSMENT],
+          );
+        }
+        return Promise.resolve([]);
+      },
       getLiveAssessmentAccess: (_course: string, assessment: string) => {
         const item = [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT].find(
           (candidate) => candidate.id === assessment,
@@ -264,8 +274,8 @@ export function mountStudentCourseEntryM6Harness(
     () => (
       <ApplicationApiProvider applicationApi={applicationApi}>
         <MemoryRouter history={history} root={HarnessRoot}>
-          <Route path="/" component={StudentCoursesPage} />
-          <Route path="/student" component={StudentCoursesPage} />
+          <Route path="/student" component={StudentAllCourseworkPage} />
+          <Route path="/student/courses" component={StudentCoursesPage} />
           <Route path="/student/courses/:courseInstanceId" component={StudentCourseLandingPage} />
           <Route
             path="/courses/:courseInstanceId/assessments/:assessmentId"

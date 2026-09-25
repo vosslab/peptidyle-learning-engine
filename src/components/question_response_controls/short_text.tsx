@@ -18,7 +18,6 @@ export function ShortTextResponse(
 ): JSX.Element {
   const initialText = props.initialResponse?.kind === "shortText" ? props.initialResponse.text : "";
   const [text, setText] = createSignal(initialText);
-  let control!: HTMLTextAreaElement;
   const controller = createResponseController(props, { kind: "shortText", text: initialText });
   const characterCount = (): number => [...text()].length;
   const response = (): StudentResponse => ({ kind: "shortText", text: text() });
@@ -28,11 +27,6 @@ export function ShortTextResponse(
   }
   function save(): void {
     void controller.save(response());
-  }
-  function reset(): void {
-    setText(initialText);
-    void controller.reset({ kind: "shortText", text: initialText });
-    queueMicrotask(() => control.focus());
   }
   return (
     <section
@@ -54,7 +48,6 @@ export function ShortTextResponse(
         id={`${props.attemptId}-short-text`}
         class="question-response-control__input"
         value={text()}
-        ref={(element) => (control = element)}
         maxlength={
           props.responseFormat.kind === "fillIn"
             ? props.responseFormat.maxCharacters
@@ -68,10 +61,8 @@ export function ShortTextResponse(
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
         disabled={!controller.canSave() || controller.locked()}
-        resetDisabled={controller.locked()}
         onSave={save}
         saveLabel={props.saveLabel}
-        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

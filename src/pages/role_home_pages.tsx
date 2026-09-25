@@ -6,7 +6,7 @@ import { createEffect, Show, type JSX } from "solid-js";
 import { useSessionBootstrap } from "../auth/session_context";
 import { productRoleHomePath } from "../route_contract";
 import { CourseListPage } from "./course_list_page";
-import { StudentCoursesPage } from "./student_courses_page";
+import { StudentAllCourseworkPage } from "./student_course_landing_page";
 import { useApplicationApi } from "../api/application_api";
 import { BlueprintPromotion } from "../features/blueprint_course/blueprint_promotion";
 import { PageFrame } from "../components/page_frame";
@@ -71,9 +71,9 @@ export function InstructorHomePage(): JSX.Element {
   return <CourseListPage />;
 }
 
-/** Student home routes directly to Coursework for the common one-Course case. */
+/** Opens the Student's Coursework across all enrolled Courses. */
 export function StudentHomePage(): JSX.Element {
-  return <StudentCoursesPage />;
+  return <StudentAllCourseworkPage />;
 }
 
 /** Sysadmin home presents the backed administration operations. */

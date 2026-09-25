@@ -171,8 +171,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         course_instance_id: CourseInstanceId,
     ) -> Result<Option<LiveStudentCourseActiveAttempt>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
-        let attempt_id = sqlx::query_scalar::<_, uuid::Uuid>(
-            "SELECT assessment_attempt_id \
+        let row = sqlx::query_as::<_, (uuid::Uuid, i64, i64)>(
+            "SELECT assessment_attempt_id, started_at_millis, latest_activity_at_millis \
              FROM ple_api.read_student_course_active_attempt($1)",
         )
         .bind(course_instance_id.as_string())
@@ -181,10 +181,30 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(
-            attempt_id.map(|assessment_attempt_id| LiveStudentCourseActiveAttempt {
-                assessment_attempt_id: AssessmentAttemptId::from_uuid(assessment_attempt_id),
+            row.map(|(assessment_attempt_id, started_at, latest_activity_at)| {
+                LiveStudentCourseActiveAttempt {
+                    assessment_attempt_id: AssessmentAttemptId::from_uuid(assessment_attempt_id),
+                    started_at: Timestamp::from_unix_millis(started_at),
+                    latest_activity_at: Timestamp::from_unix_millis(latest_activity_at),
+                }
             }),
         )
+    }
+
+    async fn get_live_student_latest_feedback_attempt(
+        &self,
+        session_token_hash: SessionTokenHash,
+    ) -> Result<Option<AssessmentAttemptId>, StoreError> {
+        let mut transaction = self.begin(session_token_hash).await?;
+        let attempt_id = sqlx::query_scalar::<_, uuid::Uuid>(
+            "SELECT assessment_attempt_id \
+             FROM ple_api.read_student_latest_feedback_attempt()",
+        )
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(attempt_id.map(AssessmentAttemptId::from_uuid))
     }
 
     async fn list_live_student_course_attempt_history(

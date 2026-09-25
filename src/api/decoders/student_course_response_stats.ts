@@ -1,6 +1,6 @@
 // Strict decoder for self-only Course Response Stats.
 
-import type { StudentCourseResponseStats } from "../student_course_practice_stats";
+import type { StudentCourseResponseStats } from "../student_course_response_stats";
 import {
   DecodeError,
   decodeArray,

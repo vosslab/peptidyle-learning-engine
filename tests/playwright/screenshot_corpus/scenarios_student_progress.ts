@@ -1,4 +1,4 @@
-// Student Course Progress, Coursework views, Response Stats, and Attempt History captures.
+// Student Progress, Coursework views, Response Stats, Attempt History, and Latest Feedback captures.
 
 import type { Locator, Page } from "playwright";
 
@@ -28,8 +28,36 @@ async function openCourseAttemptHistory(page: Page): Promise<void> {
   const tabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
   await tabs.getByRole("link", { name: "Grades", exact: true }).click();
   await page.getByRole("link", { name: "Attempt History", exact: true }).click();
-  await page.locator('[data-route-surface="studentCourseAttemptHistory"]').waitFor();
-  await page.getByText("Loading Attempt History...", { exact: true }).waitFor({ state: "hidden" });
+  await page.locator('[data-route-surface="studentAttemptHistory"]').waitFor();
+  await waitForCourseSections(page, ".student-course-attempt-history", ".loading-state");
+}
+
+async function openCourseProgress(page: Page): Promise<void> {
+  await openStudentCourse(page);
+  await page.getByRole("link", { name: "Course Progress", exact: true }).click();
+  await page.locator('[data-route-surface="studentCourseProgress"]').waitFor();
+}
+
+async function waitForCourseProgress(page: Page): Promise<void> {
+  await page.locator(".student-course-progress__completion").waitFor();
+}
+
+async function waitForCourseworkSections(page: Page): Promise<void> {
+  await waitForCourseSections(page, "section.student-coursework", ".record-list__state--loading");
+}
+
+async function waitForCourseSections(
+  page: Page,
+  sectionSelector: string,
+  loadingSelector: string,
+): Promise<void> {
+  const sections = page.locator(sectionSelector);
+  await sections.first().waitFor();
+  await Promise.all(
+    Array.from({ length: await sections.count() }, (_, index) =>
+      sections.nth(index).locator(loadingSelector).waitFor({ state: "hidden" }),
+    ),
+  );
 }
 
 function attemptHistoryForPilotAssessment(page: Page): Locator {
@@ -149,43 +177,42 @@ async function studentProgressAndStats(runtime: ScenarioRuntime): Promise<void> 
   try {
     const page = session.page;
     await choosePersona(page, "Mary Okafor");
-    await openStudentCourse(page);
-    await page.locator('[data-route-surface="studentCourseProgress"]').waitFor();
-    await page
-      .getByText("Loading Assessment progress...", { exact: true })
-      .waitFor({ state: "hidden" });
+    await openCourseProgress(page);
+    await waitForCourseProgress(page);
     await createUnansweredAttempt(page, true);
     await page
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await openStudentCourse(page);
-    await page.locator('[data-route-surface="studentCourseProgress"]').waitFor();
+    await openCourseProgress(page);
+    await waitForCourseProgress(page);
     await page
-      .getByText("Loading Assessment progress...", { exact: true })
-      .waitFor({ state: "hidden" });
+      .locator(".student-course-progress__row")
+      .first()
+      .getByText(/^Latest activity:/u)
+      .waitFor();
     await captureCheckpoint(runtime, "course_progress_laptop", session);
 
     const tabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
     await tabs.getByRole("link", { name: "Coursework", exact: true }).click();
     await page.getByRole("link", { name: "Due Soon", exact: true }).click();
-    await page.locator('[data-route-surface="studentCourseDueSoon"]').waitFor();
-    await page.getByText("Loading Coursework...", { exact: true }).waitFor({ state: "hidden" });
+    await page.locator('[data-route-surface="studentDueSoon"]').waitFor();
+    await waitForCourseworkSections(page);
     await captureCheckpoint(runtime, "course_due_soon_laptop", session);
 
     await page.getByRole("link", { name: "Completed", exact: true }).click();
-    await page.locator('[data-route-surface="studentCourseCompleted"]').waitFor();
-    await page.getByText("Loading Coursework...", { exact: true }).waitFor({ state: "hidden" });
+    await page.locator('[data-route-surface="studentCompleted"]').waitFor();
+    await waitForCourseworkSections(page);
     await page.locator(".record-list__row").first().waitFor();
     await captureCheckpoint(runtime, "course_completed_laptop", session);
 
     await tabs.getByRole("link", { name: "Courses", exact: true }).click();
-    await openStudentCourse(page);
-    await page.locator('[data-route-surface="studentCourseProgress"]').waitFor();
+    await openCourseProgress(page);
 
+    await tabs.getByRole("link", { name: "Grades", exact: true }).click();
     await page.getByRole("link", { name: "Response Stats", exact: true }).click();
-    await page.locator('[data-route-surface="studentCourseResponseStats"]').waitFor();
-    await page.getByText("Loading Response Stats...", { exact: true }).waitFor({ state: "hidden" });
+    await page.locator('[data-route-surface="studentResponseStats"]').waitFor();
+    await waitForCourseSections(page, ".student-course-response-stats", ".loading-state");
     await page.locator(".student-course-response-stats__row").first().waitFor();
     await captureCheckpoint(runtime, "response_stats_laptop", session);
   } finally {
@@ -193,7 +220,7 @@ async function studentProgressAndStats(runtime: ScenarioRuntime): Promise<void> 
   }
 }
 
-async function studentCourseAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
+async function studentAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open("course_attempt_history_laptop");
   try {
     const page = session.page;
@@ -234,28 +261,51 @@ async function studentCourseAttemptHistory(runtime: ScenarioRuntime): Promise<vo
         `Expected at least 40 submitted Course Attempts, found ${submittedAttemptCount}.`,
       );
     }
+    await page
+      .locator(".student-course-attempt-history__row")
+      .first()
+      .getByText(/^Started/u)
+      .waitFor();
+    await page.locator('[data-ribbon-control-id="studentLatestFeedback"][href]').waitFor();
     await captureCheckpoint(runtime, "course_attempt_history_laptop", session);
-    const latestSubmittedAttempt = submittedAttemptHistoryForPilotAssessment(page).first();
-    await latestSubmittedAttempt.getByRole("link", { name: "Review Attempt", exact: true }).click();
-    await page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
-    await page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
-    await captureCheckpoint(runtime, "course_attempt_history_selected_laptop", session);
 
     await page
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
     await openStudentCourse(page);
+    await page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Grades", exact: true })
+      .click();
     await page.getByRole("link", { name: "Response Stats", exact: true }).click();
-    await page.locator('[data-route-surface="studentCourseResponseStats"]').waitFor();
-    await page.getByText("Loading Response Stats...", { exact: true }).waitFor({ state: "hidden" });
+    await page.locator('[data-route-surface="studentResponseStats"]').waitFor();
+    await waitForCourseSections(page, ".student-course-response-stats", ".loading-state");
     const historyResponsePromise = page.waitForResponse((response) => {
       return (
         new URL(response.url()).pathname.endsWith("/assessment-attempts") &&
         response.request().method() === "GET"
       );
     });
+    const latestFeedbackResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === "/api/student/latest-feedback";
+    });
     await openCourseAttemptHistory(page);
+    const latestFeedbackResponse = await latestFeedbackResponsePromise;
+    const latestFeedback = (await latestFeedbackResponse.json()) as {
+      readonly assessmentAttemptId?: string | null;
+    };
+    if (
+      latestFeedbackResponse.status() !== 200 ||
+      latestFeedback.assessmentAttemptId === null ||
+      latestFeedback.assessmentAttemptId === undefined
+    ) {
+      throw new Error(
+        `Expected a released latest-feedback Attempt after Course History showed 40 released scores; ` +
+          `API returned ${latestFeedbackResponse.status()} with Attempt ` +
+          `${latestFeedback.assessmentAttemptId ?? "none"}.`,
+      );
+    }
     const historyResponse = await historyResponsePromise;
     const historyPayload = (await historyResponse.json()) as {
       readonly items?: ReadonlyArray<{ readonly assessmentAttemptNumber?: number }>;
@@ -269,6 +319,23 @@ async function studentCourseAttemptHistory(runtime: ScenarioRuntime): Promise<vo
           `URL: ${page.url()}; history text: ${await page.locator(".student-course-attempt-history").innerText()}`,
       );
     }
+    const latestFeedbackLink = page.locator(
+      '[data-ribbon-control-id="studentLatestFeedback"][href]',
+    );
+    await latestFeedbackLink.waitFor();
+    const latestFeedbackHref = await latestFeedbackLink.getAttribute("href");
+    if (latestFeedbackHref === null) throw new Error("Latest Feedback did not provide a target.");
+    const expectedLatestFeedbackPath = new URL(latestFeedbackHref, page.url()).pathname;
+    if (!expectedLatestFeedbackPath.includes(latestFeedback.assessmentAttemptId)) {
+      throw new Error("Latest Feedback target did not match the authorized Attempt from the API.");
+    }
+    await latestFeedbackLink.click();
+    await page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
+    await page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
+    if (new URL(page.url()).pathname !== expectedLatestFeedbackPath) {
+      throw new Error("Latest Feedback did not open the Attempt selected by its shortcut.");
+    }
+    await captureCheckpoint(runtime, "latest_feedback_laptop", session);
   } finally {
     await runtime.close(session);
   }
@@ -278,11 +345,7 @@ async function studentProgressWithoutReleasedScore(runtime: ScenarioRuntime): Pr
   const session = await runtime.open("course_progress_unreleased_laptop");
   try {
     await choosePersona(session.page, "Jack Nguyen");
-    await openStudentCourse(session.page);
-    await session.page.locator('[data-route-surface="studentCourseProgress"]').waitFor();
-    await session.page
-      .getByText("Loading Assessment progress...", { exact: true })
-      .waitFor({ state: "hidden" });
+    await openCourseProgress(session.page);
     await session.page.getByText("Score not released", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_progress_unreleased_laptop", session);
   } finally {
@@ -292,7 +355,7 @@ async function studentProgressWithoutReleasedScore(runtime: ScenarioRuntime): Pr
 
 export const STUDENT_PROGRESS_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
-    id: "student_progress_stats_attempt_history",
+    id: "student_progress_response_stats_history",
     role: "student",
     captures: [
       {
@@ -325,7 +388,7 @@ export const STUDENT_PROGRESS_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "response_stats_laptop",
-        area: "courses",
+        area: "grades",
         workflow: "Response Stats",
         state: "released Question outcomes and measured duration",
         viewport: "laptop",
@@ -335,20 +398,20 @@ export const STUDENT_PROGRESS_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       {
         checkpoint: "course_attempt_history_laptop",
         area: "grades",
-        workflow: "Course Attempt History",
-        state: "at least 40 submitted Attempts",
+        workflow: "Course Attempt History and Latest Feedback",
+        state: "at least 40 submitted Attempts and released feedback shortcut enabled",
         viewport: "laptop",
         privacyProfile: "student_self",
-        caption: "Student Course Attempt History",
+        caption: "Student Attempt History with Latest Feedback available",
       },
       {
-        checkpoint: "course_attempt_history_selected_laptop",
+        checkpoint: "latest_feedback_laptop",
         area: "grades",
-        workflow: "Course Attempt History",
-        state: "latest submitted Attempt review",
+        workflow: "Latest Feedback shortcut",
+        state: "released feedback review opened from Grades",
         viewport: "laptop",
         privacyProfile: "student_feedback_released",
-        caption: "Latest submitted Attempt review opened from Course History",
+        caption: "Attempt review opened from Latest Feedback",
       },
       {
         checkpoint: "course_progress_unreleased_laptop",
@@ -376,7 +439,7 @@ export const STUDENT_PROGRESS_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     }),
     run: async (runtime): Promise<void> => {
       await studentProgressAndStats(runtime);
-      await studentCourseAttemptHistory(runtime);
+      await studentAttemptHistory(runtime);
       await studentProgressWithoutReleasedScore(runtime);
     },
   },

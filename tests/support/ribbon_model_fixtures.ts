@@ -20,6 +20,7 @@ import {
   TAB_CATALOG,
   type RibbonCatalogControl,
   type RibbonDestinationId,
+  type RibbonStudentCourseId,
   type RibbonTaskArea,
   type RibbonTaskId,
 } from "../../src/ribbon/ribbon_catalog";
@@ -46,6 +47,7 @@ const CANONICAL_FIXTURE_PARAMS = {
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const RIBBON_ROUTE_PRODUCT_ROLES = ["instructor", "student", "sysadmin"] as const;
+const COURSE_SHORT_NAME = "BCHM 355";
 
 export interface RibbonRouteMaterialization {
   readonly productRole: ProductRole;
@@ -84,9 +86,31 @@ export function materializeRibbonRoute(
   if (pathname === undefined) throw new Error(`Ribbon fixture cannot build ${route.id}.`);
   const params = routeParams(route, pathname);
   if (params === undefined) throw new Error(`Ribbon fixture cannot parse ${route.id}.`);
-  const currentCourseInstanceId = params.courseInstanceId;
+  const ribbonParams =
+    route.ribbon.scope === "assessmentAttempt"
+      ? { ...params, courseInstanceId: CANONICAL_FIXTURE_PARAMS.courseInstanceId }
+      : params;
   const model = deriveRibbonModel(
-    { route, params, currentCourseInstanceId },
+    {
+      route,
+      params: ribbonParams,
+      ...(productRole === "student"
+        ? {
+            studentCourses: [
+              {
+                id: CANONICAL_FIXTURE_PARAMS.courseInstanceId,
+                shortName: COURSE_SHORT_NAME,
+              },
+            ],
+            ...(route.id === "assessmentAttempt"
+              ? { activeAttemptId: CANONICAL_FIXTURE_PARAMS.assessmentAttemptId }
+              : {}),
+            ...(route.id === "assessmentAttemptSummary"
+              ? { latestFeedbackAttemptId: CANONICAL_FIXTURE_PARAMS.assessmentAttemptId }
+              : {}),
+          }
+        : {}),
+    },
     { productRole },
     {
       assessmentTitle: "Problem Set 7",
@@ -128,10 +152,7 @@ function fixtureHrefFor(catalog: RibbonCatalogControl<RibbonDestinationId>): str
     return undefined;
   }
 
-  const mutableParams: Partial<Record<RouteParamName, string>> =
-    catalog.id === "coursework" || catalog.id === "grades"
-      ? { courseInstanceId: CANONICAL_FIXTURE_PARAMS.courseInstanceId }
-      : {};
+  const mutableParams: Partial<Record<RouteParamName, string>> = {};
   for (const name of catalog.requiredParams ?? []) {
     const value = CANONICAL_FIXTURE_PARAMS[name];
     if (value === undefined) {
@@ -179,10 +200,31 @@ function control<Id extends RibbonDestinationId>(
 
 function area(
   id: RibbonTaskArea,
-  label: string,
-  controls: ReadonlyArray<RibbonControlModel<RibbonTaskId>>,
+  controls: ReadonlyArray<RibbonControlModel<RibbonTaskId | RibbonStudentCourseId>>,
 ): RibbonTaskAreaModel {
-  return { id, label, controls };
+  return { id, controls };
+}
+
+function studentCourseControl(
+  courseInstanceId: string,
+  label: string,
+  selected = false,
+): RibbonControlModel<RibbonStudentCourseId> {
+  const href = buildRoutePath("studentCourseLanding", { courseInstanceId });
+  if (href === undefined) throw new Error("Student Course fixture needs a canonical Course ID.");
+  return {
+    id: `studentCourse:${courseInstanceId}`,
+    label,
+    destination: { kind: "route", routeId: "studentCourseLanding" },
+    availability: "Available",
+    selected,
+    href,
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    iconBearing: false,
+    iconOnlySafe: false,
+  };
 }
 
 function model(
@@ -214,17 +256,16 @@ function model(
 }
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
-const COURSE_SHORT_NAME = "BCHM 355";
 
 /** All exact scope-by-role schemas, with catalog-valid controls and real declared destinations. */
 export const M6_RIBBON_FIXTURES = {
   productStudent: model(
     "product",
     "student",
-    [control("courses", { selected: true }), control("coursework"), control("grades")],
+    [control("coursework"), control("grades"), control("courses", { selected: true })],
     [
-      area("studentCourses", "Courses", [
-        control("studentProgress", { available: false }),
+      area("studentCourses", [
+        studentCourseControl(CANONICAL_FIXTURE_PARAMS.courseInstanceId, COURSE_SHORT_NAME, true),
       ]),
     ],
     "reading",
@@ -235,7 +276,7 @@ export const M6_RIBBON_FIXTURES = {
     "instructor",
     [control("courses"), control("questions", { selected: true }), control("productAssessments")],
     [
-      area("instructorQuestions", "Questions", [
+      area("instructorQuestions", [
         control("myQuestions"),
         control("myDraftQuestions"),
         control("starred"),
@@ -265,7 +306,7 @@ export const M6_RIBBON_FIXTURES = {
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
     [
-      area("studentCoursework", "Coursework", [
+      area("studentCoursework", [
         control("allCoursework", { selected: true }),
         control("dueSoon"),
         control("completedCoursework"),
@@ -280,7 +321,7 @@ export const M6_RIBBON_FIXTURES = {
     "instructor",
     [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
-      area("assessment", "Assessment", [
+      area("assessment", [
         control("assessmentOverview", { selected: true }),
         control("assessmentQuestions"),
         control("assessmentPolicies"),
@@ -315,7 +356,7 @@ export const M6_RIBBON_FIXTURES = {
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
     [
-      area("studentCoursework", "Coursework", [
+      area("studentCoursework", [
         control("allCoursework"),
         control("dueSoon"),
         control("completedCoursework"),
@@ -355,7 +396,7 @@ export const M6_RIBBON_FIXTURES = {
     "instructor",
     [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
-      area("assessment", "Assessment", [
+      area("assessment", [
         control("assessmentOverview"),
         control("assessmentQuestions", { selected: true }),
       ]),

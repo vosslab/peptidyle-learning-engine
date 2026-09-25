@@ -421,13 +421,19 @@ BEGIN
 END
 $$;
 
--- Coursework's fixed Active Attempt shortcut chooses the latest eligible
--- resumable Attempt across the authenticated Student's active Course.
+-- Coursework's fixed Active Attempt shortcut chooses the latest resumable
+-- Attempt with a running server-owned clock in the authenticated Student's Course.
 CREATE FUNCTION ple_api.read_student_course_active_attempt(
     p_course_instance_id text
-) RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
+) RETURNS TABLE (
+    assessment_attempt_id uuid,
+    started_at_millis bigint,
+    latest_activity_at_millis bigint
+) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api AS $$
-    SELECT assessment.resumable_assessment_attempt_id
+    SELECT assessment.resumable_assessment_attempt_id,
+           floor(extract(epoch FROM assessment.resumable_assessment_attempt_started_at) * 1000)::bigint,
+           floor(extract(epoch FROM assessment.resumable_latest_activity_at) * 1000)::bigint
       FROM ple_api.list_released_live_student_assessments(p_course_instance_id) AS assessment
      WHERE assessment.can_resume_assessment_attempt
        AND assessment.resumable_assessment_attempt_id IS NOT NULL

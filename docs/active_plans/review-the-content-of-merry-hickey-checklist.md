@@ -2,7 +2,9 @@
 
 This is a companion execution checklist for
 [review-the-content-of-merry-hickey.md](review-the-content-of-merry-hickey.md). The active plan is
-authoritative; this file neither amends its scope nor substitutes for its decisions.
+authoritative; this file neither amends its scope nor substitutes for its decisions. Its earlier
+Student Course-pinning work is superseded by
+[the completed Student plan](../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md).
 
 ## Reading and status rules
 
@@ -75,10 +77,10 @@ authoritative; this file neither amends its scope nor substitutes for its decisi
   - [x] The focused catalog/route checks passed: no `TAB_CATALOG` item requires route parameters,
         and each named scope tab is a task control.
 
-- [x] **WP-A4 - pin Student tabs to a Course.** `route_scope_controller.ts`, the Grades route,
-      and `student_course_pinning.mjs` implement current-course links and the `/student` fallback.
-  - [x] The focused Student-pin browser check passed from an active Assessment Attempt.
-  - Residual evidence: browser output records both links with the Attempt's Course Instance ID.
+- [x] **WP-A4 - superseded Student Course-pinning proposal.** The former Coursework/Grades links to
+      the current Course are superseded by all-Course Coursework and Grades. Course-specific pages
+      carry their Course ID, and the Courses Tier 2 link is selected only while that Course context
+      is open.
 
 - [x] **WP-A5 - reserve shell height.** `application_shell.tsx` always renders
       `BreadcrumbPrelude`; current shell/Ribbon sources carry the unconditional reserved-row design.
@@ -153,7 +155,7 @@ tests/test_ribbon_contract.mjs` (19/19) establish that resolved scope supplies C
 - [x] **WP-C4 - build date formatting.** `src/format_datetime.ts` supplies explicit display-zone
       formatting and is imported by current page/model code.
   - [x] Focused date Node tests passed 7/7.
-  - Residual evidence: sweep records time zone once per page rather than per row.
+  - Residual evidence: pages format dates in the selected display zone; only Profile names it.
 
 - [x] **M3 close-out.** The separate 2026-09-23 M3 `all_test.sh` invocation exited 0 on the
       current integrated tree with all aggregate gates and live-service acceptance passing. This

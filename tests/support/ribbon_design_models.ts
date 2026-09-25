@@ -15,6 +15,7 @@ import {
   TAB_CATALOG,
   type RibbonCatalogControl,
   type RibbonDestinationId,
+  type RibbonStudentCourseId,
   type RibbonTaskArea,
   type RibbonTaskId,
 } from "../../src/ribbon/ribbon_catalog";
@@ -97,10 +98,7 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 
 function routeHref(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {
   if (catalog.destination.kind !== "route") return undefined;
-  const params: Partial<Record<RouteParamName, string>> =
-    catalog.id === "coursework" || catalog.id === "grades"
-      ? { courseInstanceId: CANONICAL_PARAMS.courseInstanceId }
-      : {};
+  const params: Partial<Record<RouteParamName, string>> = {};
   for (const name of catalog.requiredParams ?? []) {
     const value = CANONICAL_PARAMS[name];
     if (value === undefined)
@@ -138,10 +136,31 @@ function control<Id extends RibbonDestinationId>(
 
 function area(
   id: RibbonTaskArea,
-  label: string,
-  controls: ReadonlyArray<RibbonControlModel<RibbonTaskId>>,
+  controls: ReadonlyArray<RibbonControlModel<RibbonTaskId | RibbonStudentCourseId>>,
 ): RibbonTaskAreaModel {
-  return { id, label, controls };
+  return { id, controls };
+}
+
+function studentCourseControl(
+  courseInstanceId: string,
+  label: string,
+  selected = false,
+): RibbonControlModel<RibbonStudentCourseId> {
+  const href = buildRoutePath("studentCourseLanding", { courseInstanceId });
+  if (href === undefined) throw new Error("Student Course fixture needs a canonical Course ID.");
+  return {
+    id: `studentCourse:${courseInstanceId}`,
+    label,
+    destination: { kind: "route", routeId: "studentCourseLanding" },
+    availability: "Available",
+    selected,
+    href,
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    iconBearing: false,
+    iconOnlySafe: false,
+  };
 }
 
 function productLabel(role: ProductRole): RibbonModel["context"]["productLabel"] {
@@ -176,10 +195,10 @@ export const RIBBON_DESIGN_SCHEMAS = {
   productStudent: model(
     "product",
     "student",
-    [control("courses", { selected: true }), control("coursework"), control("grades")],
+    [control("coursework"), control("grades"), control("courses", { selected: true })],
     [
-      area("studentCourses", "Courses", [
-        control("studentProgress", { availability: "Unavailable" }),
+      area("studentCourses", [
+        studentCourseControl(CANONICAL_PARAMS.courseInstanceId, SHORT_COURSE_NAME, true),
       ]),
     ],
     "reading",
@@ -190,7 +209,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "instructor",
     [control("courses"), control("questions", { selected: true }), control("productAssessments")],
     [
-      area("instructorQuestions", "Questions", [
+      area("instructorQuestions", [
         control("myQuestions"),
         control("myDraftQuestions"),
         control("starred"),
@@ -220,7 +239,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
     [
-      area("studentCoursework", "Coursework", [
+      area("studentCoursework", [
         control("allCoursework", { selected: true }),
         control("dueSoon"),
         control("completedCoursework"),
@@ -235,7 +254,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "instructor",
     [control("courses"), control("questions"), control("productAssessments", { selected: true })],
     [
-      area("assessment", "Assessment", [
+      area("assessment", [
         control("assessmentOverview", { selected: true }),
         control("assessmentQuestions"),
         control("assessmentPolicies"),
@@ -270,7 +289,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
     [
-      area("studentCoursework", "Coursework", [
+      area("studentCoursework", [
         control("allCoursework"),
         control("dueSoon"),
         control("completedCoursework"),
@@ -322,12 +341,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     "courseInstance",
     "instructor",
     [control("courses"), control("questions"), control("productAssessments", { selected: true })],
-    [
-      area("courseSetup", "Course setup", [
-        control("gradeSettings"),
-        control("appearance", { selected: true }),
-      ]),
-    ],
+    [area("courseSetup", [control("gradeSettings"), control("appearance", { selected: true })])],
     "reading",
     {
       scopeLabel: SHORT_COURSE_NAME,

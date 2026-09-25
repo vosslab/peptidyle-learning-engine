@@ -631,8 +631,7 @@ is open. It is replaceable until whole-Assessment submission. An incomplete
 response is unsaved for product purposes and is not graded.
 The Question interface may keep unfinished input locally while the Student
 works. Response actions describe saving or changing a response, such as **Save
-response** and **Restore initial response**. **Assessment submission** remains
-the whole-Attempt action.
+response**. **Assessment submission** remains the whole-Attempt action.
 
 **Assessment submission** is the whole-Attempt transition. It finalizes all
 saved responses together as Student Work. A Question without a complete saved

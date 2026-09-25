@@ -74,8 +74,8 @@ function expectedPrivacyProfile(capture) {
   if (
     (capture.scenario === "student_assignment_history" &&
       capture.checkpoint.startsWith("selected_history_")) ||
-    (capture.scenario === "student_progress_stats_attempt_history" &&
-      capture.checkpoint === "course_attempt_history_selected_laptop") ||
+    (capture.scenario === "student_progress_response_stats_history" &&
+      capture.checkpoint === "latest_feedback_laptop") ||
     (capture.scenario === "student_assignment_attempt" &&
       capture.checkpoint.startsWith("submitted_"))
   ) {

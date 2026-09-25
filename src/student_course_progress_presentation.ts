@@ -39,17 +39,17 @@ export function studentAssessmentScoreDescription(
   const score = assessment.assessmentScore;
   if (score === undefined) {
     if (assessment.assessmentAttemptCount === 0) {
-      return "No Attempt has started for this Assessment.";
+      return "No Attempt has started yet.";
     }
     return assessment.submittedAssessmentAttemptCount > 0
-      ? `${assessment.submittedAssessmentAttemptCount} submitted Attempt${assessment.submittedAssessmentAttemptCount === 1 ? "" : "s"}; the Assessment stays visible until a score is released.`
+      ? `${assessment.submittedAssessmentAttemptCount} submitted Attempt${assessment.submittedAssessmentAttemptCount === 1 ? "" : "s"}; no score has been released.`
       : "An Attempt is still in progress, so no score is released yet.";
   }
   const label = assessment.assessmentScoreIsLatestAttempt
     ? "Latest released score"
     : "Best released score";
   if (score.pointsPossible === 0) {
-    return `${label}: ${score.pointsEarned} bonus points. This Assessment has no percentage score.`;
+    return `${label}: ${score.pointsEarned} bonus points. This Coursework item has no percentage score.`;
   }
   return `${label}: ${formatPointScore(score.pointsEarned, score.pointsPossible)} points (${formatPercentScore(score.pointsEarned / score.pointsPossible)}).`;
 }

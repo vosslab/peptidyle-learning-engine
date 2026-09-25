@@ -113,6 +113,10 @@ extension filtering, the `isfile` check, and the sort. Use `file_utils.discover_
 single source of file discovery; the shared `SKIP_DIRS` and `path_has_skip_dir` live only in
 `file_utils.py`.
 
+Tracked paths that are absent from the working tree are discarded before repo-local or per-test
+filters inspect their contents. This lets hygiene checks run while a tracked file is deleted or
+renamed in an unstaged change.
+
 Signature:
 
 ```python

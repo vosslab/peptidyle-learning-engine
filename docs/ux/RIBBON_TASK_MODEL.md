@@ -85,14 +85,17 @@ Grades, Courses. Student Tier 2 stays fixed within each area:
 | --- | --- |
 | Coursework | All Coursework; Due Soon; Completed; Active Attempt |
 | Grades | Scores; Response Stats; Attempt History; Latest Feedback |
-| Courses | Progress; another Course overview is still undecided |
+| Courses | Current enrolled Course short names |
 
-The selected Course supplies content and route context. Navigation within a
-Tier 1 area keeps the same row. A Student with one active Course opens its
-All Coursework page from `/student`; a Student with multiple active Courses opens
-the Course chooser. Active Attempt stays visible but is disabled when no
-resumable Attempt exists. If several are resumable, it links to the one with
-the latest recorded activity; see [the detailed decision](../DESIGN_DECISIONS.md#student-tier-2-groups-follow-tier-1-purposes).
+`/student` opens All Coursework for all enrolled Courses. Courses Tier 2 lists
+the short names in the same stable order as the Courses list; selecting a name
+opens that Course and selects it only while its Course-specific content is open.
+It does not pin or filter global Coursework or Grades. Active Attempt stays
+visible but is disabled when no Attempt clock is running in any enrolled Course.
+If several clocks are running, it links to the one with the latest recorded
+activity; see [the detailed decision](../DESIGN_DECISIONS.md#student-tier-2-groups-follow-tier-1-purposes).
+Latest Feedback opens the most recent Attempt review with Student-visible
+feedback across enrolled Courses and stays disabled when none is available.
 An Attempt with no released score remains visible in Progress as **Score not
 released** and is not treated as below 100%.
 

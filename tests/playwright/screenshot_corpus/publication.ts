@@ -8,7 +8,6 @@ import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:
 import {
   CANONICAL_VIEWPORTS,
   ROLE_IDS,
-  VIEWPORT_IDS,
   type CaptureManifest,
   type CaptureRecord,
   type ScreenshotRole,
@@ -495,11 +494,5 @@ export async function promoteCorpus(
 export async function prepareOutputRoot(root: string): Promise<void> {
   await rm(root, { force: true, recursive: true });
   await mkdir(root, { recursive: true });
-  await Promise.all(
-    ROLE_IDS.flatMap((role) =>
-      VIEWPORT_IDS.map((viewport) =>
-        mkdir(path.join(rolePath(root, role), viewport), { recursive: true }),
-      ),
-    ),
-  );
+  await Promise.all(ROLE_IDS.map((role) => mkdir(rolePath(root, role), { recursive: true })));
 }

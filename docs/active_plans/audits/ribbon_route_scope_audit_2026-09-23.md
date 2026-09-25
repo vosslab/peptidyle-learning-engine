@@ -4,6 +4,13 @@ Date: 2026-09-23
 
 Status: Read-only screenshot and source audit. No interaction study or source changes were part of this review.
 
+> **Historical result superseded (2026-09-24):** This audit describes the earlier route-scoped
+> Task Row model for all roles. The current role-and-Tier-1 schema owns Tier 2 membership and order;
+> route-specific task groups no longer select its contents. Student Coursework and Grades span
+> enrolled Courses, and Courses provides deliberate Course entry. See the settled
+> [Student Tier 2 decision](../../DESIGN_DECISIONS.md#student-tier-2-groups-follow-tier-1-purposes)
+> and the current [Ribbon task model](../../ux/RIBBON_TASK_MODEL.md).
+
 ## Smallest product rule
 
 > Tier 2 lists sibling destinations at the deepest active work scope: product collection or the active Course, Assessment, or Attempt workspace. Entering a different scope replaces the prior set. Current-object identity and return to a parent scope belong in context or breadcrumbs; progress and within-work sequences belong in the content. An empty Tier 2 is valid when there are no sibling destinations.
@@ -62,4 +69,4 @@ The four Student average images and the Instructor average are user-generated di
 
 ## Audit conclusion
 
-The smallest predictable rule is scope-relative sibling navigation: Tier 2 follows the deepest active work scope and changes destination sets when that scope changes. This makes the Instructor collection-to-Course-to-Assessment replacements coherent. Student Attempt currently uses Tier 2 for current-object identity and a parent return, while Human Guidance leaves Student Tier 2 unsettled; the active Attempt row does not match the proposed sibling-destination rule. No Ribbon source was changed.
+At the time of this audit, the observed source followed scope-relative Tier 2 groups. That behavior was later superseded by the fixed role-and-Tier-1 schema; this audit is evidence of the former implementation only, not current navigation guidance.

@@ -135,14 +135,8 @@ human review.
 | | | |
 | --- | --- | --- |
 | [![Screenshot preview of Student courses](screenshots/student/laptop/course_list.png)](screenshots/student/laptop/course_list.png)<br>Student courses<br>course list - laptop<br>Featured | [![Screenshot preview of Student courses on a tablet](screenshots/student/tablet/course_list.png)](screenshots/student/tablet/course_list.png)<br>Student courses on a tablet<br>course list - tablet | [![Screenshot preview of Student courses on a phone](screenshots/student/phone/course_list.png)](screenshots/student/phone/course_list.png)<br>Student courses on a phone<br>course list - phone |
-| [![Screenshot preview of Student courses on a square](screenshots/student/square/course_list.png)](screenshots/student/square/course_list.png)<br>Student courses on a square<br>course list - square |  |  |
-
-#### Course Grade Summary
-
-| | | |
-| --- | --- | --- |
-| [![Screenshot preview of Student Course grades](screenshots/student/laptop/course_grades.png)](screenshots/student/laptop/course_grades.png)<br>Student Course grades<br>self-only grades - laptop | [![Screenshot preview of Student Course grades on a tablet](screenshots/student/tablet/course_grades.png)](screenshots/student/tablet/course_grades.png)<br>Student Course grades on a tablet<br>self-only grades - tablet | [![Screenshot preview of Student Course grades on a phone](screenshots/student/phone/course_grades.png)](screenshots/student/phone/course_grades.png)<br>Student Course grades on a phone<br>self-only grades - phone |
-| [![Screenshot preview of Student Course grades on a square](screenshots/student/square/course_grades.png)](screenshots/student/square/course_grades.png)<br>Student Course grades on a square<br>self-only grades - square |  |  |
+| [![Screenshot preview of Student courses on a square](screenshots/student/square/course_list.png)](screenshots/student/square/course_list.png)<br>Student courses on a square<br>course list - square | [![Screenshot preview of Course-specific overview](screenshots/student/laptop/course_landing.png)](screenshots/student/laptop/course_landing.png)<br>Course-specific overview<br>Course-specific context - laptop | [![Screenshot preview of Course-specific overview on a tablet](screenshots/student/tablet/course_landing.png)](screenshots/student/tablet/course_landing.png)<br>Course-specific overview on a tablet<br>Course-specific context - tablet |
+| [![Screenshot preview of Course-specific overview on a phone](screenshots/student/phone/course_landing.png)](screenshots/student/phone/course_landing.png)<br>Course-specific overview on a phone<br>Course-specific context - phone | [![Screenshot preview of Course-specific overview on a square](screenshots/student/square/course_landing.png)](screenshots/student/square/course_landing.png)<br>Course-specific overview on a square<br>Course-specific context - square |  |
 
 #### Course Invitation
 
@@ -152,12 +146,12 @@ human review.
 | [![Screenshot preview of Pending Course Invitations on a square](screenshots/student/square/invitation_index.png)](screenshots/student/square/invitation_index.png)<br>Pending Course Invitations on a square<br>pending index - square | [![Screenshot preview of Course Invitation review](screenshots/student/laptop/invitation_detail.png)](screenshots/student/laptop/invitation_detail.png)<br>Course Invitation review<br>review - laptop | [![Screenshot preview of Course Invitation review on a tablet](screenshots/student/tablet/invitation_detail.png)](screenshots/student/tablet/invitation_detail.png)<br>Course Invitation review on a tablet<br>review - tablet |
 | [![Screenshot preview of Course Invitation review on a phone](screenshots/student/phone/invitation_detail.png)](screenshots/student/phone/invitation_detail.png)<br>Course Invitation review on a phone<br>review - phone | [![Screenshot preview of Course Invitation review on a square](screenshots/student/square/invitation_detail.png)](screenshots/student/square/invitation_detail.png)<br>Course Invitation review on a square<br>review - square |  |
 
-#### Course Selection
+#### Course List
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Student with two active Courses](screenshots/student/laptop/two_course_chooser.png)](screenshots/student/laptop/two_course_chooser.png)<br>Student with two active Courses<br>two active Courses - laptop | [![Screenshot preview of Student with two active Courses on a tablet](screenshots/student/tablet/two_course_chooser.png)](screenshots/student/tablet/two_course_chooser.png)<br>Student with two active Courses on a tablet<br>two active Courses - tablet | [![Screenshot preview of Student with two active Courses on a phone](screenshots/student/phone/two_course_chooser.png)](screenshots/student/phone/two_course_chooser.png)<br>Student with two active Courses on a phone<br>two active Courses - phone |
-| [![Screenshot preview of Student with two active Courses on a square](screenshots/student/square/two_course_chooser.png)](screenshots/student/square/two_course_chooser.png)<br>Student with two active Courses on a square<br>two active Courses - square |  |  |
+| [![Screenshot preview of Student with two active Courses](screenshots/student/laptop/two_course_list.png)](screenshots/student/laptop/two_course_list.png)<br>Student with two active Courses<br>two active Courses - laptop | [![Screenshot preview of Student with two active Courses on a tablet](screenshots/student/tablet/two_course_list.png)](screenshots/student/tablet/two_course_list.png)<br>Student with two active Courses on a tablet<br>two active Courses - tablet | [![Screenshot preview of Student with two active Courses on a phone](screenshots/student/phone/two_course_list.png)](screenshots/student/phone/two_course_list.png)<br>Student with two active Courses on a phone<br>two active Courses - phone |
+| [![Screenshot preview of Student with two active Courses on a square](screenshots/student/square/two_course_list.png)](screenshots/student/square/two_course_list.png)<br>Student with two active Courses on a square<br>two active Courses - square |  |  |
 
 #### Course Progress
 
@@ -165,20 +159,32 @@ human review.
 | --- | --- | --- |
 | [![Screenshot preview of Student Course Progress](screenshots/student/laptop/course_progress.png)](screenshots/student/laptop/course_progress.png)<br>Student Course Progress<br>completed Attempts and score status - laptop<br>Featured | [![Screenshot preview of Student Progress when an Attempt has no released score](screenshots/student/laptop/course_progress_unreleased.png)](screenshots/student/laptop/course_progress_unreleased.png)<br>Student Progress when an Attempt has no released score<br>Attempts with no released score - laptop |  |
 
+### Grades
+
+#### Released Coursework Scores
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Student Scores](screenshots/student/laptop/scores.png)](screenshots/student/laptop/scores.png)<br>Student Scores<br>self-only grades - laptop | [![Screenshot preview of Student Scores on a tablet](screenshots/student/tablet/scores.png)](screenshots/student/tablet/scores.png)<br>Student Scores on a tablet<br>self-only grades - tablet | [![Screenshot preview of Student Scores on a phone](screenshots/student/phone/scores.png)](screenshots/student/phone/scores.png)<br>Student Scores on a phone<br>self-only grades - phone |
+| [![Screenshot preview of Student Scores on a square](screenshots/student/square/scores.png)](screenshots/student/square/scores.png)<br>Student Scores on a square<br>self-only grades - square |  |  |
+
 #### Response Stats
 
 | | | |
 | --- | --- | --- |
 | [![Screenshot preview of Student Response Stats](screenshots/student/laptop/response_stats.png)](screenshots/student/laptop/response_stats.png)<br>Student Response Stats<br>released Question outcomes and measured duration - laptop |  |  |
 
-#### Seeded Assignment Progress
+#### Course Attempt History And Latest Feedback
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Not-started Course landing](screenshots/student/laptop/not_started.png)](screenshots/student/laptop/not_started.png)<br>Not-started Course landing<br>not started - laptop | [![Screenshot preview of Not-started Course landing on a tablet](screenshots/student/tablet/not_started.png)](screenshots/student/tablet/not_started.png)<br>Not-started Course landing on a tablet<br>not started - tablet | [![Screenshot preview of Not-started Course landing on a phone](screenshots/student/phone/not_started.png)](screenshots/student/phone/not_started.png)<br>Not-started Course landing on a phone<br>not started - phone |
-| [![Screenshot preview of Not-started Course landing on a square](screenshots/student/square/not_started.png)](screenshots/student/square/not_started.png)<br>Not-started Course landing on a square<br>not started - square | [![Screenshot preview of In-progress Course landing](screenshots/student/laptop/in_progress.png)](screenshots/student/laptop/in_progress.png)<br>In-progress Course landing<br>in progress - laptop | [![Screenshot preview of In-progress Course landing on a tablet](screenshots/student/tablet/in_progress.png)](screenshots/student/tablet/in_progress.png)<br>In-progress Course landing on a tablet<br>in progress - tablet |
-| [![Screenshot preview of In-progress Course landing on a phone](screenshots/student/phone/in_progress.png)](screenshots/student/phone/in_progress.png)<br>In-progress Course landing on a phone<br>in progress - phone | [![Screenshot preview of In-progress Course landing on a square](screenshots/student/square/in_progress.png)](screenshots/student/square/in_progress.png)<br>In-progress Course landing on a square<br>in progress - square | [![Screenshot preview of Completed Course landing](screenshots/student/laptop/completed.png)](screenshots/student/laptop/completed.png)<br>Completed Course landing<br>completed - laptop<br>Featured |
-| [![Screenshot preview of Completed Course landing on a tablet](screenshots/student/tablet/completed.png)](screenshots/student/tablet/completed.png)<br>Completed Course landing on a tablet<br>completed - tablet | [![Screenshot preview of Completed Course landing on a phone](screenshots/student/phone/completed.png)](screenshots/student/phone/completed.png)<br>Completed Course landing on a phone<br>completed - phone | [![Screenshot preview of Completed Course landing on a square](screenshots/student/square/completed.png)](screenshots/student/square/completed.png)<br>Completed Course landing on a square<br>completed - square |
+| [![Screenshot preview of Student Attempt History with Latest Feedback available](screenshots/student/laptop/course_attempt_history.png)](screenshots/student/laptop/course_attempt_history.png)<br>Student Attempt History with Latest Feedback available<br>at least 40 submitted Attempts and released feedback shortcut enabled - laptop |  |  |
+
+#### Latest Feedback Shortcut
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Attempt review opened from Latest Feedback](screenshots/student/laptop/latest_feedback.png)](screenshots/student/laptop/latest_feedback.png)<br>Attempt review opened from Latest Feedback<br>released feedback review opened from Grades - laptop |  |  |
 
 ### Coursework
 
@@ -194,13 +200,20 @@ human review.
 | --- | --- | --- |
 | [![Screenshot preview of Student Completed Coursework](screenshots/student/laptop/course_completed.png)](screenshots/student/laptop/course_completed.png)<br>Student Completed Coursework<br>submitted Attempts - laptop |  |  |
 
-### Grades
-
-#### Course Attempt History
+#### Coursework And Active Attempt
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Student Course Attempt History](screenshots/student/laptop/course_attempt_history.png)](screenshots/student/laptop/course_attempt_history.png)<br>Student Course Attempt History<br>at least 40 submitted Attempts - laptop | [![Screenshot preview of Latest submitted Attempt review opened from Course History](screenshots/student/laptop/course_attempt_history_selected.png)](screenshots/student/laptop/course_attempt_history_selected.png)<br>Latest submitted Attempt review opened from Course History<br>latest submitted Attempt review - laptop |  |
+| [![Screenshot preview of Not-started Course landing](screenshots/student/laptop/not_started.png)](screenshots/student/laptop/not_started.png)<br>Not-started Course landing<br>no running Attempt clock; Active Attempt disabled - laptop | [![Screenshot preview of Not-started Course landing on a tablet](screenshots/student/tablet/not_started.png)](screenshots/student/tablet/not_started.png)<br>Not-started Course landing on a tablet<br>no running Attempt clock; Active Attempt disabled - tablet | [![Screenshot preview of Not-started Course landing on a phone](screenshots/student/phone/not_started.png)](screenshots/student/phone/not_started.png)<br>Not-started Course landing on a phone<br>no running Attempt clock; Active Attempt disabled - phone |
+| [![Screenshot preview of Not-started Course landing on a square](screenshots/student/square/not_started.png)](screenshots/student/square/not_started.png)<br>Not-started Course landing on a square<br>no running Attempt clock; Active Attempt disabled - square | [![Screenshot preview of In-progress Course landing](screenshots/student/laptop/in_progress.png)](screenshots/student/laptop/in_progress.png)<br>In-progress Course landing<br>timed Attempt clock running; Active Attempt enabled - laptop | [![Screenshot preview of In-progress Course landing on a tablet](screenshots/student/tablet/in_progress.png)](screenshots/student/tablet/in_progress.png)<br>In-progress Course landing on a tablet<br>timed Attempt clock running; Active Attempt enabled - tablet |
+| [![Screenshot preview of In-progress Course landing on a phone](screenshots/student/phone/in_progress.png)](screenshots/student/phone/in_progress.png)<br>In-progress Course landing on a phone<br>timed Attempt clock running; Active Attempt enabled - phone | [![Screenshot preview of In-progress Course landing on a square](screenshots/student/square/in_progress.png)](screenshots/student/square/in_progress.png)<br>In-progress Course landing on a square<br>timed Attempt clock running; Active Attempt enabled - square |  |
+
+#### Seeded Assignment Progress
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Completed Course landing](screenshots/student/laptop/completed.png)](screenshots/student/laptop/completed.png)<br>Completed Course landing<br>completed - laptop<br>Featured | [![Screenshot preview of Completed Course landing on a tablet](screenshots/student/tablet/completed.png)](screenshots/student/tablet/completed.png)<br>Completed Course landing on a tablet<br>completed - tablet | [![Screenshot preview of Completed Course landing on a phone](screenshots/student/phone/completed.png)](screenshots/student/phone/completed.png)<br>Completed Course landing on a phone<br>completed - phone |
+| [![Screenshot preview of Completed Course landing on a square](screenshots/student/square/completed.png)](screenshots/student/square/completed.png)<br>Completed Course landing on a square<br>completed - square |  |  |
 
 ### Assignments
 
@@ -292,26 +305,27 @@ human review.
 | courses | deferred | The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes. |
 | instructorHome | captured | instructor_course_list |
 | instructorInactiveCourses | captured | instructor_inactive_courses_list |
-| studentHome | captured | student_course_list_laptop, student_course_list_tablet, student_course_list_phone, student_course_list_square, student_two_course_chooser_laptop, student_two_course_chooser_tablet, student_two_course_chooser_phone, student_two_course_chooser_square |
+| studentHome | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
+| studentCourses | captured | student_course_list_laptop, student_course_list_tablet, student_course_list_phone, student_course_list_square, student_two_course_list_laptop, student_two_course_list_tablet, student_two_course_list_phone, student_two_course_list_square |
 | sysadminHome | captured | sysadmin_course_list |
 | profile | captured | instructor_default |
 | signIn | captured | public_sign_in_laptop, public_sign_in_phone |
 | pendingCourseInvitations | deferred | Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots. |
 | studentCourseInvitations | captured | student_invitation_index_laptop, student_invitation_index_tablet, student_invitation_index_phone, student_invitation_index_square |
 | studentCourseInvitation | captured | student_invitation_detail_laptop, student_invitation_detail_tablet, student_invitation_detail_phone, student_invitation_detail_square |
-| studentCourseLanding | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
+| studentCourseLanding | captured | student_course_landing_laptop, student_course_landing_tablet, student_course_landing_phone, student_course_landing_square |
 | studentCourseProgress | captured | student_course_progress_laptop, student_course_progress_unreleased_laptop |
-| studentCourseResponseStats | captured | student_response_stats_laptop |
-| studentCourseDueSoon | captured | student_course_due_soon_laptop |
-| studentCourseCompleted | captured | student_course_completed_laptop |
-| studentCourseGrades | captured | student_course_grades_laptop, student_course_grades_tablet, student_course_grades_phone, student_course_grades_square |
-| studentCourseAttemptHistory | captured | student_course_attempt_history_laptop |
+| studentResponseStats | captured | student_response_stats_laptop |
+| studentDueSoon | captured | student_course_due_soon_laptop |
+| studentCompleted | captured | student_course_completed_laptop |
+| studentScores | captured | student_scores_laptop, student_scores_tablet, student_scores_phone, student_scores_square |
+| studentAttemptHistory | captured | student_course_attempt_history_laptop |
 | instructorAccounts | captured | sysadmin_accounts_initial, sysadmin_account_created, sysadmin_account_deactivated, sysadmin_account_validation |
 | contentDisciplines | deferred | The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
 | courseAssessments | captured | instructor_course_assignment_workspace |
 | assessmentOverview | captured | student_unanswered_laptop, student_unanswered_tablet, student_unanswered_phone, student_unanswered_square, student_overview_history_laptop, student_overview_history_tablet, student_overview_history_phone, student_overview_history_square |
 | assessmentAttempt | captured | student_response_selected_laptop, student_response_selected_tablet, student_response_selected_phone, student_response_selected_square, student_resume_selected_laptop, student_resume_selected_tablet, student_resume_selected_phone, student_resume_selected_square, student_assessment_navigation_laptop, student_assessment_navigation_tablet, student_assessment_navigation_phone, student_assessment_navigation_square, student_question_unanswered_mc_laptop, student_question_unanswered_mc_phone, student_question_answered_mc_laptop, student_question_answered_mc_phone, student_question_unanswered_ma_laptop, student_question_unanswered_ma_phone, student_question_answered_ma_laptop, student_question_answered_ma_phone, student_question_unanswered_fib_laptop, student_question_unanswered_fib_phone, student_question_answered_fib_laptop, student_question_answered_fib_phone, student_question_unanswered_multi_fib_laptop, student_question_unanswered_multi_fib_phone, student_question_answered_multi_fib_laptop, student_question_answered_multi_fib_phone, student_question_unanswered_num_laptop, student_question_unanswered_num_phone, student_question_answered_num_laptop, student_question_answered_num_phone, student_question_unanswered_match_laptop, student_question_unanswered_match_phone, student_question_answered_match_laptop, student_question_answered_match_phone, student_question_unanswered_order_laptop, student_question_unanswered_order_phone, student_question_answered_order_laptop, student_question_answered_order_phone, student_question_unanswered_hotspot_laptop, student_question_unanswered_hotspot_phone, student_question_answered_hotspot_laptop, student_question_answered_hotspot_phone, student_question_unanswered_webwork_laptop, student_question_unanswered_webwork_phone, student_question_answered_webwork_laptop, student_question_answered_webwork_phone, student_question_unanswered_mc_tablet, student_question_unanswered_mc_square |
-| assessmentAttemptSummary | captured | student_course_attempt_history_selected_laptop, student_selected_history_laptop, student_selected_history_tablet, student_selected_history_phone, student_selected_history_square, student_submitted_laptop, student_submitted_tablet, student_submitted_phone, student_submitted_square |
+| assessmentAttemptSummary | captured | student_latest_feedback_laptop, student_selected_history_laptop, student_selected_history_tablet, student_selected_history_phone, student_selected_history_square, student_submitted_laptop, student_submitted_tablet, student_submitted_phone, student_submitted_square |
 | library | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
 | libraryBrowse | captured | instructor_library_browse |
 | libraryWatchNotifications | deferred | The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
@@ -340,7 +354,7 @@ human review.
 | tab:questions | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
 | tab:productAssessments | captured | instructor_assignments_due_soon_empty |
 | tab:coursework | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
-| tab:grades | captured | student_course_grades_laptop, student_course_grades_tablet, student_course_grades_phone, student_course_grades_square |
+| tab:grades | captured | student_scores_laptop, student_scores_tablet, student_scores_phone, student_scores_square |
 | tab:instructorAccounts | captured | sysadmin_accounts_initial, sysadmin_account_created, sysadmin_account_deactivated, sysadmin_account_validation |
 | tab:disciplines | deferred | The Sysadmin Disciplines tab requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
 | task:myBlueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker |
@@ -361,13 +375,14 @@ human review.
 | task:teachingOperations | deferred | Teaching Operations has no declared route, page, client method, or registered handler. |
 | task:blueprintUpdates | deferred | Blueprint Updates has no declared route, page, client method, or registered handler. |
 | task:courseSetup | deferred | Course Setup is a future destination identity, not a declared usable path. |
-| task:studentProgress | captured | student_course_progress_laptop, student_course_progress_unreleased_laptop |
-| task:studentResponseStats | captured | student_response_stats_laptop |
 | task:allCoursework | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
 | task:dueSoon | captured | student_course_due_soon_laptop |
 | task:completedCoursework | captured | student_course_completed_laptop |
-| task:studentScores | captured | student_course_grades_laptop, student_course_grades_tablet, student_course_grades_phone, student_course_grades_square |
+| task:activeAttempt | captured | student_response_selected_laptop, student_response_selected_tablet, student_response_selected_phone, student_response_selected_square, student_resume_selected_laptop, student_resume_selected_tablet, student_resume_selected_phone, student_resume_selected_square, student_assessment_navigation_laptop, student_assessment_navigation_tablet, student_assessment_navigation_phone, student_assessment_navigation_square, student_question_unanswered_mc_laptop, student_question_unanswered_mc_phone, student_question_answered_mc_laptop, student_question_answered_mc_phone, student_question_unanswered_ma_laptop, student_question_unanswered_ma_phone, student_question_answered_ma_laptop, student_question_answered_ma_phone, student_question_unanswered_fib_laptop, student_question_unanswered_fib_phone, student_question_answered_fib_laptop, student_question_answered_fib_phone, student_question_unanswered_multi_fib_laptop, student_question_unanswered_multi_fib_phone, student_question_answered_multi_fib_laptop, student_question_answered_multi_fib_phone, student_question_unanswered_num_laptop, student_question_unanswered_num_phone, student_question_answered_num_laptop, student_question_answered_num_phone, student_question_unanswered_match_laptop, student_question_unanswered_match_phone, student_question_answered_match_laptop, student_question_answered_match_phone, student_question_unanswered_order_laptop, student_question_unanswered_order_phone, student_question_answered_order_laptop, student_question_answered_order_phone, student_question_unanswered_hotspot_laptop, student_question_unanswered_hotspot_phone, student_question_answered_hotspot_laptop, student_question_answered_hotspot_phone, student_question_unanswered_webwork_laptop, student_question_unanswered_webwork_phone, student_question_answered_webwork_laptop, student_question_answered_webwork_phone, student_question_unanswered_mc_tablet, student_question_unanswered_mc_square |
+| task:studentScores | captured | student_scores_laptop, student_scores_tablet, student_scores_phone, student_scores_square |
+| task:studentResponseStats | captured | student_response_stats_laptop |
 | task:studentAttemptHistory | captured | student_course_attempt_history_laptop |
+| task:studentLatestFeedback | captured | student_latest_feedback_laptop, student_selected_history_laptop, student_selected_history_tablet, student_selected_history_phone, student_selected_history_square, student_submitted_laptop, student_submitted_tablet, student_submitted_phone, student_submitted_square |
 | task:assessmentOverview | deferred | Assessment editing uses the current single-page workspace. |
 | task:assessmentQuestions | captured | instructor_assignment_questions_draft |
 | task:assessmentPolicies | captured | instructor_assignment_policies_released |

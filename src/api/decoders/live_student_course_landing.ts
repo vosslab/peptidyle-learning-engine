@@ -7,6 +7,7 @@ import type {
   LiveStudentCourseLandingSummary,
   StudentCourseActiveAttempt,
   StudentCourseProgressAssessment,
+  StudentLatestFeedback,
 } from "../live_student_course_landing";
 import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
 import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
@@ -320,14 +321,48 @@ export function decodeStudentCourseActiveAttempt(
   path = "response",
 ): StudentCourseActiveAttempt {
   const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["assessmentAttemptId", "startedAt", "latestActivityAt"]);
+  const rawAttemptId = decodeNullable(
+    field(record, "assessmentAttemptId", path),
+    `${path}.assessmentAttemptId`,
+    decodeString,
+  );
+  const assessmentAttemptId = rawAttemptId === null ? null : parseAssessmentAttemptId(rawAttemptId);
+  if (rawAttemptId !== null && assessmentAttemptId === null) {
+    throw new DecodeError(`${path}.assessmentAttemptId`, "a canonical Assessment Attempt UUID");
+  }
+  const startedAt = decodeNullable(
+    field(record, "startedAt", path),
+    `${path}.startedAt`,
+    decodeNonnegativeInteger,
+  );
+  const latestActivityAt = decodeNullable(
+    field(record, "latestActivityAt", path),
+    `${path}.latestActivityAt`,
+    decodeNonnegativeInteger,
+  );
+  if (
+    (assessmentAttemptId === null && (startedAt !== null || latestActivityAt !== null)) ||
+    (assessmentAttemptId !== null && (startedAt === null || latestActivityAt === null))
+  ) {
+    throw new DecodeError(path, "an Attempt ID with both timestamps, or three explicit nulls");
+  }
+  return { assessmentAttemptId, startedAt, latestActivityAt };
+}
+
+/** Rejects values outside the signed-in Student's Latest Feedback shortcut projection. */
+export function decodeStudentLatestFeedback(
+  value: unknown,
+  path = "response",
+): StudentLatestFeedback {
+  const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["assessmentAttemptId"]);
   const rawAttemptId = decodeNullable(
     field(record, "assessmentAttemptId", path),
     `${path}.assessmentAttemptId`,
     decodeString,
   );
-  const assessmentAttemptId =
-    rawAttemptId === null ? null : parseAssessmentAttemptId(rawAttemptId);
+  const assessmentAttemptId = rawAttemptId === null ? null : parseAssessmentAttemptId(rawAttemptId);
   if (rawAttemptId !== null && assessmentAttemptId === null) {
     throw new DecodeError(`${path}.assessmentAttemptId`, "a canonical Assessment Attempt UUID");
   }

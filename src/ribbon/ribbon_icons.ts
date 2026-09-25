@@ -84,14 +84,14 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
   assessmentStudentView: "user-graduate",
   gradeSettings: "table-list",
   appearance: "palette",
-  studentProgress: "table-list",
   studentResponseStats: "book-open",
   allCoursework: "clipboard-list",
   dueSoon: "clock",
   completedCoursework: "list-check",
-  activeAttempt: "arrow-rotate-right",
+  activeAttempt: "arrow-left",
   studentScores: "table-list",
   studentAttemptHistory: "clock",
+  studentLatestFeedback: "file-signature",
 } as const satisfies Readonly<Partial<Record<RibbonDestinationId, RibbonGlyphId>>>);
 
 export type RibbonDestinationGlyphId = keyof typeof RIBBON_DESTINATION_GLYPHS;

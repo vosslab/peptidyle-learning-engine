@@ -18,15 +18,11 @@ test("catalog route destinations name declared routes and their complete paramet
     assert.ok(route, control.id);
     if (TAB_CATALOG.includes(control)) {
       assert.equal("requiredParams" in control, false, control.id);
-      if (["coursework", "grades"].includes(control.id)) {
-        assert.deepEqual(paramsInPath(route.path), ["courseInstanceId"], control.id);
-      } else {
-        assert.deepEqual(paramsInPath(route.path), [], control.id);
-      }
+      assert.deepEqual(paramsInPath(route.path), [], control.id);
       continue;
     }
     if (["coursework", "grades"].includes(control.id)) {
-      assert.deepEqual(paramsInPath(route.path), ["courseInstanceId"], control.id);
+      assert.deepEqual(paramsInPath(route.path), [], control.id);
       continue;
     }
     assert.deepEqual(control.requiredParams, paramsInPath(route.path), control.id);

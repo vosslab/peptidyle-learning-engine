@@ -52,8 +52,9 @@ and gallery presentation. They never contain selectors or executable steps.
 The TypeScript scenario registry is the one executable mapping from those
 scenario and checkpoint names to normal product workflows.
 
-The active tree is flat within exactly four role folders. A successful rebuild
-removes screenshots not declared by the manifest. The generated
+The active tree is organized by role, with viewport subfolders where the
+manifest declares them. A successful rebuild removes screenshots not declared
+by the manifest. The generated
 `current_capture_receipt.json` binds the manifest digest, exact path set,
 dimensions, and image hashes. [SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md) is the
 generated, grouped visual review surface. The manifest's route and Ribbon
@@ -104,6 +105,9 @@ The canonical profiles are laptop 1280 by 800, portrait tablet 800 by 1280,
 phone 393 by 852, and square 800 by 800 CSS pixels. Add a non-laptop variant
 only when the responsive composition, control layout, or access outcome changes
 materially enough to need separate visual inspection.
+The current Instructor and Sysadmin screenshot folders use laptop captures only;
+they contain no phone, square, or tablet folders, even when empty. Student
+captures include the responsive variants; Public sign-in also has a phone capture.
 
 ## Privacy
 

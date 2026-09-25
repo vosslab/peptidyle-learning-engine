@@ -1,6 +1,6 @@
 /* app_ribbon_density.css - phone density, overflow cues, and reduced-motion Ribbon composition. */
 
-/* Legacy non-Student phone density and bounded task-control overflow. */
+/* Phone density and bounded Tier 2 destination overflow. */
 @media (max-width: 24rem) {
   .ple-app-ribbon__link--standard,
   .ple-app-ribbon__link--compact {
@@ -30,39 +30,13 @@
   }
 }
 
-/* Touch profiles enlarge controls and spacing at every viewport size; catalog
-   role and priority remain absent from the visual cascade. */
+/* Touch profiles enlarge navigation controls while the shared identity and
+   Account avatar retain their fixed geometry across non-phone viewports. */
 @media (pointer: coarse) {
-  .ple-app-ribbon {
-    --ple-ribbon-space-row: var(--ple-space-2);
-    --ple-ribbon-space-inline: var(--ple-space-2);
-  }
-
-  .ple-app-ribbon__link,
-  .ple-app-ribbon__brand,
-  .ple-app-ribbon__profile {
+  .ple-app-ribbon__link {
     min-block-size: 2.75rem;
     min-inline-size: 2.75rem;
     padding-block: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-app-ribbon__context-identity,
-  .ple-app-ribbon__context-details {
-    gap: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-app-ribbon__context-details {
-    font-size: 0.82rem;
-  }
-}
-
-/* The taller token belongs to the phone topology. Keep touch tablets on the
-   ordinary single-row geometry unless their narrow width selects the phone
-   composition below. */
-@media (pointer: coarse) and (max-width: 40rem) {
-  :root {
-    --ple-ribbon-top-block-size: 5.5rem;
-    --ple-ribbon-task-block-size: 2.75rem;
   }
 }
 
@@ -115,7 +89,6 @@
   .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
     color: ButtonText;
     background: Canvas;
-    font-weight: 800;
     outline: 1px solid Highlight;
   }
 
@@ -125,10 +98,9 @@
 
   .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
     /* Keep the chosen task as a system-paired text/background control. The
-       underline and contrasting border retain selected identity when color is
+       underline and outline retain selected identity when color is
        unavailable, while the explicit adjustment prevents a blank remap. */
     color: HighlightText;
-    border: 1px solid HighlightText;
     background-color: Highlight;
     background-image: none;
     outline: 1px solid ButtonText;

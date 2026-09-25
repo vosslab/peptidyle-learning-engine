@@ -21,7 +21,6 @@ export function NumericResponse(
     props.initialResponse?.kind === "numeric" ? props.initialResponse.value : undefined;
   const initialValue = restored === undefined ? "" : String(restored);
   const [value, setValue] = createSignal(initialValue);
-  let control!: HTMLInputElement;
   const controller = createResponseController(props, numericResponseFromInput(initialValue));
   const response = (): StudentResponse => numericResponseFromInput(value());
   function update(next: string): void {
@@ -30,11 +29,6 @@ export function NumericResponse(
   }
   function save(): void {
     void controller.save(response());
-  }
-  function reset(): void {
-    setValue(initialValue);
-    void controller.reset(numericResponseFromInput(initialValue));
-    queueMicrotask(() => control.focus());
   }
   return (
     <section
@@ -58,7 +52,6 @@ export function NumericResponse(
         type="number"
         inputmode="decimal"
         value={value()}
-        ref={(element) => (control = element)}
         aria-describedby={`${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
         disabled={controller.locked()}
@@ -67,10 +60,8 @@ export function NumericResponse(
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
         disabled={!controller.canSave() || controller.locked()}
-        resetDisabled={controller.locked()}
         onSave={save}
         saveLabel={props.saveLabel}
-        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

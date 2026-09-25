@@ -1,5 +1,12 @@
 # Plan: Modular UI backbone for PLE
 
+> **Student navigation update (2026-09-24):** This plan's earlier Student tab order, Course-pinning,
+> and time-zone-label proposals are superseded by [Human Guidance](../HUMAN_GUIDANCE.md) and the
+> settled [Student Course-context decision](../DESIGN_DECISIONS.md#student-tier-2-groups-follow-tier-1-purposes).
+> Coursework and Grades span enrolled Courses. Courses is the deliberate entry into Course-specific
+> context; it does not persist or filter a Course selection. This plan remains active for its shared
+> UI work; its Instructor navigation scope is unchanged.
+
 ## Context
 
 [human-UI-review.md](../../human-UI-review.md) opens with the
@@ -33,7 +40,7 @@ work around them.
   every role. A row with no controls still holds its space.
 - One page component owns page width and the page heading.
 - One list component owns row alignment, empty and error states, and narrow-screen behavior.
-- One date function owns date text, and the time zone is named once per page rather than per row.
+- One date function owns date text in the selected display zone; Profile alone names that zone.
 - Seven different list pages run on the new list component with no page-specific escape hatch.
 - Student scenarios have direct laptop, tablet, phone, and square screenshot proof; Instructor and
   Sysadmin scenarios have direct laptop proof; Public capture scope remains unchanged.
@@ -70,7 +77,8 @@ build in-repo.
 
 - Make tier-1 tabs depend on Product Role only, and move scope-specific tabs to tier-2.
 - Add `tierOneArea` to the route contract and select tier-1 from it.
-- Pin the student `Coursework` and `Grades` tabs to the current course.
+- Keep Course IDs in Course-specific Student destinations; global Coursework and Grades follow the
+  completed [Student Progress and Response Stats plan](../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md).
 - Make the breadcrumb row and the tier-2 row always present for every signed-in role, whether or not
   the tier-2 row has controls yet.
 - Build `PageFrame` and apply it to all ~38 pages.
@@ -106,7 +114,7 @@ build in-repo.
 | `contentLayout` | Set on 39 routes, read by nothing                  | Read by `PageFrame`                                                            |
 | Lists           | ~45 hand-written sites, no shared piece            | `RecordList`; 7 converted, ~33 queued                                          |
 | Reorder         | 6 versions, 1 keyboard-capable                     | 1 shared version, opt-in                                                       |
-| Dates           | 3 styles in 16 files, 1 hardcoded to UTC           | 1 function, time zone named once per page                                      |
+| Dates           | 3 styles in 16 files, 1 hardcoded to UTC           | 1 function formats in the selected zone; Profile names it                      |
 | Screenshots     | Student: 30 laptop, 22 phone, 3 tablet, 1 square   | Student: four direct views; Instructor and Sysadmin: laptop; Public: unchanged |
 
 ## Architecture boundaries and ownership
@@ -348,7 +356,7 @@ by their page; workflow-internal controls remain in task content.
 - Acceptance criteria: `SCHEMAS` is replaced by
   `PRODUCT_TIER_ONE: Record<ProductRole, ReadonlyArray<RibbonSchemaSlot>>`; `ribbonSchemaFor` no
   longer takes `scope`; instructor is `courses, questions, productAssessments`, student is
-  `courses, coursework, grades`, sysadmin is
+  `coursework, grades, courses`, sysadmin is
   `courses, questions, instructorAccounts, disciplines`; `selectedFor` reads `tierOneArea`.
 - Obvious follow-ons: WP-A3.
 
@@ -359,28 +367,18 @@ by their page; workflow-internal controls remain in task content.
   [src/ribbon/ribbon_catalog.ts](../../src/ribbon/ribbon_catalog.ts),
   [src/route_contract.ts](../../src/route_contract.ts).
 - Depends on: WP-A2.
-- Acceptance criteria: `assessments`, `students`, `gradebook`, `teachingOperations`,
-  `blueprintUpdates`, `courseSetup`, `studentAssessments`, and `attempt` move from `TAB_CATALOG` to
-  `RIBBON_TASK_CATALOG`; `coursework` and `grades` are added to `TAB_CATALOG`; `taskGroup` is filled
-  in on `courseAssessments`, `gradebook`, `courseRoster`, `assessmentCreate`; no `TAB_CATALOG` entry
-  declares `requiredParams`.
+- Acceptance criteria: the role-and-Tier-1 schema defines fixed Tier 2 membership and order.
+  Student Coursework has All Coursework, Due Soon, Completed, and Active Attempt; Student Grades
+  has Scores, Response Stats, Attempt History, and Latest Feedback; Courses lists enrolled Course
+  short names. Routes identify Tier 1 context; route-specific task groups do not select Tier 2.
 - Obvious follow-ons: WP-A4.
 
-### Work package: WP-A4 pin student tabs to a course
+### Work package: WP-A4 Student Course context (superseded proposal)
 
-- Owner: `expert_coder`.
-- Touch points:
-  [src/ribbon/route_scope_controller.ts](../../src/ribbon/route_scope_controller.ts),
-  [src/route_contract.ts](../../src/route_contract.ts).
-- Depends on: WP-A3.
-- Acceptance criteria: `currentCourseInstanceId` is set whenever a `courseInstance` or
-  `assessmentAttempt` scope resolves and kept for the session; `coursework` and `grades` build links
-  from it through `buildRoutePath`; with no course pinned they point at `/student`; a new route
-  `studentCourseGrades` at `/student/courses/:courseInstanceId/grades` shows `assessmentScore` and
-  `gradedQuestionCount`, which
-  [src/api/decoders/live_student_course_landing.ts](../../src/api/decoders/live_student_course_landing.ts):111-171
-  already returns, so no new endpoint is needed.
-- Evidence or review, when useful: from an active Attempt, both links carry that Attempt's course.
+The former proposal to pin Coursework and Grades to one Course is superseded by the human-approved
+hybrid model in [Human Guidance](../HUMAN_GUIDANCE.md) and
+[Design Decisions](../DESIGN_DECISIONS.md#student-tier-2-groups-follow-tier-1-purposes). This
+work package has no remaining implementation criteria.
 
 ### Work package: WP-A5 make shell height unconditional
 
@@ -403,11 +401,10 @@ by their page; workflow-internal controls remain in task content.
 - Why this shape: two questions were tangled together. _Does the row take space?_ and _does the row
   hold controls?_ Separating them removes the conditional layout state instead of parameterizing it.
   The answer to the first is always yes. The answer to the second is yes where the role and workflow
-  have real controls -- today, instructors, whose contents are already listed in
+  have real controls. The role-and-Tier-1 schema supplies settled choices for Students, Instructors,
+  and Sysadmins, whose Instructor destinations are listed in
   [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568.
-  Student and sysadmin rows render empty until their contents are decided.
-- Notes: 17 routes declare no tasks, and an empty reserved row is a valid result for them. Empty
-  means empty. It is not a reason to invent controls.
+- Tier 2 choices stay in place while unavailable destinations use a disabled treatment.
 
 ### Work package: WP-B1 tab check
 
@@ -439,8 +436,8 @@ by their page; workflow-internal controls remain in task content.
   eyebrow, title, lede, and action row it uses. A slot belongs in `PageFrame` when it positions or
   bounds the page rather than describing its subject, and the source inventory shows the pattern
   recurring; frequency alone does not decide. Record the remaining heading shapes and keep
-  subject-specific content out of the frame. Time zone text is excluded: it is page content, not
-  layout.
+  subject-specific content out of the frame. Dates use the selected display zone; only Profile names
+  that zone.
 - Obvious follow-ons: delete the probe; WP-C2.
 
 ### Work package: WP-C2 build `PageFrame`
@@ -596,7 +593,7 @@ by their page; workflow-internal controls remain in task content.
   sweep is also full: 16 call sites, mechanical, and it fixes a real bug -- the hardcoded UTC
   formatter at
   [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx):50-53.
-  The time zone is named once in the page body, never per row.
+  Dates use the selected display zone; only Profile names that zone.
 - Obvious follow-ons: in each page's **own** stylesheet, move spacing onto the 7-step scale. These
   packages do not edit `src/style.css`; instead each reports the names of rules and tokens its pages
   stopped using, and WS-CORE removes them in WP-C5. No blanket sweep and no permanent spacing check:
@@ -779,7 +776,6 @@ One-time measurements, reported to the changelog and then their probes deleted:
 New browser checks, each a permanent gate:
 
 ```bash
-node --import tsx tests/playwright/student_course_pinning.mjs
 node --import tsx tests/playwright/record_list_contracts.mjs
 node --import tsx tests/playwright/provided_avatar_picker_presentation.mjs
 node --import tsx tests/playwright/ribbon_shell_contract.mjs
@@ -789,7 +785,6 @@ node --import tsx tests/playwright/fast_ui_route_composition.mjs
 Existing runners that must keep passing:
 
 ```bash
-node --import tsx tests/playwright/ribbon_geometry_evidence.mjs
 node --import tsx tests/playwright/ribbon_responsive_evidence.mjs
 node --import tsx tests/test_screenshot_corpus.mjs
 bash tests/e2e/e2e_screenshot_warm_loop.sh
@@ -852,13 +847,14 @@ required when visible IDs or dates are generated at runtime.
 ## Resolved decisions
 
 - Build the list system in-repo with SolidJS. No table or drag-and-drop dependency.
-- Student tier-1 is `Courses | Coursework | Grades`, pinned to the current course.
+- Student Tier 1 is `Coursework | Grades | Courses`; Coursework and Grades span enrolled Courses.
+  The Courses row lists enrolled Course short names, as recorded in the completed Student plan.
 - Unavailable Ribbon controls stay visible but lose the "Not available yet" text, which is longer
   than the label it describes.
 - This plan proves the components on seven pages. The other ~33 go to a follow-up plan.
 - Every signed-in role reserves the tier-2 row. Whether a row holds controls is a separate question
-  from whether it takes space, and only the first is still open for students and sysadmins. An empty
-  student or sysadmin row is correct today. An **instructor** page missing the tier-2 controls that
+  from whether it takes space. The settled role-and-Tier-1 schema supplies choices for **Students**,
+  **Instructors**, and **Sysadmins**. An **instructor** page missing the tier-2 controls that
   [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568
   lists for it is a defect in that page, not a reason to reopen the design.
 

@@ -56,7 +56,6 @@ export function MatchingResponse(
   const [matches, setMatches] = createSignal<ReadonlyArray<StudentMatch>>(initial);
   const [pendingChoice, setPendingChoice] = createSignal<ResponseItemId>("");
   const [announcement, setAnnouncement] = createSignal("");
-  let bank!: HTMLDivElement;
   // A drop must originate from this bank, not arbitrary external drag data.
   let draggedChoice: ResponseItemId = "";
   const response = (): StudentResponse => matchingResponseFromSlots(matches());
@@ -123,17 +122,6 @@ export function MatchingResponse(
   function save(): void {
     void controller.save(response());
   }
-  function reset(): void {
-    if (controller.locked()) return;
-    const next = initial.map((pair) => ({ ...pair }));
-    setMatches(next);
-    setPendingChoice("");
-    draggedChoice = "";
-    setAnnouncement("Original response restored.");
-    void controller.reset(matchingResponseFromSlots(next));
-    queueMicrotask(() => bank.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus());
-  }
-
   return (
     <section
       class="question-response-control"
@@ -163,9 +151,6 @@ export function MatchingResponse(
         <div class="matching-layout">
           <div
             class="matching-bank"
-            ref={(element): void => {
-              bank = element;
-            }}
             role="group"
             aria-labelledby={`${props.attemptId}-matching-bank-title`}
           >
@@ -277,10 +262,8 @@ export function MatchingResponse(
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
         disabled={!controller.canSave() || controller.locked()}
-        resetDisabled={controller.locked()}
         onSave={save}
         saveLabel={props.saveLabel}
-        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

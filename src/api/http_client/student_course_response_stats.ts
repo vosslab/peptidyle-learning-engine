@@ -5,8 +5,8 @@ import type { ApiClient } from "../client";
 import type {
   StudentCourseResponseStats,
   StudentCourseResponseStatsClient,
-} from "../student_course_practice_stats";
-import { decodeStudentCourseResponseStats } from "../decoders/student_course_practice_stats";
+} from "../student_course_response_stats";
+import { decodeStudentCourseResponseStats } from "../decoders/student_course_response_stats";
 import { parseCourseInstanceId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";

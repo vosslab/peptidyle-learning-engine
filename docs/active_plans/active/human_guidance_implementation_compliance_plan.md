@@ -2401,10 +2401,8 @@ plans.
 | R2        | Re-audit complete; only the HG-unlocked complete Student and Sysadmin Ribbon layouts remain `[ ]` with `HG: no locked-in design`; reports refreshed          |
 | R3        | Cleanup and milestone-level test decisions complete; `run_fast_checks.sh` green; canonical connected browser acceptance passes; summary block; plan archived |
 
-Latest Student response distinction rewrite: live HG requires visually distinct current Question,
-saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
-change from whole Coursework submission. The shared native control now labels its default action
-`Restore initial response`; isolated actual-component evidence shows mount-baseline restoration,
-not a clear/delete operation or Student workflow persistence. Both rows remain open; earlier
-navigation styling receipts are retained as partial proof, not blanket acceptance of native
-response controls/actions.
+Latest Student response distinction rewrite: live HG requires a visually distinct current Question,
+saved-response status and keyboard focus, plus response-action labels distinct from whole Coursework
+submission. Earlier `Restore initial response` evidence described behavior removed from the product
+and no longer represents current response controls. Keep evidence focused on the current save/change
+actions; it does not establish Student workflow persistence.

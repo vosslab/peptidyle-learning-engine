@@ -1,98 +1,82 @@
-// Student-owned self-only Course grade summary.
+// Student-owned released Scores across every current Course.
 
-import { A, useParams } from "@solidjs/router";
-import { createMemo, createResource, For, Show, type JSX } from "solid-js";
+import { createResource, For, Show, type JSX } from "solid-js";
 
 import type {
   LiveStudentAssessmentLandingSummary,
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { PageFrame } from "../components/page_frame";
-import { parseCourseInstanceId } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
 
-/** Student-owned score and graded-question view for one current Course. */
-export function StudentCourseGradesPage(): JSX.Element {
-  const applicationApi = useApplicationApi();
-  const params = useParams();
-  function courseInstanceId(): ReturnType<typeof parseCourseInstanceId> {
-    return parseCourseInstanceId(params["courseInstanceId"] ?? "");
-  }
-  async function loadCourses(): Promise<ReadonlyArray<LiveStudentCourseLandingSummary>> {
-    return applicationApi.client.listLiveStudentCourses();
-  }
-  const [courses] = createResource(loadCourses);
-  const course = createMemo(() => {
-    const id = courseInstanceId();
-    if (id === null) return undefined;
-    return courses()?.find((candidate) => candidate.id === id);
-  });
-  async function loadAssessments(
-    current: LiveStudentCourseLandingSummary,
-  ): Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>> {
-    return applicationApi.client.listLiveStudentAssessments(current.id);
-  }
-  const [assessments] = createResource(course, loadAssessments);
-  function unavailable(): boolean {
-    return (
-      courseInstanceId() === null || courses.error !== undefined || assessments.error !== undefined
-    );
-  }
+function CourseScores(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
+  const api = useApplicationApi();
+  const [assessments] = createResource(
+    () => props.course,
+    (course) => api.client.listLiveStudentAssessments(course.id),
+  );
+  const scores = (): ReadonlyArray<LiveStudentAssessmentLandingSummary> =>
+    (assessments() ?? []).filter((assessment) => assessment.assessmentScore !== undefined);
 
   return (
-    <PageFrame routeSurface="studentCourseGrades" title={course()?.longName ?? "Grades"}>
-      <Show when={!courses.loading && !unavailable() && course() !== undefined}>
-        <>
-          <CourseEntryBanner />
-          <A class="quiet-link" href={`/student/courses/${course()!.id}`}>
-            Coursework
-          </A>
-          <h2>Grades</h2>
-          <Show when={assessments.loading}>
-            <p class="loading-state">Loading grades...</p>
-          </Show>
-          <Show when={!assessments.loading && (assessments()?.length ?? 0) === 0}>
-            <p class="empty-state">No Coursework has been graded yet.</p>
-          </Show>
-          <Show when={(assessments()?.length ?? 0) > 0}>
-            <dl>
-              <For each={assessments()}>
-                {(assessment) => (
-                  <div>
-                    <dt>{assessment.title}</dt>
-                    <dd>
-                      {assessment.gradedQuestionCount} of {assessment.questionCount} questions
-                      graded
-                      <Show when={assessment.assessmentScore}>
-                        {(score) => (
-                          <>
-                            {" · "}
-                            {formatPointScore(score().pointsEarned, score().pointsPossible)}
-                          </>
-                        )}
-                      </Show>
-                    </dd>
-                  </div>
-                )}
-              </For>
-            </dl>
-          </Show>
-        </>
+    <section aria-label={`${props.course.shortName} Scores`}>
+      <h2>
+        {props.course.shortName}: {props.course.longName}
+      </h2>
+      <Show when={assessments.loading}>
+        <p class="loading-state">Loading Scores...</p>
       </Show>
+      <Show when={assessments.error !== undefined}>
+        <p class="route-error" role="alert">
+          Scores could not be loaded for this Course.
+        </p>
+      </Show>
+      <Show when={!assessments.loading && assessments.error === undefined && scores().length === 0}>
+        <p class="empty-state">No released Scores are available for this Course yet.</p>
+      </Show>
+      <Show when={scores().length > 0}>
+        <dl>
+          <For each={scores()}>
+            {(assessment) => (
+              <div>
+                <dt>{assessment.title}</dt>
+                <dd>
+                  {formatPointScore(
+                    assessment.assessmentScore!.pointsEarned,
+                    assessment.assessmentScore!.pointsPossible,
+                  )}
+                </dd>
+              </div>
+            )}
+          </For>
+        </dl>
+      </Show>
+    </section>
+  );
+}
+
+/** Shows only released Student scores and identifies the Course for each group. */
+export function StudentScoresPage(): JSX.Element {
+  const api = useApplicationApi();
+  const [courses] = createResource(() => api.client.listLiveStudentCourses());
+
+  return (
+    <PageFrame routeSurface="studentScores" title="Scores">
+      <p>Released Coursework scores from all of your current Courses.</p>
       <Show when={courses.loading}>
-        <p class="loading-state">Loading grades...</p>
+        <p class="loading-state">Loading Courses...</p>
       </Show>
-      <Show when={unavailable() || (!courses.loading && course() === undefined)}>
+      <Show when={courses.error !== undefined}>
         <section class="route-error" role="alert">
-          <h2>Grades unavailable</h2>
-          <p>This Course is not available.</p>
-          <A class="primary-link" href="/student">
-            Return to courses
-          </A>
+          <h2>Scores unavailable</h2>
+          <p>Scores could not be loaded right now.</p>
         </section>
       </Show>
+      <Show when={!courses.loading && courses.error === undefined && courses()?.length === 0}>
+        <p class="empty-state">You do not have any current Courses.</p>
+      </Show>
+      <For each={courses()}>{(course) => <CourseScores course={course} />}</For>
     </PageFrame>
   );
 }

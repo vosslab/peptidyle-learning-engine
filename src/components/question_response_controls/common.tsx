@@ -61,7 +61,6 @@ type QuestionResponseControlPhase =
   | { readonly kind: "idle" }
   | { readonly kind: "validating" }
   | { readonly kind: "ready" }
-  | { readonly kind: "restored" }
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "saving" }
   | { readonly kind: "saved" }
@@ -135,12 +134,9 @@ export interface ResponseController {
   readonly pending: () => boolean;
   readonly locked: () => boolean;
   readonly canSave: () => boolean;
-  readonly canReset: () => boolean;
   /** Record an input edit before its asynchronous format check starts. */
   readonly edit: (response: StudentResponse) => Promise<void>;
   readonly validate: (response: StudentResponse) => Promise<void>;
-  /** Restore the local response and invalidate any older format check. */
-  readonly reset: (response: StudentResponse) => Promise<void>;
   readonly save: (response: StudentResponse) => Promise<void>;
 }
 
@@ -221,8 +217,6 @@ function phaseMessage(phase: QuestionResponseControlPhase): string {
       return "Checking response format...";
     case "ready":
       return "Response format is ready to save.";
-    case "restored":
-      return "Review the response before saving changes.";
     case "invalid":
     case "failed":
       return phase.message;
@@ -240,7 +234,6 @@ function formatOnlyPhaseMessage(phase: QuestionResponseControlPhase): string {
     case "validating":
       return "Checking response format...";
     case "ready":
-    case "restored":
       return "Response format is ready.";
     case "invalid":
     case "failed":
@@ -357,38 +350,8 @@ export function createResponseController(
     }
   }
 
-  async function reset(response: StudentResponse): Promise<void> {
-    if (disposed) return;
-    if (phase().kind === "saving") {
-      return;
-    }
-    // A restored response supersedes every earlier asynchronous format check.
-    const editGeneration = props.onResponseEdit?.(response);
-    latestEdit = { response, editGeneration };
-    validatedResponse = undefined;
-    validationRequest += 1;
-    const request = validationRequest;
-    setPhase({ kind: "validating" });
-    try {
-      const check = await validateResponseLocally(props.validator, props.responseFormat, response);
-      if (disposed || request !== validationRequest || phase().kind === "saving") return;
-      if (check.issues.length === 0) validatedResponse = response;
-      props.onResponseChange?.(response, check, editGeneration);
-      setPhase(
-        check.issues.length === 0
-          ? { kind: "restored" }
-          : { kind: "invalid", message: responseFormatMessage(check) },
-      );
-    } catch (error: unknown) {
-      if (disposed || request !== validationRequest || phase().kind === "saving") return;
-      validatedResponse = undefined;
-      const message = error instanceof Error ? error.message : "format validation was unavailable";
-      setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
-    }
-  }
-
-  // A fresh issued control starts neutral. Only a genuinely restored student
-  // response should surface format readiness or an error before interaction.
+  // A fresh issued control starts neutral. A saved response is checked before
+  // the Student makes another edit.
   if (props.initialResponse !== undefined && initialResponse !== undefined) {
     void validate(initialResponse);
   }
@@ -399,14 +362,9 @@ export function createResponseController(
     locked: () => phase().kind === "saving",
     canSave: () =>
       props.mode !== "formatOnly" &&
-      (phase().kind === "ready" ||
-        phase().kind === "restored" ||
-        phase().kind === "saved" ||
-        phase().kind === "failed"),
-    canReset: () => phase().kind !== "saving",
+      (phase().kind === "ready" || phase().kind === "saved" || phase().kind === "failed"),
     edit,
     validate,
-    reset,
     save,
   };
 }
@@ -423,9 +381,7 @@ export function Status(props: {
       classList={{
         error: props.controller.invalid(),
         ready:
-          props.controller.phase().kind === "ready" ||
-          props.controller.phase().kind === "restored" ||
-          props.controller.phase().kind === "saved",
+          props.controller.phase().kind === "ready" || props.controller.phase().kind === "saved",
       }}
       role="status"
       aria-label="Response format"
@@ -440,11 +396,8 @@ export function Status(props: {
 
 export function Actions(props: {
   readonly disabled: boolean;
-  readonly resetDisabled?: boolean;
   readonly onSave: () => void;
   readonly saveLabel?: string;
-  readonly onReset?: () => void;
-  readonly resetLabel?: "Restore initial response" | "Reset order";
   readonly onEscape: () => void;
 }): JSX.Element {
   const mode = useContext(ResponseControlModeContext);
@@ -460,16 +413,6 @@ export function Actions(props: {
           {props.saveLabel ?? "Save response"}
         </button>
       ) : null}
-      {props.onReset === undefined ? null : (
-        <button
-          class="quiet-action"
-          type="button"
-          disabled={props.resetDisabled ?? props.disabled}
-          onClick={props.onReset}
-        >
-          {props.resetLabel ?? "Restore initial response"}
-        </button>
-      )}
       <button class="quiet-action" type="button" onClick={props.onEscape}>
         Return to assessment <span aria-hidden="true">(Esc)</span>
       </button>

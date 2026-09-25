@@ -198,7 +198,7 @@ const CAPABILITY_DECLARATIONS = {
       handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
     },
     evidence: [
-      "src/pages/student_course_grades_page.tsx::StudentCourseGradesPage",
+      "src/pages/student_course_grades_page.tsx::StudentScoresPage",
       "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
     ],
   },
@@ -239,18 +239,6 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
     ],
   },
-  studentProgress: {
-    kind: "backed",
-    clientMethod: "ApiClient.getStudentCourseProgress",
-    serverEvidence: {
-      kind: "registeredHandler",
-      handler: "crates/server/src/live_student_course_landing.rs::list_course_progress",
-    },
-    evidence: [
-      "crates/server/src/live_student_course_landing.rs::list_course_progress",
-      "src/pages/student_course_progress_page.tsx::StudentCourseProgressPage",
-    ],
-  },
   studentResponseStats: {
     kind: "backed",
     clientMethod: "ApiClient.getStudentCourseResponseStats",
@@ -260,7 +248,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/live_student_course_landing.rs::list_course_response_stats",
-      "src/pages/student_course_practice_stats_page.tsx::StudentCourseResponseStatsPage",
+      "src/pages/student_course_response_stats_page.tsx::StudentResponseStatsPage",
     ],
   },
   activeAttempt: {
@@ -273,6 +261,18 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/live_student_course_landing.rs::read_course_active_attempt",
       "src/application_shell.tsx::Active Attempt Ribbon availability",
+    ],
+  },
+  studentLatestFeedback: {
+    kind: "backed",
+    clientMethod: "ApiClient.getStudentLatestFeedback",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/live_student_course_landing.rs::read_latest_feedback",
+    },
+    evidence: [
+      "crates/server/src/live_student_course_landing.rs::read_latest_feedback",
+      "src/application_shell.tsx::Latest Feedback Ribbon availability",
     ],
   },
   allCoursework: {
@@ -337,7 +337,7 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_landing_page.tsx::StudentCourseDueSoonPage",
+      "src/pages/student_course_landing_page.tsx::StudentDueSoonPage",
       "src/pages/student_coursework_presentation.ts::isInStudentDueSoonWindow",
     ],
   },
@@ -350,7 +350,7 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_landing_page.tsx::StudentCourseCompletedPage",
+      "src/pages/student_course_landing_page.tsx::StudentCompletedPage",
       "src/pages/student_coursework_presentation.ts::hasSubmittedStudentAttempt",
     ],
   },
@@ -363,7 +363,7 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_grades_page.tsx::StudentCourseGradesPage",
+      "src/pages/student_course_grades_page.tsx::StudentScoresPage",
       "src/api/http_client/live_student_course_landing.ts::createLiveStudentCourseLandingClient",
     ],
   },
@@ -376,7 +376,7 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_attempt_history_page.tsx::StudentCourseAttemptHistoryPage",
+      "src/pages/student_course_attempt_history_page.tsx::StudentAttemptHistoryPage",
       "src/api/http_client/student_course_attempt_history.ts::createStudentCourseAttemptHistoryClient",
     ],
   },

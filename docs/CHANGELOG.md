@@ -8,28 +8,144 @@
 
 ## 2026-09-24
 
-### Product Direction
+### Decisions and Failures
 
-- Updated the Student Tier 2 working grouping after Neil placed Practice Stats with Grades and
-  requested an Active Attempt shortcut under Coursework. The Courses Tier 2 row remains open to an
-  additional overview destination.
-- Recorded the Active Attempt selection evidence: only resumable Attempts qualify, and the shortcut
-  uses the Course Attempt with the latest recorded activity without adding a Course-wide chooser.
+- Neil approved the hybrid Student Course-context model: Coursework and Grades stay across enrolled
+  Courses, Courses opens explicit Course-specific content, and no persistent Course pin filters the
+  global views. This supersedes the earlier unresolved-pin note below.
+- Updated the Student Tier 2 grouping: Active Attempt is under Coursework and Response Stats is
+  under Grades. The current labels and order are recorded in Design Decisions.
 - Moved Response Stats under Grades in the route and Ribbon contracts, matching its role as an
   outcome summary. Recorded the current Student Tier 2 grouping in Design Decisions.
-- Ordered the Student Tier 1 row as Coursework, Grades, Courses. A Student with one active Course
-  now opens All Coursework directly; a Student with multiple active Courses still chooses a Course.
-- Added a Course-authorized Active Attempt read that chooses the most recently active resumable
-  Attempt and drives the always-present Coursework shortcut's disabled/enabled state.
+- Recorded the Student Tier 1 order as Coursework, Grades, Courses and the fixed per-area choices in
+  Design Decisions.
+- Updated the Student navigation contract so Coursework and Grades span all enrolled Courses, while
+  Courses Tier 2 lists the enrolled Course short names in stable order.
+- Made the Student Tier 2 layout a first-class role-and-Tier-1 schema and moved Student Course,
+  Active Attempt, and Latest Feedback lookup rules into a small Ribbon helper. The Application Shell
+  refreshes that small lookup on Student route changes and keeps the last result while it reloads.
+- Confirmed Attempt History is grouped by Course, with each Course section newest first and
+  independently paginated. Course identity and the existing Course-scoped cursor API match the
+  Student view; the page does not promise a single chronology across Courses.
+- Added a Course-authorized Active Attempt read that selects the latest-activity unsubmitted Attempt
+  with an unexpired deadline and drives the fixed Coursework shortcut's disabled/enabled state.
 
 ### Fixes and Maintenance
 
+- Kept successful per-Course Active Attempt lookups when another Course lookup fails and preserved
+  Instructor-authored Course long names unchanged in breadcrumbs.
+- Removed redundant route-sampling tests and the standalone CSS-geometry probe; the fixed Tier 2
+  and route-stability contracts remain.
+- Kept Active Attempt as a direct Coursework shortcut to a timed Attempt with a running clock; it stays in place and is disabled otherwise.
+- Kept submitted Attempt reviews in Grades so Latest Feedback and the Grades Tier 2 row remain in context.
+- Fixed the signed-in non-phone Ribbon identity and Profile geometry across roles and pointer types; only Tier 1 links respond to mid-width or touch compaction.
+- Changed matching-response columns to wrap according to the control's available width, so intermediate page widths do not leave narrow columns.
+- Removed the response controls' obsolete restore/reset-to-initial actions; saved responses still load when an Attempt resumes.
+- Removed the redundant Tier 2 caption across roles. The named navigation
+  landmark and destination links retain their accessible names; the caption
+  was plain text, not a semantic group label. Screenshots are refreshed below.
+- Kept the Student phone Ribbon in one primary row: the P mark, Coursework,
+  Grades, Courses, and the fixed Profile box; Tier 2 stays beneath. Refreshed
+  the canonical corpus and atlas, then regenerated and inspected the viewport
+  averages and native phone captures.
+- Made the existing Scores screenshot wait accept both valid states appearing
+  across Courses: a Course with released scores and another with none.
+- Simplified responsive Ribbon evidence by removing high-zoom/scrollport
+  geometry exceptions, an obsolete narrow top-row overflow probe, and a blanket
+  touch-target size assertion and full-wordmark-on-phone check for fixed Ribbon
+  controls. Keyboard focus and canonical screenshots cover current responsive
+  behavior.
+- Kept the Ribbon Account avatar at the same visual size on touch and pointer viewports. Public
+  headers now show a neutral Not signed in avatar in that same box, or the Account avatar when a
+  session is authenticated.
+- Reserved the heavier Ribbon label width in every state, allowing a modest selected weight without
+  moving the labels or adjacent tabs. Rebuilt the canonical screenshots and regenerated diagnostic
+  averages outside the published corpus; direct browser measurements confirmed stable Tier 1
+  positions at the sampled Student, Instructor, and Sysadmin viewports.
+- Added a pytest gate against alternate viewport folders, screenshot names, and manifest entries
+  under the Instructor and Sysadmin corpus, including empty folders. It preserves the laptop
+  `webwork_chi_square.png` capture, whose name describes Question content. Screenshot staging now
+  creates only role folders; each actual capture creates its viewport folder as needed.
+- Temporarily held Ribbon label weights constant to isolate the selection drift; the later width
+  reservation above restored a modest selected weight without changing tab geometry.
+- Archived the completed Student Progress and Response Stats plan, updated its active-plan links,
+  and republished the canonical screenshots after the Student wording change. Markdown-link and
+  screenshot-corpus checks passed against the published artifacts.
+- Replaced internal "Assessment" wording on Student Course Progress, Due Soon, and Completed pages
+  with Coursework language and the item's specific Type in the Progress action. Kept server-time
+  window details in the contract rather than the Student page, and removed a copy-specific Progress
+  assertion while retaining the score-release and completion behavior checks.
+- Applied the permanent-test checklist to Student navigation: removed a duplicate internal Tier 2
+  schema test and assertions about failed lookups and request order, kept the route-level Ribbon
+  contract, and narrowed the Tier 1 assertion to visible labels and destinations. Simplified the
+  Active Attempt lookup to one Course request group that yields no shortcut when its result fails.
+- Preserved the enrolled Course order returned by the Courses API in the Student Ribbon, matching
+  the Courses list rather than sorting short names a second time.
+- Aligned the Attempt breadcrumb contract fixture with the explicit Course and Assessment route
+  parameters required by Course-specific navigation.
+- Updated the connected Active Attempt assertion to compare the selected Attempt ID from its
+  Course-scoped result, made its fixture Assessment available under the Student's schedule, and
+  verified that an authorized second Course does not inherit the first Course's Attempt target.
+- Ordered the connected Response Stats fixture's Question issue, saved response, and submission
+  timestamps consistently with its finalization constraints.
+- Kept both timed Attempts in the Active Attempt and duration-checkpoint fixture within their
+  Assessment deadline, so the test covers eligible running-clock behavior.
+- Matched the global Latest Feedback test to its empty-target behavior for a Student with no Courses;
+  Course-scoped reads continue to reject nonmembers.
+- Matched the direct Assessment Access oracle to the available, two-Attempt state created by its
+  Course Progress fixture.
+- Corrected the Ribbon design record to preserve Courses API order, documented the Student plan's
+  completion evidence, and clarified that another Course overview destination is a separate future
+  choice.
+- Published the complete fresh screenshot corpus and passed the fast and full repository gates.
+- Kept repository hygiene discovery safe during unstaged file renames by skipping missing tracked
+  paths before content filters inspect them.
+- Formatted Progress and Attempt History timestamps in the selected Account display zone, while
+  keeping the time-zone name on Profile only.
+- Added connected PostgreSQL coverage for Latest Feedback with no eligible feedback, newest eligible
+  Attempt selection, and Student/Course authorization.
+- Marked the older shared-UI plan's Student navigation and time-zone proposals as superseded by the
+  current Student contract.
 - Let Students move between Questions or submit an Attempt without resending an already saved
   response; navigation and submission still save edited responses.
 - Updated representative Question-format captures to open All Coursework after Student Course entry
   changed to match the Student's primary destination.
-- Captured the two-Course chooser at each Student viewport through its explicit chooser route and
-  tightened the Progress, Practice Stats, and Course History list captures to self-only privacy
+- Updated the Student Scores screenshot workflow for the all-Courses Scores page and corrected the
+  Response Stats capture's declared Tier 1 area to Grades.
+- Made the two-Course screenshot wait for the accepted Course to appear before checking the Course
+  list count.
+- Aligned the Progress screenshot flow with the Course landing page's Course Progress link and its
+  Courses Ribbon area.
+- Scoped Coursework capture waits to each enrolled Course section so repeated loading messages in
+  cross-Course views settle without strict-selector ambiguity.
+- Applied the same per-Course section wait to Response Stats and Attempt History captures, which
+  also render one loading state per enrolled Course.
+- Updated Response Stats capture navigation to select Grades Tier 1 before using its Tier 2 link.
+- Kept the Latest Feedback selector behind the private-owner function boundary; the API role no longer
+  needs direct access to private Assessment Attempts.
+- Replaced current Response Stats source, transport, page, test, Rust module, and SQL file names that
+  still said Practice Stats. The current UI, endpoint, and implementation now use Response Stats.
+- Kept the all-Course Response Stats page in separately labeled Course sections; each section
+  aggregates within its Course and does not merge counts across Courses.
+- Waited for loaded Progress content and both Course Tier 2 links before their screenshot captures,
+  and changed the Latest Feedback capture to follow the actual shortcut to its review.
+- Added a focused Student Ribbon navigation contract test for stable Course ordering and latest
+  resumable-Attempt selection.
+- Reused the shared All Coursework screenshot helper in the Question-format scenarios, removing a
+  stale Course landing route expectation.
+- Bound Question-format screenshot navigation waits to the requested Question position so a late
+  prior response cannot satisfy the next checkpoint.
+- Captured the selected Course landing page at each existing Student viewport and renamed the
+  Course Grades screenshot scenario to Scores; removed its now-covered deferred entries.
+- Renamed the combined Progress/Response Stats/Attempt History scenario to match its current Stats
+  terminology.
+- Waited for the seeded Coursework row before capturing selected Course landing pages, removing the
+  visible loading state, and added an Attempt History capture with an available Latest Feedback
+  shortcut.
+- Waited for the single-Course Tier 2 Course link before taking the Courses list capture, matching
+  the settled lookup wait already used by the two-Course scenario.
+- Captured the two-Course list at each Student viewport through the Courses destination and
+  tightened the Progress, Response Stats, and Course History list captures to self-only privacy
   profiles; selected Attempt review retains the released-feedback profile.
 - Made screenshot-matrix checks validate each scenario's declared direct captures and
   representative viewport substitutions.
@@ -37,6 +153,8 @@
   keeping each authored source file within the repository's line limit.
 - Updated the connected PostgreSQL runner to invoke the module-qualified access oracle after the
   split, so its fixture completes before the downstream expiry oracle reads it.
+- Moved the Ribbon route fixture's Course label constant before module-time route materialization so
+  focused Ribbon contract tests can load reliably.
 
 ## 2026-09-23
 
@@ -115,6 +233,8 @@
   submitted Attempt for review. Jack remains the no-released-score example, and Avery remains
   available for question-response captures. Current screenshot coverage descriptions use current
   surface names.
+- Combined the Course History and enabled Latest Feedback states in one screenshot: both are visible
+  on the same History page, so separate checkpoints produced duplicate image bytes.
 - Updated frontend route tests to require the Account Settings path to remain absent.
 - Kept Human Guidance limited to concise first-person guidance and recorded detailed Student behavior
   contracts in Design Decisions. Clarified that Practice Stats summarizes actual disclosed outcomes

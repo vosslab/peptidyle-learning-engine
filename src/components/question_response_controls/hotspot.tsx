@@ -114,7 +114,6 @@ export function HotspotResponse(
       ? props.responseFormat.description
       : props.responseFormat.surface.description;
   const imageUrl = (): string | undefined => resolveHotspotImageUrl(props);
-  let firstRegion!: HTMLInputElement;
   const selections = (): Array<StudentHotspotSelection> => selected().map((region) => ({ region }));
   const response = (): StudentResponse => ({ kind: "hotspot", selections: selections() });
   const controller = createResponseController(props, response());
@@ -136,15 +135,6 @@ export function HotspotResponse(
   }
   function save(): void {
     void controller.save(response());
-  }
-  function reset(): void {
-    const next = [...restoredIds];
-    setSelected(next);
-    void controller.reset({
-      kind: "hotspot",
-      selections: next.map((region) => ({ region })),
-    });
-    queueMicrotask(() => firstRegion?.focus());
   }
   return (
     <section
@@ -239,13 +229,6 @@ export function HotspotResponse(
                   type={required === 1 ? "radio" : "checkbox"}
                   name={`hotspot-${props.attemptId}`}
                   checked={selected().includes(region.id)}
-                  ref={
-                    index() === 0
-                      ? (element): void => {
-                          firstRegion = element;
-                        }
-                      : undefined
-                  }
                   onChange={() => choose(region.id)}
                 />
                 <span>{textFromBlocks(region.label)}</span>
@@ -257,10 +240,8 @@ export function HotspotResponse(
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
         disabled={!controller.canSave() || controller.locked()}
-        resetDisabled={controller.locked()}
         onSave={save}
         saveLabel={props.saveLabel}
-        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

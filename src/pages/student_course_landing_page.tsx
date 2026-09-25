@@ -1,7 +1,7 @@
 // Student-owned answer-free course and available assessment landing.
 
 import { A, useParams } from "@solidjs/router";
-import { createMemo, createResource, Show, type JSX } from "solid-js";
+import { createMemo, createResource, For, Show, type JSX } from "solid-js";
 
 import type {
   LiveStudentAssessmentLandingSummary,
@@ -176,9 +176,9 @@ function emptyCourseworkMessage(view: StudentCourseworkView): string {
     case "all":
       return "No Coursework is available right now.";
     case "dueSoon":
-      return "No Assessments are due in the next 7 days.";
+      return "No Coursework is due in the next 7 days.";
     case "completed":
-      return "No Assessments have a submitted Attempt yet.";
+      return "No Coursework has a submitted Attempt yet.";
   }
 }
 
@@ -187,12 +187,122 @@ export function StudentCourseLandingPage(): JSX.Element {
   return <StudentCourseworkPage view="all" />;
 }
 
-export function StudentCourseDueSoonPage(): JSX.Element {
-  return <StudentCourseworkPage view="dueSoon" />;
+export function StudentDueSoonPage(): JSX.Element {
+  return <StudentCourseworkAcrossCoursesPage view="dueSoon" />;
 }
 
-export function StudentCourseCompletedPage(): JSX.Element {
-  return <StudentCourseworkPage view="completed" />;
+export function StudentCompletedPage(): JSX.Element {
+  return <StudentCourseworkAcrossCoursesPage view="completed" />;
+}
+
+export function StudentAllCourseworkPage(): JSX.Element {
+  return <StudentCourseworkAcrossCoursesPage view="all" />;
+}
+
+function StudentCourseworkCourseSection(props: {
+  readonly course: LiveStudentCourseLandingSummary;
+  readonly view: StudentCourseworkView;
+}): JSX.Element {
+  const api = useApplicationApi();
+  const [assessments] = createResource(
+    () => props.course,
+    (course) => api.client.listLiveStudentAssessments(course.id),
+  );
+  const [progress] = createResource(
+    () => (props.view === "completed" ? props.course : undefined),
+    (course) => api.client.getStudentCourseProgress(course.id),
+  );
+  const completedAssessmentIds = createMemo<ReadonlySet<string>>(() => {
+    const submitted = (progress() ?? [])
+      .filter((assessment) =>
+        hasSubmittedStudentAttempt(assessment.submittedAssessmentAttemptCount),
+      )
+      .map((assessment) => assessment.id);
+    return new Set(submitted);
+  });
+  const visibleAssessments = createMemo(() => {
+    const rows = assessments() ?? [];
+    if (props.view === "dueSoon") {
+      return rows.filter((assessment) =>
+        isInStudentDueSoonWindow(assessment.decision.dueAt, assessment.decision.evaluatedAt),
+      );
+    }
+    if (props.view === "completed") {
+      return rows.filter((assessment) => completedAssessmentIds().has(assessment.id));
+    }
+    return rows;
+  });
+  const loading = (): boolean =>
+    assessments.loading || (props.view === "completed" && progress.loading);
+  const unavailable = (): boolean =>
+    assessments.error !== undefined || (props.view === "completed" && progress.error !== undefined);
+
+  return (
+    <section class="student-coursework" aria-label={`${props.course.shortName} Coursework`}>
+      <h2>
+        {props.course.shortName}: {props.course.longName}
+      </h2>
+      <Show when={unavailable()}>
+        <p class="route-error" role="alert">
+          Coursework could not be loaded for this Course.
+        </p>
+      </Show>
+      <Show when={!unavailable()}>
+        <AssessmentList
+          assessments={visibleAssessments()}
+          course={props.course}
+          loading={loading()}
+          view={props.view}
+          completedAssessmentIds={completedAssessmentIds()}
+        />
+      </Show>
+    </section>
+  );
+}
+
+/** Shows the selected Coursework view across every currently enrolled Course. */
+function StudentCourseworkAcrossCoursesPage(props: {
+  readonly view: StudentCourseworkView;
+}): JSX.Element {
+  const api = useApplicationApi();
+  const [courses] = createResource(() => api.client.listLiveStudentCourses());
+  const title = props.view === "all" ? "All Coursework" : courseworkHeading(props.view);
+
+  return (
+    <PageFrame
+      routeSurface={
+        props.view === "all"
+          ? "studentHome"
+          : props.view === "dueSoon"
+            ? "studentDueSoon"
+            : "studentCompleted"
+      }
+      title={title}
+    >
+      <p>
+        {props.view === "dueSoon"
+          ? "Coursework with due dates in the next 7 days."
+          : props.view === "completed"
+            ? "Each listed Coursework item has at least one submitted Attempt. A newer Attempt may still be in progress."
+            : "Coursework from all of your current Courses."}
+      </p>
+      <Show when={courses.loading}>
+        <p class="loading-state">Loading Coursework...</p>
+      </Show>
+      <Show when={courses.error !== undefined}>
+        <section class="route-error" role="alert">
+          <h2>Coursework unavailable</h2>
+          <p>Coursework could not be loaded right now.</p>
+        </section>
+      </Show>
+      <Show when={!courses.loading && courses.error === undefined && courses()?.length === 0}>
+        <p class="empty-state">No current Courses have Coursework available.</p>
+      </Show>
+      <For each={courses()}>
+        {(course) => <StudentCourseworkCourseSection course={course} view={props.view} />}
+      </For>
+    </PageFrame>
+  );
 }
 
 function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }): JSX.Element {
@@ -256,8 +366,8 @@ function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }):
         props.view === "all"
           ? "studentCourseLanding"
           : props.view === "dueSoon"
-            ? "studentCourseDueSoon"
-            : "studentCourseCompleted"
+            ? "studentDueSoon"
+            : "studentCompleted"
       }
       title={course()?.longName ?? "Coursework"}
     >
@@ -268,8 +378,8 @@ function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }):
         <section class="route-error" role="alert">
           <h2>Assigned work unavailable</h2>
           <p>This assigned work is not available.</p>
-          <A class="primary-link" href="/">
-            Return to courses
+          <A class="primary-link" href="/student">
+            Return to Coursework
           </A>
         </section>
       </Show>
@@ -277,8 +387,8 @@ function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }):
         <section class="route-error" role="alert">
           <h2>Assigned work unavailable</h2>
           <p>This assigned work is not available.</p>
-          <A class="primary-link" href="/">
-            Return to courses
+          <A class="primary-link" href="/student">
+            Return to Coursework
           </A>
         </section>
       </Show>
@@ -286,18 +396,21 @@ function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }):
         {(current) => (
           <>
             <CourseEntryBanner />
-            <A class="quiet-link" href="/student?choose=1">
-              Your courses
+            <A class="quiet-link" href="/student/courses">
+              Your Courses
+            </A>
+            <A class="quiet-link" href={`/student/courses/${current().id}/progress`}>
+              Course Progress
             </A>
             <section class="student-coursework" aria-labelledby="student-coursework-heading">
               <h2 id="student-coursework-heading">{courseworkHeading(props.view)}</h2>
               <Show when={props.view === "dueSoon"}>
-                <p>Assessments with due dates in the next 7 days, based on server time.</p>
+                <p>Coursework with due dates in the next 7 days.</p>
               </Show>
               <Show when={props.view === "completed"}>
                 <p>
-                  Each listed Assessment has at least one submitted Attempt. A newer Attempt may
-                  still be in progress.
+                  Each listed Coursework item has at least one submitted Attempt. A newer Attempt
+                  may still be in progress.
                 </p>
               </Show>
               <AssessmentList

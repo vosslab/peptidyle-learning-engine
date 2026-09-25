@@ -9,6 +9,7 @@ import {
   decodeLiveStudentCourseLandings,
   decodeStudentCourseActiveAttempt,
   decodeStudentCourseProgress,
+  decodeStudentLatestFeedback,
 } from "../decoders/live_student_course_landing";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch, type RequestOptions } from "./request";
@@ -92,6 +93,13 @@ export function createLiveStudentCourseLandingClient(
         basePath,
         activeAttemptPath(courseInstanceId),
         decodeStudentCourseActiveAttempt,
+      ),
+    getStudentLatestFeedback: () =>
+      landingJson(
+        fetchImplementation,
+        basePath,
+        "/api/student/latest-feedback",
+        decodeStudentLatestFeedback,
       ),
   };
 }

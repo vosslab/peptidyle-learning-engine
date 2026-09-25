@@ -142,17 +142,36 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         .await
         .expect("private Progress fixture role");
     sqlx::query(
+        "INSERT INTO ple_private.student_assessment_accommodation( \
+             accommodation_id, course_instance_id, student_record_id, assessment_id, \
+             available_at, due_at, closes_at, time_multiplier, created_at \
+         ) VALUES ( \
+             $1, $2, $3, $4, clock_timestamp() - interval '1 hour', \
+             clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
+             1, pg_catalog.transaction_timestamp() \
+         )",
+    )
+    .bind(id(STUDENT_RESUME_ACCOMMODATION))
+    .bind(&fixture.course_id)
+    .bind(id(STUDENT_RECORD))
+    .bind(&fixture.assessment_id)
+    .execute(&mut *progress_fixture)
+    .await
+    .expect("currently available Assessment for resumable Attempt fixture");
+    sqlx::query(
         "INSERT INTO ple_private.assessment_attempt ( \
              course_instance_id, assessment_attempt_id, student_record_id, assessment_id, \
-             assessment_attempt_number, started_at, assessment_policy_snapshot_id \
+             assessment_attempt_number, started_at, expires_at, assessment_policy_snapshot_id \
          ) \
          SELECT assessment.course_instance_id, attempts.assessment_attempt_id, $1, \
                 assessment.assessment_id, attempts.attempt_number, attempts.started_at, \
-                assessment.assessment_policy_snapshot_id \
+                expiration.expires_at, assessment.assessment_policy_snapshot_id \
            FROM ple_data.assessment AS assessment \
-           CROSS JOIN (VALUES ($2::uuid, 1, pg_catalog.clock_timestamp() - interval '10 minutes'), \
+           CROSS JOIN (VALUES ($2::uuid, 1, pg_catalog.clock_timestamp() - interval '2 minutes'), \
                               ($3::uuid, 2, pg_catalog.clock_timestamp() - interval '1 minute')) \
                 AS attempts(assessment_attempt_id, attempt_number, started_at) \
+         CROSS JOIN LATERAL (SELECT attempts.started_at + interval '10 minutes' AS expires_at) \
+                AS expiration \
           WHERE assessment.course_instance_id = $4 AND assessment.assessment_id = $5",
     )
     .bind(id(STUDENT_RECORD))
@@ -182,6 +201,40 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     );
     assert!(progress[0].latest_activity_at_millis.is_some());
     assert!(progress[0].assessment_score.is_none());
+    assert_eq!(
+        landing_store
+            .get_live_student_course_active_attempt(token(0xe1), course.clone())
+            .await
+            .expect("authorized Course Active Attempt")
+            .map(|attempt| attempt.assessment_attempt_id),
+        Some(question_model::AssessmentAttemptId::from_uuid(id(
+            HISTORY_ATTEMPT
+        ))),
+        "the newest Attempt with a running clock is the Course shortcut target",
+    );
+    assert_eq!(
+        landing_store
+            .get_live_student_course_active_attempt(token(0xe2), course.clone())
+            .await
+            .expect("another Course member has no active Attempt"),
+        None,
+    );
+    assert!(
+        landing_store
+            .get_live_student_course_active_attempt(token(0xe3), course.clone())
+            .await
+            .is_err(),
+        "a nonmember cannot read the Course Active Attempt",
+    );
+    let other_course = CourseInstanceId::new(&fixture.other_course_id).expect("other Course ID");
+    assert_eq!(
+        landing_store
+            .get_live_student_course_active_attempt(token(0xe1), other_course)
+            .await
+            .expect("the same Student is authorized in the other Course"),
+        None,
+        "an Active Attempt in one Course does not appear in another Course's scoped read",
+    );
     let first_history_page = landing_store
         .list_live_student_course_attempt_history(
             token(0xe1),
@@ -227,6 +280,13 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
             .await
             .is_err(),
         "nonmember cannot read Course Progress",
+    );
+    assert_eq!(
+        landing_store
+            .get_live_student_latest_feedback_attempt(token(0xe1))
+            .await
+            .expect("unsubmitted Attempts have no released feedback"),
+        None,
     );
 
     // Student Work fixture for the same-open-revision Response Stats aggregation and the
@@ -343,8 +403,8 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
              display_duration_ms, delivery_toolchain_id, rendered_question_sha256 \
          ) VALUES \
              ($1, $2, $3, clock_timestamp(), NULL, $4, decode(repeat('c', 64), 'hex')), \
-             ($1, $5, $6, clock_timestamp(), 10000, $4, decode(repeat('d', 64), 'hex')), \
-             ($1, $7, $8, clock_timestamp(), NULL, $4, decode(repeat('e', 64), 'hex'))",
+             ($1, $5, $6, clock_timestamp() - interval '90 seconds', 10000, $4, decode(repeat('d', 64), 'hex')), \
+             ($1, $7, $8, clock_timestamp() - interval '45 seconds', NULL, $4, decode(repeat('e', 64), 'hex'))",
     )
     .bind(&fixture.course_id)
     .bind(id(DISPLAY_QUESTION_ATTEMPT))
@@ -361,8 +421,8 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         "INSERT INTO ple_private.assessment_attempt_saved_response ( \
              course_instance_id, question_attempt_id, student_response, saved_at \
          ) VALUES \
-             ($1, $2, '{\"kind\":\"multipleChoice\",\"selected\":[]}'::jsonb, clock_timestamp()), \
-             ($1, $3, '{\"kind\":\"multipleChoice\",\"selected\":[]}'::jsonb, clock_timestamp())",
+             ($1, $2, '{\"kind\":\"multipleChoice\",\"selected\":[]}'::jsonb, clock_timestamp() - interval '80 seconds'), \
+             ($1, $3, '{\"kind\":\"multipleChoice\",\"selected\":[]}'::jsonb, clock_timestamp() - interval '30 seconds')",
     )
     .bind(&fixture.course_id)
     .bind(id(PRACTICE_QUESTION_ATTEMPT_ONE))
@@ -382,7 +442,8 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     sqlx::query(
         "INSERT INTO ple_private.assessment_submission ( \
              course_instance_id, assessment_submission_id, assessment_attempt_id, submitted_at \
-         ) VALUES ($1, $2, $3, clock_timestamp()), ($1, $4, $5, clock_timestamp())",
+         ) VALUES ($1, $2, $3, clock_timestamp() - interval '50 seconds'), \
+                  ($1, $4, $5, clock_timestamp() - interval '10 seconds')",
     )
     .bind(&fixture.course_id)
     .bind(id(PRACTICE_SUBMISSION_ONE))
@@ -393,9 +454,15 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     .await
     .expect("Response Stats Assessment submissions");
     sqlx::query(
-        "UPDATE ple_private.question_attempt \
-            SET finalized_at = clock_timestamp() \
-          WHERE question_attempt_id IN ($1, $2)",
+        "UPDATE ple_private.question_attempt AS question_attempt \
+            SET finalized_at = submission.submitted_at \
+           FROM ple_private.issued_question AS issued \
+           JOIN ple_private.assessment_submission AS submission \
+             ON submission.course_instance_id = issued.course_instance_id \
+            AND submission.assessment_attempt_id = issued.assessment_attempt_id \
+          WHERE question_attempt.course_instance_id = issued.course_instance_id \
+            AND question_attempt.issued_question_id = issued.issued_question_id \
+            AND question_attempt.question_attempt_id IN ($1, $2)",
     )
     .bind(id(PRACTICE_QUESTION_ATTEMPT_ONE))
     .bind(id(PRACTICE_QUESTION_ATTEMPT_TWO))
@@ -525,6 +592,29 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
             .await
             .is_err()
     );
+    assert_eq!(
+        landing_store
+            .get_live_student_latest_feedback_attempt(token(0xe1))
+            .await
+            .expect("Student's latest released feedback Attempt"),
+        Some(question_model::AssessmentAttemptId::from_uuid(id(
+            PRACTICE_ATTEMPT_TWO
+        ))),
+    );
+    assert_eq!(
+        landing_store
+            .get_live_student_latest_feedback_attempt(token(0xe2))
+            .await
+            .expect("other Student has no released feedback Attempt"),
+        None,
+    );
+    assert_eq!(
+        landing_store
+            .get_live_student_latest_feedback_attempt(token(0xe3))
+            .await
+            .expect("a Student with no Course has no Latest Feedback target"),
+        None,
+    );
 
     let mut tx = application.begin().await.expect("application transaction");
     sqlx::query("SET LOCAL ROLE ple_auth")
@@ -555,7 +645,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     assert_eq!(
         row.try_get::<String, _>("start_decision")
             .expect("start decision"),
-        "not_yet_available"
+        "attempt_limit_reached"
     );
     assert_eq!(
         row.try_get::<i32, _>("attempt_limit")
@@ -573,8 +663,8 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         "America/Denver"
     );
     assert!(
-        row.try_get::<bool, _>("evaluation_before_available")
-            .expect("available boundary")
+        !row.try_get::<bool, _>("evaluation_before_available")
+            .expect("available boundary follows the Student accommodation")
     );
     assert!(
         row.try_get::<bool, _>("available_before_due")

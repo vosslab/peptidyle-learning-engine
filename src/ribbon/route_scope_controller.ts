@@ -13,7 +13,6 @@ import {
 } from "../features/course_appearance/course_theme_context";
 import { routeContractForPathname } from "../route_contract";
 import { routeScopeKey, type RouteScopeKey } from "../navigation/route_params";
-import { courseInstanceRouteId, type CourseInstanceRouteId } from "../navigation/public_route";
 
 export type RouteScopeQueries = Pick<
   ApplicationApi<OrdinaryBrowserApiClient>["queries"],
@@ -54,8 +53,6 @@ function scopeCacheKey(scope: RouteScopeKey, pathname: string): string | undefin
 /** Stable reactive owner behind RouteScopeProvider; it is not an access boundary. */
 export interface RouteScopeController {
   readonly identity: Accessor<RouteScopeKey>;
-  /** Last resolved Course Instance remains available for Student tier-one navigation. */
-  readonly currentCourseInstanceId: Accessor<CourseInstanceRouteId | undefined>;
   readonly data: Accessor<CourseThemeRouteData | undefined>;
   /** Reports the current scope request without treating it as authorization. */
   readonly loadState: Accessor<RouteScopeLoadState>;
@@ -171,31 +168,13 @@ export function createRouteScopeController(
     return entries.get(key)?.state ?? "unavailable";
   });
 
-  const [currentCourseInstanceId, setCurrentCourseInstanceId] =
-    createSignal<CourseInstanceRouteId>();
   createEffect(() => {
     const route = routeContractForPathname(currentPathname());
-    // Sign-in begins a new account session. The client-side pin is presentation
-    // state only; each destination still receives server-side course authorization.
+    // Drop presentation data when navigation reaches Sign in.
     if (route?.id !== "signIn") return;
     entries.clear();
     assessmentAttemptScopes.clear();
     setCacheVersion((version) => version + 1);
-    setCurrentCourseInstanceId(undefined);
-  });
-  createEffect(() => {
-    const resolvedData = data();
-    if (resolvedData?.kind === "course") {
-      setCurrentCourseInstanceId(courseInstanceRouteId(resolvedData.course.summary.id));
-      return;
-    }
-    if (resolvedData?.kind === "assessmentAttempt") {
-      setCurrentCourseInstanceId(courseInstanceRouteId(resolvedData.context.course.id));
-      return;
-    }
-    if (resolvedData?.kind === "assessmentAttemptHistory") {
-      setCurrentCourseInstanceId(courseInstanceRouteId(resolvedData.history.course.id));
-    }
   });
 
   const retry = (): void => {
@@ -242,7 +221,6 @@ export function createRouteScopeController(
 
   return {
     identity,
-    currentCourseInstanceId,
     data,
     loadState,
     retry,
