@@ -7,6 +7,7 @@ import { ApiRequestError } from "../api/http_client/error";
 import type { ContentClassificationClient } from "../api/content_classification";
 import { decodeUuid } from "../api/decoder";
 import { ContentClassificationSelect } from "./content_classification_select";
+import { RecordDetailList } from "./record_list/record_detail_list";
 import type {
   QuestionBulkMetadataClient,
   QuestionBulkMetadataPatch,
@@ -336,9 +337,14 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
       <details>
         <summary>Review current values for every selected Question</summary>
         <div class="bulk-metadata-current-values">
-          <For each={metadata()}>
-            {(item) => (
-              <article>
+          <RecordDetailList
+            ariaLabel="Current metadata by selected Question"
+            emptyState={{ title: "No selected Questions have current metadata." }}
+            recordId={(item) => item.questionId}
+            rows={metadata()}
+            state={{ kind: "ready" }}
+            renderRecord={(item) => (
+              <div>
                 <h3>{item.questionId}</h3>
                 <p>Tags: {item.tags.length === 0 ? "No tags" : item.tags.join(", ")}</p>
                 <For each={CLASSIFICATION_FIELDS}>
@@ -351,9 +357,9 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
                     </p>
                   )}
                 </For>
-              </article>
+              </div>
             )}
-          </For>
+          />
         </div>
       </details>
       <div class="bulk-metadata-fields">

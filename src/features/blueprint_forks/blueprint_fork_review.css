@@ -59,19 +59,14 @@
   gap: 0.6rem;
   padding-block: 0.6rem;
 }
-.blueprint-fork-review-heading,
-.blueprint-known-forks-list > li {
+.blueprint-fork-review-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
 }
-.blueprint-known-forks-list {
-  list-style: none;
-  padding: 0;
-}
-.blueprint-known-forks-list > li {
+.blueprint-known-forks-list .record-list__row {
   padding-block: 1rem;
   border-block-end: 1px solid var(--border-color, #d2d7de);
   overflow-wrap: anywhere;

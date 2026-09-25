@@ -24,7 +24,10 @@ try {
   await page.waitForURL(`${origin}/library`);
   await page.getByRole("link", { name: "Question Library" }).waitFor();
 
-  const rows = page.locator("article.question-library-row");
+  const rows = page
+    .getByRole("region", { name: "Published questions", exact: true })
+    .getByRole("list", { name: "Published questions", exact: true })
+    .getByRole("listitem");
   const searchTips = page.locator("details.question-library-search-tips");
   if ((await rows.count()) !== 0 || (await page.getByLabel("Backend").count()) !== 0) {
     throw new Error("Fresh Question Library did not begin with the simple Search entry");
@@ -37,9 +40,12 @@ try {
   await search.fill("x");
   await page.getByLabel("Backend").waitFor();
   await search.fill("");
-  await page.waitForFunction(
-    () => document.querySelectorAll("article.question-library-row").length === 8,
-  );
+  await page.waitForFunction((expectedCount) => {
+    const results = document.querySelector(
+      '[role="region"][aria-label="Published questions"] [role="list"][aria-label="Published questions"]',
+    );
+    return results?.querySelectorAll('[role="listitem"]').length === expectedCount;
+  }, 8);
   const visibleQuestionIds = await rows.evaluateAll((elements) =>
     elements.map((element) => element.textContent ?? ""),
   );
@@ -50,9 +56,12 @@ try {
   }
 
   await page.getByLabel("Backend").selectOption("ple");
-  await page.waitForFunction(
-    () => document.querySelectorAll("article.question-library-row").length === 4,
-  );
+  await page.waitForFunction(() => {
+    const results = document.querySelector(
+      '[role="region"][aria-label="Published questions"] [role="list"][aria-label="Published questions"]',
+    );
+    return results?.querySelectorAll('[role="listitem"]').length === 4;
+  });
   const selectedRow = rows.first();
   const selectedTitle = await selectedRow.getByRole("heading", { level: 2 }).textContent();
   const selectedLink = selectedRow.getByRole("link", { name: "Open question" });
@@ -68,9 +77,12 @@ try {
   }
 
   await search.fill(selectedTitle);
-  await page.waitForFunction(
-    () => document.querySelectorAll("article.question-library-row").length === 1,
-  );
+  await page.waitForFunction(() => {
+    const results = document.querySelector(
+      '[role="region"][aria-label="Published questions"] [role="list"][aria-label="Published questions"]',
+    );
+    return results?.querySelectorAll('[role="listitem"]').length === 1;
+  });
   await selectedLink.click();
   await page.waitForURL(`${origin}${selectedPath}`);
   await page.getByRole("heading", { name: selectedTitle, exact: true }).waitFor();

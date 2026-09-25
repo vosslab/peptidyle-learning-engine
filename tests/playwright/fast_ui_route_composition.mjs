@@ -5,6 +5,11 @@ import assert from "node:assert/strict";
 import { openRibbonShellEvidencePage } from "./ribbon_shell_helpers.mjs";
 import { CANONICAL_VIEWPORTS } from "./screenshot_corpus/manifest.ts";
 
+const tableReviewViewports = [
+  ["laptop", CANONICAL_VIEWPORTS.laptop],
+  ["phone", CANONICAL_VIEWPORTS.phone],
+];
+
 async function renderedRecordIds(container) {
   return container
     .locator("[data-record-id]")
@@ -45,58 +50,120 @@ try {
     "fullWidth",
     "GradebookPage retains its declared full-width PageFrame",
   );
-  await gradebook.locator('[role="listitem"][data-record-id]').waitFor({ state: "visible" });
-  for (const [profile, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
+  const gradebookTable = gradebook.getByRole("table", {
+    name: "Student progress and scores",
+    exact: true,
+  });
+  await gradebookTable.locator("tbody tr[data-record-id]").first().waitFor({ state: "visible" });
+  assert.deepEqual(await gradebookTable.getByRole("columnheader").allTextContents(), [
+    "Student",
+    "Coursework",
+    "Progress status",
+    "Current score",
+  ]);
+  assert.ok(
+    (await gradebookTable.getByRole("rowheader").first().innerText()).trim().length > 0,
+    "Gradebook identifies each student row",
+  );
+  assert.ok((await gradebookTable.getByRole("cell").count()) > 0, "Gradebook renders score cells");
+
+  for (const [profile, viewport] of tableReviewViewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    const columns = await gradebook.evaluate((root) => {
-      const header = root.querySelector(".record-list__header");
-      const headerRegions = [...(header?.querySelectorAll("[data-record-region-id]") ?? [])];
-      const firstRow = root.querySelector('[role="listitem"][data-record-id]');
-      const rowRegions =
-        firstRow === null
-          ? []
-          : [...firstRow.querySelectorAll("[data-record-region-id]")].filter(
-              (region) => getComputedStyle(region).display !== "none",
-            );
-      const visibleHeaderRegions = headerRegions.filter(
-        (region) => getComputedStyle(region).display !== "none",
-      );
-      const alignedRegions = visibleHeaderRegions.every((headerRegion) => {
-        const id = headerRegion.getAttribute("data-record-region-id");
-        const rowRegion = rowRegions.find(
-          (region) => region.getAttribute("data-record-region-id") === id,
-        );
-        if (rowRegion === undefined) return false;
-        const headerRect = headerRegion.getBoundingClientRect();
-        const rowRect = rowRegion.getBoundingClientRect();
-        const alignment = getComputedStyle(headerRegion).justifySelf;
-        if (alignment === "end") return headerRect.right === rowRect.right;
-        if (alignment === "center") {
-          return headerRect.left + headerRect.width / 2 === rowRect.left + rowRect.width / 2;
-        }
-        if (alignment === "stretch") {
-          return headerRect.left === rowRect.left && headerRect.right === rowRect.right;
-        }
-        return headerRect.left === rowRect.left;
-      });
+    const tableViewport = await gradebook.evaluate((root) => {
+      const scroll = root.querySelector(".record-table__scroll");
+      if (!(scroll instanceof HTMLElement)) return undefined;
       return {
-        headerColumns: visibleHeaderRegions.map((region) =>
-          region.getAttribute("data-record-region-id"),
-        ),
-        rowColumns: rowRegions.map((region) => region.getAttribute("data-record-region-id")),
-        alignedRegions,
+        overflowX: getComputedStyle(scroll).overflowX,
+        clientWidth: scroll.clientWidth,
+        scrollWidth: scroll.scrollWidth,
       };
     });
-    assert.deepEqual(
-      columns.headerColumns,
-      columns.rowColumns,
-      `${profile}: Gradebook headers describe visible RecordList regions in order`,
-    );
     assert.equal(
-      columns.alignedRegions,
-      true,
-      `${profile}: each Gradebook header region aligns with its corresponding RecordList region`,
+      tableViewport?.overflowX,
+      "auto",
+      `${profile}: Gradebook retains horizontal scroll`,
     );
+    assert.ok(tableViewport?.clientWidth > 0, `${profile}: Gradebook scroll area has width`);
+    assert.deepEqual(
+      await gradebookTable.getByRole("columnheader").allTextContents(),
+      ["Student", "Coursework", "Progress status", "Current score"],
+      `${profile}: Gradebook retains every labeled column`,
+    );
+    if (profile === "phone") {
+      assert.ok(
+        tableViewport.scrollWidth > tableViewport.clientWidth,
+        "phone Gradebook scrolls horizontally to retain every table column",
+      );
+    }
+  }
+  await page.setViewportSize({
+    width: CANONICAL_VIEWPORTS.laptop.width,
+    height: CANONICAL_VIEWPORTS.laptop.height,
+  });
+
+  await page.evaluate(() =>
+    window.ribbonShell.currentNavigate("/instructor/courses/CI7K3M2QAZ/students"),
+  );
+  const roster = page.locator(
+    '[data-m10-case="current-production"] [data-route-surface="courseRoster"]',
+  );
+  await roster.getByRole("heading", { name: "Students", exact: true }).waitFor({
+    state: "visible",
+  });
+  const rosterTable = roster.getByRole("table", {
+    name: "Current Course roster",
+    exact: true,
+  });
+  await rosterTable.getByRole("rowheader").first().waitFor({
+    state: "visible",
+  });
+  assert.deepEqual(await rosterTable.getByRole("columnheader").allTextContents(), [
+    "Student",
+    "State",
+    "Action",
+  ]);
+  const rosterRows = rosterTable.locator("tbody tr[data-record-id]");
+  const rosterRowCount = await rosterRows.count();
+  assert.ok(rosterRowCount > 0, "roster renders student records");
+  for (let rowIndex = 0; rowIndex < rosterRowCount; rowIndex += 1) {
+    assert.ok(
+      (await rosterRows
+        .nth(rowIndex)
+        .getByRole("button", { name: "Remove course access" })
+        .count()) > 0,
+      "each roster record retains its action",
+    );
+  }
+  for (const [profile, viewport] of tableReviewViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const rosterViewport = await roster.evaluate((root) => {
+      const scroll = root.querySelector(".record-table__scroll");
+      if (!(scroll instanceof HTMLElement)) return undefined;
+      return {
+        overflowX: getComputedStyle(scroll).overflowX,
+        clientWidth: scroll.clientWidth,
+        scrollWidth: scroll.scrollWidth,
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    assert.equal(rosterViewport?.overflowX, "auto", `${profile}: roster retains table scrolling`);
+    assert.ok(rosterViewport?.clientWidth > 0, `${profile}: roster scroll area has width`);
+    assert.deepEqual(await rosterTable.getByRole("columnheader").allTextContents(), [
+      "Student",
+      "State",
+      "Action",
+    ]);
+    assert.ok(
+      rosterViewport.pageWidth <= rosterViewport.viewportWidth,
+      `${profile}: roster table does not create page-level horizontal overflow`,
+    );
+    if (profile === "phone") {
+      assert.ok(
+        rosterViewport.scrollWidth > rosterViewport.clientWidth,
+        "phone roster scrolls horizontally to retain every table column",
+      );
+    }
   }
   await page.setViewportSize({
     width: CANONICAL_VIEWPORTS.laptop.width,

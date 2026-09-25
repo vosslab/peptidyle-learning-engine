@@ -12,6 +12,8 @@ import { useApplicationApi } from "../api/application_api";
 import { ApiRequestError } from "../api/http_client/error";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import {
   ASSESSMENT_TYPE_OPTIONS,
   assessmentTypePresentation,
@@ -31,6 +33,8 @@ import "./assessment_templates_page.css";
 export interface AssessmentTemplatesSurfaceProps {
   readonly client: AssessmentTemplateClient;
 }
+
+type AssessmentTemplateListRow = AssessmentTemplate;
 
 function replaceTemplate(
   templates: ReadonlyArray<AssessmentTemplate>,
@@ -66,6 +70,48 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
   const isCreateExpanded = createMemo(
     () => createDisclosure() ?? (listState() === "ready" && templates().length === 0),
   );
+
+  const templateListState = (): RecordListState => {
+    if (listState() === "loading") return { kind: "loading", label: "Loading your Templates..." };
+    if (listState() === "error") {
+      return {
+        kind: "error",
+        title: "Your Templates are unavailable",
+        message: "Your Templates could not be loaded.",
+        retry: () => void loadTemplates(),
+        retryLabel: "Try again",
+      };
+    }
+    return { kind: "ready" };
+  };
+
+  const templateRegions: ReadonlyArray<RecordRegion<AssessmentTemplateListRow>> = [
+    {
+      id: "template",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "stretch",
+      content: (template): JSX.Element => {
+        const presentation = assessmentTypePresentation(template.assessmentType);
+        return (
+          <button
+            type="button"
+            class="assessment-template-list-button"
+            classList={{
+              "assessment-template-list-button--selected": selected()?.template.id === template.id,
+            }}
+            aria-pressed={selected()?.template.id === template.id}
+            disabled={detailBusy() || creating()}
+            onClick={() => openTemplate(template)}
+          >
+            <strong>{template.name}</strong>
+            <span>{presentation.label}</span>
+          </button>
+        );
+      },
+    },
+  ];
 
   async function loadTemplates(): Promise<void> {
     setListState("loading");
@@ -251,52 +297,17 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       <div class="assessment-templates-layout">
         <aside class="assessment-template-overview" aria-labelledby="template-overview-heading">
           <h2 id="template-overview-heading">Your Templates</h2>
-          <Show when={listState() === "loading"}>
-            <p class="assessment-template-list-state" role="status">
-              Loading your Templates...
-            </p>
-          </Show>
-          <Show when={listState() === "error"}>
-            <div class="assessment-template-list-state" role="alert">
-              <p>Your Templates could not be loaded.</p>
-              <button type="button" onClick={() => void loadTemplates()}>
-                Try again
-              </button>
-            </div>
-          </Show>
-          <Show when={listState() === "ready" && templates().length === 0}>
-            <div class="empty-state assessment-template-list-state">
-              <h3>No Templates yet</h3>
-              <p>Create one below to save settings you use often.</p>
-            </div>
-          </Show>
-          <Show when={listState() === "ready" && templates().length > 0}>
-            <ul class="assessment-template-list" aria-label="My Assessment Templates">
-              <For each={templates()}>
-                {(template) => {
-                  const presentation = assessmentTypePresentation(template.assessmentType);
-                  return (
-                    <li>
-                      <button
-                        type="button"
-                        class="assessment-template-list-button"
-                        classList={{
-                          "assessment-template-list-button--selected":
-                            selected()?.template.id === template.id,
-                        }}
-                        aria-pressed={selected()?.template.id === template.id}
-                        disabled={detailBusy() || creating()}
-                        onClick={() => openTemplate(template)}
-                      >
-                        <strong>{template.name}</strong>
-                        <span>{presentation.label}</span>
-                      </button>
-                    </li>
-                  );
-                }}
-              </For>
-            </ul>
-          </Show>
+          <RecordList
+            ariaLabel="My Assessment Templates"
+            emptyState={{
+              title: "No Templates yet",
+              message: "Create one below to save settings you use often.",
+            }}
+            recordId={(template) => template.id}
+            regions={templateRegions}
+            rows={templates()}
+            state={templateListState()}
+          />
 
           <button
             class="quiet-action assessment-template-create-disclosure"

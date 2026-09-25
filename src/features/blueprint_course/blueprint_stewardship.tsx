@@ -1,10 +1,12 @@
 // Instructor-only lineage endorsements and self-only Watch activity.
-import { For, Show, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createResource, createSignal, type JSX } from "solid-js";
 import type {
   BlueprintStewardshipClient,
   BlueprintWatchEvent,
 } from "../../api/blueprint_stewardship";
 import "./blueprint_stewardship.css";
+import { RecordList } from "../../components/record_list/record_list";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 
 interface Props {
   readonly client: BlueprintStewardshipClient;
@@ -23,6 +25,44 @@ function eventLabel(kind: BlueprintWatchEvent["kind"]): string {
     case "restored":
       return "Blueprint restored";
   }
+}
+
+const starredInstructorRegions: ReadonlyArray<RecordRegion<{ readonly displayName: string }>> = [
+  {
+    id: "instructor",
+    role: "identity",
+    priority: "required",
+    width: "minmax(0, 1fr)",
+    align: "start",
+    content: (instructor) => instructor.displayName,
+  },
+];
+
+function watchEventRegions(
+  formatDateTime: Props["formatDateTime"],
+): ReadonlyArray<RecordRegion<BlueprintWatchEvent>> {
+  return [
+    {
+      id: "event",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (event) => eventLabel(event.kind),
+    },
+    {
+      id: "occurred-at",
+      role: "metadata",
+      priority: "required",
+      width: "minmax(13rem, auto)",
+      align: "end",
+      content: (event) => (
+        <time datetime={new Date(event.occurredAt).toISOString()}>
+          {formatDateTime(event.occurredAt)}
+        </time>
+      ),
+    },
+  ];
 }
 
 /** The surrounding Instructor detail route mounts this only for Public or Archived Blueprints. */
@@ -126,24 +166,26 @@ export function BlueprintStewardship(props: Props): JSX.Element {
             <details>
               <summary>Instructors who Starred this Blueprint</summary>
               {/* ASVS 1.2.1, 8.2.3: exact server-projected names rendered as text, without identity links. */}
-              <For each={current().instructors} fallback={<p>No Instructor Stars to show.</p>}>
-                {(instructor) => <p>{instructor.displayName}</p>}
-              </For>
+              <RecordList
+                ariaLabel="Instructors who starred this Blueprint"
+                emptyState={{ title: "No Instructor Stars to show." }}
+                recordId={(instructor) => instructor.displayName}
+                regions={starredInstructorRegions}
+                rows={current().instructors}
+                state={{ kind: "ready" }}
+              />
             </details>
             <details>
               <summary>Your private Watch activity</summary>
               <p>Most recent 25 notifications for this Blueprint.</p>
-              <For each={current().events} fallback={<p>No Watch activity yet.</p>}>
-                {(event) => (
-                  <p>
-                    {eventLabel(event.kind)}
-                    {" - "}
-                    <time datetime={new Date(event.occurredAt).toISOString()}>
-                      {props.formatDateTime(event.occurredAt)}
-                    </time>
-                  </p>
-                )}
-              </For>
+              <RecordList
+                ariaLabel="Your private Watch activity"
+                emptyState={{ title: "No Watch activity yet." }}
+                recordId={(event) => `${event.kind}-${event.occurredAt}`}
+                regions={watchEventRegions(props.formatDateTime)}
+                rows={current().events}
+                state={{ kind: "ready" }}
+              />
             </details>
           </>
         )}

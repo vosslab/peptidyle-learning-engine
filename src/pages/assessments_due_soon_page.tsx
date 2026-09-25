@@ -1,11 +1,13 @@
 // assessments_due_soon_page.tsx - Instructor cross-Course Assessment deadline index.
 
 import { A } from "@solidjs/router";
-import { createResource, For, Show, type JSX } from "solid-js";
+import { Show, createResource, type JSX } from "solid-js";
 
 import type { DueSoonAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { assessmentRouteId, courseInstanceRouteId } from "../navigation/public_route";
 
@@ -24,38 +26,68 @@ function assessmentStatusLabel(status: LiveAssessmentStatus): string {
   }
 }
 
-function DueSoonAssessmentRow(props: {
-  readonly assessment: DueSoonAssessmentSummary;
-  readonly formatDueTime: (dueAtMillis: number) => string;
-}): JSX.Element {
-  const courseInstanceId = courseInstanceRouteId(props.assessment.courseInstanceId);
-  const assessmentId = assessmentRouteId(props.assessment.assessmentId);
-  const assessmentPath = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
-
-  return (
-    <li class="instructor-list__row assessments-due-soon__row">
-      <div class="instructor-list__identity">
-        <p class="instructor-list__kind">
-          {assessmentStatusLabel(props.assessment.assessmentStatus)} Assessment
+function dueSoonRegions(
+  formatDueTime: (dueAtMillis: number) => string,
+): ReadonlyArray<RecordRegion<DueSoonAssessmentSummary>> {
+  return [
+    {
+      id: "identity",
+      role: "identity",
+      priority: "required",
+      width: "minmax(14rem, 1fr)",
+      align: "stretch",
+      content: (assessment): JSX.Element => {
+        const courseInstanceId = courseInstanceRouteId(assessment.courseInstanceId);
+        const assessmentId = assessmentRouteId(assessment.assessmentId);
+        const assessmentPath = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
+        return (
+          <div>
+            <p class="assessments-due-soon__kind">
+              {assessmentStatusLabel(assessment.assessmentStatus)} Assessment
+            </p>
+            <h2>
+              <A href={assessmentPath}>{assessment.assessmentTitle}</A>
+            </h2>
+            <p>
+              Course: <A href={`/courses/${courseInstanceId}`}>{assessment.courseLongName}</A>
+            </p>
+          </div>
+        );
+      },
+    },
+    {
+      id: "due",
+      role: "metadata",
+      priority: "high",
+      width: "minmax(13rem, auto)",
+      align: "center",
+      content: (assessment) => (
+        <p class="assessments-due-soon__due">
+          <span>Due</span>
+          {formatDueTime(assessment.dueAtMillis)}
         </p>
-        <h2>
-          <A href={assessmentPath}>{props.assessment.assessmentTitle}</A>
-        </h2>
-        <p class="instructor-list__metadata">
-          Course: <A href={`/courses/${courseInstanceId}`}>{props.assessment.courseLongName}</A>
-        </p>
-      </div>
-      <p class="assessments-due-soon__due">
-        <span>Due</span>
-        {props.formatDueTime(props.assessment.dueAtMillis)}
-      </p>
-      <div class="instructor-list__actions">
-        <A class="primary-link" href={assessmentPath}>
-          Open Assessment
-        </A>
-      </div>
-    </li>
-  );
+      ),
+    },
+    {
+      id: "actions",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "center",
+      content: (assessment): JSX.Element => {
+        const courseInstanceId = courseInstanceRouteId(assessment.courseInstanceId);
+        const assessmentId = assessmentRouteId(assessment.assessmentId);
+        return (
+          <A
+            class="primary-link"
+            href={`/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`}
+          >
+            Open Assessment
+          </A>
+        );
+      },
+    },
+  ];
 }
 
 /** Shows the signed-in Instructor's server-bounded upcoming Assessment deadlines. */
@@ -65,6 +97,19 @@ export function AssessmentsDueSoonPage(): JSX.Element {
     applicationApi.client.listAssessmentsDueSoon(),
   );
   const items = (): ReadonlyArray<DueSoonAssessmentSummary> => assessments()?.items ?? [];
+  const listState = (): RecordListState => {
+    if (assessments.loading) return { kind: "loading", label: "Loading Assessments due soon..." };
+    if (assessments.error !== undefined) {
+      return {
+        kind: "error",
+        title: "Assessments due soon unavailable",
+        message: "Assessments due soon could not be loaded.",
+        retry: () => void refetch(),
+        retryLabel: "Try again",
+      };
+    }
+    return { kind: "ready" };
+  };
 
   return (
     <PageFrame
@@ -74,53 +119,24 @@ export function AssessmentsDueSoonPage(): JSX.Element {
       title="Assessments Due Soon"
       lede="Review upcoming Assessment deadlines across the Courses you currently teach."
     >
-      <Show when={assessments.loading}>
-        <p class="loading-state" role="status">
-          Loading Assessments due soon...
-        </p>
-      </Show>
-      <Show when={assessments.error !== undefined}>
-        <section class="route-error" role="alert">
-          <p>Assessments due soon could not be loaded.</p>
-          <button class="primary-action" type="button" onClick={() => void refetch()}>
-            Try again
-          </button>
-        </section>
-      </Show>
-      <Show when={assessments.error === undefined && assessments()}>
-        {(dueSoon) => {
-          const formatDueTime = createDisplayDateTimeFormatter(dueSoon().displayTimeZone);
-          return (
-            <>
-              <p class="assessments-due-soon__window">
-                Showing Assessments due in the next 7 days.
-              </p>
-              <Show
-                when={items().length > 0}
-                fallback={
-                  <section class="empty-state">
-                    <h2>No Assessments are due in the next 7 days.</h2>
-                    <p>Manage Coursework to review or set due dates in the Courses you teach.</p>
-                    <A class="primary-link" href="/instructor">
-                      Manage Coursework
-                    </A>
-                  </section>
-                }
-              >
-                <ul
-                  class="instructor-list assessments-due-soon__list"
-                  aria-label="Assessments due in the next 7 days"
-                >
-                  <For each={items()}>
-                    {(assessment) => (
-                      <DueSoonAssessmentRow assessment={assessment} formatDueTime={formatDueTime} />
-                    )}
-                  </For>
-                </ul>
-              </Show>
-            </>
-          );
+      <p class="assessments-due-soon__window">Showing Assessments due in the next 7 days.</p>
+      <RecordList
+        ariaLabel="Assessments due in the next 7 days"
+        emptyState={{
+          title: "No Assessments are due in the next 7 days.",
+          message: "Manage Coursework to review or set due dates in the Courses you teach.",
         }}
+        recordId={(assessment) => assessment.assessmentId}
+        regions={dueSoonRegions(
+          createDisplayDateTimeFormatter(assessments()?.displayTimeZone ?? "UTC"),
+        )}
+        rows={items()}
+        state={listState()}
+      />
+      <Show when={!assessments.loading && assessments.error === undefined && items().length === 0}>
+        <A class="primary-link assessments-due-soon__empty-action" href="/instructor">
+          Manage Coursework
+        </A>
       </Show>
     </PageFrame>
   );

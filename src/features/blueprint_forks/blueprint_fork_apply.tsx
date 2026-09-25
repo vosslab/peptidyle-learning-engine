@@ -4,6 +4,12 @@ import type { BlueprintForkApplySelection } from "../../../generated/api/Bluepri
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import {
+  RecordOutlineItem,
+  RecordOutlineList,
+} from "../../components/record_list/record_outline_list";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
+import {
   currentForkLayout,
   destinationKey,
   forkSelectionProblem,
@@ -88,6 +94,89 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
           )?.content.title) ?? "Assessment"
     );
   };
+  const destinationAssessmentRegions = (
+    row: Layout,
+  ): ReadonlyArray<RecordRegion<Layout["assessments"][number]>> => [
+    {
+      id: "identity",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: title,
+    },
+    {
+      id: "actions",
+      role: "actions",
+      priority: "required",
+      width: "minmax(0, 2fr)",
+      align: "start",
+      content: (entry): JSX.Element => {
+        const position = (): number =>
+          row.assessments.findIndex(
+            (candidate) => destinationKey(candidate) === destinationKey(entry),
+          );
+        return (
+          <div class="blueprint-fork-layout-actions">
+            <button
+              type="button"
+              disabled={position() === 0}
+              onClick={() =>
+                edit(
+                  layout().map((candidateRow) =>
+                    candidateRow === row
+                      ? {
+                          ...candidateRow,
+                          assessments: reordered(candidateRow.assessments, position(), -1),
+                        }
+                      : candidateRow,
+                  ),
+                )
+              }
+            >
+              Move Assessment up
+            </button>
+            <button
+              type="button"
+              disabled={position() === row.assessments.length - 1}
+              onClick={() =>
+                edit(
+                  layout().map((candidateRow) =>
+                    candidateRow === row
+                      ? {
+                          ...candidateRow,
+                          assessments: reordered(candidateRow.assessments, position(), 1),
+                        }
+                      : candidateRow,
+                  ),
+                )
+              }
+            >
+              Move Assessment down
+            </button>
+            <label>
+              Destination for {title(entry)}
+              <select
+                value={destinationKey(row.module)}
+                onChange={(event) => place(entry, event.currentTarget.value)}
+              >
+                <For each={layout()}>
+                  {(candidateRow) => (
+                    <option value={destinationKey(candidateRow.module)}>
+                      {moduleLabel(candidateRow.module)}
+                    </option>
+                  )}
+                </For>
+              </select>
+            </label>
+            <button type="button" onClick={() => place(entry, "")}>
+              Remove Assessment: {title(entry)}
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
   function edit(next: Layout[]): void {
     props.proposalSelection?.onChanged?.();
     setLayout(next);
@@ -344,96 +433,56 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
           Move related changes together. Removing a module also excludes its Assessments unless you
           move them first.
         </p>
-        <ol class="blueprint-fork-destination">
-          <For each={layout()}>
-            {(row, index) => (
-              <li>
-                <h5>{moduleLabel(row.module)}</h5>
-                <div class="blueprint-fork-layout-actions">
-                  <button
-                    type="button"
-                    disabled={index() === 0}
-                    onClick={() => edit(reordered(layout(), index(), -1))}
-                  >
-                    Move module up
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index() === layout().length - 1}
-                    onClick={() => edit(reordered(layout(), index(), 1))}
-                  >
-                    Move module down
-                  </button>
-                  <button type="button" onClick={() => edit(layout().filter((r) => r !== row))}>
-                    Remove module: {moduleLabel(row.module)}
-                  </button>
-                </div>
-                <ol>
-                  <For each={row.assessments}>
-                    {(entry, position) => (
-                      <li>
-                        {title(entry)}
-                        <div class="blueprint-fork-layout-actions">
-                          <button
-                            type="button"
-                            disabled={position() === 0}
-                            onClick={() =>
-                              edit(
-                                layout().map((r) =>
-                                  r === row
-                                    ? {
-                                        ...r,
-                                        assessments: reordered(r.assessments, position(), -1),
-                                      }
-                                    : r,
-                                ),
-                              )
-                            }
-                          >
-                            Move Assessment up
-                          </button>
-                          <button
-                            type="button"
-                            disabled={position() === row.assessments.length - 1}
-                            onClick={() =>
-                              edit(
-                                layout().map((r) =>
-                                  r === row
-                                    ? { ...r, assessments: reordered(r.assessments, position(), 1) }
-                                    : r,
-                                ),
-                              )
-                            }
-                          >
-                            Move Assessment down
-                          </button>
-                          <label>
-                            Destination for {title(entry)}
-                            <select
-                              value={destinationKey(row.module)}
-                              onChange={(e) => place(entry, e.currentTarget.value)}
-                            >
-                              <For each={layout()}>
-                                {(r) => (
-                                  <option value={destinationKey(r.module)}>
-                                    {moduleLabel(r.module)}
-                                  </option>
-                                )}
-                              </For>
-                            </select>
-                          </label>
-                          <button type="button" onClick={() => place(entry, "")}>
-                            Remove Assessment: {title(entry)}
-                          </button>
-                        </div>
-                      </li>
-                    )}
-                  </For>
-                </ol>
-              </li>
-            )}
-          </For>
-        </ol>
+        <div class="blueprint-fork-destination">
+          <RecordOutlineList
+            state={{ kind: "ready" }}
+            isEmpty={layout().length === 0}
+            ariaLabel="Complete destination Module layout"
+            emptyState={{
+              title: "No destination Modules",
+              message: "Restore or create a destination Module before placing an Assessment.",
+            }}
+          >
+            <For each={layout()}>
+              {(row, index) => (
+                <RecordOutlineItem recordId={destinationKey(row.module)}>
+                  <h5>{moduleLabel(row.module)}</h5>
+                  <div class="blueprint-fork-layout-actions">
+                    <button
+                      type="button"
+                      disabled={index() === 0}
+                      onClick={() => edit(reordered(layout(), index(), -1))}
+                    >
+                      Move module up
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index() === layout().length - 1}
+                      onClick={() => edit(reordered(layout(), index(), 1))}
+                    >
+                      Move module down
+                    </button>
+                    <button type="button" onClick={() => edit(layout().filter((r) => r !== row))}>
+                      Remove module: {moduleLabel(row.module)}
+                    </button>
+                  </div>
+                  <RecordSequence
+                    rows={row.assessments}
+                    recordId={destinationKey}
+                    regions={destinationAssessmentRegions(row)}
+                    state={{ kind: "ready" }}
+                    ariaLabel={`${moduleLabel(row.module)} destination Assessments`}
+                    emptyState={{
+                      title: "No Assessments",
+                      message:
+                        "Place an Assessment in this Module to include it in the destination layout.",
+                    }}
+                  />
+                </RecordOutlineItem>
+              )}
+            </For>
+          </RecordOutlineList>
+        </div>
         <For
           each={props.review.right.modules.filter(
             (m) =>

@@ -1,10 +1,12 @@
 // Closed Star control and approved-name list for one Published Question.
 
-import { createResource, createSignal, For, Show, type JSX } from "solid-js";
+import { createResource, createSignal, Show, type JSX } from "solid-js";
 
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import { useApplicationApi } from "../api/application_api";
 import type { QuestionStarredInstructor } from "../api/question_star";
+import { RecordList } from "./record_list/record_list";
+import type { RecordRegion } from "./record_list/region_spec";
 
 export interface QuestionStarControlProps {
   readonly questionId: PublishedQuestionId;
@@ -14,6 +16,17 @@ export interface QuestionStarredInstructorListProps {
   readonly instructors: ReadonlyArray<QuestionStarredInstructor>;
 }
 
+const starredInstructorRegions: ReadonlyArray<RecordRegion<QuestionStarredInstructor>> = [
+  {
+    id: "instructor",
+    role: "identity",
+    priority: "required",
+    width: "minmax(0, 1fr)",
+    align: "start",
+    content: (instructor) => instructor.displayName,
+  },
+];
+
 /** Plain-text presentation for the exact identity projection already authorized by the server. */
 export function QuestionStarredInstructorList(
   props: QuestionStarredInstructorListProps,
@@ -21,9 +34,14 @@ export function QuestionStarredInstructorList(
   return (
     <section aria-label="Instructors who starred this question">
       <h2>Starred by</h2>
-      <ul>
-        <For each={props.instructors}>{(instructor) => <li>{instructor.displayName}</li>}</For>
-      </ul>
+      <RecordList
+        ariaLabel="Instructors who starred this question"
+        emptyState={{ title: "No Instructors have starred this question." }}
+        recordId={(instructor) => instructor.displayName}
+        regions={starredInstructorRegions}
+        rows={props.instructors}
+        state={{ kind: "ready" }}
+      />
     </section>
   );
 }

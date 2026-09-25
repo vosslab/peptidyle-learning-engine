@@ -201,14 +201,24 @@ shared page heading, the WP-C1-admitted page-level slots, and fixed content
 placement. Reading width is the default; a route may declare `fullWidth` for
 dense content without coupling that choice to Ribbon navigation. Callers style
 their content region while the PageFrame root keeps its production geometry.
-[src/components/record_list/record_list.tsx](../src/components/record_list/record_list.tsx)
-renders aligned record regions and shared loading, empty, and error states.
+[src/components/record_list/](../src/components/record_list/) provides record
+presentations whose native structure matches the task: `RecordList` for compact
+flat scans, `RecordSequence` for ordered records, `RecordTable` for labeled
+columns and row headers, `RecordOutlineList`/`RecordOutlineItem` for nested
+membership, and `RecordDetailList` for full reviews and comparisons. The
+components share loading, empty, and error states; pages keep fetching,
+selection, editing, paging, and persistence.
+[record_family.css](../src/components/record_list/record_family.css) owns the
+shared collection states and table skin, including internal horizontal
+scrolling. Table consumers provide task-specific column proportions and minimum
+widths.
 [src/components/record_list/record_list_reorder.tsx](../src/components/record_list/record_list_reorder.tsx)
 provides caller-owned movement, keyboard focus restoration, and live move
-announcements. Its caller owns persistence, disabled policy, and failure
-handling. [src/components/record_list/record_list_window.ts](../src/components/record_list/record_list_window.ts)
-selects a contiguous mounted slice while preserving record identity and order;
-it does not render rows.
+announcements for list and sequence presentations. Its caller owns persistence,
+disabled policy, and failure handling.
+[src/components/record_list/record_list_window.ts](../src/components/record_list/record_list_window.ts)
+selects a contiguous mounted slice for `RecordList` while preserving record
+identity and order; it does not render rows.
 
 Pages compose these pieces around their domain state. For example,
 [src/features/blueprint_course/blueprint_course_detail_workspace.tsx](../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)

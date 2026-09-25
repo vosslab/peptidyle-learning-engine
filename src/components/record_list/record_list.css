@@ -63,20 +63,6 @@
   margin-block-end: 0;
 }
 
-.record-list__state {
-  margin: 0;
-  padding: var(--ple-space-3);
-  background: var(--ple-surface-soft);
-}
-
-.record-list__state h2 {
-  margin-top: 0;
-}
-
-.record-list__state--error {
-  border-inline-start: var(--ple-space-1) solid var(--ple-danger);
-}
-
 @media (max-width: 64rem) {
   .record-list {
     grid-template-columns: var(--record-list-columns-without-low);

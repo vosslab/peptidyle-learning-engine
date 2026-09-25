@@ -85,12 +85,11 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("link", { name: "My Inactive Courses", exact: true })
       .click();
     await session.page.getByRole("heading", { name: "My Inactive Courses", exact: true }).waitFor();
-    const inactiveCourseList = session.page.getByLabel("Inactive Course Instances", {
-      exact: true,
-    });
-    // A zero-row list has no height, so Playwright reports it hidden; attachment is the state.
-    await inactiveCourseList.waitFor({ state: "attached" });
-    if ((await inactiveCourseList.locator(".instructor-list__row--course").count()) !== 0) {
+    const inactiveCourses = session.page.locator('[data-route-surface="inactiveCourses"]');
+    await inactiveCourses
+      .getByRole("heading", { name: "No inactive Courses", exact: true })
+      .waitFor({ state: "visible" });
+    if ((await inactiveCourses.getByRole("listitem").count()) !== 0) {
       throw new Error("The inactive Course list must have zero Course rows for this scenario.");
     }
     await captureCheckpoint(runtime, "inactive_courses_list", session);
@@ -282,9 +281,7 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
         exact: true,
       })
       .waitFor();
-    await session.page
-      .getByRole("heading", { level: 3, name: COURSE_TITLE, exact: true })
-      .waitFor();
+    await session.page.getByRole("link", { name: COURSE_TITLE, exact: true }).waitFor();
     await captureCheckpoint(runtime, "filtered_results", session);
   } finally {
     await runtime.close(session);

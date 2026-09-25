@@ -22,6 +22,7 @@ import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCo
 import type { ProfileAvatarView } from "../../src/api/profile_avatar";
 import type { CourseAssessmentSummary } from "../../src/api/assessment_release";
 import type { CourseGradebook } from "../../src/api/live_gradebook";
+import type { CourseRosterEntry } from "../../src/api/course_roster";
 import type {
   AuthenticatedSession,
   CourseRouteView,
@@ -224,6 +225,11 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
           },
         ],
       }),
+    getLiveCourseRoster: (): Promise<ReadonlyArray<CourseRosterEntry>> =>
+      Promise.resolve<ReadonlyArray<CourseRosterEntry>>([
+        { rosterId: "RU-001", rosterName: "Avery Thompson", state: "activeStudent" },
+        { rosterId: "RU-002", rosterName: "Morgan Lee", state: "invitationPending" },
+      ]),
     downloadCourseGradebook: (): Promise<Blob> =>
       Promise.resolve(new Blob(["roster_id\n"], { type: "text/csv" })),
     searchQuestionLibrary: (): Promise<QuestionSearchPage> =>

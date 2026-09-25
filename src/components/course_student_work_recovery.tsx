@@ -7,6 +7,9 @@ import type {
 } from "../api/course_student_work_recovery";
 import { ApiRequestError } from "../api/http_client/error";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
+import { RecordDetailList } from "./record_list/record_detail_list";
+import { RecordList } from "./record_list/record_list";
+import type { RecordRegion } from "./record_list/region_spec";
 import { formatAssessmentActivity } from "./student_assessment_presentation";
 
 function formatRecoveryInstant(
@@ -56,6 +59,52 @@ export function CourseStudentWorkRecovery(props: {
   const [selected, setSelected] = createSignal("");
   const [evidence, setEvidence] = createSignal<RecoveredAttempt>();
   const [message, setMessage] = createSignal("");
+  const attemptRegions: ReadonlyArray<RecordRegion<RecoverySelection["attempts"][number]>> = [
+    {
+      id: "attempt",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (attempt) => (
+        <label style={{ display: "grid", gap: "0.3rem", "overflow-wrap": "anywhere" }}>
+          <span>
+            <input
+              type="radio"
+              name="archived-student-work-attempt"
+              value={attempt.assessmentAttemptId}
+              checked={selected() === attempt.assessmentAttemptId}
+              onChange={() => {
+                setSelected(attempt.assessmentAttemptId);
+                setEvidence(undefined);
+              }}
+            />{" "}
+            {attempt.courseRosterTuple === null
+              ? "Roster ID not retained"
+              : `Roster ID: ${attempt.courseRosterTuple.rosterId}`}{" "}
+            | {attempt.assessmentTitle} | Attempt {attempt.assessmentAttemptNumber} (
+            {attempt.assessmentAttemptId})
+          </span>
+          <span>
+            Started:{" "}
+            {formatRecoveryInstant(attempt.startedAt, formatDateTime, "No retained start time")};
+            submitted:{" "}
+            {formatRecoveryInstant(
+              attempt.submittedAt,
+              formatDateTime,
+              "No retained submission time",
+            )}
+            ; deletion cutoff:{" "}
+            {formatRecoveryInstant(
+              attempt.deleteDueAt,
+              formatDateTime,
+              "No retained deletion cutoff",
+            )}
+          </span>
+        </label>
+      ),
+    },
+  ];
   let generation = 0;
   let action: HTMLButtonElement | undefined;
   let heading: HTMLHeadingElement | undefined;
@@ -176,53 +225,14 @@ export function CourseStudentWorkRecovery(props: {
                 >
                   <fieldset disabled={busy()}>
                     <legend>Select a retained Assessment Attempt</legend>
-                    <For each={page().attempts}>
-                      {(attempt) => (
-                        <label
-                          style={{
-                            display: "block",
-                            "margin-block": "0.75rem",
-                            "overflow-wrap": "anywhere",
-                          }}
-                        >
-                          <input
-                            type="radio"
-                            name="archived-student-work-attempt"
-                            value={attempt.assessmentAttemptId}
-                            checked={selected() === attempt.assessmentAttemptId}
-                            onChange={() => {
-                              setSelected(attempt.assessmentAttemptId);
-                              setEvidence(undefined);
-                            }}
-                          />{" "}
-                          {attempt.courseRosterTuple === null
-                            ? "Roster ID not retained"
-                            : `Roster ID: ${attempt.courseRosterTuple.rosterId}`}{" "}
-                          | {attempt.assessmentTitle} | Attempt {attempt.assessmentAttemptNumber} (
-                          {attempt.assessmentAttemptId})
-                          <span style={{ display: "block" }}>
-                            Started:{" "}
-                            {formatRecoveryInstant(
-                              attempt.startedAt,
-                              formatDateTime,
-                              "No retained start time",
-                            )}
-                            ; submitted:{" "}
-                            {formatRecoveryInstant(
-                              attempt.submittedAt,
-                              formatDateTime,
-                              "No retained submission time",
-                            )}
-                            ; deletion cutoff:{" "}
-                            {formatRecoveryInstant(
-                              attempt.deleteDueAt,
-                              formatDateTime,
-                              "No retained deletion cutoff",
-                            )}
-                          </span>
-                        </label>
-                      )}
-                    </For>
+                    <RecordList
+                      ariaLabel="Retained Assessment Attempts"
+                      emptyState={{ title: "No retained archived Attempts are available." }}
+                      recordId={(attempt) => attempt.assessmentAttemptId}
+                      regions={attemptRegions}
+                      rows={page().attempts}
+                      state={{ kind: "ready" }}
+                    />
                   </fieldset>
                   <button
                     type="button"
@@ -280,9 +290,14 @@ export function CourseStudentWorkRecovery(props: {
                 </p>
                 <Evidence label="Exact Attempt facts" text={attempt().attemptFactsText} />
                 <Evidence label="Submission" text={attempt().submissionText} />
-                <For each={attempt().questions}>
-                  {(question) => (
-                    <section>
+                <RecordDetailList
+                  ariaLabel="Recovered Question evidence"
+                  emptyState={{ title: "No recovered Question evidence is available." }}
+                  recordId={(question) => question.issuedPosition.toString()}
+                  rows={attempt().questions}
+                  state={{ kind: "ready" }}
+                  renderRecord={(question) => (
+                    <div>
                       <h4>
                         Issued Question {question.issuedPosition + 1}:{" "}
                         {question.publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
@@ -306,9 +321,9 @@ export function CourseStudentWorkRecovery(props: {
                           <For each={question.unavailableEvidence}>{(item) => <li>{item}</li>}</For>
                         </ul>
                       </Show>
-                    </section>
+                    </div>
                   )}
-                </For>
+                />
               </section>
             )}
           </Show>

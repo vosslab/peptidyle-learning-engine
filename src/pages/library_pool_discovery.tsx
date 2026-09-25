@@ -28,6 +28,9 @@ import {
 import { LibraryClassificationSearch } from "../components/library_classification_search";
 import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
+import { RecordSequence } from "../components/record_list/record_sequence";
+import { RecordList } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import {
   BloomClassificationEditor,
   BloomClassificationText,
@@ -403,34 +406,50 @@ export function LibraryPoolDiscovery(props: {
         <Show when={!loading() && !error() && items().length === 0}>
           <p>No published Pools match these filters. Change or clear the Pool filters.</p>
         </Show>
-        <div class="question-library-results" aria-label="Pool results" aria-busy={loading()}>
-          <For each={items()}>
-            {(pool) => (
-              <article class="question-library-pool-row">
-                <h3>{pool.metadata.title}</h3>
-                {/* ASVS 1.2.1: metadata is rendered as text, never injected HTML. */}
-                <p>{pool.metadata.description}</p>
-                <p>
-                  Discipline: {pool.metadata.disciplineName}
-                  <Show when={pool.metadata.disciplineIsRetired}> (retired)</Show>
-                </p>
-                <Show when={pool.bloom}>
-                  {(bloom) => (
-                    <p>
-                      <BloomClassificationText bloom={bloom()} />
-                    </p>
-                  )}
-                </Show>
-                <p>
-                  Pool ID: {pool.questionPoolId} | Edit: {pool.questionPoolEditNumber} | Members:{" "}
-                  {pool.memberCount}
-                </p>
-                <button type="button" onClick={(event) => inspect(pool, event.currentTarget)}>
-                  Inspect Pool {pool.metadata.title}
-                </button>
-              </article>
-            )}
-          </For>
+        <div class="question-library-results" aria-busy={loading()}>
+          <RecordList
+            rows={items()}
+            regions={
+              [
+                {
+                  id: "identity",
+                  role: "identity",
+                  priority: "required",
+                  width: "minmax(0, 1fr)",
+                  align: "start",
+                  content: (pool) => (
+                    <article class="question-library-pool-row">
+                      <h3>{pool.metadata.title}</h3>
+                      {/* ASVS 1.2.1: metadata is rendered as text, never injected HTML. */}
+                      <p>{pool.metadata.description}</p>
+                      <p>
+                        Discipline: {pool.metadata.disciplineName}
+                        <Show when={pool.metadata.disciplineIsRetired}> (retired)</Show>
+                      </p>
+                      <Show when={pool.bloom}>
+                        {(bloom) => (
+                          <p>
+                            <BloomClassificationText bloom={bloom()} />
+                          </p>
+                        )}
+                      </Show>
+                      <p>
+                        Pool ID: {pool.questionPoolId} | Edit: {pool.questionPoolEditNumber} |
+                        Members: {pool.memberCount}
+                      </p>
+                      <button type="button" onClick={(event) => inspect(pool, event.currentTarget)}>
+                        Inspect Pool {pool.metadata.title}
+                      </button>
+                    </article>
+                  ),
+                },
+              ] satisfies ReadonlyArray<RecordRegion<QuestionPoolLibrarySummary>>
+            }
+            recordId={(pool) => pool.questionPoolId}
+            state={{ kind: "ready" }}
+            ariaLabel="Pool results"
+            emptyState={{ title: "No published Pools match these filters." }}
+          />
         </div>
         <Show when={cursor() !== null && !error()}>
           <button
@@ -517,16 +536,32 @@ export function LibraryPoolDiscovery(props: {
                     <QuestionPoolWatchControl poolId={value().questionPoolId} />
                   </Show>
                   <h3>Exact Question Revisions</h3>
-                  <ol>
-                    <For each={value().members}>
-                      {(member) => (
-                        <li>
-                          {member.publishedQuestionRevisionTuple.publishedQuestionId} | Revision:{" "}
-                          {member.publishedQuestionRevisionTuple.revisionNumber}
-                        </li>
-                      )}
-                    </For>
-                  </ol>
+                  <RecordSequence
+                    rows={value().members}
+                    regions={
+                      [
+                        {
+                          id: "identity",
+                          role: "identity",
+                          priority: "required",
+                          width: "minmax(0, 1fr)",
+                          align: "start",
+                          content: (member) => (
+                            <>
+                              {member.publishedQuestionRevisionTuple.publishedQuestionId} |
+                              Revision: {member.publishedQuestionRevisionTuple.revisionNumber}
+                            </>
+                          ),
+                        },
+                      ] satisfies ReadonlyArray<RecordRegion<QuestionPoolView["members"][number]>>
+                    }
+                    recordId={(member) =>
+                      `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
+                    }
+                    state={{ kind: "ready" }}
+                    ariaLabel="Ordered exact Question Revisions"
+                    emptyState={{ title: "No Question Revisions are in this Pool." }}
+                  />
                   <LibraryDiscussionPanel kind="questionPool" publicId={value().questionPoolId} />
                 </>
               )}

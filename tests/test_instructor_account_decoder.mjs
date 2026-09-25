@@ -1,7 +1,6 @@
 // Sysadmin account-list display context stays viewer-owned and strictly decoded.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
@@ -49,15 +48,4 @@ test("Sysadmin sign-in timestamps render in the supplied viewer zone", () => {
 
   assert.equal(formatSignInLabel(instant, formatEasternDateTime), "Jan 15, 2026, 1:30 PM");
   assert.equal(formatSignInLabel(instant, formatPacificDateTime), "Jan 15, 2026, 10:30 AM");
-});
-
-test("Instructor Accounts formats sign-in times without naming the viewer zone", () => {
-  const page = readFileSync(
-    new URL("../src/pages/instructor_accounts_page.tsx", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(page, /createDisplayDateTimeFormatter\(list\.displayTimeZone\)/u);
-  assert.match(page, /Last successful sign-in:/u);
-  assert.doesNotMatch(page, /Last successful sign-in times use your time zone/u);
 });

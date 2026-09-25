@@ -633,14 +633,10 @@ work package has no remaining implementation criteria.
 - Depends on: M5.
 - Acceptance criteria: five files, each starting from evidence already gathered rather than a fresh
   search.
-  - `docs/active_plans/active/record_list_migration_plan.md`: every remaining list site, each with
-    its page, its pattern from the WP-E table, its variants, and its region roles. **Build the list
-    from a fresh inventory, not from the approximate counts in this plan.** Re-run the site sweep,
-    subtract the seven converted in M5, and state the exact number. The plan is wrong if
-    `converted + remaining` does not equal the inventory total, which is the check that stops a site
-    being silently dropped. Notes that
-    [src/pages/instructor_data_tables.css](../../src/pages/instructor_data_tables.css)
-    cannot be deleted until its last user moves, so nobody removes it early.
+  - `docs/active_plans/active/record_list_migration_plan.md`: the completed row-by-row inventory, component
+    contracts, whole-file owners, and completion evidence. It supersedes the earlier approximate
+    converted-plus-remaining arithmetic. The last-user check found no users of
+    `src/pages/instructor_data_tables.css`; the obsolete stylesheet was removed.
   - `docs/active_plans/active/student_task_surface_plan.md`: remove undo and restore
     ([src/components/question_response_controls/common.tsx](../../src/components/question_response_controls/common.tsx):441-478
     plus seven call sites and the `"restored"` state), flatten the five WeBWorK boxes to one, match
@@ -735,8 +731,8 @@ acceptance path; no repeated full-suite run is required.
 | SUI-04  | [student_task_surface_plan.md](active/student_task_surface_plan.md)                                                                                                                                                             | Its width, enlarged-text, and native-PNG acceptance cases remain deferred.                                                                                                                                                                             |
 | SUI-05  | Achieved source progress in M5 WP-E6 Student course-row proof.                                                                                                                                                                  | M7 rendered and semantic replay acceptance passed; the dated 2026-09-23 `all_test.sh` receipt is recorded above.                                                                                                                                       |
 | SUI-06  | [student_task_surface_plan.md](active/student_task_surface_plan.md)                                                                                                                                                             | Cross-surface Student terminology acceptance is deferred; it is not M6 or WP-H2 work.                                                                                                                                                                  |
-| SUI-07  | Achieved source progress for the M6 `PageFrame` outer rail.                                                                                                                                                                     | [RecordList migration item 8](active/record_list_migration_plan.md) retains long-feedback, multipart-response, and multi-Question expansion acceptance; M7 semantic replay passed and the dated 2026-09-23 `all_test.sh` receipt is recorded above.    |
-| SUI-08  | [student_task_surface_plan.md](active/student_task_surface_plan.md) owns the attempt vertical budget; [RecordList migration student sites](active/record_list_migration_plan.md) own compact Coursework and invitation objects. | Both acceptance lanes remain deferred.                                                                                                                                                                                                                 |
+| SUI-07  | Achieved source progress for the M6 `PageFrame` outer rail.                                                                                                                                                                     | [The RecordList migration plan](active/record_list_migration_plan.md) records the completed long-feedback, multipart-response, and multi-Question acceptance; M7 semantic replay passed and the dated 2026-09-23 `all_test.sh` receipt is recorded above. |
+| SUI-08  | [student_task_surface_plan.md](active/student_task_surface_plan.md) owns the attempt vertical budget; [the RecordList migration plan](active/record_list_migration_plan.md) owns compact Coursework and invitation objects. | Both acceptance lanes remain deferred.                                                                                                                                     |
 
 ## Acceptance criteria and gates
 

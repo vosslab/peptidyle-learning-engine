@@ -1,6 +1,6 @@
 // Account-owned response surface for pending Course Invitations.
 
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseInvitationTerminalAction } from "../../generated/api/CourseInvitationTerminalAction";
 import type { PendingCourseInvitationView } from "../../generated/api/PendingCourseInvitationView";
@@ -9,6 +9,8 @@ import { ApiRequestError } from "../api/http_client/error";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import {
   appendPendingInvitationPage,
@@ -44,6 +46,21 @@ function responseCopy(action: CourseInvitationTerminalAction): string {
   return action === "accept"
     ? "Accepting grants you direct course membership."
     : "Declining closes this invitation. A course instructor can invite you again later.";
+}
+
+function invitationListState(
+  data: PendingInvitationData | null,
+  error: string | null,
+): RecordListState {
+  if (data !== null) return { kind: "ready" };
+  if (error !== null) {
+    return {
+      kind: "error",
+      title: "Pending invitations unavailable",
+      message: error,
+    };
+  }
+  return { kind: "loading", label: "Loading pending invitations..." };
 }
 
 export function AccountPendingInvitationsPage(): JSX.Element {
@@ -130,6 +147,71 @@ export function AccountPendingInvitationsPage(): JSX.Element {
 
   onMount(() => void load());
 
+  function invitationRegions(
+    formatExpiry: ReturnType<typeof createDisplayDateTimeFormatter>,
+  ): ReadonlyArray<RecordRegion<PendingCourseInvitationView>> {
+    return [
+      {
+        id: "course",
+        role: "identity",
+        priority: "required",
+        width: "minmax(0, 1fr)",
+        align: "start",
+        content: (invitation): JSX.Element => (
+          <div>
+            <h2>{invitation.courseLabel}</h2>
+            <p class="teaching-team-meta">{invitationStateLabel(invitation.state)}</p>
+            <p class="teaching-team-meta">{serverExpiryCopy(invitation.expiresAt, formatExpiry)}</p>
+          </div>
+        ),
+      },
+      {
+        id: "action",
+        role: "actions",
+        priority: "required",
+        width: "auto",
+        align: "end",
+        content: (invitation): JSX.Element => (
+          <Show
+            when={isPendingInvitation(invitation.state)}
+            fallback={<p class="teaching-team-meta">This invitation is no longer actionable.</p>}
+          >
+            <div class="action-row">
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={busy()}
+                onClick={(event) =>
+                  setPendingResponse({
+                    invitation,
+                    action: "decline",
+                    trigger: event.currentTarget,
+                  })
+                }
+              >
+                Decline
+              </button>
+              <button
+                class="primary-action"
+                type="button"
+                disabled={busy()}
+                onClick={(event) =>
+                  setPendingResponse({
+                    invitation,
+                    action: "accept",
+                    trigger: event.currentTarget,
+                  })
+                }
+              >
+                Accept
+              </button>
+            </div>
+          </Show>
+        ),
+      },
+    ];
+  }
+
   return (
     <PageFrame
       routeSurface="accountPendingInvitations"
@@ -147,7 +229,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
         </section>
       </Show>
       <Show when={session.state().kind === "authenticated"}>
-        <Show when={error()}>
+        <Show when={error() && data() !== null}>
           {(message) => (
             <section class="inline-error" role="alert">
               <p>{message()}</p>
@@ -160,73 +242,31 @@ export function AccountPendingInvitationsPage(): JSX.Element {
         <Show
           when={data()}
           fallback={
-            <p class="loading-state" role="status">
-              Loading pending invitations...
-            </p>
+            <RecordList<PendingCourseInvitationView>
+              ariaLabel="Pending teaching invitations"
+              emptyState={{ title: "No invitations waiting" }}
+              recordId={(invitation) => invitation.id}
+              regions={[]}
+              rows={[]}
+              state={invitationListState(data(), error())}
+            />
           }
         >
           {(current) => {
             const formatExpiry = createDisplayDateTimeFormatter(current().displayTimeZone);
             return (
-              <section class="pending-invitation-list" aria-label="Pending teaching invitations">
-                <For
-                  each={current().invitations}
-                  fallback={
-                    <section class="auth-panel empty-state">
-                      <h2>No invitations waiting</h2>
-                      <p>When a course instructor invites this account, it appears here.</p>
-                    </section>
-                  }
-                >
-                  {(invitation) => (
-                    <article class="auth-panel pending-invitation-card">
-                      <div>
-                        <h2>{invitation.courseLabel}</h2>
-                        <p class="teaching-team-meta">{invitationStateLabel(invitation.state)}</p>
-                        <p class="teaching-team-meta">
-                          {serverExpiryCopy(invitation.expiresAt, formatExpiry)}
-                        </p>
-                      </div>
-                      <Show
-                        when={isPendingInvitation(invitation.state)}
-                        fallback={
-                          <p class="teaching-team-meta">This invitation is no longer actionable.</p>
-                        }
-                      >
-                        <div class="action-row">
-                          <button
-                            class="quiet-action"
-                            type="button"
-                            disabled={busy()}
-                            onClick={(event) =>
-                              setPendingResponse({
-                                invitation,
-                                action: "decline",
-                                trigger: event.currentTarget,
-                              })
-                            }
-                          >
-                            Decline
-                          </button>
-                          <button
-                            class="primary-action"
-                            type="button"
-                            disabled={busy()}
-                            onClick={(event) =>
-                              setPendingResponse({
-                                invitation,
-                                action: "accept",
-                                trigger: event.currentTarget,
-                              })
-                            }
-                          >
-                            Accept
-                          </button>
-                        </div>
-                      </Show>
-                    </article>
-                  )}
-                </For>
+              <section class="pending-invitation-list">
+                <RecordList
+                  ariaLabel="Pending teaching invitations"
+                  emptyState={{
+                    title: "No invitations waiting",
+                    message: "When a course instructor invites this account, it appears here.",
+                  }}
+                  recordId={(invitation) => invitation.id}
+                  regions={invitationRegions(formatExpiry)}
+                  rows={current().invitations}
+                  state={{ kind: "ready" }}
+                />
                 <Show when={current().nextCursor !== null}>
                   <button
                     class="quiet-action"

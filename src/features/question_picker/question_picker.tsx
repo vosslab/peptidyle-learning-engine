@@ -7,6 +7,9 @@ import type {
   QuestionLibraryBrowseRow,
 } from "../../pages/library_page_model";
 import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../../pages/library_page_model";
+import { RecordList } from "../../components/record_list/record_list";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 import "./question_picker.css";
 import {
   QuestionPickerSession,
@@ -363,40 +366,52 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
       <Show when={resultRows().length > 0}>
         <section class="question-picker-results" aria-label="Question results">
           <h3>Current results</h3>
-          <ul>
-            <For each={resultRows()}>
-              {(row) => (
-                <li>
-                  <Show
-                    when={props.mode !== "none"}
-                    fallback={
-                      <article class="question-picker-result">
+          <RecordList
+            rows={resultRows()}
+            regions={
+              [
+                {
+                  id: "identity",
+                  role: "identity",
+                  priority: "required",
+                  width: "minmax(0, 1fr)",
+                  align: "start",
+                  content: (row) => (
+                    <Show
+                      when={props.mode !== "none"}
+                      fallback={
+                        <article class="question-picker-result">
+                          <span>
+                            <strong>{row.questionTitle}</strong>
+                            <span>{row.summary}</span>
+                            <small>{row.displayId}</small>
+                          </span>
+                        </article>
+                      }
+                    >
+                      <label class="question-picker-result">
+                        <input
+                          type={props.mode === "one" ? "radio" : "checkbox"}
+                          name={props.mode === "one" ? "question-picker-choice" : undefined}
+                          checked={rowIsSelected(selection(), row)}
+                          onChange={(event) => toggleRow(row, event.currentTarget.checked)}
+                        />
                         <span>
                           <strong>{row.questionTitle}</strong>
                           <span>{row.summary}</span>
                           <small>{row.displayId}</small>
                         </span>
-                      </article>
-                    }
-                  >
-                    <label class="question-picker-result">
-                      <input
-                        type={props.mode === "one" ? "radio" : "checkbox"}
-                        name={props.mode === "one" ? "question-picker-choice" : undefined}
-                        checked={rowIsSelected(selection(), row)}
-                        onChange={(event) => toggleRow(row, event.currentTarget.checked)}
-                      />
-                      <span>
-                        <strong>{row.questionTitle}</strong>
-                        <span>{row.summary}</span>
-                        <small>{row.displayId}</small>
-                      </span>
-                    </label>
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ul>
+                      </label>
+                    </Show>
+                  ),
+                },
+              ] satisfies ReadonlyArray<RecordRegion<QuestionLibraryBrowseRow>>
+            }
+            recordId={(row) => row.displayId}
+            state={{ kind: "ready" }}
+            ariaLabel="Question results"
+            emptyState={{ title: "No questions match this source and filter." }}
+          />
           <Show when={hasNextPage()}>
             <button class="quiet-action" type="button" onClick={() => void session.loadNext()}>
               Load more results
@@ -416,65 +431,88 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
               </p>
             }
           >
-            <ol>
-              <For each={selection().questions}>
-                {(question, index) => (
-                  <li>
-                    <span>
-                      <strong>{question.row.questionTitle}</strong>{" "}
-                      <small>{question.questionId}</small>
-                    </span>
-                    <span class="question-picker-tray-actions">
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        disabled={index() === 0}
-                        aria-label={`Move ${question.row.questionTitle} earlier`}
-                        onClick={() =>
-                          updateSelection(
-                            moveQuestionPickerSelection(
-                              props.mode,
-                              props.maximumSelection,
-                              selection(),
-                              index(),
-                              -1,
-                            ),
-                          )
-                        }
-                      >
-                        Earlier
-                      </button>
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        disabled={index() === selection().questions.length - 1}
-                        aria-label={`Move ${question.row.questionTitle} later`}
-                        onClick={() =>
-                          updateSelection(
-                            moveQuestionPickerSelection(
-                              props.mode,
-                              props.maximumSelection,
-                              selection(),
-                              index(),
-                              1,
-                            ),
-                          )
-                        }
-                      >
-                        Later
-                      </button>
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        onClick={() => toggleRow(question.row, false)}
-                      >
-                        Remove
-                      </button>
-                    </span>
-                  </li>
-                )}
-              </For>
-            </ol>
+            <RecordSequence
+              rows={selection().questions.map((question, index) => ({ question, index }))}
+              regions={
+                [
+                  {
+                    id: "identity",
+                    role: "identity",
+                    priority: "required",
+                    width: "minmax(0, 1fr)",
+                    align: "start",
+                    content: (record): JSX.Element => {
+                      const question = record.question;
+                      const index = record.index;
+                      return (
+                        <>
+                          <span>
+                            <strong>{question.row.questionTitle}</strong>{" "}
+                            <small>{question.questionId}</small>
+                          </span>
+                          <span class="question-picker-tray-actions">
+                            <button
+                              class="quiet-action"
+                              type="button"
+                              disabled={index === 0}
+                              aria-label={`Move ${question.row.questionTitle} earlier`}
+                              onClick={() =>
+                                updateSelection(
+                                  moveQuestionPickerSelection(
+                                    props.mode,
+                                    props.maximumSelection,
+                                    selection(),
+                                    index,
+                                    -1,
+                                  ),
+                                )
+                              }
+                            >
+                              Earlier
+                            </button>
+                            <button
+                              class="quiet-action"
+                              type="button"
+                              disabled={index === selection().questions.length - 1}
+                              aria-label={`Move ${question.row.questionTitle} later`}
+                              onClick={() =>
+                                updateSelection(
+                                  moveQuestionPickerSelection(
+                                    props.mode,
+                                    props.maximumSelection,
+                                    selection(),
+                                    index,
+                                    1,
+                                  ),
+                                )
+                              }
+                            >
+                              Later
+                            </button>
+                            <button
+                              class="quiet-action"
+                              type="button"
+                              onClick={() => toggleRow(question.row, false)}
+                            >
+                              Remove
+                            </button>
+                          </span>
+                        </>
+                      );
+                    },
+                  },
+                ] satisfies ReadonlyArray<
+                  RecordRegion<{
+                    readonly question: QuestionPickerSelection["questions"][number];
+                    readonly index: number;
+                  }>
+                >
+              }
+              recordId={(record) => record.question.questionId}
+              state={{ kind: "ready" }}
+              ariaLabel="Selected Questions in order"
+              emptyState={{ title: "No Questions are selected." }}
+            />
           </Show>
         </section>
       </Show>

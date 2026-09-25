@@ -100,7 +100,7 @@ async function studentScores(runtime: ScenarioRuntime): Promise<void> {
         .getByText("Loading Courses...", { exact: true })
         .waitFor({ state: "hidden" });
       await session.page
-        .locator("dl")
+        .getByRole("list", { name: /Scores$/u })
         .or(
           session.page.getByText("No released Scores are available for this Course yet.", {
             exact: true,
@@ -211,7 +211,9 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
       await choosePersona(page, "Mary Okafor");
       await openStudentCourseList(page);
       await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
-      const courseCards = page.locator("article.course-card");
+      const courseCards = page
+        .getByRole("list", { name: "Your courses", exact: true })
+        .getByRole("listitem");
       await courseCards.first().waitFor();
       if ((await courseCards.count()) < 2) {
         await page.getByRole("link", { name: "Course invitations", exact: true }).click();

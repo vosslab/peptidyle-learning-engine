@@ -45,7 +45,7 @@ async function openInstructorAccounts(page: Page): Promise<void> {
 
 function instructorAccount(page: Page, accountId: string): Locator {
   return page
-    .getByRole("article")
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: accountId, exact: true }) });
 }
 
@@ -79,7 +79,10 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .fill(VERIFIED_INSTRUCTOR_DISPLAY_NAME);
     await page.getByRole("button", { name: "Create Instructor Account", exact: true }).click();
     await page.getByText("Instructor Account created.", { exact: true }).waitFor();
-    const newest = page.getByRole("article").first();
+    const newest = page
+      .getByRole("list", { name: "Instructor Accounts", exact: true })
+      .getByRole("listitem")
+      .first();
     const accountId = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
     if (!isCanonicalAccountId(accountId)) {
       throw new Error("created Instructor Account lacks a canonical public ID");

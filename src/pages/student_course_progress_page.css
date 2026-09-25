@@ -19,18 +19,11 @@
   font-size: 0.92rem;
 }
 
-.student-course-progress__list {
-  display: grid;
-  gap: var(--ple-space-2);
-  margin: var(--ple-space-4) 0 0;
-  padding: 0;
-  list-style: none;
+.student-course-progress .record-list {
+  margin-top: var(--ple-space-4);
 }
 
-.student-course-progress__row {
-  display: grid;
-  grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1fr) auto;
-  gap: var(--ple-space-3);
+.student-course-progress .record-list__row {
   align-items: center;
   padding: var(--ple-space-3);
   border: 1px solid var(--ple-border);
@@ -64,12 +57,6 @@
 }
 
 @media (max-width: 48rem) {
-  .student-course-progress__row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--ple-space-2);
-    align-items: start;
-  }
-
   .student-course-progress__action {
     justify-self: start;
   }

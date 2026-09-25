@@ -12,6 +12,7 @@ import type {
   LibraryImprovementThread,
   LibraryObjectDiscussionKind,
 } from "../api/library_discussion";
+import { RecordDetailList } from "./record_list/record_detail_list";
 import "./library_discussion_panel.css";
 
 export interface LibraryDiscussionPanelProps {
@@ -299,34 +300,40 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
             </Show>
             <section>
               <h3>Impact notices</h3>
-              <Show when={view().impactNotices.length > 0} fallback={<p>No impact notices.</p>}>
-                <For each={view().impactNotices}>
-                  {(notice) => (
-                    <ImpactNoticeView
-                      kind={props.kind}
-                      publicId={props.publicId}
-                      notice={notice}
-                      refresh={refetch}
-                    />
-                  )}
-                </For>
-              </Show>
+              <RecordDetailList
+                ariaLabel="Impact notices"
+                emptyState={{ title: "No impact notices." }}
+                recordId={(notice) => notice.impactNoticeId}
+                rows={view().impactNotices}
+                state={{ kind: "ready" }}
+                renderRecord={(notice) => (
+                  <ImpactNoticeView
+                    kind={props.kind}
+                    publicId={props.publicId}
+                    notice={notice}
+                    refresh={refetch}
+                  />
+                )}
+              />
             </section>
             <section>
               <h3>Improvement threads</h3>
-              <Show when={view().threads.length > 0} fallback={<p>No improvement threads.</p>}>
-                <For each={view().threads}>
-                  {(thread) => (
-                    <ThreadView
-                      kind={props.kind}
-                      publicId={props.publicId}
-                      thread={thread}
-                      refresh={refetch}
-                      mayParticipate={mayParticipate()}
-                    />
-                  )}
-                </For>
-              </Show>
+              <RecordDetailList
+                ariaLabel="Improvement threads"
+                emptyState={{ title: "No improvement threads." }}
+                recordId={(thread) => thread.threadId}
+                rows={view().threads}
+                state={{ kind: "ready" }}
+                renderRecord={(thread) => (
+                  <ThreadView
+                    kind={props.kind}
+                    publicId={props.publicId}
+                    thread={thread}
+                    refresh={refetch}
+                    mayParticipate={mayParticipate()}
+                  />
+                )}
+              />
             </section>
           </>
         )}
@@ -388,7 +395,7 @@ function ThreadView(props: {
   }
 
   return (
-    <article
+    <section
       id={activityAnchor(props.thread.threadId)}
       class="library-improvement-thread"
       data-state={props.thread.state}
@@ -454,7 +461,7 @@ function ThreadView(props: {
       <Show when={error()}>
         <p role="alert">{error()}</p>
       </Show>
-    </article>
+    </section>
   );
 }
 

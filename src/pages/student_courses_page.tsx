@@ -1,21 +1,49 @@
 // Student-owned current course index.
 
 import { A } from "@solidjs/router";
-import { createResource, For, Show, type JSX } from "solid-js";
+import { createResource, type JSX } from "solid-js";
 
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 
-function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
-  return (
-    <article class="course-card">
-      <h2>{props.course.longName}</h2>
-      <A class="primary-link" href={`/student/courses/${props.course.id}`}>
-        Open Course
-      </A>
-    </article>
-  );
+function courseRegions(): ReadonlyArray<RecordRegion<LiveStudentCourseLandingSummary>> {
+  return [
+    {
+      id: "course",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (course): JSX.Element => <h2>{course.longName}</h2>,
+    },
+    {
+      id: "action",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (course): JSX.Element => (
+        <A class="primary-link" href={`/student/courses/${course.id}`}>
+          Open Course
+        </A>
+      ),
+    },
+  ];
+}
+
+function courseListState(loading: boolean, unavailable: boolean): RecordListState {
+  if (loading) return { kind: "loading", label: "Loading your courses..." };
+  if (unavailable) {
+    return {
+      kind: "error",
+      title: "Your courses are unavailable",
+      message: "Your courses are not available right now.",
+    };
+  }
+  return { kind: "ready" };
 }
 
 /** Lists the signed-in Student's current Courses and invitations. */
@@ -33,23 +61,14 @@ export function StudentCoursesPage(): JSX.Element {
       <A class="quiet-link" href="/student/course-invitations">
         Course invitations
       </A>
-      <Show when={courses.loading}>
-        <p class="loading-state">Loading your courses...</p>
-      </Show>
-      <Show when={courses.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h2>Your courses are unavailable</h2>
-          <p>Your courses are not available right now.</p>
-        </section>
-      </Show>
-      <Show when={!courses.loading && courses.error === undefined && courses()?.length === 0}>
-        <p class="empty-state">You do not have any current courses.</p>
-      </Show>
-      <Show when={(courses()?.length ?? 0) > 0}>
-        <div class="card-grid">
-          <For each={courses()}>{(course) => <CourseCard course={course} />}</For>
-        </div>
-      </Show>
+      <RecordList
+        ariaLabel="Your courses"
+        emptyState={{ title: "You do not have any current courses." }}
+        recordId={(course) => course.id}
+        regions={courseRegions()}
+        rows={courses() ?? []}
+        state={courseListState(courses.loading, courses.error !== undefined)}
+      />
     </PageFrame>
   );
 }

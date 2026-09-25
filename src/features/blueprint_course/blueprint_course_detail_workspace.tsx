@@ -6,6 +6,10 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { PageFrame } from "../../components/page_frame";
+import {
+  RecordOutlineItem,
+  RecordOutlineList,
+} from "../../components/record_list/record_outline_list";
 import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
@@ -733,34 +737,56 @@ export function BlueprintCourseDetailWorkspace(
                     <Show when={editing()}>
                       <p>Select an assessment to edit its Questions and defaults.</p>
                     </Show>
-                    <For each={loaded().content.modules}>
-                      {(module, moduleIndex) => (
-                        <section class="blueprint-course-module">
-                          <h3>{module.label}</h3>
-                          <ul class="blueprint-course-assessment-list">
-                            <For each={module.assessments}>
-                              {(assessment, assessmentIndex) => (
-                                <li>
-                                  <span>{assessment.content.title}</span>
-                                  <button
-                                    type="button"
-                                    class="quiet-action"
-                                    onClick={() =>
-                                      setSelectedAssessment({
-                                        moduleIndex: moduleIndex(),
-                                        assessmentIndex: assessmentIndex(),
-                                      })
-                                    }
-                                  >
-                                    {editing() ? "Edit assessment" : "View assessment"}
-                                  </button>
-                                </li>
-                              )}
-                            </For>
-                          </ul>
-                        </section>
-                      )}
-                    </For>
+                    <RecordOutlineList
+                      state={{ kind: "ready" }}
+                      isEmpty={loaded().content.modules.length === 0}
+                      ariaLabel="Blueprint Modules and Assessments"
+                      emptyState={{
+                        title: "No Blueprint Modules",
+                        message: "This Blueprint Course has no reusable Assessments.",
+                      }}
+                    >
+                      <For each={loaded().content.modules}>
+                        {(module, moduleIndex) => (
+                          <RecordOutlineItem recordId={`module-${moduleIndex()}`}>
+                            <section class="blueprint-course-module">
+                              <h3>{module.label}</h3>
+                              <RecordOutlineList
+                                state={{ kind: "ready" }}
+                                isEmpty={module.assessments.length === 0}
+                                ariaLabel={`${module.label} Assessments`}
+                                emptyState={{
+                                  title: "No Assessments",
+                                  message: "This Module has no reusable Assessments.",
+                                }}
+                              >
+                                <For each={module.assessments}>
+                                  {(assessment, assessmentIndex) => (
+                                    <RecordOutlineItem
+                                      recordId={`assessment-${moduleIndex()}-${assessmentIndex()}`}
+                                    >
+                                      <span>{assessment.content.title}</span>
+                                      <button
+                                        type="button"
+                                        class="quiet-action"
+                                        onClick={() =>
+                                          setSelectedAssessment({
+                                            moduleIndex: moduleIndex(),
+                                            assessmentIndex: assessmentIndex(),
+                                          })
+                                        }
+                                      >
+                                        {editing() ? "Edit assessment" : "View assessment"}
+                                      </button>
+                                    </RecordOutlineItem>
+                                  )}
+                                </For>
+                              </RecordOutlineList>
+                            </section>
+                          </RecordOutlineItem>
+                        )}
+                      </For>
+                    </RecordOutlineList>
                   </Show>
                   <Show when={selectedAssessment()} keyed>
                     {(selection) => {

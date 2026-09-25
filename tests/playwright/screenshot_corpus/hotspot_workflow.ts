@@ -216,7 +216,7 @@ export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard")
   await saveAndReload();
   await page.getByRole("button", { name: "Submit Attempt", exact: true }).click();
   await page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
-  const recorded = page.getByRole("article").filter({
+  const recorded = page.getByRole("listitem").filter({
     has: page.getByRole("heading", { name: `Question ${position}`, exact: true }),
   });
   await recorded.getByText("Submitted.", { exact: true }).waitFor();

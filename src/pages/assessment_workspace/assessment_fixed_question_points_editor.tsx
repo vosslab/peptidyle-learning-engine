@@ -1,7 +1,9 @@
-import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
+import { Show, createMemo, createSignal, type JSX } from "solid-js";
 
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
+import { RecordList } from "../../components/record_list/record_list";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
@@ -155,32 +157,54 @@ export function AssessmentFixedQuestionPointsEditor(
         >
           <fieldset class="assessment-editor-policy-panel" disabled={saving() || reloading()}>
             <legend>Points assigned to each fixed Question</legend>
-            <For each={fixedEntries()}>
-              {(entry) => {
-                const inputId = `fixed-question-points-${entry.id}`;
-                const value = (): string => draft()[entry.id] ?? "";
-                return (
-                  <label class="assessment-editor-field" for={inputId}>
-                    Question {entry.publishedQuestionRevisionTuple.publishedQuestionId} Revision{" "}
-                    {entry.publishedQuestionRevisionTuple.revisionNumber}
-                    <input
-                      id={inputId}
-                      inputmode="decimal"
-                      value={value()}
-                      aria-invalid={assessmentPointValueDraft(value()) === undefined}
-                      onInput={(event) => {
-                        setDraft((current) => ({
-                          ...current,
-                          [entry.id]: event.currentTarget.value,
-                        }));
-                        setMessage("");
-                        setFailed(false);
-                      }}
-                    />
-                  </label>
-                );
+            <RecordList
+              rows={fixedEntries()}
+              regions={
+                [
+                  {
+                    id: "identity",
+                    role: "identity",
+                    priority: "required",
+                    width: "minmax(0, 1fr)",
+                    align: "start",
+                    content: (entry): JSX.Element => {
+                      const inputId = `fixed-question-points-${entry.id}`;
+                      const value = (): string => draft()[entry.id] ?? "";
+                      return (
+                        <label class="assessment-editor-field" for={inputId}>
+                          Question {entry.publishedQuestionRevisionTuple.publishedQuestionId}{" "}
+                          Revision {entry.publishedQuestionRevisionTuple.revisionNumber}
+                          <input
+                            id={inputId}
+                            inputmode="decimal"
+                            value={value()}
+                            aria-invalid={assessmentPointValueDraft(value()) === undefined}
+                            onInput={(event) => {
+                              setDraft((current) => ({
+                                ...current,
+                                [entry.id]: event.currentTarget.value,
+                              }));
+                              setMessage("");
+                              setFailed(false);
+                            }}
+                          />
+                        </label>
+                      );
+                    },
+                  },
+                ] satisfies ReadonlyArray<
+                  RecordRegion<
+                    typeof fixedEntries extends () => ReadonlyArray<infer Entry> ? Entry : never
+                  >
+                >
+              }
+              recordId={(entry) => entry.id}
+              state={{ kind: "ready" }}
+              ariaLabel="Fixed Question point values"
+              emptyState={{
+                title: "No fixed Questions are currently selected for this Assessment.",
               }}
-            </For>
+            />
             <p class="assessment-editor-note">
               Enter zero or a positive point value with no more than four decimal places.
             </p>

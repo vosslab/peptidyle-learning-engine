@@ -104,7 +104,7 @@ export async function chooseSeededIdentityAtSignIn(page: Page, name: RegExp): Pr
 
 export function courseChoice(page: Page, title: string): Locator {
   return page
-    .getByRole("article")
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 

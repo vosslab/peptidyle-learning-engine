@@ -8,12 +8,10 @@
   max-width: 75ch;
 }
 
-.student-course-response-stats__list {
+.student-course-response-stats .record-detail-list {
   display: grid;
   gap: var(--ple-space-2);
-  margin: var(--ple-space-4) 0 0;
-  padding: 0;
-  list-style: none;
+  margin-top: var(--ple-space-4);
 }
 
 .student-course-response-stats__row {
@@ -21,10 +19,7 @@
   grid-template-columns: minmax(10rem, 1fr) minmax(22rem, 2fr) auto;
   gap: var(--ple-space-3);
   align-items: center;
-  padding: var(--ple-space-3);
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-md);
-  background: var(--ple-surface);
+  min-width: 0;
 }
 
 .student-course-response-stats__identity h3,

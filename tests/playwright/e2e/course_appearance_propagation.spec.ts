@@ -73,7 +73,7 @@ async function createSecondCourseThroughVisibleControls(
     .locator("#create-course-instance")
     .getByRole("button", { name: "Create Course Instance", exact: true })
     .click();
-  const course = page.getByRole("article").filter({
+  const course = page.getByRole("listitem").filter({
     has: page.getByRole("heading", { name: longName, exact: true }),
   });
   await expect(course).toHaveCount(1);

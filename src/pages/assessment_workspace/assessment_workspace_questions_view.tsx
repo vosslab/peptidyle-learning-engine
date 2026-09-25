@@ -15,6 +15,7 @@ import type {
 } from "../../api/assessment_release";
 import { PageFrame } from "../../components/page_frame";
 import { RecordList } from "../../components/record_list/record_list";
+import { RecordSequence } from "../../components/record_list/record_sequence";
 import {
   RecordListReorder,
   RecordListReorderControls,
@@ -393,7 +394,7 @@ export function AssessmentWorkspaceQuestionsView(
             moveAssessmentEntryToDestination(move, sourceIndex, destinationIndex)
           }
         >
-          <RecordList
+          <RecordSequence
             rows={assessmentQuestionRecords(entries())}
             regions={selectedQuestionRegions}
             recordId={(record) => record.entry.id}
@@ -450,37 +451,57 @@ export function AssessmentWorkspaceQuestionsView(
               Add Questions by ID
             </button>
           </div>
-          <ul>
-            <For each={availableToAdd()}>
-              {(candidate) => (
-                <li>
-                  <strong>{candidate.publishedQuestionRevisionTuple.publishedQuestionId}</strong> *
-                  Revision {candidate.publishedQuestionRevisionTuple.revisionNumber}:{" "}
-                  {candidate.description}{" "}
-                  <A
-                    href={questionRevisionInspectionPath(candidate.publishedQuestionRevisionTuple)}
-                  >
-                    Inspect
-                  </A>{" "}
-                  <Show when={candidate.bloom}>
-                    {(bloom) => (
-                      <span>
-                        Bloom Cognitive Process: {bloom().cognitiveProcess}; Bloom Knowledge
-                        Dimension: {bloom().knowledgeDimension}
-                      </span>
-                    )}
-                  </Show>{" "}
-                  <button
-                    type="button"
-                    disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
-                    onClick={() => add(candidate)}
-                  >
-                    Add Question
-                  </button>
-                </li>
-              )}
-            </For>
-          </ul>
+          <RecordList
+            rows={availableToAdd()}
+            regions={
+              [
+                {
+                  id: "identity",
+                  role: "identity",
+                  priority: "required",
+                  width: "minmax(0, 1fr)",
+                  align: "start",
+                  content: (candidate) => (
+                    <>
+                      <strong>
+                        {candidate.publishedQuestionRevisionTuple.publishedQuestionId}
+                      </strong>{" "}
+                      * Revision {candidate.publishedQuestionRevisionTuple.revisionNumber}:{" "}
+                      {candidate.description}{" "}
+                      <A
+                        href={questionRevisionInspectionPath(
+                          candidate.publishedQuestionRevisionTuple,
+                        )}
+                      >
+                        Inspect
+                      </A>{" "}
+                      <Show when={candidate.bloom}>
+                        {(bloom) => (
+                          <span>
+                            Bloom Cognitive Process: {bloom().cognitiveProcess}; Bloom Knowledge
+                            Dimension: {bloom().knowledgeDimension}
+                          </span>
+                        )}
+                      </Show>{" "}
+                      <button
+                        type="button"
+                        disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
+                        onClick={() => add(candidate)}
+                      >
+                        Add Question
+                      </button>
+                    </>
+                  ),
+                },
+              ] satisfies ReadonlyArray<RecordRegion<AssessmentQuestionPickerEntry>>
+            }
+            recordId={(candidate) =>
+              `${candidate.publishedQuestionRevisionTuple.publishedQuestionId}:${candidate.publishedQuestionRevisionTuple.revisionNumber}`
+            }
+            state={{ kind: "ready" }}
+            ariaLabel="Available published Questions"
+            emptyState={{ title: "No additional Available Questions are ready to add." }}
+          />
         </Show>
       </section>
       <section class="assessment-editor-panel" aria-labelledby="available-pools-heading">

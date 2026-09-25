@@ -1,9 +1,11 @@
 // Live discovery for reusable Blueprint Courses.
 import { A } from "@solidjs/router";
-import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
+import { Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { PageFrame } from "../../components/page_frame";
+import { RecordList } from "../../components/record_list/record_list";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseImport } from "./blueprint_exchange";
@@ -38,6 +40,48 @@ function errorMessage(error: unknown, fallback: string): string {
   }
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
+
+const blueprintCourseRegions: ReadonlyArray<RecordRegion<BlueprintCourseSummaryView>> = [
+  {
+    id: "blueprint",
+    role: "identity",
+    priority: "required",
+    width: "minmax(14rem, 1.4fr)",
+    align: "start",
+    content: (course) => (
+      <A href={blueprintCoursePath(course.id)}>
+        <strong>{course.long_name}</strong>
+        <span>
+          {course.total_adoptions.toLocaleString()} adoptions ·{" "}
+          {course.total_students_ever_enrolled.toLocaleString()} students ever enrolled
+        </span>
+      </A>
+    ),
+  },
+  {
+    id: "access",
+    role: "metadata",
+    priority: "high",
+    width: "minmax(14rem, 1fr)",
+    align: "start",
+    content: (course) => (
+      <>
+        {course.read_access === "blueprint_course_owner"
+          ? "You are the Blueprint Course Owner."
+          : "Inspect its reusable modules."}{" "}
+        Current Blueprint Revision {course.current_revision_tuple.revisionNumber}.
+      </>
+    ),
+  },
+  {
+    id: "classification",
+    role: "metadata",
+    priority: "medium",
+    width: "minmax(12rem, 1fr)",
+    align: "start",
+    content: (course) => <CourseClassificationSummary value={course.classification} />,
+  },
+];
 
 export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
@@ -211,29 +255,16 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                   <option value="students">Students ever enrolled</option>
                 </select>
               </label>
-              <ul class="blueprint-course-summary-list">
-                <For each={sortedCourses()}>
-                  {(course) => (
-                    <li>
-                      <A href={blueprintCoursePath(course.id)}>
-                        <strong>{course.long_name}</strong>
-                        <span>
-                          {course.total_adoptions.toLocaleString()} adoptions ·{" "}
-                          {course.total_students_ever_enrolled.toLocaleString()} students ever
-                          enrolled
-                        </span>
-                        <span>
-                          {course.read_access === "blueprint_course_owner"
-                            ? "You are the Blueprint Course Owner."
-                            : "Inspect its reusable modules."}{" "}
-                          Current Blueprint Revision {course.current_revision_tuple.revisionNumber}.
-                        </span>
-                      </A>
-                      <CourseClassificationSummary value={course.classification} />
-                    </li>
-                  )}
-                </For>
-              </ul>
+              <div class="blueprint-course-record-list">
+                <RecordList
+                  ariaLabel="Available Blueprint Courses"
+                  emptyState={{ title: "No Blueprint Courses are visible yet." }}
+                  recordId={(course) => course.id}
+                  regions={blueprintCourseRegions}
+                  rows={sortedCourses()}
+                  state={{ kind: "ready" }}
+                />
+              </div>
             </Show>
             <Show when={continuation().visible}>
               <div class="blueprint-course-continuation">

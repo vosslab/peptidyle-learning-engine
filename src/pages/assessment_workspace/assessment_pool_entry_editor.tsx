@@ -8,6 +8,8 @@ import type { PublishedQuestionRevisionTuple } from "../../../generated/api/Publ
 import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
 import { questionRevisionKey } from "./assessment_workspace_questions_model";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 
 export interface AssessmentPoolEntryEditorProps {
   readonly entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>;
@@ -19,6 +21,12 @@ export interface AssessmentPoolEntryEditorProps {
   readonly onSelectionCount: (selectionCount: number) => void;
   readonly onReplaceMembers: (members: ReadonlyArray<PublishedQuestionRevisionTuple>) => void;
 }
+
+type AssessmentPoolMemberRecord = {
+  readonly member: AssessmentQuestionPoolForkView["members"][number];
+  readonly index: number;
+  readonly members: AssessmentQuestionPoolForkView["members"];
+};
 
 /** Renders exact immutable fork members and only the two permitted Assessment-owned mutations. */
 export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps): JSX.Element {
@@ -71,6 +79,71 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
     setAttested(false);
   }
 
+  const memberRegions: ReadonlyArray<RecordRegion<AssessmentPoolMemberRecord>> = [
+    {
+      id: "identity",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (record) => (
+        <>
+          <strong>{record.member.publishedQuestionRevisionTuple.publishedQuestionId}</strong>{" "}
+          Revision {record.member.publishedQuestionRevisionTuple.revisionNumber}:{" "}
+          {record.member.question.question_library.summary.metadata.questionTitle}
+          <fieldset disabled={!props.mutationsEnabled || props.busy || !attested()}>
+            <legend>Membership order</legend>
+            <button
+              type="button"
+              disabled={record.index === 0}
+              onClick={() => {
+                const members = record.members.map(
+                  (current) => current.publishedQuestionRevisionTuple,
+                );
+                [members[record.index - 1], members[record.index]] = [
+                  members[record.index]!,
+                  members[record.index - 1]!,
+                ];
+                replaceMembers(members);
+              }}
+            >
+              Move earlier
+            </button>
+            <button
+              type="button"
+              disabled={record.index === record.members.length - 1}
+              onClick={() => {
+                const members = record.members.map(
+                  (current) => current.publishedQuestionRevisionTuple,
+                );
+                [members[record.index], members[record.index + 1]] = [
+                  members[record.index + 1]!,
+                  members[record.index]!,
+                ];
+                replaceMembers(members);
+              }}
+            >
+              Move later
+            </button>
+            <button
+              type="button"
+              disabled={record.members.length <= props.entry.selectionCount}
+              onClick={() =>
+                replaceMembers(
+                  record.members
+                    .filter((_current, index) => index !== record.index)
+                    .map((current) => current.publishedQuestionRevisionTuple),
+                )
+              }
+            >
+              Remove
+            </button>
+          </fieldset>
+        </>
+      ),
+    },
+  ];
+
   return (
     <section class="assessment-pool-fork" aria-labelledby={`assessment-pool-${props.entry.id}`}>
       <h3 id={`assessment-pool-${props.entry.id}`}>
@@ -112,65 +185,16 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
               />
               These Questions are interchangeable assessments of the intended learning.
             </label>
-            <ol>
-              <For each={fork().members}>
-                {(member, index) => (
-                  <li>
-                    <strong>{member.publishedQuestionRevisionTuple.publishedQuestionId}</strong>{" "}
-                    Revision {member.publishedQuestionRevisionTuple.revisionNumber}:{" "}
-                    {member.question.question_library.summary.metadata.questionTitle}
-                    <fieldset disabled={!props.mutationsEnabled || props.busy || !attested()}>
-                      <legend>Membership order</legend>
-                      <button
-                        type="button"
-                        disabled={index() === 0}
-                        onClick={() => {
-                          const members = fork().members.map(
-                            (current) => current.publishedQuestionRevisionTuple,
-                          );
-                          [members[index() - 1], members[index()]] = [
-                            members[index()]!,
-                            members[index() - 1]!,
-                          ];
-                          replaceMembers(members);
-                        }}
-                      >
-                        Move earlier
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index() === fork().members.length - 1}
-                        onClick={() => {
-                          const members = fork().members.map(
-                            (current) => current.publishedQuestionRevisionTuple,
-                          );
-                          [members[index()], members[index() + 1]] = [
-                            members[index() + 1]!,
-                            members[index()]!,
-                          ];
-                          replaceMembers(members);
-                        }}
-                      >
-                        Move later
-                      </button>
-                      <button
-                        type="button"
-                        disabled={fork().members.length <= props.entry.selectionCount}
-                        onClick={() =>
-                          replaceMembers(
-                            fork()
-                              .members.filter((_current, currentIndex) => currentIndex !== index())
-                              .map((current) => current.publishedQuestionRevisionTuple),
-                          )
-                        }
-                      >
-                        Remove
-                      </button>
-                    </fieldset>
-                  </li>
-                )}
-              </For>
-            </ol>
+            <RecordSequence
+              rows={fork().members.map((member, index, members) => ({ member, index, members }))}
+              regions={memberRegions}
+              recordId={(record) =>
+                questionRevisionKey(record.member.publishedQuestionRevisionTuple)
+              }
+              state={{ kind: "ready" }}
+              ariaLabel="Ordered Assessment Pool members"
+              emptyState={{ title: "No Pool members are available." }}
+            />
             <Show when={fork().members.length <= props.entry.selectionCount}>
               <p class="assessment-editor-note">
                 Lower the selection count before removing a Pool member.

@@ -17,6 +17,10 @@
   box-shadow: none;
 }
 
+.roster-section .record-table {
+  min-inline-size: var(--ple-roster-table-min-inline);
+}
+
 .roster-empty-state {
   display: flex;
   flex-wrap: wrap;

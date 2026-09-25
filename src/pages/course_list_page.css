@@ -53,6 +53,29 @@
   font-size: 0.84rem;
 }
 
+.course-list-record__identity {
+  border-inline-start: 0.25rem solid var(--ple-course-list-theme-accent, var(--ple-border-strong));
+  padding-inline-start: var(--ple-space-2);
+}
+
+.course-list-record__kind,
+.course-list-record__metadata {
+  margin: 0;
+  color: var(--ple-muted);
+}
+
+.course-list-record__kind {
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.course-list-record__identity h2 {
+  margin: var(--ple-space-1) 0;
+  font-size: 1.1rem;
+}
+
 @media (max-width: 64rem) {
   .course-create-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));

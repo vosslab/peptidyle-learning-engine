@@ -1,6 +1,6 @@
 // Instructor-only discovery of available Public Blueprint Courses.
 import { A } from "@solidjs/router";
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseClient } from "../api/blueprint_course";
 import type { ContentClassificationClient } from "../api/content_classification";
@@ -12,6 +12,8 @@ import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import { appendBlueprintCoursePage } from "../features/blueprint_course/blueprint_course_model";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PageFrame } from "../components/page_frame";
+import { RecordList } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import {
   BLUEPRINT_SEARCH_RETURN_PARAMETER,
   saveBlueprintSearchReturnState,
@@ -32,6 +34,67 @@ function emptySearch(): SearchSnapshot {
     classification: emptyBlueprintClassificationSearch(),
     classificationDescription: "",
   };
+}
+
+function publicBlueprintRegions(
+  resultLinks: Map<string, HTMLAnchorElement>,
+  saveReturn: (event: MouseEvent, linkKey: string) => void,
+): ReadonlyArray<RecordRegion<BlueprintCourseSummaryView>> {
+  return [
+    {
+      id: "blueprint",
+      role: "identity",
+      priority: "required",
+      width: "minmax(14rem, 1.4fr)",
+      align: "start",
+      content: (course) => (
+        <>
+          <A
+            href={`/blueprint-courses/${encodeURIComponent(course.id)}`}
+            ref={(element) => resultLinks.set(`name:${course.id}`, element)}
+            onClick={(event) => saveReturn(event, `name:${course.id}`)}
+          >
+            {course.long_name}
+          </A>
+          <p class="instructor-list__metadata">
+            {course.short_name} - Current Blueprint Revision{" "}
+            {course.current_revision_tuple.revisionNumber}
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "use",
+      role: "metadata",
+      priority: "medium",
+      width: "minmax(12rem, 1fr)",
+      align: "start",
+      content: (course) => (
+        <>
+          {course.total_adoptions.toLocaleString()} adoptions -{" "}
+          {course.total_students_ever_enrolled.toLocaleString()} students ever enrolled
+        </>
+      ),
+    },
+    {
+      id: "actions",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (course) => (
+        <A
+          class="secondary-action"
+          href={`/blueprint-courses/${encodeURIComponent(course.id)}`}
+          aria-label={`Open ${course.long_name}`}
+          ref={(element) => resultLinks.set(`open:${course.id}`, element)}
+          onClick={(event) => saveReturn(event, `open:${course.id}`)}
+        >
+          Open Blueprint
+        </A>
+      ),
+    },
+  ];
 }
 
 /** Local signals own draft/submitted text and pagination; the server owns public visibility. */
@@ -295,45 +358,14 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
               </p>
             }
           >
-            <ul class="instructor-list" style={{ margin: "0", padding: "0", "list-style": "none" }}>
-              <For each={courses()}>
-                {(course) => (
-                  <li class="instructor-list__row">
-                    <div class="instructor-list__identity">
-                      {/* ASVS 1.2.1, 1.2.2: text nodes and encoded internal identities, never raw HTML. */}
-                      <h3>
-                        <A
-                          href={`/blueprint-courses/${encodeURIComponent(course.id)}`}
-                          ref={(element) => resultLinks.set(`name:${course.id}`, element)}
-                          onClick={(event) => saveReturn(event, `name:${course.id}`)}
-                        >
-                          {course.long_name}
-                        </A>
-                      </h3>
-                      <p class="instructor-list__metadata">
-                        {course.short_name} - Current Blueprint Revision{" "}
-                        {course.current_revision_tuple.revisionNumber}
-                      </p>
-                    </div>
-                    <p class="instructor-list__metadata">
-                      {course.total_adoptions.toLocaleString()} adoptions -{" "}
-                      {course.total_students_ever_enrolled.toLocaleString()} students ever enrolled
-                    </p>
-                    <div class="instructor-list__actions">
-                      <A
-                        class="secondary-action"
-                        href={`/blueprint-courses/${encodeURIComponent(course.id)}`}
-                        aria-label={`Open ${course.long_name}`}
-                        ref={(element) => resultLinks.set(`open:${course.id}`, element)}
-                        onClick={(event) => saveReturn(event, `open:${course.id}`)}
-                      >
-                        Open Blueprint
-                      </A>
-                    </div>
-                  </li>
-                )}
-              </For>
-            </ul>
+            <RecordList
+              ariaLabel="Available Public Blueprint Courses"
+              emptyState={{ title: "No available Public Blueprint Courses match." }}
+              recordId={(course) => course.id}
+              regions={publicBlueprintRegions(resultLinks, saveReturn)}
+              rows={courses()}
+              state={{ kind: "ready" }}
+            />
           </Show>
           <Show when={cursor() !== null}>
             <div class="blueprint-course-continuation">

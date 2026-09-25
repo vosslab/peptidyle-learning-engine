@@ -52,12 +52,15 @@
 }
 
 .bulk-metadata-current-values {
+  max-block-size: 22rem;
+  overflow: auto;
+}
+
+.bulk-metadata-current-values .record-detail-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 0.6rem;
-  max-block-size: 22rem;
   margin-block-start: 0.75rem;
-  overflow: auto;
 }
 
 .bulk-metadata-current-values h3,

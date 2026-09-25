@@ -1,16 +1,12 @@
 /* Account-owned pending Course Invitation layout. */
 
-.pending-invitation-card {
-  display: flex;
-  flex-wrap: wrap;
+.pending-invitation-list .record-list__row {
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ple-space-2);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.pending-invitation-card > div {
+.pending-invitation-list .record-list__region > div {
   min-width: min(100%, 14rem);
 }
 
@@ -20,15 +16,11 @@
 }
 
 @media (max-width: 30rem) {
-  .pending-invitation-card {
-    align-items: stretch;
-  }
-
-  .pending-invitation-card .action-row {
+  .pending-invitation-list .action-row {
     width: 100%;
   }
 
-  .pending-invitation-card .action-row button {
+  .pending-invitation-list .action-row button {
     flex: 1 1 9rem;
   }
 }

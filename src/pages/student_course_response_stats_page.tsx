@@ -8,6 +8,8 @@ import type { LiveStudentCourseLandingSummary } from "../api/live_student_course
 import { useApplicationApi } from "../api/application_api";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import { PageFrame } from "../components/page_frame";
+import { RecordDetailList } from "../components/record_list/record_detail_list";
+import type { RecordCollectionState } from "../components/record_list/record_collection_state";
 import "./student_course_response_stats_page.css";
 
 function reviewPath(stats: StudentCourseResponseStats["questions"][number]): string {
@@ -27,12 +29,12 @@ function durationLabel(stats: StudentCourseResponseStats["questions"][number]): 
   return `About ${seconds} sec · ${stats.displayDurationSampleCount} measured Attempt${stats.displayDurationSampleCount === 1 ? "" : "s"}`;
 }
 
-function ResponseStatsRow(props: {
+function ResponseStatsRecord(props: {
   readonly question: StudentCourseResponseStats["questions"][number];
 }): JSX.Element {
   const question = (): StudentCourseResponseStats["questions"][number] => props.question;
   return (
-    <li class="student-course-response-stats__row">
+    <div class="student-course-response-stats__row">
       <div class="student-course-response-stats__identity">
         <h3>Question {question().publishedQuestionRevisionTuple.publishedQuestionId}</h3>
         <p>Version {question().publishedQuestionRevisionTuple.revisionNumber}</p>
@@ -68,8 +70,20 @@ function ResponseStatsRow(props: {
       <A class="quiet-link student-course-response-stats__action" href={reviewPath(question())}>
         Review an Attempt
       </A>
-    </li>
+    </div>
   );
+}
+
+function responseStatsListState(loading: boolean, unavailable: boolean): RecordCollectionState {
+  if (loading) return { kind: "loading", label: "Loading Response Stats..." };
+  if (unavailable) {
+    return {
+      kind: "error",
+      title: "Response Stats unavailable",
+      message: "Results for this Course could not be loaded right now.",
+    };
+  }
+  return { kind: "ready" };
 }
 
 function CourseResponseStats(props: {
@@ -88,30 +102,16 @@ function CourseResponseStats(props: {
       <h2>
         {props.course.shortName}: {props.course.longName}
       </h2>
-      <Show when={stats.loading}>
-        <p class="loading-state">Loading Response Stats...</p>
-      </Show>
-      <Show when={stats.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h3>Response Stats unavailable</h3>
-          <p>Results for this Course could not be loaded right now.</p>
-        </section>
-      </Show>
-      <Show when={!stats.loading && stats.error === undefined && stats()?.questions.length === 0}>
-        <p class="empty-state">No Question outcomes are available for this Course yet.</p>
-      </Show>
-      <Show
-        when={!stats.loading && stats.error === undefined && (stats()?.questions.length ?? 0) > 0}
-      >
-        <ul
-          class="student-course-response-stats__list"
-          aria-label={`${props.course.shortName} Question outcomes`}
-        >
-          <For each={stats()?.questions}>
-            {(question) => <ResponseStatsRow question={question} />}
-          </For>
-        </ul>
-      </Show>
+      <RecordDetailList
+        ariaLabel={`${props.course.shortName} Question outcomes`}
+        emptyState={{ title: "No Question outcomes are available for this Course yet." }}
+        recordId={(question) =>
+          `${question.publishedQuestionRevisionTuple.publishedQuestionId}:${question.publishedQuestionRevisionTuple.revisionNumber}`
+        }
+        renderRecord={(question) => <ResponseStatsRecord question={question} />}
+        rows={stats()?.questions ?? []}
+        state={responseStatsListState(stats.loading, stats.error !== undefined)}
+      />
     </section>
   );
 }

@@ -20,7 +20,7 @@ import {
 
 async function expectUsedCourse(page: Page, heading: string, openLinkName: string): Promise<void> {
   await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
-  const course = page.getByRole("article").filter({
+  const course = page.getByRole("listitem").filter({
     has: page.getByRole("heading", {
       level: 2,
       name: "Biochemistry 301: Proteins and Peptides",

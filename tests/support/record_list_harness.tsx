@@ -5,7 +5,13 @@ import { render } from "solid-js/web";
 
 import "../../src/browser_environment";
 
-import { RecordList, type RecordListState } from "../../src/components/record_list/record_list";
+import { RecordList } from "../../src/components/record_list/record_list";
+import type { RecordCollectionState } from "../../src/components/record_list/record_collection_state";
+import { RecordDetailList } from "../../src/components/record_list/record_detail_list";
+import {
+  RecordOutlineItem,
+  RecordOutlineList,
+} from "../../src/components/record_list/record_outline_list";
 import {
   createRecordListPresentation,
   recordListPresentationSwitcher,
@@ -15,6 +21,8 @@ import {
   RecordListReorderControls,
   reorderedRecordListRows,
 } from "../../src/components/record_list/record_list_reorder";
+import { RecordSequence } from "../../src/components/record_list/record_sequence";
+import { RecordTable } from "../../src/components/record_list/record_table";
 import {
   recordListWindow,
   recordListWindowScrollTopForRecord,
@@ -116,6 +124,11 @@ const ALIGNMENT_REGIONS: ReadonlyArray<RecordRegion<AlignmentRecord>> = [
     content: (record) => <button type="button">Open {record.title}</button>,
   },
 ];
+
+const DETAIL_RECORDS = [
+  { id: "attempt-one", title: "Question 1", feedback: "Explain why the DNA sequence changes." },
+  { id: "attempt-two", title: "Question 2", feedback: "Compare the two protein structures." },
+] as const;
 
 function AlignmentCase(): JSX.Element {
   return (
@@ -265,9 +278,9 @@ function ReorderCase(): JSX.Element {
 
 function PrimitiveStateCase(props: {
   readonly id: "ready" | "empty" | "loading" | "error";
-  readonly state: RecordListState;
+  readonly state: RecordCollectionState;
 }): JSX.Element {
-  const state = (): RecordListState => props.state;
+  const state = (): RecordCollectionState => props.state;
   const rows = (): ReadonlyArray<DemoRecord> => (props.id === "ready" ? PRESENTATION_RECORDS : []);
   const [selectedRecordId, setSelectedRecordId] = createSignal<string>();
   const caseId = `primitive-${props.id}`;
@@ -282,6 +295,127 @@ function PrimitiveStateCase(props: {
         ariaLabel={`${caseId} records`}
         emptyState={{ title: "No primitive records" }}
       />
+    </section>
+  );
+}
+
+function FamilyComponentsCase(): JSX.Element {
+  const [selectedRecordId, setSelectedRecordId] = createSignal<string>();
+  const regions = recordRegions(selectedRecordId, setSelectedRecordId);
+
+  return (
+    <section data-record-list-case="record-family">
+      <h1>Record family</h1>
+      <button type="button" data-record-family-tab-start>
+        Start keyboard traversal
+      </button>
+      <section data-record-family-case="sequence">
+        <h2>Ordered records</h2>
+        <RecordSequence
+          rows={PRESENTATION_RECORDS}
+          regions={regions}
+          recordId={(record) => record.id}
+          state={{ kind: "ready" }}
+          ariaLabel="Ordered course records"
+          emptyState={{ title: "No ordered records" }}
+        />
+      </section>
+      <section data-record-family-case="sequence-empty">
+        <RecordSequence
+          rows={[]}
+          regions={regions}
+          recordId={(record) => record.id}
+          state={{ kind: "ready" }}
+          ariaLabel="Empty ordered course records"
+          emptyState={{ title: "No ordered records" }}
+        />
+      </section>
+      <section data-record-family-case="sequence-loading">
+        <RecordSequence
+          rows={[]}
+          regions={regions}
+          recordId={(record) => record.id}
+          state={{ kind: "loading", label: "Loading ordered course records..." }}
+          ariaLabel="Loading ordered course records"
+          emptyState={{ title: "No ordered records" }}
+        />
+      </section>
+      <section data-record-family-case="sequence-error">
+        <RecordSequence
+          rows={[]}
+          regions={regions}
+          recordId={(record) => record.id}
+          state={{ kind: "error", message: "Ordered course records are unavailable." }}
+          ariaLabel="Unavailable ordered course records"
+          emptyState={{ title: "No ordered records" }}
+        />
+      </section>
+      <section data-record-family-case="table">
+        <h2>Course roster</h2>
+        <RecordTable
+          rows={ALIGNMENT_RECORDS}
+          rowId={(record) => record.id}
+          rowHeader={{
+            id: "student",
+            header: "Student",
+            width: "30%",
+            content: (record) => record.title,
+          }}
+          columns={[
+            { id: "week", header: "Week", width: "35%", cell: (record) => record.metadata },
+            {
+              id: "action",
+              header: "Action",
+              width: "35%",
+              align: "end",
+              cell: (record) => <button type="button">Open {record.title}</button>,
+            },
+          ]}
+          state={{ kind: "ready" }}
+          ariaLabel="Course roster records"
+          emptyState={{ title: "No roster records" }}
+        />
+      </section>
+      <section data-record-family-case="outline">
+        <h2>Course outline</h2>
+        <RecordOutlineList
+          state={{ kind: "ready" }}
+          isEmpty={false}
+          ariaLabel="Course modules"
+          emptyState={{ title: "No modules" }}
+        >
+          <RecordOutlineItem recordId="module-one">
+            <strong>Module one</strong>
+            <RecordOutlineList
+              state={{ kind: "ready" }}
+              isEmpty={false}
+              ariaLabel="Module one assessments"
+              emptyState={{ title: "No assessments" }}
+            >
+              <RecordOutlineItem recordId="assessment-one">
+                <button type="button">Open assessment one</button>
+              </RecordOutlineItem>
+            </RecordOutlineList>
+          </RecordOutlineItem>
+        </RecordOutlineList>
+      </section>
+      <section data-record-family-case="detail">
+        <h2>Attempt review</h2>
+        <RecordDetailList
+          rows={DETAIL_RECORDS}
+          recordId={(record) => record.id}
+          renderRecord={(record) => (
+            <>
+              <h3>{record.title}</h3>
+              <p>{record.feedback}</p>
+              <button type="button">Review {record.title}</button>
+            </>
+          )}
+          state={{ kind: "ready" }}
+          ariaLabel="Attempt review records"
+          emptyState={{ title: "No review records" }}
+        />
+      </section>
     </section>
   );
 }
@@ -373,6 +507,7 @@ export function mountRecordListHarness(target: HTMLElement): RecordListHarness {
         <PresentationCase id="two-variants" variants="two" />
         <ReorderCase />
         <ControlledWindowCase />
+        <FamilyComponentsCase />
         <PrimitiveStateCase id="ready" state={{ kind: "ready" }} />
         <PrimitiveStateCase id="empty" state={{ kind: "ready" }} />
         <PrimitiveStateCase

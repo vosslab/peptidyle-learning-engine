@@ -5,7 +5,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  For,
   Match,
   on,
   onCleanup,
@@ -15,9 +14,12 @@ import {
 } from "solid-js";
 
 import { assessmentTypePresentation } from "../assessment_type_presentation";
+import type { LiveAssessmentPreviousAttempt } from "../api/assessment_attempt_issuance";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
 import { PageFrame } from "../components/page_frame";
+import { RecordList } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import {
   assessmentAttemptRouteId,
   parseAssessmentId,
@@ -26,6 +28,57 @@ import {
   type CourseInstanceRouteId,
 } from "../navigation/public_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
+
+function previousAttemptRegions(): ReadonlyArray<RecordRegion<LiveAssessmentPreviousAttempt>> {
+  return [
+    {
+      id: "attempt",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (attempt): JSX.Element => <span>Attempt {attempt.attemptNumber}</span>,
+    },
+    {
+      id: "state",
+      role: "status",
+      priority: "high",
+      width: "minmax(8rem, auto)",
+      align: "start",
+      content: (attempt): JSX.Element => (
+        <span>{attempt.state === "submitted" ? "Submitted" : "Closed"}</span>
+      ),
+    },
+    {
+      id: "score",
+      role: "status",
+      priority: "medium",
+      width: "minmax(12rem, auto)",
+      align: "start",
+      content: (attempt): JSX.Element => (
+        <span>
+          {attempt.score === undefined
+            ? "Score is not available."
+            : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`}
+        </span>
+      ),
+    },
+    {
+      id: "review",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (attempt): JSX.Element => (
+        <A
+          href={`/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttemptId)}/summary`}
+        >
+          Attempt {attempt.attemptNumber}
+        </A>
+      ),
+    },
+  ];
+}
 
 /** Public Course Instance and Assessment IDs locate the view; the server re-authorizes each response. */
 export function AssessmentOverviewPage(): JSX.Element {
@@ -176,25 +229,14 @@ export function AssessmentOverviewPage(): JSX.Element {
             <Show when={current().previousAttempts.length > 0}>
               <section class="assessment-history" aria-labelledby="assessment-history-heading">
                 <h2 id="assessment-history-heading">Previous attempts</h2>
-                <ul class="assessment-history__list">
-                  <For each={current().previousAttempts}>
-                    {(attempt) => (
-                      <li>
-                        <A
-                          href={`/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttemptId)}/summary`}
-                        >
-                          Attempt {attempt.attemptNumber}
-                        </A>
-                        <span>{attempt.state === "submitted" ? "Submitted" : "Closed"}</span>
-                        <span>
-                          {attempt.score === undefined
-                            ? "Score is not available."
-                            : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`}
-                        </span>
-                      </li>
-                    )}
-                  </For>
-                </ul>
+                <RecordList
+                  ariaLabel="Previous attempts"
+                  emptyState={{ title: "No previous attempts" }}
+                  recordId={(attempt) => attempt.assessmentAttemptId}
+                  regions={previousAttemptRegions()}
+                  rows={current().previousAttempts}
+                  state={{ kind: "ready" }}
+                />
               </section>
             </Show>
             <Show when={current().previousAttempts.length === 0}>

@@ -1,6 +1,6 @@
 // Instructor workflow for creating one reusable Published Question Pool.
 
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
@@ -19,9 +19,12 @@ import {
   questionPoolSourcePickerRepository,
   type QuestionPoolStartingQuestion,
 } from "./question_pool_create_model";
+import { RecordSequence } from "./record_list/record_sequence";
+import type { RecordRegion } from "./record_list/region_spec";
 import "./question_pool_create_dialog.css";
 
 type CreationState = "choosing" | "reviewing" | "creating" | "created";
+type PoolCreationMember = { readonly title: string; readonly identity: string };
 
 // Match PostgreSQL btrim and Rust trim_matches(' '), not JavaScript Unicode trim.
 function trimPoolDraft(value: string): string {
@@ -179,24 +182,42 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
             <div class="question-pool-create-review-grid">
               <section aria-labelledby="question-pool-selected-heading">
                 <h3 id="question-pool-selected-heading">Selected Questions in order</h3>
-                <ol class="question-pool-member-list">
-                  <Show when={props.startingQuestion}>
-                    {(starting) => (
-                      <li>
-                        <strong>{starting().questionTitle}</strong> (
-                        {starting().publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
-                        {starting().publishedQuestionRevisionTuple.revisionNumber})
-                      </li>
-                    )}
-                  </Show>
-                  <For each={selected().questions}>
-                    {(question) => (
-                      <li>
-                        <strong>{question.row.questionTitle}</strong> ({question.questionId})
-                      </li>
-                    )}
-                  </For>
-                </ol>
+                <RecordSequence
+                  rows={[
+                    ...(props.startingQuestion === undefined
+                      ? []
+                      : [
+                          {
+                            title: props.startingQuestion.questionTitle,
+                            identity: `${props.startingQuestion.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${props.startingQuestion.publishedQuestionRevisionTuple.revisionNumber}`,
+                          },
+                        ]),
+                    ...selected().questions.map((question) => ({
+                      title: question.row.questionTitle,
+                      identity: question.questionId,
+                    })),
+                  ]}
+                  regions={
+                    [
+                      {
+                        id: "identity",
+                        role: "identity",
+                        priority: "required",
+                        width: "minmax(0, 1fr)",
+                        align: "start",
+                        content: (member: PoolCreationMember) => (
+                          <>
+                            <strong>{member.title}</strong> ({member.identity})
+                          </>
+                        ),
+                      },
+                    ] satisfies ReadonlyArray<RecordRegion<PoolCreationMember>>
+                  }
+                  recordId={(member) => member.identity}
+                  state={{ kind: "ready" }}
+                  ariaLabel="Selected Questions in order"
+                  emptyState={{ title: "No Questions are selected." }}
+                />
               </section>
               <Show when={state() !== "created"}>
                 <fieldset disabled={state() === "creating"}>

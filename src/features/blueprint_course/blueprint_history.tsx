@@ -11,6 +11,14 @@ import {
   assessmentDurationDisplay,
 } from "../../assessment_duration";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import { RecordList } from "../../components/record_list/record_list";
+import {
+  RecordOutlineItem,
+  RecordOutlineList,
+} from "../../components/record_list/record_outline_list";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
+import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 
 interface HistoryProps {
   readonly client: BlueprintCourseClient;
@@ -47,6 +55,59 @@ function historicalAssessmentDefaultDuration(content: BlueprintAssessmentContent
     return assessmentDurationDefaultDescription(historicalAssessmentQuestionCount(content));
   return assessmentDurationDisplay(seconds);
 }
+
+function historicalEntryId(entry: BlueprintAssessmentEntryView): string {
+  if (entry.kind === "fixed") {
+    const tuple = entry.question.published_question_revision_tuple;
+    return `question-${tuple.publishedQuestionId}-${tuple.revisionNumber}`;
+  }
+  return `pool-${entry.question_pool_id}-${entry.question_pool_edit_number}`;
+}
+
+function historyEntryId(entry: BlueprintHistoryEntryView): string {
+  return entry.kind === "savedRevision"
+    ? `revision-${entry.revisionNumber}`
+    : `metadata-${entry.recordedAt}`;
+}
+
+function historicalEntrySummary(entry: BlueprintAssessmentEntryView): JSX.Element {
+  return (
+    <>
+      Scoring {entry.scoring_rule}; Question Attempt limit{" "}
+      {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}
+      {entry.question_attempt_time_limit.kind === "limited"
+        ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
+        : "unlimited"}
+      <Show when={entry.kind === "pool" ? entry : undefined}>
+        {(pool) => (
+          <span>; selected Question order {pool().selection_rule.selectedQuestionOrder}</span>
+        )}
+      </Show>
+    </>
+  );
+}
+
+const historicalEntryRegions: ReadonlyArray<RecordRegion<BlueprintAssessmentEntryView>> = [
+  {
+    id: "identity",
+    role: "identity",
+    priority: "required",
+    width: "minmax(0, 1fr)",
+    align: "start",
+    content: (entry) =>
+      entry.kind === "fixed"
+        ? `Fixed Question ${entry.question.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.question.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
+        : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`,
+  },
+  {
+    id: "details",
+    role: "actions",
+    priority: "required",
+    width: "minmax(0, 2fr)",
+    align: "start",
+    content: historicalEntrySummary,
+  },
+];
 
 /** Opening history never grants editing or changes the ordinary latest-Revision workspace. */
 export function BlueprintHistory(props: HistoryProps): JSX.Element {
@@ -224,6 +285,44 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
     }
   }
   onMount(() => void load());
+  const historyEntryRegions: ReadonlyArray<RecordRegion<BlueprintHistoryEntryView>> = [
+    {
+      id: "identity",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (entry) =>
+        entry.kind === "savedRevision"
+          ? `Revision ${entry.revisionNumber}${entry.revisionNumber === props.currentRevisionNumber ? " (latest saved)" : " (historical)"}`
+          : `${entry.longName} (${entry.shortName}) - ${entry.availability}`,
+    },
+    {
+      id: "details",
+      role: "actions",
+      priority: "required",
+      width: "minmax(0, 2fr)",
+      align: "start",
+      content: (entry) =>
+        entry.kind === "savedRevision" ? (
+          <>
+            <span>Saved {props.formatDateTime(entry.savedAt)}</span>
+            <button
+              type="button"
+              class="quiet-action"
+              onClick={() => props.onInspect(entry.revisionNumber)}
+            >
+              Inspect Revision {entry.revisionNumber}
+            </button>
+          </>
+        ) : (
+          <>
+            <span>Recorded {props.formatDateTime(entry.recordedAt)}</span>
+            <CourseClassificationSummary value={entry.classification} />
+          </>
+        ),
+    },
+  ];
   return (
     <section
       aria-label={props.kind === "revisions" ? "Saved Revision page" : "Metadata change page"}
@@ -244,49 +343,19 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
           </>
         )}
       </Show>
-      <Show when={ready() && items().length === 0}>
-        <p>
-          No {props.kind === "revisions" ? "saved Revisions" : "recorded metadata changes"} on this
-          page.
-        </p>
+      <Show when={ready()}>
+        <RecordList
+          rows={items()}
+          regions={historyEntryRegions}
+          recordId={historyEntryId}
+          state={{ kind: "ready" }}
+          ariaLabel={props.kind === "revisions" ? "Saved Revisions" : "Recorded metadata changes"}
+          emptyState={{
+            title: `No ${props.kind === "revisions" ? "saved Revisions" : "recorded metadata changes"}`,
+            message: "There are no records on this history page.",
+          }}
+        />
       </Show>
-      <ul class="blueprint-course-assessment-list">
-        <For each={items()}>
-          {(item) => (
-            <li>
-              <Show when={item.kind === "savedRevision" ? item : undefined}>
-                {(saved) => (
-                  <>
-                    <span>
-                      Revision {saved().revisionNumber}
-                      {saved().revisionNumber === props.currentRevisionNumber
-                        ? " (latest saved)"
-                        : " (historical)"}{" "}
-                      - saved {props.formatDateTime(saved().savedAt)}
-                    </span>
-                    <button
-                      type="button"
-                      class="quiet-action"
-                      onClick={() => props.onInspect(saved().revisionNumber)}
-                    >
-                      Inspect Revision {saved().revisionNumber}
-                    </button>
-                  </>
-                )}
-              </Show>
-              <Show when={item.kind === "metadataChange" ? item : undefined}>
-                {(metadata) => (
-                  <div>
-                    {metadata().longName} ({metadata().shortName}) - {metadata().availability};
-                    recorded {props.formatDateTime(metadata().recordedAt)}
-                    <CourseClassificationSummary value={metadata().classification} />
-                  </div>
-                )}
-              </Show>
-            </li>
-          )}
-        </For>
-      </ul>
       <Show when={nextCursor()}>
         {(cursor) => (
           <button type="button" disabled={busy()} onClick={() => void load(cursor())}>
@@ -320,32 +389,46 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
           </button>
         }
       >
-        <For each={props.revision.modules}>
-          {(module) => (
-            <section class="blueprint-course-module">
-              <h4>{module.label}</h4>
-              <ul class="blueprint-course-assessment-list">
-                <For each={module.assessments}>
-                  {(assessment) => (
-                    <li>
-                      <span>{assessment.content.title}</span>
-                      <button
-                        type="button"
-                        class="quiet-action"
-                        onClick={() => setSelectedAssessment(assessment.content)}
-                      >
-                        View historical assessment
-                      </button>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </section>
-          )}
-        </For>
-        <Show when={props.revision.modules.length === 0}>
-          <p>No Modules in this saved Revision.</p>
-        </Show>
+        <RecordOutlineList
+          state={{ kind: "ready" }}
+          isEmpty={props.revision.modules.length === 0}
+          ariaLabel="Historical Blueprint Modules and Assessments"
+          emptyState={{ title: "No Modules", message: "This saved Revision has no Modules." }}
+        >
+          <For each={props.revision.modules}>
+            {(module) => (
+              <RecordOutlineItem recordId={module.blueprint_module_id}>
+                <section class="blueprint-course-module">
+                  <h4>{module.label}</h4>
+                  <RecordOutlineList
+                    state={{ kind: "ready" }}
+                    isEmpty={module.assessments.length === 0}
+                    ariaLabel={`${module.label} historical Assessments`}
+                    emptyState={{
+                      title: "No Assessments",
+                      message: "This Module has no saved Assessments.",
+                    }}
+                  >
+                    <For each={module.assessments}>
+                      {(assessment) => (
+                        <RecordOutlineItem recordId={assessment.blueprint_assessment_id}>
+                          <span>{assessment.content.title}</span>
+                          <button
+                            type="button"
+                            class="quiet-action"
+                            onClick={() => setSelectedAssessment(assessment.content)}
+                          >
+                            View historical assessment
+                          </button>
+                        </RecordOutlineItem>
+                      )}
+                    </For>
+                  </RecordOutlineList>
+                </section>
+              </RecordOutlineItem>
+            )}
+          </For>
+        </RecordOutlineList>
       </Show>
       <Show when={selectedAssessment()}>
         {(content) => (
@@ -355,32 +438,17 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
             {/* ASVS 1.2.1: authored instructions remain escaped plain text, never HTML. */}
             <p style={{ "white-space": "pre-wrap" }}>{content().instructions}</p>
             <h5>Question entries</h5>
-            <ol>
-              <For each={content().entries}>
-                {(entry) => (
-                  <li>
-                    {entry.kind === "fixed"
-                      ? `Fixed Question ${entry.question.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.question.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
-                      : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`}{" "}
-                    - scoring {entry.scoring_rule}; Question Attempt limit{" "}
-                    {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}
-                    {entry.question_attempt_time_limit.kind === "limited"
-                      ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
-                      : "unlimited"}
-                    <Show when={entry.kind === "pool" ? entry : undefined}>
-                      {(pool) => (
-                        <span>
-                          ; selected Question order {pool().selection_rule.selectedQuestionOrder}
-                        </span>
-                      )}
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </ol>
-            <Show when={content().entries.length === 0}>
-              <p>No Question entries.</p>
-            </Show>
+            <RecordSequence
+              rows={content().entries}
+              regions={historicalEntryRegions}
+              recordId={historicalEntryId}
+              state={{ kind: "ready" }}
+              ariaLabel="Historical Question and Pool entries"
+              emptyState={{
+                title: "No Question entries",
+                message: "This historical Assessment has no reusable entries.",
+              }}
+            />
             <h5>Assessment defaults</h5>
             <dl>
               <dt>Assessment Attempt time limit</dt>

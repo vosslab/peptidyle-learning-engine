@@ -117,6 +117,91 @@ async function checkPrimitiveStates(page) {
   assert.match(await error.innerText(), /Primitive records are unavailable/);
 }
 
+async function checkRecordFamily(page) {
+  const family = page.locator('[data-record-list-case="record-family"]');
+  await family.locator("[data-record-family-tab-start]").focus();
+  const expectedTabStops = [
+    "Select Enzyme kinetics",
+    "Select Genetics review",
+    "Select Protein structure",
+    "Open DNA",
+    "Open Genome-wide association study preparation",
+    "Open assessment one",
+    "Review Question 1",
+    "Review Question 2",
+  ];
+  for (const expectedText of expectedTabStops) {
+    await page.keyboard.press("Tab");
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.textContent?.trim()),
+      expectedText,
+      `${expectedText} is reachable in document Tab order`,
+    );
+  }
+
+  const sequence = family.locator('[data-record-family-case="sequence"]');
+  const orderedRecords = sequence.getByRole("list", {
+    name: "Ordered course records",
+    exact: true,
+  });
+  assert.equal(await orderedRecords.evaluate((element) => element.tagName), "OL");
+  assert.deepEqual(await recordIds(orderedRecords), ["enzyme", "genetics", "proteins"]);
+  await family
+    .locator('[data-record-family-case="sequence-empty"]')
+    .getByRole("heading", { name: "No ordered records", exact: true })
+    .waitFor({ state: "visible" });
+  const loading = family.locator('[data-record-family-case="sequence-loading"]');
+  assert.match(await loading.getByRole("status").innerText(), /Loading ordered course records/);
+  const error = family.locator('[data-record-family-case="sequence-error"]');
+  assert.match(await error.getByRole("alert").innerText(), /unavailable/);
+
+  const table = family.getByRole("table", { name: "Course roster records", exact: true });
+  const tableRows = table.locator("tbody tr");
+  const tableRowCount = await tableRows.count();
+  assert.ok(tableRowCount > 0, "ready state renders table records");
+  assert.deepEqual(
+    await table.getByRole("columnheader").allTextContents(),
+    ["Student", "Week", "Action"],
+    "table names each column",
+  );
+  const columnCount = await table.getByRole("columnheader").count();
+  for (let rowIndex = 0; rowIndex < tableRowCount; rowIndex += 1) {
+    const row = tableRows.nth(rowIndex);
+    assert.equal(await row.getByRole("rowheader").count(), 1, "each record has a row header");
+    assert.equal(
+      await row.getByRole("cell").count(),
+      columnCount - 1,
+      "each record retains one cell per remaining column",
+    );
+  }
+  assert.equal(
+    await table
+      .getByRole("columnheader", { name: "Action" })
+      .evaluate((element) => getComputedStyle(element).textAlign),
+    "end",
+    "column alignment applies to headers",
+  );
+  assert.equal(
+    await table
+      .getByRole("row")
+      .nth(1)
+      .getByRole("cell")
+      .nth(1)
+      .evaluate((element) => getComputedStyle(element).textAlign),
+    "end",
+    "column alignment applies to data cells",
+  );
+  const outline = family.getByRole("list", { name: "Course modules", exact: true });
+  assert.equal(await outline.evaluate((element) => element.tagName), "OL");
+  const nestedOutline = family.getByRole("list", { name: "Module one assessments", exact: true });
+  assert.equal(await nestedOutline.evaluate((element) => element.parentElement?.tagName), "LI");
+  assert.deepEqual(await recordIds(nestedOutline), ["assessment-one"]);
+
+  const details = family.getByRole("list", { name: "Attempt review records", exact: true });
+  assert.deepEqual(await recordIds(details), ["attempt-one", "attempt-two"]);
+  assert.ok((await details.innerText()).trim().length > 0, "expanded records retain their content");
+}
+
 async function checkPresentation(page) {
   const oneVariant = page.locator('[data-record-list-case="one-variant"]');
   assert.equal(
@@ -297,13 +382,14 @@ const { browser, consoleErrors, harnessServer, page, pageErrors } = await openRe
 try {
   await checkAlignment(page);
   await checkPrimitiveStates(page);
+  await checkRecordFamily(page);
   await checkPresentation(page);
   await checkReorder(page);
   await checkWindowing(page);
   assert.deepEqual(pageErrors, [], "RecordList contracts raise no browser page errors");
   assert.deepEqual(consoleErrors, [], "RecordList contracts raise no console errors");
   process.stdout.write(
-    "RecordList alignment, state, presentation, reorder, and windowing contracts passed.\n",
+    "RecordList family alignment, states, semantics, presentation, reorder, and windowing contracts passed.\n",
   );
 } finally {
   await browser.close();

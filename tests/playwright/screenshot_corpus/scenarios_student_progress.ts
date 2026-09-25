@@ -14,6 +14,8 @@ import {
   scrollTop,
 } from "./visible_workflows";
 
+const PILOT_COURSE_SHORT_NAME = "BCHM 301";
+
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
   checkpoint: string,
@@ -29,7 +31,11 @@ async function openCourseAttemptHistory(page: Page): Promise<void> {
   await tabs.getByRole("link", { name: "Grades", exact: true }).click();
   await page.getByRole("link", { name: "Attempt History", exact: true }).click();
   await page.locator('[data-route-surface="studentAttemptHistory"]').waitFor();
-  await waitForCourseSections(page, ".student-course-attempt-history", ".loading-state");
+  await waitForCourseSections(
+    page,
+    ".student-course-attempt-history",
+    ".record-collection__state--loading",
+  );
 }
 
 async function openCourseProgress(page: Page): Promise<void> {
@@ -43,7 +49,11 @@ async function waitForCourseProgress(page: Page): Promise<void> {
 }
 
 async function waitForCourseworkSections(page: Page): Promise<void> {
-  await waitForCourseSections(page, "section.student-coursework", ".record-list__state--loading");
+  await waitForCourseSections(
+    page,
+    "section.student-coursework",
+    ".record-collection__state--loading",
+  );
 }
 
 async function waitForCourseSections(
@@ -61,9 +71,17 @@ async function waitForCourseSections(
 }
 
 function attemptHistoryForPilotAssessment(page: Page): Locator {
-  return page
-    .locator(".student-course-attempt-history__row")
+  return pageCourseAttemptHistorySection(page)
+    .getByRole("list", { name: `${PILOT_COURSE_SHORT_NAME} Attempts`, exact: true })
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }) });
+}
+
+function pageCourseAttemptHistorySection(page: Page): Locator {
+  return page.getByRole("region", {
+    name: `${PILOT_COURSE_SHORT_NAME} Attempt History`,
+    exact: true,
+  });
 }
 
 function submittedAttemptHistoryForPilotAssessment(page: Page): Locator {
@@ -187,7 +205,8 @@ async function studentProgressAndStats(runtime: ScenarioRuntime): Promise<void> 
     await openCourseProgress(page);
     await waitForCourseProgress(page);
     await page
-      .locator(".student-course-progress__row")
+      .getByRole("list", { name: "Coursework progress", exact: true })
+      .getByRole("listitem")
       .first()
       .getByText(/^Latest activity:/u)
       .waitFor();
@@ -212,8 +231,16 @@ async function studentProgressAndStats(runtime: ScenarioRuntime): Promise<void> 
     await tabs.getByRole("link", { name: "Grades", exact: true }).click();
     await page.getByRole("link", { name: "Response Stats", exact: true }).click();
     await page.locator('[data-route-surface="studentResponseStats"]').waitFor();
-    await waitForCourseSections(page, ".student-course-response-stats", ".loading-state");
-    await page.locator(".student-course-response-stats__row").first().waitFor();
+    await waitForCourseSections(
+      page,
+      ".student-course-response-stats",
+      ".record-collection__state--loading",
+    );
+    await page
+      .getByRole("list", { name: /Question outcomes$/u })
+      .getByRole("listitem")
+      .first()
+      .waitFor();
     await captureCheckpoint(runtime, "response_stats_laptop", session);
   } finally {
     await runtime.close(session);
@@ -235,24 +262,12 @@ async function studentAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
     ) {
       const previousAttemptCount = submittedAttemptCount;
       await createUnansweredAttempt(page, false);
-      const historyResponsePromise = page.waitForResponse((response) => {
-        return (
-          new URL(response.url()).pathname.endsWith("/assessment-attempts") &&
-          response.request().method() === "GET"
-        );
-      });
       await openCourseAttemptHistory(page);
-      const historyResponse = await historyResponsePromise;
-      const historyPayload = (await historyResponse.json()) as {
-        readonly items?: ReadonlyArray<{ readonly assessmentAttemptNumber?: number }>;
-      };
       submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
       if (submittedAttemptCount <= previousAttemptCount) {
         throw new Error(
-          `Course Attempt History stayed at ${submittedAttemptCount} submitted Attempts after a new submission; ` +
-            `API returned ${historyPayload.items?.length ?? "no items field"} items ` +
-            `(${historyResponse.status()}) with Attempt numbers ${historyPayload.items?.map((item) => item.assessmentAttemptNumber).join(", ") ?? "unavailable"}. ` +
-            `History text: ${await page.locator(".student-course-attempt-history").innerText()}`,
+          `Course Attempt History stayed at ${submittedAttemptCount} submitted Attempts after a new submission. ` +
+            `History text: ${await pageCourseAttemptHistorySection(page).innerText()}`,
         );
       }
     }
@@ -261,8 +276,7 @@ async function studentAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
         `Expected at least 40 submitted Course Attempts, found ${submittedAttemptCount}.`,
       );
     }
-    await page
-      .locator(".student-course-attempt-history__row")
+    await attemptHistoryForPilotAssessment(page)
       .first()
       .getByText(/^Started/u)
       .waitFor();
@@ -281,12 +295,6 @@ async function studentAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
     await page.getByRole("link", { name: "Response Stats", exact: true }).click();
     await page.locator('[data-route-surface="studentResponseStats"]').waitFor();
     await waitForCourseSections(page, ".student-course-response-stats", ".loading-state");
-    const historyResponsePromise = page.waitForResponse((response) => {
-      return (
-        new URL(response.url()).pathname.endsWith("/assessment-attempts") &&
-        response.request().method() === "GET"
-      );
-    });
     const latestFeedbackResponsePromise = page.waitForResponse((response) => {
       return new URL(response.url()).pathname === "/api/student/latest-feedback";
     });
@@ -306,17 +314,12 @@ async function studentAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
           `${latestFeedback.assessmentAttemptId ?? "none"}.`,
       );
     }
-    const historyResponse = await historyResponsePromise;
-    const historyPayload = (await historyResponse.json()) as {
-      readonly items?: ReadonlyArray<{ readonly assessmentAttemptNumber?: number }>;
-    };
     submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
     if (submittedAttemptCount < 40) {
       throw new Error(
         `Course History lost submitted Attempts after navigating through Response Stats; ` +
-          `found ${submittedAttemptCount}. API returned ${historyPayload.items?.length ?? "no items field"} items ` +
-          `(${historyResponse.status()}) with Attempt numbers ${historyPayload.items?.map((item) => item.assessmentAttemptNumber).join(", ") ?? "unavailable"}. ` +
-          `URL: ${page.url()}; history text: ${await page.locator(".student-course-attempt-history").innerText()}`,
+          `found ${submittedAttemptCount}. URL: ${page.url()}; ` +
+          `history text: ${await pageCourseAttemptHistorySection(page).innerText()}`,
       );
     }
     const latestFeedbackLink = page.locator(

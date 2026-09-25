@@ -106,7 +106,7 @@ try {
     .locator("#create-course-instance")
     .getByRole("button", { name: "Create Course Instance", exact: true })
     .click();
-  const createdCourse = page.locator("article").filter({
+  const createdCourse = page.getByRole("listitem").filter({
     has: page.getByRole("heading", { name: courseLongName, exact: true }),
   });
   await createdCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();

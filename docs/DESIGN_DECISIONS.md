@@ -1298,21 +1298,30 @@ never as permission evidence.
 Instructor destination rules, [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx),
 and [ribbon_selected_tab_visibility.ts](../src/ribbon/ribbon_selected_tab_visibility.ts).
 
-### RecordList and windowing have separate ownership
+### Record presentations and windowing have separate ownership
 
-**Decision.** `RecordList` decides how a record looks: regions, alignment,
-hierarchy, responsive priorities, and loading, empty, and error states. The
-window helper decides which existing records mount: visible range, overscan,
-scroll position, measured heights, and spacer heights.
+**Decision.** Each record component uses semantics that match its task:
+`RecordList` for compact scans, `RecordSequence` for saved order,
+`RecordTable` for named columns, `RecordOutlineList` and `RecordOutlineItem`
+for nested membership, and `RecordDetailList` for expanded reviews and
+comparisons. They share loading, empty, and error states while callers retain
+domain and workflow state. `RecordTable` owns its shared table skin and internal
+horizontal scrolling; callers set task-specific column proportions and logical
+alignment. The window helper decides which existing `RecordList` records mount:
+visible range, overscan, scroll position, measured heights, and spacer heights.
 
-**Why.** Rendering a shorter slice must not create a second row implementation
-or change a record's identity, order, or layout.
+**Why.** A scan row, table row, ordered entry, hierarchy, and full review have
+different structural meaning. A shared component should remove repeated
+presentation code without erasing those differences. Rendering a shorter scan
+slice must not change record identity, order, or layout.
 
-**Consequence.** A windowed list uses the same row markup as an ordinary list.
-Windowing preserves a focused record in its mounted slice and does not own
-record state or presentation.
+**Consequence.** All presentations use the same accessible collection states.
+A windowed scan uses the same row markup as an ordinary scan; windowing
+preserves a focused record in its mounted slice and does not own record state or
+presentation.
 
-**Owner.** [record_list.tsx](../src/components/record_list/record_list.tsx),
+**Owner.** The shared components under
+[src/components/record_list/](../src/components/record_list/),
 [record_list_window.ts](../src/components/record_list/record_list_window.ts),
 and their composition boundary in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md).
 
@@ -1341,15 +1350,15 @@ shared control. The two Blueprint Course editors share deferred-save behavior.
 Fork application, Assessment entries, Assessment-owned Pool members, and
 Student Ordering differ in persistence timing, disabled policy, failure
 recovery, or announcement behavior. The shared layer therefore provides array
-movement plus accessible RecordList controls; each caller keeps its workflow
-policy.
+movement plus accessible `RecordList` or `RecordSequence` controls; each caller
+keeps its workflow policy.
 
 | Site                          | Save timing                                                  | Disabled and failure behavior                                                                         | Announcement                                                           |
 | ----------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Blueprint Assessment editor   | Local Blueprint draft; outer Blueprint Save persists it      | Editor availability governs changes; outer Save retains the draft on failure                          | Parent change notice describes the unsaved order                       |
 | Blueprint Pool members editor | Local Blueprint draft; outer Blueprint Save persists it      | Editability and list boundaries govern changes; outer Save retains the draft on failure               | Parent change notice describes the unsaved member change               |
 | Blueprint fork application    | One explicit apply request                                   | Busy, locked, invalid, or empty selection blocks apply; conflict or uncertain result requires refresh | Result message reports saved, correction, or refresh state             |
-| Assessment entries            | Local Assessment draft; Save Questions and order persists it | Busy or reload-required state blocks saving; conflict recovery reloads or discards the draft          | RecordList announces each move and returns focus                       |
+| Assessment entries            | Local Assessment draft; Save Questions and order persists it | Busy or reload-required state blocks saving; conflict recovery reloads or discards the draft          | RecordSequence announces each move and returns focus                   |
 | Assessment-owned Pool members | Local Assessment draft; Save Questions and order persists it | Attestation, availability, dirty state, busy state, and list boundaries govern changes                | The editor explains the pending Pool state; it has no move live region |
 | Student Ordering response     | Each move updates the response controller                    | Locked response state and list boundaries block changes; controller owns response-save failure        | The response control announces each move and returns focus             |
 

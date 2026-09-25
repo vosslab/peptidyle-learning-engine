@@ -90,7 +90,6 @@
   font-weight: 680;
 }
 
-.blueprint-course-summary-list,
 .blueprint-course-entry-list {
   display: grid;
   gap: 0.7rem;
@@ -99,7 +98,7 @@
   list-style: none;
 }
 
-.blueprint-course-summary-list a {
+.blueprint-course-record-list a {
   display: grid;
   gap: 0.25rem;
   padding: 0.85rem;
@@ -109,11 +108,11 @@
   text-decoration: none;
 }
 
-.blueprint-course-summary-list a:hover {
+.blueprint-course-record-list a:hover {
   background: color-mix(in srgb, var(--ple-accent) 13%, var(--ple-card-surface));
 }
 
-.blueprint-course-summary-list span {
+.blueprint-course-record-list span {
   color: var(--ple-muted);
 }
 

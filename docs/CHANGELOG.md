@@ -6,6 +6,56 @@
 
 > September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
 
+## 2026-09-25
+
+### Developer Tests and Notes
+
+- Completed the shared record-presentation components and all ledgered page migrations. The clean
+  screenshot corpus, `source ./source_me.sh && ./launchers/run_fast_ui_checks.sh`, and
+  `source ./source_me.sh && ./launchers/all_test.sh` passed. Full acceptance included database
+  persistence, installation-data replay, and the PostgreSQL/MinIO Course-appearance oracle.
+- Ran Live Demo and Chromium outside the sandbox. A fresh populated Blueprint capture confirmed
+  Module-to-Assessment nesting and selection return; a populated phone roster capture confirmed
+  Student/State/Action headers and horizontally reachable actions at a 393 px phone viewport,
+  with a 334 px visible table scrollport.
+  Temporary evidence is under `/private/tmp/record-presentation-evidence/`.
+- Markdown-link validation passed (325 tests) and `git diff --check` passed.
+- Corrected Known Blueprint forks to use the compact `RecordList` scan specified by the ledger;
+  the expanded comparison remains a separate review. All 56 ledger sources now match their named
+  component. The fast offline gate passed (9,439 Python tests), and the outside-sandbox Chromium UI
+  lane plus a temporary Known Forks page fixture passed.
+- Temporary current-source Chromium fixtures now verify populated Blueprint history and fork
+  destination relationships, destination move/remove/restore/cancel behavior, paired fork
+  differences, Student Response Stats, and a three-Question Attempt review with long feedback and a
+  response table. Laptop and phone renders had no horizontal page overflow or browser errors.
+  Captures and the ignored one-time fixture are under `/private/tmp/record-presentation-evidence/`
+- Additional populated phone fixtures verified recovery Attempt selection and Question evidence,
+  bulk metadata current values, nested discussion posts and active/cancelled Impact notices, and
+  editable Content Disciplines records. Each retained content and actions without horizontal page
+  overflow or browser errors.
+- After the Known Forks correction, `source ./source_me.sh && ./launchers/all_test.sh` passed with
+  9,439 Python tests and all three real-service oracles. The isolated Chromium UI lane passed, and
+  `source ./source_me.sh && ./devel/capture_screenshots.sh --fresh --verify` passed manifest
+  closure, privacy, and artifact-integrity checks. It retained 149 byte-different replay PNGs;
+  visual review of migration-related pages found seeded ID/time and persona-accent changes with the
+  same layouts.
+- The 56-row Record presentation migration plan is complete. Its repository-required `git mv`
+  archive move remains pending because `.git` is read-only in this environment.
+- Consolidated Gradebook and Course roster styling in the shared table family. Replaced invalid
+  `minmax()` column widths with percentages and added logical column alignment. Browser contracts
+  verify full-width laptop tables, column edges and headers, roster actions, and narrow horizontal
+  scrolling without page overflow.
+- After the final table changes, `source ./source_me.sh && ./launchers/all_test.sh` passed, including
+  all 9,439 Python tests and the database persistence, installation-data replay, and PostgreSQL/
+  MinIO Course-appearance oracles. The Chromium UI lane passed outside the sandbox.
+- Published the fresh complete screenshot corpus and atlas outside the sandbox, and visually
+  reviewed the updated Gradebook and roster captures. Populated current-source laptop and phone
+  captures confirmed readable tables, internal horizontal scrolling, and no page overflow.
+- The independent KISS/test-liability audit removed source-inspection tests, brittle table geometry
+  assertions, duplicated sibling state checks, and the one-time migration fixture. Plan gates now
+  follow responsive risk, and its archive closure is recorded as pending the required writable Git
+  index.
+
 ## 2026-09-24
 
 ### Decisions and Failures
@@ -155,6 +205,32 @@
   split, so its fixture completes before the downstream expiry oracle reads it.
 - Moved the Ribbon route fixture's Course label constant before module-time route materialization so
   focused Ribbon contract tests can load reliably.
+- Reconciled the active record-presentation migration ledger against the September 23 audit and
+  current source. It now assigns every genuine collection a presentation, whole-file owner, and
+  completion evidence, while recording selectors, previews, navigation, settings, and fixed
+  comparisons as task-specific structures.
+- Added shared collection-state presentation and the semantic `RecordSequence`, `RecordTable`,
+  `RecordOutlineList`/`RecordOutlineItem`, and `RecordDetailList` components. The focused
+  current-source Chromium harness verifies every sibling's loading, empty, and error states;
+  native order; table headers and cells; nested membership; expanded review entries; and sequential
+  keyboard Tab traversal across their controls.
+- Migrated Gradebook and Course roster to `RecordTable`, retaining all task columns, row headers,
+  roster actions, and horizontal scrolling. Removed the table stylesheet after a current-user
+  search and focused rendered table checks.
+- Migrated Assessment entries, QuestionPicker selections, Pool membership and discovery, and
+  Blueprint Assessment contents to `RecordSequence`, preserving exact Question Revision identity,
+  ordering controls, and caller-owned save behavior.
+- Migrated Blueprint detail, saved history, and fork destinations to nested outline and sequence
+  presentations while keeping selection and structural changes with their pages.
+- Migrated Attempt and recovery reviews, current metadata, discussion, Discipline, and fork
+  differences to `RecordDetailList`; recovery Attempt choices and known-fork summaries use
+  `RecordList`.
+- Migrated the remaining Student, Instructor, and Library/Blueprint scans to `RecordList`, including
+  Course Progress, per-Course Attempt History, Course-grouped Response Stats, Instructor Accounts,
+  Course and Assessment collections, Library statistics, and starred-Instructor identities.
+- Updated the architecture and design records to describe the shared family and each component's
+  task. The migration plan remains active until integrated rendered-page evidence and final gates
+  are recorded.
 
 ## 2026-09-23
 

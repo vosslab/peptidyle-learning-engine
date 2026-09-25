@@ -1,11 +1,12 @@
 // Small Sysadmin workspace for the stable global Discipline vocabulary.
 
-import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
 import type { ContentClassificationItem } from "../api/content_classification";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PageFrame } from "../components/page_frame";
+import { RecordDetailList } from "../components/record_list/record_detail_list";
 
 const unavailableDisciplines: ReadonlyArray<ContentClassificationItem> = [];
 
@@ -146,60 +147,57 @@ export function ContentDisciplinesPage(): JSX.Element {
           </section>
         )}
       </Show>
-      <Show when={disciplines.loading}>
-        <p class="loading-state">Loading Disciplines...</p>
-      </Show>
-      <Show when={disciplines.error !== undefined}>
-        <section class="inline-error" role="alert">
-          <p>Disciplines could not load. Check your connection and try again.</p>
-          <button class="quiet-action" type="button" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </section>
-      </Show>
-      <Show when={disciplines() !== undefined && disciplines.error === undefined}>
-        <section aria-label="Disciplines">
-          <For
-            each={disciplines()}
-            fallback={<p class="empty-state">No Disciplines are available.</p>}
-          >
-            {(item) => (
-              <article class="auth-panel">
-                <h2>{item.name}</h2>
-                <p>{item.isRetired ? "Retired: unavailable for new choices." : "Active."}</p>
-                <label>
-                  Discipline name
-                  <input
-                    type="text"
-                    value={displayedName(item)}
-                    onInput={(event) => setDisplayedName(item.uuid, event.currentTarget.value)}
-                    maxlength={120}
-                    disabled={busyUuid() === item.uuid}
-                  />
-                </label>
-                <p>
-                  <button
-                    class="quiet-action"
-                    type="button"
-                    disabled={busyUuid() === item.uuid || displayedName(item) === item.name}
-                    onClick={() => void rename(item)}
-                  >
-                    Save name
-                  </button>{" "}
-                  <button
-                    class="quiet-action"
-                    type="button"
-                    disabled={busyUuid() === item.uuid}
-                    onClick={() => void changeRetirement(item)}
-                  >
-                    {item.isRetired ? "Restore Discipline" : "Retire Discipline"}
-                  </button>
-                </p>
-              </article>
-            )}
-          </For>
-        </section>
-      </Show>
+      <RecordDetailList
+        ariaLabel="Disciplines"
+        emptyState={{ title: "No Disciplines are available." }}
+        recordId={(item) => item.uuid}
+        rows={disciplines() ?? []}
+        state={
+          disciplines.loading
+            ? { kind: "loading", label: "Loading Disciplines..." }
+            : disciplines.error !== undefined
+              ? {
+                  kind: "error",
+                  message: "Disciplines could not load. Check your connection and try again.",
+                  retry: () => void refetch(),
+                }
+              : { kind: "ready" }
+        }
+        renderRecord={(item) => (
+          <div class="auth-panel">
+            <h2>{item.name}</h2>
+            <p>{item.isRetired ? "Retired: unavailable for new choices." : "Active."}</p>
+            <label>
+              Discipline name
+              <input
+                type="text"
+                value={displayedName(item)}
+                onInput={(event) => setDisplayedName(item.uuid, event.currentTarget.value)}
+                maxlength={120}
+                disabled={busyUuid() === item.uuid}
+              />
+            </label>
+            <p>
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={busyUuid() === item.uuid || displayedName(item) === item.name}
+                onClick={() => void rename(item)}
+              >
+                Save name
+              </button>{" "}
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={busyUuid() === item.uuid}
+                onClick={() => void changeRetirement(item)}
+              >
+                {item.isRetired ? "Restore Discipline" : "Retire Discipline"}
+              </button>
+            </p>
+          </div>
+        )}
+      />
     </PageFrame>
   );
 }

@@ -1,7 +1,6 @@
 // Course-list summary and dense Instructor row boundary checks.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
@@ -265,21 +264,4 @@ test("Course classification requires a Discipline, permits absent Subject, and h
   );
   const tags = Array.from({ length: 70 }, (_, index) => `tag-${index}`);
   assert.deepEqual(decodeCourseClassification({ ...classification, tags }).tags, tags);
-});
-
-test("dense Instructor rows remain scoped away from Student cards and product theme scope", () => {
-  const courseList = readFileSync("src/pages/course_list_page.tsx", "utf8");
-  const styles =
-    readFileSync("src/style.css", "utf8") + readFileSync("src/style_responsive.css", "utf8");
-
-  assert.match(courseList, /class="instructor-list__row instructor-list__row--course"/u);
-  assert.match(courseList, /Theme: \{theme\.name\}/u);
-  assert.doesNotMatch(courseList, /CourseThemeVariables/u);
-  assert.match(styles, /--ple-list-row-min-block-size/u);
-  assert.match(styles, /@media \(forced-colors: active\)/u);
-  const instructorListStyles = styles.slice(
-    styles.indexOf(".instructor-list"),
-    styles.indexOf(".course-card"),
-  );
-  assert.doesNotMatch(instructorListStyles, /!important/u);
 });

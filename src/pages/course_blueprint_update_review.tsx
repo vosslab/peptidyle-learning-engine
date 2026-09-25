@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router";
-import { createResource, createSignal, For, Show, type JSX } from "solid-js";
+import { createResource, createSignal, Show, type JSX } from "solid-js";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type {
   CourseAssessmentBlueprintUpdateSummary,
@@ -7,6 +7,8 @@ import type {
 } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
+import { RecordList } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 
 function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string {
   if (assessment.cannotApplyReason === "retainedSourceMissing") {
@@ -16,6 +18,47 @@ function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string
     return "Assessment Type differs";
   }
   return assessment.matchesSource ? "Matches source" : "Changes available";
+}
+
+function assessmentUpdateRegions(
+  courseInstanceId: CourseInstanceId,
+): ReadonlyArray<RecordRegion<CourseAssessmentBlueprintUpdateSummary>> {
+  return [
+    {
+      id: "identity",
+      role: "identity",
+      priority: "required",
+      width: "minmax(14rem, 1fr)",
+      align: "stretch",
+      content: (assessment) => (
+        <div>
+          <p class="course-blueprint-update-review__kind">{updateLabel(assessment)}</p>
+          {/* ASVS 1.2.1: source-controlled titles remain escaped text. */}
+          <h3>{assessment.title}</h3>
+          <p>
+            {assessmentTypePresentation(assessment.assessmentType).label}
+            {"; "}Assessment {assessment.assessmentId}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "center",
+      content: (assessment) => (
+        <A
+          class="quiet-link"
+          aria-label={`Review this Assessment: ${assessment.title}`}
+          href={`/instructor/courses/${courseInstanceId}/assessments/${assessment.assessmentId}/questions`}
+        >
+          Review this Assessment
+        </A>
+      ),
+    },
+  ];
 }
 
 /** Read-only discovery; each Assessment's editor loads its own current detailed review. */
@@ -98,35 +141,14 @@ export function CourseBlueprintUpdateReviewList(props: {
                     </p>
                   }
                 >
-                  <div class="instructor-list" aria-label="Blueprint Assessment updates">
-                    <For each={summary().assessments}>
-                      {(assessment) => (
-                        <article
-                          class="instructor-list__row course-blueprint-update-review__row"
-                          data-blueprint-update-assessment={assessment.assessmentId}
-                        >
-                          <div class="instructor-list__identity">
-                            <p class="instructor-list__kind">{updateLabel(assessment)}</p>
-                            {/* ASVS 1.2.1: source-controlled titles remain escaped text. */}
-                            <h3>{assessment.title}</h3>
-                            <p class="instructor-list__metadata">
-                              {assessmentTypePresentation(assessment.assessmentType).label}
-                              {"; "}Assessment {assessment.assessmentId}
-                            </p>
-                          </div>
-                          <div class="instructor-list__actions">
-                            <A
-                              class="quiet-link"
-                              aria-label={`Review this Assessment: ${assessment.title}`}
-                              href={`/instructor/courses/${props.courseInstanceId}/assessments/${assessment.assessmentId}/questions`}
-                            >
-                              Review this Assessment
-                            </A>
-                          </div>
-                        </article>
-                      )}
-                    </For>
-                  </div>
+                  <RecordList
+                    ariaLabel="Blueprint Assessment updates"
+                    emptyState={{ title: "No Blueprint Assessment updates" }}
+                    recordId={(assessment) => assessment.assessmentId}
+                    regions={assessmentUpdateRegions(props.courseInstanceId)}
+                    rows={summary().assessments}
+                    state={{ kind: "ready" }}
+                  />
                 </Show>
               </>
             )}

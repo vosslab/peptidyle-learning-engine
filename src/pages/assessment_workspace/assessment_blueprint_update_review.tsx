@@ -11,6 +11,8 @@ import {
   assessmentDurationDefaultDescription,
   assessmentDurationDisplay,
 } from "../../assessment_duration";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 
 /** Projects only reusable teaching content; Course delivery state stays outside the update. */
 export function currentBlueprintUpdateContent(
@@ -162,19 +164,36 @@ export function AssessmentBlueprintContentSummary(props: {
       {props.content.entries.length === 0 ? (
         <p>No Entries.</p>
       ) : (
-        <ol>
-          <For each={props.content.entries}>
-            {(entry) => (
-              <li>
-                <AssessmentEntrySummary
-                  entry={entry}
-                  description={props.description}
-                  poolRole={props.poolRole}
-                />
-              </li>
-            )}
-          </For>
-        </ol>
+        <RecordSequence
+          rows={props.content.entries.map((entry, index) => ({ entry, index }))}
+          regions={
+            [
+              {
+                id: "identity",
+                role: "identity",
+                priority: "required",
+                width: "minmax(0, 1fr)",
+                align: "start",
+                content: (record) => (
+                  <AssessmentEntrySummary
+                    entry={record.entry}
+                    description={props.description}
+                    poolRole={props.poolRole}
+                  />
+                ),
+              },
+            ] satisfies ReadonlyArray<
+              RecordRegion<{
+                readonly entry: AssessmentBlueprintUpdateEntry;
+                readonly index: number;
+              }>
+            >
+          }
+          recordId={(record) => `${record.entry.kind}:${record.index}`}
+          state={{ kind: "ready" }}
+          ariaLabel={`${props.heading} ordered Questions and Question Pools`}
+          emptyState={{ title: "No Entries." }}
+        />
       )}
     </section>
   );

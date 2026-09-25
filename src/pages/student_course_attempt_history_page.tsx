@@ -9,6 +9,8 @@ import { useApplicationApi } from "../api/application_api";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import "./student_course_attempt_history_page.css";
 
 function attemptPath(attempt: StudentCourseAttemptHistoryEntry): string {
@@ -31,54 +33,87 @@ function scoreLabel(attempt: StudentCourseAttemptHistoryEntry): string | undefin
   return `Score: ${earned} of ${possible} points`;
 }
 
-function HistoryRow(props: {
-  readonly attempt: StudentCourseAttemptHistoryEntry;
-  readonly formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined;
-}): JSX.Element {
-  const path = (): string => attemptPath(props.attempt);
-  return (
-    <li class="student-course-attempt-history__row">
-      <div class="student-course-attempt-history__identity">
-        <h3>{props.attempt.assessmentTitle}</h3>
-        <p>
-          Attempt {props.attempt.assessmentAttemptNumber} ·{" "}
-          {props.attempt.submittedAt === undefined ? "In progress" : "Submitted"}
-        </p>
-        <Show when={props.formatDateTime()}>
-          {(formatDateTime) => (
-            <p>
-              Started{" "}
-              <time dateTime={new Date(props.attempt.startedAt).toISOString()}>
-                {formatDateTime()(props.attempt.startedAt)}
-              </time>
-            </p>
-          )}
-        </Show>
-        <Show when={props.attempt.submittedAt !== undefined}>
-          <Show when={props.formatDateTime()}>
-            {(formatDateTime) => (
+function attemptHistoryRegions(
+  formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined,
+): ReadonlyArray<RecordRegion<StudentCourseAttemptHistoryEntry>> {
+  return [
+    {
+      id: "attempt",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (attempt): JSX.Element => (
+        <div class="student-course-attempt-history__identity">
+          <h3>{attempt.assessmentTitle}</h3>
+          <p>
+            Attempt {attempt.assessmentAttemptNumber} ·{" "}
+            {attempt.submittedAt === undefined ? "In progress" : "Submitted"}
+          </p>
+          <Show when={formatDateTime()}>
+            {(format) => (
               <p>
-                Submitted{" "}
-                <time dateTime={new Date(props.attempt.submittedAt!).toISOString()}>
-                  {formatDateTime()(props.attempt.submittedAt!)}
+                Started{" "}
+                <time dateTime={new Date(attempt.startedAt).toISOString()}>
+                  {format()(attempt.startedAt)}
                 </time>
               </p>
             )}
           </Show>
-        </Show>
-      </div>
-      <div class="student-course-attempt-history__score">
-        <Show when={props.attempt.submittedAt !== undefined} fallback={<span>No score yet</span>}>
-          <Show when={scoreLabel(props.attempt)} fallback={<span>Score not released</span>}>
-            {(label) => <span>{label()}</span>}
+          <Show when={attempt.submittedAt !== undefined && formatDateTime()}>
+            {(format) => (
+              <p>
+                Submitted{" "}
+                <time dateTime={new Date(attempt.submittedAt!).toISOString()}>
+                  {format()(attempt.submittedAt!)}
+                </time>
+              </p>
+            )}
           </Show>
-        </Show>
-      </div>
-      <A class="quiet-link" href={path()}>
-        {props.attempt.submittedAt === undefined ? "Open Attempt" : "Review Attempt"}
-      </A>
-    </li>
-  );
+        </div>
+      ),
+    },
+    {
+      id: "score",
+      role: "status",
+      priority: "high",
+      width: "minmax(9rem, auto)",
+      align: "start",
+      content: (attempt): JSX.Element => (
+        <div class="student-course-attempt-history__score">
+          <Show when={attempt.submittedAt !== undefined} fallback={<span>No score yet</span>}>
+            <Show when={scoreLabel(attempt)} fallback={<span>Score not released</span>}>
+              {(label) => <span>{label()}</span>}
+            </Show>
+          </Show>
+        </div>
+      ),
+    },
+    {
+      id: "action",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (attempt): JSX.Element => (
+        <A class="quiet-link" href={attemptPath(attempt)}>
+          {attempt.submittedAt === undefined ? "Open Attempt" : "Review Attempt"}
+        </A>
+      ),
+    },
+  ];
+}
+
+function attemptHistoryListState(loading: boolean, unavailable: boolean): RecordListState {
+  if (loading) return { kind: "loading", label: "Loading Attempts..." };
+  if (unavailable) {
+    return {
+      kind: "error",
+      title: "Attempt History unavailable",
+      message: "Attempts for this Course could not be loaded right now.",
+    };
+  }
+  return { kind: "ready" };
 }
 
 function CourseAttemptHistory(props: {
@@ -105,21 +140,15 @@ function CourseAttemptHistory(props: {
       <p>
         Attempts in this Course are listed newest first. Scores appear when they have been released.
       </p>
-      <Show when={page.loading}>
-        <p class="loading-state">Loading Attempts...</p>
-      </Show>
-      <Show when={!page.loading && page.error === undefined && page()?.items.length === 0}>
-        <p class="empty-state">No Attempts have been started in this Course.</p>
-      </Show>
+      <RecordList
+        ariaLabel={`${props.course.shortName} Attempts`}
+        emptyState={{ title: "No Attempts have been started in this Course." }}
+        recordId={(attempt) => attempt.assessmentAttemptId}
+        regions={attemptHistoryRegions(props.formatDateTime)}
+        rows={page()?.items ?? []}
+        state={attemptHistoryListState(page.loading, page.error !== undefined)}
+      />
       <Show when={!page.loading && page.error === undefined && page()?.items.length !== 0}>
-        <ul
-          class="student-course-attempt-history__list"
-          aria-label={`${props.course.shortName} Attempts`}
-        >
-          <For each={page()?.items}>
-            {(attempt) => <HistoryRow attempt={attempt} formatDateTime={props.formatDateTime} />}
-          </For>
-        </ul>
         <nav
           class="student-course-attempt-history__pagination"
           aria-label={`${props.course.shortName} Attempt History pages`}
@@ -151,12 +180,6 @@ function CourseAttemptHistory(props: {
             Older Attempts
           </button>
         </nav>
-      </Show>
-      <Show when={page.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h3>Attempt History unavailable</h3>
-          <p>Attempts for this Course could not be loaded right now.</p>
-        </section>
       </Show>
     </section>
   );

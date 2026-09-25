@@ -34,13 +34,13 @@ async function discoverAssessmentId(page) {
 
 function instructorAssessmentRow(page) {
   return page
-    .locator("li.instructor-list__row--assessment")
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: assessmentTitle, exact: true }) });
 }
 
 function studentAssessmentCard(page) {
   return page
-    .getByRole("article")
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: assessmentTitle, exact: true }) });
 }
 
@@ -57,7 +57,7 @@ async function enterSeededStudentCourse(page) {
     .click();
   await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
   const courseCard = page
-    .getByRole("article")
+    .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: courseLongName, exact: true }) });
   await expect(courseCard).toHaveCount(1);
   await courseCard.getByRole("link", { name: "Open Course", exact: true }).click();

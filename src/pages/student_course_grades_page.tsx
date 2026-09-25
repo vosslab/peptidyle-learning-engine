@@ -8,7 +8,49 @@ import type {
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { formatPointScore } from "../score_format";
+
+function scoreRegions(): ReadonlyArray<RecordRegion<LiveStudentAssessmentLandingSummary>> {
+  return [
+    {
+      id: "assessment",
+      role: "identity",
+      priority: "required",
+      width: "minmax(0, 1fr)",
+      align: "start",
+      content: (assessment): JSX.Element => <h3>{assessment.title}</h3>,
+    },
+    {
+      id: "score",
+      role: "status",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (assessment): JSX.Element => (
+        <strong>
+          {formatPointScore(
+            assessment.assessmentScore!.pointsEarned,
+            assessment.assessmentScore!.pointsPossible,
+          )}
+        </strong>
+      ),
+    },
+  ];
+}
+
+function scoreListState(loading: boolean, unavailable: boolean): RecordListState {
+  if (loading) return { kind: "loading", label: "Loading Scores..." };
+  if (unavailable) {
+    return {
+      kind: "error",
+      title: "Scores unavailable",
+      message: "Scores could not be loaded for this Course.",
+    };
+  }
+  return { kind: "ready" };
+}
 
 function CourseScores(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
   const api = useApplicationApi();
@@ -24,34 +66,14 @@ function CourseScores(props: { readonly course: LiveStudentCourseLandingSummary 
       <h2>
         {props.course.shortName}: {props.course.longName}
       </h2>
-      <Show when={assessments.loading}>
-        <p class="loading-state">Loading Scores...</p>
-      </Show>
-      <Show when={assessments.error !== undefined}>
-        <p class="route-error" role="alert">
-          Scores could not be loaded for this Course.
-        </p>
-      </Show>
-      <Show when={!assessments.loading && assessments.error === undefined && scores().length === 0}>
-        <p class="empty-state">No released Scores are available for this Course yet.</p>
-      </Show>
-      <Show when={scores().length > 0}>
-        <dl>
-          <For each={scores()}>
-            {(assessment) => (
-              <div>
-                <dt>{assessment.title}</dt>
-                <dd>
-                  {formatPointScore(
-                    assessment.assessmentScore!.pointsEarned,
-                    assessment.assessmentScore!.pointsPossible,
-                  )}
-                </dd>
-              </div>
-            )}
-          </For>
-        </dl>
-      </Show>
+      <RecordList
+        ariaLabel={`${props.course.shortName} Scores`}
+        emptyState={{ title: "No released Scores are available for this Course yet." }}
+        recordId={(assessment) => assessment.id}
+        regions={scoreRegions()}
+        rows={scores()}
+        state={scoreListState(assessments.loading, assessments.error !== undefined)}
+      />
     </section>
   );
 }

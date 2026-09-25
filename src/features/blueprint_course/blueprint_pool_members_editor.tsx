@@ -1,6 +1,6 @@
 // blueprint_pool_members_editor.tsx - local member draft for a retained Blueprint-owned Pool.
 
-import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
@@ -12,8 +12,11 @@ import {
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
 } from "../question_picker";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 
 type PoolEntry = Extract<BlueprintAssessmentEntryInput, { kind: "pool" }>;
+type PoolMemberRecord = { readonly member: PublishedQuestionRevisionTuple; readonly index: number };
 
 export interface BlueprintPoolMembersEditorProps {
   readonly entry: PoolEntry;
@@ -160,44 +163,63 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
       >
         {(list) => (
           <>
-            <ol class="blueprint-course-entry-list">
-              <For each={list()}>
-                {(member, index) => (
-                  <li>
-                    {/* ASVS 1.2.1: ordinary JSX text keeps IDs inert; no HTML or raw JSON rendering. */}
-                    <span>
-                      Question {member.publishedQuestionId}, Revision {member.revisionNumber}
-                    </span>
-                    <Show when={props.editable}>
-                      <div class="blueprint-course-inline-actions">
-                        <button
-                          type="button"
-                          disabled={index() === 0}
-                          onClick={() => move(index(), -1)}
-                        >
-                          Move earlier
-                        </button>
-                        <button
-                          type="button"
-                          disabled={index() === list().length - 1}
-                          onClick={() => move(index(), 1)}
-                        >
-                          Move later
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            changeMembers(list().filter((_, position) => position !== index()))
-                          }
-                        >
-                          Remove member
-                        </button>
-                      </div>
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </ol>
+            <RecordSequence
+              rows={list().map((member, index) => ({ member, index }))}
+              regions={
+                [
+                  {
+                    id: "identity",
+                    role: "identity",
+                    priority: "required",
+                    width: "minmax(0, 1fr)",
+                    align: "start",
+                    content: (record: PoolMemberRecord) => (
+                      <>
+                        {/* ASVS 1.2.1: ordinary JSX text keeps IDs inert; no HTML or raw JSON rendering. */}
+                        <span>
+                          Question {record.member.publishedQuestionId}, Revision{" "}
+                          {record.member.revisionNumber}
+                        </span>
+                        <Show when={props.editable}>
+                          <div class="blueprint-course-inline-actions">
+                            <button
+                              type="button"
+                              disabled={record.index === 0}
+                              onClick={() => move(record.index, -1)}
+                            >
+                              Move earlier
+                            </button>
+                            <button
+                              type="button"
+                              disabled={record.index === list().length - 1}
+                              onClick={() => move(record.index, 1)}
+                            >
+                              Move later
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                changeMembers(
+                                  list().filter((_, position) => position !== record.index),
+                                )
+                              }
+                            >
+                              Remove member
+                            </button>
+                          </div>
+                        </Show>
+                      </>
+                    ),
+                  },
+                ] satisfies ReadonlyArray<RecordRegion<PoolMemberRecord>>
+              }
+              recordId={(record) =>
+                `${record.member.publishedQuestionId}:${record.member.revisionNumber}`
+              }
+              state={{ kind: "ready" }}
+              ariaLabel="Ordered Blueprint Pool members"
+              emptyState={{ title: "No Pool members are selected." }}
+            />
             <Show when={props.editable}>
               <button
                 type="button"

@@ -1,12 +1,13 @@
 // assessment_attempt_summary_page.tsx - bounded, server-projected Assessment Attempt history.
 
 import { A } from "@solidjs/router";
-import { For, Show, type JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentAssessmentAttemptHistory } from "../api/assessment_attempt_history";
 import { backendAnswerReviewDocumentUrl } from "../api/assessment_attempt_history";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
+import { RecordDetailList } from "../components/record_list/record_detail_list";
 import { ContentBlockList } from "../components/student_feedback_panel";
 import { PageFrame } from "../components/page_frame";
 import { useApplicationApi } from "../api/application_api";
@@ -78,9 +79,14 @@ function AssessmentAttemptHistoryContent(props: {
       </section>
       <section aria-labelledby="assessment-attempt-responses-heading">
         <h2 id="assessment-attempt-responses-heading">Your recorded work</h2>
-        <For each={props.history.questions}>
-          {(question) => (
-            <article class="attempt-summary__question">
+        <RecordDetailList
+          ariaLabel="Recorded Question work"
+          emptyState={{ title: "No recorded Questions are available." }}
+          recordId={(question) => question.position.toString()}
+          rows={props.history.questions}
+          state={{ kind: "ready" }}
+          renderRecord={(question) => (
+            <div class="attempt-summary__question">
               <header class="attempt-history__question-header">
                 <h3>Question {question.position}</h3>
                 <p class="attempt-history__result">
@@ -179,9 +185,9 @@ function AssessmentAttemptHistoryContent(props: {
                   </button>
                 </section>
               </Show>
-            </article>
+            </div>
           )}
-        </For>
+        />
       </section>
       <A
         class="quiet-link"

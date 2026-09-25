@@ -61,7 +61,7 @@ try {
   await page.getByText("You do not have any current courses.", { exact: true }).waitFor({
     state: "visible",
   });
-  assert.equal(await page.getByRole("article").count(), 0);
+  assert.equal(await page.locator("[data-record-id]").count(), 0);
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
 
   await page.goto(`${origin}?mode=one`);
@@ -71,7 +71,7 @@ try {
   await page.getByRole("link", { name: "Open Course", exact: true }).waitFor({
     state: "visible",
   });
-  assert.equal(await page.getByRole("article").count(), 1);
+  assert.equal(await page.locator("[data-record-id]").count(), 1);
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
 
   await page.goto(`${origin}?mode=many`);
@@ -81,7 +81,7 @@ try {
   await page.getByRole("link", { name: "Open Course", exact: true }).first().waitFor({
     state: "visible",
   });
-  assert.equal(await page.getByRole("article").count(), 2);
+  assert.equal(await page.locator("[data-record-id]").count(), 2);
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
 
   await page.goto(`${origin}?mode=home`);
@@ -174,8 +174,8 @@ try {
   assert.equal(await page.getByRole("button", { name: /^Start /u }).count(), 0);
 
   await page.goto(`${origin}?mode=landing`);
-  await page.getByRole("link", { name: "Your courses", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Your courses", exact: true }).click();
+  await page.getByRole("link", { name: "Your Courses", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("link", { name: "Your Courses", exact: true }).click();
   await page.waitForFunction(
     () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses",
   );

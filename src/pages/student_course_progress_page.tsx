@@ -1,7 +1,7 @@
 // Student-owned Course completion and released-score overview.
 
 import { A, useParams } from "@solidjs/router";
-import { createMemo, createResource, For, Show, type JSX } from "solid-js";
+import { createMemo, createResource, Show, type JSX } from "solid-js";
 
 import type {
   LiveStudentCourseLandingSummary,
@@ -10,6 +10,8 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
@@ -30,44 +32,81 @@ function assessmentPath(courseInstanceId: string, assessmentId: string): string 
   return path;
 }
 
-function ProgressRow(props: {
-  readonly course: LiveStudentCourseLandingSummary;
-  readonly assessment: StudentCourseProgressAssessment;
-  readonly formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined;
-}): JSX.Element {
-  const latestActivityDateTime = (): string | undefined => {
-    const timestamp = props.assessment.latestActivityAt;
+function progressRegions(
+  course: LiveStudentCourseLandingSummary,
+  formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined,
+): ReadonlyArray<RecordRegion<StudentCourseProgressAssessment>> {
+  const latestActivityDateTime = (
+    assessment: StudentCourseProgressAssessment,
+  ): string | undefined => {
+    const timestamp = assessment.latestActivityAt;
     if (timestamp === null) return undefined;
-    return props.formatDateTime()?.(timestamp);
+    return formatDateTime()?.(timestamp);
   };
+  return [
+    {
+      id: "assessment",
+      role: "identity",
+      priority: "required",
+      width: "minmax(12rem, 1fr)",
+      align: "start",
+      content: (assessment): JSX.Element => (
+        <div class="student-course-progress__identity">
+          <h3>{assessment.title}</h3>
+          <p>
+            {assessment.assessmentAttemptCount} Attempt
+            {assessment.assessmentAttemptCount === 1 ? "" : "s"}
+            {assessment.submittedAssessmentAttemptCount > 0 &&
+              ` * ${assessment.submittedAssessmentAttemptCount} submitted`}
+          </p>
+          <Show when={latestActivityDateTime(assessment)}>
+            {(dateTime) => <p>Latest activity: {dateTime()}</p>}
+          </Show>
+        </div>
+      ),
+    },
+    {
+      id: "status",
+      role: "status",
+      priority: "high",
+      width: "minmax(16rem, 1fr)",
+      align: "start",
+      content: (assessment): JSX.Element => (
+        <div class="student-course-progress__status">
+          <strong>{studentAssessmentScoreStateLabel(assessment)}</strong>
+          <p>{studentAssessmentActivityLabel(assessment)}</p>
+          <p>{studentAssessmentScoreDescription(assessment)}</p>
+        </div>
+      ),
+    },
+    {
+      id: "action",
+      role: "actions",
+      priority: "required",
+      width: "auto",
+      align: "end",
+      content: (assessment): JSX.Element => (
+        <A
+          class="quiet-link student-course-progress__action"
+          href={assessmentPath(course.id, assessment.id)}
+        >
+          Open {assessmentTypePresentation(assessment.assessmentType).label}
+        </A>
+      ),
+    },
+  ];
+}
 
-  return (
-    <li class="student-course-progress__row">
-      <div class="student-course-progress__identity">
-        <h3>{props.assessment.title}</h3>
-        <p>
-          {props.assessment.assessmentAttemptCount} Attempt
-          {props.assessment.assessmentAttemptCount === 1 ? "" : "s"}
-          {props.assessment.submittedAssessmentAttemptCount > 0 &&
-            ` * ${props.assessment.submittedAssessmentAttemptCount} submitted`}
-        </p>
-        <Show when={latestActivityDateTime()}>
-          {(dateTime) => <p>Latest activity: {dateTime()}</p>}
-        </Show>
-      </div>
-      <div class="student-course-progress__status">
-        <strong>{studentAssessmentScoreStateLabel(props.assessment)}</strong>
-        <p>{studentAssessmentActivityLabel(props.assessment)}</p>
-        <p>{studentAssessmentScoreDescription(props.assessment)}</p>
-      </div>
-      <A
-        class="quiet-link student-course-progress__action"
-        href={assessmentPath(props.course.id, props.assessment.id)}
-      >
-        Open {assessmentTypePresentation(props.assessment.assessmentType).label}
-      </A>
-    </li>
-  );
+function progressListState(loading: boolean, unavailable: boolean): RecordListState {
+  if (loading) return { kind: "loading", label: "Loading Coursework progress..." };
+  if (unavailable) {
+    return {
+      kind: "error",
+      title: "Coursework progress unavailable",
+      message: "Coursework progress could not be loaded right now.",
+    };
+  }
+  return { kind: "ready" };
 }
 
 /** Shows every released Assessment, including those with Attempts but no released score. */
@@ -119,40 +158,23 @@ export function StudentCourseProgressPage(): JSX.Element {
               aria-labelledby="student-course-progress-heading"
             >
               <h2 id="student-course-progress-heading">Course Progress</h2>
-              <Show when={assessments.loading}>
-                <p class="loading-state">Loading Coursework progress...</p>
-              </Show>
-              <Show when={!assessments.loading && assessments.error === undefined}>
-                <p class="student-course-progress__completion">
-                  {completedStudentAssessmentCount(assessments() ?? [])} of{" "}
-                  {assessments()?.length ?? 0} released Coursework items completed with at least one
-                  submitted Attempt.
-                </p>
-                <p class="student-course-progress__disclosure">
-                  Every released Coursework item remains listed. Attempts with no released score are
-                  marked "Score not released"; completion and a perfect score are separate.
-                </p>
-                <Show when={assessments()?.length === 0}>
-                  <p class="empty-state">No Coursework has been released for this Course yet.</p>
-                </Show>
-                <ul class="student-course-progress__list" aria-label="Coursework progress">
-                  <For each={assessments()}>
-                    {(assessment) => (
-                      <ProgressRow
-                        assessment={assessment}
-                        course={current()}
-                        formatDateTime={formatDateTime}
-                      />
-                    )}
-                  </For>
-                </ul>
-              </Show>
-              <Show when={assessments.error !== undefined}>
-                <section class="route-error" role="alert">
-                  <h3>Coursework progress unavailable</h3>
-                  <p>Coursework progress could not be loaded right now.</p>
-                </section>
-              </Show>
+              <p class="student-course-progress__completion">
+                {completedStudentAssessmentCount(assessments() ?? [])} of{" "}
+                {assessments()?.length ?? 0} released Coursework items completed with at least one
+                submitted Attempt.
+              </p>
+              <p class="student-course-progress__disclosure">
+                Every released Coursework item remains listed. Attempts with no released score are
+                marked "Score not released"; completion and a perfect score are separate.
+              </p>
+              <RecordList
+                ariaLabel="Coursework progress"
+                emptyState={{ title: "No Coursework has been released for this Course yet." }}
+                recordId={(assessment) => assessment.id}
+                regions={progressRegions(current(), formatDateTime)}
+                rows={assessments() ?? []}
+                state={progressListState(assessments.loading, assessments.error !== undefined)}
+              />
             </section>
           </>
         )}

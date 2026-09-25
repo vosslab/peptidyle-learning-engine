@@ -1,11 +1,14 @@
 // question_statistics_panel.tsx - explainable, answer-free Question Statistics and use detail.
 
 import { A } from "@solidjs/router";
-import { For, Show, type JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { QuestionUseDetails } from "../../generated/api/QuestionUseDetails";
+import type { QuestionRevisionUsageStatistics } from "../../generated/api/QuestionRevisionUsageStatistics";
 import { courseInstanceRouteId } from "../navigation/public_route";
+import { RecordList } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import "./question_statistics_panel.css";
 
 export interface QuestionStatisticsPanelProps {
@@ -17,6 +20,50 @@ export interface QuestionUsePanelProps {
 }
 
 const wholeNumber = new Intl.NumberFormat("en-US");
+type RevisionStatistics = QuestionRevisionUsageStatistics;
+
+const revisionRegions: ReadonlyArray<RecordRegion<RevisionStatistics>> = [
+  {
+    id: "revision",
+    role: "identity",
+    priority: "required",
+    width: "minmax(8rem, 1fr)",
+    align: "start",
+    content: (revision) => <>Revision {revision.revision_number}</>,
+  },
+  {
+    id: "mean-credit",
+    role: "metadata",
+    priority: "required",
+    width: "minmax(12rem, auto)",
+    align: "end",
+    content: (revision) => formatRate(revision.mean_credit, revision.answered_count),
+  },
+];
+
+type CourseUse = QuestionUseDetails["ownCourses"][number];
+
+const courseUseRegions: ReadonlyArray<RecordRegion<CourseUse>> = [
+  {
+    id: "course",
+    role: "identity",
+    priority: "required",
+    width: "minmax(0, 1fr)",
+    align: "start",
+    content: (course) => (
+      <A href={`/courses/${courseInstanceRouteId(course.courseInstanceId)}`}>{course.title}</A>
+    ),
+  },
+  {
+    id: "assessments",
+    role: "metadata",
+    priority: "required",
+    width: "minmax(9rem, auto)",
+    align: "end",
+    content: (course) =>
+      `${wholeNumber.format(course.assessmentCount)} assessment${course.assessmentCount === 1 ? "" : "s"}`,
+  },
+];
 
 function formatCount(value: number, singular: string): string {
   return `${wholeNumber.format(value)} ${value === 1 ? singular : `${singular}s`}`;
@@ -92,14 +139,14 @@ export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JS
             {(revisions) => (
               <>
                 <h3>By revision</h3>
-                <For each={revisions()}>
-                  {(revision) => (
-                    <p>
-                      Revision {revision.revision_number}:{" "}
-                      {formatRate(revision.mean_credit, revision.answered_count)}
-                    </p>
-                  )}
-                </For>
+                <RecordList
+                  ariaLabel="Question statistics by revision"
+                  emptyState={{ title: "No revision statistics are available." }}
+                  recordId={(revision) => String(revision.revision_number)}
+                  regions={revisionRegions}
+                  rows={revisions()}
+                  state={{ kind: "ready" }}
+                />
               </>
             )}
           </Show>
@@ -140,18 +187,14 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
         }
       >
         <h3>Your courses using this question</h3>
-        <ul class="question-usage-courses">
-          <For each={props.usage.ownCourses}>
-            {(course) => (
-              <li>
-                <A href={`/courses/${courseInstanceRouteId(course.courseInstanceId)}`}>
-                  {course.title}
-                </A>
-                <span>{`${wholeNumber.format(course.assessmentCount)} assessment${course.assessmentCount === 1 ? "" : "s"}`}</span>
-              </li>
-            )}
-          </For>
-        </ul>
+        <RecordList
+          ariaLabel="Your courses using this question"
+          emptyState={{ title: "No accessible courses use this question." }}
+          recordId={(course) => course.courseInstanceId}
+          regions={courseUseRegions}
+          rows={props.usage.ownCourses}
+          state={{ kind: "ready" }}
+        />
       </Show>
       <Show when={props.usage.ownCoursesTruncated}>
         <p class="question-usage-next-step" role="status">

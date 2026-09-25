@@ -1,6 +1,6 @@
 // Accessible existing-Pool selector for Blueprint Assessment authoring.
 
-import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
@@ -9,6 +9,9 @@ import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPool
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import "./question_pool_picker.css";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import { RecordList } from "../../components/record_list/record_list";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 
@@ -182,30 +185,42 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
           <div class="question-pool-picker-layout">
             <section aria-labelledby="question-pool-results-heading">
               <h3 id="question-pool-results-heading">Published Pools</h3>
-              <ul class="question-pool-picker-results">
-                <For each={items()}>
-                  {(item) => (
-                    <li>
-                      <label>
-                        <input
-                          type="radio"
-                          name="question-pool"
-                          checked={selected()?.questionPoolId === item.questionPoolId}
-                          onInput={() => void selectPool(item)}
-                        />
-                        <span>
-                          <strong>{item.metadata.title}</strong>
-                          <small>{item.metadata.description}</small>
-                          <small>
-                            {item.questionPoolId}, Edit {item.questionPoolEditNumber};{" "}
-                            {item.memberCount} {item.memberCount === 1 ? "member" : "members"}
-                          </small>
-                        </span>
-                      </label>
-                    </li>
-                  )}
-                </For>
-              </ul>
+              <RecordList
+                rows={items()}
+                regions={
+                  [
+                    {
+                      id: "identity",
+                      role: "identity",
+                      priority: "required",
+                      width: "minmax(0, 1fr)",
+                      align: "start",
+                      content: (item) => (
+                        <label>
+                          <input
+                            type="radio"
+                            name="question-pool"
+                            checked={selected()?.questionPoolId === item.questionPoolId}
+                            onInput={() => void selectPool(item)}
+                          />
+                          <span>
+                            <strong>{item.metadata.title}</strong>
+                            <small>{item.metadata.description}</small>
+                            <small>
+                              {item.questionPoolId}, Edit {item.questionPoolEditNumber};{" "}
+                              {item.memberCount} {item.memberCount === 1 ? "member" : "members"}
+                            </small>
+                          </span>
+                        </label>
+                      ),
+                    },
+                  ] satisfies ReadonlyArray<RecordRegion<QuestionPoolLibrarySummary>>
+                }
+                recordId={(item) => item.questionPoolId}
+                state={{ kind: "ready" }}
+                ariaLabel="Published Question Pools"
+                emptyState={{ title: "No published Question Pools are available." }}
+              />
               <Show when={cursor() !== null}>
                 <button
                   class="quiet-action"
@@ -239,21 +254,37 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                   <h4>{detail()!.metadata.title}</h4>
                   <p>{detail()!.metadata.description}</p>
                   <CourseClassificationSummary value={detail()!.metadata} />
-                  <ol class="question-pool-picker-members">
-                    <For each={detail()?.members ?? []}>
-                      {(member) => (
-                        <li>
-                          <strong>
-                            {member.question.question_library.summary.metadata.questionTitle}
-                          </strong>
-                          <span>
-                            {member.publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
-                            {member.publishedQuestionRevisionTuple.revisionNumber}
-                          </span>
-                        </li>
-                      )}
-                    </For>
-                  </ol>
+                  <RecordSequence
+                    rows={detail()?.members ?? []}
+                    regions={
+                      [
+                        {
+                          id: "identity",
+                          role: "identity",
+                          priority: "required",
+                          width: "minmax(0, 1fr)",
+                          align: "start",
+                          content: (member) => (
+                            <>
+                              <strong>
+                                {member.question.question_library.summary.metadata.questionTitle}
+                              </strong>
+                              <span>
+                                {member.publishedQuestionRevisionTuple.publishedQuestionId},
+                                Revision {member.publishedQuestionRevisionTuple.revisionNumber}
+                              </span>
+                            </>
+                          ),
+                        },
+                      ] satisfies ReadonlyArray<RecordRegion<QuestionPoolView["members"][number]>>
+                    }
+                    recordId={(member) =>
+                      `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
+                    }
+                    state={{ kind: "ready" }}
+                    ariaLabel="Ordered selected Pool members"
+                    emptyState={{ title: "No members are in this Question Pool." }}
+                  />
                 </Match>
                 <Match when={true}>
                   <p>Choose a Pool to inspect its ordered members.</p>

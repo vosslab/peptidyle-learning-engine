@@ -7,8 +7,12 @@ import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseGradebook, GradebookExportFormat } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordTable,
+  type RecordTableColumn,
+  type RecordTableRowHeader,
+} from "../components/record_list/record_table";
+import type { RecordCollectionState } from "../components/record_list/record_collection_state";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
 import "./gradebook_record_list.css";
@@ -27,76 +31,51 @@ function scoreLabel(work: CourseGradebook["studentWork"][number]): string {
 
 type GradebookStudentWork = CourseGradebook["studentWork"][number];
 
-const gradebookRegions: ReadonlyArray<RecordRegion<GradebookStudentWork>> = [
-  {
-    id: "student",
-    role: "identity",
-    priority: "required",
-    width: "var(--gradebook-student-column)",
-    align: "start",
-    header: "Student",
-    content: (work) => (
-      <>
-        <span class="visually-hidden">Student: </span>
-        <span>{work.rosterName}</span>
-        <small>{work.rosterId}</small>
-      </>
-    ),
-  },
+const gradebookRowHeader: RecordTableRowHeader<GradebookStudentWork> = {
+  id: "student",
+  header: "Student",
+  width: "var(--gradebook-student-column)",
+  content: (work) => (
+    <>
+      <span>{work.rosterName}</span>
+      <small>{work.rosterId}</small>
+    </>
+  ),
+};
+
+const gradebookColumns: ReadonlyArray<RecordTableColumn<GradebookStudentWork>> = [
   {
     id: "coursework",
-    role: "metadata",
-    priority: "high",
-    width: "var(--gradebook-coursework-column)",
-    align: "start",
     header: "Coursework",
-    content: (work) => (
-      <>
-        <span class="visually-hidden">Coursework: </span>
-        <span>{work.assessmentTitle}</span>
-      </>
-    ),
+    width: "var(--gradebook-coursework-column)",
+    cell: (work) => <span>{work.assessmentTitle}</span>,
   },
   {
     id: "progress",
-    role: "status",
-    priority: "medium",
-    width: "var(--gradebook-progress-column)",
-    align: "start",
     header: "Progress status",
-    content: (work) => (
-      <>
-        <span class="visually-hidden">Progress status: </span>
-        {progressLabel(work.assessmentAttemptCompletion)}
-      </>
-    ),
+    width: "var(--gradebook-progress-column)",
+    cell: (work) => <span>{progressLabel(work.assessmentAttemptCompletion)}</span>,
   },
   {
     id: "score",
-    role: "status",
-    priority: "required",
+    header: "Current score",
     width: "var(--gradebook-score-column)",
     align: "end",
-    header: "Current score",
-    content: (work) => (
-      <>
-        <span class="visually-hidden">Current score: </span>
-        {scoreLabel(work)}
-      </>
-    ),
+    cell: (work) => <span>{scoreLabel(work)}</span>,
   },
 ];
 
 function GradebookEvidence(props: {
   readonly rows: ReadonlyArray<GradebookStudentWork>;
-  readonly state: RecordListState;
+  readonly state: RecordCollectionState;
 }): JSX.Element {
   return (
-    <section class="gradebook-record-list" aria-label="Student progress and scores">
-      <RecordList
+    <section class="gradebook-record-table" aria-label="Student progress and scores">
+      <RecordTable
         rows={props.rows}
-        regions={gradebookRegions}
-        recordId={(work) => `${work.rosterId}-${work.assessmentId}`}
+        rowId={(work) => `${work.rosterId}-${work.assessmentId}`}
+        rowHeader={gradebookRowHeader}
+        columns={gradebookColumns}
         state={props.state}
         ariaLabel="Student progress and scores"
         emptyState={{
@@ -123,7 +102,7 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
     disposed = true;
   });
 
-  const gradebookState = (): RecordListState => {
+  const gradebookState = (): RecordCollectionState => {
     if (gradebook.loading) {
       return { kind: "loading", label: "Loading student progress and scores..." };
     }

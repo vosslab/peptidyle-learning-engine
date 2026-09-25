@@ -21,6 +21,8 @@ import {
 } from "../components/course_classification_fields";
 import { CourseClassificationSummary } from "../components/course_classification_summary";
 import { PageFrame } from "../components/page_frame";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import type { RecordRegion } from "../components/record_list/region_spec";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
 import "./course_list_page.css";
 
@@ -40,26 +42,50 @@ function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
   return `${revision.blueprintCourseId}:${revision.revisionNumber}`;
 }
 
-function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): JSX.Element {
-  const courseInstanceId = courseInstanceRouteId(props.course.id);
-  const theme = courseThemeTokens(props.course.theme);
-  return (
-    <article
-      class="instructor-list__row instructor-list__row--course"
-      style={`--ple-instructor-list-theme-accent: ${theme.anchors.accent}`}
-    >
-      <div class="instructor-list__identity">
-        <p class="instructor-list__kind">Course Instance</p>
-        <h2>{props.course.longName}</h2>
-        <CourseClassificationSummary value={props.course.classification} />
-        <p class="instructor-list__metadata">
-          {props.course.term.startDate} through {props.course.term.endDate}
-        </p>
-      </div>
-      <p class="instructor-list__theme" aria-label={`Course theme: ${theme.name}`}>
-        Theme: {theme.name}
-      </p>
-      <div class="instructor-list__actions">
+const courseRegions: ReadonlyArray<RecordRegion<CourseInstanceSummary>> = [
+  {
+    id: "identity",
+    role: "identity",
+    priority: "required",
+    width: "minmax(16rem, 1.5fr)",
+    align: "stretch",
+    content: (course): JSX.Element => {
+      const theme = courseThemeTokens(course.theme);
+      return (
+        <div
+          class="course-list-record__identity"
+          style={`--ple-course-list-theme-accent: ${theme.anchors.accent}`}
+        >
+          <p class="course-list-record__kind">Course Instance</p>
+          <h2>{course.longName}</h2>
+          <CourseClassificationSummary value={course.classification} />
+          <p class="course-list-record__metadata">
+            {course.term.startDate} through {course.term.endDate}
+          </p>
+        </div>
+      );
+    },
+  },
+  {
+    id: "theme",
+    role: "metadata",
+    priority: "medium",
+    width: "minmax(9rem, auto)",
+    align: "center",
+    content: (course): JSX.Element => {
+      const theme = courseThemeTokens(course.theme);
+      return <p aria-label={`Course theme: ${theme.name}`}>Theme: {theme.name}</p>;
+    },
+  },
+  {
+    id: "actions",
+    role: "actions",
+    priority: "required",
+    width: "auto",
+    align: "center",
+    content: (course): JSX.Element => {
+      const courseInstanceId = courseInstanceRouteId(course.id);
+      return (
         <A
           class="primary-link"
           href={`/courses/${courseInstanceId}`}
@@ -67,10 +93,10 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
         >
           Open Course Instance
         </A>
-      </div>
-    </article>
-  );
-}
+      );
+    },
+  },
+];
 
 type CourseListMode = CourseInstanceLifecycleState;
 
@@ -185,6 +211,19 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     ),
   );
   const isActiveMode = (): boolean => props.mode === "active";
+  const courseListState = (): RecordListState => {
+    if (courses.loading) return { kind: "loading", label: "Loading Course Instances..." };
+    if (courses.error !== undefined) {
+      return {
+        kind: "error",
+        title: "Course Instances unavailable",
+        message: "Course Instances could not be loaded.",
+        retry: () => void refetchCourses(),
+        retryLabel: "Try again",
+      };
+    }
+    return { kind: "ready" };
+  };
   const isCreationExpanded = createMemo(
     () =>
       creationDisclosure() ??
@@ -479,32 +518,20 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       <Show when={!isInstructor()}>
         <p class="empty-state">Course access begins when you hold an active Course Membership.</p>
       </Show>
-      <Show when={courses.loading}>
-        <p class="loading-state">Loading Course Instances...</p>
-      </Show>
-      <Show when={courses.error !== undefined}>
-        <section class="route-error" role="alert">
-          <p>Course Instances could not be loaded.</p>
-          <button class="primary-action" type="button" onClick={() => void refetchCourses()}>
-            Try again
-          </button>
-        </section>
-      </Show>
-      <Show when={isActiveMode() && visibleCourses().length === 0}>
-        <Show when={!courses.loading && courses.error === undefined && isInstructor()}>
-          <p class="empty-state">
-            No Course Instances are teaching yet. Use Create Course Instance to start an empty
-            Course or adopt a Blueprint Course.
-          </p>
-        </Show>
-      </Show>
-      <Show when={!isActiveMode() || visibleCourses().length > 0}>
-        <div
-          class="instructor-list"
-          aria-label={isActiveMode() ? "Active Course Instances" : "Inactive Course Instances"}
-        >
-          <For each={visibleCourses()}>{(course) => <CourseInstanceRow course={course} />}</For>
-        </div>
+      <Show when={isInstructor()}>
+        <RecordList
+          ariaLabel={isActiveMode() ? "Active Course Instances" : "Inactive Course Instances"}
+          emptyState={{
+            title: isActiveMode() ? "No Course Instances are teaching yet" : "No inactive Courses",
+            message: isActiveMode()
+              ? "Use Create Course Instance to start an empty Course or adopt a Blueprint Course."
+              : "Inactive Course Instances appear here after their Course Term ends.",
+          }}
+          recordId={(course) => course.id}
+          regions={courseRegions}
+          rows={visibleCourses()}
+          state={courseListState()}
+        />
       </Show>
     </PageFrame>
   );

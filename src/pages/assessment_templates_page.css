@@ -98,22 +98,6 @@
   font-weight: 500;
 }
 
-.assessment-template-list-state {
-  margin: 0;
-}
-
-.assessment-template-list-state p:last-of-type {
-  margin-bottom: 0.65rem;
-}
-
-.assessment-template-list {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .assessment-template-list-button {
   display: grid;
   width: 100%;
@@ -210,8 +194,7 @@
   }
 
   .assessment-template-overview > h2,
-  .assessment-template-list-state,
-  .assessment-template-list,
+  .assessment-template-overview > .record-list,
   .assessment-template-create-disclosure,
   .assessment-template-create {
     grid-column: 1 / -1;

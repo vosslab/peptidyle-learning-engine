@@ -1,13 +1,16 @@
 // course_roster_page.tsx - Course Roster Import and protected roster projection.
 
 import { A, useParams } from "@solidjs/router";
-import { For, Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
 
 import "./course_roster_page.css";
 
 import { parseRosterImportRows } from "./roster_import_template";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
+import { RecordTable, type RecordTableColumn } from "../components/record_list/record_table";
+import type { RecordCollectionState } from "../components/record_list/record_collection_state";
+import type { CourseRosterEntry } from "../api/course_roster";
 import { type CourseInstanceRouteId, parseCourseInstanceId } from "../navigation/public_route";
 
 function stateLabel(state: "invitationPending" | "activeStudent"): string {
@@ -132,6 +135,44 @@ export function CourseRosterPage(): JSX.Element {
     requestAnimationFrame(() => rosterImport?.focus());
   }
 
+  const rosterState = (): RecordCollectionState => {
+    if (roster.loading) return { kind: "loading", label: "Loading course roster..." };
+    if (roster.error !== undefined) {
+      return {
+        kind: "error",
+        title: "Roster unavailable",
+        message: "Your current Teaching Team membership cannot load this Course Instance roster.",
+        retry: () => void refetch(),
+        retryLabel: "Try again",
+      };
+    }
+    return { kind: "ready" };
+  };
+
+  const renderedRosterColumns = (): ReadonlyArray<RecordTableColumn<CourseRosterEntry>> => [
+    {
+      id: "state",
+      header: "State",
+      width: "25%",
+      cell: (entry) => stateLabel(entry.state),
+    },
+    {
+      id: "action",
+      header: "Action",
+      width: "40%",
+      cell: (entry) => (
+        <button
+          class="quiet-action"
+          type="button"
+          disabled={busy()}
+          onClick={() => void revoke(entry.rosterId)}
+        >
+          Remove course access
+        </button>
+      ),
+    },
+  ];
+
   return (
     <PageFrame
       contentClass="roster-page"
@@ -150,79 +191,41 @@ export function CourseRosterPage(): JSX.Element {
         )}
       </Show>
 
-      <Show when={roster.loading}>
-        <p class="loading-state" role="status">
-          Loading course roster...
-        </p>
-      </Show>
-      <Show when={roster.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h2>Roster unavailable</h2>
-          <p>Your current Teaching Team membership cannot load this Course Instance roster.</p>
-          <button class="primary-action" type="button" onClick={() => void refetch()}>
-            Try again
-          </button>
-        </section>
-      </Show>
-      <Show when={!roster.loading && roster.error === undefined && roster()}>
-        {(entries) => (
-          <section class="roster-section" aria-labelledby="current-roster-heading">
-            <h2 id="current-roster-heading">Current roster</h2>
-            <Show
-              when={entries().length > 0}
-              fallback={
-                <div class="roster-empty-state">
-                  <p class="empty-state">No roster entries yet.</p>
-                  <button
-                    class="primary-action"
-                    type="button"
-                    aria-controls="live-course-roster-import"
-                    onClick={startRosterImport}
-                  >
-                    Import Students
-                  </button>
-                </div>
-              }
+      <section class="roster-section" aria-labelledby="current-roster-heading">
+        <h2 id="current-roster-heading">Current roster</h2>
+        <RecordTable
+          rows={roster() ?? []}
+          rowId={(entry) => entry.rosterId}
+          rowHeader={{
+            id: "student",
+            header: "Student",
+            width: "35%",
+            content: (entry) => (
+              <>
+                {/* ASVS 1.2.1: Instructor-provided names render only as escaped text. */}
+                <span>{entry.rosterName}</span>
+                <small>{entry.rosterId}</small>
+              </>
+            ),
+          }}
+          columns={renderedRosterColumns()}
+          state={rosterState()}
+          ariaLabel="Current Course roster"
+          emptyState={{ title: "No roster entries yet." }}
+        />
+        <Show when={rosterState().kind === "ready" && (roster()?.length ?? 0) === 0}>
+          <div class="roster-empty-state">
+            <button
+              class="primary-action"
+              type="button"
+              aria-controls="live-course-roster-import"
+              onClick={startRosterImport}
             >
-              <div class="roster-table-wrap">
-                <table class="roster-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Student</th>
-                      <th scope="col">State</th>
-                      <th scope="col">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <For each={entries()}>
-                      {(entry) => (
-                        <tr>
-                          <td>
-                            {/* ASVS 1.2.1: Instructor-provided names render only as escaped text. */}
-                            <div>{entry.rosterName}</div>
-                            <small>{entry.rosterId}</small>
-                          </td>
-                          <td>{stateLabel(entry.state)}</td>
-                          <td>
-                            <button
-                              class="quiet-action"
-                              type="button"
-                              disabled={busy()}
-                              onClick={() => void revoke(entry.rosterId)}
-                            >
-                              Remove course access
-                            </button>
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
-              </div>
-            </Show>
-          </section>
-        )}
-      </Show>
+              Import Students
+            </button>
+          </div>
+        </Show>
+      </section>
       <details class="roster-tools" ref={(element) => (rosterTools = element)}>
         <summary>Roster tools</summary>
         <p class="field-help roster-tools-help">

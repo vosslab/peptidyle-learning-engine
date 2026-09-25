@@ -46,8 +46,11 @@ try {
     .fill("M16 Browser Instructor");
   await page.getByRole("button", { name: "Create Instructor Account" }).click();
   await page.getByText("Instructor Account created.").waitFor();
-  const created = page.locator('section[aria-label="Instructor Accounts"] > .auth-panel').first();
-  const accountId = (await created.locator("h2").textContent())?.trim();
+  const created = page
+    .getByRole("list", { name: "Instructor Accounts", exact: true })
+    .getByRole("listitem")
+    .first();
+  const accountId = (await created.getByRole("heading", { level: 2 }).textContent())?.trim();
   if (!/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(accountId ?? "")) {
     throw new Error("created Instructor Account did not have a canonical public ID");
   }

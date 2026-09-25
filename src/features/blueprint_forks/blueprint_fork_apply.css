@@ -23,10 +23,7 @@
   max-width: 100%;
   white-space: normal;
 }
-.blueprint-fork-destination {
-  padding-inline-start: 1.5rem;
-}
-.blueprint-fork-destination li {
+.blueprint-fork-destination .record-outline-list__item {
   margin-block: 1rem;
   overflow-wrap: anywhere;
 }

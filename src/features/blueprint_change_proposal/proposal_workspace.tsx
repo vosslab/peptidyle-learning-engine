@@ -16,6 +16,8 @@ import type { BlueprintChangeProposalClient } from "../../api/blueprint_change_p
 import { useApplicationApi } from "../../api/application_api";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { PageFrame } from "../../components/page_frame";
+import { RecordList } from "../../components/record_list/record_list";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
 import { ProposalReview } from "./proposal_review";
 
@@ -23,6 +25,53 @@ type Client = BlueprintCourseClient & BlueprintChangeProposalClient;
 function recordPath(id: string): string {
   // ASVS 1.2.2: fixed same-origin route with encoded opaque participant handle.
   return `/blueprint-change-proposals/${encodeURIComponent(id)}`;
+}
+
+function proposalRegions(
+  formatDateTime: (timestamp: number | Date) => string,
+): ReadonlyArray<RecordRegion<BlueprintChangeProposalPageView["items"][number]>> {
+  return [
+    {
+      id: "proposal",
+      role: "identity",
+      priority: "required",
+      width: "minmax(14rem, 1.2fr)",
+      align: "start",
+      content: (item) => (
+        <A href={recordPath(item.proposalId)}>
+          {item.sourceNames.longName} to {item.targetNames.longName}
+        </A>
+      ),
+    },
+    {
+      id: "details",
+      role: "metadata",
+      priority: "high",
+      width: "minmax(18rem, 2fr)",
+      align: "start",
+      content: (item) => (
+        <>
+          Source {item.sourceNames.shortName}, Revision {item.sourceRevisionTuple.revisionNumber};
+          comparison target {item.targetNames.shortName}, Revision{" "}
+          {item.targetRevisionTuple.revisionNumber}.{" "}
+          {item.accepted
+            ? `Accepted target Revision ${item.accepted.targetRevisionTuple.revisionNumber}`
+            : item.targetIsStale
+              ? "Older target basis; acceptance unavailable"
+              : "Proposed"}
+          .
+        </>
+      ),
+    },
+    {
+      id: "created",
+      role: "status",
+      priority: "medium",
+      width: "minmax(12rem, auto)",
+      align: "end",
+      content: (item) => <>Created {formatDateTime(item.createdAt)}.</>,
+    },
+  ];
 }
 
 export function ProposalRecords(props: {
@@ -91,32 +140,14 @@ export function ProposalRecords(props: {
       <Show when={page()}>
         {(value) => (
           <>
-            <For
-              each={value().items}
-              fallback={<p>No authorized Change Proposals in this view.</p>}
-            >
-              {(item) => (
-                <article>
-                  <h3>
-                    <A href={recordPath(item.proposalId)}>
-                      {item.sourceNames.longName} to {item.targetNames.longName}
-                    </A>
-                  </h3>
-                  <p>
-                    Source {item.sourceNames.shortName}, Revision{" "}
-                    {item.sourceRevisionTuple.revisionNumber}; comparison target{" "}
-                    {item.targetNames.shortName}, Revision {item.targetRevisionTuple.revisionNumber}
-                    .{" "}
-                    {item.accepted
-                      ? `Accepted target Revision ${item.accepted.targetRevisionTuple.revisionNumber}`
-                      : item.targetIsStale
-                        ? "Older target basis; acceptance unavailable"
-                        : "Proposed"}
-                    . Created {props.formatDateTime(item.createdAt)}.
-                  </p>
-                </article>
-              )}
-            </For>
+            <RecordList
+              ariaLabel="Blueprint Change Proposals"
+              emptyState={{ title: "No authorized Change Proposals in this view." }}
+              recordId={(item) => item.proposalId}
+              regions={proposalRegions(props.formatDateTime)}
+              rows={value().items}
+              state={{ kind: "ready" }}
+            />
             <Show when={value().nextCursor}>
               {(cursor) => (
                 <button type="button" disabled={busy()} onClick={() => void load(cursor())}>

@@ -2,21 +2,14 @@
   margin-block: 1.5rem;
 }
 
-.student-course-attempt-history__list {
-  display: grid;
-  gap: 0.75rem;
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
+.student-course-attempt-history .record-list {
+  margin-top: 1rem;
 }
 
-.student-course-attempt-history__row {
+.student-course-attempt-history .record-list__row {
   align-items: center;
   border: 1px solid var(--ple-border, #c4cbd1);
   border-radius: 0.5rem;
-  display: grid;
-  gap: 0.75rem 1.25rem;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) auto;
   padding: 0.9rem 1rem;
 }
 
@@ -42,16 +35,7 @@
 }
 
 @media (max-width: 42rem) {
-  .student-course-attempt-history__row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
   .student-course-attempt-history__score {
-    grid-column: 1;
-  }
-
-  .student-course-attempt-history__row > a {
-    grid-column: 2;
-    grid-row: 1 / span 3;
+    grid-row: 2;
   }
 }

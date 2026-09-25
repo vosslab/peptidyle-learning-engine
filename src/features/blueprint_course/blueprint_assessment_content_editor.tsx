@@ -1,6 +1,6 @@
 // blueprint_assessment_content_editor.tsx - task-focused editing for one Blueprint Assessment.
 
-import { For, Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
+import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
 import {
   ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
   assessmentDurationDefaultDescription,
@@ -32,6 +32,8 @@ import {
 import { QuestionPoolPicker, type QuestionPoolPickerSelection } from "./question_pool_picker";
 import { BlueprintPoolMembersEditor } from "./blueprint_pool_members_editor";
 import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedback_fields";
+import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordRegion } from "../../components/record_list/region_spec";
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
@@ -68,6 +70,11 @@ function lateWorkRuleFromValue(
 ): BlueprintAssessmentContentInput["defaults"]["late_work_rule"] | undefined {
   return value === "accept" || value === "mark_late" || value === "reject" ? value : undefined;
 }
+
+type BlueprintAssessmentEntryRecord = {
+  readonly entry: BlueprintAssessmentContentInput["entries"][number];
+  readonly index: number;
+};
 
 /** Form fields keep the reusable content visible and progressively explain the next useful edit. */
 export function BlueprintAssessmentContentEditor(
@@ -282,109 +289,134 @@ export function BlueprintAssessmentContentEditor(
             </p>
           }
         >
-          <ol class="blueprint-course-entry-list">
-            <For each={props.content.entries}>
-              {(entry, index) => (
-                <li>
-                  <div>
-                    <strong>{entrySummary(entry, props.savedContent?.entries[index()])}</strong>
-                    <Show when={entry.kind === "pool"}>
-                      <label class="blueprint-course-small-field">
-                        Draw each Assessment Attempt
-                        <input
-                          type="number"
-                          min="1"
-                          required
-                          value={entry.kind === "pool" ? entry.selection_count : 1}
-                          disabled={!props.editable}
-                          onInput={(event) => {
-                            if (!validNumber(event.currentTarget)) {
-                              props.onChange(
-                                props.content,
-                                "Use a positive whole number for the Pool selection count.",
-                              );
-                              return;
-                            }
-                            const selectionCount = Number(event.currentTarget.value);
-                            props.onChange(
-                              updateReusablePoolSelectionCount(
-                                props.content,
-                                index(),
-                                selectionCount,
-                              ),
-                              "Question Pool selection count updated. The server validates it against current Pool membership.",
-                            );
-                          }}
-                        />
-                      </label>
-                    </Show>
-                    <Show when={entry.kind === "pool"}>
-                      <Show
-                        when={
-                          entry.kind === "pool" &&
-                          entry.pool.kind === "retained" &&
-                          props.retainedAssessmentId &&
-                          props.blueprintCourseId &&
-                          props.blueprintClient
-                        }
-                        fallback={
-                          <p class="blueprint-course-field-help">
-                            Save the Blueprint Course before editing this Assessment-owned Pool's
-                            members.
-                          </p>
-                        }
-                      >
-                        <button
-                          type="button"
-                          class="quiet-action"
-                          onClick={() => {
-                            if (entry.kind === "pool") setMemberPoolId(entry.pool.question_pool_id);
-                          }}
-                        >
-                          {props.editable ? "Edit Pool members" : "View Pool members"}
-                        </button>
-                      </Show>
-                    </Show>
-                  </div>
-                  <Show when={props.editable}>
-                    <div
-                      class="blueprint-course-reorder-actions"
-                      aria-label={`Actions for entry ${index() + 1}`}
-                    >
-                      <button
-                        type="button"
-                        class="quiet-action"
-                        disabled={index() === 0}
-                        onClick={() => moveEntry(index(), -1)}
-                      >
-                        Move earlier
-                      </button>
-                      <button
-                        type="button"
-                        class="quiet-action"
-                        disabled={index() === props.content.entries.length - 1}
-                        onClick={() => moveEntry(index(), 1)}
-                      >
-                        Move later
-                      </button>
-                      <button
-                        type="button"
-                        class="danger-action"
-                        onClick={() =>
-                          props.onChange(
-                            removeReusableEntry(props.content, index()),
-                            "Entry removed. Add another question or save the revised content.",
-                          )
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ol>
+          <RecordSequence
+            rows={props.content.entries.map((entry, index) => ({ entry, index }))}
+            regions={
+              [
+                {
+                  id: "identity",
+                  role: "identity",
+                  priority: "required",
+                  width: "minmax(0, 1fr)",
+                  align: "start",
+                  content: (record: BlueprintAssessmentEntryRecord): JSX.Element => {
+                    const entry = record.entry;
+                    const index = (): number => record.index;
+                    return (
+                      <>
+                        <div>
+                          <strong>
+                            {entrySummary(entry, props.savedContent?.entries[index()])}
+                          </strong>
+                          <Show when={entry.kind === "pool"}>
+                            <label class="blueprint-course-small-field">
+                              Draw each Assessment Attempt
+                              <input
+                                type="number"
+                                min="1"
+                                required
+                                value={entry.kind === "pool" ? entry.selection_count : 1}
+                                disabled={!props.editable}
+                                onInput={(event) => {
+                                  if (!validNumber(event.currentTarget)) {
+                                    props.onChange(
+                                      props.content,
+                                      "Use a positive whole number for the Pool selection count.",
+                                    );
+                                    return;
+                                  }
+                                  const selectionCount = Number(event.currentTarget.value);
+                                  props.onChange(
+                                    updateReusablePoolSelectionCount(
+                                      props.content,
+                                      index(),
+                                      selectionCount,
+                                    ),
+                                    "Question Pool selection count updated. The server validates it against current Pool membership.",
+                                  );
+                                }}
+                              />
+                            </label>
+                          </Show>
+                          <Show when={entry.kind === "pool"}>
+                            <Show
+                              when={
+                                entry.kind === "pool" &&
+                                entry.pool.kind === "retained" &&
+                                props.retainedAssessmentId &&
+                                props.blueprintCourseId &&
+                                props.blueprintClient
+                              }
+                              fallback={
+                                <p class="blueprint-course-field-help">
+                                  Save the Blueprint Course before editing this Assessment-owned
+                                  Pool's members.
+                                </p>
+                              }
+                            >
+                              <button
+                                type="button"
+                                class="quiet-action"
+                                onClick={() => {
+                                  if (entry.kind === "pool")
+                                    setMemberPoolId(entry.pool.question_pool_id);
+                                }}
+                              >
+                                {props.editable ? "Edit Pool members" : "View Pool members"}
+                              </button>
+                            </Show>
+                          </Show>
+                        </div>
+                        <Show when={props.editable}>
+                          <div
+                            class="blueprint-course-reorder-actions"
+                            aria-label={`Actions for entry ${index() + 1}`}
+                          >
+                            <button
+                              type="button"
+                              class="quiet-action"
+                              disabled={index() === 0}
+                              onClick={() => moveEntry(index(), -1)}
+                            >
+                              Move earlier
+                            </button>
+                            <button
+                              type="button"
+                              class="quiet-action"
+                              disabled={index() === props.content.entries.length - 1}
+                              onClick={() => moveEntry(index(), 1)}
+                            >
+                              Move later
+                            </button>
+                            <button
+                              type="button"
+                              class="danger-action"
+                              onClick={() =>
+                                props.onChange(
+                                  removeReusableEntry(props.content, index()),
+                                  "Entry removed. Add another question or save the revised content.",
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </Show>
+                      </>
+                    );
+                  },
+                },
+              ] satisfies ReadonlyArray<RecordRegion<BlueprintAssessmentEntryRecord>>
+            }
+            recordId={(record) =>
+              record.entry.kind === "fixed"
+                ? `${record.entry.published_question_revision_tuple.publishedQuestionId}:${record.entry.published_question_revision_tuple.revisionNumber}`
+                : `${record.entry.pool.question_pool_id}:${record.entry.pool.question_pool_edit_number}`
+            }
+            state={{ kind: "ready" }}
+            ariaLabel="Ordered Blueprint Assessment entries"
+            emptyState={{ title: "No Blueprint Assessment entries are selected." }}
+          />
         </Show>
       </section>
 
