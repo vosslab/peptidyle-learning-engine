@@ -10,6 +10,68 @@
 
 ### Developer Tests and Notes
 
+- Applied the follow-up external review to the
+  [RecordList plan](active_plans/active/record_list_page_frame_standardization_plan.md) and ledger.
+  Clarified domain bodies versus shared record presentation, including form-local controls, and made
+  same-ID refresh with retained input focus/draft explicit in the existing CORE and Course editor
+  browser proofs. Retained milestone numbering, dependencies and the scoped discovery contract.
+  One-time document checks passed for 124 local links, 32 milestones/packages, 85 file tasks and
+  the acyclic completion graph; the 38-caller table remains complete. These are planning edits;
+  implementation and product testing remain pending.
+
+- Investigated RecordList's real query-to-render paths and added the
+  [data-flow audit](active_plans/audits/record_list_data_flow_investigation_2026-09-25.md) and required
+  [bounded data workstream](active_plans/workstreams/record_list_bounded_data_workstream.md).
+  The plan keeps presentation in Solid/TypeScript, moves Question search/facets/paging to PostgreSQL,
+  resolves only returned native Questions, corrects Blueprint partial sorting, and replaces the
+  Assessment editor's full-catalog/first-page-only discovery with reusable paged pickers.
+  Recorded current defaults of 50/max 100, then incorporated the human's rapid-scanning requirement
+  as shared 50/100/250 choices, default 50, with a scoped API/SQL/decoder limit change.
+  The shared decoder also used its search-page bound for prompt blocks; the plan separates those meanings.
+  Added eight bounded milestones and updated caller dependencies; windowing earns retention through
+  an implementation-time comparison. One-time document checks passed for seven planning artifacts,
+  248 local links, 32 milestones/packages, 85 file tasks and an acyclic dependency graph whose tasks
+  all reach closure. The complete 38-caller table remains present. Planning only: no production code
+  changed, no product tests or runtime performance measurements ran.
+
+- Deepened the RecordList caller investigation and added the
+  [complete caller table](active_plans/audits/record_list_caller_investigation_2026-09-25.md).
+  Revised the plan around expressive shared content: descriptions, linked facts, image media,
+  copyable references, native pressed/disclosure commands, focus refs and bounded editor bodies,
+  with presentation owned by the shared family. Stable record/action identity and reactive body ownership address refresh/focus risks.
+  Sequence now reuses that foundation; separate milestones centralize movement and
+  result-sort controls. The plan consolidates Library's duplicate metadata layouts and loaded-state
+  notices while preserving genuine avatar List/Gallery. Documented existing native/backend Question
+  preview paths and the missing production snapshot capability without making it a migration gate.
+  A fresh source inventory matched all 38 direct caller files to the audit table; plan/ledger checks
+  passed for 24 milestones, 84 file tasks, local links and the complete dependency graph.
+  This is planning only; no production code changed and no
+  product tests ran.
+- Completed the initial caller investigation for the
+  [RecordList/PageFrame standardization plan](active_plans/active/record_list_page_frame_standardization_plan.md).
+  All 38 RecordList/Sequence consumer files now have source-based content dispositions and individual
+  prerequisites in the ledger. The base contract is title, always-visible semantic details and native
+  actions, with shared Assessment Type icon/label rendering required by Human Guidance. Selection,
+  Question Preview and avatar Gallery have concrete consumers. Detail and Sequence
+  work can start independently, and frame tasks wait only for their actual navigation overlaps.
+  Replaced Git inspection gates with source/document checks and made shared defaults and test restraint
+  explicit in each dispatch. One-time document checks passed for local links, all 83 ledger tasks
+  and the complete acyclic dependency graph. This was planning/source investigation; implementation
+  remains pending, and no product tests were run.
+- Prepared the autonomous
+  [record_list_page_frame_standardization_plan.md](active_plans/active/record_list_page_frame_standardization_plan.md)
+  and its file-level execution ledger and manager goal. The plan proves a minimal flat scan first,
+  uses one shared reflow treatment, admits only demonstrated shared capabilities, and completes the
+  caller/API/CSS cleanup. It includes bounded ownership, independent breadcrumb work, agent-operated
+  verification, and explicit removal of staging and temporary evidence. This is planning work;
+  production implementation remains pending.
+- Audited RecordList, PageFrame, row styling, and breadcrumb hierarchy against the requirement that
+  shared components enforce presentation standards. Current-source browser evidence confirmed
+  hidden Student scores at phone width and touching rounded Attempt History rows. Recorded the
+  proposed component contract, spacing ownership, ancestry fixes, and validation limits in
+  [record_list_page_frame_standardization_audit_2026-09-25.md](active_plans/audits/record_list_page_frame_standardization_audit_2026-09-25.md).
+  TypeScript and the focused RecordList browser contracts passed; this entry records an audit,
+  with implementation recommendations still open.
 - Completed the shared record-presentation components and all ledgered page migrations. The clean
   screenshot corpus, `source ./source_me.sh && ./launchers/run_fast_ui_checks.sh`, and
   `source ./source_me.sh && ./launchers/all_test.sh` passed. Full acceptance included database
