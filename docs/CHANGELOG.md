@@ -39,8 +39,8 @@
   closure, privacy, and artifact-integrity checks. It retained 149 byte-different replay PNGs;
   visual review of migration-related pages found seeded ID/time and persona-accent changes with the
   same layouts.
-- The 56-row Record presentation migration plan is complete. Its repository-required `git mv`
-  archive move remains pending because `.git` is read-only in this environment.
+- The 56-row Record presentation migration is complete; its documentation retains the migration
+  plan and the dated candidate inventory that grounded its scope.
 - Consolidated Gradebook and Course roster styling in the shared table family. Replaced invalid
   `minmax()` column widths with percentages and added logical column alignment. Browser contracts
   verify full-width laptop tables, column edges and headers, roster actions, and narrow horizontal

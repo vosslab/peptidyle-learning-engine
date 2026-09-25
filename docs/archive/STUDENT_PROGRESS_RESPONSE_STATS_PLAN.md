@@ -218,7 +218,7 @@ blocks a gate, report that gate as incomplete with the dependency and observed e
 
 - API and UI packages have separate owners and narrow acceptance evidence. Integrate the UI against
   the settled API contract; generated TypeScript output has one integration owner.
-- Shared RecordList changes follow the [RecordList migration plan](../active_plans/active/record_list_migration_plan.md); shared Attempt-page changes follow
+- Shared RecordList changes follow the [RecordList migration plan](record_list_migration_plan.md); shared Attempt-page changes follow
   `student_task_surface_plan.md`. Do not patch a shared component concurrently.
 - Student identity comes from the authenticated session. Every Course read and write enforces active
   Course membership server-side and uses the repository's strict decoding, no-store, error, and

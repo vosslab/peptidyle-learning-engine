@@ -6,7 +6,7 @@ Status: Read-only source and screenshot audit. This inventory does not design or
 
 ## Scope and method
 
-This audit re-reads the active RecordList migration plan, the current RecordList implementation and its seven proven consumers, then reconciles the source-rendered collections against the screenshot manifest and [Human Guidance](../../HUMAN_GUIDANCE.md).
+This audit re-reads the RecordList migration plan, the current RecordList implementation and its seven proven consumers, then reconciles the source-rendered collections against the screenshot manifest and [Human Guidance](../../HUMAN_GUIDANCE.md).
 
 The earlier plan total of 7 converted + 47 remaining should be retired. Four planned entries are not list views as described: Blueprint Courses in a native `<select>`, Student time accommodations in a Student `<select>` followed by one Student's form, Pool candidates in a `<select>`, and Student View's single Question preview. Student View does have a separate Question navigation group, listed below. The source scan also surfaced omitted candidates, including the Assessment editor's available Question rows and two "Instructors who starred" lists.
 
@@ -21,7 +21,7 @@ The canonical capture receipt was refreshed on 2026-09-23 without changing its s
 
 Presentation variants, reordering and windowing are separate compositions: callers own variant controls and data state; [RecordListReorder](../../../src/components/record_list/record_list_reorder.tsx) supplies move controls and announcements but not persistence; [record_list_window.ts](../../../src/components/record_list/record_list_window.ts) supplies calculations but not measurement or DOM integration. RecordList does not own search, filtering, sorting, paging or selection state.
 
-The proven patterns in the [active migration plan](../active/record_list_migration_plan.md) are E1 simple scan, E2 dense visual table, E3 library search/windowing, E4 reorder, E5 action rows, E6 Student Coursework and E7 gallery/list selection.
+The proven patterns in the [migration plan](../../archive/record_list_migration_plan.md) are E1 simple scan, E2 dense visual table, E3 library search/windowing, E4 reorder, E5 action rows, E6 Student Coursework and E7 gallery/list selection.
 
 ## Fits current RecordList
 
