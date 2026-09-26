@@ -19,7 +19,7 @@ can audit table shape without opening a function body:
 `api_compatibility.sql` now lives under `50_functions/` and finishes the
 restricted runtime projection.
 
-The database administration command installs the manifest with PostgreSQL 17
+The database administration command installs the manifest with PostgreSQL
 `psql -X --set=ON_ERROR_STOP=1 --single-transaction`:
 
 ```bash

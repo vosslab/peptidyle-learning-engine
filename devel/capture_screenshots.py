@@ -96,7 +96,27 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def live_demo_running(root: pathlib.Path) -> bool:
-	return (root / CONTROL_RECEIPT).is_file()
+	"""Distinguish a running stack from a receipt left after its containers stopped."""
+	if not (root / CONTROL_RECEIPT).is_file():
+		return False
+	# ASVS 1.2.5: fixed arguments select only this checkout's Live Demo project.
+	result = subprocess.run(
+		["python3", "local_stack.py", "status", "--project", LIVE_DEMO_PROJECT,
+			"--env-file", "local_stack_state/live_demo_browser/workspace/env.local", "--json"],
+		cwd=root,
+		check=False,
+		capture_output=True,
+		text=True,
+	)
+	if result.returncode not in (0, 1) or not result.stdout.strip():
+		sys.stderr.write(result.stderr)
+		raise SystemExit("Unable to inspect Live Demo readiness.")
+	report = json.loads(result.stdout)
+	if report["state"] in ("absent", "stopped-with-data"):
+		print("[stack] clearing the stopped Live Demo's saved receipt", flush=True)
+		run_command(["./launchers/run_live_demo.sh", "stop"], root)
+		return False
+	return True
 
 
 def launch_receipt_mtime(root: pathlib.Path) -> float | None:
@@ -199,7 +219,7 @@ def container_commands(decision: change_scope.Decision) -> list[list[str]]:
 	if decision.containers == "none":
 		return []
 	if decision.containers == "replace_application":
-		return [[sys.executable, "local_stack.py", "rebuild-application"]]
+		return [["python3", "local_stack.py", "rebuild-application"]]
 	if decision.containers == "full_restart":
 		return [
 			["./launchers/run_live_demo.sh", "stop"],
@@ -277,7 +297,7 @@ def authenticator_setup(root: pathlib.Path) -> str:
 	started = print_step("authenticator", "python3 local_stack.py authenticator")
 	result = subprocess.run(
 		[
-			sys.executable,
+			"python3",
 			"local_stack.py",
 			"authenticator",
 			"--env-file",
@@ -333,6 +353,8 @@ def main() -> None:
 	args = parse_args(sys.argv[1:])
 	root = repo_root()
 	os.chdir(root)
+	# Keep build stages and diagnostics, without Cargo's per-crate progress lines.
+	os.environ["CARGO_TERM_QUIET"] = "true"
 	if not typescript_dependencies_ready(root):
 		started = print_step("dependencies", "devel/setup_typescript.sh")
 		run_command([str(root / "devel" / "setup_typescript.sh")], root)

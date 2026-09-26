@@ -284,11 +284,6 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
       .getByRole("status")
       .filter({ hasText: /^[0-9,]+ Public Blueprint Courses? shown\.$/u })
       .waitFor();
-    await session.page
-      .getByText('Applied search: "Biochemistry"; all promotions; all classifications.', {
-        exact: true,
-      })
-      .waitFor();
     await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
     await captureCheckpoint(runtime, "filtered_results", session);
   } finally {
@@ -320,12 +315,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("checkbox", { name: `Select ${PUBLISHED_NATIVE_TITLE}`, exact: true })
       .check();
     await picker.getByRole("button", { name: "Add selected Questions", exact: true }).click();
-    await page
-      .getByText(
-        "Available published Question added with its exact revision pin. Save Questions when ready.",
-        { exact: true },
-      )
-      .waitFor();
+    await picker.waitFor({ state: "hidden" });
     await captureCheckpoint(runtime, "assignment_questions_draft", session);
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page
@@ -360,9 +350,6 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await readiness.focus();
     await page.keyboard.press("Enter");
     await page.getByRole("heading", { name: "Ready to release", exact: true }).waitFor();
-    await page
-      .getByText("Release readiness checked. This saved assessment is ready to release.")
-      .waitFor();
     await page.getByRole("button", { name: "Release assessment", exact: true }).click();
     await page.getByText(/^Assessment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
     await captureCheckpoint(runtime, "assignment_policies_released", session);

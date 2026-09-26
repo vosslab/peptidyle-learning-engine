@@ -34,6 +34,14 @@ def redacted_failure_detail(
 			excerpts.append(redacted.strip()[-MAXIMUM_COMMAND_EXCERPT_CHARACTERS:])
 	if len(excerpts) == 0:
 		return "child reported a failure"
+	# psql reports the schema failure on stdout when Compose attaches to a job.
+	# Prefer that redacted cause over the provider banner and exit-status wrapper.
+	database_errors = [
+		line.strip() for excerpt in excerpts for line in excerpt.splitlines()
+		if re.search(r"psql:.*\b(?:ERROR|FATAL):", line)
+	]
+	if database_errors:
+		return "\n".join(database_errors)[-MAXIMUM_COMMAND_EXCERPT_CHARACTERS:]
 	return "\n".join(excerpts)
 
 

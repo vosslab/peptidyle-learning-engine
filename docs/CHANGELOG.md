@@ -10,6 +10,36 @@
 
 ### Fixes and Maintenance
 
+- Removed four more screenshot checks tied to incidental success-message sentences: Question
+  selection in two scenarios, Template creation, and release readiness. Capture uses dialog closure
+  and existing editor/readiness headings instead. Save-completion and privacy checks remain.
+  Formatting and diff checks passed; live replay remains unverified without generated API modules.
+- Removed the public Blueprint screenshot scenario's exact applied-search prose check. Capture
+  waits for the results status and expected Course instead, so adding sort information does not
+  break it. Formatting and diff checks passed. Live replay could not start in this checkout because
+  generated API modules were absent.
+- Live Demo startup keeps the current step heading above streamed build output, including when
+  dependency downloads push that heading beyond the normal log tail. The object-storage build
+  explicitly names MinIO. All 47 focused supervisor and lifecycle checks passed; no image rebuild
+  was needed for this display change.
+- Removed the schema installer's PostgreSQL-17-only gate, which blocked the newer image before
+  screenshot capture reached Playwright. The stack follows the official stable `postgres:latest` image.
+  Database launch errors now surface the redacted `psql` cause ahead of Compose provider output.
+  The complete schema installed on PostgreSQL 18.6 as the restricted migrator role; 72 focused
+  checks passed, and the installed Chromium headless shell captured a screenshot. The full Live Demo
+  was not replayed; a separate coordinator check could not run because its local migrator image
+  was absent.
+- Removed fixed container image digests and MinIO source commits. Official images use floating
+  tags and MinIO uses `@latest`; obsolete digest environment settings and validation are removed.
+  PostgreSQL declares its data directory explicitly and compares retained data against the selected
+  image's major version. The migrator installs the distribution's current PostgreSQL client.
+  Validation passed 170 focused controller checks, Compose YAML checks, and empty/matching/mismatched
+  PostgreSQL volume-guard checks. A full container rebuild and screenshot replay were not run.
+- Screenshot capture suppresses Cargo's routine compilation progress while retaining build stages
+  and diagnostics, and invokes stack commands with `python3` from `PATH`. A stopped stack's saved
+  receipt is cleared through the existing stop command before startup. Application rebuild errors
+  now identify the service and observed state. Nine focused checks and a stopped-stack decision
+  check passed; full screenshot replay was not run for this change.
 - Playwright setup and screenshot capture install only the Chromium headless shell. The screenshot
   driver drops its unused visible-browser option and full-browser path probe. Eight existing driver
   checks and shell syntax validation passed.

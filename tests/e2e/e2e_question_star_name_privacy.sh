@@ -50,12 +50,12 @@ cd "$root"
 podman run --detach --name "$postgres_name" --label org.peptidyle.e2e=question-star-name-privacy \
     --mount "type=bind,src=$root,dst=/workspace,ro=true" \
     --env POSTGRES_PASSWORD=c853 --env POSTGRES_DB="$database" \
-    -p "127.0.0.1:${postgres_port}:5432" docker.io/library/postgres:17 >/dev/null
+    -p "127.0.0.1:${postgres_port}:5432" docker.io/library/postgres:latest >/dev/null
 for _ in $(seq 1 30); do
     podman exec "$postgres_name" pg_isready -U postgres -d "$database" >/dev/null && break
     sleep 1
 done
-podman exec "$postgres_name" pg_isready -U postgres -d "$database" >/dev/null || fail "PostgreSQL 17 did not start"
+podman exec "$postgres_name" pg_isready -U postgres -d "$database" >/dev/null || fail "PostgreSQL did not start"
 
 python3 -c "import local_stack_control.lifecycle_database as d; print(d.migration_principal_bootstrap_sql('$database', '$database_password'), end='')" \
     | podman exec -i "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" >/dev/null

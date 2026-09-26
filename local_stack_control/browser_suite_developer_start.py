@@ -60,7 +60,7 @@ def supervisor_log_path(repository_root: pathlib.Path) -> pathlib.Path:
 
 #============================================
 def log_tail(log_path: pathlib.Path, known_phase: str = "starting") -> tuple[str, str]:
-	"""Return the newest phase marker and last non-empty line of a bounded log tail.
+	"""Return the newest phase and build output with its current step heading.
 
 	A long build pushes the last `[phase]` marker out of the bounded tail, so the
 	caller passes the phase it saw last and gets it back when the tail has none.
@@ -71,18 +71,34 @@ def log_tail(log_path: pathlib.Path, known_phase: str = "starting") -> tuple[str
 			size = log.tell()
 			log.seek(max(0, size - SUPERVISOR_LOG_TAIL_BYTES))
 			tail = log.read().decode("ascii", "replace")
+			# Keep the heading even when dependency downloads fill the entire tail.
+			position = max(0, size - SUPERVISOR_LOG_TAIL_BYTES)
+			while position > 0 and not any(
+				line.startswith(("Step: ", "[phase] ")) for line in tail.splitlines()[1:]
+			):
+				start = max(0, position - SUPERVISOR_LOG_TAIL_BYTES)
+				log.seek(start)
+				tail = log.read(position - start).decode("ascii", "replace") + tail
+				position = start
 	except OSError:
 		return known_phase, ""
 	phase = known_phase
 	last_line = ""
+	heading = ""
 	for line in tail.splitlines():
 		stripped = line.strip()
 		if stripped == "":
 			continue
 		if stripped.startswith("[phase] "):
 			phase = stripped[len("[phase] "):]
+			heading = ""
+		if stripped.startswith("Step: "):
+			heading = stripped
 		last_line = stripped
-	return phase, last_line[:MAXIMUM_HEARTBEAT_LINE_CHARACTERS]
+	detail = last_line[:MAXIMUM_HEARTBEAT_LINE_CHARACTERS]
+	if heading and heading != last_line:
+		detail = heading + "\n  " + detail
+	return phase, detail
 
 
 #============================================

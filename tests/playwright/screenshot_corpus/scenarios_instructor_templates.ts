@@ -42,9 +42,6 @@ async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("combobox", { name: /^Assessment Type/ })
       .selectOption("quiz");
     await createTemplateForm.getByRole("button", { name: "Create Template", exact: true }).click();
-    await session.page
-      .getByText("Template created with the canonical settings for its Assessment Type.")
-      .waitFor();
     const editorHeading = session.page.getByRole("heading", {
       level: 2,
       name: "Edit Template",

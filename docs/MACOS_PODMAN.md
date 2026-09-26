@@ -94,24 +94,15 @@ name (`postgres`, `minio`), not `localhost`. See
 ## Registry prefixes
 
 Podman does not assume Docker Hub. Image references in
-[containers/compose.yaml](../containers/compose.yaml) are fully qualified and
-digest-pinned. The tracked contract takes this form:
-
-```text
-docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256}
-docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256}
-```
-
-`containers/env.example` supplies the selected 64-character digest values.
-Copy it to ignored `containers/env.local` and retain the pins; do not replace
-them with a tag such as `latest`. The gateway takes a fully qualified
-digest-pinned Caddy value. The external renderer image is owned and built by the
-separate `webwork-pg-renderer` project; PLE records the resolved image
-configuration ID together with the selected image name.
+[containers/compose.yaml](../containers/compose.yaml) are fully qualified and use
+floating tags, including `docker.io/library/postgres:latest` and
+`docker.io/library/alpine:latest`. The gateway builds from `docker.io/library/caddy:latest`.
+The external renderer image is owned and built by the separate `webwork-pg-renderer`
+project; PLE records its resolved image configuration ID as runtime evidence.
 
 These references are not all runtime images. `postgres` and `identity-secret-init` run their specified external
 images. `minio` and `createbuckets` share `localhost/ple-object-storage:reviewed`,
-built from pinned official server and client source commits in
+built from official server and client sources selected with `@latest` in
 `containers/Containerfile.object_storage`. The upstream community distribution is
 [source-only](https://github.com/minio/minio), and its former registry images
 are unavailable. The first build downloads Go dependencies and compiles both
@@ -119,7 +110,7 @@ executables with two Go workers; subsequent launches reuse the build cache.
 Startup preserves that cache rather than pruning it before each build. `api` builds the shared local application image from
 `containers/Containerfile.api`, and `worker` consumes that exact image;
 `gateway` is built locally from `containers/Containerfile.gateway` using the
-pinned Caddy build argument. The `webwork-renderer` is an external-project image. Build-mode PLE
+current official Caddy image. The `webwork-renderer` is an external-project image. Build-mode PLE
 startup reuses the tracked `localhost/pg-renderer:reviewed` selection or rebuilds
 it from the maintained sibling checkout when pruning removed it. PLE resolves that selected name to its OCI
 configuration ID, confirms the container runs that ID, and records both as
@@ -129,11 +120,10 @@ key.
 
 ## PostgreSQL retained volumes
 
-The local stack is pinned to PostgreSQL 17. Before it starts PostgreSQL,
-The private typed lifecycle runs the maintenance-profile `postgres-major-guard`.
+Before PostgreSQL starts, the private typed lifecycle runs the maintenance-profile `postgres-major-guard`.
 The guard mounts `ple_pgdata` read-only and checks its `PG_VERSION` file. A
-populated volume declaring a major other than `17` is refused before the
-database service starts.
+populated volume whose major differs from the selected image's `PG_MAJOR` is
+refused before the database service starts.
 
 This guard never migrates, rewrites, or deletes the volume. If it refuses an
 older or newer volume, stop and choose a deliberate PostgreSQL migration or

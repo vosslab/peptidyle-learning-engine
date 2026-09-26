@@ -63,7 +63,7 @@ def test_rebuild_application_refuses_an_unhealthy_database(
 	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "status_report", lambda *args: unhealthy)
 
-	with pytest.raises(local_stack_control.models.ControllerError):
+	with pytest.raises(local_stack_control.models.ControllerError, match="postgres.*exited"):
 		local_stack_control.lifecycle.require_application_rebuild_baseline(
 			target, local_stack_lifecycle_helpers.UnexpectedRunner()
 		)

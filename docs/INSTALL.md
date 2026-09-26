@@ -19,8 +19,8 @@ deployment procedure.
   [pip_requirements-dev.txt](../pip_requirements-dev.txt).
 - Podman and a usable Compose adapter for the local stack. On macOS, use
   [Brewfile](../Brewfile) and [MACOS_PODMAN.md](MACOS_PODMAN.md).
-- PostgreSQL 17 is supplied by the local stack's migrator image; do not substitute
-  an unreviewed client for canonical schema operations.
+- The local stack supplies PostgreSQL and its migrator image supplies the client
+  for canonical schema operations.
 ## Set up a checkout
 
 ```bash

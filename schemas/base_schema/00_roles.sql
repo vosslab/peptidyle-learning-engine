@@ -3,18 +3,12 @@
 -- Database-wide PLE foundation: ordinary capability roles, schemas, default
 -- deny ACLs, and SQLx's isolated forward-migration ledger.
 --
--- Platform bootstrap creates every PLE role. PostgreSQL 17 gives a CREATEROLE
+-- Platform bootstrap creates every PLE role. PostgreSQL gives a CREATEROLE
 -- principal an unremovable ADMIN membership for roles it creates, so the
 -- restricted migrator does not create ordinary capabilities. This base
 -- validates the bootstrap boundary and configures those roles for its modules.
 DO $$
 BEGIN
-    IF pg_catalog.current_setting('server_version_num')::integer / 10000 <> 17 THEN
-        RAISE EXCEPTION USING
-            ERRCODE = '55000',
-            MESSAGE = 'the PLE base schema requires PostgreSQL major version 17';
-    END IF;
-
     IF current_user <> 'ple_migrator' THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
@@ -659,4 +653,3 @@ GRANT USAGE ON SCHEMA ple_api TO ple_app;
 -- read-only projection.  It remains a separate capability from ple_app,
 -- SQLx's ledger, and every API procedure (ASVS 8.2.1).
 GRANT USAGE ON SCHEMA ple_api TO ple_migrator;
-

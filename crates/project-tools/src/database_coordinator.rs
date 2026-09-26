@@ -10,7 +10,7 @@ use crate::libpq_environment::LibpqEnvironment;
 const IMAGE_SCHEMA_ROOT: &str = "/opt/ple/schemas";
 const BASE_MANIFEST_RELATIVE_PATH: &str = "base_schema/install.sql";
 const MIGRATION_PRINCIPAL: &str = "ple_migrator";
-/// PostgreSQL 17 client path supplied by the pinned Debian migrator image.
+/// PostgreSQL client path supplied by the Debian migrator image.
 const PSQL_EXECUTABLE: &str = "/usr/bin/psql";
 
 /// Mutating database operations owned by this coordinator.

@@ -276,6 +276,27 @@ def test_launch_diagnostic_retains_the_first_actionable_error() -> None:
 
 
 #============================================
+def test_launch_diagnostic_retains_database_error_across_compose_streams() -> None:
+	"""A schema failure remains visible when Compose puts its banner on stderr."""
+	result = local_stack_control.models.CommandResult(
+		("podman", "compose"), 1,
+		"psql:/schema/install.sql:12: ERROR: unsupported database version private-value\n"
+		"Error: PostgreSQL base installation command failed (exit status: 3)\n",
+		"\x1b[4m>>>> Executing external compose provider <<<<\x1b[0m\n"
+		"Error: executing podman compose: exit status 1\n",
+	)
+	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+		result, ("private-value",)
+	)
+	diagnostic = local_stack_control.browser_suite_developer._launch_diagnostic(
+		f"ERROR: database initialize failed ({detail})\n"
+	)
+	assert "unsupported database version" in diagnostic
+	assert "private-value" not in diagnostic
+	assert "Executing external compose provider" not in diagnostic
+
+
+#============================================
 def test_launch_diagnostic_retains_causes_but_excludes_trailing_diagnostics() -> None:
 	"""Keep an anyhow chain or one direct cause, but never trailing diagnostic noise."""
 	diagnostic = local_stack_control.browser_suite_developer._launch_diagnostic(
@@ -407,11 +428,25 @@ def test_supervisor_log_tail_reports_phase_and_last_line(tmp_path: pathlib.Path)
 	)
 	phase, last_line = local_stack_control.browser_suite_developer_start.log_tail(log_path)
 	assert (phase, last_line) == ("launch", "Step: compose up -d postgres")
-	# A long build pushes the marker out of the bounded tail; the known phase survives.
+	# Dependency downloads must retain their image heading beyond the usual tail.
 	with log_path.open("a", encoding="ascii") as log:
-		log.write("build output line\n" * 400)
+		log.write("Step: Building MinIO image (object storage server and client)\n")
+		log.write("go: downloading go.mongodb.org/mongo-driver v1.17.3\n" * 400)
 	phase, last_line = local_stack_control.browser_suite_developer_start.log_tail(log_path, "launch")
-	assert (phase, last_line) == ("launch", "build output line")
+	assert phase == "launch"
+	assert last_line == (
+		"Step: Building MinIO image (object storage server and client)\n"
+		"  go: downloading go.mongodb.org/mongo-driver v1.17.3"
+	)
+	with log_path.open("a", encoding="ascii") as log:
+		log.write("Step: compose build api\napplication build output\n")
+	_phase, last_line = local_stack_control.browser_suite_developer_start.log_tail(log_path)
+	assert last_line == "Step: compose build api\n  application build output"
+	with log_path.open("a", encoding="ascii") as log:
+		log.write("[phase] ready\nready output\n")
+	assert local_stack_control.browser_suite_developer_start.log_tail(log_path) == (
+		"ready", "ready output"
+	)
 
 
 #============================================

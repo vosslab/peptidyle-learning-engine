@@ -15,8 +15,9 @@ services:
   postgres:
     labels:
       <<: [*ple-disposable-capability-label, *ple-e2e-owner-label]
-    image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set by the canonical stack selection}
+    image: docker.io/library/postgres:latest
     environment:
+      PGDATA: /var/lib/postgresql/data
       POSTGRES_USER: ${POSTGRES_USER:?set by e2e_database_baseline.sh}
       POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:?set by the private acceptance runtime}
       POSTGRES_DB: ${POSTGRES_DB:?set by e2e_database_baseline.sh}
@@ -31,7 +32,7 @@ services:
       - ple_pgdata:/var/lib/postgresql/data
       - ${PLE_DATABASE_BASELINE_POSTGRES_PASSWORD_FILE:?set by the private acceptance runtime}:/run/ple-runtime/postgres-password:ro
 
-  # The one-shot administrator is the same PostgreSQL 17 client image used by
+  # The one-shot administrator is the same PostgreSQL client image used by
   # ordinary local lifecycle commands. It alone carries psql and the canonical
   # base schema; the baseline profile keeps it on the Compose network.
   database-migrator:

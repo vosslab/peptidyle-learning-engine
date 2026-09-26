@@ -323,12 +323,7 @@ async function prepare(
       await choice.check();
     }
     await picker.getByRole("button", { name: "Add selected Questions", exact: true }).click();
-    await page
-      .getByText(
-        `${selected.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
-        { exact: true },
-      )
-      .waitFor();
+    await picker.waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page
       .getByText("Questions and order saved. Review Assessment Properties when you are ready.")

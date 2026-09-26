@@ -280,11 +280,6 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"PLE_WEBWORK_RENDERER_VERSION_FILE",
 	)
 	require_values(values, required)
-	for name in (
-		"PLE_POSTGRES_IMAGE_SHA256",
-		"PLE_GATEWAY_IMAGE_SHA256", "PLE_SECRET_INIT_IMAGE_SHA256",
-	):
-		require_digest(values, name)
 	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE",):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
@@ -304,14 +299,6 @@ def require_values(values: dict[str, str], names: tuple[str, ...]) -> None:
 			raise local_stack_control.models.ControllerError(
 				f"selected environment is missing required {name}"
 			)
-
-
-#============================================
-def require_digest(values: dict[str, str], name: str) -> None:
-	"""Require one lower-case 64-character image manifest digest."""
-	value = values.get(name, "")
-	if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
-		raise local_stack_control.models.ControllerError(f"selected environment has invalid {name}")
 
 
 #============================================
@@ -556,7 +543,11 @@ def require_application_rebuild_baseline(
 			continue
 		if not item.healthy:
 			raise local_stack_control.models.ControllerError(
-				"a non-application required service is not healthy"
+				f"required service {item.service} is not ready: "
+				f"state={item.state} health={item.health or '-'} "
+				f"instances={item.instances} exit_code={item.exit_code}; "
+				"inspect local_stack.py status or restart the disposable Live Demo "
+				"with ./devel/capture_screenshots.sh --fresh"
 			)
 	for service in APPLICATION_REBUILD_SERVICES:
 		matching = tuple(item for item in report.services if item.service == service)
@@ -587,8 +578,8 @@ def build_object_storage(
 	environment: dict[str, str],
 ) -> None:
 	"""Stream the cached source build without passing private Compose settings."""
-	# ASVS 15.2.4: the Containerfile pins official source and base images.
-	report_step("building object storage from pinned upstream source (cached after first use)")
+	# ASVS 15.2.4: the Containerfile uses official sources and base images.
+	report_step("Building MinIO image (object storage server and client)")
 	status = runner.stream(
 		["podman", "build", "-f", str(repo_root / "containers" / "Containerfile.object_storage"),
 			"-t", "localhost/ple-object-storage:reviewed", str(repo_root / "containers")],

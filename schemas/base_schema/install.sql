@@ -1,6 +1,6 @@
 -- Canonical PLE structural installation manifest.
 --
--- The administrator invokes this file with PostgreSQL 17 `psql -X`,
+-- The administrator invokes this file with PostgreSQL `psql -X`,
 -- `--set=ON_ERROR_STOP=1`, and `--single-transaction`. Keep this
 -- manifest limited to ordered includes by kind, then domain.
 \set ON_ERROR_STOP on

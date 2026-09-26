@@ -10,9 +10,6 @@ import local_stack_control.models
 
 SETTING_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TRACKED_STACK_SELECTION_NAMES = (
-	"PLE_GATEWAY_IMAGE_SHA256",
-	"PLE_POSTGRES_IMAGE_SHA256",
-	"PLE_SECRET_INIT_IMAGE_SHA256",
 	"PLE_WEBWORK_RENDERER_IMAGE",
 	"PLE_WEBWORK_RENDERER_BASE_URL",
 	"PLE_WEBWORK_RENDERER_ID",
@@ -107,39 +104,6 @@ def tracked_stack_selections(repo_root: pathlib.Path) -> dict[str, str]:
 			)
 		result[name] = values[name]
 	return result
-
-
-#============================================
-def add_tracked_selections(
-	repo_root: pathlib.Path,
-	env_file: pathlib.Path,
-	names: tuple[str, ...],
-) -> tuple[str, ...]:
-	"""Add named tracked selections to one private disposable environment.
-
-	The tracked example owns image selection.  A disposable runner owns only its
-	private credentials, ports, and cleanup capability, so it receives selected
-	base-image values from that tracked source before Compose runs.
-	"""
-	values = env_settings(env_file)
-	selections = tracked_stack_selections(repo_root)
-	additions: list[str] = []
-	for name in names:
-		if name not in selections:
-			raise local_stack_control.models.ControllerError(
-				f"containers/env.example does not define tracked selection {name}"
-			)
-		if name in values:
-			if values[name] != selections[name]:
-				raise local_stack_control.models.ControllerError(
-					f"{env_file} must use the tracked selection for {name}"
-				)
-			continue
-		additions.append(f"{name}={selections[name]}")
-	if len(additions) > 0:
-		with env_file.open("a", encoding="utf-8") as handle:
-			handle.write("".join(f"{line}\n" for line in additions))
-	return env_setting_names(env_file)
 
 
 #============================================

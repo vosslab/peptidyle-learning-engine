@@ -103,7 +103,7 @@ correctness does not depend on its host port-forwarding behavior.
 
 `ple_pgdata` and `ple_miniodata` are named volumes. A normal container stop or
 rebuild retains them. The read-only `postgres-major-guard` accepts an empty
-volume or PostgreSQL 17 data; it never performs a major upgrade. Upgrade by
+volume or data matching the selected image's PostgreSQL major; it never performs a major upgrade. Upgrade by
 verified backup, new target-major volume, restore, validation, and recovery
 acceptance. Removing a populated volume is destructive.
 

@@ -6,8 +6,9 @@ x-ple-disposable-capability-label: &ple-disposable-capability-label
 services:
   postgres:
     labels: *ple-disposable-capability-label
-    image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set by the canonical stack selection}
+    image: docker.io/library/postgres:latest
     environment:
+      PGDATA: /var/lib/postgresql/data
       POSTGRES_USER: ${POSTGRES_USER:?set by e2e_course_appearance.sh}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set by e2e_course_appearance.sh}
       POSTGRES_DB: ${POSTGRES_DB:?set by e2e_course_appearance.sh}

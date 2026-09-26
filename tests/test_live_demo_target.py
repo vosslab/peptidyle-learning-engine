@@ -23,9 +23,6 @@ def selections() -> dict[str, str]:
 		"PLE_WEBWORK_RENDERER_ID": "renderer-id",
 		"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS": "15",
 		"PLE_WEBWORK_MAX_RESPONSE_BYTES": "1048576",
-		"PLE_GATEWAY_IMAGE_SHA256": "gateway",
-		"PLE_POSTGRES_IMAGE_SHA256": "postgres",
-		"PLE_SECRET_INIT_IMAGE_SHA256": "secret-init",
 	}
 
 

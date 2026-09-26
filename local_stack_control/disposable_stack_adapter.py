@@ -42,31 +42,6 @@ __all__ = (
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
 LIVE_DEMO_MANIFEST_KEYS = (*MANIFEST_KEYS, "PROFILE")
 
-TRACKED_IMAGE_SELECTIONS_BY_OWNER = {
-	"course-appearance": (
-		"PLE_POSTGRES_IMAGE_SHA256",
-	),
-	"live-demo-baseline": (
-		"PLE_POSTGRES_IMAGE_SHA256",
-	),
-	local_stack_control.models.LIVE_DEMO_BROWSER_OWNER: ("PLE_POSTGRES_IMAGE_SHA256",),
-}
-
-
-#============================================
-def tracked_image_selections(manifest: "DisposableManifest") -> tuple[str, ...]:
-	"""Return the tracked image selections allowed by the selected profile."""
-	if manifest.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
-		return TRACKED_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
-	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
-		return ("PLE_POSTGRES_IMAGE_SHA256",)
-	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
-		return (
-			"PLE_POSTGRES_IMAGE_SHA256",
-		)
-	return TRACKED_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
-
-
 @dataclasses.dataclass(frozen=True)
 class DisposableManifest:
 	"""Non-secret runner evidence needed to form a disposable target."""
@@ -182,9 +157,7 @@ def disposable_target(
 	policy = owner_policy(manifest.owner)
 	local_stack_control.compose.require_disposable_capability_file(manifest.capability_file)
 	local_stack_control.env_file.require_mutation_env_file(manifest.env_file)
-	declared_names = local_stack_control.env_file.add_tracked_selections(
-		repo_root, manifest.env_file, tracked_image_selections(manifest)
-	)
+	declared_names = local_stack_control.env_file.env_setting_names(manifest.env_file)
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(
 		repo_root, policy.owner, manifest.live_demo_profile
 	)

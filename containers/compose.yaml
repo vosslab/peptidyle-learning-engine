@@ -15,7 +15,7 @@ services:
   # application data after it exits.
   local-data-volume-permissions:
     labels: *ple-disposable-capability-label
-    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
+    image: docker.io/library/alpine:latest
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -46,8 +46,9 @@ services:
 
   postgres:
     labels: *ple-disposable-capability-label
-    image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
+    image: docker.io/library/postgres:latest
     environment:
+      PGDATA: /var/lib/postgresql/data
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in the env file}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
       POSTGRES_DB: ${POSTGRES_DB:-peptidyle}
@@ -140,10 +141,10 @@ services:
   # Invoked explicitly by local_stack_control.lifecycle before PostgreSQL starts.  A
   # PostgreSQL data directory is not forward/backward compatible across major
   # versions, so the guard refuses a populated volume whose declared major is
-  # not the pinned PostgreSQL 17 contract.  It mounts the data read-only.
+  # not the selected image's PostgreSQL major version.  It mounts the data read-only.
   postgres-major-guard:
     labels: *ple-disposable-capability-label
-    image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
+    image: docker.io/library/postgres:latest
     profiles: ["maintenance"]
     entrypoint: ["/bin/sh", "-ec"]
     command:
@@ -157,8 +158,8 @@ services:
           exit 1
         fi
         actual_major="$$(tr -d '\\r\\n' < "$${version_file}")"
-        if [ "$${actual_major}" != "17" ]; then
-          echo "PostgreSQL data volume requires major $${actual_major}; local stack is pinned to PostgreSQL 17" >&2
+        if [ "$${actual_major}" != "$${PG_MAJOR}" ]; then
+          echo "PostgreSQL data volume requires major $${actual_major}; selected image requires major $${PG_MAJOR}" >&2
           exit 1
         fi
     volumes:
@@ -292,7 +293,7 @@ services:
   # API's fixed runtime UID. Raw secrets never enter the API environment.
   identity-secret-init:
     labels: *ple-disposable-capability-label
-    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
+    image: docker.io/library/alpine:latest
     volumes:
       - type: bind
         source: ${PLE_INVITATION_TOKEN_SECRET_HOST_FILE:?set PLE_INVITATION_TOKEN_SECRET_HOST_FILE to an operator-created mode-0600 file containing unpadded base64url for exactly 32 secret bytes}
@@ -586,8 +587,6 @@ services:
     build:
       context: ..
       dockerfile: containers/Containerfile.gateway
-      args:
-        CADDY_IMAGE: docker.io/library/caddy@sha256:${PLE_GATEWAY_IMAGE_SHA256:?set PLE_GATEWAY_IMAGE_SHA256 to the selected official Caddy Linux image manifest digest}
     depends_on:
       api:
         condition: service_started
