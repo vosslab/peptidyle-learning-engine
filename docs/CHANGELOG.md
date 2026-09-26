@@ -10,6 +10,12 @@
 
 ### Fixes and Maintenance
 
+- Publish runs now write captures directly into Git-tracked `docs/screenshots/`, retaining completed
+  images on later failure. Removed staging promotion, recovery backups, rollback, and the rollback
+  test. Manifest, receipt, atlas, and obsolete-image cleanup finish after all scenarios pass.
+  A one-time check finalized and verified a temporary copy of the tracked corpus successfully.
+- Screenshot capture prints each file's actual destination and explains its output directory at
+  startup. Formatting and diff checks passed.
 - Removed four more screenshot checks tied to incidental success-message sentences: Question
   selection in two scenarios, Template creation, and release readiness. Capture uses dialog closure
   and existing editor/readiness headings instead. Save-completion and privacy checks remain.

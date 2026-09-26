@@ -79,12 +79,10 @@ artifacts under `test-results/screenshot-corpus/verify/` and proves that the
 published images were not modified. Byte differences are reported for human
 review but are not a pass/fail pixel-equivalence gate.
 
-Publication validates staging before changing the active corpus. Portable
-filesystems cannot atomically replace four directories plus two files, so
-publication keeps a complete recovery backup while replacement is in progress,
-rolls back ordinary failures, and refuses to overwrite evidence from an
-interrupted publication. This is recoverable promotion, not a filesystem
-transaction.
+Publish runs write each checked screenshot directly to `docs/screenshots/`.
+Completed captures remain visible if a later scenario fails; Git tracks the changes.
+After all scenarios pass, publication removes obsolete images and updates the
+manifest, receipt, and atlas. Verification replays use their separate output directory.
 
 Neither command replaces the permanent behavioral suite. Machine-clean replay
 proves reproducible semantic states; human visual review determines whether the

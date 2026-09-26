@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -17,7 +17,6 @@ import {
   createReceipt,
   inspectCorpus,
   pngDimensions,
-  promoteCorpus,
   receiptJson,
   renderAtlas,
   verifyPublishedArtifacts,
@@ -257,56 +256,6 @@ test("replay publication requires the manifest that its receipt binds", async ()
       writeReplayArtifacts({ outputRoot: root, manifest, digest: "a".repeat(64) }),
       /screenshot corpus (?:required root file )?path set differs.*current_capture_manifest\.json/u,
     );
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
-});
-
-test("publication restores the prior corpus when a role replacement fails", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-promotion-"));
-  try {
-    const screenshotRoot = path.join(root, "docs", "screenshots");
-    const stagingRoot = path.join(root, "test-results", "staging");
-    const atlasPath = path.join(root, "docs", "SCREENSHOT_ATLAS.md");
-    const manifest = oneCaptureManifest(await loadManifest(manifestPath));
-    const digest = "f".repeat(64);
-    await writeFixtureCorpus(screenshotRoot, manifest, "old");
-    const oldImages = await inspectCorpus(screenshotRoot, manifest);
-    const oldReceipt = receiptJson(createReceipt(digest, oldImages));
-    const oldAtlas = "previous atlas\n";
-    await writeFile(
-      path.join(screenshotRoot, "current_capture_manifest.json"),
-      `${JSON.stringify(manifest)}\n`,
-      "utf8",
-    );
-    await writeFile(path.join(screenshotRoot, "current_capture_receipt.json"), oldReceipt, "utf8");
-    await writeFile(atlasPath, oldAtlas, "utf8");
-    await writeFixtureCorpus(stagingRoot, manifest, "new");
-    await writeFile(
-      path.join(stagingRoot, "current_capture_manifest.json"),
-      `${JSON.stringify(manifest)}\n`,
-      "utf8",
-    );
-    const oldPng = await readFile(path.join(screenshotRoot, manifest.captures[0].path));
-
-    await assert.rejects(
-      promoteCorpus(
-        { stagingRoot, screenshotRoot, atlasPath, manifest, digest },
-        async (source, target) => {
-          if (path.basename(target) === "student") throw new Error("injected replacement failure");
-          await rename(source, target);
-        },
-      ),
-      /injected replacement failure/u,
-    );
-
-    assert.deepEqual(await readFile(path.join(screenshotRoot, manifest.captures[0].path)), oldPng);
-    assert.equal(
-      await readFile(path.join(screenshotRoot, "current_capture_receipt.json"), "utf8"),
-      oldReceipt,
-    );
-    assert.equal(await readFile(atlasPath, "utf8"), oldAtlas);
-    assert.ok((await stat(path.join(root, "test-results", "publication-backup"))).isDirectory());
   } finally {
     await rm(root, { force: true, recursive: true });
   }

@@ -1,7 +1,7 @@
 // Manifest-driven screenshot corpus publisher and live replay verifier.
 
 import path from "node:path";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
@@ -19,7 +19,7 @@ import {
 import {
   manifestDigest,
   prepareOutputRoot,
-  promoteCorpus,
+  finishPublishedCorpus,
   verifyPublishedArtifacts,
   writeReplayArtifacts,
   type PublishedImage,
@@ -109,8 +109,16 @@ async function replay(
   const publishedBefore = mode === "verify" ? await verifyPublished() : undefined;
   const exceptions = await loadCoverageExceptions(exceptionsPath);
   const entryUrl = requireEntryUrl(entryArgument);
-  const outputRoot = path.join(resultRoot, mode === "verify" ? "verify" : "staging");
-  await prepareOutputRoot(outputRoot);
+  const outputRoot =
+    mode === "publish"
+      ? screenshotRoot
+      : path.join(resultRoot, mode === "verify" ? "verify" : "staging");
+  if (mode === "publish") await mkdir(outputRoot, { recursive: true });
+  else await prepareOutputRoot(outputRoot);
+  console.log(`Writing screenshots to ${outputRoot}.`);
+  if (mode === "publish") {
+    console.log("docs/screenshots/ updates as each screenshot is captured.");
+  }
   const browser = await chromium.launch({
     headless: !headed,
     args: liveDemoChromiumArgs(entryUrl.href),
@@ -151,8 +159,7 @@ async function replay(
     await writeFile(path.join(outputRoot, "current_capture_manifest.json"), encoded, "utf8");
     const digest = await manifestDigest(path.join(outputRoot, "current_capture_manifest.json"));
     if (mode === "publish") {
-      await promoteCorpus({
-        stagingRoot: outputRoot,
+      await finishPublishedCorpus({
         screenshotRoot,
         atlasPath,
         manifest: generated,

@@ -213,7 +213,7 @@ export function createScenarioRuntime(options: {
     });
     producedPaths.add(captureRecord.path);
     producedCaptures.push(captureRecord);
-    console.log(`Captured ${captureRecord.path}`);
+    console.log(`Captured ${target}`);
   }
 
   async function close(session: CaptureSession): Promise<void> {

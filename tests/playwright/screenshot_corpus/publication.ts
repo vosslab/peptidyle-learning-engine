@@ -1,9 +1,9 @@
-// publication.ts - receipt, gallery, PNG validation, and recoverable corpus promotion.
+// publication.ts - receipt, gallery, and PNG validation.
 
 import { createHash } from "node:crypto";
 import type { Dirent } from "node:fs";
 import path from "node:path";
-import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 
 import {
   CANONICAL_VIEWPORTS,
@@ -389,106 +389,29 @@ export async function writeReplayArtifacts(options: {
   return images;
 }
 
-async function exists(target: string): Promise<boolean> {
-  try {
-    await stat(target);
-    return true;
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
+/** Finish metadata for screenshots already written directly into the tracked directory. */
+export async function finishPublishedCorpus(options: {
+  readonly screenshotRoot: string;
+  readonly atlasPath: string;
+  readonly manifest: CaptureManifest;
+  readonly digest: string;
+}): Promise<void> {
+  const expected = new Set(options.manifest.captures.map((capture) => capture.path));
+  for (const previous of await actualPngPaths(options.screenshotRoot, ACTIVE_CORPUS_METADATA, [])) {
+    if (!expected.has(previous)) await rm(path.join(options.screenshotRoot, previous));
   }
-}
-
-async function copyIfPresent(source: string, target: string): Promise<void> {
-  if (await exists(source)) await cp(source, target, { recursive: true });
-}
-
-/**
- * Promote only a fully inspected staging corpus. Portable filesystems cannot atomically replace
- * four folders plus the atlas, so a complete backup supports rollback and crash recovery.
- * ASVS 2.3.3: an ordinary replacement failure restores the previous complete publication.
- */
-export async function promoteCorpus(
-  options: {
-    readonly stagingRoot: string;
-    readonly screenshotRoot: string;
-    readonly atlasPath: string;
-    readonly manifest: CaptureManifest;
-    readonly digest: string;
-  },
-  movePath: (source: string, target: string) => Promise<void> = rename,
-): Promise<void> {
-  const images = await writeReplayArtifacts({
-    outputRoot: options.stagingRoot,
-    manifest: options.manifest,
-    digest: options.digest,
-  });
-  const publicationRoot = path.dirname(options.stagingRoot);
-  const backupRoot = path.join(publicationRoot, "publication-backup");
-  const buildingBackupRoot = `${backupRoot}.building`;
-  if (await exists(backupRoot)) {
-    throw new Error(
-      `an interrupted screenshot publication needs recovery from ${backupRoot} before retrying`,
-    );
-  }
-  await rm(buildingBackupRoot, { force: true, recursive: true });
-  await mkdir(buildingBackupRoot, { recursive: true });
-  for (const role of ROLE_IDS) {
-    await copyIfPresent(rolePath(options.screenshotRoot, role), rolePath(buildingBackupRoot, role));
-  }
-  const receiptSource = path.join(options.stagingRoot, "current_capture_receipt.json");
-  const receiptTarget = path.join(options.screenshotRoot, "current_capture_receipt.json");
-  const manifestSource = path.join(options.stagingRoot, "current_capture_manifest.json");
-  const manifestTarget = path.join(options.screenshotRoot, "current_capture_manifest.json");
-  await copyIfPresent(receiptTarget, path.join(buildingBackupRoot, "current_capture_receipt.json"));
-  await copyIfPresent(
-    manifestTarget,
-    path.join(buildingBackupRoot, "current_capture_manifest.json"),
+  const images = await inspectCorpus(
+    options.screenshotRoot,
+    options.manifest,
+    ACTIVE_CORPUS_METADATA,
+    ["current_capture_manifest.json"],
   );
-  await copyIfPresent(options.atlasPath, path.join(buildingBackupRoot, "SCREENSHOT_ATLAS.md"));
-  await movePath(buildingBackupRoot, backupRoot);
-  const atlasTemporary = `${options.atlasPath}.new`;
-  await rm(atlasTemporary, { force: true });
-  await writeFile(atlasTemporary, renderAtlas(options.manifest, "screenshots/"), "utf8");
-  try {
-    for (const role of ROLE_IDS) {
-      const source = rolePath(options.stagingRoot, role);
-      const target = rolePath(options.screenshotRoot, role);
-      await rm(target, { force: true, recursive: true });
-      await movePath(source, target);
-    }
-    await movePath(receiptSource, receiptTarget);
-    if (await exists(manifestSource)) {
-      await movePath(manifestSource, manifestTarget);
-    }
-    await movePath(atlasTemporary, options.atlasPath);
-    const promoted = await inspectCorpus(
-      options.screenshotRoot,
-      options.manifest,
-      ACTIVE_CORPUS_METADATA,
-    );
-    if (
-      receiptJson(createReceipt(options.digest, promoted)) !==
-      receiptJson(createReceipt(options.digest, images))
-    ) {
-      throw new Error("promoted screenshot corpus differs from validated staging bytes");
-    }
-  } catch (error: unknown) {
-    for (const role of ROLE_IDS) {
-      const target = rolePath(options.screenshotRoot, role);
-      await rm(target, { force: true, recursive: true });
-      await copyIfPresent(rolePath(backupRoot, role), target);
-    }
-    await rm(receiptTarget, { force: true });
-    await copyIfPresent(path.join(backupRoot, "current_capture_receipt.json"), receiptTarget);
-    await rm(manifestTarget, { force: true });
-    await copyIfPresent(path.join(backupRoot, "current_capture_manifest.json"), manifestTarget);
-    await rm(options.atlasPath, { force: true });
-    await copyIfPresent(path.join(backupRoot, "SCREENSHOT_ATLAS.md"), options.atlasPath);
-    throw error;
-  }
-  await rm(backupRoot, { force: true, recursive: true });
-  await rm(options.stagingRoot, { force: true, recursive: true });
+  await writeFile(
+    path.join(options.screenshotRoot, "current_capture_receipt.json"),
+    receiptJson(createReceipt(options.digest, images)),
+    "utf8",
+  );
+  await writeFile(options.atlasPath, renderAtlas(options.manifest, "screenshots/"), "utf8");
 }
 
 export async function prepareOutputRoot(root: string): Promise<void> {
