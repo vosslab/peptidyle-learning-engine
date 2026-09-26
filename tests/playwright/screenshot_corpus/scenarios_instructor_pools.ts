@@ -4,6 +4,7 @@
 // are owned by src/components/question_pool_create_dialog.tsx and question_picker.tsx.
 
 import type { ScenarioRuntime } from "./runtime";
+import { catalogScreenshotFilename } from "./filenames";
 import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
@@ -49,6 +50,11 @@ export const INSTRUCTOR_POOL_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "pool_creation_review",
+        filenameStem: catalogScreenshotFilename(
+          "questions",
+          "searchQuestionLibrary",
+          "pool_creation_review",
+        ),
         area: "question library",
         workflow: "question pool creation",
         state: "selected Question review",

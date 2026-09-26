@@ -6,6 +6,23 @@
 
 > September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
 
+## 2026-09-26
+
+### Fixes and Maintenance
+
+- Completed the screenshot corpus with a Student Profile checkpoint and 43 shared Student
+  checkpoints in laptop, tablet, phone, and square views. Tiered-menu captures now use
+  catalog-backed filenames, and the 15 Course theme comparisons show the saved palette rendered
+  in one Instructor Course workspace. The question-type scenario reuses its released Assessments
+  and separates unanswered and answered Student records so capture replay stays repeatable.
+- Generated eight folder galleries with relative image links and captions, linked them from the
+  README, and retained the aggregate atlas. Receipts retain a SHA-256 for every screenshot; matching
+  PNG bytes remain valid.
+- The screenshot corpus tests passed 19/19, Student checkpoint sets matched at 43 per viewport,
+  and all 15 theme captures used the same Course workspace. `./devel/capture_screenshots.sh --fresh`
+  and `./devel/capture_screenshots.sh --fresh --verify` completed successfully. Replay differences
+  were not required to match image bytes; manifest closure, privacy, and receipt integrity passed.
+
 ## 2026-09-25
 
 ### Fixes and Maintenance

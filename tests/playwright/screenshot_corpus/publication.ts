@@ -12,6 +12,7 @@ import {
   type CaptureRecord,
   type ScreenshotRole,
 } from "./manifest";
+import { verifyScreenshotGalleries, writeScreenshotGalleries } from "./screenshot_galleries";
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const ACTIVE_CORPUS_METADATA = [
@@ -182,14 +183,6 @@ export async function inspectCorpus(
     "screenshot corpus",
   );
   const images = await Promise.all(manifest.captures.map((capture) => imageRecord(root, capture)));
-  const pathsByHash = new Map<string, string>();
-  for (const image of images) {
-    const duplicateOf = pathsByHash.get(image.sha256);
-    if (duplicateOf !== undefined) {
-      throw new Error(`duplicate screenshot bytes: ${duplicateOf} and ${image.path}`);
-    }
-    pathsByHash.set(image.sha256, image.path);
-  }
   return images.sort((left, right) => left.path.localeCompare(right.path));
 }
 
@@ -362,6 +355,10 @@ export async function verifyPublishedArtifacts(options: {
   if ((await readFile(options.atlasPath, "utf8")) !== expectedAtlas) {
     throw new Error("docs/SCREENSHOT_ATLAS.md is not the deterministic manifest gallery");
   }
+  await verifyScreenshotGalleries(
+    path.join(path.dirname(options.atlasPath), "screenshot_galleries"),
+    options.manifest,
+  );
   return images;
 }
 
@@ -412,6 +409,7 @@ export async function finishPublishedCorpus(options: {
     "utf8",
   );
   await writeFile(options.atlasPath, renderAtlas(options.manifest, "screenshots/"), "utf8");
+  await writeScreenshotGalleries(path.dirname(options.atlasPath), options.manifest);
 }
 
 export async function prepareOutputRoot(root: string): Promise<void> {

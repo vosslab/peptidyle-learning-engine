@@ -134,7 +134,9 @@ async function replay(
     console.log(reportScenarioThemeVariety(selected));
     for (const scenario of selected) {
       console.log(`Running screenshot scenario ${scenario.id}`);
-      await persistScenarioCourseTheme(browser, entryUrl, scenario.id);
+      if (scenario.id !== "instructor_theme_samples") {
+        await persistScenarioCourseTheme(browser, entryUrl, scenario.id);
+      }
       const runtime = createScenarioRuntime({
         browser,
         entryUrl,

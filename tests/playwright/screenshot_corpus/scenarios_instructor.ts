@@ -11,6 +11,7 @@
 import type { Page } from "playwright";
 
 import type { ScenarioRuntime } from "./runtime";
+import { catalogScreenshotFilename } from "./filenames";
 import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import {
   COURSE_TITLE,
@@ -365,6 +366,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "course_list",
+        filenameStem: catalogScreenshotFilename("courses", "myActiveCourses", "course_list"),
         area: "courses",
         workflow: "seeded teaching course",
         state: "course list",
@@ -375,6 +377,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "inactive_courses_list",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "myInactiveCourses",
+          "inactive_courses_list",
+        ),
         area: "courses",
         workflow: "past teaching courses",
         state: "zero past Course Instances",
@@ -384,6 +391,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "course_assignment_workspace",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "myActiveCourses",
+          "course_assignment_workspace",
+        ),
         area: "courses",
         workflow: "seeded teaching course",
         state: "assignment workspace",
@@ -393,6 +405,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "course_roster_active",
+        filenameStem: catalogScreenshotFilename("courses", "students", "course_roster_active"),
         area: "courses",
         workflow: "roster",
         state: "active students",
@@ -402,6 +415,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "course_roster_pending_invitation",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "students",
+          "course_roster_pending_invitation",
+        ),
         area: "courses",
         workflow: "roster",
         state: "pending invitation",
@@ -411,6 +429,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "gradebook",
+        filenameStem: catalogScreenshotFilename("courses", "gradebook", "gradebook"),
         area: "grading",
         workflow: "seeded teaching course",
         state: "mixed progress",
@@ -421,6 +440,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "assignments_due_soon_empty",
+        filenameStem: catalogScreenshotFilename(
+          "productAssessments",
+          "assessmentsDueSoon",
+          "assignments_due_soon_empty",
+        ),
         area: "assignments",
         workflow: "upcoming deadlines",
         state: "no current deadlines",
@@ -442,6 +466,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "library_default",
+        filenameStem: catalogScreenshotFilename(
+          "questions",
+          "searchQuestionLibrary",
+          "library_default",
+        ),
         area: "question library",
         workflow: "question discovery",
         state: "default",
@@ -452,6 +481,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "library_filtered",
+        filenameStem: catalogScreenshotFilename(
+          "questions",
+          "searchQuestionLibrary",
+          "library_filtered",
+        ),
         area: "question library",
         workflow: "question discovery",
         state: "filtered",
@@ -461,6 +495,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "published_question_detail",
+        filenameStem: catalogScreenshotFilename(
+          "questions",
+          "searchQuestionLibrary",
+          "published_question_detail",
+        ),
         area: "question library",
         workflow: "question discovery",
         state: "published detail",
@@ -470,6 +509,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "library_browse",
+        filenameStem: catalogScreenshotFilename(
+          "questions",
+          "browseQuestionLibrary",
+          "library_browse",
+        ),
         area: "question library",
         workflow: "question discovery",
         state: "browse overview",
@@ -521,6 +565,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "draft_list",
+        filenameStem: catalogScreenshotFilename("questions", "myDraftQuestions", "draft_list"),
         area: "question authoring",
         workflow: "publication",
         state: "draft list",
@@ -530,6 +575,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "saved_editor",
+        filenameStem: catalogScreenshotFilename("questions", "myDraftQuestions", "saved_editor"),
         area: "question authoring",
         workflow: "publication",
         state: "saved draft",
@@ -539,6 +585,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "publication_review",
+        filenameStem: catalogScreenshotFilename(
+          "questions",
+          "myDraftQuestions",
+          "publication_review",
+        ),
         area: "question authoring",
         workflow: "publication",
         state: "review",
@@ -560,6 +611,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "blueprint_list",
+        filenameStem: catalogScreenshotFilename("courses", "myBlueprintCourses", "blueprint_list"),
         area: "blueprint courses",
         workflow: "reusable course design",
         state: "list",
@@ -569,6 +621,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "blueprint_detail",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "myBlueprintCourses",
+          "blueprint_detail",
+        ),
         area: "blueprint courses",
         workflow: "reusable course design",
         state: "detail",
@@ -578,6 +635,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "blueprint_question_picker",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "myBlueprintCourses",
+          "blueprint_question_picker",
+        ),
         area: "blueprint courses",
         workflow: "reusable course design",
         state: "question picker",
@@ -608,6 +670,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "filtered_results",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "searchPublicBlueprintCourses",
+          "filtered_results",
+        ),
         area: "blueprint courses",
         workflow: "public blueprint discovery",
         state: "filtered results",
@@ -638,6 +705,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       {
         checkpoint: "assignment_creation",
+        filenameStem: catalogScreenshotFilename("courses", "assessments", "assignment_creation"),
         area: "assignments",
         workflow: "assignment release",
         state: "creation",
@@ -647,6 +715,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "assignment_questions_draft",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "assessments",
+          "assignment_questions_draft",
+        ),
         area: "assignments",
         workflow: "assignment release",
         state: "draft",
@@ -656,6 +729,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "assignment_delivery_check",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "assessments",
+          "assignment_delivery_check",
+        ),
         area: "assignments",
         workflow: "assignment release",
         state: "answer-free preview",
@@ -665,6 +743,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
       {
         checkpoint: "assignment_policies_released",
+        filenameStem: catalogScreenshotFilename(
+          "courses",
+          "assessments",
+          "assignment_policies_released",
+        ),
         area: "assignments",
         workflow: "assignment release",
         state: "released",

@@ -28,13 +28,13 @@ one build, replaces application containers only when server crates changed, then
 and publishes the full corpus. TypeScript, CSS, assets, and `crates/wasm` edits do not
 rebuild images, replace containers, or reseed the database: Caddy bind-mounts host `dist/`.
 
-| Newer than its output | Build | Containers |
-| --- | --- | --- |
-| `src/`, `assets/` newer than `dist/index.html` | `node pipeline/build.mjs --skip-wasm` | none |
-| `crates/wasm/` newer than `dist/wasm/ple_bridge_bg.wasm` | `pipeline/build_wasm.sh --debug`, then `node pipeline/build.mjs --skip-wasm` | none |
-| other `crates/`, `Cargo.toml`, `Cargo.lock` newer than the api image | `./build.sh --debug` | `python3 local_stack.py rebuild-application` |
-| `schemas/`, `containers/`, `compose*.yaml` newer than the launch receipt | done by the restart | full stack restart |
-| nothing newer | none | none |
+| Newer than its output                                                    | Build                                                                        | Containers                                   |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------------------------------- |
+| `src/`, `assets/` newer than `dist/index.html`                           | `node pipeline/build.mjs --skip-wasm`                                        | none                                         |
+| `crates/wasm/` newer than `dist/wasm/ple_bridge_bg.wasm`                 | `pipeline/build_wasm.sh --debug`, then `node pipeline/build.mjs --skip-wasm` | none                                         |
+| other `crates/`, `Cargo.toml`, `Cargo.lock` newer than the api image     | `./build.sh --debug`                                                         | `python3 local_stack.py rebuild-application` |
+| `schemas/`, `containers/`, `compose*.yaml` newer than the launch receipt | done by the restart                                                          | full stack restart                           |
+| nothing newer                                                            | none                                                                         | none                                         |
 
 `rebuild-application` rebuilds the shared api image and recreates api, worker, and
 public-asset-publisher. PostgreSQL, MinIO, the renderer, and the gateway keep running.
@@ -58,8 +58,9 @@ bundle. A cold start still takes on the order of ten to twenty minutes.
 ./devel/capture_screenshots.sh --verify
 ```
 
-Static checks first (manifest, registry, PNG set, receipt digest, dimensions, atlas), then a
-clean stack replays the complete corpus with the same assertions. Replay images land under
+Static checks first (manifest, registry, PNG set, receipt digest, dimensions, atlas, folder
+galleries, and README links), then a clean stack replays the complete corpus with the same
+assertions. Replay images land under
 `test-results/screenshot-corpus/verify/` (gitignored). Byte differences against the tracked
 PNGs are reported for human review; they are not a pass/fail gate.
 
@@ -83,8 +84,16 @@ One hand-authored edit in one scenario file:
    observed, not declared.
 2. Rebuild with `./devel/capture_screenshots.sh`. Publish writes
    `docs/screenshots/current_capture_manifest.json`, the receipt, the atlas, and coverage
-   ledgers. `docs/screenshots/coverage_exceptions.json` is the only hand-kept coverage
-   list; generation fails closed on an uncovered unlisted surface.
+   ledgers, plus the eight generated pages under `docs/screenshot_galleries/`.
+   `docs/screenshots/coverage_exceptions.json` is the only hand-kept coverage list;
+   generation fails closed on an uncovered unlisted surface.
+
+Capture IDs remain `<role>_<checkpoint>`. Screenshots reached through a Tier 1 and Tier 2
+Ribbon task use `<tier1>-<tier2-alias>-<details>.png`: Tier 1 comes from the Ribbon catalog,
+and the concise Tier 2 aliases are declared in `tests/playwright/screenshot_corpus/filenames.ts`.
+Direct, non-tiered screens keep their checkpoint filename. Course theme comparisons use the
+purpose-only `theme_sample-<theme>.png` pattern because those captures compare themes rather than
+Ribbon destinations.
 
 Removing a capture is the reverse: delete the declaration and call, then rebuild. The
 stale PNG is pruned on publish.

@@ -22,6 +22,11 @@ import {
   verifyPublishedArtifacts,
   writeReplayArtifacts,
 } from "./playwright/screenshot_corpus/publication";
+import {
+  SCREENSHOT_GALLERY_FOLDERS,
+  verifyScreenshotGalleries,
+  writeScreenshotGalleries,
+} from "./playwright/screenshot_corpus/screenshot_galleries";
 import { PRIVACY_PROFILES } from "./playwright/screenshot_corpus/privacy_profiles";
 import {
   reportScenarioThemeVariety,
@@ -74,7 +79,7 @@ function expectedPrivacyProfile(capture) {
     (capture.scenario === "student_assignment_history" &&
       capture.checkpoint.startsWith("selected_history_")) ||
     (capture.scenario === "student_progress_response_stats_history" &&
-      capture.checkpoint === "latest_feedback_laptop") ||
+      capture.checkpoint.startsWith("latest_feedback_")) ||
     (capture.scenario === "student_assignment_attempt" &&
       capture.checkpoint.startsWith("submitted_"))
   ) {
@@ -112,6 +117,29 @@ test("the shipped manifest selects the least-data profile for each semantic surf
   assert.equal(PRIVACY_PROFILES.student_unanswered.selectedControl, "forbidden");
   assert.equal(PRIVACY_PROFILES.student_selected_response.selectedControl, "required");
   assert.equal(PRIVACY_PROFILES.student_selected_response.statusHeading, "forbidden");
+});
+
+test("Course theme comparisons render the same Instructor Course workspace", async () => {
+  const manifest = await loadManifest(manifestPath);
+  const themeSamples = manifest.captures.filter(
+    (capture) => capture.scenario === "instructor_theme_samples",
+  );
+  assert.ok(themeSamples.length > 0);
+  assert.deepEqual(new Set(themeSamples.map((capture) => capture.role)), new Set(["instructor"]));
+  assert.deepEqual(
+    new Set(themeSamples.map((capture) => capture.routeId)),
+    new Set(["courseAssessments"]),
+  );
+  for (const capture of themeSamples) {
+    assert.equal(capture.area, "courses", capture.id);
+    assert.equal(capture.workflow, "Course theme comparison", capture.id);
+    assert.equal(capture.viewport, "laptop", capture.id);
+    assert.match(capture.path, /^instructor\/theme_sample-[a-z0-9-]+\.png$/u, capture.id);
+    assert.ok(
+      capture.gallery.caption.startsWith("Instructor Course workspace rendered with the "),
+      capture.id,
+    );
+  }
 });
 
 test("the screenshot matrix captures each role at its required viewport scope", () => {
@@ -198,6 +226,67 @@ test("publication closes every declared Sysadmin laptop capture", async () => {
   }
 });
 
+test("duplicate PNG bytes remain valid and retain their receipt hashes", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-duplicate-bytes-"));
+  try {
+    const completeManifest = await loadManifest(manifestPath);
+    const captures = completeManifest.captures
+      .filter((capture) => capture.role === "instructor")
+      .slice(0, 2);
+    assert.equal(captures.length, 2);
+    const manifest = { ...completeManifest, captures };
+    await writeFixtureCorpus(root, manifest, "duplicate-bytes");
+    const sharedBytes = fixturePng(captures[0], "identical-image");
+    await Promise.all(
+      captures.map((capture) => writeFile(path.join(root, capture.path), sharedBytes)),
+    );
+
+    const images = await inspectCorpus(root, manifest);
+    const receipt = createReceipt("b".repeat(64), images);
+    assert.equal(images.length, 2);
+    assert.equal(images[0].sha256, images[1].sha256);
+    assert.equal(receipt.images[0].sha256, receipt.images[1].sha256);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("eight generated folder galleries link their manifest images and appear in README", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-galleries-"));
+  try {
+    const manifest = await loadManifest(manifestPath);
+    await writeScreenshotGalleries(root, manifest);
+    await verifyScreenshotGalleries(path.join(root, "screenshot_galleries"), manifest);
+    assert.equal(SCREENSHOT_GALLERY_FOLDERS.length, 8);
+    const readme = await readFile(path.join(repositoryRoot, "README.md"), "utf8");
+    for (const folder of SCREENSHOT_GALLERY_FOLDERS) {
+      const page = await readFile(
+        path.join(root, "screenshot_galleries", `${folder.id}.md`),
+        "utf8",
+      );
+      const actualPaths = [...page.matchAll(/!\[[^\]]*\]\(\.\.\/screenshots\/([^)]+)\)/gu)].map(
+        (match) => match[1],
+      );
+      const expectedPaths = manifest.captures
+        .filter(
+          (capture) =>
+            capture.role === folder.role &&
+            (folder.viewport === undefined || capture.viewport === folder.viewport),
+        )
+        .sort((left, right) => left.gallery.order - right.gallery.order)
+        .map((capture) => capture.path);
+      assert.deepEqual(actualPaths, expectedPaths, folder.id);
+      assert.match(page, /\[Complete screenshot atlas\]\(\.\.\/SCREENSHOT_ATLAS\.md\)/u);
+      assert.ok(
+        readme.includes(`docs/screenshot_galleries/${folder.id}.md`),
+        `README.md is missing ${folder.id}.md`,
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("published verification rejects a receipt that no longer binds its PNG", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-receipt-"));
   try {
@@ -221,6 +310,7 @@ test("published verification rejects a receipt that no longer binds its PNG", as
     );
     await writeFile(receiptPath, receiptJson(receipt), "utf8");
     await writeFile(atlasPath, renderAtlas(manifest, "screenshots/"), "utf8");
+    await writeScreenshotGalleries(root, manifest);
     await verifyPublishedArtifacts({
       screenshotRoot,
       manifest,

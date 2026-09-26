@@ -7,6 +7,7 @@ import type { QuestionType } from "../../../generated/api/QuestionType";
 import { decodeQuestionSearchPage } from "../../../src/api/decoders/question_library";
 import { decodeStudentAssessmentAttemptPresentation } from "../../../src/api/decoders/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptPresentation } from "../../../src/api/assessment_attempt_navigation";
+import { catalogScreenshotFilename } from "./filenames";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import {
   viewportCoverage,
@@ -132,12 +133,6 @@ const EXAMPLES: ReadonlyArray<Example> = [
     caption: "Student WeBWorK response controls",
   },
 ];
-
-const MULTIPLE_CHOICE_EXAMPLE: Example =
-  EXAMPLES.find((example) => example.slug === "mc") ??
-  ((): never => {
-    throw new Error("Student question corpus must define an MC example.");
-  })();
 
 type QuestionViewport = "laptop" | "tablet" | "phone" | "square";
 
@@ -299,6 +294,31 @@ async function prepare(
       selected.push({ example, summary });
     }
     await openInstructorCourse(page);
+    const assessmentList = page.getByRole("list", { name: "Assessments", exact: true });
+    await assessmentList.waitFor();
+    const existingAssessment = assessmentList.getByRole("listitem").filter({
+      has: page.getByRole("heading", { name: assessmentTitle, exact: true }),
+    });
+    const existingCount = await existingAssessment.count();
+    if (existingCount > 1) {
+      throw new Error(`Expected at most one Course Assessment titled ${assessmentTitle}.`);
+    }
+    if (existingCount === 1) {
+      const recordId = await existingAssessment.getAttribute("data-record-id");
+      if (recordId === null || recordId.length === 0) {
+        throw new Error(`Existing Assessment ${assessmentTitle} has no stable record ID.`);
+      }
+      await existingAssessment.getByText("Released", { exact: true }).waitFor();
+      await existingAssessment
+        .getByRole("link", { name: "Edit Assessment", exact: true })
+        .waitFor();
+      return new Map(
+        selected.map(({ example, summary }) => [
+          `${summary.questionId}:${summary.publishedQuestionRevisionTuple.revisionNumber}`,
+          example,
+        ]),
+      );
+    }
     await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
     await page.getByLabel("Assessment title", { exact: true }).fill(assessmentTitle);
@@ -499,13 +519,17 @@ async function answerCurrentQuestion(session: CaptureSession, example: Example):
 
 async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
   const provenance = await prepare(runtime);
-  for (const viewport of ["laptop", "phone"] as const) {
+  const viewports = ["laptop", "tablet", "phone", "square"] as const;
+
+  // Capture every unanswered view before saving a response to the shared Student Attempt.
+  for (const viewport of viewports) {
     const session = await runtime.open(checkpoint("mc", viewport));
     try {
       const page = session.page;
-      // Keep the answer-free baseline independent across viewports. The saved laptop responses
-      // must not turn the phone baseline into a selected-response capture on replay.
-      await choosePersona(page, viewport === "laptop" ? "Avery Thompson" : "Jack Nguyen");
+      // Avery has an enrolled Student account with no Attempt for this Course Assessment. Keeping
+      // unanswered captures on Avery means prior replays do not turn these screenshots into
+      // answered states.
+      await choosePersona(page, "Avery Thompson");
       await openStudentCourse(page);
       await openAllStudentCoursework(page);
       const card = assignmentCard(page, ASSESSMENT_TITLE);
@@ -544,9 +568,6 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         await waitForControl(session, example);
         await scrollTop(page);
         await runtime.captureCheckpoint(session, checkpoint(example.slug, viewport));
-        await answerCurrentQuestion(session, example);
-        await scrollTop(page);
-        await runtime.captureCheckpoint(session, answeredCheckpoint(example.slug, viewport));
         covered.add(example.slug);
       }
       if (
@@ -558,7 +579,9 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       await runtime.close(session);
     }
   }
-  for (const viewport of ["tablet", "square"] as const) {
+
+  // The shared Attempt now has saved responses for the selected-response views.
+  for (const viewport of viewports) {
     const session = await runtime.open(checkpoint("mc", viewport));
     try {
       const page = session.page;
@@ -571,6 +594,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         name: "Assessment questions",
         exact: true,
       });
+      const covered = new Set<ExampleSlug>();
       const first = navigation.getByRole("button", { name: /^Question 1:/u });
       if (question.position !== 1) question = await readQuestion(page, () => first.click(), 1);
       else await first.click();
@@ -599,11 +623,21 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
           );
         }
         await waitForControl(session, example);
-        if (example.slug === "mc") {
-          await scrollTop(page);
-          await runtime.captureCheckpoint(session, checkpoint(example.slug, viewport));
-          break;
+        // Earlier viewport captures persist the same response on the shared Attempt. The Student
+        // question projection identifies that saved state, so later viewport captures can render
+        // it without trying to enter controls that are already consumed (for example matching).
+        if (question.savedResponse === null) {
+          await answerCurrentQuestion(session, example);
         }
+        await scrollTop(page);
+        await runtime.captureCheckpoint(session, answeredCheckpoint(example.slug, viewport));
+        covered.add(example.slug);
+      }
+      if (
+        covered.size !== EXPECTED_QUESTION_COUNT ||
+        EXAMPLES.some((example) => !covered.has(example.slug))
+      ) {
+        throw new Error("Student answered-question type coverage is incomplete.");
       }
     } finally {
       await runtime.close(session);
@@ -634,6 +668,11 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
 function typeCapture(example: Example, viewport: QuestionViewport): CaptureDeclaration {
   return {
     checkpoint: checkpoint(example.slug, viewport),
+    filenameStem: catalogScreenshotFilename(
+      "coursework",
+      "activeAttempt",
+      `q_unanswered_${example.slug}`,
+    ),
     area: "assessments",
     workflow: "native and WeBWorK response practice",
     state: example.state,
@@ -643,9 +682,14 @@ function typeCapture(example: Example, viewport: QuestionViewport): CaptureDecla
   };
 }
 
-function answeredTypeCapture(example: Example, viewport: "laptop" | "phone"): CaptureDeclaration {
+function answeredTypeCapture(example: Example, viewport: QuestionViewport): CaptureDeclaration {
   return {
     checkpoint: answeredCheckpoint(example.slug, viewport),
+    filenameStem: catalogScreenshotFilename(
+      "coursework",
+      "activeAttempt",
+      `q_answered_${example.slug}`,
+    ),
     area: "assessments",
     workflow: "native and WeBWorK response practice",
     state: `answered ${example.slug.toUpperCase()} question`,
@@ -659,15 +703,12 @@ export const STUDENT_TYPE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: SCENARIO,
     role: "student",
-    captures: EXAMPLES.flatMap((example) => [
-      typeCapture(example, "laptop"),
-      typeCapture(example, "phone"),
-      answeredTypeCapture(example, "laptop"),
-      answeredTypeCapture(example, "phone"),
-    ]).concat([
-      typeCapture(MULTIPLE_CHOICE_EXAMPLE, "tablet"),
-      typeCapture(MULTIPLE_CHOICE_EXAMPLE, "square"),
-    ]),
+    captures: EXAMPLES.flatMap((example) =>
+      (["laptop", "tablet", "phone", "square"] as const).flatMap((viewport) => [
+        typeCapture(example, viewport),
+        answeredTypeCapture(example, viewport),
+      ]),
+    ),
     viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: captureTypes,
   },

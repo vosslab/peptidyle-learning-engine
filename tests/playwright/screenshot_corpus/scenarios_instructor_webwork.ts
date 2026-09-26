@@ -5,6 +5,7 @@
 import type { Page } from "playwright";
 
 import type { ScenarioRuntime } from "./runtime";
+import { catalogScreenshotFilename } from "./filenames";
 import {
   viewportCoverage,
   type CaptureDeclaration,
@@ -162,6 +163,11 @@ async function instructorWebwork(runtime: ScenarioRuntime): Promise<void> {
 function generatedExampleCapture(example: GeneratedExample): CaptureDeclaration {
   return {
     checkpoint: example.checkpoint,
+    filenameStem: catalogScreenshotFilename(
+      "questions",
+      "searchQuestionLibrary",
+      example.checkpoint,
+    ),
     area: "question library",
     workflow: "generated Question preview",
     state: example.state,

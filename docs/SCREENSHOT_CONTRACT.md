@@ -57,7 +57,9 @@ manifest declares them. A successful rebuild removes screenshots not declared
 by the manifest. The generated
 `current_capture_receipt.json` binds the manifest digest, exact path set,
 dimensions, and image hashes. [SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md) is the
-generated, grouped visual review surface. The manifest's route and Ribbon
+generated, grouped visual review surface. Eight generated pages in
+`screenshot_galleries/` show each existing screenshot folder with relative
+image links; the root README links every page. The manifest's route and Ribbon
 coverage ledger accounts for current captures and concrete deferred product
 capabilities.
 
@@ -73,11 +75,11 @@ visible application actions. It must not add screenshot-only routes, mocked
 responses, or fabricated backend state.
 
 `./devel/capture_screenshots.sh --verify` first validates the manifest,
-registry, PNG set, receipt, dimensions, and atlas, then starts a clean Live Demo
-and replays the complete corpus with the same assertions. It leaves replay
-artifacts under `test-results/screenshot-corpus/verify/` and proves that the
-published images were not modified. Byte differences are reported for human
-review but are not a pass/fail pixel-equivalence gate.
+registry, PNG set, receipt, dimensions, atlas, and folder galleries, then starts
+a clean Live Demo and replays the complete corpus with the same assertions. It
+leaves replay artifacts under `test-results/screenshot-corpus/verify/` and
+proves that the published images were not modified. Byte differences are
+reported for human review but are not a pass/fail pixel-equivalence gate.
 
 Publish runs write each checked screenshot directly to `docs/screenshots/`.
 Completed captures remain visible if a later scenario fails; Git tracks the changes.

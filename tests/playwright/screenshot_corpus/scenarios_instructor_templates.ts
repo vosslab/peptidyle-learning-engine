@@ -3,6 +3,7 @@
 // focused editor headings are owned by src/pages/assessment_templates_page.tsx.
 
 import type { ScenarioRuntime } from "./runtime";
+import { catalogScreenshotFilename } from "./filenames";
 import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
@@ -62,6 +63,11 @@ export const INSTRUCTOR_TEMPLATE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = 
     captures: [
       {
         checkpoint: "template_editor",
+        filenameStem: catalogScreenshotFilename(
+          "productAssessments",
+          "assessmentTemplates",
+          "template_editor",
+        ),
         area: "assignments",
         workflow: "assessment template creation",
         state: "editable template",

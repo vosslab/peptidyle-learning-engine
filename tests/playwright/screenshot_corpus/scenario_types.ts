@@ -5,6 +5,7 @@ import type { ScenarioRuntime } from "./runtime";
 
 export interface CaptureDeclaration {
   readonly checkpoint: string;
+  readonly filenameStem?: string;
   readonly area: string;
   readonly workflow: string;
   readonly state: string;

@@ -34,10 +34,15 @@ export function captureIdentity(
   role: ScenarioDefinition["role"],
   checkpoint: string,
   viewport: ViewportId,
+  filenameStem?: string,
 ): { readonly id: string; readonly path: string } {
   const semanticName = checkpoint.replace(new RegExp(`_${viewport}$`, "u"), "");
-  const pathPrefix = semanticName === checkpoint ? role : `${role}/${viewport}`;
-  return { id: `${role}_${checkpoint}`, path: `${pathPrefix}/${semanticName}.png` };
+  const filename = filenameStem ?? semanticName;
+  if (!/^[a-z0-9][a-z0-9_-]*$/u.test(filename)) {
+    throw new Error(`Screenshot filename is not a safe lowercase slug: ${filename}`);
+  }
+  const pathPrefix = role === "student" || role === "public" ? `${role}/${viewport}` : role;
+  return { id: `${role}_${checkpoint}`, path: `${pathPrefix}/${filename}.png` };
 }
 
 export function requireEntryUrl(argument: string | undefined): URL {
@@ -178,7 +183,12 @@ export function createScenarioRuntime(options: {
       await session.page.setViewportSize({ width: viewport.width, height: viewport.height });
       session.viewport = declaration.viewport;
     }
-    const identity = captureIdentity(options.scenario.role, checkpoint, declaration.viewport);
+    const identity = captureIdentity(
+      options.scenario.role,
+      checkpoint,
+      declaration.viewport,
+      declaration.filenameStem,
+    );
     const routeId = observedRoute(session.page, identity.id);
     const captureRecord: CaptureRecord = {
       id: identity.id,
@@ -239,7 +249,9 @@ export function requireProducedClosure(
 ): void {
   const expected = new Set(
     scenario.captures.map(
-      (capture) => captureIdentity(scenario.role, capture.checkpoint, capture.viewport).path,
+      (capture) =>
+        captureIdentity(scenario.role, capture.checkpoint, capture.viewport, capture.filenameStem)
+          .path,
     ),
   );
   const missing = [...expected].filter((artifactPath) => !runtime.producedPaths.has(artifactPath));

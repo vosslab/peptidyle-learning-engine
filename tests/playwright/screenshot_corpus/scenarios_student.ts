@@ -8,6 +8,7 @@
 import type { Locator } from "playwright";
 
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
+import { catalogScreenshotFilename } from "./filenames";
 import {
   directViewportCaptures,
   viewportCoverage,
@@ -161,7 +162,19 @@ async function prepareStudentInvitation(
     await page.getByRole("link", { name: "Open Students", exact: true }).click();
     await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await page.getByText("Loading", { exact: false }).first().waitFor({ state: "hidden" });
-    if ((await page.getByText("screenshot-invitation", { exact: true }).count()) === 0) {
+    const invitationRosterRow = page.locator('tr[data-record-id="screenshot-invitation"]');
+    let createPendingInvitation = (await invitationRosterRow.count()) === 0;
+    if (
+      !createPendingInvitation &&
+      (await invitationRosterRow.getByText("Active Student", { exact: true }).count()) > 0
+    ) {
+      await invitationRosterRow
+        .getByRole("button", { name: "Remove course access", exact: true })
+        .click();
+      await invitationRosterRow.waitFor({ state: "detached" });
+      createPendingInvitation = true;
+    }
+    if (createPendingInvitation) {
       await page.getByText("Roster tools", { exact: true }).click();
       await page
         .getByLabel("Email, roster ID, Course roster name")
@@ -169,7 +182,12 @@ async function prepareStudentInvitation(
           "mary.okafor@biology.roosevelt.edu,screenshot-invitation,Synthetic Invitation Student",
         );
       await page.getByRole("button", { name: "Import roster", exact: true }).click();
-      await page.getByText("screenshot-invitation", { exact: true }).waitFor();
+      await invitationRosterRow.waitFor({ state: "visible" });
+      await invitationRosterRow.getByText("Invitation pending", { exact: true }).waitFor();
+    } else if (
+      (await invitationRosterRow.getByText("Invitation pending", { exact: true }).count()) === 0
+    ) {
+      throw new Error("The screenshot invitation roster row has an unknown enrollment state.");
     }
   } finally {
     await runtime.close(setup);
@@ -575,6 +593,7 @@ export const STUDENT_ENTRY_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       ...directViewportCaptures({
         checkpoint: "scores_laptop",
+        filenameStem: catalogScreenshotFilename("grades", "studentScores", "scores"),
         area: "grades",
         workflow: "released Coursework scores",
         state: "self-only grades",
@@ -674,6 +693,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       ...directViewportCaptures({
         checkpoint: "unanswered_laptop",
+        filenameStem: catalogScreenshotFilename("coursework", "assessmentOverview", "unanswered"),
         area: "assignments",
         workflow: "assignment entry",
         state: "unanswered",
@@ -692,6 +712,11 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       ...directViewportCaptures({
         checkpoint: "overview_history_laptop",
+        filenameStem: catalogScreenshotFilename(
+          "coursework",
+          "assessmentOverview",
+          "overview_history",
+        ),
         area: "assignments",
         workflow: "assignment history",
         state: "previous attempts",
@@ -701,6 +726,11 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       }),
       ...directViewportCaptures({
         checkpoint: "selected_history_laptop",
+        filenameStem: catalogScreenshotFilename(
+          "coursework",
+          "assessmentOverview",
+          "selected_history",
+        ),
         area: "assignments",
         workflow: "assignment history",
         state: "selected latest Attempt review",
@@ -718,6 +748,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: [
       ...directViewportCaptures({
         checkpoint: "response_selected_laptop",
+        filenameStem: catalogScreenshotFilename("coursework", "activeAttempt", "response_selected"),
         area: "assignments",
         workflow: "assignment attempt",
         state: "saved response",
@@ -728,6 +759,11 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       }),
       ...directViewportCaptures({
         checkpoint: "assessment_navigation_laptop",
+        filenameStem: catalogScreenshotFilename(
+          "coursework",
+          "activeAttempt",
+          "assessment_navigation",
+        ),
         area: "assessments",
         workflow: "assessment navigation and progress",
         state: "Question 2 current with one saved response",
@@ -737,6 +773,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       }),
       ...directViewportCaptures({
         checkpoint: "resume_selected_laptop",
+        filenameStem: catalogScreenshotFilename("coursework", "activeAttempt", "resume_selected"),
         area: "assignments",
         workflow: "assignment attempt",
         state: "reloaded saved response",
@@ -746,6 +783,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       }),
       ...directViewportCaptures({
         checkpoint: "submitted_laptop",
+        filenameStem: catalogScreenshotFilename("coursework", "activeAttempt", "submitted"),
         area: "assignments",
         workflow: "assignment attempt",
         state: "submitted",

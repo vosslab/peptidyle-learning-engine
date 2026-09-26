@@ -12,7 +12,7 @@ pilot is Fall 2026.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 <p align="center">
-  <img src="docs/screenshots/instructor/webwork_generated_example.png" width="920" alt="A published Genetics WeBWorK Question in the shared Question Library: Genetic Disorders from Descriptions, with its Question ID, author, backend, discipline, PGML format, and revision">
+  <img src="docs/screenshots/instructor/questions-search-question-library-webwork_generated_example.png" width="920" alt="A published Genetics WeBWorK Question in the shared Question Library: Genetic Disorders from Descriptions, with its Question ID, author, backend, discipline, PGML format, and revision">
 </p>
 <!-- screenshots:end -->
 
@@ -23,8 +23,8 @@ pilot is Fall 2026.
 Assignments default to unlimited Attempts, grade themselves, and keep the highest score.
 
 <p align="center">
-  <img src="docs/screenshots/student/laptop/assessment_navigation.png" width="600" height="375" alt="Student Attempt on a laptop: numbered Question navigation with saved checkmarks, a countdown timer, and an autosave notice">
-  <img src="docs/screenshots/student/phone/question_answered_mc.png" width="173" height="375" alt="The same Student Attempt on a phone: a multiple choice Question with keyboard shortcuts 1 to 4 and a saved response">
+  <img src="docs/screenshots/student/laptop/coursework-active-attempt-assessment_navigation.png" width="600" height="375" alt="Student Attempt on a laptop: numbered Question navigation with saved checkmarks, a countdown timer, and an autosave notice">
+  <img src="docs/screenshots/student/phone/coursework-active-attempt-question_answered_mc.png" width="173" height="375" alt="The same Student Attempt on a phone: a multiple choice Question with keyboard shortcuts 1 to 4 and a saved response">
 </p>
 
 <p align="center"><em>One Question at a time, on a laptop or a phone. Saved checkmarks, a countdown, and keys 1-4 to answer.</em></p>
@@ -40,7 +40,7 @@ native multiple choice, multiple answer, fill-in, numeric, matching, ordering, a
 Questions. The free BiologyProblems.org Genetics example Blueprint is included.
 
 <p align="center">
-  <img src="docs/screenshots/instructor/library_browse.png" width="920" alt="Instructor Browse Question Library page with Subject, Tag, and Question Type counts and Discipline, Subject, Topic, and Subtopic filters">
+  <img src="docs/screenshots/instructor/questions-browse-question-library-library_browse.png" width="920" alt="Instructor Browse Question Library page with Subject, Tag, and Question Type counts and Discipline, Subject, Topic, and Subtopic filters">
 </p>
 
 <p align="center"><em>Browse by Subject, Tag, Question Type, and Bloom level; star and watch what you want to reuse.</em></p>
@@ -51,13 +51,25 @@ A Blueprint Course holds your Assessments without students or dates; each term y
 fresh Course Instance from it and export points to your LMS.
 
 <p align="center">
-  <img src="docs/screenshots/instructor/gradebook.png" width="920" alt="Instructor Gradebook for Biochemistry 301 showing three students at Not started, In progress, and Completed and scored 3 of 4, with Download CSV and Download TSV buttons">
+  <img src="docs/screenshots/instructor/courses-gradebook-gradebook.png" width="920" alt="Instructor Gradebook for Biochemistry 301 showing three students at Not started, In progress, and Completed and scored 3 of 4, with Download CSV and Download TSV buttons">
 </p>
 
 <p align="center"><em>Progress per student, CSV or TSV export; weighting stays in your home LMS.</em></p>
 
-The full 97-capture corpus, including every Question Type on laptop and phone, is in
-[docs/SCREENSHOT_ATLAS.md](docs/SCREENSHOT_ATLAS.md).
+## Screenshot galleries
+
+Browse screenshots by their existing folder:
+
+- [Public laptop](docs/screenshot_galleries/public-laptop.md)
+- [Public phone](docs/screenshot_galleries/public-phone.md)
+- [Instructor](docs/screenshot_galleries/instructor.md)
+- [Student laptop](docs/screenshot_galleries/student-laptop.md)
+- [Student tablet](docs/screenshot_galleries/student-tablet.md)
+- [Student phone](docs/screenshot_galleries/student-phone.md)
+- [Student square](docs/screenshot_galleries/student-square.md)
+- [Sysadmin](docs/screenshot_galleries/sysadmin.md)
+
+The [aggregate screenshot atlas](docs/SCREENSHOT_ATLAS.md) groups all captures by role and workflow.
 
 ## Try the Live Demo
 

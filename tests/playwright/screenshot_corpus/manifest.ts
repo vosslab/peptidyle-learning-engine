@@ -91,7 +91,7 @@ export interface CoverageExceptions {
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/u;
 const ROLE_PATH_PATTERN =
-  /^(public|instructor|student|sysadmin)\/(?:(?:laptop|tablet|phone|square)\/)?[a-z0-9_]+\.png$/u;
+  /^(public|instructor|student|sysadmin)\/(?:(?:laptop|tablet|phone|square)\/)?[a-z0-9_-]+\.png$/u;
 const TEXT_PATTERN = /^[\x20-\x7e]+$/u;
 
 function objectValue(value: unknown, label: string): Record<string, unknown> {
