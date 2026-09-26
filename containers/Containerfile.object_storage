@@ -1,0 +1,17 @@
+# ASVS 15.2.4: official source commits and multi-platform base digests.
+# MinIO's community distribution is source-only; build both executables once
+# and share the resulting image between the server and bucket initializer.
+FROM docker.io/library/golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437 AS build
+ENV CGO_ENABLED=0 GOBIN=/out GOMAXPROCS=2
+# MinIO Client RELEASE.2025-08-13T08-35-41Z
+RUN go install -p 2 github.com/minio/mc@7394ce0dd2a80935aded936b09fa12cbb3cb8096
+# MinIO security release RELEASE.2025-10-15T17-29-55Z
+RUN go install -p 2 github.com/minio/minio@9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
+
+FROM docker.io/library/alpine@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+COPY --from=build /out/minio /out/mc /usr/bin/
+ENV HOME=/tmp
+USER 10001:10001
+EXPOSE 9000 9001
+ENTRYPOINT ["minio"]
+CMD ["server", "/data"]

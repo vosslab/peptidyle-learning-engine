@@ -40,7 +40,8 @@ source source_me.sh && python3 -m pip install \
   --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
 ```
 
-Install Playwright browsers only when running browser checks:
+Install the Chromium headless shell only when running browser checks. The setup skips full
+Chromium and Firefox:
 
 ```bash
 ./devel/setup_playwright.sh

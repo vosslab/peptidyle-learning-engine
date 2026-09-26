@@ -25,8 +25,6 @@ def selections() -> dict[str, str]:
 		"PLE_WEBWORK_MAX_RESPONSE_BYTES": "1048576",
 		"PLE_GATEWAY_IMAGE_SHA256": "gateway",
 		"PLE_POSTGRES_IMAGE_SHA256": "postgres",
-		"PLE_MINIO_IMAGE_SHA256": "minio",
-		"PLE_MINIO_MC_IMAGE_SHA256": "minio-mc",
 		"PLE_SECRET_INIT_IMAGE_SHA256": "secret-init",
 	}
 

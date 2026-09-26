@@ -177,7 +177,10 @@ services:
 
   minio:
     labels: *ple-disposable-capability-label
-    image: quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256:?set PLE_MINIO_IMAGE_SHA256 to the selected official MinIO Linux image manifest digest}
+    image: localhost/ple-object-storage:reviewed
+    build:
+      context: .
+      dockerfile: Containerfile.object_storage
     command: server /data --console-address ":9001"
     volumes:
       - ple_miniodata:/data
@@ -214,7 +217,10 @@ services:
 
   createbuckets:
     labels: *ple-disposable-capability-label
-    image: quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256:?set PLE_MINIO_MC_IMAGE_SHA256 to the selected official MinIO Client Linux image manifest digest}
+    image: localhost/ple-object-storage:reviewed
+    build:
+      context: .
+      dockerfile: Containerfile.object_storage
     depends_on:
       minio:
         condition: service_healthy

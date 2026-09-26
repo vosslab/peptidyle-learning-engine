@@ -10,6 +10,19 @@
 
 ### Fixes and Maintenance
 
+- Playwright setup and screenshot capture install only the Chromium headless shell. The screenshot
+  driver drops its unused visible-browser option and full-browser path probe. Eight existing driver
+  checks and shell syntax validation passed.
+- Live Demo object storage now builds the official MinIO server and client from pinned upstream
+  source because their former Quay image repositories reject pulls. Both services share one image;
+  build output is streamed, and Go compilation uses two workers. The source-built non-root server
+  became ready and its client created a bucket in a disposable one-CPU check.
+- Screenshot capture and Live Demo install npm dependencies only when the declared packages need
+  repair. Startup and application rebuild no longer prune the build cache before using it, avoiding
+  repeated compilation. No permanent tests were added. Python checks passed 9,489 tests with the
+  existing broken `region_spec.ts` link in the historical record presentation audit as the only failure.
+  Full screenshot verification was stopped when the operator reported competing Blender load;
+  screenshot replay remains unverified, and the owned demo/build processes were stopped.
 - The Question ID contract generator creates its output directory before writing. Clean checkouts
   now build without a missing `generated/api/` failure during Live Demo screenshot startup.
   Clean-directory generation, freshness checking, and the complete debug build passed.

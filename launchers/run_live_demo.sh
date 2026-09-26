@@ -86,7 +86,7 @@ if [[ -f "$control_receipt" ]]; then
   exit 0
 fi
 
-"$repository_root/devel/setup_typescript.sh"
+npm ls --depth=0 --json >/dev/null 2>&1 || "$repository_root/devel/setup_typescript.sh"
 
 case "$headless" in
   true)

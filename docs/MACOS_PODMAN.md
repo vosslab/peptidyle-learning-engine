@@ -66,7 +66,7 @@ operate on the wrong project.
 ## Architecture notes
 
 Apple Silicon runs `arm64` Linux images natively. The selected PostgreSQL,
-MinIO, MinIO Client, Alpine secret-initializer, and gateway base-image digests
+Alpine secret-initializer and gateway base-image digests
 are multi-architecture manifests in
 [containers/env.example](../containers/env.example). Podman selects their
 `linux/arm64` variant on Apple Silicon, so the normal local stack does not need
@@ -99,8 +99,6 @@ digest-pinned. The tracked contract takes this form:
 
 ```text
 docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256}
-quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256}
-quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256}
 docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256}
 ```
 
@@ -111,9 +109,14 @@ digest-pinned Caddy value. The external renderer image is owned and built by the
 separate `webwork-pg-renderer` project; PLE records the resolved image
 configuration ID together with the selected image name.
 
-These references are not all runtime images. `postgres`, `minio`,
-`createbuckets`, and `identity-secret-init` run their specified external
-images. `api` builds the shared local application image from
+These references are not all runtime images. `postgres` and `identity-secret-init` run their specified external
+images. `minio` and `createbuckets` share `localhost/ple-object-storage:reviewed`,
+built from pinned official server and client source commits in
+`containers/Containerfile.object_storage`. The upstream community distribution is
+[source-only](https://github.com/minio/minio), and its former registry images
+are unavailable. The first build downloads Go dependencies and compiles both
+executables with two Go workers; subsequent launches reuse the build cache.
+Startup preserves that cache rather than pruning it before each build. `api` builds the shared local application image from
 `containers/Containerfile.api`, and `worker` consumes that exact image;
 `gateway` is built locally from `containers/Containerfile.gateway` using the
 pinned Caddy build argument. The `webwork-renderer` is an external-project image. Build-mode PLE

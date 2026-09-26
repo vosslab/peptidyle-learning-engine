@@ -139,10 +139,6 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 	database_events: list[str] = []
 	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
 	(tmp_path / "containers").mkdir()
-	monkeypatch.setattr(
-		local_stack_control.image_cleanup, "remove_obsolete_images_before_build",
-		lambda *args: events.append("image-cleanup"),
-	)
 
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_lifecycle_inputs", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_disposable_ownership", lambda *args: None)
@@ -154,6 +150,7 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 	monkeypatch.setattr(local_stack_control.service_singletons, "require_for_target", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda *args: {})
 	monkeypatch.setattr(local_stack_control.lifecycle, "build_artifacts", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "build_object_storage", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.renderer, "ensure_renderer_oci_id", lambda *args: "sha256:" + "a" * 64)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_postgres", lambda *args: None)
 	monkeypatch.setattr(
@@ -202,9 +199,9 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
 
-	expected = ["image-cleanup", "logins", "verify", "gateway-image-build", "application-start", "provision"]
+	expected = ["logins", "verify", "gateway-image-build", "application-start", "provision"]
 	if expected_first is not None:
-		expected.insert(1, expected_first)
+		expected.insert(0, expected_first)
 	assert events == expected
 	assert database_events[:2] == ["operation", "synchronize"]
 

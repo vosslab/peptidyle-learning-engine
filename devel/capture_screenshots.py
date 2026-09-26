@@ -53,26 +53,18 @@ def run_command(argv: list[str], cwd: pathlib.Path, env: dict[str, str] | None =
 		raise SystemExit(result.returncode)
 
 
-def chromium_executable_path(root: pathlib.Path) -> pathlib.Path | None:
-	"""Return the installed Playwright Chromium executable, if available."""
+def typescript_dependencies_ready(root: pathlib.Path) -> bool:
+	"""Return whether every direct package declared by package.json is installed."""
 	try:
 		result = subprocess.run(
-			[
-				"node",
-				"-e",
-				"const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath());",
-			],
+			["npm", "ls", "--depth=0", "--json"],
 			cwd=root,
 			check=False,
 			capture_output=True,
-			text=True,
 		)
 	except OSError:
-		return None
-	path = pathlib.Path(result.stdout.strip())
-	if result.returncode != 0 or not path.is_file():
-		return None
-	return path
+		return False
+	return result.returncode == 0
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -84,11 +76,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 		"--verify",
 		action="store_true",
 		help="validate tracked artifacts, replay live, and retain replay evidence",
-	)
-	parser.add_argument(
-		"--headed",
-		action="store_true",
-		help="open Chromium; the local CLI authenticator still completes Sysadmin MFA",
 	)
 	parser.add_argument(
 		"--fresh",
@@ -333,13 +320,9 @@ def capture_corpus(
 		argv.extend(["--only", entry, args.only])
 	elif args.verify:
 		argv.extend(["--verify"])
-		if args.headed:
-			argv.append("--headed")
 		argv.append(entry)
 	else:
 		argv.append("--publish")
-		if args.headed:
-			argv.append("--headed")
 		argv.append(entry)
 	started = print_step("capture", "Playwright screenshot corpus")
 	run_command(argv, root, env)
@@ -350,10 +333,7 @@ def main() -> None:
 	args = parse_args(sys.argv[1:])
 	root = repo_root()
 	os.chdir(root)
-	if not all(
-		(root / "node_modules" / package / "package.json").is_file()
-		for package in ("playwright", "tsx")
-	):
+	if not typescript_dependencies_ready(root):
 		started = print_step("dependencies", "devel/setup_typescript.sh")
 		run_command([str(root / "devel" / "setup_typescript.sh")], root)
 		print_elapsed("dependencies", started)
@@ -371,13 +351,11 @@ def main() -> None:
 			{**os.environ, "DEBUG": "", "PWDEBUG": ""},
 		)
 		print_elapsed("verify-static", started)
-	chromium_path = chromium_executable_path(root)
-	if chromium_path is None:
-		started = print_step("playwright", "install Chromium for screenshot capture")
-		run_command(["node", "node_modules/playwright/cli.js", "install", "chromium"], root)
-		print_elapsed("playwright", started)
-	else:
-		print(f"[playwright] using installed Chromium: {chromium_path}")
+	started = print_step("playwright", "ensure Chromium headless shell for screenshot capture")
+	run_command(
+		["node", "node_modules/playwright/cli.js", "install", "--only-shell", "chromium"], root
+	)
+	print_elapsed("playwright", started)
 
 	owned_stop = False
 	if args.fresh:

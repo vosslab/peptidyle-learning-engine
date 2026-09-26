@@ -45,13 +45,9 @@ LIVE_DEMO_MANIFEST_KEYS = (*MANIFEST_KEYS, "PROFILE")
 TRACKED_IMAGE_SELECTIONS_BY_OWNER = {
 	"course-appearance": (
 		"PLE_POSTGRES_IMAGE_SHA256",
-		"PLE_MINIO_IMAGE_SHA256",
-		"PLE_MINIO_MC_IMAGE_SHA256",
 	),
 	"live-demo-baseline": (
 		"PLE_POSTGRES_IMAGE_SHA256",
-		"PLE_MINIO_IMAGE_SHA256",
-		"PLE_MINIO_MC_IMAGE_SHA256",
 	),
 	local_stack_control.models.LIVE_DEMO_BROWSER_OWNER: ("PLE_POSTGRES_IMAGE_SHA256",),
 }
@@ -67,8 +63,6 @@ def tracked_image_selections(manifest: "DisposableManifest") -> tuple[str, ...]:
 	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
 		return (
 			"PLE_POSTGRES_IMAGE_SHA256",
-			"PLE_MINIO_IMAGE_SHA256",
-			"PLE_MINIO_MC_IMAGE_SHA256",
 		)
 	return TRACKED_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
 

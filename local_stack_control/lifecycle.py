@@ -281,7 +281,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	)
 	require_values(values, required)
 	for name in (
-		"PLE_POSTGRES_IMAGE_SHA256", "PLE_MINIO_IMAGE_SHA256", "PLE_MINIO_MC_IMAGE_SHA256",
+		"PLE_POSTGRES_IMAGE_SHA256",
 		"PLE_GATEWAY_IMAGE_SHA256", "PLE_SECRET_INIT_IMAGE_SHA256",
 	):
 		require_digest(values, name)
@@ -374,7 +374,7 @@ def _start_lifecycle(
 	local_stack_control.service_singletons.require_for_target(target, runner, repo_root)
 	environment = child_environment(selected)
 	build_artifacts(runner, repo_root, options)
-	local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repo_root)
+	build_object_storage(runner, repo_root, environment)
 	if options.build:
 		# `api` owns the shared application image.  Rebuild it before any
 		# application service starts so the selected stack cannot reuse a stale
@@ -534,7 +534,6 @@ def rebuild_application_lifecycle(
 	require_attested_running_renderer(selected, runner, values, oci_id)
 	probe_renderer(selected, runner, repo_root, oci_id)
 	with local_stack_control.image_cleanup.image_build_lease(repo_root):
-		local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repo_root)
 		compose_run(selected, runner, ["build", "api"])
 		run_api_initializers(selected, runner, options)
 		for service in APPLICATION_REBUILD_SERVICES:
@@ -579,6 +578,25 @@ def require_disposable_ownership(target: local_stack_control.models.ComposeTarge
 	"""Retain the explicit capability proof when the selected target is disposable."""
 	if isinstance(target, local_stack_control.models.DisposableComposeTarget):
 		local_stack_control.compose.require_disposable_ownership(target)
+
+
+#============================================
+def build_object_storage(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	environment: dict[str, str],
+) -> None:
+	"""Stream the cached source build without passing private Compose settings."""
+	# ASVS 15.2.4: the Containerfile pins official source and base images.
+	report_step("building object storage from pinned upstream source (cached after first use)")
+	status = runner.stream(
+		["podman", "build", "-f", str(repo_root / "containers" / "Containerfile.object_storage"),
+			"-t", "localhost/ple-object-storage:reviewed", str(repo_root / "containers")],
+		environment,
+		repo_root,
+	)
+	if status != 0:
+		raise local_stack_control.models.ControllerError("object storage source build failed; see the build log")
 
 
 #============================================

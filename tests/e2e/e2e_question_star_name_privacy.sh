@@ -73,9 +73,10 @@ podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$databas
       ('00000000-0000-0000-0000-00000000c833', 'instructor', clock_timestamp());
 " >/dev/null
 
+podman build -f containers/Containerfile.object_storage -t localhost/ple-object-storage:reviewed containers
 podman run --detach --name "$minio_name" --label org.peptidyle.e2e=question-star-name-privacy \
     -p "127.0.0.1:${minio_port}:9000" -e MINIO_ROOT_USER=c853root \
-    -e MINIO_ROOT_PASSWORD="$minio_password" quay.io/minio/minio server /data >/dev/null
+    -e MINIO_ROOT_PASSWORD="$minio_password" localhost/ple-object-storage:reviewed server /data >/dev/null
 for _ in $(seq 1 30); do
     podman exec "$minio_name" mc ready local >/dev/null 2>&1 && break
     sleep 1
