@@ -32,27 +32,27 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Student Progress when an Attempt has no released score on a phone.** Attempts with no released score - phone.
 
-[![Screenshot preview of Student Scores on a phone](../screenshots/student/phone/grades-student-scores-scores.png)](../screenshots/student/phone/grades-student-scores-scores.png)
+[![Screenshot preview of Student Scores on a phone](../screenshots/student/phone/grades-scores-scores.png)](../screenshots/student/phone/grades-scores-scores.png)
 
 **Student Scores on a phone.** self-only grades - phone.
 
-[![Screenshot preview of Student Response Stats on a phone](../screenshots/student/phone/grades-student-response-stats-response_stats.png)](../screenshots/student/phone/grades-student-response-stats-response_stats.png)
+[![Screenshot preview of Student Response Stats on a phone](../screenshots/student/phone/grades-stats-response_stats.png)](../screenshots/student/phone/grades-stats-response_stats.png)
 
 **Student Response Stats on a phone.** released Question outcomes and measured duration - phone.
 
-[![Screenshot preview of Student Attempt History with Latest Feedback available on a phone](../screenshots/student/phone/grades-student-attempt-history-course_attempt_history.png)](../screenshots/student/phone/grades-student-attempt-history-course_attempt_history.png)
+[![Screenshot preview of Student Attempt History with Latest Feedback available on a phone](../screenshots/student/phone/grades-history-course_attempt_history.png)](../screenshots/student/phone/grades-history-course_attempt_history.png)
 
 **Student Attempt History with Latest Feedback available on a phone.** at least 40 submitted Attempts and released feedback shortcut enabled - phone.
 
-[![Screenshot preview of Attempt review opened from Latest Feedback on a phone](../screenshots/student/phone/grades-student-latest-feedback-latest_feedback.png)](../screenshots/student/phone/grades-student-latest-feedback-latest_feedback.png)
+[![Screenshot preview of Attempt review opened from Latest Feedback on a phone](../screenshots/student/phone/grades-feedback-latest_feedback.png)](../screenshots/student/phone/grades-feedback-latest_feedback.png)
 
 **Attempt review opened from Latest Feedback on a phone.** released feedback review opened from Grades - phone.
 
-[![Screenshot preview of Student Coursework Due Soon on a phone](../screenshots/student/phone/coursework-due-soon-course_due_soon.png)](../screenshots/student/phone/coursework-due-soon-course_due_soon.png)
+[![Screenshot preview of Student Coursework Due Soon on a phone](../screenshots/student/phone/coursework-due-course_due_soon.png)](../screenshots/student/phone/coursework-due-course_due_soon.png)
 
 **Student Coursework Due Soon on a phone.** server-bounded next seven days - phone.
 
-[![Screenshot preview of Student Completed Coursework on a phone](../screenshots/student/phone/coursework-completed-coursework-course_completed.png)](../screenshots/student/phone/coursework-completed-coursework-course_completed.png)
+[![Screenshot preview of Student Completed Coursework on a phone](../screenshots/student/phone/coursework-completed-course_completed.png)](../screenshots/student/phone/coursework-completed-course_completed.png)
 
 **Student Completed Coursework on a phone.** submitted Attempts - phone.
 
@@ -68,103 +68,103 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Completed Course landing on a phone.** completed - phone.
 
-[![Screenshot preview of Unanswered Assignment overview on a phone](../screenshots/student/phone/coursework-assessment-overview-unanswered.png)](../screenshots/student/phone/coursework-assessment-overview-unanswered.png)
+[![Screenshot preview of Unanswered Assignment overview on a phone](../screenshots/student/phone/coursework-overview-unanswered.png)](../screenshots/student/phone/coursework-overview-unanswered.png)
 
 **Unanswered Assignment overview on a phone.** unanswered - phone.
 
-[![Screenshot preview of Assignment overview with previous attempts on a phone](../screenshots/student/phone/coursework-assessment-overview-overview_history.png)](../screenshots/student/phone/coursework-assessment-overview-overview_history.png)
+[![Screenshot preview of Assignment overview with previous attempts on a phone](../screenshots/student/phone/coursework-overview-overview_history.png)](../screenshots/student/phone/coursework-overview-overview_history.png)
 
 **Assignment overview with previous attempts on a phone.** previous attempts - phone.
 
-[![Screenshot preview of Latest Attempt review from Assignment history on a phone](../screenshots/student/phone/coursework-assessment-overview-selected_history.png)](../screenshots/student/phone/coursework-assessment-overview-selected_history.png)
+[![Screenshot preview of Latest Attempt review from Assignment history on a phone](../screenshots/student/phone/coursework-overview-selected_history.png)](../screenshots/student/phone/coursework-overview-selected_history.png)
 
 **Latest Attempt review from Assignment history on a phone.** selected latest Attempt review - phone.
 
-[![Screenshot preview of Saved Student Assignment response on a phone](../screenshots/student/phone/coursework-active-attempt-response_selected.png)](../screenshots/student/phone/coursework-active-attempt-response_selected.png)
+[![Screenshot preview of Saved Student Assignment response on a phone](../screenshots/student/phone/coursework-active-response_selected.png)](../screenshots/student/phone/coursework-active-response_selected.png)
 
 **Saved Student Assignment response on a phone.** saved response - phone.
 
-[![Screenshot preview of Reloaded Student Assignment response on a phone](../screenshots/student/phone/coursework-active-attempt-resume_selected.png)](../screenshots/student/phone/coursework-active-attempt-resume_selected.png)
+[![Screenshot preview of Reloaded Student Assignment response on a phone](../screenshots/student/phone/coursework-active-resume_selected.png)](../screenshots/student/phone/coursework-active-resume_selected.png)
 
 **Reloaded Student Assignment response on a phone.** reloaded saved response - phone.
 
-[![Screenshot preview of Submitted Student Assignment on a phone](../screenshots/student/phone/coursework-active-attempt-submitted.png)](../screenshots/student/phone/coursework-active-attempt-submitted.png)
+[![Screenshot preview of Submitted Student Assignment on a phone](../screenshots/student/phone/coursework-active-submitted.png)](../screenshots/student/phone/coursework-active-submitted.png)
 
 **Submitted Student Assignment on a phone.** submitted - phone.
 
-[![Screenshot preview of Student Question navigation, saved progress, and countdown timer on a phone](../screenshots/student/phone/coursework-active-attempt-assessment_navigation.png)](../screenshots/student/phone/coursework-active-attempt-assessment_navigation.png)
+[![Screenshot preview of Student Question navigation, saved progress, and countdown timer on a phone](../screenshots/student/phone/coursework-active-assessment_navigation.png)](../screenshots/student/phone/coursework-active-assessment_navigation.png)
 
 **Student Question navigation, saved progress, and countdown timer on a phone.** Question 2 current with one saved response - phone.
 
-[![Screenshot preview of Student MC response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_mc.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_mc.png)
+[![Screenshot preview of Student MC response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_mc.png)](../screenshots/student/phone/coursework-active-q_unanswered_mc.png)
 
 **Student MC response controls on a phone.** unanswered MC question - phone.
 
-[![Screenshot preview of Student MC response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_mc.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_mc.png)
+[![Screenshot preview of Student MC response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_mc.png)](../screenshots/student/phone/coursework-active-q_answered_mc.png)
 
 **Student MC response controls after saving a response on a phone.** answered MC question - phone.
 
-[![Screenshot preview of Student MA response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_ma.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_ma.png)
+[![Screenshot preview of Student MA response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_ma.png)](../screenshots/student/phone/coursework-active-q_unanswered_ma.png)
 
 **Student MA response controls on a phone.** unanswered MA question - phone.
 
-[![Screenshot preview of Student MA response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_ma.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_ma.png)
+[![Screenshot preview of Student MA response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_ma.png)](../screenshots/student/phone/coursework-active-q_answered_ma.png)
 
 **Student MA response controls after saving a response on a phone.** answered MA question - phone.
 
-[![Screenshot preview of Student FIB response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_fib.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_fib.png)
+[![Screenshot preview of Student FIB response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_fib.png)](../screenshots/student/phone/coursework-active-q_unanswered_fib.png)
 
 **Student FIB response controls on a phone.** unanswered FIB question - phone.
 
-[![Screenshot preview of Student FIB response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_fib.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_fib.png)
+[![Screenshot preview of Student FIB response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_fib.png)](../screenshots/student/phone/coursework-active-q_answered_fib.png)
 
 **Student FIB response controls after saving a response on a phone.** answered FIB question - phone.
 
-[![Screenshot preview of Student MULTI-FIB response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_multi_fib.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_multi_fib.png)
+[![Screenshot preview of Student MULTI-FIB response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_multi_fib.png)](../screenshots/student/phone/coursework-active-q_unanswered_multi_fib.png)
 
 **Student MULTI-FIB response controls on a phone.** unanswered MULTI-FIB question - phone.
 
-[![Screenshot preview of Student MULTI-FIB response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_multi_fib.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_multi_fib.png)
+[![Screenshot preview of Student MULTI-FIB response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_multi_fib.png)](../screenshots/student/phone/coursework-active-q_answered_multi_fib.png)
 
 **Student MULTI-FIB response controls after saving a response on a phone.** answered MULTI_FIB question - phone.
 
-[![Screenshot preview of Student NUM response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_num.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_num.png)
+[![Screenshot preview of Student NUM response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_num.png)](../screenshots/student/phone/coursework-active-q_unanswered_num.png)
 
 **Student NUM response controls on a phone.** unanswered NUM question - phone.
 
-[![Screenshot preview of Student NUM response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_num.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_num.png)
+[![Screenshot preview of Student NUM response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_num.png)](../screenshots/student/phone/coursework-active-q_answered_num.png)
 
 **Student NUM response controls after saving a response on a phone.** answered NUM question - phone.
 
-[![Screenshot preview of Student MATCH response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_match.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_match.png)
+[![Screenshot preview of Student MATCH response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_match.png)](../screenshots/student/phone/coursework-active-q_unanswered_match.png)
 
 **Student MATCH response controls on a phone.** unanswered MATCH question - phone.
 
-[![Screenshot preview of Student MATCH response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_match.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_match.png)
+[![Screenshot preview of Student MATCH response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_match.png)](../screenshots/student/phone/coursework-active-q_answered_match.png)
 
 **Student MATCH response controls after saving a response on a phone.** answered MATCH question - phone.
 
-[![Screenshot preview of Student ORDER response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_order.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_order.png)
+[![Screenshot preview of Student ORDER response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_order.png)](../screenshots/student/phone/coursework-active-q_unanswered_order.png)
 
 **Student ORDER response controls on a phone.** unanswered ORDER question - phone.
 
-[![Screenshot preview of Student ORDER response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_order.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_order.png)
+[![Screenshot preview of Student ORDER response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_order.png)](../screenshots/student/phone/coursework-active-q_answered_order.png)
 
 **Student ORDER response controls after saving a response on a phone.** answered ORDER question - phone.
 
-[![Screenshot preview of Student HOTSPOT uploaded-image response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_hotspot.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_hotspot.png)
+[![Screenshot preview of Student HOTSPOT uploaded-image response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_hotspot.png)](../screenshots/student/phone/coursework-active-q_unanswered_hotspot.png)
 
 **Student HOTSPOT uploaded-image response controls on a phone.** unanswered HOTSPOT question - phone.
 
-[![Screenshot preview of Student HOTSPOT uploaded-image response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_hotspot.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_hotspot.png)
+[![Screenshot preview of Student HOTSPOT uploaded-image response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_hotspot.png)](../screenshots/student/phone/coursework-active-q_answered_hotspot.png)
 
 **Student HOTSPOT uploaded-image response controls after saving a response on a phone.** answered HOTSPOT question - phone.
 
-[![Screenshot preview of Student WeBWorK response controls on a phone](../screenshots/student/phone/coursework-active-attempt-question_unanswered_webwork.png)](../screenshots/student/phone/coursework-active-attempt-question_unanswered_webwork.png)
+[![Screenshot preview of Student WeBWorK response controls on a phone](../screenshots/student/phone/coursework-active-q_unanswered_webwork.png)](../screenshots/student/phone/coursework-active-q_unanswered_webwork.png)
 
 **Student WeBWorK response controls on a phone.** unanswered WeBWorK question - phone.
 
-[![Screenshot preview of Student WeBWorK response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-attempt-question_answered_webwork.png)](../screenshots/student/phone/coursework-active-attempt-question_answered_webwork.png)
+[![Screenshot preview of Student WeBWorK response controls after saving a response on a phone](../screenshots/student/phone/coursework-active-q_answered_webwork.png)](../screenshots/student/phone/coursework-active-q_answered_webwork.png)
 
 **Student WeBWorK response controls after saving a response on a phone.** answered WEBWORK question - phone.
 
