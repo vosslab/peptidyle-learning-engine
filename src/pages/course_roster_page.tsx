@@ -175,6 +175,7 @@ export function CourseRosterPage(): JSX.Element {
 
   return (
     <PageFrame
+      // Roster feedback and the table section reset. PageFrame owns the stack.
       contentClass="roster-page"
       routeSurface="courseRoster"
       eyebrow="Course Instance roster"

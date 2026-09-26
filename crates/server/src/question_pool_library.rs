@@ -12,8 +12,8 @@ use axum::{
 use axum_extra::extract::Query;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    ContentClassificationStore, ContentDisciplineDiscoveryStore, Cursor, PageRequest, PageSize,
-    PublishedQuestionPool, QuestionLibraryStore, QuestionPoolDiscoveryFilter,
+    ContentClassificationStore, ContentDisciplineDiscoveryStore, Cursor, DiscoveryPageRequest,
+    DiscoveryPageSize, PublishedQuestionPool, QuestionLibraryStore, QuestionPoolDiscoveryFilter,
     QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
     SessionTokenHash, StoreError,
     postgres::{
@@ -116,7 +116,7 @@ async fn list_pools(
     headers: HeaderMap,
     Query(query): Query<ListQuery>,
 ) -> Response {
-    let page_size = match PageSize::new(query.page_size.unwrap_or(DEFAULT_PAGE_SIZE)) {
+    let page_size = match DiscoveryPageSize::new(query.page_size.unwrap_or(DEFAULT_PAGE_SIZE)) {
         Ok(value) => value,
         Err(_) => return bad_request("Question Pool page size is invalid"),
     };
@@ -157,7 +157,7 @@ async fn list_pools(
         .pools
         .list_published_question_pools(
             token,
-            PageRequest {
+            DiscoveryPageRequest {
                 after,
                 size: page_size,
             },
@@ -634,6 +634,19 @@ fn response(status: StatusCode, message: &'static str) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovery_page_size_accepts_250_and_rejects_outside_bounds() {
+        assert_eq!(
+            DiscoveryPageSize::new(250)
+                .expect("250 is within the discovery boundary")
+                .get(),
+            250
+        );
+        for rejected_size in [0, 251] {
+            assert!(DiscoveryPageSize::new(rejected_size).is_err());
+        }
+    }
 
     #[test]
     fn pool_text_and_tags_keep_shared_grammar_and_normalized_meaning() {

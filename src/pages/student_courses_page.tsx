@@ -6,32 +6,26 @@ import { createResource, type JSX } from "solid-js";
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 
-function courseRegions(): ReadonlyArray<RecordRegion<LiveStudentCourseLandingSummary>> {
-  return [
-    {
-      id: "course",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (course): JSX.Element => <h2>{course.longName}</h2>,
-    },
-    {
-      id: "action",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (course): JSX.Element => (
-        <A class="primary-link" href={`/student/courses/${course.id}`}>
-          Open Course
-        </A>
-      ),
-    },
-  ];
+function courseContent(course: LiveStudentCourseLandingSummary): RecordContent {
+  return {
+    title: course.longName,
+    details: [],
+    actions: [
+      {
+        id: "open-course",
+        kind: "link",
+        label: "Open Course",
+        href: `/student/courses/${course.id}`,
+        primary: true,
+      },
+    ],
+  };
 }
 
 function courseListState(loading: boolean, unavailable: boolean): RecordListState {
@@ -57,15 +51,17 @@ export function StudentCoursesPage(): JSX.Element {
       eyebrow="Your learning"
       title="Your courses"
       lede="Open one of your Courses. Coursework and Grades include all of your current Courses."
+      actions={
+        <A class="quiet-link" href="/student/course-invitations">
+          Course invitations
+        </A>
+      }
     >
-      <A class="quiet-link" href="/student/course-invitations">
-        Course invitations
-      </A>
       <RecordList
         ariaLabel="Your courses"
         emptyState={{ title: "You do not have any current courses." }}
         recordId={(course) => course.id}
-        regions={courseRegions()}
+        content={courseContent}
         rows={courses() ?? []}
         state={courseListState(courses.loading, courses.error !== undefined)}
       />

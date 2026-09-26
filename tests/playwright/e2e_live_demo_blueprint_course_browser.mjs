@@ -154,17 +154,19 @@ try {
     await discoveryPage
       .getByRole("button", { name: "Create Blueprint Course", exact: true })
       .waitFor();
-    const createdCourseLink = discoveryPage.getByRole("link", { name: courseLongName });
+    const createdCourseLink = discoveryPage
+      .getByRole("listitem")
+      .filter({ hasText: courseLongName })
+      .getByRole("link", { name: "Open Blueprint Course", exact: true });
     for (
       let loadedPage = 0;
       loadedPage < 25 && (await createdCourseLink.count()) === 0;
       loadedPage += 1
     ) {
-      const loadMore = discoveryPage.getByRole("button", {
-        name: "Load more Blueprint Courses",
-        exact: true,
-      });
-      if ((await loadMore.count()) === 0) break;
+      const nextPage = discoveryPage
+        .getByRole("navigation", { name: "Blueprint Course pages", exact: true })
+        .getByRole("button", { name: "Next", exact: true });
+      if ((await nextPage.count()) === 0 || (await nextPage.isDisabled())) break;
       const continuedPage = discoveryPage.waitForResponse((response) => {
         const url = new URL(response.url());
         return (
@@ -173,7 +175,7 @@ try {
           url.searchParams.has("cursor")
         );
       });
-      await loadMore.click();
+      await nextPage.click();
       if (!(await continuedPage).ok()) {
         throw new Error(
           "Blueprint Course pagination did not return a successful continuation page",

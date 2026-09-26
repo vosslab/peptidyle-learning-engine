@@ -77,7 +77,7 @@ async function createSecondCourseThroughVisibleControls(
     has: page.getByRole("heading", { name: longName, exact: true }),
   });
   await expect(course).toHaveCount(1);
-  await course.getByRole("link", { name: "Open Course Instance", exact: true }).click();
+  await course.getByRole("link", { name: "Open Course", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: longName, exact: true })).toBeVisible();
 }
 

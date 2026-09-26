@@ -463,6 +463,9 @@ test("breadcrumb trails are canonical route projections with one current termina
     courseLongName: "Biochemistry I",
     assessmentTitle: "Problem Set 7",
     assessmentAttemptTitle: "Problem Set 7",
+    questionTitle: "Catalytic triad",
+    blueprintCourseTitle: "Molecular Biology Blueprint",
+    blueprintBreadcrumbParent: "myBlueprintCourses",
   };
   const cases = [
     ["courses", ["Home"]],
@@ -470,12 +473,15 @@ test("breadcrumb trails are canonical route projections with one current termina
     ["courseAppearance", ["Home", "Biochemistry I", "Appearance"]],
     ["assessmentWorkspaceQuestions", ["Home", "Biochemistry I", "Problem Set 7", "Questions"]],
     ["assessmentWorkspacePolicies", ["Home", "Biochemistry I", "Problem Set 7", "Properties"]],
-    ["questionDetail", ["Home", "Question Library", "Question"]],
-    ["questionDraftEditor", ["Home", "My Draft Questions", "Question"]],
-    ["blueprintCourseDetail", ["Home", "My Blueprint Courses", "Blueprint Course"]],
+    ["questionDetail", ["Home", "Question Library", "Catalytic triad"]],
+    ["questionDraftEditor", ["Home", "My Draft Questions", "Catalytic triad"]],
+    ["blueprintCourseDetail", ["Home", "My Blueprint Courses", "Molecular Biology Blueprint"]],
     ["publicBlueprintSearch", ["Home", "Search Public Blueprint Courses"]],
-    ["assessmentAttempt", ["Home", "Biochemistry I", "Problem Set 7", "Attempt"]],
-    ["assessmentAttemptSummary", ["Home", "Biochemistry I", "Problem Set 7", "Attempt history"]],
+    ["assessmentAttempt", ["Home", "Courses", "Biochemistry I", "Problem Set 7", "Attempt"]],
+    [
+      "assessmentAttemptSummary",
+      ["Home", "Courses", "Biochemistry I", "Problem Set 7", "Attempt history"],
+    ],
   ];
   for (const [routeId, expectedLabels] of cases) {
     const routeState = routeStateFor(routeId);
@@ -546,6 +552,101 @@ test("breadcrumb trails are canonical route projections with one current termina
   assert.equal(scoped.breadcrumbs[1]?.label, "Biochemistry I");
 });
 
+test("loaded Blueprint access selects its actual collection parent", () => {
+  const routeState = routeStateFor("blueprintCourseDetail");
+  const publicLabels = {
+    blueprintCourseTitle: "Public Molecular Biology Blueprint",
+    blueprintBreadcrumbParent: "publicBlueprintSearch",
+  };
+  const model = deriveRibbonModel(routeState, { productRole: "instructor" }, publicLabels, {
+    blueprintSearchReturnToken: "8f5e7d01-b6c7-4c14-8a0b-4bfef6390d6d",
+  });
+  assert.deepEqual(
+    model.breadcrumbs.map(({ label, href, current }) => ({ label, href, current })),
+    [
+      { label: "Home", href: "/instructor", current: false },
+      {
+        label: "Search Public Blueprint Courses",
+        href: "/blueprint-courses/search/public?blueprintReturn=8f5e7d01-b6c7-4c14-8a0b-4bfef6390d6d",
+        current: false,
+      },
+      {
+        label: "Public Molecular Biology Blueprint",
+        href: "/blueprint-courses/BP7K3M2QAF",
+        current: true,
+      },
+    ],
+  );
+  for (const navigation of [{}, { blueprintSearchReturnToken: "not-a-token" }]) {
+    const directModel = deriveRibbonModel(
+      routeState,
+      { productRole: "instructor" },
+      publicLabels,
+      navigation,
+    );
+    assert.equal(
+      directModel.breadcrumbs[1]?.href,
+      "/blueprint-courses/search/public",
+      "direct and malformed Blueprint Search returns use the bare collection route",
+    );
+  }
+});
+
+test("Student breadcrumb parents use their real collection and Course destinations", () => {
+  const labels = { courseLongName: "Biochemistry I", assessmentTitle: "Problem Set 7" };
+  const cases = [
+    [
+      "studentCourseLanding",
+      ["Home", "Courses", "Biochemistry I"],
+      ["/student", "/student/courses", "/student/courses/CI7K3M2QAZ"],
+    ],
+    [
+      "studentCourseProgress",
+      ["Home", "Courses", "Biochemistry I", "Progress"],
+      [
+        "/student",
+        "/student/courses",
+        "/student/courses/CI7K3M2QAZ",
+        "/student/courses/CI7K3M2QAZ/progress",
+      ],
+    ],
+    [
+      "assessmentOverview",
+      ["Home", "Courses", "Biochemistry I", "Problem Set 7"],
+      [
+        "/student",
+        "/student/courses",
+        "/student/courses/CI7K3M2QAZ",
+        "/courses/CI7K3M2QAZ/assessments/A9D2RX5AF",
+      ],
+    ],
+    [
+      "studentResponseStats",
+      ["Home", "Grades", "Response Stats"],
+      ["/student", "/student/grades", "/student/grades/response-stats"],
+    ],
+    [
+      "studentAttemptHistory",
+      ["Home", "Grades", "Attempt History"],
+      ["/student", "/student/grades", "/student/grades/attempt-history"],
+    ],
+  ];
+  for (const [routeId, expectedLabels, expectedHrefs] of cases) {
+    const model = deriveRibbonModel(routeStateFor(routeId), { productRole: "student" }, labels);
+    assert.deepEqual(
+      model.breadcrumbs.map(({ label }) => label),
+      expectedLabels,
+      routeId,
+    );
+    assert.deepEqual(
+      model.breadcrumbs.map(({ href }) => href),
+      expectedHrefs,
+      routeId,
+    );
+    assert.equal(model.breadcrumbs.at(-1)?.current, true, routeId);
+  }
+});
+
 test("Student Course Invitation acceptance stays outside Course breadcrumb context", () => {
   const model = deriveRibbonModel(
     routeStateFor("studentCourseInvitation"),
@@ -562,6 +663,10 @@ test("deferred scope labels retain a linked human-readable current breadcrumb", 
   const cases = [
     ["courseAssessments", "instructor", ["Home", "Course"]],
     ["assessmentWorkspaceOverview", "instructor", ["Home", "Course", "Assessment"]],
+    ["studentCourseLanding", "student", ["Home", "Courses", "Course"]],
+    ["studentCourseProgress", "student", ["Home", "Courses", "Course", "Progress"]],
+    ["assessmentOverview", "student", ["Home", "Courses", "Course", "Before you start"]],
+    ["studentResponseStats", "student", ["Home", "Grades", "Response Stats"]],
     ["assessmentAttempt", "student", ["Home", "Attempt"]],
   ];
   for (const [routeId, productRole, expectedLabels] of cases) {

@@ -1,6 +1,6 @@
 // blueprint_assessment_content_editor.tsx - task-focused editing for one Blueprint Assessment.
 
-import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
+import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import {
   ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
   assessmentDurationDefaultDescription,
@@ -10,7 +10,6 @@ import {
 } from "../../assessment_duration";
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
-import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { createQuestionPoolLibraryClient } from "../../api/http_client/question_pool_library";
@@ -22,23 +21,23 @@ import {
 import {
   appendPickedFixedEntries,
   appendPickedPool,
-  moveReusableEntry,
   removeReusableEntry,
   updateReusableDefaults,
   updateReusablePoolSelectionCount,
   updateReusableText,
-  type ReusableEntryDirection,
 } from "./blueprint_course_model";
-import { QuestionPoolPicker, type QuestionPoolPickerSelection } from "./question_pool_picker";
+import {
+  QuestionPoolPicker,
+  type QuestionPoolPickerSelection,
+} from "../question_pool_picker/question_pool_picker";
 import { BlueprintPoolMembersEditor } from "./blueprint_pool_members_editor";
 import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedback_fields";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
+import type { RecordContent } from "../../components/record_list/record_list";
+import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
-  /** Saved server view used only to present current Pool ID and Edit Number. */
-  readonly savedContent?: BlueprintAssessmentContentView;
   readonly blueprintCourseId?: string;
   readonly retainedAssessmentId?: string;
   readonly blueprintClient?: BlueprintCourseClient;
@@ -54,15 +53,47 @@ function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
-function entrySummary(
-  entry: BlueprintAssessmentContentInput["entries"][number],
-  _savedEntry: BlueprintAssessmentContentView["entries"][number] | undefined,
-): string {
+function entrySummary(entry: BlueprintAssessmentContentInput["entries"][number]): string {
   if (entry.kind === "fixed") {
     const revision = entry.published_question_revision_tuple;
     return `Fixed Question ${revision.publishedQuestionId}, Revision ${revision.revisionNumber}`;
   }
-  return `Question Pool ${entry.pool.question_pool_id}, Edit ${entry.pool.question_pool_edit_number}: select ${entry.selection_count}`;
+  return `Question Pool ${entry.pool.question_pool_id}, Edit ${entry.pool.question_pool_edit_number}`;
+}
+
+function entryContent(
+  entry: BlueprintAssessmentContentInput["entries"][number],
+  remove: (() => void) | undefined,
+): RecordContent {
+  if (entry.kind === "fixed") {
+    return {
+      title: entrySummary(entry),
+      details: [
+        { kind: "text", label: "Points possible", value: entry.points_possible },
+        { kind: "text", label: "Scoring", value: entry.scoring_rule },
+      ],
+      actions:
+        remove === undefined
+          ? []
+          : [{ id: "remove-entry", kind: "command", label: "Remove", onClick: remove }],
+    };
+  }
+  return {
+    title: entrySummary(entry),
+    details: [
+      {
+        kind: "text",
+        label: "Draw each Assessment Attempt",
+        value: String(entry.selection_count),
+      },
+      { kind: "text", label: "Points per Question", value: entry.points_per_item },
+      { kind: "text", label: "Scoring", value: entry.scoring_rule },
+    ],
+    actions:
+      remove === undefined
+        ? []
+        : [{ id: "remove-entry", kind: "command", label: "Remove", onClick: remove }],
+  };
 }
 
 function lateWorkRuleFromValue(
@@ -71,11 +102,6 @@ function lateWorkRuleFromValue(
   return value === "accept" || value === "mark_late" || value === "reject" ? value : undefined;
 }
 
-type BlueprintAssessmentEntryRecord = {
-  readonly entry: BlueprintAssessmentContentInput["entries"][number];
-  readonly index: number;
-};
-
 /** Form fields keep the reusable content visible and progressively explain the next useful edit. */
 export function BlueprintAssessmentContentEditor(
   props: BlueprintAssessmentContentEditorProps,
@@ -83,7 +109,7 @@ export function BlueprintAssessmentContentEditor(
   const [editingTask, setEditingTask] = createSignal<"questions" | "properties">("questions");
   const [fixedPickerOpen, setFixedPickerOpen] = createSignal(false);
   const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
-  const [memberPoolId, setMemberPoolId] = createSignal<string>();
+  const [memberPoolEntryId, setMemberPoolEntryId] = createSignal<string>();
   const [invalidMembers, setInvalidMembers] = createSignal(false);
   const [timeLimit, setTimeLimit] = createSignal(
     assessmentDurationOverrideMinutesDraft(
@@ -91,6 +117,24 @@ export function BlueprintAssessmentContentEditor(
     ),
   );
   const [legacyTimeLimitSeconds, setLegacyTimeLimitSeconds] = createSignal<number | null>(null);
+  // Draft entries can repeat the same published identity, so list keys stay UI-local and travel with moves.
+  type EntryInput = BlueprintAssessmentContentInput["entries"][number];
+  type EntryRecord = { readonly entry: EntryInput; readonly index: number; readonly id: string };
+  type PoolEntryRecord = EntryRecord & {
+    readonly entry: Extract<EntryInput, { kind: "pool" }>;
+  };
+  let nextEntryIdentity = 0;
+  const newEntryIdentity = (): string => `blueprint-entry-${++nextEntryIdentity}`;
+  let trackedEntries = props.content.entries;
+  let entryIdentities: ReadonlyArray<string> = trackedEntries.map(() => newEntryIdentity());
+  const entryRecords = createMemo<ReadonlyArray<EntryRecord>>(() => {
+    const entries = props.content.entries;
+    if (entries !== trackedEntries) {
+      trackedEntries = entries;
+      entryIdentities = entries.map(() => newEntryIdentity());
+    }
+    return entries.map((entry, index) => ({ entry, index, id: entryIdentities[index]! }));
+  });
   const questionPoolClient = props.questionPoolClient ?? createQuestionPoolLibraryClient();
   let fixedPickerTrigger: HTMLButtonElement | undefined;
   let poolPickerTrigger: HTMLButtonElement | undefined;
@@ -102,6 +146,35 @@ export function BlueprintAssessmentContentEditor(
     setTimeLimit(assessmentDurationOverrideMinutesDraft(seconds));
     setLegacyTimeLimitSeconds(seconds !== null && seconds % 60 !== 0 ? seconds : null);
   });
+
+  function changeEntries(
+    content: BlueprintAssessmentContentInput,
+    message: string,
+    nextIdentities: ReadonlyArray<string> = entryIdentities,
+  ): void {
+    trackedEntries = content.entries;
+    entryIdentities = nextIdentities;
+    props.onChange(content, message);
+  }
+
+  function appendEntries(content: BlueprintAssessmentContentInput, message: string): void {
+    const additionalCount = content.entries.length - entryIdentities.length;
+    changeEntries(content, message, [
+      ...entryIdentities,
+      ...Array.from({ length: additionalCount }, newEntryIdentity),
+    ]);
+  }
+
+  function removeEntry(record: EntryRecord): void {
+    if (memberPoolEntryId() === record.id) setMemberPoolEntryId(undefined);
+    changeEntries(
+      removeReusableEntry(props.content, record.index),
+      "Entry removed. Add another question or save the revised content.",
+      entryRecords()
+        .filter((candidate) => candidate.id !== record.id)
+        .map((candidate) => candidate.id),
+    );
+  }
 
   function validNumber(input: HTMLInputElement): boolean {
     input.setCustomValidity("");
@@ -160,17 +233,10 @@ export function BlueprintAssessmentContentEditor(
     );
   }
 
-  function moveEntry(index: number, direction: ReusableEntryDirection): void {
-    props.onChange(
-      moveReusableEntry(props.content, index, direction),
-      "Question order updated. Review the next entry or save the Blueprint Assessment.",
-    );
-  }
-
   function confirmFixedQuestions(selection: Parameters<typeof appendPickedFixedEntries>[1]): void {
     const next = appendPickedFixedEntries(props.content, selection);
     setFixedPickerOpen(false);
-    props.onChange(
+    appendEntries(
       next,
       `Added ${plural(selection.questionIds.length, "selected question")} as fixed entries. Continue arranging the content or save the Blueprint Course.`,
     );
@@ -178,7 +244,7 @@ export function BlueprintAssessmentContentEditor(
 
   function confirmQuestionPool(selection: QuestionPoolPickerSelection): void {
     setPoolPickerOpen(false);
-    props.onChange(
+    appendEntries(
       appendPickedPool(props.content, selection.questionPoolId, selection.questionPoolEditNumber),
       `Added Question Pool ${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}, with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
     );
@@ -290,129 +356,95 @@ export function BlueprintAssessmentContentEditor(
           }
         >
           <RecordSequence
-            rows={props.content.entries.map((entry, index) => ({ entry, index }))}
-            regions={
-              [
-                {
-                  id: "identity",
-                  role: "identity",
-                  priority: "required",
-                  width: "minmax(0, 1fr)",
-                  align: "start",
-                  content: (record: BlueprintAssessmentEntryRecord): JSX.Element => {
-                    const entry = record.entry;
-                    const index = (): number => record.index;
-                    return (
-                      <>
-                        <div>
-                          <strong>
-                            {entrySummary(entry, props.savedContent?.entries[index()])}
-                          </strong>
-                          <Show when={entry.kind === "pool"}>
-                            <label class="blueprint-course-small-field">
-                              Draw each Assessment Attempt
-                              <input
-                                type="number"
-                                min="1"
-                                required
-                                value={entry.kind === "pool" ? entry.selection_count : 1}
-                                disabled={!props.editable}
-                                onInput={(event) => {
-                                  if (!validNumber(event.currentTarget)) {
-                                    props.onChange(
-                                      props.content,
-                                      "Use a positive whole number for the Pool selection count.",
-                                    );
-                                    return;
-                                  }
-                                  const selectionCount = Number(event.currentTarget.value);
-                                  props.onChange(
-                                    updateReusablePoolSelectionCount(
-                                      props.content,
-                                      index(),
-                                      selectionCount,
-                                    ),
-                                    "Question Pool selection count updated. The server validates it against current Pool membership.",
-                                  );
-                                }}
-                              />
-                            </label>
-                          </Show>
-                          <Show when={entry.kind === "pool"}>
-                            <Show
-                              when={
-                                entry.kind === "pool" &&
-                                entry.pool.kind === "retained" &&
-                                props.retainedAssessmentId &&
-                                props.blueprintCourseId &&
-                                props.blueprintClient
-                              }
-                              fallback={
-                                <p class="blueprint-course-field-help">
-                                  Save the Blueprint Course before editing this Assessment-owned
-                                  Pool's members.
-                                </p>
-                              }
-                            >
-                              <button
-                                type="button"
-                                class="quiet-action"
-                                onClick={() => {
-                                  if (entry.kind === "pool")
-                                    setMemberPoolId(entry.pool.question_pool_id);
-                                }}
-                              >
-                                {props.editable ? "Edit Pool members" : "View Pool members"}
-                              </button>
-                            </Show>
-                          </Show>
-                        </div>
-                        <Show when={props.editable}>
-                          <div
-                            class="blueprint-course-reorder-actions"
-                            aria-label={`Actions for entry ${index() + 1}`}
-                          >
-                            <button
-                              type="button"
-                              class="quiet-action"
-                              disabled={index() === 0}
-                              onClick={() => moveEntry(index(), -1)}
-                            >
-                              Move earlier
-                            </button>
-                            <button
-                              type="button"
-                              class="quiet-action"
-                              disabled={index() === props.content.entries.length - 1}
-                              onClick={() => moveEntry(index(), 1)}
-                            >
-                              Move later
-                            </button>
-                            <button
-                              type="button"
-                              class="danger-action"
-                              onClick={() =>
-                                props.onChange(
-                                  removeReusableEntry(props.content, index()),
-                                  "Entry removed. Add another question or save the revised content.",
-                                )
-                              }
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </Show>
-                      </>
-                    );
+            rows={entryRecords()}
+            content={(record): RecordContent =>
+              entryContent(
+                record.entry,
+                props.editable ? (): void => removeEntry(record) : undefined,
+              )
+            }
+            renderBody={(record) => {
+              const current = record();
+              const entry = current.entry;
+              const index = current.index;
+              return (
+                <>
+                  <Show when={entry.kind === "pool"}>
+                    <label class="blueprint-course-small-field">
+                      Draw each Assessment Attempt
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={entry.kind === "pool" ? entry.selection_count : 1}
+                        disabled={!props.editable}
+                        onInput={(event) => {
+                          if (!validNumber(event.currentTarget)) {
+                            props.onChange(
+                              props.content,
+                              "Use a positive whole number for the Pool selection count.",
+                            );
+                            return;
+                          }
+                          const selectionCount = Number(event.currentTarget.value);
+                          changeEntries(
+                            updateReusablePoolSelectionCount(props.content, index, selectionCount),
+                            "Question Pool selection count updated. The server validates it against current Pool membership.",
+                          );
+                        }}
+                      />
+                    </label>
+                  </Show>
+                  <Show when={entry.kind === "pool"}>
+                    <Show
+                      when={
+                        entry.kind === "pool" &&
+                        entry.pool.kind === "retained" &&
+                        props.retainedAssessmentId &&
+                        props.blueprintCourseId &&
+                        props.blueprintClient
+                      }
+                      fallback={
+                        <p class="blueprint-course-field-help">
+                          Save the Blueprint Course before editing this Assessment-owned Pool's
+                          members.
+                        </p>
+                      }
+                    >
+                      <button
+                        type="button"
+                        class="quiet-action"
+                        onClick={() => {
+                          if (entry.kind === "pool") setMemberPoolEntryId(current.id);
+                        }}
+                      >
+                        {props.editable ? "Edit Pool members" : "View Pool members"}
+                      </button>
+                    </Show>
+                  </Show>
+                </>
+              );
+            }}
+            recordId={(record) => record.id}
+            reorder={{
+              onMove: (sourceIndex, destinationIndex) => {
+                const records = reorderedRecordListRows(
+                  entryRecords(),
+                  sourceIndex,
+                  destinationIndex,
+                );
+                changeEntries(
+                  {
+                    ...props.content,
+                    entries: records.map((record) => record.entry),
                   },
-                },
-              ] satisfies ReadonlyArray<RecordRegion<BlueprintAssessmentEntryRecord>>
-            }
-            recordId={(record) =>
-              record.entry.kind === "fixed"
-                ? `${record.entry.published_question_revision_tuple.publishedQuestionId}:${record.entry.published_question_revision_tuple.revisionNumber}`
-                : `${record.entry.pool.question_pool_id}:${record.entry.pool.question_pool_edit_number}`
-            }
+                  "Question order updated. Review the next entry or save the Blueprint Assessment.",
+                  records.map((record) => record.id),
+                );
+              },
+              recordLabel: (record) => entrySummary(record.entry),
+              isDisabled: () => !props.editable,
+            }}
             state={{ kind: "ready" }}
             ariaLabel="Ordered Blueprint Assessment entries"
             emptyState={{ title: "No Blueprint Assessment entries are selected." }}
@@ -420,62 +452,52 @@ export function BlueprintAssessmentContentEditor(
         </Show>
       </section>
 
-      <div hidden={!memberPoolId() || editingTask() !== "questions"}>
-        <Show when={memberPoolId()} keyed>
-          {(poolId) => {
-            const entry = (): BlueprintAssessmentContentInput["entries"][number] | undefined =>
-              props.content.entries.find(
-                (candidate) =>
-                  candidate.kind === "pool" &&
-                  candidate.pool.kind === "retained" &&
-                  candidate.pool.question_pool_id === poolId,
-              );
+      <div hidden={!memberPoolEntryId() || editingTask() !== "questions"}>
+        <Show when={memberPoolEntryId()} keyed>
+          {(entryId) => {
+            const entry = (): PoolEntryRecord | undefined => {
+              const selected = entryRecords().find((record) => record.id === entryId);
+              if (selected === undefined || selected.entry.kind !== "pool") return undefined;
+              return { ...selected, entry: selected.entry };
+            };
             return (
               <Show when={entry()}>
                 {(selected) => (
                   <Show
                     when={
-                      selected().kind === "pool" &&
+                      selected().entry.kind === "pool" &&
+                      selected().entry.pool.kind === "retained" &&
                       props.blueprintClient &&
                       props.blueprintCourseId &&
                       props.retainedAssessmentId
                     }
                   >
                     <BlueprintPoolMembersEditor
-                      entry={
-                        selected() as Extract<
-                          BlueprintAssessmentContentInput["entries"][number],
-                          { kind: "pool" }
-                        >
-                      }
+                      entry={selected().entry}
                       blueprintCourseId={props.blueprintCourseId!}
                       assessmentId={props.retainedAssessmentId!}
                       client={props.blueprintClient!}
                       editable={props.editable}
                       pickerRepository={props.pickerRepository}
                       pickerSources={props.pickerSources}
-                      onClose={() => setMemberPoolId(undefined)}
+                      onClose={() => setMemberPoolEntryId(undefined)}
                       onInvalidDraftChange={(invalid) => {
                         setInvalidMembers(invalid);
                         props.onInvalidDraftChange?.(
                           invalid || editor.querySelector("input:invalid") !== null,
                         );
                       }}
-                      onChange={(pool, message) =>
-                        props.onChange(
-                          {
-                            ...props.content,
-                            entries: props.content.entries.map((candidate) =>
-                              candidate.kind === "pool" &&
-                              candidate.pool.kind === "retained" &&
-                              candidate.pool.question_pool_id === poolId
-                                ? { ...candidate, pool }
-                                : candidate,
-                            ),
-                          },
-                          message,
-                        )
-                      }
+                      onChange={(pool, message) => {
+                        const records = entryRecords();
+                        const nextEntries = records.map((record) =>
+                          record.id === entryId &&
+                          record.entry.kind === "pool" &&
+                          record.entry.pool.kind === "retained"
+                            ? { ...record.entry, pool }
+                            : record.entry,
+                        );
+                        changeEntries({ ...props.content, entries: nextEntries }, message);
+                      }}
                     />
                   </Show>
                 )}

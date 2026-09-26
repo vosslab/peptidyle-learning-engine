@@ -1,7 +1,7 @@
 // course_instance_page.tsx - Instructor Course Instance teaching workspace.
 
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { createResource, createSignal, For, Show, type JSX } from "solid-js";
+import { createResource, createSignal, Show, untrack, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import type { CourseInstanceSummary } from "../api/course_instance";
@@ -14,8 +14,11 @@ import {
 } from "../components/course_classification_fields";
 import { CourseStudentWorkRecovery } from "../components/course_student_work_recovery";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import {
   courseThemeStyle,
   courseThemeTokens,
@@ -237,10 +240,7 @@ function CreateBlueprintFromCourseInstance(props: {
 type AssessmentEditorState = "idle" | "editing" | "saving" | "failed" | "read-only";
 
 export type AssessmentRowModel = {
-  readonly identity: (position: number) => JSX.Element;
-  readonly status: () => JSX.Element;
-  readonly metadata: () => JSX.Element;
-  readonly actions: () => JSX.Element;
+  readonly content: (position: number) => RecordContent;
   readonly details: () => JSX.Element;
   readonly detailsVisible: () => boolean;
   readonly refresh: (assessment: CourseAssessmentSummary) => void;
@@ -366,6 +366,7 @@ export function createAssessmentRowModel(props: {
       }
       setState("failed");
       setMessage("Latest Assessment loaded. Review it, then save your typed values again.");
+      queueMicrotask(() => titleInput?.focus());
     } catch {
       setState("failed");
       setMessage(
@@ -381,40 +382,45 @@ export function createAssessmentRowModel(props: {
         expectedAssessmentEditNumber = refreshedAssessment.assessmentEditNumber;
       }
     },
-    identity: (position) => (
-      <>
-        <p class="course-instance-assessment__position">Assessment {position}</p>
-        <h3>{assessment().title}</h3>
-        <p class="course-instance-assessment__phone-summary">
-          {assessmentStatusLabel(assessment().status)} - Due:{" "}
-          {formatAssessmentDueDate(assessment().dueAt)}
-        </p>
-      </>
-    ),
-    status: () => <p>{assessmentStatusLabel(assessment().status)}</p>,
-    metadata: () => <p>Due: {formatAssessmentDueDate(assessment().dueAt)}</p>,
-    actions: () => (
-      <>
-        <A
-          ref={(element) => (assessmentQuestionsLink = element)}
-          class="quiet-link"
-          href={assessmentQuestionsPath(props.courseInstanceId, assessment().id)}
-        >
-          Edit Assessment
-        </A>
-        <Show when={mayEdit() && state() === "idle"}>
-          <button
-            ref={(element) => (editButton = element)}
-            class="quiet-action"
-            type="button"
-            disabled={state() === "saving"}
-            onClick={beginEditing}
-          >
-            Edit title and due date
-          </button>
-        </Show>
-      </>
-    ),
+    content: (position): RecordContent => {
+      const current = assessment();
+      return {
+        title: current.title,
+        description: `Assessment ${position}`,
+        details: [
+          { kind: "assessmentType", value: current.assessmentType },
+          { kind: "text", label: "Status:", value: assessmentStatusLabel(current.status) },
+          current.dueAt === null
+            ? { kind: "text", label: "Due:", value: "No due date" }
+            : {
+                kind: "time",
+                label: "Due:",
+                value: formatAssessmentDueDate(current.dueAt),
+                dateTime: current.dueAt,
+              },
+        ],
+        actions: [
+          {
+            id: "edit-assessment",
+            kind: "link",
+            label: "Edit Assessment",
+            href: assessmentQuestionsPath(props.courseInstanceId, current.id),
+            ref: (element) => (assessmentQuestionsLink = element),
+          },
+          ...(mayEdit() && state() === "idle"
+            ? [
+                {
+                  id: "edit-title-and-due-date",
+                  kind: "command" as const,
+                  label: "Edit title and due date",
+                  onClick: () => beginEditing(),
+                  ref: (element: HTMLButtonElement) => (editButton = element),
+                },
+              ]
+            : []),
+        ],
+      };
+    },
     detailsVisible: () => state() !== "idle" || message() !== "",
     details: () => (
       <>
@@ -565,24 +571,27 @@ export function CourseInstancePage(): JSX.Element {
       assessmentRowModels.clear();
       assessmentModelsCourseInstanceId = courseInstanceId;
     }
-    return (assessments() ?? []).map((assessment, index) => {
-      let model = assessmentRowModels.get(assessment.id);
-      if (model === undefined) {
-        model = createAssessmentRowModel({
-          client: applicationApi.client,
-          assessment,
-          courseInstanceId,
-        });
-        assessmentRowModels.set(assessment.id, model);
-      } else {
-        model.refresh(assessment);
-      }
-      return {
-        assessmentId: assessment.id,
-        model,
-        position: index + 1,
-      };
-    });
+    const summaries = assessments() ?? [];
+    return untrack(() =>
+      summaries.map((assessment, index) => {
+        let model = assessmentRowModels.get(assessment.id);
+        if (model === undefined) {
+          model = createAssessmentRowModel({
+            client: applicationApi.client,
+            assessment,
+            courseInstanceId,
+          });
+          assessmentRowModels.set(assessment.id, model);
+        } else {
+          model.refresh(assessment);
+        }
+        return {
+          assessmentId: assessment.id,
+          model,
+          position: index + 1,
+        };
+      }),
+    );
   }
 
   return (
@@ -642,60 +651,19 @@ export function CourseInstancePage(): JSX.Element {
                 </header>
                 <RecordList
                   ariaLabel="Assessments"
+                  content={(row) => row.model.content(row.position)}
                   emptyState={{
                     title: "No Assessments yet",
                     message:
                       "Assessments organize the ordered activities delivered to Students. Use Create Assessment to add the first activity for this Course Instance.",
                   }}
                   recordId={(row) => row.assessmentId}
-                  regions={
-                    [
-                      {
-                        id: "identity",
-                        role: "identity",
-                        priority: "required",
-                        width: "minmax(12rem, 1.4fr)",
-                        align: "stretch",
-                        content: (row) => row.model.identity(row.position),
-                      },
-                      {
-                        id: "status",
-                        role: "status",
-                        priority: "high",
-                        width: "minmax(6rem, auto)",
-                        align: "center",
-                        content: (row) => row.model.status(),
-                      },
-                      {
-                        id: "due-date",
-                        role: "metadata",
-                        priority: "medium",
-                        width: "minmax(12rem, 1fr)",
-                        align: "center",
-                        content: (row) => row.model.metadata(),
-                      },
-                      {
-                        id: "actions",
-                        role: "actions",
-                        priority: "required",
-                        width: "auto",
-                        align: "end",
-                        content: (row) => row.model.actions(),
-                      },
-                    ] satisfies ReadonlyArray<RecordRegion<AssessmentListRow>>
-                  }
+                  renderBody={(row) => (
+                    <Show when={row().model.detailsVisible()}>{row().model.details()}</Show>
+                  )}
                   rows={assessmentRows(view().courseInstance.id)}
                   state={assessmentListState()}
                 />
-                <Show when={assessmentListState().kind === "ready"}>
-                  <div class="course-instance-page__assessment-editors">
-                    <For each={assessmentRows(view().courseInstance.id)}>
-                      {(row) => (
-                        <Show when={row.model.detailsVisible()}>{row.model.details()}</Show>
-                      )}
-                    </For>
-                  </div>
-                </Show>
               </section>
               <section
                 class="course-instance-page__details"

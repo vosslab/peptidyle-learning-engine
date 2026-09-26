@@ -13,20 +13,23 @@ Pages describe what records contain and what they can do; the shared family deci
 are presented. Shared defaults own padding, spacing, typography, responsive behavior, states,
 selection, actions and ordering mechanics. The same semantic content flows through every width.
 A small API is useful only when it completes the task without pushing legitimate content into local
-wrappers. This is a technical redesign and complete caller migration for another manager to execute.
+wrappers. This is a technical redesign and complete caller migration delivered through bounded
+packages tracked in the workstream ledger.
 
 The deeper caller investigation is complete. Its
 [full caller table and findings](../audits/record_list_caller_investigation_2026-09-25.md)
 cover every current RecordList/Sequence caller, adjacent sort controls and semantic siblings. It
 supersedes the earlier three-field-only hypothesis: descriptions, linked context, thumbnails,
-pressed actions and bounded editor bodies have concrete consumers. Implementation remains pending.
-Source inspection and existing captures establish design evidence, not acceptance of new rendering.
+pressed actions and bounded editor bodies have concrete consumers. Execution status and acceptance
+evidence are maintained in the workstream ledger. Source inspection and existing captures establish
+design evidence, not acceptance of new rendering.
 
 The additional [data-flow investigation](../audits/record_list_data_flow_investigation_2026-09-25.md)
 traced database queries, API limits and browser retention. Its required
 [bounded data workstream](../workstreams/record_list_bounded_data_workstream.md) specifies the SQL/API
 corrections, page controls and picker reuse. Keep RecordList in Solid/TypeScript; reduce broad
-collections before presentation. Implementation of both presentation and data changes remains pending.
+collections before presentation. Execution status and acceptance evidence are maintained in the
+workstream ledger.
 
 The copy-ready manager prompt is
 [record_list_page_frame_standardization_plan_goal.md](record_list_page_frame_standardization_plan_goal.md).
@@ -781,9 +784,9 @@ prerequisites, accepted interface, outcome and focused validation:
 | WP-C8 / CORE | WP-C1 | Share native sort select with typed choices/current value/callback | Library and Blueprint query choices use the control; WP-P4 makes Blueprint ordering global |
 | WP-C9 / CORE | WP-C1, WP-P0 | Shared Previous/Next and 50/100/250 choice; full package in bounded data workstream | Controlled navigation works; release named discovery consumers |
 | WP-P0 / DISCOVERY-CONTRACTS | WP-B1 | Scope 250 discovery bound across model, SQL, API and decoders | 250 accepted; excess rejected; unrelated limits preserved |
-| WP-P1 / QUESTION-DATA | WP-P0 | Typed SQL predicates, global sort and bounded keyset page | Correct page across ties and metadata filters |
+| WP-P1 / QUESTION-DATA | WP-P0 | Store-only typed predicates/cursor-position contract, SQL filters, global sort and bounded keyset page | Correct page across ties and metadata filters; WP-P3 adapts the existing parsed server query/token once |
 | WP-P2 / QUESTION-DATA | WP-P1 | Full-query authorized facet aggregates | Beyond-page counts and bounded groups preserved |
-| WP-P3 / QUESTION-DATA | WP-P2 | Integrate bounded store; hydrate only page items; remove full-catalog pipeline | Existing page shape with bounded source resolution |
+| WP-P3 / QUESTION-DATA | WP-P2 | Adapt the existing normalized server query and opaque cursor to the WP-P1 store contract; hydrate only page items; remove full-catalog pipeline | Existing page shape with bounded source resolution; query digest and token encoding remain server-owned |
 | WP-P4 / BLUEPRINT-DATA | WP-P0 | Existing sort choices become API/SQL order with bound cursors | Cross-page rank correct; release My Blueprint caller |
 | WP-P5 / INSTRUCTOR | WP-L1.question_picker, WP-BP1.question_pool_picker, WP-C7, WP-P3 | Complete Assessment page/view using reusable pickers; remove dump endpoint | Later-page selection and draft Save remain usable |
 | WP-P6 / INTEGRATOR | WP-X1, WP-P3, WP-P4, WP-P5 | Measure bounded work; keep useful windowing only; remove obsolete machinery | Required data evidence accepted before WP-V1 |

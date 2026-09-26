@@ -297,6 +297,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
 
   return (
     <PageFrame
+      // Answer-free Student View cue and question preview. PageFrame owns the stack.
       contentClass="assessment-workspace-student-view"
       routeSurface="assessmentWorkspace"
       title={manifest()?.title ?? "Student View"}

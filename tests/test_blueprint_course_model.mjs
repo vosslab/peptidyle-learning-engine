@@ -2,10 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  appendBlueprintCoursePage,
   appendPickedFixedEntries,
   appendPickedPool,
-  blueprintCourseContinuationPresentation,
   blueprintLifecyclePresentation,
   emptyReusableContent,
   moveReusableEntry,
@@ -104,29 +102,6 @@ test("Question Pool validation requires a positive whole selection count", () =>
     pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 0 }] } : content;
 
   assert.match(validateReusableContent(invalid).message ?? "", /selection count/);
-});
-
-test("Blueprint Course pages append unique public IDs and name the next action", () => {
-  const visible = appendBlueprintCoursePage(
-    [{ id: "BP-one", title: "Enzyme kinetics" }],
-    [
-      { id: "BP-one", title: "Stale duplicate" },
-      { id: "BP-two", title: "DNA repair" },
-    ],
-  );
-
-  assert.deepEqual(
-    visible.map((record) => record.title),
-    ["Enzyme kinetics", "DNA repair"],
-  );
-  assert.deepEqual(blueprintCourseContinuationPresentation(true, true), {
-    visible: true,
-    action: "Retry loading Blueprint Courses",
-  });
-  assert.deepEqual(blueprintCourseContinuationPresentation(false, false), {
-    visible: false,
-    action: null,
-  });
 });
 
 test("Blueprint Course creation requires separate short and long lineage names", () => {

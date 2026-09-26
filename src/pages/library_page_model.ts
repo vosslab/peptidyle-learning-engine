@@ -122,12 +122,33 @@ export interface QuestionLibraryBrowsePage {
   readonly facetTruncation: QuestionLibraryFacetTruncation;
 }
 
+/** Shared discovery choices. The repository sends one of these sizes on each search. */
+export const QUESTION_LIBRARY_PAGE_SIZES = [50, 100, 250] as const;
+export type QuestionLibraryPageSize = (typeof QUESTION_LIBRARY_PAGE_SIZES)[number];
+
+/** Cursor sequence for the current query and page size. The first page uses a null input cursor. */
+export interface QuestionLibraryBrowsePosition {
+  readonly pageSize: QuestionLibraryPageSize;
+  readonly inputCursor: string | null;
+  readonly previousCursors: ReadonlyArray<string | null>;
+}
+
+export const FIRST_QUESTION_LIBRARY_BROWSE_POSITION: QuestionLibraryBrowsePosition = {
+  pageSize: 50,
+  inputCursor: null,
+  previousCursors: [],
+};
+
 /**
  * The production Question Library repository adapts to this narrow boundary. A hostile result is
  * intentional: this module owns browser-side validation before any row reaches JSX.
  */
 export interface QuestionLibraryBrowseRepository {
-  readonly search: (query: QuestionLibraryBrowseQuery, cursor: string | null) => Promise<unknown>;
+  readonly search: (
+    query: QuestionLibraryBrowseQuery,
+    cursor: string | null,
+    pageSize?: QuestionLibraryPageSize,
+  ) => Promise<unknown>;
 }
 
 export type QuestionLibraryBrowseState =
@@ -171,8 +192,8 @@ export type QuestionLibraryBrowseState =
  * This deliberately lasts only for the current browser document. It is not a
  * second persistence channel for search preferences, nor is it visible to a
  * Question detail route. The saved page is the last server-validated browse
- * result, so a return can restore an exact position even when it was reached
- * after loading more than the first cursor page.
+ * result, so a return restores that current page and its cursor history
+ * without replaying earlier pages into the result list.
  */
 export interface QuestionLibraryReturnState {
   readonly token: string;
@@ -180,6 +201,7 @@ export interface QuestionLibraryReturnState {
   readonly origin: "search" | "browse";
   readonly query: QuestionLibraryBrowseQuery;
   readonly browseState: Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }>;
+  readonly position: QuestionLibraryBrowsePosition;
   readonly scrollTop: number;
   /** A detail mutation requires the applied query and aggregates to reload before restoration. */
   readonly refreshOnReturn: boolean;
@@ -221,6 +243,7 @@ export function saveQuestionLibraryReturnState(
   query: QuestionLibraryBrowseQuery,
   browseState: QuestionLibraryBrowseState,
   scrollTop: number,
+  position: QuestionLibraryBrowsePosition = FIRST_QUESTION_LIBRARY_BROWSE_POSITION,
 ): void {
   if (parseQuestionLibraryReturnToken(token) === null) return;
   pendingQuestionLibraryReturnState = null;
@@ -232,6 +255,7 @@ export function saveQuestionLibraryReturnState(
     origin,
     query: normalizeQuestionLibraryBrowseQuery(query),
     browseState: retainedBrowseState,
+    position,
     scrollTop: Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0,
     refreshOnReturn: false,
   };
@@ -277,7 +301,7 @@ function retainedQuestionLibraryReturnBrowseState(
   };
 }
 
-/** Keep a restored virtual-list position inside the current rendered scroll range. */
+/** Keep a restored results scroll position inside the current rendered scroll range. */
 export function clampQuestionLibraryReturnScrollTop(
   scrollTop: number,
   scrollHeight: number,
@@ -291,7 +315,7 @@ export function clampQuestionLibraryReturnScrollTop(
 
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
-export const MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS = 100;
+export const MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS = 250;
 const MAX_QUESTION_LIBRARY_ROW_TEXT_ITEMS = 100;
 const MAX_FACET_COUNT = 1_000_000_000;
 
@@ -575,44 +599,14 @@ export function normalizeQuestionLibraryBrowseQuery(
   };
 }
 
-/** Fixed-row virtual window keeps DOM work bounded independently of Question Library size. */
-export function questionLibraryBrowseVirtualWindow<T>(
-  rows: ReadonlyArray<T>,
-  scrollTop: number,
-  viewportHeight: number,
-  rowHeight: number,
-  overscanRows: number,
-): Readonly<{ readonly offset: number; readonly rows: ReadonlyArray<T> }> {
-  if (rowHeight <= 0 || overscanRows < 0) {
-    throw new Error("virtual window dimensions must be positive");
-  }
-  const first = Math.max(0, Math.floor(Math.max(0, scrollTop) / rowHeight) - overscanRows);
-  const count = Math.ceil(Math.max(0, viewportHeight) / rowHeight) + overscanRows * 2;
-  return { offset: first * rowHeight, rows: rows.slice(first, first + count) };
-}
-
-function rowKey(row: QuestionLibraryBrowseRow): string {
-  return row.displayId;
-}
-
-function appendUnique(
-  previous: ReadonlyArray<QuestionLibraryBrowseRow>,
-  incoming: ReadonlyArray<QuestionLibraryBrowseRow>,
-): ReadonlyArray<QuestionLibraryBrowseRow> {
-  const keys = new Set(previous.map(rowKey));
-  const appended = incoming.filter((row) => {
-    const key = rowKey(row);
-    if (keys.has(key)) {
-      return false;
-    }
-    keys.add(key);
-    return true;
-  });
-  return [...previous, ...appended];
+interface QuestionLibraryPageRequest {
+  readonly retainRows: boolean;
+  readonly position: QuestionLibraryBrowsePosition;
 }
 
 /**
- * Cursor-only session: one request at a time and stale responses cannot append.
+ * One current server page. Query, sort, and page-size changes start a new cursor
+ * sequence. A completed response replaces rows; it does not accumulate earlier pages.
  *
  * A replacement query clears its old result rows while loading, but retains the
  * last server-computed aggregates until the replacement response arrives. This
@@ -623,6 +617,11 @@ function appendUnique(
 export class QuestionLibraryBrowseSession {
   #generation = 0;
   #query = EMPTY_QUESTION_LIBRARY_BROWSE_QUERY;
+  #position: QuestionLibraryBrowsePosition = FIRST_QUESTION_LIBRARY_BROWSE_POSITION;
+  #failedRequest: {
+    readonly cursor: string | null;
+    readonly request: QuestionLibraryPageRequest;
+  } | null = null;
   #state: QuestionLibraryBrowseState = {
     kind: "initial",
     rows: [],
@@ -642,50 +641,104 @@ export class QuestionLibraryBrowseSession {
     return this.#state;
   }
 
-  /** Rehydrate the server-validated page retained for an immediate detail return. */
+  public get position(): QuestionLibraryBrowsePosition {
+    return this.#position;
+  }
+
+  /** Rehydrate the current page and its cursor history without replaying earlier pages. */
   public restore(
     query: QuestionLibraryBrowseQuery,
     state: Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }>,
+    position: QuestionLibraryBrowsePosition = FIRST_QUESTION_LIBRARY_BROWSE_POSITION,
   ): void {
     this.#generation += 1;
     this.#queuedReset = false;
     this.#loading = false;
+    this.#failedRequest = null;
     this.#query = normalizeQuestionLibraryBrowseQuery(query);
+    this.#position = position;
     this.setState(state);
   }
 
-  public async reset(query: QuestionLibraryBrowseQuery): Promise<void> {
+  public async reset(
+    query: QuestionLibraryBrowseQuery,
+    pageSize: QuestionLibraryPageSize = this.#position.pageSize,
+  ): Promise<void> {
     this.#generation += 1;
     this.#query = normalizeQuestionLibraryBrowseQuery(query);
+    this.#position = { pageSize, inputCursor: null, previousCursors: [] };
+    this.#failedRequest = null;
     if (this.#loading) {
       this.#queuedReset = true;
       return;
     }
-    await this.loadPage(null, true, this.#generation);
+    await this.loadPage(
+      null,
+      {
+        retainRows: false,
+        position: this.#position,
+      },
+      this.#generation,
+    );
+  }
+
+  public async setPageSize(pageSize: QuestionLibraryPageSize): Promise<void> {
+    if (pageSize === this.#position.pageSize) return;
+    await this.reset(this.#query, pageSize);
   }
 
   public async retry(): Promise<void> {
-    if (
-      this.#state.kind === "error" &&
-      this.#state.rows.length > 0 &&
-      this.#state.nextCursor !== null
-    ) {
-      await this.loadPage(this.#state.nextCursor, false, this.#generation);
+    const failed = this.#failedRequest;
+    if (this.#state.kind === "error" && this.#state.rows.length > 0 && failed !== null) {
+      await this.loadPage(failed.cursor, failed.request, this.#generation);
       return;
     }
     this.#generation += 1;
+    this.#position = { ...this.#position, inputCursor: null, previousCursors: [] };
+    this.#failedRequest = null;
     if (this.#loading) {
       this.#queuedReset = true;
       return;
     }
-    await this.loadPage(null, true, this.#generation);
+    await this.loadPage(null, { retainRows: false, position: this.#position }, this.#generation);
   }
 
   public async loadNext(): Promise<void> {
     if (this.#loading || this.#state.kind !== "ready" || this.#state.nextCursor === null) {
       return;
     }
-    await this.loadPage(this.#state.nextCursor, false, this.#generation);
+    const cursor = this.#state.nextCursor;
+    await this.loadPage(
+      cursor,
+      {
+        retainRows: true,
+        position: {
+          pageSize: this.#position.pageSize,
+          inputCursor: cursor,
+          previousCursors: [...this.#position.previousCursors, this.#position.inputCursor],
+        },
+      },
+      this.#generation,
+    );
+  }
+
+  public async loadPrevious(): Promise<void> {
+    if (this.#loading || this.#position.previousCursors.length === 0) return;
+    const previousCursors = this.#position.previousCursors.slice(0, -1);
+    const cursor =
+      this.#position.previousCursors[this.#position.previousCursors.length - 1] ?? null;
+    await this.loadPage(
+      cursor,
+      {
+        retainRows: true,
+        position: {
+          pageSize: this.#position.pageSize,
+          inputCursor: cursor,
+          previousCursors,
+        },
+      },
+      this.#generation,
+    );
   }
 
   private setState(state: QuestionLibraryBrowseState): void {
@@ -695,20 +748,21 @@ export class QuestionLibraryBrowseSession {
 
   private async loadPage(
     cursor: string | null,
-    replace: boolean,
+    request: QuestionLibraryPageRequest,
     generation: number,
   ): Promise<void> {
     if (this.#loading) {
       return;
     }
     this.#loading = true;
-    const retainedRows = replace || this.#state.kind === "empty" ? [] : this.#state.rows;
+    const retainedRows = request.retainRows && this.#state.kind !== "empty" ? this.#state.rows : [];
     // Replacement results must not transiently remove native select options.
     // The aggregate values remain server-owned and are replaced, never merged,
     // when the exact replacement query completes.
     const retainedAggregates = this.#state.aggregates;
     const retainedFacetTruncation = this.#state.facetTruncation;
-    const retainedCursor = replace || this.#state.kind === "empty" ? null : this.#state.nextCursor;
+    const retainedCursor =
+      request.retainRows && this.#state.kind !== "empty" ? this.#state.nextCursor : null;
     this.setState({
       kind: "loading",
       rows: retainedRows,
@@ -718,14 +772,15 @@ export class QuestionLibraryBrowseSession {
     });
     try {
       const page = decodeQuestionLibraryBrowsePage(
-        await this.repository.search(this.#query, cursor),
+        await this.repository.search(this.#query, cursor, request.position.pageSize),
       );
       if (generation !== this.#generation) {
         return;
       }
-      const rows = replace ? appendUnique([], page.items) : appendUnique(retainedRows, page.items);
+      this.#position = request.position;
+      this.#failedRequest = null;
       this.setState(
-        rows.length === 0
+        page.items.length === 0
           ? {
               kind: "empty",
               aggregates: page.aggregates,
@@ -733,7 +788,7 @@ export class QuestionLibraryBrowseSession {
             }
           : {
               kind: "ready",
-              rows,
+              rows: page.items,
               nextCursor: page.nextCursor,
               aggregates: page.aggregates,
               facetTruncation: page.facetTruncation,
@@ -741,6 +796,7 @@ export class QuestionLibraryBrowseSession {
       );
     } catch {
       if (generation === this.#generation) {
+        this.#failedRequest = { cursor, request };
         this.setState({
           kind: "error",
           rows: retainedRows,
@@ -753,7 +809,7 @@ export class QuestionLibraryBrowseSession {
       this.#loading = false;
       if (this.#queuedReset) {
         this.#queuedReset = false;
-        void this.loadPage(null, true, this.#generation);
+        void this.loadPage(null, { retainRows: false, position: this.#position }, this.#generation);
       }
     }
   }

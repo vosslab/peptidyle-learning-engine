@@ -562,7 +562,6 @@ const CAPABILITY_DECLARATIONS = {
       "src/pages/assessment_workspace/assessment_workspace_questions_page.tsx::AssessmentWorkspaceQuestionsPage",
       "src/pages/assessment_workspace/assessment_workspace_live_page.tsx::AssessmentWorkspaceLivePage",
       "src/api/http_client/assessment_release.ts::getLiveAssessmentWorkspace",
-      "src/api/http_client/assessment_release.ts::listLiveAssessmentQuestionPicker",
       "crates/server/src/assessment_release.rs::assessment_release_router",
     ],
   },

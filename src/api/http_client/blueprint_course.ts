@@ -2,6 +2,7 @@
 
 import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_members";
 import {
   decodeBlueprintComparisonView,
@@ -44,6 +45,7 @@ import type {
   BlueprintCourseClient,
   BlueprintCourseClassificationSearch,
   BlueprintIdempotencyKey,
+  BlueprintCourseListSort,
   BlueprintMetadataTransition,
   LoadedBlueprintCourse,
 } from "../blueprint_course";
@@ -56,7 +58,7 @@ import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { createBlueprintStewardshipClient } from "./blueprint_stewardship";
 
-const MAX_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 const MAX_IDEMPOTENCY_KEY_BYTES = 128;
 const MAX_BLUEPRINT_RESPONSE_CHARACTERS = 16 * 1_024 * 1_024;
 
@@ -69,12 +71,13 @@ function pagePath(
   publicOnly = false,
   promotedOnly = false,
   classification?: BlueprintCourseClassificationSearch,
+  sort: BlueprintCourseListSort = "name",
 ): string {
   if (
     pageSize !== undefined &&
     (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE)
   ) {
-    throw new ApiProtocolError("Blueprint Course page size must be an integer from 1 through 100");
+    throw new ApiProtocolError("Blueprint Course page size must be an integer from 1 through 250");
   }
   // ASVS 2.2.1, 2.2.2: mirror service limits for useful client feedback; server remains authoritative.
   if (
@@ -88,6 +91,9 @@ function pagePath(
   if (publicOnly && includeArchived) {
     throw new ApiProtocolError("Public Blueprint Course search cannot include Archived courses");
   }
+  if (!(["name", "adoptions", "students"] as const).includes(sort)) {
+    throw new ApiProtocolError("Blueprint Course sort must be name, adoptions, or students");
+  }
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", cursor);
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));
@@ -96,6 +102,7 @@ function pagePath(
   if (searchQuery !== undefined) query.set("query", searchQuery);
   if (publicOnly) query.set("publicOnly", "true");
   if (promotedOnly) query.set("promotedOnly", "true");
+  if (sort !== "name") query.set("sort", sort);
   if (classification !== undefined) {
     // ASVS 2.2.1-2.2.3: validate UUIDs and complete chains; service validates real parents.
     const { disciplineUuid, subjectUuid, topicUuid, subtopicUuid, crossDiscipline } =
@@ -391,6 +398,7 @@ export function createBlueprintCourseClient(
       publicOnly = false,
       promotedOnly = false,
       classification,
+      sort,
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath(
         "/api/course-blueprints",
@@ -401,6 +409,7 @@ export function createBlueprintCourseClient(
         publicOnly,
         promotedOnly,
         classification,
+        sort,
       );
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
         .body;

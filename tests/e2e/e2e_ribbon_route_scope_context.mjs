@@ -210,6 +210,58 @@ test(
   },
 );
 
+test("route-scoped labels clear at session boundaries and reject stale A-B-A publications", async () => {
+  const fixture = createDeferredQueries();
+  const base = createApplicationApi(
+    createHttpApiClient({ fetch: () => Promise.reject(new Error("unused")) }),
+  );
+  const applicationApi = {
+    ...base,
+    queries: {
+      ...base.queries,
+      resolveAssignmentAttempt: queryFunction(
+        fixture.queries.resolveAssignmentAttempt,
+        "test-resolve-attempt",
+      ),
+      courseScope: queryFunction(fixture.queries.courseScope, "test-course-scope"),
+      assessmentAttemptScope: queryFunction(
+        fixture.queries.assessmentAttemptScope,
+        "test-attempt-context",
+      ),
+      assessmentAttemptHistory: queryFunction(
+        fixture.queries.assessmentAttemptHistory,
+        "test-attempt-history",
+      ),
+    },
+  };
+  const { mountRouteScopeProviderHarness } = await loadRouteScopeProviderHarness();
+  const app = mountRouteScopeProviderHarness(applicationApi, "/courses/CI7K3M2QAZ");
+  await nextTurn();
+  const firstA = app.capturePublication();
+  app.publishLabels(firstA, { questionTitle: "First Question" });
+  assert.deepEqual(app.labels(), { questionTitle: "First Question" });
+
+  app.navigate("/courses/CI4W8QF9AD");
+  app.navigate("/courses/CI7K3M2QAZ");
+  await nextTurn();
+  const secondA = app.capturePublication();
+  assert.notEqual(secondA.routeGeneration, firstA.routeGeneration);
+  app.publishLabels(firstA, { questionTitle: "Stale Question" });
+  assert.deepEqual(app.labels(), {});
+
+  app.publishLabels(secondA, { questionTitle: "Current Question" });
+  assert.deepEqual(app.labels(), { questionTitle: "Current Question" });
+  app.clearLabels(secondA);
+  assert.deepEqual(app.labels(), {});
+  app.publishLabels(secondA, { questionTitle: "Current Question" });
+  app.advanceSession();
+  await nextTurn();
+  assert.deepEqual(app.labels(), {});
+  app.publishLabels(secondA, { questionTitle: "Previous Session Question" });
+  assert.deepEqual(app.labels(), {});
+  app.dispose();
+});
+
 test("stable controller retains separate Attempt views", async () => {
   const fixture = createDeferredQueries();
   const app = mountedController(

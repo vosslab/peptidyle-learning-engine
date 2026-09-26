@@ -83,7 +83,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("list", { name: "Instructor Accounts", exact: true })
       .getByRole("listitem")
       .first();
-    const accountId = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
+    const accountId = (await newest.getByRole("heading", { level: 3 }).innerText()).trim();
     if (!isCanonicalAccountId(accountId)) {
       throw new Error("created Instructor Account lacks a canonical public ID");
     }
@@ -94,21 +94,21 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await created
       .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
       .click();
-    await created.getByText("State: Deactivated", { exact: true }).waitFor();
+    await created.getByText("Deactivated", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "account_deactivated", session);
 
     // The backend list order is not a UI ordering contract. Verify persistence after capturing the
     // visible lifecycle transitions in the client-owned order.
     await reloadInstructorAccounts(page);
     created = instructorAccount(page, accountId);
-    await created.getByText("State: Deactivated", { exact: true }).waitFor();
+    await created.getByText("Deactivated", { exact: true }).waitFor();
     await created
       .getByRole("button", { name: "Reactivate Instructor Account", exact: true })
       .click();
-    await created.getByText("State: Active", { exact: true }).waitFor();
+    await created.getByText("Active", { exact: true }).waitFor();
     await reloadInstructorAccounts(page);
     created = instructorAccount(page, accountId);
-    await created.getByText("State: Active", { exact: true }).waitFor();
+    await created.getByText("Active", { exact: true }).waitFor();
   } finally {
     await runtime.close(session);
   }

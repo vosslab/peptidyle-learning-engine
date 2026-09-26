@@ -64,7 +64,7 @@ try {
   });
   const selectedRow = rows.first();
   const selectedTitle = await selectedRow.getByRole("heading", { level: 2 }).textContent();
-  const selectedLink = selectedRow.getByRole("link", { name: "Open question" });
+  const selectedLink = selectedRow.getByRole("link", { name: "Open", exact: true });
   const selectedPath = await selectedLink.getAttribute("href");
   if (
     selectedTitle === null ||

@@ -6,49 +6,40 @@ import { createResource, type JSX } from "solid-js";
 import type { LiveStudentCourseInvitationSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 
-function invitationRegions(): ReadonlyArray<RecordRegion<LiveStudentCourseInvitationSummary>> {
-  return [
-    {
-      id: "course",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (invitation): JSX.Element => <h2>{invitation.longName}</h2>,
-    },
-    {
-      id: "details",
-      role: "metadata",
-      priority: "high",
-      width: "minmax(14rem, auto)",
-      align: "start",
-      content: (invitation): JSX.Element => (
-        <>
-          <span>Instructor: {invitation.instructorDisplayName}</span>
-          <span>
-            Term: <time dateTime={invitation.term.startDate}>{invitation.term.startDate}</time>
-            {" to "}
-            <time dateTime={invitation.term.endDate}>{invitation.term.endDate}</time>
-          </span>
-        </>
-      ),
-    },
-    {
-      id: "action",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (invitation): JSX.Element => (
-        <A class="primary-link" href={`/courses/${invitation.id}/invitation`}>
-          Review invitation
-        </A>
-      ),
-    },
-  ];
+function invitationContent(invitation: LiveStudentCourseInvitationSummary): RecordContent {
+  return {
+    title: invitation.longName,
+    details: [
+      { kind: "text", label: "Instructor", value: invitation.instructorDisplayName },
+      {
+        kind: "time",
+        label: "Term starts",
+        value: invitation.term.startDate,
+        dateTime: invitation.term.startDate,
+      },
+      {
+        kind: "time",
+        label: "Term ends",
+        value: invitation.term.endDate,
+        dateTime: invitation.term.endDate,
+      },
+    ],
+    actions: [
+      {
+        id: "review-invitation",
+        kind: "link",
+        label: "Review invitation",
+        href: `/courses/${invitation.id}/invitation`,
+        primary: true,
+      },
+    ],
+  };
 }
 
 function invitationListState(loading: boolean, unavailable: boolean): RecordListState {
@@ -84,7 +75,7 @@ export function StudentCourseInvitationsPage(): JSX.Element {
         ariaLabel="Course invitations"
         emptyState={{ title: "You do not have any pending course invitations." }}
         recordId={(invitation) => invitation.id}
-        regions={invitationRegions()}
+        content={invitationContent}
         rows={invitations() ?? []}
         state={invitationListState(invitations.loading, invitations.error !== undefined)}
       />

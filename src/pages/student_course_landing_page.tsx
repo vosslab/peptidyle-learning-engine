@@ -11,14 +11,17 @@ import type {
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordFact,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
-import { RibbonIcon } from "../ribbon/ribbon_icon";
 import { studentCourseworkDisplay } from "./student_coursework_presentation";
 import {
   hasSubmittedStudentAttempt,
@@ -54,73 +57,48 @@ function assessmentAccessLabel(assessment: LiveStudentAssessmentLandingSummary):
   return `${access}: ${reason}`;
 }
 
-function assessmentRegions(
+function assessmentContent(
   course: LiveStudentCourseLandingSummary,
-  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
   view: StudentCourseworkView,
   completedAssessmentIds: ReadonlySet<string>,
-): ReadonlyArray<RecordRegion<LiveStudentAssessmentLandingSummary>> {
-  return [
-    {
-      id: "assessment",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1.3fr)",
-      align: "stretch",
-      content: (assessment): JSX.Element => {
-        const type = assessmentTypePresentation(assessment.assessmentType);
-        const display = assessmentDisplay(assessment);
-        const due = formatAssessmentDeliveryTime(
-          assessment.decision.dueAt,
-          formatDateTime,
-          "No due time",
-        );
-        return (
-          <>
-            <h3 class="student-coursework__title">{assessment.title}</h3>
-            <p
-              class="student-coursework__type"
-              style={`--student-coursework-type-color: var(${type.colorToken})`}
-            >
-              <RibbonIcon glyph={type.icon} />
-              <span>{type.label}</span>
-            </p>
-            <p class="student-coursework__facts">
-              <span>{assessmentAccessLabel(assessment)}</span>
-              <span>
-                Due <span data-assessment-decision-due>{due}</span>
-              </span>
-              <span>
-                {view === "completed" && completedAssessmentIds.has(assessment.id)
-                  ? "Submitted Attempt on record"
-                  : display.completionLabel}
-              </span>
-            </p>
-          </>
-        );
+): (assessment: LiveStudentAssessmentLandingSummary) => RecordContent {
+  return (assessment): RecordContent => {
+    const display = assessmentDisplay(assessment);
+    const dueAt = assessment.decision.dueAt;
+    const formatDateTime = createDisplayDateTimeFormatter(assessment.decision.displayTimeZone);
+    const details: Array<RecordFact> = [
+      { kind: "assessmentType", value: assessment.assessmentType },
+      { kind: "text", label: "Access:", value: assessmentAccessLabel(assessment) },
+      dueAt === null
+        ? { kind: "text", label: "Due:", value: "No due time" }
+        : {
+            kind: "time",
+            label: "Due:",
+            value: formatAssessmentDeliveryTime(dueAt, formatDateTime),
+            dateTime: new Date(dueAt).toISOString(),
+          },
+      {
+        kind: "text",
+        value:
+          view === "completed" && completedAssessmentIds.has(assessment.id)
+            ? "Submitted Attempt on record"
+            : display.completionLabel,
       },
-    },
-    {
-      id: "action",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (assessment): JSX.Element => {
-        const display = assessmentDisplay(assessment);
-        const type = assessmentTypePresentation(assessment.assessmentType);
-        return (
-          <A
-            class="primary-link student-coursework__action"
-            href={assessmentOverviewPath(course.id, assessment.id)}
-            aria-label={`${display.actionVerb} ${type.label}`}
-          >
-            {display.actionVerb}
-          </A>
-        );
-      },
-    },
-  ];
+    ];
+    return {
+      title: assessment.title,
+      details,
+      actions: [
+        {
+          id: "open-assessment",
+          kind: "link",
+          label: `${display.actionVerb} ${assessmentTypePresentation(assessment.assessmentType).label}`,
+          href: assessmentOverviewPath(course.id, assessment.id),
+          primary: true,
+        },
+      ],
+    };
+  };
 }
 
 function assessmentListState(loading: boolean): RecordListState {
@@ -135,23 +113,12 @@ function AssessmentList(props: {
   readonly view: StudentCourseworkView;
   readonly completedAssessmentIds: ReadonlySet<string>;
 }): JSX.Element {
-  const formatDateTime = createMemo(() => {
-    const timeZone = props.assessments[0]?.decision.displayTimeZone;
-    return timeZone === undefined ? undefined : createDisplayDateTimeFormatter(timeZone);
-  });
-  const regions = createMemo(() => {
-    const formatter = formatDateTime();
-    return formatter === undefined
-      ? []
-      : assessmentRegions(props.course, formatter, props.view, props.completedAssessmentIds);
-  });
-
   return (
     <RecordList
       ariaLabel={courseworkHeading(props.view)}
+      content={assessmentContent(props.course, props.view, props.completedAssessmentIds)}
       emptyState={{ title: emptyCourseworkMessage(props.view) }}
       recordId={(assessment) => assessment.id}
-      regions={regions()}
       rows={props.assessments}
       state={assessmentListState(props.loading)}
     />

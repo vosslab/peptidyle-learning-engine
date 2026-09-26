@@ -1,16 +1,18 @@
 // question_drafts_page.tsx - private Authoring Workspace entry and Draft Question list.
 
-import { A, useNavigate } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
 import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../features/ple_question_json_authoring/question_json_source";
 import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
-import "./question_drafts_page.css";
 
 type DraftSummary = {
   readonly draftQuestionId: DraftQuestionRouteId;
@@ -40,67 +42,33 @@ function shortContentPreview(questionDescription: string): string | undefined {
   return `${normalizedDescription.slice(0, maximumPreviewLength - 3).trimEnd()}...`;
 }
 
-function createDraftRegions(
+function draftContent(
+  draft: DraftSummary,
   deleting: () => boolean,
   requestDelete: (draft: DraftSummary) => void,
-): ReadonlyArray<RecordRegion<DraftSummary>> {
-  return [
-    {
-      id: "draft-question",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (draft) => (
-        <>
-          <A
-            class="draft-question-title"
-            href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
-          >
-            {draft.questionTitle}
-          </A>
-          <Show when={shortContentPreview(draft.questionDescription)}>
-            {(preview) => <p class="draft-question-preview">{preview()}</p>}
-          </Show>
-        </>
-      ),
-    },
-    {
-      id: "edit-number",
-      role: "metadata",
-      priority: "medium",
-      width: "minmax(0, 8rem)",
-      align: "start",
-      content: (draft) => <span>Edit {draft.draftQuestionEditNumber}</span>,
-    },
-    {
-      id: "actions",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (draft) => (
-        <>
-          <A
-            class="quiet-link draft-question-edit"
-            href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
-            aria-label={`Edit draft: ${draft.questionTitle}`}
-          >
-            Edit draft
-          </A>
-          <button
-            class="quiet-action draft-question-delete"
-            type="button"
-            aria-label={`Delete draft: ${draft.questionTitle}`}
-            disabled={deleting()}
-            onClick={() => requestDelete(draft)}
-          >
-            Delete draft
-          </button>
-        </>
-      ),
-    },
-  ];
+): RecordContent {
+  return {
+    title: draft.questionTitle,
+    description: shortContentPreview(draft.questionDescription),
+    details: [{ kind: "text", label: "Edit", value: draft.draftQuestionEditNumber }],
+    actions: [
+      {
+        id: "open-draft",
+        kind: "link",
+        label: "Open draft",
+        href: `/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`,
+        title: `Open draft: ${draft.questionTitle}`,
+      },
+      {
+        id: "delete-draft",
+        kind: "command",
+        label: "Delete draft",
+        title: `Delete draft: ${draft.questionTitle}`,
+        disabled: deleting(),
+        onClick: () => requestDelete(draft),
+      },
+    ],
+  };
 }
 
 async function listDrafts(): Promise<ReadonlyArray<DraftSummary>> {
@@ -259,8 +227,6 @@ export function QuestionDraftsPage(): JSX.Element {
     }
   }
 
-  const draftRegions = createDraftRegions(deleting, requestDelete);
-
   return (
     <PageFrame
       routeSurface="questionDrafts"
@@ -287,7 +253,7 @@ export function QuestionDraftsPage(): JSX.Element {
       </Show>
       <RecordList
         rows={drafts() ?? []}
-        regions={draftRegions}
+        content={(draft) => draftContent(draft, deleting, requestDelete)}
         recordId={(draft) => draft.draftQuestionId}
         state={draftListState()}
         ariaLabel="Private Draft Questions"

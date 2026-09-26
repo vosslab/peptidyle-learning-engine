@@ -48,10 +48,6 @@ pub fn assessment_release_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course_instance_id}/assessment-question-picker",
-            get(list_picker),
-        )
-        .route(
             "/api/course-instances/{course_instance_id}/assessments",
             get(list_assessments).post(create_assessment),
         )
@@ -212,29 +208,6 @@ async fn list_assessments(
     {
         // ASVS 8.3.1 and 8.3.4: this closed projection carries no Student,
         // response, answer, grading, or other protected educational record.
-        Ok(v) => crate::auth::no_store(Json(v).into_response()),
-        Err(e) => store_error(e),
-    }
-}
-
-async fn list_picker(
-    State(state): State<StateData>,
-    headers: HeaderMap,
-    Path(course): Path<String>,
-) -> Response {
-    let course = match course_instance_id(&course) {
-        Ok(v) => v,
-        Err(r) => return *r,
-    };
-    let token = match instructor(&state, &headers).await {
-        Ok(v) => v,
-        Err(r) => return *r,
-    };
-    match state
-        .assessments
-        .list_assessment_question_picker(token, course)
-        .await
-    {
         Ok(v) => crate::auth::no_store(Json(v).into_response()),
         Err(e) => store_error(e),
     }

@@ -1,34 +1,35 @@
 // Assessment Question Editor view for the current Assessment workspace.
 
 import { A } from "@solidjs/router";
-import { For, Show, type Accessor, type JSX, type Setter } from "solid-js";
+import { Show, createSignal, type Accessor, type JSX, type Setter } from "solid-js";
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
-import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
-import type {
-  AssessmentQuestionPickerEntry,
-  AssessmentBlueprintUpdateReview,
-} from "../../api/assessment_release";
+import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
+import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import { PageFrame } from "../../components/page_frame";
-import { RecordList } from "../../components/record_list/record_list";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import {
-  RecordListReorder,
-  RecordListReorderControls,
-} from "../../components/record_list/record_list_reorder";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
-import { SelectedAssessmentEntryIdentity } from "./assessment_workspace_selected_entry";
+import { selectedAssessmentEntryContent } from "./assessment_workspace_selected_entry";
 import {
   AssessmentWorkspaceIdentity,
   type AssessmentWorkspaceContextValue,
 } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { nextQuestionEditDirty } from "./assessment_workspace_questions_model";
+import {
+  QuestionPicker,
+  type QuestionPickerSelection,
+  type QuestionPickerSource,
+  type QuestionPickerSourceRepository,
+} from "../../features/question_picker";
+import {
+  QuestionPoolPicker,
+  type QuestionPoolPickerSelection,
+} from "../../features/question_pool_picker/question_pool_picker";
 import { UnsavedChangesGuard } from "./unsaved_changes_guard";
 import {
   AssessmentBlueprintContentSummary,
@@ -55,15 +56,15 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly entries: Accessor<ReadonlyArray<AssessmentEntry>>;
   readonly bloomSortUnavailableReason: Accessor<string | undefined>;
   readonly sortByBloomClassification: () => void;
-  readonly description: (
-    publishedQuestionRevisionTuple: AssessmentQuestionPickerEntry["publishedQuestionRevisionTuple"],
-  ) => string;
+  readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly entryBlooms: Accessor<ReadonlyMap<AssessmentEntryId, BloomClassificationView>>;
   readonly move: (index: number, offset: -1 | 1) => void;
   readonly remove: (index: number) => void;
   readonly poolForks: Accessor<ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>>;
   readonly poolForkLoadFailed: Accessor<boolean>;
-  readonly available: Accessor<ReadonlyArray<AssessmentQuestionPickerEntry>>;
+  readonly pickerRepository: QuestionPickerSourceRepository;
+  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
+  readonly questionPoolClient: QuestionPoolLibraryClient;
   readonly updatePoolSelectionCount: (
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
     selectionCount: number,
@@ -72,15 +73,10 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
     members: ReadonlyArray<PublishedQuestionRevisionTuple>,
   ) => Promise<void>;
-  readonly availableToAdd: Accessor<ReadonlyArray<AssessmentQuestionPickerEntry>>;
   readonly remainingQuestionCapacity: Accessor<number>;
-  readonly questionIdsToAdd: Accessor<string>;
-  readonly setQuestionIdsToAdd: Setter<string>;
-  readonly addQuestionsById: () => void;
-  readonly add: (candidate: AssessmentQuestionPickerEntry) => void;
-  readonly availablePools: Accessor<ReadonlyArray<QuestionPoolLibrarySummary>>;
-  readonly poolToImport: Accessor<string>;
-  readonly setPoolToImport: Setter<string>;
+  readonly addPublishedQuestions: (selection: QuestionPickerSelection) => void;
+  readonly poolImport: Accessor<QuestionPoolPickerSelection | undefined>;
+  readonly choosePool: (selection: QuestionPoolPickerSelection) => void;
   readonly poolSelectionCount: Accessor<string>;
   readonly setPoolSelectionCount: Setter<string>;
   readonly poolPointsPerItem: Accessor<string>;
@@ -96,13 +92,6 @@ type AssessmentQuestionRecord = {
   readonly entry: AssessmentEntry;
   readonly index: number;
 };
-
-function questionRevisionInspectionPath(
-  publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
-): string {
-  // ASVS 1.2.2: encode the displayed Question identity before placing it in a route path.
-  return `/library/${encodeURIComponent(publishedQuestionRevisionTuple.publishedQuestionId)}?revisionNumber=${publishedQuestionRevisionTuple.revisionNumber}`;
-}
 
 function questionPoolEntry(
   entry: AssessmentEntry,
@@ -161,18 +150,15 @@ export function AssessmentWorkspaceQuestionsView(
     remove,
     poolForks,
     poolForkLoadFailed,
-    available,
+    pickerRepository,
+    pickerSources,
+    questionPoolClient,
     updatePoolSelectionCount,
     replacePoolMembers,
-    availableToAdd,
     remainingQuestionCapacity,
-    questionIdsToAdd,
-    setQuestionIdsToAdd,
-    addQuestionsById,
-    add,
-    availablePools,
-    poolToImport,
-    setPoolToImport,
+    addPublishedQuestions,
+    poolImport,
+    choosePool,
     poolSelectionCount,
     setPoolSelectionCount,
     poolPointsPerItem,
@@ -183,78 +169,14 @@ export function AssessmentWorkspaceQuestionsView(
     setPoolScoringRule,
     importPool,
   } = args;
-
-  const selectedQuestionRegions: ReadonlyArray<RecordRegion<AssessmentQuestionRecord>> = [
-    {
-      id: "identity",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (record) => (
-        <>
-          <SelectedAssessmentEntryIdentity
-            entry={record.entry}
-            entryNumber={record.index + 1}
-            description={description}
-            bloom={entryBlooms().get(record.entry.id)}
-          />
-          <Show when={questionPoolEntry(record.entry)}>
-            {(poolEntry) => (
-              <AssessmentPoolEntryEditor
-                entry={poolEntry()}
-                fork={poolForks().get(poolEntry().id)}
-                exactMembersUnavailable={poolForkLoadFailed()}
-                availableQuestions={available()}
-                mutationsEnabled={
-                  !dirty() && !needsReload() && poolEntry().availability === "available"
-                }
-                busy={busy()}
-                onSelectionCount={(selectionCount) =>
-                  void updatePoolSelectionCount(poolEntry(), selectionCount)
-                }
-                onReplaceMembers={(members) => void replacePoolMembers(poolEntry(), members)}
-              />
-            )}
-          </Show>
-        </>
-      ),
-    },
-    {
-      id: "actions",
-      role: "actions",
-      priority: "required",
-      width: "minmax(9rem, 12rem)",
-      align: "stretch",
-      content: (record) => (
-        <>
-          <RecordListReorderControls
-            recordId={record.entry.id}
-            recordLabel={`Entry ${record.index + 1}`}
-            index={() => record.index}
-            count={() => entries().length}
-            disabled={busy() || needsReload()}
-          />
-          <button
-            class="quiet-action"
-            type="button"
-            disabled={busy() || needsReload() || record.entry.availability !== "available"}
-            aria-label={
-              record.entry.availability === "available"
-                ? `Remove Assessment Entry ${record.index + 1}`
-                : `Retained unavailable Assessment Entry ${record.index + 1} cannot be removed`
-            }
-            onClick={() => remove(record.index)}
-          >
-            {record.entry.availability === "available" ? "Remove" : "Retained unavailable"}
-          </button>
-        </>
-      ),
-    },
-  ];
+  const [questionPickerOpen, setQuestionPickerOpen] = createSignal(false);
+  const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
+  let questionPickerTrigger: HTMLButtonElement | undefined;
+  let poolPickerTrigger: HTMLButtonElement | undefined;
 
   return (
     <PageFrame
+      // Question Sequence editor body. PageFrame owns the stack.
       contentClass="assessment-workspace-questions"
       routeSurface="assessmentWorkspace"
       headingId="assessment-questions-heading"
@@ -389,118 +311,87 @@ export function AssessmentWorkspaceQuestionsView(
         <Show when={bloomSortUnavailableReason()}>
           {(reason) => <p class="assessment-editor-note">{reason()}</p>}
         </Show>
-        <RecordListReorder
-          onMove={(sourceIndex, destinationIndex) =>
-            moveAssessmentEntryToDestination(move, sourceIndex, destinationIndex)
+        <RecordSequence
+          rows={assessmentQuestionRecords(entries())}
+          content={(record) =>
+            selectedAssessmentEntryContent({
+              entry: record.entry,
+              entryNumber: record.index + 1,
+              description,
+              bloom: entryBlooms().get(record.entry.id),
+              removeDisabled: busy() || needsReload(),
+              remove: () => remove(record.index),
+            })
           }
-        >
-          <RecordSequence
-            rows={assessmentQuestionRecords(entries())}
-            regions={selectedQuestionRegions}
-            recordId={(record) => record.entry.id}
-            state={{ kind: "ready" }}
-            ariaLabel="Ordered Assessment Entries"
-            emptyState={{ title: "No Entries are selected." }}
-          />
-        </RecordListReorder>
+          renderBody={(record) => (
+            <Show when={questionPoolEntry(record().entry)}>
+              {(poolEntry) => (
+                <AssessmentPoolEntryEditor
+                  entry={poolEntry()}
+                  fork={poolForks().get(poolEntry().id)}
+                  exactMembersUnavailable={poolForkLoadFailed()}
+                  pickerRepository={pickerRepository}
+                  pickerSources={pickerSources}
+                  mutationsEnabled={
+                    !dirty() && !needsReload() && poolEntry().availability === "available"
+                  }
+                  busy={busy()}
+                  onSelectionCount={(selectionCount) =>
+                    void updatePoolSelectionCount(poolEntry(), selectionCount)
+                  }
+                  onReplaceMembers={(members) => replacePoolMembers(poolEntry(), members)}
+                />
+              )}
+            </Show>
+          )}
+          reorder={{
+            onMove: (sourceIndex, destinationIndex) =>
+              moveAssessmentEntryToDestination(move, sourceIndex, destinationIndex),
+            recordLabel: (record) => `Entry ${record.index + 1}`,
+            isDisabled: () => busy() || needsReload(),
+          }}
+          recordId={(record) => record.entry.id}
+          state={{ kind: "ready" }}
+          ariaLabel="Ordered Assessment Entries"
+          emptyState={{ title: "No Entries are selected." }}
+        />
       </section>
       <section class="assessment-editor-panel" aria-labelledby="available-questions-heading">
         <h2 id="available-questions-heading">Available published Questions</h2>
         <p class="assessment-editor-note">
-          Enter Question IDs to add them together in the order entered. Each keeps the exact
-          Published Revision shown below; inspection is optional. Save Questions when ready.
+          Search the Question Library and add a later page without loading the whole catalog. Each
+          added Question keeps the exact Published Revision you select. Save Questions when ready.
         </p>
-        <p>
-          <A href="/library">Search Question Library</A> or{" "}
-          <A href="/library/browse">Browse Question Library</A>.
+        <p role="status">
+          Room for {remainingQuestionCapacity()} more Questions, counting each Pool's selected
+          Questions.
         </p>
-        <Show
-          when={availableToAdd().length > 0}
-          fallback={<p>No additional Available Questions are ready to add.</p>}
-        >
-          <p role="status">
-            Room for {remainingQuestionCapacity()} more Questions, counting each Pool's selected
-            Questions.
-          </p>
-          <label class="assessment-editor-field">
-            Question IDs to add
-            <textarea
-              rows={3}
-              value={questionIdsToAdd()}
-              disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
-              aria-describedby="bulk-question-id-help"
-              onInput={(event) => setQuestionIdsToAdd(event.currentTarget.value)}
-            />
-          </label>
-          <p id="bulk-question-id-help" class="assessment-editor-note">
-            Separate IDs with commas, spaces, or new lines. Every ID must match a Question below;
-            the whole batch is checked before any Questions are added.
-          </p>
-          <div class="assessment-editor-actions">
-            <button
-              type="button"
-              class="primary-action"
-              disabled={
-                busy() ||
-                needsReload() ||
-                questionIdsToAdd().trim().length === 0 ||
-                remainingQuestionCapacity() === 0
-              }
-              onClick={addQuestionsById}
-            >
-              Add Questions by ID
-            </button>
-          </div>
-          <RecordList
-            rows={availableToAdd()}
-            regions={
-              [
-                {
-                  id: "identity",
-                  role: "identity",
-                  priority: "required",
-                  width: "minmax(0, 1fr)",
-                  align: "start",
-                  content: (candidate) => (
-                    <>
-                      <strong>
-                        {candidate.publishedQuestionRevisionTuple.publishedQuestionId}
-                      </strong>{" "}
-                      * Revision {candidate.publishedQuestionRevisionTuple.revisionNumber}:{" "}
-                      {candidate.description}{" "}
-                      <A
-                        href={questionRevisionInspectionPath(
-                          candidate.publishedQuestionRevisionTuple,
-                        )}
-                      >
-                        Inspect
-                      </A>{" "}
-                      <Show when={candidate.bloom}>
-                        {(bloom) => (
-                          <span>
-                            Bloom Cognitive Process: {bloom().cognitiveProcess}; Bloom Knowledge
-                            Dimension: {bloom().knowledgeDimension}
-                          </span>
-                        )}
-                      </Show>{" "}
-                      <button
-                        type="button"
-                        disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
-                        onClick={() => add(candidate)}
-                      >
-                        Add Question
-                      </button>
-                    </>
-                  ),
-                },
-              ] satisfies ReadonlyArray<RecordRegion<AssessmentQuestionPickerEntry>>
-            }
-            recordId={(candidate) =>
-              `${candidate.publishedQuestionRevisionTuple.publishedQuestionId}:${candidate.publishedQuestionRevisionTuple.revisionNumber}`
-            }
-            state={{ kind: "ready" }}
-            ariaLabel="Available published Questions"
-            emptyState={{ title: "No additional Available Questions are ready to add." }}
+        <div class="assessment-editor-actions">
+          <button
+            type="button"
+            class="primary-action"
+            ref={(element) => (questionPickerTrigger = element)}
+            disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
+            onClick={() => setQuestionPickerOpen(true)}
+          >
+            Choose published Questions
+          </button>
+        </div>
+        <Show when={questionPickerOpen() && remainingQuestionCapacity() > 0}>
+          <QuestionPicker
+            repository={pickerRepository}
+            sources={pickerSources}
+            mode="many"
+            maximumSelection={remainingQuestionCapacity()}
+            trigger={questionPickerTrigger}
+            title="Choose published Questions"
+            confirmLabel="Add selected Questions"
+            instructions="Selected Questions are added to this Assessment in tray order and keep their exact Published Revisions. Cancel leaves the current Entries unchanged."
+            onConfirm={(selection) => {
+              setQuestionPickerOpen(false);
+              addPublishedQuestions(selection);
+            }}
+            onCancel={() => setQuestionPickerOpen(false)}
           />
         </Show>
       </section>
@@ -508,28 +399,38 @@ export function AssessmentWorkspaceQuestionsView(
         <h2 id="available-pools-heading">Import a reusable Question Pool</h2>
         <p class="assessment-editor-note">
           Importing creates an Assessment-owned fork. It does not change the reusable Question Pool.
+          Later result pages stay available in the picker.
         </p>
-        <fieldset disabled={busy() || dirty() || needsReload() || availablePools().length === 0}>
-          <label class="assessment-editor-field">
-            Published Question Pool
-            <select
-              value={poolToImport()}
-              onChange={(event) => setPoolToImport(event.currentTarget.value)}
-            >
-              <option value="">Choose a Question Pool</option>
-              <For each={availablePools()}>
-                {(pool) => (
-                  <option value={pool.questionPoolId}>
-                    {pool.metadata.title} - {pool.questionPoolId} Edit {pool.questionPoolEditNumber}{" "}
-                    ({pool.memberCount} Questions)
-                    <Show when={pool.bloom}>
-                      {(bloom) => ` - ${bloom().cognitiveProcess} / ${bloom().knowledgeDimension}`}
-                    </Show>
-                  </option>
-                )}
-              </For>
-            </select>
-          </label>
+        <div class="assessment-editor-actions">
+          <button
+            type="button"
+            ref={(element) => (poolPickerTrigger = element)}
+            disabled={busy() || dirty() || needsReload()}
+            onClick={() => setPoolPickerOpen(true)}
+          >
+            Choose Question Pool
+          </button>
+        </div>
+        <Show when={poolImport()}>
+          {(selected) => (
+            <p>
+              Question Pool {selected().questionPoolId}, Edit {selected().questionPoolEditNumber},{" "}
+              {selected().memberCount} published Questions.
+            </p>
+          )}
+        </Show>
+        <Show when={poolPickerOpen()}>
+          <QuestionPoolPicker
+            client={questionPoolClient}
+            trigger={poolPickerTrigger}
+            onConfirm={(selection) => {
+              setPoolPickerOpen(false);
+              choosePool(selection);
+            }}
+            onCancel={() => setPoolPickerOpen(false)}
+          />
+        </Show>
+        <fieldset disabled={busy() || dirty() || needsReload() || poolImport() === undefined}>
           <label class="assessment-editor-field">
             Questions selected for each Attempt
             <input
@@ -576,13 +477,14 @@ export function AssessmentWorkspaceQuestionsView(
               <option value="excluded">Excluded</option>
             </select>
           </label>
-          <button type="button" disabled={poolToImport() === ""} onClick={() => void importPool()}>
+          <button
+            type="button"
+            disabled={poolImport() === undefined}
+            onClick={() => void importPool()}
+          >
             Import Question Pool
           </button>
         </fieldset>
-        <Show when={availablePools().length === 0}>
-          <p>No reusable published Question Pools are available to import.</p>
-        </Show>
       </section>
       <p class="assessment-editor-actions">
         <button

@@ -84,7 +84,7 @@ try {
     .getByRole("button", { name: "Create Course Instance", exact: true })
     .click();
   await page.getByRole("heading", { name: courseLongName }).waitFor();
-  await page.getByRole("link", { name: "Open Course Instance" }).first().click();
+  await page.getByRole("link", { name: "Open Course" }).first().click();
   await page.waitForURL(/\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/u);
   await page.getByRole("link", { name: "Open Students" }).click();
   await page.waitForURL(/\/instructor\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}\/students$/u);

@@ -8,12 +8,17 @@ use std::sync::{
 };
 
 use learning_data_access::postgres::{
-    PostgresBlueprintCourseStore, PostgresCourseInstanceStore, lazy_pool,
+    PostgresBlueprintCourseStore, PostgresCourseInstanceStore, PostgresQuestionLibraryStore,
+    PostgresQuestionPoolLibraryStore, lazy_pool,
 };
 use learning_data_access::{
     BlueprintCourseStore, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
-    CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash, StoreError,
-    StoredBlueprintCourseContent,
+    CourseInstanceStore, CreateCourseInstanceInput, DiscoveryPageRequest, DiscoveryPageSize,
+    QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
+    QuestionLibrarySearchRequest, QuestionLibrarySearchSort, QuestionLibraryStore,
+    QuestionLibraryTextField, QuestionLibraryTextTerm, QuestionPoolDiscoveryFilter,
+    QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
+    SessionTokenHash, StoreError, StoredBlueprintCourseContent,
 };
 use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
@@ -48,3 +53,9 @@ use blueprint_course_postgres_promotion::{discovery, promotion_boundary};
 
 #[path = "blueprint_course_postgres/lifecycle.rs"]
 mod blueprint_course_postgres_lifecycle;
+
+#[path = "blueprint_course_postgres/discovery.rs"]
+mod blueprint_course_postgres_discovery;
+
+#[path = "blueprint_course_postgres/question_library.rs"]
+mod blueprint_course_postgres_question_library;

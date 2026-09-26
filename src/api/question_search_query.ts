@@ -3,6 +3,7 @@
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import { appendLibraryClassificationParameters } from "./library_classification_filter";
 import {
@@ -12,7 +13,7 @@ import {
 import { PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
+const MAX_QUESTION_SEARCH_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 const QUESTION_SEARCH_CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",

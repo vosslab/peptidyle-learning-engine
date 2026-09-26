@@ -10,14 +10,12 @@ import {
   assessmentDurationDefaultDescription,
   assessmentDurationDisplay,
 } from "../../assessment_duration";
-import { CourseClassificationSummary } from "../../components/course_classification_summary";
-import { RecordList } from "../../components/record_list/record_list";
+import { RecordList, type RecordContent } from "../../components/record_list/record_list";
 import {
   RecordOutlineItem,
   RecordOutlineList,
 } from "../../components/record_list/record_outline_list";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 
 interface HistoryProps {
@@ -70,44 +68,31 @@ function historyEntryId(entry: BlueprintHistoryEntryView): string {
     : `metadata-${entry.recordedAt}`;
 }
 
-function historicalEntrySummary(entry: BlueprintAssessmentEntryView): JSX.Element {
-  return (
-    <>
-      Scoring {entry.scoring_rule}; Question Attempt limit{" "}
-      {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}
-      {entry.question_attempt_time_limit.kind === "limited"
-        ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
-        : "unlimited"}
-      <Show when={entry.kind === "pool" ? entry : undefined}>
-        {(pool) => (
-          <span>; selected Question order {pool().selection_rule.selectedQuestionOrder}</span>
-        )}
-      </Show>
-    </>
-  );
-}
+function historicalEntryContent(entry: BlueprintAssessmentEntryView): RecordContent {
+  const title =
+    entry.kind === "fixed"
+      ? `Fixed Question ${entry.question.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.question.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
+      : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`;
+  const timeLimit =
+    entry.question_attempt_time_limit.kind === "limited"
+      ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
+      : "unlimited";
+  const selectedQuestionOrder =
+    entry.kind === "pool"
+      ? `; selected Question order ${entry.selection_rule.selectedQuestionOrder}`
+      : "";
 
-const historicalEntryRegions: ReadonlyArray<RecordRegion<BlueprintAssessmentEntryView>> = [
-  {
-    id: "identity",
-    role: "identity",
-    priority: "required",
-    width: "minmax(0, 1fr)",
-    align: "start",
-    content: (entry) =>
-      entry.kind === "fixed"
-        ? `Fixed Question ${entry.question.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.question.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
-        : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`,
-  },
-  {
-    id: "details",
-    role: "actions",
-    priority: "required",
-    width: "minmax(0, 2fr)",
-    align: "start",
-    content: historicalEntrySummary,
-  },
-];
+  return {
+    title,
+    details: [
+      {
+        kind: "text",
+        value: `Scoring ${entry.scoring_rule}; Question Attempt limit ${entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit ${timeLimit}${selectedQuestionOrder}`,
+      },
+    ],
+    actions: [],
+  };
+}
 
 /** Opening history never grants editing or changes the ordinary latest-Revision workspace. */
 export function BlueprintHistory(props: HistoryProps): JSX.Element {
@@ -285,44 +270,31 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
     }
   }
   onMount(() => void load());
-  const historyEntryRegions: ReadonlyArray<RecordRegion<BlueprintHistoryEntryView>> = [
-    {
-      id: "identity",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (entry) =>
-        entry.kind === "savedRevision"
-          ? `Revision ${entry.revisionNumber}${entry.revisionNumber === props.currentRevisionNumber ? " (latest saved)" : " (historical)"}`
-          : `${entry.longName} (${entry.shortName}) - ${entry.availability}`,
-    },
-    {
-      id: "details",
-      role: "actions",
-      priority: "required",
-      width: "minmax(0, 2fr)",
-      align: "start",
-      content: (entry) =>
-        entry.kind === "savedRevision" ? (
-          <>
-            <span>Saved {props.formatDateTime(entry.savedAt)}</span>
-            <button
-              type="button"
-              class="quiet-action"
-              onClick={() => props.onInspect(entry.revisionNumber)}
-            >
-              Inspect Revision {entry.revisionNumber}
-            </button>
-          </>
-        ) : (
-          <>
-            <span>Recorded {props.formatDateTime(entry.recordedAt)}</span>
-            <CourseClassificationSummary value={entry.classification} />
-          </>
-        ),
-    },
-  ];
+  function historyEntryContent(entry: BlueprintHistoryEntryView): RecordContent {
+    if (entry.kind === "savedRevision") {
+      return {
+        title: `Revision ${entry.revisionNumber}${entry.revisionNumber === props.currentRevisionNumber ? " (latest saved)" : " (historical)"}`,
+        details: [{ kind: "text", value: `Saved ${props.formatDateTime(entry.savedAt)}` }],
+        actions: [
+          {
+            id: "inspect-revision",
+            kind: "command",
+            label: `Inspect Revision ${entry.revisionNumber}`,
+            onClick: () => props.onInspect(entry.revisionNumber),
+          },
+        ],
+      };
+    }
+
+    return {
+      title: `${entry.longName} (${entry.shortName}) - ${entry.availability}`,
+      details: [
+        { kind: "text", value: `Recorded ${props.formatDateTime(entry.recordedAt)}` },
+        { kind: "courseClassification", value: entry.classification },
+      ],
+      actions: [],
+    };
+  }
   return (
     <section
       aria-label={props.kind === "revisions" ? "Saved Revision page" : "Metadata change page"}
@@ -346,7 +318,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
       <Show when={ready()}>
         <RecordList
           rows={items()}
-          regions={historyEntryRegions}
+          content={historyEntryContent}
           recordId={historyEntryId}
           state={{ kind: "ready" }}
           ariaLabel={props.kind === "revisions" ? "Saved Revisions" : "Recorded metadata changes"}
@@ -440,7 +412,7 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
             <h5>Question entries</h5>
             <RecordSequence
               rows={content().entries}
-              regions={historicalEntryRegions}
+              content={historicalEntryContent}
               recordId={historicalEntryId}
               state={{ kind: "ready" }}
               ariaLabel="Historical Question and Pool entries"

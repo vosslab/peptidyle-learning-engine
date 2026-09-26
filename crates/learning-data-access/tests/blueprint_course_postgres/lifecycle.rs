@@ -370,7 +370,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("membership owner");
     let course_id = adopted.course_instance.id.as_string();
-    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at, updated_at) VALUES ($1,$2,$3,statement_timestamp(),statement_timestamp())")
         .bind(id(0xb105)).bind(&course_id).bind(student_account_id()).execute(&mut *enrollment).await.expect("Student Record");
     for episode in [0xb106, 0xb107] {
         sqlx::query("INSERT INTO ple_data.course_membership (course_membership_id,course_instance_id,account_id,role,student_record_id,joined_at) VALUES ($1,$2,$3,'student',$4,clock_timestamp())")
@@ -693,7 +693,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         creator_pid_sender.send(pid).expect("creator PID receiver");
         sqlx::query(
             "SELECT course_instance_id FROM ple_api.create_course_instance(\
-             'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+             'CI0000000Y', \
              '00000000-0000-0000-0000-00000000b131', \
              '00000000-0000-0000-0000-00000000b132', \
              '00000000-0000-0000-0000-00000000b133', \
@@ -704,7 +704,39 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .fetch_one(&mut *transaction)
         .await
     });
-    let _creator_pid = creator_pid_receiver.await.expect("creator PID");
+    let creator_pid = creator_pid_receiver.await.expect("creator PID");
+    let mut creator_blocked = false;
+    for _ in 0..100 {
+        creator_blocked = sqlx::query_scalar::<_, bool>("SELECT $1 = ANY(pg_blocking_pids($2))")
+            .bind(save_pid)
+            .bind(creator_pid)
+            .fetch_one(&mut *holder)
+            .await
+            .expect("Course creation queue inspection");
+        if creator_blocked {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    if !creator_blocked {
+        if creator.is_finished() {
+            match creator.await {
+                Ok(Ok(_)) => panic!(
+                    "Course creation unexpectedly completed before the queued Blueprint Save"
+                ),
+                Ok(Err(error)) => panic!(
+                    "Course creation completed before the queued Blueprint Save with SQLSTATE {:?}: {error}",
+                    error_code(&error)
+                ),
+                Err(error) => {
+                    panic!("Course creation task ended before the queued Blueprint Save: {error}")
+                }
+            }
+        }
+        panic!(
+            "Course creation PID {creator_pid} remained active without queuing behind Save PID {save_pid}"
+        );
+    }
     holder.commit().await.expect("release fixture head lock");
     let saved = saver
         .await
@@ -720,7 +752,11 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("creator task completion")
         .expect_err("stale Course Instance is rejected");
-    assert_eq!(error_code(&stale_course).as_deref(), Some("40001"));
+    assert_eq!(
+        error_code(&stale_course).as_deref(),
+        Some("40001"),
+        "stale Course Instance rejection: {stale_course}"
+    );
     holder_connection
         .close()
         .await

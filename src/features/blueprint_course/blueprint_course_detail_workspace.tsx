@@ -1,21 +1,40 @@
 // Explicit Revision Save editing for reusable Blueprint Courses.
-import { A } from "@solidjs/router";
-import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
+import { A, useLocation } from "@solidjs/router";
+import {
+  Match,
+  Show,
+  Switch,
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  type JSX,
+} from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { PageFrame } from "../../components/page_frame";
-import {
-  RecordOutlineItem,
-  RecordOutlineList,
-} from "../../components/record_list/record_outline_list";
 import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
+import {
+  BLUEPRINT_SEARCH_RETURN_PARAMETER,
+  blueprintDetailCollectionLink,
+  parseBlueprintSearchReturnToken,
+} from "../../pages/blueprint_course_search_return_state";
+import {
+  useClearRouteScopeLabels,
+  usePublishRouteScopeLabels,
+  usePublishRouteScopeNavigation,
+  useRouteScopePublication,
+} from "../../ribbon/route_scope_context";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
+import {
+  BlueprintCourseDetailStructure,
+  type SelectedBlueprintAssessment,
+} from "./blueprint_course_detail_structure";
 import { BlueprintCourseExport } from "./blueprint_exchange";
 import { BlueprintHistory } from "./blueprint_history";
 import { BlueprintStewardship } from "./blueprint_stewardship";
@@ -79,13 +98,11 @@ function errorMessage(error: unknown, fallback: string): string {
 export function BlueprintCourseDetailWorkspace(
   props: BlueprintCourseDetailWorkspaceProps,
 ): JSX.Element {
+  const location = useLocation();
   const displayTimeZone = browserDisplayTimeZone();
   const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
   const [editing, setEditing] = createSignal(false);
-  const [selectedAssessment, setSelectedAssessment] = createSignal<{
-    readonly moduleIndex: number;
-    readonly assessmentIndex: number;
-  }>();
+  const [selectedAssessment, setSelectedAssessment] = createSignal<SelectedBlueprintAssessment>();
   const [state, setState] = createSignal<LoadState>("loading");
   const [current, setCurrent] = createSignal<LoadedBlueprintCourse>();
   const [notice, setNotice] = createSignal<Notice>({
@@ -101,6 +118,66 @@ export function BlueprintCourseDetailWorkspace(
   const [archiveConfirmation, setArchiveConfirmation] = createSignal("");
   const [invalidDraft, setInvalidDraft] = createSignal(false);
   const [refreshFailed, setRefreshFailed] = createSignal(false);
+  const routeScopePublication = useRouteScopePublication();
+  const publishRouteScopeLabels = usePublishRouteScopeLabels();
+  const publishRouteScopeNavigation = usePublishRouteScopeNavigation();
+  const clearRouteScopeLabels = useClearRouteScopeLabels();
+  let activePublication: ReturnType<typeof routeScopePublication> | undefined;
+  const assessmentTriggers = new Map<string, HTMLButtonElement>();
+
+  function assessmentTriggerId(moduleIndex: number, assessmentIndex: number): string {
+    return `blueprint-assessment-${moduleIndex}-${assessmentIndex}-action`;
+  }
+
+  function selectAssessment(moduleIndex: number, assessmentIndex: number): void {
+    setSelectedAssessment({
+      moduleIndex,
+      assessmentIndex,
+      triggerId: assessmentTriggerId(moduleIndex, assessmentIndex),
+    });
+  }
+
+  function returnToAssessmentList(): void {
+    const selection = selectedAssessment();
+    if (selection === undefined) return;
+    setSelectedAssessment(undefined);
+    queueMicrotask(() => assessmentTriggers.get(selection.triggerId)?.focus());
+  }
+
+  function publishBlueprintLabels(view: BlueprintCourseView): void {
+    if (activePublication === undefined) return;
+    publishRouteScopeLabels(activePublication, {
+      blueprintCourseTitle: view.long_name,
+      blueprintBreadcrumbParent:
+        view.read_access === "blueprint_course_owner"
+          ? "myBlueprintCourses"
+          : "publicBlueprintSearch",
+    });
+  }
+  function blueprintSearchReturnToken(): string | undefined {
+    const token = parseBlueprintSearchReturnToken(
+      new URLSearchParams(location.search).get(BLUEPRINT_SEARCH_RETURN_PARAMETER),
+    );
+    return token ?? undefined;
+  }
+  function publishBlueprintNavigation(view: BlueprintCourseView): void {
+    if (activePublication === undefined) return;
+    const token =
+      view.read_access === "active_instructor" ? blueprintSearchReturnToken() : undefined;
+    publishRouteScopeNavigation(
+      activePublication,
+      token === undefined ? {} : { blueprintSearchReturnToken: token },
+    );
+  }
+  const blueprintCollection = (): { readonly href: string; readonly label: string } =>
+    blueprintDetailCollectionLink(
+      current()?.view.read_access,
+      blueprintSearchReturnToken() ?? null,
+    );
+  createEffect(() => {
+    const view = current()?.view;
+    if (view !== undefined) publishBlueprintNavigation(view);
+  });
   const dirty = (): boolean => {
     const loaded = current();
     return (
@@ -116,6 +193,9 @@ export function BlueprintCourseDetailWorkspace(
     );
   };
   async function load(keepLocalContent: boolean, keepVisible = false): Promise<void> {
+    const publication = routeScopePublication();
+    activePublication = publication;
+    clearRouteScopeLabels(publication);
     if (parseBlueprintCourseId(props.blueprintCourseId) === null) {
       setState("error");
       setNotice({ kind: "alert", text: "This Blueprint Course ID is invalid." });
@@ -139,6 +219,7 @@ export function BlueprintCourseDetailWorkspace(
         content,
         savedContent,
       });
+      publishBlueprintLabels(result.blueprintCourse);
       if (!preserveNames || prior === undefined) {
         setShortName(result.blueprintCourse.short_name);
         setLongName(result.blueprintCourse.long_name);
@@ -153,6 +234,7 @@ export function BlueprintCourseDetailWorkspace(
             : "Blueprint Course loaded. Inspect its answer-free reusable structure.",
       });
     } catch (error: unknown) {
+      clearRouteScopeLabels(publication);
       if (keepVisible && current() !== undefined) setRefreshFailed(true);
       else setState("error");
       setNotice({
@@ -227,6 +309,7 @@ export function BlueprintCourseDetailWorkspace(
         content: savedContent,
         savedContent,
       });
+      publishBlueprintLabels(saved.blueprintCourse);
       setConflict(false);
       setNotice({
         kind: "status",
@@ -264,17 +347,19 @@ export function BlueprintCourseDetailWorkspace(
   ): void {
     const loaded = current();
     if (loaded === undefined) return;
+    const view = {
+      ...loaded.view,
+      short_name: metadata.metadata.short_name,
+      long_name: metadata.metadata.long_name,
+      availability: metadata.metadata.availability,
+      classification: metadata.metadata.classification,
+      blueprint_edit_number: metadata.metadata.blueprint_edit_number,
+    };
     setCurrent({
       ...loaded,
-      view: {
-        ...loaded.view,
-        short_name: metadata.metadata.short_name,
-        long_name: metadata.metadata.long_name,
-        availability: metadata.metadata.availability,
-        classification: metadata.metadata.classification,
-        blueprint_edit_number: metadata.metadata.blueprint_edit_number,
-      },
+      view,
     });
+    publishBlueprintLabels(view);
     if (metadata.metadata.availability !== "private") setEditing(false);
     setMetadataConflict(false);
   }
@@ -482,17 +567,19 @@ export function BlueprintCourseDetailWorkspace(
       const result = await props.client.getBlueprintCourse(loaded.view.id);
       const prior = current();
       if (prior === undefined || prior.view.id !== result.blueprintCourse.id) return;
+      const view = {
+        ...prior.view,
+        short_name: result.blueprintCourse.short_name,
+        long_name: result.blueprintCourse.long_name,
+        availability: result.blueprintCourse.availability,
+        classification: result.blueprintCourse.classification,
+        blueprint_edit_number: result.blueprintCourse.blueprint_edit_number,
+      };
       setCurrent({
         ...prior,
-        view: {
-          ...prior.view,
-          short_name: result.blueprintCourse.short_name,
-          long_name: result.blueprintCourse.long_name,
-          availability: result.blueprintCourse.availability,
-          classification: result.blueprintCourse.classification,
-          blueprint_edit_number: result.blueprintCourse.blueprint_edit_number,
-        },
+        view,
       });
+      publishBlueprintLabels(view);
       setMetadataConflict(false);
       setNotice({
         kind: "status",
@@ -509,9 +596,11 @@ export function BlueprintCourseDetailWorkspace(
   }
 
   onMount(() => void load(false));
+  onCleanup(() => {
+    if (activePublication !== undefined) clearRouteScopeLabels(activePublication);
+  });
   return (
     <PageFrame
-      contentClass="blueprint-course-workspace"
       eyebrow="Blueprint Course"
       title={current()?.view.long_name ?? "Blueprint Course"}
       lede={
@@ -521,8 +610,8 @@ export function BlueprintCourseDetailWorkspace(
       }
       routeSurface="blueprintCourseDetail"
     >
-      <A class="quiet-link" href="/blueprint-courses">
-        Return to Blueprint Courses
+      <A class="quiet-link" href={blueprintCollection().href}>
+        {blueprintCollection().label}
       </A>
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
@@ -612,231 +701,54 @@ export function BlueprintCourseDetailWorkspace(
                 onArchive={() => void archive()}
                 onRestore={() => void restore()}
               />
-              <section
-                class="blueprint-course-primary-structure"
-                aria-labelledby="blueprint-structure-heading"
-              >
-                <header class="blueprint-course-section-heading">
-                  <div>
-                    <p class="eyebrow">Reusable course structure</p>
-                    <h2 id="blueprint-structure-heading">
-                      {editing() ? "Edit Blueprint Assessments" : "Blueprint Assessments"}
-                    </h2>
-                    <p>
-                      Assessments define reusable teaching settings and Questions, never Students or
-                      delivery dates.
-                    </p>
-                  </div>
-                </header>
-                <Show
-                  when={
-                    editing() &&
-                    blueprintLifecyclePresentation(
-                      loaded().view.availability,
-                      loaded().view.read_access,
-                    ).canEdit
-                  }
-                >
-                  <div class="blueprint-course-owner-controls">
-                    <aside class="blueprint-course-inspection">
-                      <h3>Save reusable structure</h3>
-                      <p>
-                        Your edits stay in this browser until Save creates the next Blueprint
-                        Revision.
-                      </p>
-                      <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
-                        <button
-                          type="button"
-                          disabled={saving() || !dirty()}
-                          onClick={() => void save()}
-                        >
-                          {saving() ? "Saving..." : "Save Blueprint Course"}
-                        </button>
-                        <Show when={dirty() || conflict()}>
-                          <button
-                            type="button"
-                            class="quiet-action"
-                            onClick={() => void load(false)}
-                          >
-                            {conflict() ? "Reload current Revision" : "Discard local changes"}
-                          </button>
-                        </Show>
-                      </footer>
-                    </aside>
-                    <aside class="blueprint-course-inspection">
-                      <h3>Blueprint Course names</h3>
-                      <p>Names control discovery and do not create a Blueprint Revision.</p>
-                      <label for="blueprint-course-detail-short-name">
-                        Blueprint Course short name
-                        <input
-                          id="blueprint-course-detail-short-name"
-                          value={shortName()}
-                          maxlength="200"
-                          aria-describedby="blueprint-course-detail-short-name-help"
-                          disabled={metadataSaving()}
-                          onInput={(event) => setShortName(event.currentTarget.value)}
-                        />
-                      </label>
-                      <small id="blueprint-course-detail-short-name-help">
-                        For compact navigation; about 16 characters when practical.
-                      </small>
-                      <label>
-                        Blueprint Course long name
-                        <input
-                          value={longName()}
-                          maxlength="200"
-                          disabled={metadataSaving()}
-                          onInput={(event) => setLongName(event.currentTarget.value)}
-                        />
-                      </label>
-                      <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
-                        <button
-                          type="button"
-                          disabled={
-                            metadataSaving() ||
-                            (shortName() === loaded().view.short_name &&
-                              longName() === loaded().view.long_name)
-                          }
-                          onClick={() => void saveNames()}
-                        >
-                          {metadataSaving() ? "Saving names..." : "Save Blueprint Course names"}
-                        </button>
-                        <Show when={metadataConflict()}>
-                          <div class="blueprint-course-inline-actions">
-                            <p class="blueprint-course-field-help" role="status">
-                              Blueprint Course metadata changed elsewhere. Your typed names remain
-                              here.
-                            </p>
-                            <button
-                              type="button"
-                              class="quiet-action"
-                              disabled={metadataSaving()}
-                              onClick={() => void reloadMetadata()}
-                            >
-                              Reload current metadata
-                            </button>
-                          </div>
-                        </Show>
-                      </footer>
-                    </aside>
-                  </div>
-                </Show>
-                <div class="blueprint-course-editor-content">
-                  <Show
-                    when={selectedAssessment() === undefined}
-                    fallback={
-                      <button
-                        type="button"
-                        class="quiet-action"
-                        onClick={() => setSelectedAssessment(undefined)}
-                      >
-                        Return to assessment list
-                      </button>
-                    }
-                  >
-                    <Show when={editing()}>
-                      <p>Select an assessment to edit its Questions and defaults.</p>
-                    </Show>
-                    <RecordOutlineList
-                      state={{ kind: "ready" }}
-                      isEmpty={loaded().content.modules.length === 0}
-                      ariaLabel="Blueprint Modules and Assessments"
-                      emptyState={{
-                        title: "No Blueprint Modules",
-                        message: "This Blueprint Course has no reusable Assessments.",
-                      }}
-                    >
-                      <For each={loaded().content.modules}>
-                        {(module, moduleIndex) => (
-                          <RecordOutlineItem recordId={`module-${moduleIndex()}`}>
-                            <section class="blueprint-course-module">
-                              <h3>{module.label}</h3>
-                              <RecordOutlineList
-                                state={{ kind: "ready" }}
-                                isEmpty={module.assessments.length === 0}
-                                ariaLabel={`${module.label} Assessments`}
-                                emptyState={{
-                                  title: "No Assessments",
-                                  message: "This Module has no reusable Assessments.",
-                                }}
-                              >
-                                <For each={module.assessments}>
-                                  {(assessment, assessmentIndex) => (
-                                    <RecordOutlineItem
-                                      recordId={`assessment-${moduleIndex()}-${assessmentIndex()}`}
-                                    >
-                                      <span>{assessment.content.title}</span>
-                                      <button
-                                        type="button"
-                                        class="quiet-action"
-                                        onClick={() =>
-                                          setSelectedAssessment({
-                                            moduleIndex: moduleIndex(),
-                                            assessmentIndex: assessmentIndex(),
-                                          })
-                                        }
-                                      >
-                                        {editing() ? "Edit assessment" : "View assessment"}
-                                      </button>
-                                    </RecordOutlineItem>
-                                  )}
-                                </For>
-                              </RecordOutlineList>
-                            </section>
-                          </RecordOutlineItem>
-                        )}
-                      </For>
-                    </RecordOutlineList>
-                  </Show>
-                  <Show when={selectedAssessment()} keyed>
-                    {(selection) => {
-                      const content = ():
-                        | ReplaceBlueprintCourseContentInput["modules"][number]["assessments"][number]["content"]
-                        | undefined =>
-                        current()?.content.modules[selection.moduleIndex]?.assessments[
-                          selection.assessmentIndex
-                        ]?.content;
-                      return (
-                        <Show when={content()}>
-                          {(assessmentContent) => (
-                            <section class="blueprint-course-content-card">
-                              <BlueprintAssessmentContentEditor
-                                content={assessmentContent()}
-                                blueprintCourseId={props.blueprintCourseId}
-                                blueprintClient={props.client}
-                                retainedAssessmentId={((): string | undefined => {
-                                  const choice =
-                                    current()?.content.modules[selection.moduleIndex]?.assessments[
-                                      selection.assessmentIndex
-                                    ]?.choice;
-                                  return choice?.kind === "retained"
-                                    ? choice.blueprint_assessment_id
-                                    : undefined;
-                                })()}
-                                editable={
-                                  editing() &&
-                                  loaded().view.read_access === "blueprint_course_owner"
-                                }
-                                pickerRepository={props.pickerRepository}
-                                pickerSources={props.pickerSources}
-                                onInvalidDraftChange={setInvalidDraft}
-                                onChange={(nextContent, text) =>
-                                  changeAssessment(
-                                    selection.moduleIndex,
-                                    selection.assessmentIndex,
-                                    nextContent,
-                                    text,
-                                  )
-                                }
-                              />
-                            </section>
-                          )}
-                        </Show>
-                      );
-                    }}
-                  </Show>
-                </div>
-              </section>
+              <BlueprintCourseDetailStructure
+                editing={editing()}
+                canEdit={
+                  blueprintLifecyclePresentation(
+                    loaded().view.availability,
+                    loaded().view.read_access,
+                  ).canEdit
+                }
+                saving={saving()}
+                dirty={dirty()}
+                conflict={conflict()}
+                onSave={() => void save()}
+                onDiscard={() => void load(false)}
+                shortName={shortName()}
+                longName={longName()}
+                savedShortName={loaded().view.short_name}
+                savedLongName={loaded().view.long_name}
+                onShortNameInput={setShortName}
+                onLongNameInput={setLongName}
+                metadataSaving={metadataSaving()}
+                metadataConflict={metadataConflict()}
+                onSaveNames={() => void saveNames()}
+                onReloadMetadata={() => void reloadMetadata()}
+                modules={loaded().content.modules}
+                courseLongName={loaded().view.long_name}
+                ownerEditing={editing() && loaded().view.read_access === "blueprint_course_owner"}
+                selectedAssessment={selectedAssessment()}
+                assessmentContent={(moduleIndex, assessmentIndex) =>
+                  current()?.content.modules[moduleIndex]?.assessments[assessmentIndex]?.content
+                }
+                retainedAssessmentId={(moduleIndex, assessmentIndex) => {
+                  const choice =
+                    current()?.content.modules[moduleIndex]?.assessments[assessmentIndex]?.choice;
+                  return choice?.kind === "retained" ? choice.blueprint_assessment_id : undefined;
+                }}
+                assessmentTriggerId={assessmentTriggerId}
+                registerAssessmentTrigger={(triggerId, element) =>
+                  assessmentTriggers.set(triggerId, element)
+                }
+                onSelectAssessment={selectAssessment}
+                onReturnToAssessmentList={returnToAssessmentList}
+                blueprintCourseId={props.blueprintCourseId}
+                blueprintClient={props.client}
+                pickerRepository={props.pickerRepository}
+                pickerSources={props.pickerSources}
+                onInvalidDraftChange={setInvalidDraft}
+                onChangeAssessment={changeAssessment}
+              />
               <BlueprintHistory
                 client={props.client}
                 view={loaded().view}

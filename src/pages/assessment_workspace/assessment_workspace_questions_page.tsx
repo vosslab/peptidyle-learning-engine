@@ -3,17 +3,20 @@ import { createMemo, createSignal, onMount, type JSX } from "solid-js";
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
-import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
-import type {
-  AssessmentQuestionPickerEntry,
-  AssessmentBlueprintUpdateReview,
-} from "../../api/assessment_release";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
+import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
 import { ApiRequestError } from "../../api/http_client/error";
 import { useApplicationApi } from "../../api/application_api";
+import { createQuestionLibraryRepository } from "../../api/question_library_repository";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
-import { normalizeHumanEnteredQuestionId } from "../../question_id";
+import {
+  questionLibraryPickerRepository,
+  questionLibraryPickerSources,
+  type QuestionPickerSelection,
+} from "../../features/question_picker";
+import type { QuestionPoolPickerSelection } from "../../features/question_pool_picker/question_pool_picker";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
   appendAvailableFixedQuestion,
@@ -41,8 +44,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const initial = workspace.assessment().workspace;
   const [entries, setEntries] = createSignal<ReadonlyArray<AssessmentEntry>>(initial.entries);
   const [title, setTitle] = createSignal(initial.title);
-  const [available, setAvailable] = createSignal<ReadonlyArray<AssessmentQuestionPickerEntry>>([]);
-  const [questionIdsToAdd, setQuestionIdsToAdd] = createSignal("");
+  const [pickedFacts, setPickedFacts] = createSignal<
+    ReadonlyMap<
+      string,
+      { readonly description: string; readonly bloom: BloomClassificationView | null }
+    >
+  >(new Map());
+  const [poolImport, setPoolImport] = createSignal<QuestionPoolPickerSelection>();
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
@@ -52,10 +60,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>
   >(new Map());
   const [poolForkLoadFailed, setPoolForkLoadFailed] = createSignal(false);
-  const [availablePools, setAvailablePools] = createSignal<
-    ReadonlyArray<QuestionPoolLibrarySummary>
-  >([]);
-  const [poolToImport, setPoolToImport] = createSignal("");
+  const questionLibrary = createQuestionLibraryRepository(applicationApi.client);
+  const myQuestions = createQuestionLibraryRepository(
+    applicationApi.client,
+    "authoredByCurrentAccount",
+  );
+  const pickerRepository = questionLibraryPickerRepository(questionLibrary, myQuestions);
+  const pickerSources = questionLibraryPickerSources(true);
   const [poolSelectionCount, setPoolSelectionCount] = createSignal("1");
   const [poolPointsPerItem, setPoolPointsPerItem] = createSignal("1");
   const [poolSelectedQuestionOrder, setPoolSelectedQuestionOrder] = createSignal<
@@ -70,8 +81,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     const known = new Map<string, string>();
     for (const question of workspace.assessment().workspace.questions)
       known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.description);
-    for (const question of available())
-      known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.description);
+    for (const [key, fact] of pickedFacts()) known.set(key, fact.description);
     return known;
   });
   const fixedBlooms = createMemo(() => {
@@ -80,9 +90,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       if (question.bloom !== null)
         known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.bloom);
     }
-    for (const question of available()) {
-      if (question.bloom !== null)
-        known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.bloom);
+    for (const [key, fact] of pickedFacts()) {
+      if (fact.bloom !== null) known.set(key, fact.bloom);
     }
     return known;
   });
@@ -111,17 +120,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
     return undefined;
   });
-  const availableToAdd = createMemo(() =>
-    available().filter(
-      (candidate) =>
-        !entries().some(
-          (entry) =>
-            entry.kind === "fixedQuestion" &&
-            questionRevisionKey(entry.publishedQuestionRevisionTuple) ===
-              questionRevisionKey(candidate.publishedQuestionRevisionTuple),
-        ),
-    ),
-  );
   const remainingQuestionCapacity = createMemo(() => {
     const questionCount = deliveredAssessmentQuestionCount(entries());
     return Math.max(
@@ -131,24 +129,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   });
 
   onMount(() => {
-    void loadAvailable();
     void loadInitialPoolForks();
   });
-
-  async function loadAvailable(): Promise<void> {
-    try {
-      const [questions, pools] = await Promise.all([
-        applicationApi.client.listLiveAssessmentQuestionPicker(workspace.courseInstanceId),
-        applicationApi.client.listQuestionPools(),
-      ]);
-      setAvailable(questions);
-      setAvailablePools(pools.items);
-    } catch {
-      setMessage(
-        "Available published Questions or Question Pools could not load. Existing Assessment Entries remain here.",
-      );
-    }
-  }
 
   async function loadInitialPoolForks(): Promise<void> {
     if ((await loadPoolForks(entries())) === "failed") {
@@ -192,9 +174,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function description(
-    publishedQuestionRevisionTuple: AssessmentQuestionPickerEntry["publishedQuestionRevisionTuple"],
-  ): string {
+  function description(publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple): string {
     return (
       descriptions().get(questionRevisionKey(publishedQuestionRevisionTuple)) ??
       "Published Question"
@@ -245,90 +225,67 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Entry removed. Save Questions when ready.");
   }
 
-  function appendAvailableQuestions(
-    candidates: ReadonlyArray<AssessmentQuestionPickerEntry>,
-  ): void {
+  function rememberPickedQuestions(selection: QuestionPickerSelection): void {
+    setPickedFacts((current) => {
+      const next = new Map(current);
+      for (const question of selection.questions) {
+        next.set(questionRevisionKey(question.row.publishedQuestionRevisionTuple), {
+          description: question.row.summary,
+          bloom: question.row.bloom,
+        });
+      }
+      return next;
+    });
+  }
+
+  function addPublishedQuestions(selection: QuestionPickerSelection): void {
+    if (busy()) return;
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before adding an entry.");
+      return;
+    }
+    const candidates = selection.questions.filter(
+      (question) =>
+        !entries().some(
+          (entry) =>
+            entry.kind === "fixedQuestion" &&
+            questionRevisionKey(entry.publishedQuestionRevisionTuple) ===
+              questionRevisionKey(question.row.publishedQuestionRevisionTuple),
+        ),
+    );
+    if (candidates.length === 0) {
+      setMessage(
+        "Those published Questions are already on this Assessment. No Questions were added.",
+      );
+      return;
+    }
+    if (candidates.length > remainingQuestionCapacity()) {
+      setMessage(
+        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
+      );
+      return;
+    }
+    rememberPickedQuestions({
+      ...selection,
+      questions: candidates,
+      questionIds: candidates.map((question) => question.questionId),
+    });
     setEntries((current) => {
       let next = current;
-      for (const candidate of candidates)
-        next = appendAvailableFixedQuestion(next, candidate, entryId());
+      for (const candidate of candidates) {
+        next = appendAvailableFixedQuestion(
+          next,
+          candidate.row.publishedQuestionRevisionTuple,
+          entryId(),
+        );
+      }
       return next;
     });
     setDirty((current) => nextQuestionEditDirty(current, "add"));
-  }
-
-  function add(candidate: AssessmentQuestionPickerEntry): void {
-    if (busy()) return;
-    if (needsReload()) {
-      setMessage("Reload the latest Assessment before adding an entry.");
-      return;
-    }
-    if (remainingQuestionCapacity() === 0) {
-      setMessage(
-        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions.",
-      );
-      return;
-    }
-    appendAvailableQuestions([candidate]);
     setMessage(
-      "Available published Question added with its exact revision pin. Save Questions when ready.",
-    );
-  }
-
-  function addQuestionsById(): void {
-    if (busy()) return;
-    if (needsReload()) {
-      setMessage("Reload the latest Assessment before adding an entry.");
-      return;
-    }
-    const rawIds = questionIdsToAdd()
-      .trim()
-      .split(/[\s,]+/u)
-      .filter(Boolean);
-    const normalizedIds = rawIds.map((id) => normalizeHumanEnteredQuestionId(id));
-    const invalidIds = rawIds.filter((_, index) => normalizedIds[index] === null);
-    if (invalidIds.length > 0) {
-      setMessage(
-        `Invalid Question IDs: ${invalidIds.join(", ")}. Use the IDs shown below; no Questions were added.`,
-      );
-      return;
-    }
-    const ids = normalizedIds.map((id) => id!);
-    if (ids.length === 0) return;
-    setQuestionIdsToAdd(ids.join("\n"));
-    if (new Set(ids).size !== ids.length) {
-      setMessage(
-        "Question IDs must appear only once. Remove duplicate IDs and try again; no Questions were added.",
-      );
-      return;
-    }
-    const candidates: AssessmentQuestionPickerEntry[] = [];
-    const unresolved: string[] = [];
-    // ASVS 2.2.1: resolve IDs only against the available Published summaries, never invent pins.
-    for (const id of ids) {
-      const matches = availableToAdd().filter(
-        (candidate) => candidate.publishedQuestionRevisionTuple.publishedQuestionId === id,
-      );
-      if (matches.length === 1) candidates.push(matches[0]!);
-      else unresolved.push(id);
-    }
-    if (unresolved.length > 0) {
-      setMessage(
-        `These IDs do not identify one available Published Question: ${unresolved.join(", ")}. Check the list below or remove Questions already added; no Questions were added.`,
-      );
-      return;
-    }
-    // ASVS 2.2.1, 2.2.2: bound the whole local batch; the existing Save API remains authoritative.
-    if (candidates.length > remainingQuestionCapacity()) {
-      setMessage(
-        "Enter fewer Question IDs. An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
-      );
-      return;
-    }
-    appendAvailableQuestions(candidates);
-    setQuestionIdsToAdd("");
-    setMessage(
-      `${candidates.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
+      candidates.length === 1
+        ? "Available published Question added with its exact revision pin. Save Questions when ready."
+        : `${candidates.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
     );
   }
 
@@ -372,7 +329,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     try {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
-      setQuestionIdsToAdd("");
       setTitle(latest.workspace.title);
       if ((await loadPoolForks(latest.workspace.entries)) === "loaded") {
         setNeedsReload(false);
@@ -504,7 +460,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
 
   async function replacePoolMembers(
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    members: ReadonlyArray<AssessmentQuestionPickerEntry["publishedQuestionRevisionTuple"]>,
+    members: ReadonlyArray<PublishedQuestionRevisionTuple>,
   ): Promise<void> {
     const fork = poolForks().get(entry.id);
     if (dirty() || needsReload() || fork === undefined) return;
@@ -535,9 +491,17 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
+  function choosePool(selection: QuestionPoolPickerSelection): void {
+    setPoolImport(selection);
+    setPoolSelectionCount("1");
+    setMessage(
+      `Question Pool ${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}, is ready to import. Existing Assessment Entries remain here.`,
+    );
+  }
+
   async function importPool(): Promise<void> {
     if (dirty() || needsReload()) return;
-    const source = availablePools().find((pool) => pool.questionPoolId === poolToImport());
+    const source = poolImport();
     const selectionCount = Number(poolSelectionCount());
     if (
       source === undefined ||
@@ -563,7 +527,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         },
         workspace.assessment().workspace.assessmentEditNumber,
       );
-      setPoolToImport("");
+      setPoolImport(undefined);
       await refreshAfterPoolMutation("Question Pool imported as an Assessment-owned fork.");
     } catch (error: unknown) {
       const conflict = error instanceof AssessmentPoolForkConflictError;
@@ -603,18 +567,15 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     remove,
     poolForks,
     poolForkLoadFailed,
-    available,
+    pickerRepository,
+    pickerSources,
+    questionPoolClient: applicationApi.client,
     updatePoolSelectionCount,
     replacePoolMembers,
-    availableToAdd,
     remainingQuestionCapacity,
-    questionIdsToAdd,
-    setQuestionIdsToAdd,
-    addQuestionsById,
-    add,
-    availablePools,
-    poolToImport,
-    setPoolToImport,
+    addPublishedQuestions,
+    poolImport,
+    choosePool,
     poolSelectionCount,
     setPoolSelectionCount,
     poolPointsPerItem,

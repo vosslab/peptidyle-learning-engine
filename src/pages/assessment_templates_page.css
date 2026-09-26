@@ -1,10 +1,5 @@
 /* Overview-first private Assessment Template editor. */
 
-.assessment-templates {
-  display: grid;
-  gap: var(--ple-section-gap);
-}
-
 .assessment-templates-header,
 .assessment-template-editor form,
 .assessment-template-settings,
@@ -96,33 +91,6 @@
 
 .assessment-template-field small {
   font-weight: 500;
-}
-
-.assessment-template-list-button {
-  display: grid;
-  width: 100%;
-  min-height: var(--ple-control-min-height);
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-control);
-  background: transparent;
-  color: var(--ple-ink);
-  text-align: left;
-}
-
-.assessment-template-list-button span {
-  color: var(--ple-muted);
-  font-size: 0.8rem;
-}
-
-.assessment-template-list-button:hover:not(:disabled),
-.assessment-template-list-button--selected {
-  border-color: var(--ple-accent);
-  background: var(--ple-surface-soft);
-}
-
-.assessment-template-list-button--selected {
-  box-shadow: inset 0.25rem 0 var(--ple-accent);
 }
 
 .assessment-template-editor-empty {

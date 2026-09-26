@@ -16,17 +16,6 @@ async function renderedRecordIds(container) {
     .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-record-id")));
 }
 
-async function recordRegions(container) {
-  return container.locator("[data-record-id]").evaluateAll((rows) =>
-    rows.map((row) => ({
-      id: row.getAttribute("data-record-id"),
-      regions: [...row.querySelectorAll("[data-record-region-id]")].map((region) =>
-        region.getAttribute("data-record-region-id"),
-      ),
-    })),
-  );
-}
-
 const { browser, consoleErrors, harnessServer, page, pageErrors } =
   await openRibbonShellEvidencePage();
 try {
@@ -188,36 +177,41 @@ try {
   );
 
   await page.waitForFunction((expectedCount) => {
-    const rows = document.querySelectorAll(
-      '[data-route-surface="library-browse"] [data-record-id]',
+    const list = document.querySelector(
+      '[data-route-surface="library-browse"] [role="list"][aria-label="Published questions"]',
     );
-    const bottomSpacer = document.querySelector(
-      '[data-route-surface="library-browse"] .library-browse-record-list__spacer:last-child',
-    );
-    return (
-      rows.length > 0 &&
-      rows.length < expectedCount &&
-      bottomSpacer !== null &&
-      bottomSpacer.getBoundingClientRect().height > 0
-    );
+    return list !== null && list.querySelectorAll("[data-record-id]").length === expectedCount;
   }, expectedRows.length);
+  assert.equal(
+    await libraryWindow.getByRole("list", { name: "Published questions", exact: true }).count(),
+    1,
+    "Library browse renders one semantic list",
+  );
   const visibleIds = await renderedRecordIds(libraryWindow);
-  assert.ok(visibleIds.length < expectedSeedIds.length);
-  assert.deepEqual(visibleIds, expectedSeedIds.slice(0, visibleIds.length));
+  assert.deepEqual(visibleIds, expectedSeedIds);
   const visibleRows = await libraryWindow.locator("[data-record-id]").evaluateAll((rows) =>
     rows.map((row) => ({
       id: row.getAttribute("data-record-id"),
-      title: row.querySelector("h2")?.textContent?.trim(),
+      title: row.querySelector(".record-list__title")?.textContent?.trim(),
+      hasDescriptionOrFacts:
+        (row.querySelector(".record-list__description")?.textContent?.trim().length ?? 0) > 0 ||
+        (row.querySelector(".record-list__facts")?.textContent?.trim().length ?? 0) > 0,
+      openLabel: row.querySelector(".record-list__actions a")?.textContent?.trim(),
     })),
   );
-  assert.deepEqual(visibleRows, expectedRows.slice(0, visibleRows.length));
-  const visibleRegions = await recordRegions(libraryWindow);
-  assert.ok(visibleRegions.length > 0);
-  const bottomSpacerHeight = await libraryWindow
-    .locator(".library-browse-record-list__spacer")
-    .last()
-    .evaluate((element) => element.getBoundingClientRect().height);
-  assert.ok(bottomSpacerHeight > 0, "the production Library window reserves its remaining rows");
+  assert.deepEqual(
+    visibleRows.map((row) => ({ id: row.id, title: row.title })),
+    expectedRows,
+  );
+  for (const row of visibleRows) {
+    assert.equal(row.hasDescriptionOrFacts, true, `${row.id}: scan shows description or facts`);
+    assert.equal(row.openLabel, "Open", `${row.id}: scan offers Open`);
+  }
+  assert.equal(
+    await libraryWindow.locator(".library-browse-record-list__spacer").count(),
+    0,
+    "Library browse does not reserve virtual spacers",
+  );
 
   const libraryContent = library.locator(".page-frame__content.library-page");
   const createPoolButton = library.getByRole("button", { name: "Create Question Pool" });

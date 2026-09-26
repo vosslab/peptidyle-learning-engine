@@ -1,6 +1,6 @@
 // question_json_editor_page.tsx - private instructor surface for ple-question-json authoring.
 
-import { Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
+import { Show, batch, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { parseReviewedQuestionAuthorship } from "../../api/question_authorship";
@@ -27,6 +27,11 @@ import { setPleQuestionJsonHotspotImage } from "./question_json_hotspot_model";
 import { PleQuestionGeneralFeedbackConflictError } from "./question_general_feedback_client";
 import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
 import type { PleQuestionJsonInstructorAnswerCheck } from "./question_json_preview";
+import {
+  useClearRouteScopeLabels,
+  usePublishRouteScopeLabels,
+  useRouteScopePublication,
+} from "../../ribbon/route_scope_context";
 
 export type {
   PleQuestionJsonDraftDisplayState,
@@ -131,6 +136,13 @@ function hasLocalDraftChanges(state: PleQuestionJsonEditorState): boolean {
  * does not write Draft Question Content to URLs, browser storage, or diagnostics.
  */
 export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps): JSX.Element {
+  const routeScopePublication = useRouteScopePublication();
+  const publishRouteScopeLabels = usePublishRouteScopeLabels();
+  const clearRouteScopeLabels = useClearRouteScopeLabels();
+  let publication: ReturnType<typeof routeScopePublication> | undefined;
+  function publishQuestionTitle(title: string): void {
+    if (publication !== undefined) publishRouteScopeLabels(publication, { questionTitle: title });
+  }
   function hotspotDraftQuestionImage(): PleQuestionJsonPreviewProps["hotspotDraftQuestionImage"] {
     const draftQuestion = props.draftQuestion;
     const client = props.questionImageClient;
@@ -309,7 +321,12 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   });
 
   onMount(() => {
+    publication = routeScopePublication();
     transition({ kind: "loaded", source: props.initial.source });
+    publishQuestionTitle(props.initial.source.questionTitle);
+  });
+  onCleanup(() => {
+    if (publication !== undefined) clearRouteScopeLabels(publication);
   });
 
   function applyEdit(next: PleQuestionJsonDocument): void {
@@ -387,6 +404,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       setLatestDraftQuestionEditNumber(result.draftQuestionEditNumber);
       setGeneralFeedbackEditNumber(result.draftQuestionEditNumber);
       transition({ kind: "saveSucceeded" });
+      publishQuestionTitle(current.questionTitle);
       setStatus("Private draft saved. It is not published.");
     } catch (error: unknown) {
       if (error instanceof PleQuestionJsonStaleConflictError) {
@@ -419,6 +437,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       setReview(null);
       setShowInstructorCheck(false);
       transition({ kind: "reloadSucceeded", source: newest.source });
+      publishQuestionTitle(newest.source.questionTitle);
       if (preserveLocal && local !== null) transition({ kind: "edit", source: local });
       if (!preserveLocal) {
         setHotspotPending(false);
@@ -431,6 +450,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       );
       queueMicrotask(focusHeading);
     } catch (error: unknown) {
+      if (publication !== undefined) clearRouteScopeLabels(publication);
       const message = authorSafeMessage(error, "The newest draft could not load.");
       transition({
         kind: "reloadFailed",

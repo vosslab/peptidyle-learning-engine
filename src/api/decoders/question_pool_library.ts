@@ -1,6 +1,7 @@
 // Strict browser decoders for reusable published Question Pool reads.
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolBloomFacets } from "../../../generated/api/QuestionPoolBloomFacets";
 import type { QuestionPoolMetadata } from "../../../generated/api/QuestionPoolMetadata";
@@ -37,7 +38,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 
-const MAX_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 
 /** ASVS 2.2.1: match canonical server-owned Pool text constraints. */
 export function decodeQuestionPoolText(value: unknown, path: string, maximum: number): string {

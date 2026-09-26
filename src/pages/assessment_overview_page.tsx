@@ -1,6 +1,6 @@
 // Student Assessment Access before the issued one-question attempt lane.
 
-import { A, createAsync, useNavigate, useParams } from "@solidjs/router";
+import { createAsync, useNavigate, useParams } from "@solidjs/router";
 import {
   createEffect,
   createMemo,
@@ -19,7 +19,7 @@ import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
 import { PageFrame } from "../components/page_frame";
 import { RecordList } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import type { RecordContent } from "../components/record_list/record_list";
 import {
   assessmentAttemptRouteId,
   parseAssessmentId,
@@ -29,55 +29,33 @@ import {
 } from "../navigation/public_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 
-function previousAttemptRegions(): ReadonlyArray<RecordRegion<LiveAssessmentPreviousAttempt>> {
-  return [
-    {
-      id: "attempt",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (attempt): JSX.Element => <span>Attempt {attempt.attemptNumber}</span>,
-    },
-    {
-      id: "state",
-      role: "status",
-      priority: "high",
-      width: "minmax(8rem, auto)",
-      align: "start",
-      content: (attempt): JSX.Element => (
-        <span>{attempt.state === "submitted" ? "Submitted" : "Closed"}</span>
-      ),
-    },
-    {
-      id: "score",
-      role: "status",
-      priority: "medium",
-      width: "minmax(12rem, auto)",
-      align: "start",
-      content: (attempt): JSX.Element => (
-        <span>
-          {attempt.score === undefined
-            ? "Score is not available."
-            : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`}
-        </span>
-      ),
-    },
-    {
-      id: "review",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (attempt): JSX.Element => (
-        <A
-          href={`/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttemptId)}/summary`}
-        >
-          Attempt {attempt.attemptNumber}
-        </A>
-      ),
-    },
-  ];
+function previousAttemptContent(attempt: LiveAssessmentPreviousAttempt): RecordContent {
+  return {
+    title: `Attempt ${attempt.attemptNumber}`,
+    details: [
+      {
+        kind: "text",
+        label: "State",
+        value: attempt.state === "submitted" ? "Submitted" : "Closed",
+      },
+      {
+        kind: "text",
+        label: "Score",
+        value:
+          attempt.score === undefined
+            ? "Score not released"
+            : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`,
+      },
+    ],
+    actions: [
+      {
+        id: "review-attempt",
+        kind: "link",
+        label: "Review Attempt",
+        href: `/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttemptId)}/summary`,
+      },
+    ],
+  };
 }
 
 /** Public Course Instance and Assessment IDs locate the view; the server re-authorizes each response. */
@@ -233,7 +211,7 @@ export function AssessmentOverviewPage(): JSX.Element {
                   ariaLabel="Previous attempts"
                   emptyState={{ title: "No previous attempts" }}
                   recordId={(attempt) => attempt.assessmentAttemptId}
-                  regions={previousAttemptRegions()}
+                  content={previousAttemptContent}
                   rows={current().previousAttempts}
                   state={{ kind: "ready" }}
                 />

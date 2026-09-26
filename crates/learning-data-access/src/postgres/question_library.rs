@@ -1,5 +1,7 @@
 //! PostgreSQL implementation of the Instructor Question Library read boundary.
 
+mod search;
+
 use async_trait::async_trait;
 use question_model::{
     BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
@@ -14,6 +16,7 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
 use super::connection::map_sqlx_error;
+use crate::question_library::{QuestionLibrarySearchPage, QuestionLibrarySearchRequest};
 use crate::{
     PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
     SessionTokenHash, StoreError,
@@ -60,6 +63,15 @@ impl PostgresQuestionLibraryStore {
 
 #[async_trait]
 impl QuestionLibraryStore for PostgresQuestionLibraryStore {
+    async fn search_published_question_library_entries(
+        &self,
+        session_token_hash: SessionTokenHash,
+        request: QuestionLibrarySearchRequest,
+    ) -> Result<QuestionLibrarySearchPage, StoreError> {
+        self.search_published_question_library_entries(session_token_hash, request)
+            .await
+    }
+
     async fn list_published_question_library_entries(
         &self,
         session_token_hash: SessionTokenHash,

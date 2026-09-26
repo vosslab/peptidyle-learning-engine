@@ -16,7 +16,6 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
 
   return (
     <PageFrame
-      contentClass="assessment-workspace-overview"
       routeSurface="assessmentWorkspace"
       headingId="assessment-workspace-heading"
       eyebrow="Assessment workspace"

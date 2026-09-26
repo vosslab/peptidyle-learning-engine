@@ -2,6 +2,7 @@
 
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { bundleRecordListHarness } from "../support/record_list_harness_loader.ts";
 import { startHarnessServer } from "./ribbon_harness_server.mjs";
@@ -14,7 +15,21 @@ export async function openRecordListHarness(options = {}) {
     bundle.stylesheet,
     '</style></head><body><div id="root"></div></body></html>',
   ].join("\n");
-  const harnessServer = await startHarnessServer(markup, bundle.stylesheet);
+  const harnessServer = await startHarnessServer(
+    markup,
+    bundle.stylesheet,
+    new Map([
+      [
+        "/assets/avatar_catalog/svg/amber-arch.svg",
+        {
+          body: readFileSync(
+            new URL("../../assets/avatar_catalog/svg/amber-arch.svg", import.meta.url),
+          ),
+          contentType: "image/svg+xml",
+        },
+      ],
+    ]),
+  );
   const browser = await chromium.launch({ headless });
   const page = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   page.setDefaultTimeout(5_000);

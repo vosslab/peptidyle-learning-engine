@@ -3,7 +3,7 @@
 Date: 2026-09-25. Status: source investigation complete; implementation pending.
 
 This follow-up revises the architectural recommendation in the
-[original RecordList/PageFrame audit](record_list_page_frame_standardization_audit_2026-09-25.md).
+[record_list_page_frame_standardization_audit_2026-09-25.md](record_list_page_frame_standardization_audit_2026-09-25.md).
 The [implementation plan](../active/record_list_page_frame_standardization_plan.md) and
 [execution ledger](../workstreams/record_list_page_frame_standardization_ledger.md) carry the changes.
 The table below includes every direct RecordList/RecordSequence consumer, not a sample.
@@ -111,7 +111,7 @@ record header or a page-specific row surface. Source line numbers are investigat
 | [blueprint_history.tsx](../../../src/features/blueprint_course/blueprint_history.tsx); RecordList:347, RecordSequence:441 | Scan + Sequence | Base revision/name scan with saved/recorded date, availability/classification and Inspect command. Keep nested Module/Assessment Outline and historical-entry Sequence. |
 | [blueprint_pool_members_editor.tsx](../../../src/features/blueprint_course/blueprint_pool_members_editor.tsx); RecordSequence:166 | Sequence | Sequence: exact Question revision facts, shared move/remove and disabled endpoints; preserve attestation and deferred Blueprint Save. |
 | [blueprint_stewardship.tsx](../../../src/features/blueprint_course/blueprint_stewardship.tsx); RecordList:169, RecordList:181 | Scan | Two base scans: starred Instructor names; Watch event title and timestamp. Keep chronology, disclosures and outside-row controls. |
-| [question_pool_picker.tsx](../../../src/features/blueprint_course/question_pool_picker.tsx); RecordList:188, RecordSequence:257 | Selectable scan + sequence | Selectable Pool scan: title, description, exact ID/edit and member count. Keep radio/stale-request behavior; ordered members use shared read-only Sequence, full inspection remains task UI. |
+| [question_pool_picker.tsx](../../../src/features/question_pool_picker/question_pool_picker.tsx); RecordList:188, RecordSequence:257 | Selectable scan + sequence | Selectable Pool scan: title, description, exact ID/edit and member count. Keep radio/stale-request behavior; ordered members use shared read-only Sequence, full inspection remains task UI. |
 | [blueprint_fork_apply.tsx](../../../src/features/blueprint_forks/blueprint_fork_apply.tsx); RecordSequence:469 | Sequence | Sequence within Outline: shared content and move/remove controls, including Module movement; bounded body retains cross-Module destination select, restore and draft behavior. |
 | [blueprint_fork_review.tsx](../../../src/features/blueprint_forks/blueprint_fork_review.tsx); RecordList:511 | Scan | Action scan: fork long name; short name, availability, source/fork revisions, owner/change facts; Open and Compare. Keep paired Detail review, expanded/controls semantics and trigger focus restoration. |
 | [provided_avatar_picker.tsx](../../../src/features/profile_avatar/provided_avatar_picker.tsx); RecordList:211, RecordList:227 | Image scan / Gallery | Image scan/Gallery: one adapter supplies catalog asset URL, name and description; shared media owns size/fit/fallback, controlled radio and switcher own interaction and layout. |
@@ -174,7 +174,7 @@ Its scope and per-file navigation handoffs remain intact.
 ### What exists
 
 - [library_page_model.ts](../../../src/pages/library_page_model.ts):41 and
-  [QuestionSearchResult.ts](../../../generated/api/QuestionSearchResult.ts) expose title, description,
+  [QuestionSearchResult](../../../crates/question_model/src/question_library.rs#L503) expose title, description,
   metadata and exact revision, with no thumbnail or prompt payload. RecordList cannot derive a
   faithful image from those rows alone.
 - [question_detail_page.tsx](../../../src/pages/question_detail_page.tsx):512 uses

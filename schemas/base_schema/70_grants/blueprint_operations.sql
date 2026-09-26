@@ -21,14 +21,14 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, bigint, text, text),
     ple_api.set_blueprint_availability(text, bigint, text, text),
-    ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, text, integer, uuid, uuid, uuid, uuid, boolean), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, bigint, text, text, integer, uuid, uuid, uuid, uuid, boolean), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION
     ple_api.create_blueprint_course(text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
     ple_api.rename_blueprint_course(text, bigint, text, text),
     ple_api.set_blueprint_availability(text, bigint, text, text),
-    ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, text, integer, uuid, uuid, uuid, uuid, boolean), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, bigint, text, text, integer, uuid, uuid, uuid, uuid, boolean), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) TO ple_app;
 
 REVOKE ALL ON FUNCTION ple_api.load_blueprint_promotion(text),
@@ -36,4 +36,3 @@ REVOKE ALL ON FUNCTION ple_api.load_blueprint_promotion(text),
 
 GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_promotion(text),
     ple_api.set_blueprint_promotion(text, bigint, boolean) TO ple_app;
-

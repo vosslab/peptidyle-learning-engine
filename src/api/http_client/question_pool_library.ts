@@ -2,6 +2,7 @@
 
 import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import {
   decodeQuestionPoolLibraryPage,
@@ -29,7 +30,7 @@ import {
 import { boundedResponseJson, requireNoStore } from "./response";
 
 const DEFAULT_PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 
 function canonicalQuestionPoolId(value: QuestionPoolId): QuestionPoolId {
   const canonical = validateCanonicalQuestionIdSyntax(value);
@@ -45,7 +46,7 @@ function questionPoolPagePath(
   value: QuestionPoolLibraryFilter,
 ): string {
   if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
-    throw new ApiProtocolError("Question Pool page size must be an integer from 1 through 100");
+    throw new ApiProtocolError("Question Pool page size must be an integer from 1 through 250");
   }
   const query = new URLSearchParams({ page_size: String(pageSize) });
   const filter = questionPoolLibraryFilter(value);

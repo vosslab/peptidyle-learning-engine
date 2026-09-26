@@ -13,7 +13,6 @@ import type {
 import {
   decodeAssessmentBlueprintUpdateReview,
   decodeApplyAssessmentBlueprintUpdateInput,
-  decodeAssessmentQuestionPicker,
   decodeAssessmentReleaseValidation,
   decodeAssessmentUnreleaseImpact,
   decodeCourseAssessmentSummary,
@@ -197,15 +196,6 @@ export function createLiveAssessmentReleaseClient(
       );
       return result.body;
     },
-    listLiveAssessmentQuestionPicker: async (courseInstanceId) =>
-      (
-        await assessmentJson(
-          fetchImplementation,
-          basePath,
-          `${coursePath(courseInstanceId)}/assessment-question-picker`,
-          decodeAssessmentQuestionPicker,
-        )
-      ).body,
     createLiveAssessment: async (
       courseInstanceId,
       input,

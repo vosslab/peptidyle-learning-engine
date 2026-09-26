@@ -4,6 +4,7 @@
 //! has installed the current session and confirmed the active Instructor
 //! boundary.  The route serializes only browser-safe Question Library values.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_webwork::{
@@ -22,14 +23,15 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use learning_data_access::{
-    PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError,
+    PublishedQuestionLibraryEntry, QuestionLibraryBackendRestriction, QuestionLibrarySearchRequest,
+    QuestionLibrarySearchSort, QuestionLibraryStore, SessionTokenHash, StoreError,
     postgres::{PostgresContentClassificationStore, PostgresQuestionLibraryStore},
 };
-use objects::s3::S3ObjectStore;
+use objects::{ObjectStore, s3::S3ObjectStore};
 use question_model::{
     BloomClassificationCorrectionRequest, PublishedQuestionId, PublishedQuestionRevisionTuple,
     QuestionBackend, QuestionBloomCorrectionReceipt, QuestionLineageView, QuestionSearchPage,
-    QuestionSearchRequest, QuestionSearchResult,
+    QuestionSearchRequest, QuestionSearchResult, QuestionStatistics,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -38,7 +40,7 @@ use crate::auth::{AuthError, resolve_session};
 use question_model::ProductRole;
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
-const MAX_PAGE_SIZE: u16 = 100;
+const MAX_PAGE_SIZE: u16 = question_model::MAX_DISCOVERY_PAGE_SIZE as u16;
 const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
 mod classification;
@@ -52,8 +54,8 @@ mod usage_statistics;
 
 use summaries::{
     ResolvedQuestionLibraryEntry, answer_free_question_library_entry, availability_response,
-    concealed, entries_to_summaries, matches_query, question_response, route_error,
-    store_error_response, summary_from_entry, unavailable,
+    concealed, entries_to_summaries, question_response, route_error, store_error_response,
+    summary_from_entry, unavailable,
 };
 pub(crate) use usage_statistics::{
     answer_free_question_search_results, answer_free_reusable_question_view,
@@ -149,15 +151,87 @@ async fn search_questions(
     {
         return response;
     }
-    let entries = match state
-        .store
-        .list_published_question_library_entries(session_hash)
+    search_question_library(
+        &state.store,
+        &state.objects,
+        session_hash,
+        is_instructor,
+        query,
+    )
+    .await
+}
+
+/// One Question Library search after the session is known.
+///
+/// The opaque cursor is checked before any source read. Native Question source
+/// is resolved only for the store's returned page.
+async fn search_question_library<S, O>(
+    store: &S,
+    objects: &O,
+    session_hash: SessionTokenHash,
+    is_instructor: bool,
+    query: QuestionSearchRequest,
+) -> Response
+where
+    S: QuestionLibraryStore + QuestionLibraryPageStatistics,
+    O: ObjectStore,
+{
+    let after = match paging::decode_position(&query) {
+        Ok(after) => after,
+        Err(()) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Question Library continuation is invalid",
+            );
+        }
+    };
+    let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
+    let (exact_question_id, text_terms) = text_query.into_store_terms();
+    let page_size = query.page_size.unwrap_or(DEFAULT_PAGE_SIZE);
+    let request = QuestionLibrarySearchRequest {
+        exact_question_id,
+        text_terms,
+        author_names: query.author_names.clone(),
+        backends: eligible_backends(&query),
+        tags: query.tags.clone(),
+        subjects: query.subjects.clone(),
+        topics: query.topics.clone(),
+        discipline_uuid: query.discipline_uuid,
+        subject_uuid: query.subject_uuid,
+        topic_uuid: query.topic_uuid,
+        subtopic_uuid: query.subtopic_uuid,
+        cross_discipline: query.cross_discipline,
+        bloom_cognitive_process: query.bloom_cognitive_process,
+        bloom_knowledge_dimension: query.bloom_knowledge_dimension,
+        question_types: query.question_types.clone(),
+        question_licenses: query.question_licenses.clone(),
+        used_in_current_account_courses: query.used_in_my_courses
+            == question_model::QuestionSearchCourseUse::Used,
+        authored_by_current_account: query.authorship
+            == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
+        sort: match query.sort {
+            question_model::QuestionSearchSort::TitleAscending => {
+                QuestionLibrarySearchSort::TitleAscending
+            }
+            question_model::QuestionSearchSort::PublishedNewest => {
+                QuestionLibrarySearchSort::PublishedNewest
+            }
+        },
+        page_size,
+        after,
+    };
+    let search = match store
+        .search_published_question_library_entries(session_hash, request)
         .await
     {
-        Ok(entries) => entries,
+        Ok(search) => search,
         Err(error) => return store_error_response(error),
     };
-    let summaries = match entries_to_summaries(&state.objects, entries).await {
+    let next_cursor = search
+        .next_position
+        .map(|position| paging::encode_position(position, &query));
+    let facets = facets::from_store(search.facets);
+    let summaries = match entries_to_summaries(objects, search.items).await {
         Ok(summaries) => summaries,
         Err(()) => {
             return route_error(
@@ -166,52 +240,78 @@ async fn search_questions(
             );
         }
     };
-    let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
-    let mut matching = summaries
-        .iter()
-        .filter(|entry| matches_query(entry, &query, &text_query))
-        .collect::<Vec<_>>();
-    // Facets describe the complete authorized predicate intersection. Cursor
-    // position and page size select returned rows only and never narrow counts.
-    let facets = facets::facets(&matching);
-    let (items, next_cursor) = match paging::page(&mut matching, &query) {
-        Ok(page) => page,
-        Err(()) => {
-            return route_error(
-                StatusCode::BAD_REQUEST,
-                "Question Library continuation is invalid",
-            );
-        }
-    };
-    let question_ids = items
+    let question_ids = summaries
         .iter()
         .map(|entry| entry.summary.question_id.clone())
         .collect::<Vec<_>>();
-    let evidence = match usage_statistics::bulk_question_statistics(
-        &state.store,
-        session_hash,
-        is_instructor,
-        &question_ids,
-    )
-    .await
+    let evidence = match store
+        .page_statistics(session_hash, is_instructor, &question_ids)
+        .await
     {
         Ok(value) => value,
         Err(response) => return response,
     };
-    let page = QuestionSearchPage {
-        items: items
-            .iter()
-            .map(|entry| QuestionSearchResult {
-                summary: entry.summary.clone(),
-                discipline_name: entry.discipline.clone().unwrap_or_default(),
-                discipline_is_retired: entry.discipline_is_retired,
-                evidence: usage_statistics::evidence_for(&entry.summary.question_id, &evidence),
+    crate::auth::no_store(
+        Json(QuestionSearchPage {
+            items: summaries
+                .iter()
+                .map(|entry| QuestionSearchResult {
+                    summary: entry.summary.clone(),
+                    discipline_name: entry.discipline.clone().unwrap_or_default(),
+                    discipline_is_retired: entry.discipline_is_retired,
+                    evidence: usage_statistics::evidence_for(&entry.summary.question_id, &evidence),
+                })
+                .collect(),
+            next_cursor,
+            facets,
+        })
+        .into_response(),
+    )
+}
+
+#[async_trait::async_trait]
+trait QuestionLibraryPageStatistics: Send + Sync {
+    async fn page_statistics(
+        &self,
+        session_hash: SessionTokenHash,
+        is_instructor: bool,
+        question_ids: &[PublishedQuestionId],
+    ) -> Result<BTreeMap<PublishedQuestionId, QuestionStatistics>, Response>;
+}
+
+#[async_trait::async_trait]
+impl QuestionLibraryPageStatistics for PostgresQuestionLibraryStore {
+    async fn page_statistics(
+        &self,
+        session_hash: SessionTokenHash,
+        is_instructor: bool,
+        question_ids: &[PublishedQuestionId],
+    ) -> Result<BTreeMap<PublishedQuestionId, QuestionStatistics>, Response> {
+        usage_statistics::bulk_question_statistics(self, session_hash, is_instructor, question_ids)
+            .await
+    }
+}
+
+fn eligible_backends(query: &QuestionSearchRequest) -> QuestionLibraryBackendRestriction {
+    if query.backends.is_empty() && query.capabilities.is_empty() {
+        return QuestionLibraryBackendRestriction::Any;
+    }
+    let candidates = if query.backends.is_empty() {
+        QuestionBackend::ALL.to_vec()
+    } else {
+        query.backends.clone()
+    };
+    QuestionLibraryBackendRestriction::Only(
+        candidates
+            .into_iter()
+            .filter(|backend| {
+                query
+                    .capabilities
+                    .iter()
+                    .all(|capability| facets::backend_capabilities(*backend).supports(*capability))
             })
             .collect(),
-        next_cursor,
-        facets,
-    };
-    crate::auth::no_store(Json(page).into_response())
+    )
 }
 
 async fn resolve_question(

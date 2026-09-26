@@ -53,6 +53,33 @@ impl PageSize {
     }
 }
 
+/// Validated maximum number of rows returned by one broad discovery operation.
+///
+/// Discovery is intentionally wider than ordinary cursor lists.  Keeping this
+/// type separate prevents a discovery UI choice from widening unrelated task,
+/// history, or administrative list boundaries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiscoveryPageSize(u16);
+
+impl DiscoveryPageSize {
+    /// Largest Question, Question Pool, or Blueprint discovery page.
+    pub const MAX: u16 = question_model::MAX_DISCOVERY_PAGE_SIZE as u16;
+
+    /// Validates a requested discovery page size in `1..=250`.
+    pub fn new(value: u16) -> Result<Self, PaginationError> {
+        if (1..=Self::MAX).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(PaginationError::InvalidDiscoveryPageSize { value })
+        }
+    }
+
+    /// Validated discovery row limit.
+    pub fn get(&self) -> u16 {
+        self.0
+    }
+}
+
 /// Cursor plus mandatory bounded row limit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,6 +98,31 @@ impl PageRequest {
 
     /// Continues after a cursor returned by the prior page.
     pub fn after(cursor: Cursor, size: PageSize) -> Self {
+        Self {
+            after: Some(cursor),
+            size,
+        }
+    }
+}
+
+/// Cursor plus mandatory bounded discovery row limit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveryPageRequest {
+    /// Cursor returned by the prior discovery page, or `None` for the first page.
+    pub after: Option<Cursor>,
+    /// Validated discovery row count.
+    pub size: DiscoveryPageSize,
+}
+
+impl DiscoveryPageRequest {
+    /// Starts a bounded discovery cursor sequence.
+    pub fn first(size: DiscoveryPageSize) -> Self {
+        Self { after: None, size }
+    }
+
+    /// Continues after a cursor returned by the prior discovery page.
+    pub fn after(cursor: Cursor, size: DiscoveryPageSize) -> Self {
         Self {
             after: Some(cursor),
             size,
@@ -98,6 +150,11 @@ pub enum PaginationError {
         /// Rejected requested size.
         value: u16,
     },
+    /// Requested discovery row count was zero or exceeded the discovery bound.
+    InvalidDiscoveryPageSize {
+        /// Rejected requested size.
+        value: u16,
+    },
 }
 
 impl std::fmt::Display for PaginationError {
@@ -108,6 +165,12 @@ impl std::fmt::Display for PaginationError {
                 write!(
                     formatter,
                     "page size must be between 1 and 100, got {value}"
+                )
+            }
+            Self::InvalidDiscoveryPageSize { value } => {
+                write!(
+                    formatter,
+                    "discovery page size must be between 1 and 250, got {value}"
                 )
             }
         }
@@ -127,6 +190,19 @@ mod tests {
             Err(PaginationError::InvalidPageSize {
                 value: PageSize::MAX + 1,
             })
+        );
+    }
+
+    #[test]
+    fn discovery_page_size_accepts_250_and_rejects_outside_bounds() {
+        assert_eq!(DiscoveryPageSize::new(250).unwrap().get(), 250);
+        assert_eq!(
+            DiscoveryPageSize::new(0),
+            Err(PaginationError::InvalidDiscoveryPageSize { value: 0 })
+        );
+        assert_eq!(
+            DiscoveryPageSize::new(251),
+            Err(PaginationError::InvalidDiscoveryPageSize { value: 251 })
         );
     }
 }

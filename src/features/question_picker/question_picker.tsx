@@ -7,13 +7,17 @@ import type {
   QuestionLibraryBrowseRow,
 } from "../../pages/library_page_model";
 import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../../pages/library_page_model";
-import { RecordList } from "../../components/record_list/record_list";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../../components/record_list/record_list";
+import { RecordPageControls } from "../../components/record_list/record_page_controls";
+import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 import "./question_picker.css";
 import {
   QuestionPickerSession,
-  moveQuestionPickerSelection,
   questionPickerSelection,
   toggleQuestionPickerSelection,
   type QuestionPickerSelection,
@@ -54,8 +58,30 @@ function sourceFromKey(
   return sources.find((source) => sourceKey(source) === key);
 }
 
-function rowIsSelected(selection: QuestionPickerSelection, row: QuestionLibraryBrowseRow): boolean {
-  return selection.questionIds.includes(row.displayId);
+function questionResultContent(row: QuestionLibraryBrowseRow): RecordContent {
+  return {
+    title: row.questionTitle,
+    description: row.summary,
+    details: [
+      {
+        kind: "questionId",
+        questionTitle: row.questionTitle,
+        displayId: row.displayId,
+      },
+      {
+        kind: "text",
+        label: "Revision",
+        value: String(row.publishedQuestionRevisionTuple.revisionNumber),
+      },
+    ],
+    actions: [],
+  };
+}
+
+function selectedQuestionContent(
+  question: QuestionPickerSelection["questions"][number],
+): RecordContent {
+  return questionResultContent(question.row);
 }
 
 function selectedCopy(
@@ -125,6 +151,22 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
   function hasNextPage(): boolean {
     const current = state();
     return current.kind === "ready" && current.nextCursor !== null;
+  }
+
+  function resultsState(): RecordListState {
+    const current = state();
+    if (current.kind === "loading" && resultRows().length === 0) return { kind: "loading" };
+    if (current.kind === "error" && resultRows().length === 0) {
+      return {
+        kind: "error",
+        title: "Question results could not load",
+        message:
+          "Your search, filters, and selected questions remain available. Try loading this source again.",
+        retry: () => void session.retry(),
+        retryLabel: "Retry source",
+      };
+    }
+    return { kind: "ready" };
   }
 
   function updateQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
@@ -345,7 +387,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
         {selectionMessage()}
       </p>
 
-      <Show when={state().kind === "error"}>
+      <Show when={state().kind === "error" && resultRows().length > 0}>
         <section class="route-error" role="alert">
           <h3>Question results could not load</h3>
           <p>
@@ -357,163 +399,77 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </button>
         </section>
       </Show>
-      <Show when={state().kind === "empty"}>
-        <section class="empty-state">
-          <h3>No questions match this source and filter</h3>
-          <p>Use a shorter search or choose a broader source.</p>
-        </section>
-      </Show>
-      <Show when={resultRows().length > 0}>
-        <section class="question-picker-results" aria-label="Question results">
-          <h3>Current results</h3>
-          <RecordList
-            rows={resultRows()}
-            regions={
-              [
-                {
-                  id: "identity",
-                  role: "identity",
-                  priority: "required",
-                  width: "minmax(0, 1fr)",
-                  align: "start",
-                  content: (row) => (
-                    <Show
-                      when={props.mode !== "none"}
-                      fallback={
-                        <article class="question-picker-result">
-                          <span>
-                            <strong>{row.questionTitle}</strong>
-                            <span>{row.summary}</span>
-                            <small>{row.displayId}</small>
-                          </span>
-                        </article>
-                      }
-                    >
-                      <label class="question-picker-result">
-                        <input
-                          type={props.mode === "one" ? "radio" : "checkbox"}
-                          name={props.mode === "one" ? "question-picker-choice" : undefined}
-                          checked={rowIsSelected(selection(), row)}
-                          onChange={(event) => toggleRow(row, event.currentTarget.checked)}
-                        />
-                        <span>
-                          <strong>{row.questionTitle}</strong>
-                          <span>{row.summary}</span>
-                          <small>{row.displayId}</small>
-                        </span>
-                      </label>
-                    </Show>
-                  ),
-                },
-              ] satisfies ReadonlyArray<RecordRegion<QuestionLibraryBrowseRow>>
-            }
-            recordId={(row) => row.displayId}
-            state={{ kind: "ready" }}
-            ariaLabel="Question results"
-            emptyState={{ title: "No questions match this source and filter." }}
-          />
-          <Show when={hasNextPage()}>
-            <button class="quiet-action" type="button" onClick={() => void session.loadNext()}>
-              Load more results
-            </button>
-          </Show>
-        </section>
-      </Show>
+      <section class="question-picker-results" aria-label="Question results">
+        <h3>Current results</h3>
+        <RecordList
+          rows={resultRows()}
+          content={questionResultContent}
+          selection={
+            props.mode === "none"
+              ? undefined
+              : {
+                  kind: props.mode === "one" ? "radio" : "checkbox",
+                  selectedIds: () => new Set(selection().questionIds),
+                  onChange: (row, checked) => toggleRow(row, checked),
+                }
+          }
+          recordId={(row) => row.displayId}
+          state={resultsState()}
+          ariaLabel="Question results"
+          emptyState={{
+            title: "No questions match this source and filter.",
+            message: "Use a shorter search or choose a broader source.",
+          }}
+        />
+        <RecordPageControls
+          ariaLabel="Question result pages"
+          hasPrevious={session.hasPrevious}
+          hasNext={hasNextPage()}
+          loading={state().kind === "loading"}
+          onPrevious={() => void session.loadPrevious()}
+          onNext={() => void session.loadNext()}
+          pageSize={session.pageSize}
+          onPageSizeChange={(pageSize) => void session.changePageSize(pageSize)}
+        />
+      </section>
 
       <Show when={props.mode !== "none"}>
         <section class="question-picker-tray" aria-labelledby="question-picker-tray-heading">
           <h3 id="question-picker-tray-heading">Selected questions</h3>
-          <Show
-            when={selection().questions.length > 0}
-            fallback={
-              <p>
-                Choose a result to add it here. The order becomes the returned Question ID order.
-              </p>
-            }
-          >
-            <RecordSequence
-              rows={selection().questions.map((question, index) => ({ question, index }))}
-              regions={
-                [
-                  {
-                    id: "identity",
-                    role: "identity",
-                    priority: "required",
-                    width: "minmax(0, 1fr)",
-                    align: "start",
-                    content: (record): JSX.Element => {
-                      const question = record.question;
-                      const index = record.index;
-                      return (
-                        <>
-                          <span>
-                            <strong>{question.row.questionTitle}</strong>{" "}
-                            <small>{question.questionId}</small>
-                          </span>
-                          <span class="question-picker-tray-actions">
-                            <button
-                              class="quiet-action"
-                              type="button"
-                              disabled={index === 0}
-                              aria-label={`Move ${question.row.questionTitle} earlier`}
-                              onClick={() =>
-                                updateSelection(
-                                  moveQuestionPickerSelection(
-                                    props.mode,
-                                    props.maximumSelection,
-                                    selection(),
-                                    index,
-                                    -1,
-                                  ),
-                                )
-                              }
-                            >
-                              Earlier
-                            </button>
-                            <button
-                              class="quiet-action"
-                              type="button"
-                              disabled={index === selection().questions.length - 1}
-                              aria-label={`Move ${question.row.questionTitle} later`}
-                              onClick={() =>
-                                updateSelection(
-                                  moveQuestionPickerSelection(
-                                    props.mode,
-                                    props.maximumSelection,
-                                    selection(),
-                                    index,
-                                    1,
-                                  ),
-                                )
-                              }
-                            >
-                              Later
-                            </button>
-                            <button
-                              class="quiet-action"
-                              type="button"
-                              onClick={() => toggleRow(question.row, false)}
-                            >
-                              Remove
-                            </button>
-                          </span>
-                        </>
-                      );
-                    },
-                  },
-                ] satisfies ReadonlyArray<
-                  RecordRegion<{
-                    readonly question: QuestionPickerSelection["questions"][number];
-                    readonly index: number;
-                  }>
-                >
-              }
-              recordId={(record) => record.question.questionId}
-              state={{ kind: "ready" }}
-              ariaLabel="Selected Questions in order"
-              emptyState={{ title: "No Questions are selected." }}
-            />
-          </Show>
+          <RecordSequence
+            rows={selection().questions}
+            content={selectedQuestionContent}
+            renderBody={(question) => (
+              <button
+                class="quiet-action"
+                type="button"
+                onClick={() => toggleRow(question().row, false)}
+              >
+                Remove
+              </button>
+            )}
+            recordId={(question) => question.questionId}
+            reorder={{
+              onMove: (sourceIndex, destinationIndex) => {
+                const nextRows = reorderedRecordListRows(
+                  selection().questions,
+                  sourceIndex,
+                  destinationIndex,
+                ).map((question) => question.row);
+                updateSelection(
+                  questionPickerSelection(props.mode, props.maximumSelection, nextRows),
+                );
+              },
+              recordLabel: (question) => question.row.questionTitle,
+            }}
+            state={{ kind: "ready" }}
+            ariaLabel="Selected Questions in order"
+            emptyState={{
+              title: "No Questions are selected.",
+              message:
+                "Choose a result to add it here. The order becomes the returned Question ID order.",
+            }}
+          />
         </section>
       </Show>
 

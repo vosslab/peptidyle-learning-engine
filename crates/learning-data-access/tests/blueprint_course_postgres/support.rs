@@ -361,7 +361,9 @@ pub(super) async fn assert_immutable_child(
 
 pub(super) const SESSION: u128 = 0xb101;
 pub(super) const READER_SESSION: u128 = 0xb103;
-pub(super) const QUESTION: &str = "ABCD-XEFG";
+// The canonical database baseline runs Unrelease against this database first;
+// public Question IDs are permanent, so this fixture keeps a separate ID.
+pub(super) const QUESTION: &str = "BPFX-Y001";
 pub(super) const QUESTION_POOL: &str = "7654-Z321";
 
 pub(super) fn id(value: u128) -> Uuid {
@@ -638,13 +640,13 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_private.object_record (\
              object_record_id, object_address, object_storage_area, object_data_class, \
-             sha256, size_bytes, media_type, created_at\
+             sha256, size_bytes, media_type, created_at, updated_at\
          ) SELECT $1, jsonb_build_object(\
                  'kind', 'questionSource', \
                  'publishedQuestionRevisionTuple', jsonb_build_object('publishedQuestionId', $2, 'revisionNumber', 1), \
-                 'object', $1\
+                 'objectId', $1\
              ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
-             1, 'application/json', revision.published_at \
+             1, 'application/json', revision.published_at, revision.published_at \
            FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
@@ -765,8 +767,8 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_data.question_pool_member (\
              question_pool_id, member_position, published_question_id, question_revision_number, \
-             created_at\
-         ) VALUES ($1, 1, $2, 1, clock_timestamp())",
+             created_at, updated_at\
+         ) VALUES ($1, 1, $2, 1, statement_timestamp(), statement_timestamp())",
     )
     .bind(QUESTION_POOL)
     .bind(QUESTION)
@@ -780,4 +782,73 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     STUDENT_ACCOUNT_ID
         .set(student_id)
         .expect("Student Account ID once");
+}
+
+/// Reuse a complete fixed fixture when present; otherwise seed it for an isolated test run.
+pub(super) async fn seed_if_needed(admin: &sqlx::postgres::PgPool) {
+    let mut transaction = admin
+        .begin()
+        .await
+        .expect("discover existing fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("discover existing private fixture role");
+    let instructor: Option<String> = sqlx::query_scalar(
+        "SELECT account.account_id \
+           FROM ple_private.authenticated_session AS session \
+           JOIN ple_private.account AS account ON account.account_id = session.account_id \
+          WHERE session.session_id = $1 \
+            AND session.token_hash = decode($2, 'hex') \
+            AND session.product_role = 'instructor' \
+            AND account.product_role = 'instructor' \
+            AND EXISTS ( \
+                SELECT 1 FROM ple_private.question_revision_source_binding AS binding \
+                 WHERE binding.published_question_id = $3 AND binding.revision_number = 1 \
+            )",
+    )
+    .bind(id(SESSION))
+    .bind(token().to_string())
+    .bind(QUESTION)
+    .fetch_optional(&mut *transaction)
+    .await
+    .expect("discover existing Instructor fixture");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("discover existing data fixture role");
+    let complete_question: bool = sqlx::query_scalar(
+        "SELECT EXISTS ( \
+             SELECT 1 \
+               FROM ple_data.published_question AS question \
+               JOIN ple_data.question_revision AS revision \
+                 ON revision.published_question_id = question.published_question_id \
+                AND revision.revision_number = 1 \
+               JOIN ple_data.published_question_metadata AS metadata \
+                 ON metadata.published_question_id = question.published_question_id \
+              WHERE question.published_question_id = $1 \
+         ) AND EXISTS ( \
+             SELECT 1 \
+               FROM ple_data.question_pool AS pool \
+               JOIN ple_data.question_pool_member AS member \
+                 ON member.question_pool_id = pool.question_pool_id \
+              WHERE pool.question_pool_id = $2 \
+                AND member.published_question_id = $1 \
+                AND member.question_revision_number = 1 \
+         )",
+    )
+    .bind(QUESTION)
+    .bind(QUESTION_POOL)
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("discover complete fixed Question fixture");
+    transaction
+        .commit()
+        .await
+        .expect("discover existing fixture transaction commit");
+    if let Some(instructor) = instructor.filter(|_| complete_question) {
+        INSTRUCTOR_ACCOUNT_ID.get_or_init(|| instructor);
+    } else {
+        seed(admin).await;
+    }
 }

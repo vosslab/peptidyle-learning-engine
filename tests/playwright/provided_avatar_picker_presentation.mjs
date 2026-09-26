@@ -37,7 +37,7 @@ const { browser, consoleErrors, harnessServer, page, pageErrors } =
   await openProvidedAvatarPickerHarness();
 
 try {
-  const group = page.getByRole("radiogroup", { name: "Choose an avatar", exact: true });
+  const group = page.getByRole("group", { name: "Choose an avatar", exact: true });
   assert.deepEqual(await avatarIds(group), EXPECTED_AVATAR_IDS, "Gallery keeps every catalog ID");
   assert.deepEqual(
     await checkedAvatarIds(page),

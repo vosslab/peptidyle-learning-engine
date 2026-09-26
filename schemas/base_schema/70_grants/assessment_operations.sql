@@ -4,7 +4,6 @@ SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.list_course_assessments(text),
     ple_api.list_assessments_due_soon(),
-    ple_api.list_assessment_question_picker(text),
     ple_api.load_assessment_workspace_rows(text, text),
     ple_api.validate_assessment_release(text, text),
     ple_api.create_assessment(text, text, text, text, text),
@@ -16,7 +15,6 @@ REVOKE ALL ON FUNCTION ple_api.list_course_assessments(text),
 
 GRANT EXECUTE ON FUNCTION ple_api.list_course_assessments(text),
     ple_api.list_assessments_due_soon(),
-    ple_api.list_assessment_question_picker(text),
     ple_api.load_assessment_workspace_rows(text, text),
     ple_api.validate_assessment_release(text, text),
     ple_api.create_assessment(text, text, text, text, text),

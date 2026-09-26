@@ -26,17 +26,46 @@
   border-bottom: 1px solid var(--ple-border);
 }
 
-.record-sequence__region {
-  margin-block: var(--ple-space-1);
-  overflow-wrap: anywhere;
+.record-sequence__item--semantic {
+  padding: var(--ple-space-3);
 }
-.record-sequence__region--identity {
-  font-weight: 700;
-}
-.record-sequence__region--actions {
+
+.record-controlled-reorder-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ple-space-1);
+  margin-block-start: var(--ple-space-2);
+}
+
+.record-sort-control {
+  display: grid;
+  gap: var(--ple-space-1);
+  max-inline-size: max-content;
+}
+
+.record-sort-control__label {
+  font-weight: 700;
+}
+
+.record-sort-control select {
+  min-inline-size: 14rem;
+}
+
+.record-page-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--ple-space-2);
+}
+
+.record-page-controls__size {
+  display: grid;
+  gap: var(--ple-space-1);
+  font-weight: 700;
+}
+
+.record-page-controls__size select {
+  min-inline-size: 7rem;
 }
 
 .record-outline-list .record-outline-list {

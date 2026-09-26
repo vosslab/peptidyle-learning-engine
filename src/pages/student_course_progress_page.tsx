@@ -10,19 +10,23 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordFact,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
+import "./student_course_progress_page.css";
 import {
   completedStudentAssessmentCount,
   studentAssessmentActivityLabel,
   studentAssessmentScoreDescription,
   studentAssessmentScoreStateLabel,
 } from "../student_course_progress_presentation";
-import "./student_course_progress_page.css";
 
 function assessmentPath(courseInstanceId: string, assessmentId: string): string {
   const path = buildRoutePath("assessmentOverview", { courseInstanceId, assessmentId });
@@ -32,10 +36,10 @@ function assessmentPath(courseInstanceId: string, assessmentId: string): string 
   return path;
 }
 
-function progressRegions(
+function progressContent(
   course: LiveStudentCourseLandingSummary,
   formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined,
-): ReadonlyArray<RecordRegion<StudentCourseProgressAssessment>> {
+): (assessment: StudentCourseProgressAssessment) => RecordContent {
   const latestActivityDateTime = (
     assessment: StudentCourseProgressAssessment,
   ): string | undefined => {
@@ -43,58 +47,42 @@ function progressRegions(
     if (timestamp === null) return undefined;
     return formatDateTime()?.(timestamp);
   };
-  return [
-    {
-      id: "assessment",
-      role: "identity",
-      priority: "required",
-      width: "minmax(12rem, 1fr)",
-      align: "start",
-      content: (assessment): JSX.Element => (
-        <div class="student-course-progress__identity">
-          <h3>{assessment.title}</h3>
-          <p>
-            {assessment.assessmentAttemptCount} Attempt
-            {assessment.assessmentAttemptCount === 1 ? "" : "s"}
-            {assessment.submittedAssessmentAttemptCount > 0 &&
-              ` * ${assessment.submittedAssessmentAttemptCount} submitted`}
-          </p>
-          <Show when={latestActivityDateTime(assessment)}>
-            {(dateTime) => <p>Latest activity: {dateTime()}</p>}
-          </Show>
-        </div>
-      ),
-    },
-    {
-      id: "status",
-      role: "status",
-      priority: "high",
-      width: "minmax(16rem, 1fr)",
-      align: "start",
-      content: (assessment): JSX.Element => (
-        <div class="student-course-progress__status">
-          <strong>{studentAssessmentScoreStateLabel(assessment)}</strong>
-          <p>{studentAssessmentActivityLabel(assessment)}</p>
-          <p>{studentAssessmentScoreDescription(assessment)}</p>
-        </div>
-      ),
-    },
-    {
-      id: "action",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (assessment): JSX.Element => (
-        <A
-          class="quiet-link student-course-progress__action"
-          href={assessmentPath(course.id, assessment.id)}
-        >
-          Open {assessmentTypePresentation(assessment.assessmentType).label}
-        </A>
-      ),
-    },
-  ];
+  return (assessment): RecordContent => {
+    const details: Array<RecordFact> = [
+      { kind: "assessmentType", value: assessment.assessmentType },
+      {
+        kind: "text",
+        label: "Attempts:",
+        value: `${assessment.assessmentAttemptCount} Attempt${assessment.assessmentAttemptCount === 1 ? "" : "s"}${
+          assessment.submittedAssessmentAttemptCount > 0
+            ? ` * ${assessment.submittedAssessmentAttemptCount} submitted`
+            : ""
+        }`,
+      },
+    ];
+    const latestActivity = latestActivityDateTime(assessment);
+    if (latestActivity !== undefined) {
+      details.push({ kind: "text", label: "Latest activity:", value: latestActivity });
+    }
+    details.push(
+      { kind: "text", label: "Score:", value: studentAssessmentScoreStateLabel(assessment) },
+      { kind: "text", label: "Activity:", value: studentAssessmentActivityLabel(assessment) },
+      { kind: "text", value: studentAssessmentScoreDescription(assessment) },
+    );
+    return {
+      title: assessment.title,
+      details,
+      actions: [
+        {
+          kind: "link",
+          id: "open-assessment",
+          label: `Open ${assessmentTypePresentation(assessment.assessmentType).label}`,
+          href: assessmentPath(course.id, assessment.id),
+          primary: true,
+        },
+      ],
+    };
+  };
 }
 
 function progressListState(loading: boolean, unavailable: boolean): RecordListState {
@@ -171,7 +159,7 @@ export function StudentCourseProgressPage(): JSX.Element {
                 ariaLabel="Coursework progress"
                 emptyState={{ title: "No Coursework has been released for this Course yet." }}
                 recordId={(assessment) => assessment.id}
-                regions={progressRegions(current(), formatDateTime)}
+                content={progressContent(current(), formatDateTime)}
                 rows={assessments() ?? []}
                 state={progressListState(assessments.loading, assessments.error !== undefined)}
               />

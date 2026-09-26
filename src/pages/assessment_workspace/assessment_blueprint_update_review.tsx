@@ -12,7 +12,7 @@ import {
   assessmentDurationDisplay,
 } from "../../assessment_duration";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
+import type { RecordContent } from "../../components/record_list/record_list";
 
 /** Projects only reusable teaching content; Course delivery state stays outside the update. */
 export function currentBlueprintUpdateContent(
@@ -33,50 +33,69 @@ export function currentBlueprintUpdateContent(
   };
 }
 
-/** Shared by the Question Editor and both sides of a Blueprint update review. */
-export function AssessmentEntrySummary(props: {
+/** Shared semantic presentation for each current or proposed ordered Assessment entry. */
+function assessmentEntryContent(props: {
   readonly entry: AssessmentBlueprintUpdateEntry & {
     readonly availability?: AssessmentEntryAvailability;
   };
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
-  readonly poolRole?: "assessmentOwned" | "librarySource";
-}): JSX.Element {
+  readonly poolRole: "assessmentOwned" | "librarySource";
+}): RecordContent {
   const timeLimit = (): string =>
     props.entry.questionAttemptTimeLimit.kind === "unlimited"
       ? "No Question time limit"
       : `${props.entry.questionAttemptTimeLimit.seconds}s Question time limit; ${props.entry.questionAttemptTimeLimit.graceSeconds}s grace`;
-  return (
-    <>
-      {props.entry.kind === "fixedQuestion" ? (
-        <>
-          <strong>{props.entry.publishedQuestionRevisionTuple.publishedQuestionId}</strong> *
-          Revision {props.entry.publishedQuestionRevisionTuple.revisionNumber}:{" "}
-          {props.description(props.entry.publishedQuestionRevisionTuple)};{" "}
-          {props.entry.pointsPossible} points
-        </>
-      ) : (
-        <>
-          <strong>
-            {props.poolRole === "assessmentOwned"
-              ? "Assessment-owned Question Pool"
-              : props.poolRole === "librarySource"
-                ? "Library source Question Pool"
-                : "Question Pool"}{" "}
-            {props.entry.questionPoolId}
-          </strong>{" "}
-          * Edit {props.entry.questionPoolEditNumber}; select {props.entry.selectionCount};{" "}
-          {props.entry.pointsPerItem} points per Question;{" "}
-          {props.entry.selectionRule.selectedQuestionOrder === "randomOrder"
+  const commonDetails: ReadonlyArray<RecordContent["details"][number]> = [
+    ...(props.entry.availability === undefined
+      ? []
+      : [{ kind: "text" as const, label: "Availability", value: props.entry.availability }]),
+    { kind: "text", label: "Scoring", value: `${props.entry.scoringRule} scoring` },
+    {
+      kind: "text",
+      label: "Question Attempts",
+      value: `${props.entry.questionAttemptLimit.maxAttempts ?? "Unlimited"}`,
+    },
+    { kind: "text", label: "Question time limit", value: timeLimit() },
+  ];
+
+  if (props.entry.kind === "fixedQuestion") {
+    const revision = props.entry.publishedQuestionRevisionTuple;
+    return {
+      title: `Question ${revision.publishedQuestionId}, revision ${revision.revisionNumber}`,
+      description: props.description(revision),
+      details: [
+        { kind: "text", label: "Points", value: `${props.entry.pointsPossible} points` },
+        ...commonDetails,
+      ],
+      actions: [],
+    };
+  }
+
+  const poolLabel =
+    props.poolRole === "assessmentOwned"
+      ? "Assessment-owned Question Pool"
+      : "Library source Question Pool";
+  return {
+    title: `${poolLabel} ${props.entry.questionPoolId}, edit ${props.entry.questionPoolEditNumber}`,
+    details: [
+      { kind: "text", label: "Selection count", value: `${props.entry.selectionCount}` },
+      {
+        kind: "text",
+        label: "Points per Question",
+        value: `${props.entry.pointsPerItem} points`,
+      },
+      {
+        kind: "text",
+        label: "Selected Question order",
+        value:
+          props.entry.selectionRule.selectedQuestionOrder === "randomOrder"
             ? "Random selected Question order"
-            : "Question Pool order"}
-        </>
-      )}
-      {props.entry.availability === undefined ? "" : ` (${props.entry.availability})`}
-      {"; "}
-      {props.entry.scoringRule} scoring;{" "}
-      {props.entry.questionAttemptLimit.maxAttempts ?? "Unlimited"} Question Attempts; {timeLimit()}
-    </>
-  );
+            : "Question Pool order",
+      },
+      ...commonDetails,
+    ],
+    actions: [],
+  };
 }
 
 const ACTIVITY_LABELS = [
@@ -166,28 +185,12 @@ export function AssessmentBlueprintContentSummary(props: {
       ) : (
         <RecordSequence
           rows={props.content.entries.map((entry, index) => ({ entry, index }))}
-          regions={
-            [
-              {
-                id: "identity",
-                role: "identity",
-                priority: "required",
-                width: "minmax(0, 1fr)",
-                align: "start",
-                content: (record) => (
-                  <AssessmentEntrySummary
-                    entry={record.entry}
-                    description={props.description}
-                    poolRole={props.poolRole}
-                  />
-                ),
-              },
-            ] satisfies ReadonlyArray<
-              RecordRegion<{
-                readonly entry: AssessmentBlueprintUpdateEntry;
-                readonly index: number;
-              }>
-            >
+          content={(record) =>
+            assessmentEntryContent({
+              entry: record.entry,
+              description: props.description,
+              poolRole: props.poolRole,
+            })
           }
           recordId={(record) => `${record.entry.kind}:${record.index}`}
           state={{ kind: "ready" }}

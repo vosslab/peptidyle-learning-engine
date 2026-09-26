@@ -72,18 +72,23 @@ dispatch. Every package below is part of the current plan's completion path.
 ### M26 / WP-P1: database-owned Question result pages
 
 - Owner: QUESTION-DATA. Depends on: WP-P0.
-- Files: Question Library store trait/records in `crates/learning-data-access/src/question_library.rs`,
-  PostgreSQL implementation and a focused search module beside it; Question Library functions/grants
-  under `schemas/base_schema/50_functions/` and `70_grants/`; their existing database checks.
+- Files: Question Library store trait/records and the store-only typed query/cursor-position contract
+  in `crates/learning-data-access/src/question_library.rs` (or a focused sibling module re-exported
+  there), PostgreSQL implementation and search module beside it; Question Library functions/grants
+  under `schemas/base_schema/50_functions/` and `70_grants/`; focused database checks.
 - Implementation: add a typed store search operation over the existing accepted metadata projection.
-  Carry normalized exact-ID/text terms, classification/Bloom, authorship, Course-use, authors/tags,
-  backend/type/license/capability filters and the closed sort/cursor position. Use the established
-  field/phrase/exclusion grammar with literal matching and current AND/OR semantics. Page by
+  Carry normalized predicates, parsed exact-ID/text terms, eligible backend restriction, classification/Bloom,
+  authorship, Course-use, authors/tags, type/license, sort, bounded page size and a typed keyset position.
+  The store receives parsed terms and a decoded position; it does not own HTTP text parsing or the
+  opaque cursor envelope. WP-P3 keeps the established field/phrase/exclusion grammar, literal matching,
+  AND/OR semantics, query digest and token encoding, and translates the normalized server request
+  into this store contract once. Page by
   title ascending plus Question ID, or publication descending plus Question ID. Match ordering and
   continuation collation explicitly. Select at most the requested page plus one lookahead row.
-- Keep existing adapter capability declarations authoritative: translate requested capabilities to
-  the supported backend predicates from those declarations at the service boundary. The database
-  filters metadata; it does not execute Question source or learn a second configurable backend model.
+- Keep existing adapter capability declarations authoritative: WP-P3 translates requested
+  capabilities to the supported backend restriction from those declarations at the service boundary.
+  Distinguish unrestricted backends from a restricted empty set. The database filters metadata; it
+  does not execute Question source or learn a second configurable backend model.
 - Done: the store returns the correct bounded page across ties and filters; query execution never
   transfers the entire catalog to Rust. Page and cursor keys describe the same order.
 - Validation: reuse existing search grammar/cursor cases as behavioral inputs; prove a match beyond
@@ -115,8 +120,11 @@ dispatch. Every package below is part of the current plan's completion path.
 - Owner: QUESTION-DATA. Depends on: WP-P2.
 - Files: `crates/server/src/question_library.rs`, its `query`, `search_query`, `paging`, `facets` and
   `summaries` modules as affected; corresponding store callers/tests. Keep exact detail/preview routes.
-- Implementation: normalize/parse the request, decode its query-bound cursor, and call the bounded
-  store. Resolve native source only for returned page items when needed to preserve the existing
+- Implementation: normalize the browser request, parse exact IDs and text grammar once, validate
+  and decode its opaque query-bound cursor to the WP-P1 typed keyset position, then translate these
+  values and capability declarations to the bounded store request. Re-encode the returned typed
+  position in the same opaque token; keep its digest bound to normalized filters and sort and retain
+  the current page-size binding rules. Resolve native source only for returned page items when needed to preserve the existing
   summary fields and exact-source validation. Keep page-only usage-statistics enrichment. Use SQL
   aggregates for the current response shape; retain 50/default and the WP-P0 discovery ceiling of 250.
 - Validate continuation before expensive source resolution. Remove the search route's full-catalog

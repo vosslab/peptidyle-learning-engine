@@ -307,24 +307,25 @@ async function prepare(
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
-    const available = page.locator('section[aria-labelledby="available-questions-heading"]');
-    const idsToAdd: string[] = [];
-    for (const { summary } of selected) {
-      // Exact discovered ID + immutable Revision, not a first-row or title-only guess.
-      const identity = `${summary.questionId} * Revision ${summary.publishedQuestionRevisionTuple.revisionNumber}:`;
-      const row = available.getByRole("listitem").filter({ hasText: identity });
-      await row.first().waitFor();
-      if ((await row.count()) !== 1)
-        throw new Error(
-          `Exact published Revision is unavailable for selection: ${summary.metadata.questionTitle}`,
-        );
-      idsToAdd.push(summary.questionId);
+    await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
+    const picker = page.getByRole("dialog", { name: "Choose published Questions", exact: true });
+    for (const { example } of selected) {
+      await picker.getByLabel("Search questions", { exact: true }).fill(example.title);
+      await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+      const choice = picker.getByRole("checkbox", {
+        name: `Select ${example.title}`,
+        exact: true,
+      });
+      await choice.first().waitFor();
+      if ((await choice.count()) !== 1) {
+        throw new Error(`Exact published Question is unavailable for selection: ${example.title}`);
+      }
+      await choice.check();
     }
-    await page.getByLabel("Question IDs to add", { exact: true }).fill(idsToAdd.join("\n"));
-    await page.getByRole("button", { name: "Add Questions by ID", exact: true }).click();
+    await picker.getByRole("button", { name: "Add selected Questions", exact: true }).click();
     await page
       .getByText(
-        `${idsToAdd.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
+        `${selected.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
         { exact: true },
       )
       .waitFor();

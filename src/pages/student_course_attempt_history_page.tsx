@@ -1,6 +1,5 @@
 // Student-owned, cursor-paginated history across every enrolled Course.
 
-import { A } from "@solidjs/router";
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import type { StudentCourseAttemptHistoryEntry } from "../api/student_course_attempt_history";
@@ -9,8 +8,11 @@ import { useApplicationApi } from "../api/application_api";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import "./student_course_attempt_history_page.css";
 
 function attemptPath(attempt: StudentCourseAttemptHistoryEntry): string {
@@ -33,75 +35,52 @@ function scoreLabel(attempt: StudentCourseAttemptHistoryEntry): string | undefin
   return `Score: ${earned} of ${possible} points`;
 }
 
-function attemptHistoryRegions(
+function attemptHistoryContent(
+  attempt: StudentCourseAttemptHistoryEntry,
   formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined,
-): ReadonlyArray<RecordRegion<StudentCourseAttemptHistoryEntry>> {
-  return [
+): RecordContent {
+  const format = formatDateTime();
+  const state = attempt.submittedAt === undefined ? "In progress" : "Submitted";
+  const details: Array<RecordContent["details"][number]> = [
     {
-      id: "attempt",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (attempt): JSX.Element => (
-        <div class="student-course-attempt-history__identity">
-          <h3>{attempt.assessmentTitle}</h3>
-          <p>
-            Attempt {attempt.assessmentAttemptNumber} ·{" "}
-            {attempt.submittedAt === undefined ? "In progress" : "Submitted"}
-          </p>
-          <Show when={formatDateTime()}>
-            {(format) => (
-              <p>
-                Started{" "}
-                <time dateTime={new Date(attempt.startedAt).toISOString()}>
-                  {format()(attempt.startedAt)}
-                </time>
-              </p>
-            )}
-          </Show>
-          <Show when={attempt.submittedAt !== undefined && formatDateTime()}>
-            {(format) => (
-              <p>
-                Submitted{" "}
-                <time dateTime={new Date(attempt.submittedAt!).toISOString()}>
-                  {format()(attempt.submittedAt!)}
-                </time>
-              </p>
-            )}
-          </Show>
-        </div>
-      ),
-    },
-    {
-      id: "score",
-      role: "status",
-      priority: "high",
-      width: "minmax(9rem, auto)",
-      align: "start",
-      content: (attempt): JSX.Element => (
-        <div class="student-course-attempt-history__score">
-          <Show when={attempt.submittedAt !== undefined} fallback={<span>No score yet</span>}>
-            <Show when={scoreLabel(attempt)} fallback={<span>Score not released</span>}>
-              {(label) => <span>{label()}</span>}
-            </Show>
-          </Show>
-        </div>
-      ),
-    },
-    {
-      id: "action",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (attempt): JSX.Element => (
-        <A class="quiet-link" href={attemptPath(attempt)}>
-          {attempt.submittedAt === undefined ? "Open Attempt" : "Review Attempt"}
-        </A>
-      ),
+      kind: "text",
+      value: `Attempt ${attempt.assessmentAttemptNumber} · ${state}`,
     },
   ];
+
+  if (format !== undefined) {
+    details.push({
+      kind: "time",
+      value: `Started ${format(attempt.startedAt)}`,
+      dateTime: new Date(attempt.startedAt).toISOString(),
+    });
+    if (attempt.submittedAt !== undefined) {
+      details.push({
+        kind: "time",
+        value: `Submitted ${format(attempt.submittedAt)}`,
+        dateTime: new Date(attempt.submittedAt).toISOString(),
+      });
+    }
+  }
+
+  const score =
+    attempt.submittedAt === undefined
+      ? "No score yet"
+      : (scoreLabel(attempt) ?? "Score not released");
+  details.push({ kind: "text", value: score });
+
+  return {
+    title: attempt.assessmentTitle,
+    details,
+    actions: [
+      {
+        id: "open-attempt",
+        kind: "link",
+        href: attemptPath(attempt),
+        label: attempt.submittedAt === undefined ? "Open Attempt" : "Review Attempt",
+      },
+    ],
+  };
 }
 
 function attemptHistoryListState(loading: boolean, unavailable: boolean): RecordListState {
@@ -144,7 +123,7 @@ function CourseAttemptHistory(props: {
         ariaLabel={`${props.course.shortName} Attempts`}
         emptyState={{ title: "No Attempts have been started in this Course." }}
         recordId={(attempt) => attempt.assessmentAttemptId}
-        regions={attemptHistoryRegions(props.formatDateTime)}
+        content={(attempt) => attemptHistoryContent(attempt, props.formatDateTime)}
         rows={page()?.items ?? []}
         state={attemptHistoryListState(page.loading, page.error !== undefined)}
       />

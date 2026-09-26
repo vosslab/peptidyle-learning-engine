@@ -153,6 +153,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
       fallback={
         <div role="alert">
           <PageFrame
+            // Creation-form selectors plus the failure card. PageFrame owns the stack.
             contentClass="assessment-workspace-create route-error"
             routeSurface="assessmentCreate"
             eyebrow="Instructor assessment workspace"
@@ -167,6 +168,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
       }
     >
       <PageFrame
+        // Scopes the creation method and template fieldsets. PageFrame owns the stack.
         contentClass="assessment-workspace-create"
         routeSurface="assessmentCreate"
         eyebrow="New assessment"

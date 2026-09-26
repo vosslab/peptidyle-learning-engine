@@ -7,8 +7,7 @@ import type { QuestionStatistics } from "../../generated/api/QuestionStatistics"
 import type { QuestionUseDetails } from "../../generated/api/QuestionUseDetails";
 import type { QuestionRevisionUsageStatistics } from "../../generated/api/QuestionRevisionUsageStatistics";
 import { courseInstanceRouteId } from "../navigation/public_route";
-import { RecordList } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import { RecordList, type RecordContent } from "../components/record_list/record_list";
 import "./question_statistics_panel.css";
 
 export interface QuestionStatisticsPanelProps {
@@ -22,48 +21,43 @@ export interface QuestionUsePanelProps {
 const wholeNumber = new Intl.NumberFormat("en-US");
 type RevisionStatistics = QuestionRevisionUsageStatistics;
 
-const revisionRegions: ReadonlyArray<RecordRegion<RevisionStatistics>> = [
-  {
-    id: "revision",
-    role: "identity",
-    priority: "required",
-    width: "minmax(8rem, 1fr)",
-    align: "start",
-    content: (revision) => <>Revision {revision.revision_number}</>,
-  },
-  {
-    id: "mean-credit",
-    role: "metadata",
-    priority: "required",
-    width: "minmax(12rem, auto)",
-    align: "end",
-    content: (revision) => formatRate(revision.mean_credit, revision.answered_count),
-  },
-];
+function revisionContent(revision: RevisionStatistics): RecordContent {
+  return {
+    title: `Revision ${revision.revision_number}`,
+    details: [
+      {
+        kind: "text",
+        label: "Mean credit",
+        value: formatMean(revision.mean_credit, revision.answered_count),
+      },
+    ],
+    actions: [],
+  };
+}
 
 type CourseUse = QuestionUseDetails["ownCourses"][number];
 
-const courseUseRegions: ReadonlyArray<RecordRegion<CourseUse>> = [
-  {
-    id: "course",
-    role: "identity",
-    priority: "required",
-    width: "minmax(0, 1fr)",
-    align: "start",
-    content: (course) => (
-      <A href={`/courses/${courseInstanceRouteId(course.courseInstanceId)}`}>{course.title}</A>
-    ),
-  },
-  {
-    id: "assessments",
-    role: "metadata",
-    priority: "required",
-    width: "minmax(9rem, auto)",
-    align: "end",
-    content: (course) =>
-      `${wholeNumber.format(course.assessmentCount)} assessment${course.assessmentCount === 1 ? "" : "s"}`,
-  },
-];
+function courseUseContent(course: CourseUse): RecordContent {
+  return {
+    title: course.title,
+    details: [
+      {
+        kind: "text",
+        label: "Assessment count",
+        value: formatCount(course.assessmentCount, "assessment"),
+      },
+    ],
+    actions: [
+      {
+        id: "open-course",
+        kind: "link",
+        label: "Open Course",
+        href: `/courses/${courseInstanceRouteId(course.courseInstanceId)}`,
+        title: `Open Course: ${course.title}`,
+      },
+    ],
+  };
+}
 
 function formatCount(value: number, singular: string): string {
   return `${wholeNumber.format(value)} ${value === 1 ? singular : `${singular}s`}`;
@@ -141,9 +135,9 @@ export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JS
                 <h3>By revision</h3>
                 <RecordList
                   ariaLabel="Question statistics by revision"
+                  content={revisionContent}
                   emptyState={{ title: "No revision statistics are available." }}
                   recordId={(revision) => String(revision.revision_number)}
-                  regions={revisionRegions}
                   rows={revisions()}
                   state={{ kind: "ready" }}
                 />
@@ -189,9 +183,9 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
         <h3>Your courses using this question</h3>
         <RecordList
           ariaLabel="Your courses using this question"
+          content={courseUseContent}
           emptyState={{ title: "No accessible courses use this question." }}
           recordId={(course) => course.courseInstanceId}
-          regions={courseUseRegions}
           rows={props.usage.ownCourses}
           state={{ kind: "ready" }}
         />

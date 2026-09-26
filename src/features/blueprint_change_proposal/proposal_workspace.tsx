@@ -16,8 +16,7 @@ import type { BlueprintChangeProposalClient } from "../../api/blueprint_change_p
 import { useApplicationApi } from "../../api/application_api";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { PageFrame } from "../../components/page_frame";
-import { RecordList } from "../../components/record_list/record_list";
-import type { RecordRegion } from "../../components/record_list/region_spec";
+import { RecordList, type RecordContent } from "../../components/record_list/record_list";
 import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
 import { ProposalReview } from "./proposal_review";
 
@@ -27,51 +26,52 @@ function recordPath(id: string): string {
   return `/blueprint-change-proposals/${encodeURIComponent(id)}`;
 }
 
-function proposalRegions(
+function proposalState(item: BlueprintChangeProposalPageView["items"][number]): string {
+  if (item.accepted) {
+    return `Accepted target Revision ${item.accepted.targetRevisionTuple.revisionNumber}`;
+  }
+  if (item.targetIsStale) return "Older target basis; acceptance unavailable";
+  return "Proposed";
+}
+
+function proposalContent(
   formatDateTime: (timestamp: number | Date) => string,
-): ReadonlyArray<RecordRegion<BlueprintChangeProposalPageView["items"][number]>> {
-  return [
-    {
-      id: "proposal",
-      role: "identity",
-      priority: "required",
-      width: "minmax(14rem, 1.2fr)",
-      align: "start",
-      content: (item) => (
-        <A href={recordPath(item.proposalId)}>
-          {item.sourceNames.longName} to {item.targetNames.longName}
-        </A>
-      ),
-    },
-    {
-      id: "details",
-      role: "metadata",
-      priority: "high",
-      width: "minmax(18rem, 2fr)",
-      align: "start",
-      content: (item) => (
-        <>
-          Source {item.sourceNames.shortName}, Revision {item.sourceRevisionTuple.revisionNumber};
-          comparison target {item.targetNames.shortName}, Revision{" "}
-          {item.targetRevisionTuple.revisionNumber}.{" "}
-          {item.accepted
-            ? `Accepted target Revision ${item.accepted.targetRevisionTuple.revisionNumber}`
-            : item.targetIsStale
-              ? "Older target basis; acceptance unavailable"
-              : "Proposed"}
-          .
-        </>
-      ),
-    },
-    {
-      id: "created",
-      role: "status",
-      priority: "medium",
-      width: "minmax(12rem, auto)",
-      align: "end",
-      content: (item) => <>Created {formatDateTime(item.createdAt)}.</>,
-    },
-  ];
+  item: BlueprintChangeProposalPageView["items"][number],
+): RecordContent {
+  const title = `${item.sourceNames.longName} to ${item.targetNames.longName}`;
+  return {
+    title,
+    details: [
+      { kind: "text", label: "Source", value: item.sourceNames.shortName },
+      {
+        kind: "text",
+        label: "Source Revision",
+        value: String(item.sourceRevisionTuple.revisionNumber),
+      },
+      { kind: "text", label: "Target", value: item.targetNames.shortName },
+      {
+        kind: "text",
+        label: "Target Revision",
+        value: String(item.targetRevisionTuple.revisionNumber),
+      },
+      { kind: "text", label: "State", value: proposalState(item) },
+      {
+        kind: "time",
+        label: "Created",
+        value: formatDateTime(item.createdAt),
+        dateTime: new Date(item.createdAt).toISOString(),
+      },
+    ],
+    actions: [
+      {
+        id: "open-proposal",
+        kind: "link",
+        label: "Open proposal",
+        href: recordPath(item.proposalId),
+        primary: true,
+      },
+    ],
+  };
 }
 
 export function ProposalRecords(props: {
@@ -144,7 +144,7 @@ export function ProposalRecords(props: {
               ariaLabel="Blueprint Change Proposals"
               emptyState={{ title: "No authorized Change Proposals in this view." }}
               recordId={(item) => item.proposalId}
-              regions={proposalRegions(props.formatDateTime)}
+              content={(item) => proposalContent(props.formatDateTime, item)}
               rows={value().items}
               state={{ kind: "ready" }}
             />

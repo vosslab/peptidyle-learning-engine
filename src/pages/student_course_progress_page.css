@@ -1,9 +1,5 @@
 /* Course progress keeps completion, released scores, and Attempt activity distinct. */
 
-.student-course-progress {
-  margin-top: var(--ple-space-5);
-}
-
 .student-course-progress > h2 {
   margin: 0 0 var(--ple-space-2);
 }
@@ -21,43 +17,4 @@
 
 .student-course-progress .record-list {
   margin-top: var(--ple-space-4);
-}
-
-.student-course-progress .record-list__row {
-  align-items: center;
-  padding: var(--ple-space-3);
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-md);
-  background: var(--ple-surface);
-}
-
-.student-course-progress__identity h3,
-.student-course-progress__identity p,
-.student-course-progress__status p {
-  margin: 0;
-}
-
-.student-course-progress__identity p,
-.student-course-progress__status p {
-  color: var(--ple-muted);
-  font-size: 0.9rem;
-}
-
-.student-course-progress__status strong {
-  display: block;
-  margin-bottom: var(--ple-space-1);
-}
-
-.student-course-progress__status p + p {
-  margin-top: var(--ple-space-1);
-}
-
-.student-course-progress__action {
-  white-space: nowrap;
-}
-
-@media (max-width: 48rem) {
-  .student-course-progress__action {
-    justify-self: start;
-  }
 }

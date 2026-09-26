@@ -1,13 +1,5 @@
 import { createSignal, type Accessor } from "solid-js";
 
-import "./record_list_presentation.css";
-
-/**
- * Wrapper class for presentations that render the same records as an image gallery.
- * The wrapper keeps gallery geometry out of the aligned RecordList core.
- */
-export const RECORD_LIST_GALLERY_PRESENTATION_CLASS: string = "record-list-presentation--gallery";
-
 export type RecordListPresentationVariant<Variant extends string> = {
   /** Stable per-list identifier used to select this presentation. */
   readonly id: Variant;

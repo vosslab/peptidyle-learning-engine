@@ -36,6 +36,9 @@ export interface BlueprintCourseClassificationSearch {
   readonly crossDiscipline: boolean;
 }
 
+/** Closed server-owned ordering choices for My Blueprint Courses. */
+export type BlueprintCourseListSort = "name" | "adoptions" | "students";
+
 export interface LoadedBlueprintCourse {
   readonly blueprintCourse: BlueprintCourseView;
 }
@@ -95,6 +98,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     publicOnly?: boolean,
     promotedOnly?: boolean,
     classification?: BlueprintCourseClassificationSearch,
+    sort?: BlueprintCourseListSort,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,

@@ -198,9 +198,11 @@ remain the authorization boundary for each operation and resource.
 
 [src/components/page_frame.tsx](../src/components/page_frame.tsx) owns the
 shared page heading, the WP-C1-admitted page-level slots, and fixed content
-placement. Reading width is the default; a route may declare `fullWidth` for
-dense content without coupling that choice to Ribbon navigation. Callers style
-their content region while the PageFrame root keeps its production geometry.
+placement. Its content region is one column stack. `PageSection` in the same
+module supplies an in-page heading, optional helper and actions, and a body.
+Reading width is the default; a route may declare `fullWidth` for
+dense content without coupling that choice to Ribbon navigation. A `contentClass`
+hook is only for a task-specific arrangement inside that stack.
 [src/components/record_list/](../src/components/record_list/) provides record
 presentations whose native structure matches the task: `RecordList` for compact
 flat scans, `RecordSequence` for ordered records, `RecordTable` for labeled
@@ -215,10 +217,10 @@ widths.
 [src/components/record_list/record_list_reorder.tsx](../src/components/record_list/record_list_reorder.tsx)
 provides caller-owned movement, keyboard focus restoration, and live move
 announcements for list and sequence presentations. Its caller owns persistence,
-disabled policy, and failure handling.
-[src/components/record_list/record_list_window.ts](../src/components/record_list/record_list_window.ts)
-selects a contiguous mounted slice for `RecordList` while preserving record
-identity and order; it does not render rows.
+disabled policy, and failure handling. Question and Blueprint discovery each
+request one server page of 50, 100, or 250 records. Pool discovery uses the
+same page sizes. RecordList renders that
+page; client windowing is not part of the record list.
 
 Pages compose these pieces around their domain state. For example,
 [src/features/blueprint_course/blueprint_course_detail_workspace.tsx](../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)

@@ -13,6 +13,7 @@ import {
   createResource,
   createSignal,
   onCleanup,
+  onMount,
   Show,
   Suspense,
   type JSX,
@@ -45,6 +46,11 @@ import { QuestionStarControl } from "../components/question_star_control";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { QuestionResponsePreviewControl } from "../components/question_response_preview";
 import { parseQuestionRouteId } from "../navigation/public_route";
+import {
+  useClearRouteScopeLabels,
+  usePublishRouteScopeLabels,
+  useRouteScopePublication,
+} from "../ribbon/route_scope_context";
 import {
   parseQuestionLibraryReturnToken,
   questionLibraryReturnPath,
@@ -439,6 +445,10 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
 export function QuestionDetailPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
+  const routeScopePublication = useRouteScopePublication();
+  const publishRouteScopeLabels = usePublishRouteScopeLabels();
+  const clearRouteScopeLabels = useClearRouteScopeLabels();
+  let publication: ReturnType<typeof routeScopePublication> | undefined;
   const params = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -476,6 +486,25 @@ export function QuestionDetailPage(): JSX.Element {
     if (key === correctionTarget) return;
     correctionTarget = key;
     setCorrectedBloom(undefined);
+  });
+  function publishLoadedQuestionTitle(): void {
+    if (publication === undefined) return;
+    const title = detail()?.summary.metadata.questionTitle;
+    if (title === undefined || title.length === 0) {
+      clearRouteScopeLabels(publication);
+      return;
+    }
+    publishRouteScopeLabels(publication, { questionTitle: title });
+  }
+  onMount(() => {
+    publication = routeScopePublication();
+    publishLoadedQuestionTitle();
+  });
+  createEffect(() => {
+    publishLoadedQuestionTitle();
+  });
+  onCleanup(() => {
+    if (publication !== undefined) clearRouteScopeLabels(publication);
   });
   return (
     <PageFrame

@@ -295,7 +295,6 @@ export function StudentAssessmentPresentation(
 
   return (
     <PageFrame
-      contentClass="student-assessment-presentation"
       routeSurface="studentAssessment"
       eyebrow="Assessment overview"
       title={props.assessment.title}

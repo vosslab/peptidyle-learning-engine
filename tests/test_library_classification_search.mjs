@@ -7,7 +7,10 @@ import {
 } from "../src/api/library_classification_filter.ts";
 import { questionSearchRequest } from "../src/api/question_library_repository.ts";
 import { questionSearchPath } from "../src/api/question_search_query.ts";
+import { createHttpApiClient } from "../src/api/http_client.ts";
 import { decodeQuestionSearchFacets } from "../src/api/decoders/question_type_facets.ts";
+import { decodeQuestionSearchPage } from "../src/api/decoders/question_library.ts";
+import { fastUiQuestionLibraryPage } from "./support/fast_ui_question_library_fixture.ts";
 import {
   recoverLibrarySearch,
   searchHandoffQuery,
@@ -17,6 +20,7 @@ import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   NO_QUESTION_LIBRARY_FACET_TRUNCATION,
   QuestionLibraryBrowseSession,
+  decodeQuestionLibraryBrowsePage,
   normalizeQuestionLibraryBrowseQuery,
   saveQuestionLibraryReturnState,
   takeQuestionLibraryReturnState,
@@ -129,6 +133,15 @@ test("Library request rejects malformed identities, incomplete chains, false boo
     assert.throws(() => questionSearchPath({ ...request, ...change }));
   }
   assert.throws(() => questionSearchPath({ ...request, sort: "unknown" }));
+  assert.equal(
+    new URL(
+      questionSearchPath({ ...request, page_size: 250 }),
+      "https://example.test",
+    ).searchParams.get("page_size"),
+    "250",
+  );
+  assert.throws(() => questionSearchPath({ ...request, page_size: 251 }));
+  assert.throws(() => questionSearchPath({ ...request, page_size: 0 }));
   assert.throws(() => searchHandoffQuery("?cross_discipline=1"));
   assert.throws(() => searchHandoffQuery("?sort=unknown"));
   assert.throws(() => searchHandoffQuery("?sort=titleAscending&sort=publishedNewest"));
@@ -139,6 +152,20 @@ test("Library request rejects malformed identities, incomplete chains, false boo
       "?bloomKnowledgeDimension=Factual+Knowledge&bloomKnowledgeDimension=Procedural+Knowledge",
     ),
   );
+});
+
+test("Question discovery rejects zero page size before dispatch", async () => {
+  let dispatched = false;
+  const client = createHttpApiClient({
+    fetch: async () => {
+      dispatched = true;
+      throw new Error("invalid page size must not dispatch");
+    },
+  });
+  assert.throws(() =>
+    client.searchQuestionLibrary({ ...questionSearchRequest(query(), null), page_size: 0 }),
+  );
+  assert.equal(dispatched, false);
 });
 
 test("Library malformed URL recovery removes only the rejected strict options", () => {
@@ -267,4 +294,23 @@ test("Bloom facet decoder requires all guide values in guide order, including ze
       "facets",
     ),
   );
+});
+
+test("Question discovery decoder accepts 250 rows and rejects 251", () => {
+  const page = fastUiQuestionLibraryPage();
+  const items = Array.from({ length: 250 }, () => page.items[0]);
+  assert.equal(decodeQuestionSearchPage({ ...page, items }).items.length, 250);
+  assert.throws(() => decodeQuestionSearchPage({ ...page, items: [...items, page.items[0]] }));
+});
+
+test("Library browse decoder accepts 250 rows and rejects 251", () => {
+  const items = Array.from({ length: 250 }, row);
+  const page = {
+    items,
+    nextCursor: null,
+    aggregates: [],
+    facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+  };
+  assert.equal(decodeQuestionLibraryBrowsePage(page).items.length, 250);
+  assert.throws(() => decodeQuestionLibraryBrowsePage({ ...page, items: [...items, row()] }));
 });

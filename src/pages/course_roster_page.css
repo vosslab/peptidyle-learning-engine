@@ -1,9 +1,5 @@
 /* course_roster_page.css - roster-only spacing and import controls. */
 
-.roster-section {
-  margin-top: var(--ple-space-3);
-}
-
 .roster-page .roster-feedback-success {
   padding: 0.75rem;
   border-left: 3px solid var(--ple-success);

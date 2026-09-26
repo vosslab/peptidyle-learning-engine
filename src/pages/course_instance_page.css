@@ -167,47 +167,6 @@
   gap: var(--ple-space-2);
 }
 
-.course-blueprint-update-review__row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-@media (max-width: 48rem) {
-  .course-blueprint-update-review__row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.course-instance-page__content .record-list__row {
-  min-block-size: 6.5rem;
-  border-inline-start: var(--ple-space-1) solid var(--ple-theme-accent);
-  padding-inline-start: var(--ple-space-2);
-}
-
-.course-instance-assessment__position {
-  margin: 0;
-  color: var(--ple-muted);
-  font-size: 0.88rem;
-  font-weight: 400;
-}
-
-.course-instance-assessment__phone-summary {
-  display: none;
-  margin: 0;
-  color: var(--ple-muted);
-  font-size: 0.88rem;
-  font-weight: 400;
-}
-
-.course-instance-page__content .record-list__region--actions {
-  align-content: center;
-  justify-content: end;
-}
-
-.course-instance-page__assessment-editors {
-  display: grid;
-  gap: var(--ple-space-2);
-}
-
 .assessment-inline-editor {
   padding-top: var(--ple-space-2);
   border-top: 1px solid var(--ple-border);
@@ -261,10 +220,6 @@
 }
 
 @media (max-width: 48rem) {
-  .course-instance-page__content .record-list__region--actions {
-    justify-content: start;
-  }
-
   .assessment-inline-editor__fields,
   .assessment-inline-editor__schedule {
     grid-template-columns: minmax(0, 1fr);
@@ -272,10 +227,6 @@
 }
 
 @media (max-width: 32rem) {
-  .course-instance-assessment__phone-summary {
-    display: block;
-  }
-
   .assessment-inline-editor__actions {
     align-items: stretch;
     flex-direction: column;

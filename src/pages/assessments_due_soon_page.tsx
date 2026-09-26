@@ -6,8 +6,11 @@ import { Show, createResource, type JSX } from "solid-js";
 import type { DueSoonAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { assessmentRouteId, courseInstanceRouteId } from "../navigation/public_route";
 
@@ -26,68 +29,45 @@ function assessmentStatusLabel(status: LiveAssessmentStatus): string {
   }
 }
 
-function dueSoonRegions(
+function dueSoonContent(
   formatDueTime: (dueAtMillis: number) => string,
-): ReadonlyArray<RecordRegion<DueSoonAssessmentSummary>> {
-  return [
-    {
-      id: "identity",
-      role: "identity",
-      priority: "required",
-      width: "minmax(14rem, 1fr)",
-      align: "stretch",
-      content: (assessment): JSX.Element => {
-        const courseInstanceId = courseInstanceRouteId(assessment.courseInstanceId);
-        const assessmentId = assessmentRouteId(assessment.assessmentId);
-        const assessmentPath = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
-        return (
-          <div>
-            <p class="assessments-due-soon__kind">
-              {assessmentStatusLabel(assessment.assessmentStatus)} Assessment
-            </p>
-            <h2>
-              <A href={assessmentPath}>{assessment.assessmentTitle}</A>
-            </h2>
-            <p>
-              Course: <A href={`/courses/${courseInstanceId}`}>{assessment.courseLongName}</A>
-            </p>
-          </div>
-        );
-      },
-    },
-    {
-      id: "due",
-      role: "metadata",
-      priority: "high",
-      width: "minmax(13rem, auto)",
-      align: "center",
-      content: (assessment) => (
-        <p class="assessments-due-soon__due">
-          <span>Due</span>
-          {formatDueTime(assessment.dueAtMillis)}
-        </p>
-      ),
-    },
-    {
-      id: "actions",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "center",
-      content: (assessment): JSX.Element => {
-        const courseInstanceId = courseInstanceRouteId(assessment.courseInstanceId);
-        const assessmentId = assessmentRouteId(assessment.assessmentId);
-        return (
-          <A
-            class="primary-link"
-            href={`/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`}
-          >
-            Open Assessment
-          </A>
-        );
-      },
-    },
-  ];
+): (assessment: DueSoonAssessmentSummary) => RecordContent {
+  return (assessment): RecordContent => {
+    const courseInstanceId = courseInstanceRouteId(assessment.courseInstanceId);
+    const assessmentId = assessmentRouteId(assessment.assessmentId);
+    const assessmentPath = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
+    return {
+      title: assessment.assessmentTitle,
+      details: [
+        { kind: "assessmentType", value: assessment.assessmentType },
+        {
+          kind: "text",
+          label: "Status:",
+          value: assessmentStatusLabel(assessment.assessmentStatus),
+        },
+        {
+          kind: "time",
+          label: "Due:",
+          value: formatDueTime(assessment.dueAtMillis),
+          dateTime: new Date(assessment.dueAtMillis).toISOString(),
+        },
+        {
+          kind: "link",
+          label: assessment.courseLongName,
+          href: `/courses/${courseInstanceId}`,
+        },
+      ],
+      actions: [
+        {
+          id: "open-assessment",
+          kind: "link",
+          label: "Open Assessment",
+          href: assessmentPath,
+          primary: true,
+        },
+      ],
+    };
+  };
 }
 
 /** Shows the signed-in Instructor's server-bounded upcoming Assessment deadlines. */
@@ -97,6 +77,10 @@ export function AssessmentsDueSoonPage(): JSX.Element {
     applicationApi.client.listAssessmentsDueSoon(),
   );
   const items = (): ReadonlyArray<DueSoonAssessmentSummary> => assessments()?.items ?? [];
+  const recordContent = (assessment: DueSoonAssessmentSummary): RecordContent =>
+    dueSoonContent(createDisplayDateTimeFormatter(assessments()?.displayTimeZone ?? "UTC"))(
+      assessment,
+    );
   const listState = (): RecordListState => {
     if (assessments.loading) return { kind: "loading", label: "Loading Assessments due soon..." };
     if (assessments.error !== undefined) {
@@ -113,7 +97,6 @@ export function AssessmentsDueSoonPage(): JSX.Element {
 
   return (
     <PageFrame
-      contentClass="assessments-due-soon"
       routeSurface="assessmentsDueSoon"
       eyebrow="Assessments"
       title="Assessments Due Soon"
@@ -127,9 +110,7 @@ export function AssessmentsDueSoonPage(): JSX.Element {
           message: "Manage Coursework to review or set due dates in the Courses you teach.",
         }}
         recordId={(assessment) => assessment.assessmentId}
-        regions={dueSoonRegions(
-          createDisplayDateTimeFormatter(assessments()?.displayTimeZone ?? "UTC"),
-        )}
+        content={recordContent}
         rows={items()}
         state={listState()}
       />

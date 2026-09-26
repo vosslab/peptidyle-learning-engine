@@ -5,8 +5,7 @@ import type {
   BlueprintWatchEvent,
 } from "../../api/blueprint_stewardship";
 import "./blueprint_stewardship.css";
-import { RecordList } from "../../components/record_list/record_list";
-import type { RecordRegion } from "../../components/record_list/region_spec";
+import { RecordList, type RecordContent } from "../../components/record_list/record_list";
 
 interface Props {
   readonly client: BlueprintStewardshipClient;
@@ -27,42 +26,22 @@ function eventLabel(kind: BlueprintWatchEvent["kind"]): string {
   }
 }
 
-const starredInstructorRegions: ReadonlyArray<RecordRegion<{ readonly displayName: string }>> = [
-  {
-    id: "instructor",
-    role: "identity",
-    priority: "required",
-    width: "minmax(0, 1fr)",
-    align: "start",
-    content: (instructor) => instructor.displayName,
-  },
-];
-
-function watchEventRegions(
+function watchEventContent(
   formatDateTime: Props["formatDateTime"],
-): ReadonlyArray<RecordRegion<BlueprintWatchEvent>> {
-  return [
-    {
-      id: "event",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (event) => eventLabel(event.kind),
-    },
-    {
-      id: "occurred-at",
-      role: "metadata",
-      priority: "required",
-      width: "minmax(13rem, auto)",
-      align: "end",
-      content: (event) => (
-        <time datetime={new Date(event.occurredAt).toISOString()}>
-          {formatDateTime(event.occurredAt)}
-        </time>
-      ),
-    },
-  ];
+  event: BlueprintWatchEvent,
+): RecordContent {
+  return {
+    title: eventLabel(event.kind),
+    details: [
+      {
+        kind: "time",
+        label: "Occurred",
+        value: formatDateTime(event.occurredAt),
+        dateTime: new Date(event.occurredAt).toISOString(),
+      },
+    ],
+    actions: [],
+  };
 }
 
 /** The surrounding Instructor detail route mounts this only for Public or Archived Blueprints. */
@@ -170,7 +149,11 @@ export function BlueprintStewardship(props: Props): JSX.Element {
                 ariaLabel="Instructors who starred this Blueprint"
                 emptyState={{ title: "No Instructor Stars to show." }}
                 recordId={(instructor) => instructor.displayName}
-                regions={starredInstructorRegions}
+                content={(instructor): RecordContent => ({
+                  title: instructor.displayName,
+                  details: [],
+                  actions: [],
+                })}
                 rows={current().instructors}
                 state={{ kind: "ready" }}
               />
@@ -182,7 +165,7 @@ export function BlueprintStewardship(props: Props): JSX.Element {
                 ariaLabel="Your private Watch activity"
                 emptyState={{ title: "No Watch activity yet." }}
                 recordId={(event) => `${event.kind}-${event.occurredAt}`}
-                regions={watchEventRegions(props.formatDateTime)}
+                content={(event) => watchEventContent(props.formatDateTime, event)}
                 rows={current().events}
                 state={{ kind: "ready" }}
               />

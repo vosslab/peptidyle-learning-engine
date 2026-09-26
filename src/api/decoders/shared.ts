@@ -2,6 +2,7 @@
 
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
 import { MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import type { QuestionBackendCapabilities } from "../../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionAvailability } from "../../../generated/api/QuestionAvailability";
@@ -44,6 +45,8 @@ const CAPABILITIES = [
 export const MAX_CURSOR_LENGTH = 512;
 /** Matches the server-owned PageSize::MAX for every cursor-list response. */
 export const MAX_CURSOR_PAGE_ITEMS = 100;
+/** Matches the server-owned discovery page ceiling. */
+export const MAX_DISCOVERY_PAGE_ITEMS = MAX_DISCOVERY_PAGE_SIZE;
 /** Largest public route number accepted by the Rust public-ID contract. */
 export const MAX_PUBLIC_ROUTE_NUMBER = 2_147_483_647;
 export const QUESTION_BACKENDS = [
@@ -65,7 +68,9 @@ export function isProductionQuestionBackend(
   return (PRODUCTION_QUESTION_BACKENDS as ReadonlyArray<QuestionBackend>).includes(backend);
 }
 
-export const MAX_QUESTION_SEARCH_PAGE_ITEMS = MAX_CURSOR_PAGE_ITEMS;
+export const MAX_QUESTION_SEARCH_PAGE_ITEMS = MAX_DISCOVERY_PAGE_ITEMS;
+/** Static prompt blocks remain independently bounded from discovery results. */
+export const MAX_QUESTION_DETAILS_STATIC_PROMPT_BLOCKS = 100;
 export const MAX_QUESTION_SEARCH_CAPABILITY_FACETS = CAPABILITIES.length;
 export const MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS = 3;
 export const MINIMUM_STATISTICS_COHORT_SIZE = 5;

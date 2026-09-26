@@ -92,7 +92,7 @@ const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   gradedQuestionCount: 2,
   savedQuestionCount: 0,
   questionCount: 2,
-  assessmentScore: { pointsEarned: 3, pointsPossible: 0 },
+  assessmentScore: { pointsEarned: 3, pointsPossible: 8 },
 };
 const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   id: "A7K2CW4A0",
@@ -207,6 +207,11 @@ export function mountStudentCourseEntryM6Harness(
           previousAttempts:
             item.assessmentAttemptCompletion === "completed"
               ? [
+                  {
+                    assessmentAttemptId: "00000000-0000-0000-0000-000000000007",
+                    attemptNumber: 2,
+                    state: "closed",
+                  },
                   {
                     assessmentAttemptId: "00000000-0000-0000-0000-000000000005",
                     attemptNumber: 1,

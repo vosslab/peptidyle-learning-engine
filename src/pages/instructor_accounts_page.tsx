@@ -1,16 +1,18 @@
 // Live Sysadmin Instructor Account workflow; it never renders Authentication Email.
 
-import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createMemo, createResource, createSignal, type Accessor, type JSX } from "solid-js";
 
 import type { InstructorAccountList, InstructorAccountSummary } from "../api/instructor_account";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
-import { AvatarVisual } from "../features/profile_avatar/provided_avatar_picker";
-import { RibbonIcon } from "../ribbon/ribbon_icon";
+import { PROVIDED_AVATAR_CATALOG } from "../features/profile_avatar/avatar_catalog_generated";
 import { formatSignInLabel } from "./instructor_account_model";
 
 const unavailableAccountList: InstructorAccountList = {
@@ -33,6 +35,11 @@ function failureCopy(): string {
   return "That Instructor Account change could not be completed. Check the account state and try again.";
 }
 
+function accountAvatarMedia(account: InstructorAccountSummary): RecordContent["media"] {
+  const avatar = PROVIDED_AVATAR_CATALOG.find((entry) => entry.id === account.providedAvatarId);
+  return avatar === undefined ? undefined : { src: avatar.assetPath, alt: "" };
+}
+
 /** Sysadmin-only Account creation and lifecycle actions. */
 export function InstructorAccountsPage(): JSX.Element {
   const runtime = useApplicationApi();
@@ -48,7 +55,7 @@ export function InstructorAccountsPage(): JSX.Element {
   const [email, setEmail] = createSignal("");
   const [verifiedInstructorDisplayName, setVerifiedInstructorDisplayName] = createSignal("");
   const [reasonByAccountId, setReasonByAccountId] = createSignal<Record<string, string>>({});
-  const [busyAccountId, setBusyAccountId] = createSignal<string | null>(null);
+  const [busyAccountIds, setBusyAccountIds] = createSignal<ReadonlySet<string>>(new Set());
   const [creating, setCreating] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [announcement, setAnnouncement] = createSignal("");
@@ -82,6 +89,15 @@ export function InstructorAccountsPage(): JSX.Element {
 
   function setReason(accountId: string, reason: string): void {
     setReasonByAccountId((current) => ({ ...current, [accountId]: reason }));
+  }
+
+  function setAccountBusy(accountId: string, busy: boolean): void {
+    setBusyAccountIds((current) => {
+      const next = new Set(current);
+      if (busy) next.add(accountId);
+      else next.delete(accountId);
+      return next;
+    });
   }
 
   async function createAccount(event: SubmitEvent): Promise<void> {
@@ -134,12 +150,13 @@ export function InstructorAccountsPage(): JSX.Element {
   }
 
   async function deactivate(account: InstructorAccountSummary): Promise<void> {
+    if (busyAccountIds().has(account.id)) return;
     const reason = reasonByAccountId()[account.id] ?? "";
     if (reason.length === 0 || reason.length > 1000 || reason !== reason.trim()) {
       setError("Enter a trimmed deactivation reason within 1,000 characters.");
       return;
     }
-    setBusyAccountId(account.id);
+    setAccountBusy(account.id, true);
     setError(null);
     try {
       updateAccount(await runtime.client.deactivateInstructorAccount(account.id, { reason }));
@@ -148,12 +165,13 @@ export function InstructorAccountsPage(): JSX.Element {
     } catch {
       setError(failureCopy());
     } finally {
-      setBusyAccountId(null);
+      setAccountBusy(account.id, false);
     }
   }
 
   async function reactivate(account: InstructorAccountSummary): Promise<void> {
-    setBusyAccountId(account.id);
+    if (busyAccountIds().has(account.id)) return;
+    setAccountBusy(account.id, true);
     setError(null);
     try {
       updateAccount(await runtime.client.reactivateInstructorAccount(account.id));
@@ -161,74 +179,76 @@ export function InstructorAccountsPage(): JSX.Element {
     } catch {
       setError(failureCopy());
     } finally {
-      setBusyAccountId(null);
+      setAccountBusy(account.id, false);
     }
   }
 
-  const accountRegions = (): ReadonlyArray<RecordRegion<InstructorAccountSummary>> => {
+  function accountContent(account: InstructorAccountSummary): RecordContent {
     const formatSignIn = createDisplayDateTimeFormatter(accounts()?.displayTimeZone ?? "UTC");
-    return [
-      {
-        id: "account",
-        role: "identity",
-        priority: "required",
-        width: "minmax(0, 1fr)",
-        align: "stretch",
-        content: (account) => (
-          <div class="auth-panel">
-            <h2>
-              <Show when={account.providedAvatarId} fallback={<RibbonIcon glyph="circle-user" />}>
-                {(providedAvatarId) => (
-                  <AvatarVisual avatarId={providedAvatarId()} decorative size={24} />
-                )}
-              </Show>{" "}
-              {account.id}
-            </h2>
-            <p>State: {stateLabel(account.state)}</p>
-            <p>
-              Last successful sign-in:{" "}
-              {formatSignInLabel(account.lastSuccessfulSignIn, formatSignIn)}
-            </p>
-            <Show when={account.state === "active"}>
-              <label for={`deactivate-reason-${account.id}`}>
-                Deactivation reason
-                <input
-                  id={`deactivate-reason-${account.id}`}
-                  name={`deactivationReason-${account.id}`}
-                  type="text"
-                  value={reasonByAccountId()[account.id] ?? ""}
-                  onInput={(event) => setReason(account.id, event.currentTarget.value)}
-                  maxlength={1000}
-                  required
-                />
-              </label>
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={busyAccountId() === account.id}
-                onClick={() => void deactivate(account)}
-              >
-                {busyAccountId() === account.id ? "Updating..." : "Deactivate Instructor Account"}
-              </button>
-            </Show>
-            <Show when={account.state === "deactivated"}>
-              <button
-                class="primary-action"
-                type="button"
-                disabled={busyAccountId() === account.id}
-                onClick={() => void reactivate(account)}
-              >
-                {busyAccountId() === account.id ? "Updating..." : "Reactivate Instructor Account"}
-              </button>
-            </Show>
-            <Show when={account.state === "closed"}>
-              <p>This Instructor Account is closed and cannot be changed here.</p>
-            </Show>
-          </div>
-        ),
-      },
-    ];
-  };
+    return {
+      title: account.id,
+      details: [
+        { kind: "text", label: "State:", value: stateLabel(account.state) },
+        {
+          kind: "text",
+          label: "Last successful sign-in:",
+          value: formatSignInLabel(account.lastSuccessfulSignIn, formatSignIn),
+        },
+      ],
+      media: accountAvatarMedia(account),
+      actions:
+        account.state === "active"
+          ? [
+              {
+                id: "deactivate",
+                kind: "command" as const,
+                label: busyAccountIds().has(account.id)
+                  ? "Updating..."
+                  : "Deactivate Instructor Account",
+                disabled: busyAccountIds().has(account.id),
+                onClick: () => void deactivate(account),
+              },
+            ]
+          : account.state === "deactivated"
+            ? [
+                {
+                  id: "reactivate",
+                  kind: "command" as const,
+                  label: busyAccountIds().has(account.id)
+                    ? "Updating..."
+                    : "Reactivate Instructor Account",
+                  primary: true,
+                  disabled: busyAccountIds().has(account.id),
+                  onClick: () => void reactivate(account),
+                },
+              ]
+            : [],
+    };
+  }
+
+  function renderAccountBody(account: Accessor<InstructorAccountSummary>): JSX.Element {
+    return (
+      <div class="auth-panel">
+        <Show when={account().state === "active"}>
+          <label for={`deactivate-reason-${account().id}`}>
+            Deactivation reason
+            <input
+              id={`deactivate-reason-${account().id}`}
+              name={`deactivationReason-${account().id}`}
+              type="text"
+              value={reasonByAccountId()[account().id] ?? ""}
+              onInput={(event) => setReason(account().id, event.currentTarget.value)}
+              maxlength={1000}
+              required
+            />
+          </label>
+        </Show>
+        <Show when={account().state === "closed"}>
+          <p>This Instructor Account is closed and cannot be changed here.</p>
+        </Show>
+      </div>
+    );
+  }
 
   return (
     <PageFrame
@@ -272,7 +292,7 @@ export function InstructorAccountsPage(): JSX.Element {
             value={verifiedInstructorDisplayName()}
             onInput={(event) => setVerifiedInstructorDisplayName(event.currentTarget.value)}
             autocomplete="off"
-            maxlength={400}
+            maxlength={200}
             required
           />
         </label>
@@ -291,7 +311,8 @@ export function InstructorAccountsPage(): JSX.Element {
         ariaLabel="Instructor Accounts"
         emptyState={{ title: "No Instructor Accounts are available." }}
         recordId={(account) => account.id}
-        regions={accountRegions()}
+        content={accountContent}
+        renderBody={renderAccountBody}
         rows={accounts()?.accounts ?? []}
         state={accountListState()}
       />

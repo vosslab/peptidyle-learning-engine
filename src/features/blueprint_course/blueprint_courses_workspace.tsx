@@ -1,18 +1,22 @@
 // Live discovery for reusable Blueprint Courses.
 import { A } from "@solidjs/router";
-import { Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onMount, type JSX } from "solid-js";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
-import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import type { BlueprintCourseListSort } from "../../api/blueprint_course";
 import { PageFrame } from "../../components/page_frame";
-import { RecordList } from "../../components/record_list/record_list";
-import type { RecordRegion } from "../../components/record_list/region_spec";
+import {
+  RecordPageControls,
+  type RecordPageSize,
+} from "../../components/record_list/record_page_controls";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../../components/record_list/record_list";
+import { RecordSortControl } from "../../components/record_list/record_sort_control";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseImport } from "./blueprint_exchange";
-import {
-  appendBlueprintCoursePage,
-  blueprintCourseContinuationPresentation,
-} from "./blueprint_course_model";
 import type { BlueprintCoursesWorkspaceProps } from "./blueprint_course_workspace_types";
 import "./blueprint_course.css";
 
@@ -22,6 +26,20 @@ type NoticeKind = "status" | "alert";
 interface Notice {
   readonly kind: NoticeKind;
   readonly text: string;
+}
+
+interface BlueprintDiscoveryOptions {
+  readonly includeArchived: boolean;
+  readonly pageSize: RecordPageSize;
+  readonly sort: BlueprintCourseListSort;
+}
+
+interface BlueprintPageRequest {
+  readonly cursor: string | undefined;
+  readonly previousCursors: ReadonlyArray<string | undefined>;
+  readonly options: BlueprintDiscoveryOptions;
+  readonly focusResults: boolean;
+  readonly successNotice?: string;
 }
 
 function blueprintCoursePath(blueprintCourseId: string): string {
@@ -41,98 +59,134 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
 
-const blueprintCourseRegions: ReadonlyArray<RecordRegion<BlueprintCourseSummaryView>> = [
-  {
-    id: "blueprint",
-    role: "identity",
-    priority: "required",
-    width: "minmax(14rem, 1.4fr)",
-    align: "start",
-    content: (course) => (
-      <A href={blueprintCoursePath(course.id)}>
-        <strong>{course.long_name}</strong>
-        <span>
-          {course.total_adoptions.toLocaleString()} adoptions ·{" "}
-          {course.total_students_ever_enrolled.toLocaleString()} students ever enrolled
-        </span>
-      </A>
-    ),
-  },
-  {
-    id: "access",
-    role: "metadata",
-    priority: "high",
-    width: "minmax(14rem, 1fr)",
-    align: "start",
-    content: (course) => (
-      <>
-        {course.read_access === "blueprint_course_owner"
-          ? "You are the Blueprint Course Owner."
-          : "Inspect its reusable modules."}{" "}
-        Current Blueprint Revision {course.current_revision_tuple.revisionNumber}.
-      </>
-    ),
-  },
-  {
-    id: "classification",
-    role: "metadata",
-    priority: "medium",
-    width: "minmax(12rem, 1fr)",
-    align: "start",
-    content: (course) => <CourseClassificationSummary value={course.classification} />,
-  },
-];
+function blueprintCourseContent(course: BlueprintCourseSummaryView): RecordContent {
+  return {
+    title: course.long_name,
+    description: course.short_name,
+    details: [
+      {
+        kind: "text",
+        label: "Current Blueprint Revision",
+        value: course.current_revision_tuple.revisionNumber,
+      },
+      { kind: "text", label: "Adoptions", value: course.total_adoptions.toLocaleString() },
+      {
+        kind: "text",
+        label: "Students ever enrolled",
+        value: course.total_students_ever_enrolled.toLocaleString(),
+      },
+      {
+        kind: "text",
+        label: "Access",
+        value:
+          course.read_access === "blueprint_course_owner"
+            ? "You are the Blueprint Course Owner."
+            : "Inspect its reusable modules.",
+      },
+      { kind: "courseClassification", value: course.classification },
+    ],
+    actions: [
+      {
+        id: "open",
+        kind: "link",
+        label: "Open Blueprint Course",
+        href: blueprintCoursePath(course.id),
+        primary: true,
+      },
+    ],
+  };
+}
 
 export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [courses, setCourses] = createSignal<ReadonlyArray<BlueprintCourseSummaryView>>([]);
-  const [cursor, setCursor] = createSignal<string | null>(null);
-  const [includeArchived, setIncludeArchived] = createSignal(false);
-  const [loadingMore, setLoadingMore] = createSignal(false);
-  const [continuationFailed, setContinuationFailed] = createSignal(false);
+  const [currentCursor, setCurrentCursor] = createSignal<string>();
+  const [previousCursors, setPreviousCursors] = createSignal<ReadonlyArray<string | undefined>>([]);
+  const [nextCursor, setNextCursor] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
-  const [sort, setSort] = createSignal<"name" | "adoptions" | "students">("name");
-  const sortedCourses = (): ReadonlyArray<BlueprintCourseSummaryView> =>
-    [...courses()].sort((left, right) => {
-      const popularity =
-        sort() === "adoptions"
-          ? right.total_adoptions - left.total_adoptions
-          : sort() === "students"
-            ? right.total_students_ever_enrolled - left.total_students_ever_enrolled
-            : 0;
-      return (
-        popularity ||
-        left.long_name.localeCompare(right.long_name) ||
-        left.id.localeCompare(right.id)
-      );
-    });
+  const [options, setOptions] = createSignal<BlueprintDiscoveryOptions>({
+    includeArchived: false,
+    pageSize: 50,
+    sort: "name",
+  });
+  const [loading, setLoading] = createSignal(false);
+  const [pendingRequest, setPendingRequest] = createSignal<BlueprintPageRequest>();
   const [notice, setNotice] = createSignal<Notice>({
     kind: "status",
     text: "Loading Blueprint Courses.",
   });
   let createTrigger: HTMLButtonElement | undefined;
+  let resultsStatus: HTMLParagraphElement | undefined;
   let discoveryRequest = 0;
-  async function load(includeArchivedCourses = includeArchived()): Promise<void> {
+  function discoveryOptions(): BlueprintDiscoveryOptions {
+    return options();
+  }
+
+  function pageRequest(
+    cursor: string | undefined,
+    previousCursors: ReadonlyArray<string | undefined>,
+    options = discoveryOptions(),
+    focusResults = false,
+    successNotice?: string,
+  ): BlueprintPageRequest {
+    return { cursor, previousCursors, options, focusResults, successNotice };
+  }
+
+  function focusResults(): void {
+    queueMicrotask(() => resultsStatus?.focus());
+  }
+
+  async function load(target: BlueprintPageRequest): Promise<void> {
     const request = ++discoveryRequest;
-    setState("loading");
+    const initialLoad = state() !== "ready";
+    setPendingRequest(target);
+    setLoading(true);
+    if (initialLoad) setState("loading");
     try {
       const page = await props.client.listBlueprintCourses(
+        target.cursor,
+        target.options.pageSize,
+        target.options.includeArchived ? true : undefined,
         undefined,
-        50,
-        includeArchivedCourses ? true : undefined,
+        false,
+        false,
+        undefined,
+        target.options.sort,
       );
       if (request !== discoveryRequest) return;
       setCourses(page.items);
-      setCursor(page.nextCursor);
-      setContinuationFailed(false);
+      setCurrentCursor(target.cursor);
+      setPreviousCursors(target.previousCursors);
+      setNextCursor(page.nextCursor);
+      setOptions(target.options);
       setState("ready");
+      setPendingRequest(undefined);
+      setLoading(false);
       setNotice({
         kind: "status",
-        text: "Choose a Blueprint Course to inspect or create a new reusable course structure.",
+        text:
+          target.successNotice ??
+          "Choose a Blueprint Course to inspect or create a new reusable course structure.",
       });
+      if (target.focusResults) focusResults();
     } catch (error: unknown) {
       if (request !== discoveryRequest) return;
-      setState("error");
+      if (target.cursor !== undefined && error instanceof ApiRequestError && error.status === 400) {
+        setPendingRequest(undefined);
+        void load(
+          pageRequest(
+            undefined,
+            [],
+            target.options,
+            true,
+            "That Blueprint Course continuation is no longer available. Returned to the newest page.",
+          ),
+        );
+        return;
+      }
+      setLoading(false);
+      if (initialLoad) setState("error");
+      else setState("ready");
       setNotice({
         kind: "alert",
         text: errorMessage(error, "Blueprint Courses could not load. Try again."),
@@ -140,50 +194,57 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
     }
   }
 
-  async function loadMore(): Promise<void> {
-    const nextCursor = cursor();
-    if (nextCursor === null || loadingMore()) return;
-    const request = ++discoveryRequest;
-    const includeArchivedCourses = includeArchived();
-    setLoadingMore(true);
-    try {
-      const page = await props.client.listBlueprintCourses(
-        nextCursor,
-        50,
-        includeArchivedCourses ? true : undefined,
-      );
-      if (request !== discoveryRequest) return;
-      setCourses((current) => appendBlueprintCoursePage(current, page.items));
-      setCursor(page.nextCursor);
-      setContinuationFailed(false);
-    } catch (error: unknown) {
-      if (request !== discoveryRequest) return;
-      setContinuationFailed(true);
-      setNotice({
-        kind: "alert",
-        text: errorMessage(error, "More Blueprint Courses could not load. Try again when ready."),
-      });
-    } finally {
-      if (request === discoveryRequest) setLoadingMore(false);
-    }
+  function reset(options: BlueprintDiscoveryOptions): void {
+    void load(pageRequest(undefined, [], options, true));
   }
 
   function changeIncludeArchived(next: boolean): void {
-    setIncludeArchived(next);
-    setCourses([]);
-    setCursor(null);
-    setLoadingMore(false);
-    setContinuationFailed(false);
-    void load(next);
+    reset({ ...discoveryOptions(), includeArchived: next });
   }
 
-  onMount(() => void load());
-  const continuation = (): ReturnType<typeof blueprintCourseContinuationPresentation> =>
-    blueprintCourseContinuationPresentation(cursor() !== null, continuationFailed());
+  function changeSort(next: BlueprintCourseListSort): void {
+    if (next !== discoveryOptions().sort) reset({ ...discoveryOptions(), sort: next });
+  }
+
+  function changePageSize(next: RecordPageSize): void {
+    if (next !== discoveryOptions().pageSize) reset({ ...discoveryOptions(), pageSize: next });
+  }
+
+  function collectionState(): RecordListState {
+    if (state() === "loading" || loading()) {
+      return { kind: "loading", label: "Loading Blueprint Courses." };
+    }
+    if (state() === "error" || pendingRequest() !== undefined) {
+      return {
+        kind: "error",
+        title: "Blueprint Courses unavailable",
+        message: notice().text,
+        retry: (): void => {
+          const target = pendingRequest();
+          if (target !== undefined) void load(target);
+        },
+        retryLabel: "Retry loading Blueprint Courses",
+      };
+    }
+    return { kind: "ready" };
+  }
+
+  function previousPage(): void {
+    const cursors = previousCursors();
+    if (cursors.length === 0) return;
+    void load(pageRequest(cursors[cursors.length - 1], cursors.slice(0, -1), undefined, true));
+  }
+
+  function nextPage(): void {
+    const cursor = nextCursor();
+    if (cursor === null) return;
+    void load(pageRequest(cursor, [...previousCursors(), currentCursor()], undefined, true));
+  }
+
+  onMount(() => void load(pageRequest(undefined, [])));
 
   return (
     <PageFrame
-      contentClass="blueprint-course-workspace"
       eyebrow="Blueprint Courses"
       title="Build reusable course structure"
       lede="Blueprint Courses contain reusable modules and assessments, with no Students or delivery dates."
@@ -192,9 +253,18 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
       <Show when={props.proposalClient}>
         <A href="/blueprint-change-proposals">My Change Proposals</A>
       </Show>
-      <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
-        {notice().text}
-      </p>
+      <Show when={state() === "ready" && !loading() && pendingRequest() === undefined}>
+        <p
+          class="blueprint-course-notice"
+          role={notice().kind === "alert" ? "alert" : "status"}
+          tabindex="-1"
+          ref={(element) => {
+            resultsStatus = element;
+          }}
+        >
+          {notice().text}
+        </p>
+      </Show>
       <section class="blueprint-course-card" aria-labelledby="blueprint-courses-heading">
         <div class="blueprint-course-section-heading">
           <div>
@@ -205,7 +275,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
             <label class="blueprint-course-archive-filter">
               <input
                 type="checkbox"
-                checked={includeArchived()}
+                checked={discoveryOptions().includeArchived}
                 onChange={(event) => changeIncludeArchived(event.currentTarget.checked)}
               />
               Include Archived
@@ -222,64 +292,39 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
             <BlueprintCourseImport client={props.client} />
           </div>
         </div>
-        <Switch>
-          <Match when={state() === "loading"}>
-            <p>Loading Blueprint Courses.</p>
-          </Match>
-          <Match when={state() === "error"}>
-            <button type="button" onClick={() => void load()}>
-              Retry loading Blueprint Courses
-            </button>
-          </Match>
-          <Match when={state() === "ready"}>
-            <Show
-              when={courses().length > 0}
-              fallback={
-                <p class="blueprint-course-empty-copy">
-                  No Blueprint Courses are visible yet. Create the first one.
-                </p>
-              }
-            >
-              <label class="blueprint-course-sort">
-                Sort Blueprint Courses
-                <select
-                  value={sort()}
-                  onChange={(event) => {
-                    const value = event.currentTarget.value;
-                    if (value === "name" || value === "adoptions" || value === "students")
-                      setSort(value);
-                  }}
-                >
-                  <option value="name">Name</option>
-                  <option value="adoptions">Total adoptions</option>
-                  <option value="students">Students ever enrolled</option>
-                </select>
-              </label>
-              <div class="blueprint-course-record-list">
-                <RecordList
-                  ariaLabel="Available Blueprint Courses"
-                  emptyState={{ title: "No Blueprint Courses are visible yet." }}
-                  recordId={(course) => course.id}
-                  regions={blueprintCourseRegions}
-                  rows={sortedCourses()}
-                  state={{ kind: "ready" }}
-                />
-              </div>
-            </Show>
-            <Show when={continuation().visible}>
-              <div class="blueprint-course-continuation">
-                <p role={continuationFailed() ? "alert" : "status"}>
-                  {continuationFailed()
-                    ? "More Blueprint Courses are available. Retry when ready."
-                    : "More Blueprint Courses are available."}
-                </p>
-                <button type="button" disabled={loadingMore()} onClick={() => void loadMore()}>
-                  {loadingMore() ? "Loading..." : continuation().action}
-                </button>
-              </div>
-            </Show>
-          </Match>
-        </Switch>
+        <RecordSortControl
+          label="Sort Blueprint Courses"
+          options={[
+            { value: "name", label: "Name" },
+            { value: "adoptions", label: "Total adoptions" },
+            { value: "students", label: "Students ever enrolled" },
+          ]}
+          value={discoveryOptions().sort}
+          disabled={state() !== "ready" || loading()}
+          onChange={changeSort}
+        />
+        <RecordList
+          ariaLabel="Available Blueprint Courses"
+          emptyState={{
+            title: "No Blueprint Courses are visible yet.",
+            message: "Create the first one.",
+          }}
+          recordId={(course) => course.id}
+          content={blueprintCourseContent}
+          rows={courses()}
+          state={collectionState()}
+        />
+        <RecordPageControls
+          ariaLabel="Blueprint Course pages"
+          hasPrevious={previousCursors().length > 0}
+          hasNext={nextCursor() !== null}
+          loading={loading()}
+          disabled={state() !== "ready"}
+          onPrevious={previousPage}
+          onNext={nextPage}
+          pageSize={discoveryOptions().pageSize}
+          onPageSizeChange={changePageSize}
+        />
       </section>
       <Show when={creating()}>
         <BlueprintCourseCreateDialog

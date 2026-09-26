@@ -82,6 +82,17 @@ test("Pool list retains independent metadata and current Pool identity", () => {
     decodeQuestionPoolMetadata({ ...metadata, title: "\u{1f9ec}".repeat(512) }, "metadata").title,
     "\u{1f9ec}".repeat(512),
   );
+
+  const discoveryPage = { ...page, items: Array.from({ length: 250 }, () => page.items[0]) };
+  assert.equal(decodeQuestionPoolLibraryPage(discoveryPage).items.length, 250);
+  assert.throws(
+    () =>
+      decodeQuestionPoolLibraryPage({
+        ...page,
+        items: Array.from({ length: 251 }, () => page.items[0]),
+      }),
+    DecodeError,
+  );
 });
 
 test("Pool metadata rejects missing required fields, unknown fields and malformed classifications", () => {

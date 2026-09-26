@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import {
+  decodeBlueprintCoursePage,
   decodeBlueprintCourseView,
   decodeBlueprintMetadataState,
 } from "../src/api/decoders/blueprint_course.ts";
@@ -25,6 +26,31 @@ const classification = {
 };
 const FOUR_MIB = 4 * 1_024 * 1_024;
 const SIXTEEN_MIB = 16 * 1_024 * 1_024;
+
+test("Blueprint discovery decoder accepts 250 rows and rejects 251", () => {
+  const item = {
+    total_adoptions: 0,
+    total_students_ever_enrolled: 0,
+    id: "BPABCDEFGJ",
+    short_name: "Genetics",
+    long_name: "Genetics sequence",
+    availability: "public",
+    blueprint_edit_number: "1",
+    classification: {
+      disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+      subjectUuid: null,
+      topicUuid: null,
+      subtopicUuid: null,
+      tags: [],
+    },
+    current_revision_tuple: { blueprintCourseId: "BPABCDEFGJ", revisionNumber: "1" },
+    read_access: "active_instructor",
+  };
+  const items = Array.from({ length: 250 }, () => item);
+  assert.equal(decodeBlueprintCoursePage({ items, nextCursor: null }).items.length, 250);
+  assert.throws(() => decodeBlueprintCoursePage({ items: [...items, item], nextCursor: null }));
+});
+
 function contentInput() {
   return {
     assessment_type: "exam",
@@ -258,6 +284,17 @@ test("Blueprint discovery encodes only active optional discovery filters", async
   await client.listBlueprintCourses(undefined, 50, false, "Biochem & %_+?", true);
   await client.listBlueprintCourses(undefined, 50, false, "Genetics", true, true);
   await client.listBlueprintCourses(undefined, 50, false, "Genetics", true, false);
+  await client.listBlueprintCourses(undefined, 250);
+  await client.listBlueprintCourses(
+    undefined,
+    50,
+    false,
+    undefined,
+    false,
+    false,
+    undefined,
+    "adoptions",
+  );
   assert.equal(paths[0].searchParams.has("includeArchived"), false);
   assert.equal(paths[1].searchParams.has("includeArchived"), false);
   assert.equal(paths[2].searchParams.get("includeArchived"), "true");
@@ -280,7 +317,36 @@ test("Blueprint discovery encodes only active optional discovery filters", async
     client.listBlueprintCourses(undefined, 50, false, "bad\u0000query", true),
     ApiProtocolError,
   );
-  assert.equal(paths.length, 6);
+  await assert.rejects(client.listBlueprintCourses(undefined, 251), ApiProtocolError);
+  await assert.rejects(client.listBlueprintCourses(undefined, 0), ApiProtocolError);
+  await client.listBlueprintCourses(
+    undefined,
+    50,
+    false,
+    undefined,
+    true,
+    false,
+    undefined,
+    "students",
+  );
+  assert.equal(paths.at(-1).searchParams.get("sort"), "students");
+  assert.equal(paths.at(-1).searchParams.get("publicOnly"), "true");
+  await assert.rejects(
+    client.listBlueprintCourses(
+      undefined,
+      50,
+      false,
+      undefined,
+      false,
+      false,
+      undefined,
+      "unknown",
+    ),
+    ApiProtocolError,
+  );
+  assert.equal(paths[6].searchParams.get("pageSize"), "250");
+  assert.equal(paths[7].searchParams.get("sort"), "adoptions");
+  assert.equal(paths.length, 9);
 });
 
 test("Blueprint classification discovery encodes identity filters and rejects incomplete chains before fetching", async () => {

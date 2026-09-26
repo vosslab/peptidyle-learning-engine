@@ -17,14 +17,22 @@ import type { ApiClient } from "./client";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
 import { isProductionQuestionBackend, PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
-import type {
-  QuestionLibraryBrowseQuery,
-  QuestionLibraryBrowseRepository,
-  QuestionLibraryBrowseFacetAggregate,
-  QuestionLibraryBrowsePage,
+import {
+  QUESTION_LIBRARY_PAGE_SIZES,
+  type QuestionLibraryBrowseQuery,
+  type QuestionLibraryBrowseRepository,
+  type QuestionLibraryBrowseFacetAggregate,
+  type QuestionLibraryBrowsePage,
+  type QuestionLibraryPageSize,
 } from "../pages/library_page_model";
 
-const QUESTION_LIBRARY_PAGE_SIZE = 50;
+function questionLibraryPageSize(
+  pageSize: QuestionLibraryPageSize | undefined,
+): QuestionLibraryPageSize {
+  if (pageSize === undefined) return 50;
+  if (QUESTION_LIBRARY_PAGE_SIZES.includes(pageSize)) return pageSize;
+  throw new Error("Question Library page size must be 50, 100, or 250");
+}
 const CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",
@@ -207,6 +215,7 @@ export function questionSearchRequest(
   query: QuestionLibraryBrowseQuery,
   cursor: string | null,
   authorship: QuestionSearchAuthorship = "any",
+  pageSize?: QuestionLibraryPageSize,
 ): QuestionSearchRequest {
   return {
     text: query.search === "" ? null : query.search,
@@ -225,7 +234,7 @@ export function questionSearchRequest(
     authorship,
     sort: query.sort,
     cursor,
-    page_size: QUESTION_LIBRARY_PAGE_SIZE,
+    page_size: questionLibraryPageSize(pageSize),
   };
 }
 
@@ -235,8 +244,12 @@ export function createQuestionLibraryRepository(
   authorship: QuestionSearchAuthorship = "any",
 ): QuestionLibraryBrowseRepository {
   return {
-    async search(query: QuestionLibraryBrowseQuery, cursor: string | null): Promise<unknown> {
-      const search = questionSearchRequest(query, cursor, authorship);
+    async search(
+      query: QuestionLibraryBrowseQuery,
+      cursor: string | null,
+      pageSize?: QuestionLibraryPageSize,
+    ): Promise<unknown> {
+      const search = questionSearchRequest(query, cursor, authorship, pageSize);
       const page = await client.searchQuestionLibrary(search);
       return {
         items: page.items.map((item) => ({

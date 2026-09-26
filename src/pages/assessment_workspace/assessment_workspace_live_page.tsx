@@ -3,6 +3,7 @@
 import { A, useLocation, useParams } from "@solidjs/router";
 import {
   createContext,
+  onCleanup,
   onMount,
   Show,
   useContext,
@@ -32,7 +33,11 @@ import { AssessmentWorkspacePoliciesPage } from "./assessment_workspace_policies
 import { AssessmentWorkspaceQuestionsPage } from "./assessment_workspace_questions_page";
 import { AssessmentWorkspaceStudentViewPage } from "./assessment_workspace_student_view_page";
 import "./assessment_workspace.css";
-import { useSetAssessmentTitleForPath } from "../../ribbon/route_scope_context";
+import {
+  useClearRouteScopeLabels,
+  usePublishRouteScopeLabels,
+  useRouteScopePublication,
+} from "../../ribbon/route_scope_context";
 
 export interface AssessmentWorkspaceContextValue {
   readonly courseInstanceId: CourseInstanceRouteId;
@@ -108,7 +113,6 @@ function WorkspaceState(props: {
   if (props.state === "loading") {
     return (
       <PageFrame
-        contentClass="assessment-workspace-state"
         routeSurface="assessmentWorkspaceGate"
         eyebrow="Instructor assessment workspace"
         title="Loading assessment workspace"
@@ -123,7 +127,8 @@ function WorkspaceState(props: {
     return (
       <div role="alert">
         <PageFrame
-          contentClass="assessment-workspace-state route-error"
+          // Failure card on the content region. PageFrame still owns the stack.
+          contentClass="route-error"
           routeSurface="assessmentWorkspaceGate"
           eyebrow="Instructor assessment workspace"
           title="Assessment workspace could not load"
@@ -145,7 +150,8 @@ function WorkspaceState(props: {
   return (
     <div role="alert">
       <PageFrame
-        contentClass="assessment-workspace-state route-error"
+        // Failure card on the content region. PageFrame still owns the stack.
+        contentClass="route-error"
         routeSurface="assessmentWorkspaceGate"
         eyebrow="Instructor assessment workspace"
         title="This assessment workspace is unavailable"
@@ -181,9 +187,12 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
   const applicationApi = useApplicationApi();
   const location = useLocation();
   const params = useParams();
-  const setAssessmentTitleForPath = useSetAssessmentTitleForPath();
+  const routeScopePublication = useRouteScopePublication();
+  const publishRouteScopeLabels = usePublishRouteScopeLabels();
+  const clearRouteScopeLabels = useClearRouteScopeLabels();
   const [state, setState] = createSignal<LoadState>("loading");
   const [workspace, setWorkspace] = createSignal<AssessmentWorkspaceContextValue>();
+  let activePublication: ReturnType<typeof routeScopePublication> | undefined;
   let retryButton: HTMLButtonElement | undefined;
 
   function registerRetryButton(element: HTMLButtonElement): void {
@@ -192,6 +201,9 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
 
   async function load(): Promise<void> {
     const pathname = location.pathname;
+    const publication = routeScopePublication();
+    activePublication = publication;
+    clearRouteScopeLabels(publication);
     setState("loading");
     const courseInstanceId = parseCourseInstanceId(params["courseInstanceId"] ?? "");
     const assessmentId = parseAssessmentId(params["assessmentId"] ?? "");
@@ -208,7 +220,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
       const [currentAssessment, setCurrentAssessment] = createSignal(assessment);
       const replaceCurrentAssessment = (next: LiveAssessmentWorkspaceResponse): void => {
         setCurrentAssessment(next);
-        setAssessmentTitleForPath(pathname, next.workspace.title);
+        publishRouteScopeLabels(publication, { assessmentTitle: next.workspace.title });
       };
       const reloadAssessment = async (): Promise<LiveAssessmentWorkspaceResponse> => {
         const latest = await applicationApi.client.getLiveAssessmentWorkspace(
@@ -273,8 +285,9 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
         saveBaseAssessmentPolicy,
         reloadAssessment,
       });
-      setAssessmentTitleForPath(pathname, assessment.workspace.title);
+      publishRouteScopeLabels(publication, { assessmentTitle: assessment.workspace.title });
     } catch (error: unknown) {
+      clearRouteScopeLabels(publication);
       const failureState: LoadState = error instanceof Error ? "error" : "unavailable";
       setState(failureState);
       if (failureState === "error") {
@@ -284,6 +297,9 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
   }
 
   onMount(() => void load());
+  onCleanup(() => {
+    if (activePublication !== undefined) clearRouteScopeLabels(activePublication);
+  });
 
   return (
     <Show

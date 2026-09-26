@@ -1,4 +1,4 @@
-//! Answer-free Question Library summaries, search matching, and HTTP mapping.
+//! Answer-free Question Library summaries and HTTP mapping.
 
 use axum::{
     Json,
@@ -6,31 +6,22 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::{PublishedQuestionLibraryEntry, StoreError};
-use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
-use question_model::{
-    Capability, QuestionBackend, QuestionBackendCapabilities, QuestionSearchAuthorship,
-    QuestionSearchCourseUse, QuestionSearchRequest, QuestionSummary,
-    normalized_question_search_group_value,
-};
+use objects::{ObjectStore, ResolvedQuestionSource};
+use question_model::{QuestionBackend, QuestionSummary};
 
-use super::{QuestionAvailabilityResponse, classification, search_query};
+use super::QuestionAvailabilityResponse;
 
 pub(super) struct ResolvedQuestionLibraryEntry {
     pub(super) summary: QuestionSummary,
     pub(super) prompt: Vec<question_model::QuestionContentBlock>,
     pub(super) response_preview: Option<question_model::QuestionResponsePreview>,
-    pub(super) authored_by_current_account: bool,
-    pub(super) used_in_current_account_courses: bool,
     pub(super) subject: Option<String>,
-    pub(super) topic: Option<String>,
     pub(super) discipline: Option<String>,
     pub(super) discipline_is_retired: bool,
-    pub(super) subtopic: Option<String>,
-    pub(super) classification: question_model::PublishedQuestionSharedMetadata,
 }
 
-pub(super) async fn entries_to_summaries(
-    objects: &S3ObjectStore,
+pub(super) async fn entries_to_summaries<O: ObjectStore>(
+    objects: &O,
     entries: Vec<PublishedQuestionLibraryEntry>,
 ) -> Result<Vec<ResolvedQuestionLibraryEntry>, ()> {
     let mut summaries = Vec::with_capacity(entries.len());
@@ -40,8 +31,8 @@ pub(super) async fn entries_to_summaries(
     Ok(summaries)
 }
 
-pub(super) async fn summary_from_entry(
-    objects: &S3ObjectStore,
+pub(super) async fn summary_from_entry<O: ObjectStore>(
+    objects: &O,
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<QuestionSummary, ()> {
     Ok(answer_free_question_library_entry(objects, entry)
@@ -52,8 +43,8 @@ pub(super) async fn summary_from_entry(
 /// Produces the one browser-safe Question Library entry shape from the
 /// backend-owned source boundary. Private source bindings never cross this
 /// boundary into a summary or search result.
-pub(super) async fn answer_free_question_library_entry(
-    objects: &S3ObjectStore,
+pub(super) async fn answer_free_question_library_entry<O: ObjectStore>(
+    objects: &O,
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     match entry.backend {
@@ -69,10 +60,7 @@ pub(super) async fn answer_free_question_library_entry(
 fn webwork_question_library_entry(
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
-    let used_in_current_account_courses = entry.used_in_current_account_courses;
     let tags = entry.shared_metadata.tags.clone();
-    let subject = Some(entry.subject_name.clone());
-    let topic = entry.topic_name.clone();
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
             question_id: entry
@@ -83,8 +71,7 @@ fn webwork_question_library_entry(
             backend: entry.backend,
             question_format: entry.question_format,
             question_type: entry.question_type,
-            capabilities: adapter_webwork::webwork_source_capabilities(QuestionBackend::Webwork)
-                .map_err(|_| ())?,
+            capabilities: super::facets::backend_capabilities(QuestionBackend::Webwork),
             metadata: question_model::QuestionMetadata {
                 question_title: entry.question_title,
                 question_description: entry.question_description,
@@ -100,19 +87,14 @@ fn webwork_question_library_entry(
         },
         prompt: Vec::new(),
         response_preview: None,
-        authored_by_current_account: entry.authored_by_current_account,
-        used_in_current_account_courses,
-        subject,
-        topic,
+        subject: Some(entry.subject_name.clone()),
         discipline: Some(entry.discipline_name),
         discipline_is_retired: entry.discipline_is_retired,
-        subtopic: entry.subtopic_name,
-        classification: entry.shared_metadata,
     })
 }
 
-async fn resolved_ple_question(
-    objects: &S3ObjectStore,
+async fn resolved_ple_question<O: ObjectStore>(
+    objects: &O,
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     if entry.backend != QuestionBackend::Ple {
@@ -136,9 +118,6 @@ async fn resolved_ple_question(
     let compiled = document.compile().map_err(|_| ())?;
     let presentation = compiled.presentation();
     let mut metadata = presentation.metadata().clone();
-    let used_in_current_account_courses = entry.used_in_current_account_courses;
-    let subject = Some(entry.subject_name.clone());
-    let topic = entry.topic_name.clone();
     if metadata.question_title != entry.question_title
         || metadata.question_description != entry.question_description
         || metadata.question_license.as_ref() != Some(&entry.question_license)
@@ -158,10 +137,7 @@ async fn resolved_ple_question(
             backend: entry.backend,
             question_format: entry.question_format,
             question_type: entry.question_type,
-            capabilities: QuestionBackendCapabilities::from_iter([
-                Capability::ClientRendering,
-                Capability::ServerGrading,
-            ]),
+            capabilities: super::facets::backend_capabilities(QuestionBackend::Ple),
             metadata,
             authorship: entry.authorship,
             availability: entry.availability,
@@ -173,110 +149,10 @@ async fn resolved_ple_question(
             question_model::QuestionResponsePreview::from_native_response(presentation.response())
                 .ok_or(())?,
         ),
-        authored_by_current_account: entry.authored_by_current_account,
-        used_in_current_account_courses,
-        subject,
-        topic,
+        subject: Some(entry.subject_name.clone()),
         discipline: Some(entry.discipline_name),
         discipline_is_retired: entry.discipline_is_retired,
-        subtopic: entry.subtopic_name,
-        classification: entry.shared_metadata,
     })
-}
-
-pub(super) fn matches_query(
-    entry: &&ResolvedQuestionLibraryEntry,
-    query: &QuestionSearchRequest,
-    text_query: &search_query::QuestionTextQuery,
-) -> bool {
-    let summary = &entry.summary;
-    if !classification::matches(&entry.classification, query) {
-        return false;
-    }
-    if !text_query.matches(entry) {
-        return false;
-    }
-    if query.bloom_cognitive_process.is_some_and(|value| {
-        summary
-            .bloom
-            .as_ref()
-            .is_none_or(|bloom| value != bloom.cognitive_process)
-    }) {
-        return false;
-    }
-    if query.bloom_knowledge_dimension.is_some_and(|value| {
-        summary
-            .bloom
-            .as_ref()
-            .is_none_or(|bloom| value != bloom.knowledge_dimension)
-    }) {
-        return false;
-    }
-    if !query.author_names.is_empty()
-        && !summary.authorship.authors.iter().any(|author| {
-            query.author_names.iter().any(|name| {
-                name == &normalized_question_search_group_value(author.display_name.as_str())
-            })
-        })
-    {
-        return false;
-    }
-    if !query.backends.is_empty() && !query.backends.contains(&summary.backend) {
-        return false;
-    }
-    if !query.tags.is_empty()
-        && !summary.metadata.tags.iter().any(|tag| {
-            query
-                .tags
-                .contains(&normalized_question_search_group_value(tag.as_str()))
-        })
-    {
-        return false;
-    }
-    if !query.subjects.is_empty()
-        && !entry.subject.as_ref().is_some_and(|subject| {
-            query
-                .subjects
-                .contains(&normalized_question_search_group_value(subject))
-        })
-    {
-        return false;
-    }
-    if !query.topics.is_empty()
-        && !entry.topic.as_ref().is_some_and(|topic| {
-            query
-                .topics
-                .contains(&normalized_question_search_group_value(topic))
-        })
-    {
-        return false;
-    }
-    if !query.question_types.is_empty() && !query.question_types.contains(&summary.question_type) {
-        return false;
-    }
-    if !query
-        .capabilities
-        .iter()
-        .all(|capability| summary.capabilities.supports(*capability))
-    {
-        return false;
-    }
-    if !query.question_licenses.is_empty()
-        && !summary
-            .metadata
-            .question_license
-            .as_ref()
-            .is_some_and(|license| query.question_licenses.contains(license))
-    {
-        return false;
-    }
-    if query.used_in_my_courses == QuestionSearchCourseUse::Used
-        && !entry.used_in_current_account_courses
-    {
-        return false;
-    }
-    query.authorship != QuestionSearchAuthorship::AuthoredByCurrentAccount
-        || entry.authored_by_current_account
 }
 
 pub(super) fn store_error_response(error: StoreError) -> Response {

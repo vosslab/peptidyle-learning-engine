@@ -1,4 +1,3 @@
-import { A } from "@solidjs/router";
 import { createResource, createSignal, Show, type JSX } from "solid-js";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type {
@@ -6,9 +5,8 @@ import type {
   CourseBlueprintUpdateReview,
 } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
-import { assessmentTypePresentation } from "../assessment_type_presentation";
-import { RecordList } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import { RecordList, type RecordContent } from "../components/record_list/record_list";
+import { assessmentRouteId } from "../navigation/public_route";
 
 function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string {
   if (assessment.cannotApplyReason === "retainedSourceMissing") {
@@ -20,45 +18,31 @@ function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string
   return assessment.matchesSource ? "Matches source" : "Changes available";
 }
 
-function assessmentUpdateRegions(
+function assessmentUpdateContent(
   courseInstanceId: CourseInstanceId,
-): ReadonlyArray<RecordRegion<CourseAssessmentBlueprintUpdateSummary>> {
-  return [
-    {
-      id: "identity",
-      role: "identity",
-      priority: "required",
-      width: "minmax(14rem, 1fr)",
-      align: "stretch",
-      content: (assessment) => (
-        <div>
-          <p class="course-blueprint-update-review__kind">{updateLabel(assessment)}</p>
-          {/* ASVS 1.2.1: source-controlled titles remain escaped text. */}
-          <h3>{assessment.title}</h3>
-          <p>
-            {assessmentTypePresentation(assessment.assessmentType).label}
-            {"; "}Assessment {assessment.assessmentId}
-          </p>
-        </div>
-      ),
-    },
-    {
-      id: "actions",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "center",
-      content: (assessment) => (
-        <A
-          class="quiet-link"
-          aria-label={`Review this Assessment: ${assessment.title}`}
-          href={`/instructor/courses/${courseInstanceId}/assessments/${assessment.assessmentId}/questions`}
-        >
-          Review this Assessment
-        </A>
-      ),
-    },
-  ];
+): (assessment: CourseAssessmentBlueprintUpdateSummary) => RecordContent {
+  return (assessment): RecordContent => {
+    const assessmentId = assessmentRouteId(assessment.assessmentId);
+    return {
+      // ASVS 1.2.1: source-controlled titles remain escaped text in RecordList.
+      title: assessment.title,
+      details: [
+        { kind: "text", label: "Update:", value: updateLabel(assessment) },
+        { kind: "assessmentType", value: assessment.assessmentType },
+        { kind: "text", label: "Assessment ID:", value: assessment.assessmentId },
+      ],
+      actions: [
+        {
+          id: "review-assessment",
+          kind: "link",
+          label: "Review Assessment",
+          title: `Review this Assessment: ${assessment.title}`,
+          href: `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}/questions`,
+          primary: true,
+        },
+      ],
+    };
+  };
 }
 
 /** Read-only discovery; each Assessment's editor loads its own current detailed review. */
@@ -145,7 +129,7 @@ export function CourseBlueprintUpdateReviewList(props: {
                     ariaLabel="Blueprint Assessment updates"
                     emptyState={{ title: "No Blueprint Assessment updates" }}
                     recordId={(assessment) => assessment.assessmentId}
-                    regions={assessmentUpdateRegions(props.courseInstanceId)}
+                    content={assessmentUpdateContent(props.courseInstanceId)}
                     rows={summary().assessments}
                     state={{ kind: "ready" }}
                   />

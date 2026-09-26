@@ -1,7 +1,8 @@
 // Compact full-stack structural parity for WP-E6, WP-E2, and the production Library browse route.
 // Selector contract: PageFrame mode/title (src/components/page_frame.tsx); Breadcrumb rail
-// (src/application_shell.tsx); Student Coursework regions (src/pages/student_course_landing_page.tsx);
-// Library presentations/window and record regions (src/pages/library_browse_rows.tsx).
+// (src/application_shell.tsx); Student Coursework title and action
+// (src/pages/student_course_landing_page.tsx); Library presentations/window and record copy
+// (src/pages/library_browse_rows.tsx).
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -96,7 +97,7 @@ test.describe("UI backbone compact parity on the production PLE stack", () => {
         await expectPageFrameGeometry(student, "reading");
       });
 
-      await test.step("Student Coursework keeps required regions and its action adjacent on laptop and phone", async () => {
+      await test.step("Student Coursework keeps each Assessment title and action visible on laptop and phone", async () => {
         const courseworkTab = student
           .getByRole("navigation", { name: "Ribbon tabs", exact: true })
           .getByRole("link", { name: "Coursework", exact: true });
@@ -107,28 +108,24 @@ test.describe("UI backbone compact parity on the production PLE stack", () => {
         const assertCourseworkRows = async (): Promise<void> => {
           const structure = await rows.evaluateAll((elements) =>
             elements.map((row) => {
-              const identity = row.querySelector<HTMLElement>(
-                '[data-record-region-id="assessment"]',
-              );
-              const action = row.querySelector<HTMLElement>('[data-record-region-id="action"]');
-              if (identity === null || action === null) return null;
+              const title = row.querySelector<HTMLElement>(".record-list__title");
+              const action = row.querySelector<HTMLAnchorElement>(".record-list__actions a");
+              if (title === null || action === null) return null;
               return {
-                identityPriority: identity.dataset.recordListPriority,
-                actionPriority: action.dataset.recordListPriority,
-                identityVisible: identity.getClientRects().length > 0,
+                title: title.textContent?.trim() ?? "",
+                titleVisible: title.getClientRects().length > 0,
+                actionLabel: action.textContent?.trim() ?? "",
                 actionVisible: action.getClientRects().length > 0,
-                actionHasLink: action.querySelector("a") !== null,
               };
             }),
           );
           expect(structure.length).toBeGreaterThan(0);
           for (const row of structure) {
             expect(row).not.toBeNull();
-            expect(row?.identityPriority).toBe("required");
-            expect(row?.actionPriority).toBe("required");
-            expect(row?.identityVisible).toBe(true);
+            expect(row?.title.length).toBeGreaterThan(0);
+            expect(row?.titleVisible).toBe(true);
+            expect(row?.actionLabel.length).toBeGreaterThan(0);
             expect(row?.actionVisible).toBe(true);
-            expect(row?.actionHasLink).toBe(true);
           }
         };
 
@@ -186,53 +183,35 @@ test.describe("UI backbone compact parity on the production PLE stack", () => {
             new URL(requestUrl).searchParams.getAll("tags").includes("protein"),
           ),
         ).toBe(true);
-        await expect(listWindow.locator(".record-list__row").first()).toBeVisible();
-        await expect(
-          instructor.getByRole("group", { name: "Question result presentation", exact: true }),
-        ).toBeVisible();
-        await expect(instructor.getByRole("button", { name: "Scan", exact: true })).toHaveAttribute(
-          "aria-pressed",
-          "true",
-        );
-        await expect(
-          instructor.getByRole("button", { name: "Preview", exact: true }),
-        ).toBeVisible();
-        await expect(listWindow.locator(".library-browse-record-list--scan")).toHaveCount(1);
-        const rows = listWindow.locator(".record-list__row");
+        const list = listWindow.getByRole("list", { name: "Published questions", exact: true });
+        await expect(list).toHaveCount(1);
+        const rows = list.locator(".record-list__row");
+        await expect(rows).toHaveCount(FAST_UI_QUESTION_LIBRARY_IDS.length);
         const rowStructure = await rows.evaluateAll((elements) =>
           elements.map((row) => ({
             id: row.getAttribute("data-record-id"),
-            title: row.querySelector("h2")?.textContent?.trim(),
-            regions: [...row.querySelectorAll<HTMLElement>("[data-record-region-id]")].map(
-              (region) => ({
-                id: region.dataset.recordRegionId,
-                priority: region.dataset.recordListPriority,
-              }),
-            ),
-            identityVisible:
-              (row.querySelector('[data-record-region-id="question"]')?.getClientRects().length ??
-                0) > 0,
-            actionVisible:
-              (row.querySelector('[data-record-region-id="actions"]')?.getClientRects().length ??
-                0) > 0,
+            title: row.querySelector(".record-list__title")?.textContent?.trim() ?? "",
+            titleVisible:
+              (row.querySelector(".record-list__title")?.getClientRects().length ?? 0) > 0,
+            hasCopy:
+              ((row.querySelector(".record-list__description")?.textContent?.trim().length ?? 0) >
+                0 &&
+                (row.querySelector(".record-list__description")?.getClientRects().length ?? 0) >
+                  0) ||
+              ((row.querySelector(".record-list__facts")?.textContent?.trim().length ?? 0) > 0 &&
+                (row.querySelector(".record-list__facts")?.getClientRects().length ?? 0) > 0),
+            openName: row.querySelector(".record-list__actions a")?.textContent?.trim() ?? "",
+            openVisible:
+              (row.querySelector(".record-list__actions a")?.getClientRects().length ?? 0) > 0,
           })),
         );
-        expect(rowStructure.length).toBeGreaterThan(0);
-        expect(rowStructure.length).toBeLessThan(FAST_UI_QUESTION_LIBRARY_IDS.length);
-        expect(new Set(rowStructure.map((row) => row.id)).size).toBe(rowStructure.length);
-        expect(rowStructure.map((row) => row.id)).toEqual(
-          FAST_UI_QUESTION_LIBRARY_IDS.slice(0, rowStructure.length),
-        );
+        expect(rowStructure.map((row) => row.id)).toEqual([...FAST_UI_QUESTION_LIBRARY_IDS]);
         for (const row of rowStructure) {
-          expect(row.title).toBeTruthy();
-          expect(row.regions).toEqual([
-            { id: "question", priority: "required" },
-            { id: "classification", priority: "high" },
-            { id: "authors", priority: "medium" },
-            { id: "actions", priority: "required" },
-          ]);
-          expect(row.identityVisible).toBe(true);
-          expect(row.actionVisible).toBe(true);
+          expect(row.title.length).toBeGreaterThan(0);
+          expect(row.titleVisible).toBe(true);
+          expect(row.hasCopy).toBe(true);
+          expect(row.openName).toBe("Open");
+          expect(row.openVisible).toBe(true);
         }
       });
     } finally {

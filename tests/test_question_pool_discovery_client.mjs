@@ -53,8 +53,13 @@ test("Pool discovery encodes the selected identity tuple on first and continuati
   assert.equal(requests[0].url.searchParams.has("cursor"), false);
   assert.equal(requests[1].url.searchParams.get("cursor"), "continuation&literal");
   await client.listQuestionPools();
+  await client.listQuestionPools(undefined, 250);
   for (const field of Object.keys(filter))
     assert.equal(requests[2].url.searchParams.has(field), false);
+  assert.equal(requests[3].url.searchParams.get("page_size"), "250");
+  await assert.rejects(client.listQuestionPools(undefined, 251));
+  await assert.rejects(client.listQuestionPools(undefined, 0));
+  assert.equal(requests.length, 4);
 });
 
 test("Pool discovery rejects invalid classification chains before dispatch", async () => {

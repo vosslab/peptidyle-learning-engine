@@ -52,8 +52,6 @@
   --ple-list-row-padding-block: var(--ple-space-3);
   --ple-list-row-padding-inline: var(--ple-space-4);
   --ple-list-row-gap: var(--ple-space-3);
-  --ple-question-library-window-block-size: min(65vh, 33rem);
-  --ple-question-library-row-block-size: 112px;
   --ple-assignment-field-gap: 0.25rem;
   --ple-assignment-field-margin-block: 0.45rem;
   --ple-assignment-field-font-size: 0.9rem;

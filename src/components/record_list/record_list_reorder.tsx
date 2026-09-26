@@ -1,7 +1,5 @@
 import { createContext, createSignal, useContext, type JSX } from "solid-js";
 
-import { reordered } from "../../features/blueprint_forks/blueprint_fork_apply_model";
-
 type DraggedRecord = {
   readonly id: string;
   readonly label: string;
@@ -30,7 +28,19 @@ export function reorderedRecordListRows<Row>(
   sourceIndex: number,
   destinationIndex: number,
 ): Row[] {
-  return reordered(rows, sourceIndex, destinationIndex - sourceIndex);
+  if (
+    sourceIndex < 0 ||
+    sourceIndex >= rows.length ||
+    destinationIndex < 0 ||
+    destinationIndex >= rows.length ||
+    sourceIndex === destinationIndex
+  )
+    return [...rows];
+  const reorderedRows = [...rows];
+  const [row] = reorderedRows.splice(sourceIndex, 1);
+  if (row === undefined) return reorderedRows;
+  reorderedRows.splice(destinationIndex, 0, row);
+  return reorderedRows;
 }
 
 export type RecordListReorderProps = {
@@ -228,5 +238,247 @@ export function RecordListReorderControls(props: RecordListReorderControlsProps)
         Drag to reorder
       </button>
     </div>
+  );
+}
+
+export type ControlledRecordReorder = {
+  /** Resolve only after the caller-owned record IDs reflect an accepted move. */
+  readonly onMove: (sourceIndex: number, destinationIndex: number) => void | Promise<void>;
+  readonly recordLabel: (recordId: string) => string;
+  readonly isDisabled?: (recordId: string) => boolean;
+};
+
+type ControlledDraggedRecord = {
+  readonly id: string;
+};
+
+type ControlledRecordReorderContext = {
+  readonly recordIds: () => ReadonlyArray<string>;
+  readonly reorder: ControlledRecordReorder;
+  readonly moveByOffset: (recordId: string, offset: -1 | 1) => void;
+  readonly startDrag: (recordId: string, event: DragEvent) => void;
+  readonly allowDrop: (recordId: string, event: DragEvent) => void;
+  readonly completeDrop: (recordId: string, event: DragEvent) => void;
+  readonly endDrag: () => void;
+};
+
+const ControlledRecordReorderContext = createContext<ControlledRecordReorderContext>();
+
+export function useControlledRecordReorder(): ControlledRecordReorderContext | undefined {
+  return useContext(ControlledRecordReorderContext);
+}
+
+export type ControlledRecordReorderProviderProps = {
+  readonly recordIds: () => ReadonlyArray<string>;
+  readonly reorder: ControlledRecordReorder;
+  readonly ariaLabel?: string;
+  readonly children: JSX.Element;
+};
+
+export type RecordMoveControlsProps = {
+  readonly recordLabel: string;
+  readonly index: () => number;
+  readonly count: () => number;
+  readonly disabled: () => boolean;
+  readonly move: (offset: -1 | 1) => void;
+  readonly startDrag: (event: DragEvent) => void;
+  readonly allowDrop: (event: DragEvent) => void;
+  readonly completeDrop: (event: DragEvent) => void;
+  readonly endDrag: () => void;
+  readonly rootRef?: (element: HTMLDivElement) => void;
+};
+
+/** Shared native keyboard and drag controls for one controlled ordered record. */
+export function RecordMoveControls(props: RecordMoveControlsProps): JSX.Element {
+  function handleMoveKeyDown(event: KeyboardEvent): void {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    props.move(event.key === "ArrowUp" ? -1 : 1);
+  }
+
+  return (
+    <div
+      class="record-controlled-reorder-actions"
+      role="group"
+      aria-label={`Actions for ${props.recordLabel}`}
+      ref={props.rootRef}
+    >
+      <button
+        class="quiet-action"
+        type="button"
+        data-record-controlled-reorder-direction="earlier"
+        disabled={props.disabled() || props.index() === 0}
+        onClick={() => props.move(-1)}
+        onKeyDown={handleMoveKeyDown}
+        aria-keyshortcuts="ArrowUp"
+        aria-label={`Move ${props.recordLabel} earlier`}
+        title="Use the Up Arrow to move earlier."
+      >
+        &uarr; Move earlier
+      </button>
+      <button
+        class="quiet-action"
+        type="button"
+        data-record-controlled-reorder-direction="later"
+        disabled={props.disabled() || props.index() === props.count() - 1}
+        onClick={() => props.move(1)}
+        onKeyDown={handleMoveKeyDown}
+        aria-keyshortcuts="ArrowDown"
+        aria-label={`Move ${props.recordLabel} later`}
+        title="Use the Down Arrow to move later."
+      >
+        &darr; Move later
+      </button>
+      <button
+        class="quiet-action"
+        type="button"
+        draggable={!props.disabled()}
+        disabled={props.disabled()}
+        onDragStart={props.startDrag}
+        onDragOver={props.allowDrop}
+        onDrop={props.completeDrop}
+        onDragEnd={props.endDrag}
+        aria-label={`Drag ${props.recordLabel} to a new position`}
+      >
+        Drag to reorder
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Shares controlled movement completion, announcement, and stable-ID focus across ordered record
+ * containers. It owns neither the caller's rows nor persistence and error presentation.
+ */
+export function ControlledRecordReorderProvider(
+  props: ControlledRecordReorderProviderProps,
+): JSX.Element {
+  const [movementAnnouncement, setMovementAnnouncement] = createSignal("");
+  const [draggedRecord, setDraggedRecord] = createSignal<ControlledDraggedRecord>();
+
+  function recordIndex(recordId: string): number {
+    return props.recordIds().indexOf(recordId);
+  }
+
+  function recordIsDisabled(recordId: string): boolean {
+    return props.reorder.isDisabled?.(recordId) === true;
+  }
+
+  function focusMovedRecord(
+    recordId: string,
+    preferredDirection: RecordListReorderDirection,
+  ): void {
+    requestAnimationFrame(() => {
+      const focusRoot = Array.from(
+        document.querySelectorAll<HTMLOListElement>("ol[aria-label]"),
+      ).find((element) => element.getAttribute("aria-label") === props.ariaLabel);
+      const movedRecord = Array.from(
+        focusRoot?.querySelectorAll<HTMLElement>("[data-record-id]") ?? [],
+      ).find((element) => element.dataset.recordId === recordId);
+      const preferredControl = movedRecord?.querySelector<HTMLButtonElement>(
+        `[data-record-controlled-reorder-direction="${preferredDirection}"]:not(:disabled)`,
+      );
+      const fallbackControl = movedRecord?.querySelector<HTMLButtonElement>(
+        "[data-record-controlled-reorder-direction]:not(:disabled)",
+      );
+      (preferredControl ?? fallbackControl)?.focus();
+    });
+  }
+
+  async function requestMove(recordId: string, destinationIndex: number): Promise<void> {
+    const before = props.recordIds();
+    const sourceIndex = before.indexOf(recordId);
+    if (
+      recordIsDisabled(recordId) ||
+      sourceIndex < 0 ||
+      destinationIndex < 0 ||
+      destinationIndex >= before.length ||
+      sourceIndex === destinationIndex
+    )
+      return;
+    try {
+      await props.reorder.onMove(sourceIndex, destinationIndex);
+    } catch {
+      return;
+    }
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    const after = props.recordIds();
+    const actualIndex = after.indexOf(recordId);
+    if (actualIndex !== destinationIndex || after.every((id, index) => id === before[index]))
+      return;
+    setMovementAnnouncement(
+      `${props.reorder.recordLabel(recordId)} moved to position ${actualIndex + 1}.`,
+    );
+    focusMovedRecord(recordId, actualIndex < sourceIndex ? "earlier" : "later");
+  }
+
+  function moveByOffset(recordId: string, offset: -1 | 1): void {
+    void requestMove(recordId, recordIndex(recordId) + offset);
+  }
+
+  function startDrag(recordId: string, event: DragEvent): void {
+    if (recordIsDisabled(recordId) || recordIndex(recordId) < 0) return;
+    setDraggedRecord({ id: recordId });
+    if (event.dataTransfer !== null) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", recordId);
+    }
+  }
+
+  function allowDrop(recordId: string, event: DragEvent): void {
+    const dragged = draggedRecord();
+    if (dragged === undefined || dragged.id === recordId || recordIsDisabled(recordId)) return;
+    event.preventDefault();
+    if (event.dataTransfer !== null) event.dataTransfer.dropEffect = "move";
+  }
+
+  function completeDrop(recordId: string, event: DragEvent): void {
+    event.preventDefault();
+    const dragged = draggedRecord();
+    setDraggedRecord(undefined);
+    if (dragged === undefined || recordIsDisabled(recordId)) return;
+    void requestMove(dragged.id, recordIndex(recordId));
+  }
+
+  const context: ControlledRecordReorderContext = {
+    recordIds: props.recordIds,
+    reorder: props.reorder,
+    moveByOffset,
+    startDrag,
+    allowDrop,
+    completeDrop,
+    endDrag: (): void => setDraggedRecord(undefined),
+  };
+
+  return (
+    <ControlledRecordReorderContext.Provider value={context}>
+      {props.children}
+      <p class="visually-hidden" role="status" aria-live="polite">
+        {movementAnnouncement()}
+      </p>
+    </ControlledRecordReorderContext.Provider>
+  );
+}
+
+export function ControlledRecordMoveControls(props: { readonly recordId: string }): JSX.Element {
+  const context = useControlledRecordReorder();
+  if (context === undefined)
+    throw new Error("ControlledRecordMoveControls must be inside ControlledRecordReorderProvider.");
+  const recordIndex = (): number => context.recordIds().indexOf(props.recordId);
+  const disabled = (): boolean => context.reorder.isDisabled?.(props.recordId) === true;
+  const recordLabel = (): string => context.reorder.recordLabel(props.recordId);
+
+  return (
+    <RecordMoveControls
+      recordLabel={recordLabel()}
+      index={recordIndex}
+      count={() => context.recordIds().length}
+      disabled={disabled}
+      move={(offset) => context.moveByOffset(props.recordId, offset)}
+      startDrag={(event) => context.startDrag(props.recordId, event)}
+      allowDrop={(event) => context.allowDrop(props.recordId, event)}
+      completeDrop={(event) => context.completeDrop(props.recordId, event)}
+      endDrag={context.endDrag}
+    />
   );
 }

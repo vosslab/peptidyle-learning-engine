@@ -111,7 +111,7 @@ export function courseChoice(page: Page, title: string): Locator {
 export async function selectVisibleCourse(page: Page, title: string): Promise<void> {
   const choice = courseChoice(page, title);
   await expect(choice).toHaveCount(1);
-  await choice.getByRole("link", { name: "Open Course Instance", exact: true }).click();
+  await choice.getByRole("link", { name: "Open Course", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }
 

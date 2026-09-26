@@ -1,6 +1,7 @@
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintForkApplyModuleLayout } from "../../../generated/api/BlueprintForkApplyModuleLayout";
 import type { BlueprintForkApplySelection } from "../../../generated/api/BlueprintForkApplySelection";
+import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { MAX_REUSABLE_ENTRIES } from "../blueprint_course/blueprint_course_model";
 export type Layout = BlueprintForkApplyModuleLayout;
 export function destinationKey(value: Layout["module"] | Layout["assessments"][number]): string {
@@ -31,14 +32,7 @@ export function currentForkLayout(review: BlueprintComparisonView): Layout[] {
     }));
 }
 export function reordered<T>(items: readonly T[], position: number, offset: number): T[] {
-  const result = [...items];
-  const destination = position + offset;
-  if (destination < 0 || destination >= result.length) return result;
-  const item = result[position];
-  if (item === undefined) return result;
-  result.splice(position, 1);
-  result.splice(destination, 0, item);
-  return result;
+  return reorderedRecordListRows(items, position, position + offset);
 }
 export function forkSelectionProblem(
   review: BlueprintComparisonView,

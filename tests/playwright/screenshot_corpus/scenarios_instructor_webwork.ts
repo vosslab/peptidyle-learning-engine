@@ -145,7 +145,7 @@ async function captureGeneratedExample(
     const result = page.locator(".record-list__row").filter({
       has: page.getByRole("heading", { name: example.title, exact: true }),
     });
-    await result.getByRole("link", { name: "Open question", exact: true }).click();
+    await result.getByRole("link", { name: "Open", exact: true }).click();
     await page.getByRole("heading", { level: 1, name: example.title, exact: true }).waitFor();
     await page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await renderedAnswerFreePreview(page, example);

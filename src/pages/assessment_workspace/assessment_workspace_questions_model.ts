@@ -6,7 +6,6 @@ import type { AssessmentPointValue } from "../../../generated/api/AssessmentPoin
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type {
-  AssessmentQuestionPickerEntry,
   LiveAssessmentWorkspace,
   SaveLiveAssessmentInput,
 } from "../../api/assessment_release";
@@ -70,13 +69,13 @@ export function questionRevisionKey(
   return `${publishedQuestionRevisionTuple.publishedQuestionId}:${publishedQuestionRevisionTuple.revisionNumber}`;
 }
 
-/** Appends an Available picker row as a new fixed Entry without altering existing Entry objects. */
+/** Appends one exact Published Revision as a new fixed Entry without altering existing Entry objects. */
 export function appendAvailableFixedQuestion(
   entries: ReadonlyArray<AssessmentEntry>,
-  picker: AssessmentQuestionPickerEntry,
+  publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   entryId: AssessmentEntryId,
 ): ReadonlyArray<AssessmentEntry> {
-  const key = questionRevisionKey(picker.publishedQuestionRevisionTuple);
+  const key = questionRevisionKey(publishedQuestionRevisionTuple);
   if (
     entries.some(
       (entry) =>
@@ -90,7 +89,7 @@ export function appendAvailableFixedQuestion(
     {
       kind: "fixedQuestion",
       id: entryId,
-      publishedQuestionRevisionTuple: picker.publishedQuestionRevisionTuple,
+      publishedQuestionRevisionTuple,
       pointsPossible: "1",
       availability: "available",
       scoringRule: "normal",

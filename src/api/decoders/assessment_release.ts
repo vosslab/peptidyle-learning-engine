@@ -17,7 +17,6 @@ import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type {
-  AssessmentQuestionPickerEntry,
   AssessmentReleaseValidation,
   AssessmentUnreleaseImpact,
   AuthoredAssessmentQuestion,
@@ -314,7 +313,7 @@ function entries(value: unknown, path: string): ReadonlyArray<AssessmentEntry> {
   return decodeBoundedArray(value, path, MAX_ASSESSMENT_ORDERED_ENTRIES, assessmentEntry);
 }
 
-function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntry {
+function authoredQuestion(value: unknown, path: string): AuthoredAssessmentQuestion {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["publishedQuestionRevisionTuple", "description", "bloom"]);
   return {
@@ -333,10 +332,6 @@ function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntr
       decodeBloomClassificationView,
     ),
   };
-}
-
-function authoredQuestion(value: unknown, path: string): AuthoredAssessmentQuestion {
-  return pickerEntry(value, path);
 }
 
 function status(value: unknown, path: string): LiveAssessmentStatus {
@@ -634,13 +629,6 @@ export function decodeLiveAssessmentWorkspace(
       authoredQuestion,
     ),
   };
-}
-
-export function decodeAssessmentQuestionPicker(
-  value: unknown,
-  path = "response",
-): ReadonlyArray<AssessmentQuestionPickerEntry> {
-  return decodeArray(value, path, pickerEntry);
 }
 
 export function decodeCourseAssessments(

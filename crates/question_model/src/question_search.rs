@@ -8,6 +8,9 @@ use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
 use crate::{BloomCognitiveProcess, BloomKnowledgeDimension, Capability};
 
+/// Maximum rows in one broad Question, Pool, or Blueprint discovery page.
+pub const MAX_DISCOVERY_PAGE_SIZE: u32 = 250;
+
 /// Maximum Question Author name selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;
 

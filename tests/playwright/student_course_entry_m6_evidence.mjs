@@ -68,9 +68,22 @@ try {
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Open Course", exact: true }).waitFor({
+  const course = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", {
+      name: "Biochemistry 301: Proteins and Peptides",
+      exact: true,
+    }),
+  });
+  await course
+    .getByRole("heading", { name: "Biochemistry 301: Proteins and Peptides", exact: true })
+    .waitFor({
+      state: "visible",
+    });
+  const openCourse = course.getByRole("link", { name: "Open Course", exact: true });
+  await openCourse.waitFor({
     state: "visible",
   });
+  assert.equal(await openCourse.getAttribute("href"), "/student/courses/CI7K3M2QAZ");
   assert.equal(await page.locator("[data-record-id]").count(), 1);
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student/courses");
 
@@ -100,7 +113,11 @@ try {
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/student");
 
   await page.goto(`${origin}?mode=landing`);
-  const landingDue = page.locator("[data-assessment-decision-due]").first();
+  const landingCoursework = page.getByRole("list", { name: "Available Coursework", exact: true });
+  const landingAssessment = landingCoursework.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: "Protein structure practice", exact: true }),
+  });
+  const landingDue = landingAssessment.locator("time");
   await landingDue.waitFor({ state: "visible" }).catch(async (error) => {
     throw new Error(
       `Student Assessment landing did not render: ${pageErrors.join(" | ")}\n${await page.locator("body").innerText()}`,
@@ -115,6 +132,7 @@ try {
   );
   const landingDueText = await landingDue.textContent();
   assert.notEqual(landingDueText, null);
+  assert.equal(await landingDue.getAttribute("datetime"), "2026-09-16T22:00:00.000Z");
   for (const [viewportId, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
     await page.setViewportSize(viewport);
     await assertCourseworkRows(page);
@@ -158,8 +176,34 @@ try {
   await page
     .getByRole("button", { name: "Start Bonus Assignment", exact: true })
     .waitFor({ state: "visible" });
+  const previousAttempts = page
+    .getByRole("list", { name: "Previous attempts", exact: true })
+    .getByRole("listitem");
+  assert.equal(await previousAttempts.count(), 2);
+  const newestAttempt = previousAttempts.nth(0);
+  await newestAttempt.getByRole("heading", { name: "Attempt 2", exact: true }).waitFor({
+    state: "visible",
+  });
+  await newestAttempt.getByText("Closed", { exact: true }).waitFor({ state: "visible" });
+  await newestAttempt.getByText("Score not released", { exact: true }).waitFor({
+    state: "visible",
+  });
   assert.equal(
-    await page.getByRole("link", { name: "Attempt 1", exact: true }).getAttribute("href"),
+    await newestAttempt
+      .getByRole("link", { name: "Review Attempt", exact: true })
+      .getAttribute("href"),
+    "/assessment-attempts/00000000-0000-0000-0000-000000000007/summary",
+  );
+  const releasedAttempt = previousAttempts.nth(1);
+  await releasedAttempt.getByRole("heading", { name: "Attempt 1", exact: true }).waitFor({
+    state: "visible",
+  });
+  await releasedAttempt.getByText("Submitted", { exact: true }).waitFor({ state: "visible" });
+  await releasedAttempt.getByText("3 of 8 points", { exact: true }).waitFor({ state: "visible" });
+  assert.equal(
+    await releasedAttempt
+      .getByRole("link", { name: "Review Attempt", exact: true })
+      .getAttribute("href"),
     "/assessment-attempts/00000000-0000-0000-0000-000000000005/summary",
   );
 

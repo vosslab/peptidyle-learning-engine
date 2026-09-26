@@ -1,53 +1,5 @@
-/* Student Course Coursework records retain identity and the next action on phones. */
-
-.student-coursework {
-  margin-top: var(--ple-space-5);
-}
+/* Course-specific spacing around the shared Coursework list. */
 
 .student-coursework > h2 {
   margin: 0 0 var(--ple-space-2);
-}
-
-.student-coursework__title,
-.student-coursework__type,
-.student-coursework__facts {
-  margin: 0;
-}
-
-.student-coursework__title {
-  font-size: 1.08rem;
-}
-
-.student-coursework__type {
-  display: flex;
-  gap: var(--ple-space-2);
-  align-items: center;
-  color: var(--student-coursework-type-color, var(--ple-ink));
-  font-weight: 700;
-}
-
-.student-coursework__type .ple-app-ribbon__icon {
-  inline-size: 1em;
-  block-size: 1em;
-  flex: none;
-}
-
-.student-coursework__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--ple-space-2);
-  color: var(--ple-muted);
-  font-size: 0.88rem;
-}
-
-@media (max-width: 32rem) {
-  .student-coursework .record-list__row {
-    gap: var(--ple-space-1);
-    padding-inline: var(--ple-space-2);
-    padding-block: var(--ple-space-3);
-  }
-
-  .student-coursework__action {
-    white-space: nowrap;
-  }
 }

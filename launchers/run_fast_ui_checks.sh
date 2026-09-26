@@ -22,10 +22,14 @@ cd "$repo_root"
 if [ "$#" -eq 0 ]; then
 	for check in \
 		tests/playwright/record_list_contracts.mjs \
+		tests/playwright/record_sort_control_contracts.mjs \
+		tests/playwright/record_page_controls_contracts.mjs \
 		tests/playwright/provided_avatar_picker_presentation.mjs \
 		tests/playwright/fast_ui_route_composition.mjs \
 		tests/playwright/ribbon_shell_contract.mjs \
-		tests/playwright/student_course_entry_m6_evidence.mjs; do
+		tests/playwright/student_course_entry_m6_evidence.mjs \
+		tests/playwright/assessments_due_soon_contracts.mjs \
+		tests/playwright/course_instance_assessment_refresh.mjs; do
 		node --import tsx "$check"
 	done
 	exit 0

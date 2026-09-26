@@ -7,37 +7,31 @@ import type {
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import { PageFrame, PageSection } from "../components/page_frame";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { formatPointScore } from "../score_format";
 
-function scoreRegions(): ReadonlyArray<RecordRegion<LiveStudentAssessmentLandingSummary>> {
-  return [
-    {
-      id: "assessment",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (assessment): JSX.Element => <h3>{assessment.title}</h3>,
-    },
-    {
-      id: "score",
-      role: "status",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (assessment): JSX.Element => (
-        <strong>
-          {formatPointScore(
-            assessment.assessmentScore!.pointsEarned,
-            assessment.assessmentScore!.pointsPossible,
-          )}
-        </strong>
-      ),
-    },
-  ];
+function scoreContent(assessment: LiveStudentAssessmentLandingSummary): RecordContent {
+  const score = assessment.assessmentScore;
+  if (score === undefined) {
+    throw new Error("Student Scores only renders released Assessment scores.");
+  }
+  return {
+    title: assessment.title,
+    details: [
+      { kind: "assessmentType", value: assessment.assessmentType },
+      {
+        kind: "text",
+        label: "Score",
+        value: formatPointScore(score.pointsEarned, score.pointsPossible),
+      },
+    ],
+    actions: [],
+  };
 }
 
 function scoreListState(loading: boolean, unavailable: boolean): RecordListState {
@@ -61,20 +55,25 @@ function CourseScores(props: { readonly course: LiveStudentCourseLandingSummary 
   const scores = (): ReadonlyArray<LiveStudentAssessmentLandingSummary> =>
     (assessments() ?? []).filter((assessment) => assessment.assessmentScore !== undefined);
 
+  const headingId = `course-scores-${props.course.id}`;
   return (
-    <section aria-label={`${props.course.shortName} Scores`}>
-      <h2>
-        {props.course.shortName}: {props.course.longName}
-      </h2>
+    <PageSection
+      headingId={headingId}
+      heading={
+        <>
+          {props.course.shortName}: {props.course.longName}
+        </>
+      }
+    >
       <RecordList
         ariaLabel={`${props.course.shortName} Scores`}
         emptyState={{ title: "No released Scores are available for this Course yet." }}
         recordId={(assessment) => assessment.id}
-        regions={scoreRegions()}
+        content={scoreContent}
         rows={scores()}
         state={scoreListState(assessments.loading, assessments.error !== undefined)}
       />
-    </section>
+    </PageSection>
   );
 }
 

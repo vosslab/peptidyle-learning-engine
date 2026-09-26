@@ -6,7 +6,6 @@ import test from "node:test";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import {
   decodeAssessmentUnreleaseImpact,
-  decodeAssessmentQuestionPicker,
   decodeCreateLiveAssessmentInput,
   decodeLiveAssessmentWorkspace,
 } from "../src/api/decoders/assessment_release.ts";
@@ -205,20 +204,6 @@ test("current adopted Assessment workspace retains exact origin and normalized f
   const blankBloom = createdWorkspace();
   blankBloom.questions[0].bloom = null;
   assert.equal(decodeLiveAssessmentWorkspace(blankBloom).questions[0]?.bloom, null);
-});
-
-test("Assessment picker accepts blank Bloom and rejects malformed values", () => {
-  const row = {
-    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
-    description: "A fixed question.",
-    bloom,
-  };
-  assert.deepEqual(decodeAssessmentQuestionPicker([row]), [row]);
-  assert.equal(decodeAssessmentQuestionPicker([{ ...row, bloom: null }])[0]?.bloom, null);
-  assert.throws(() => decodeAssessmentQuestionPicker([{ ...row, bloom: undefined }]));
-  assert.throws(() =>
-    decodeAssessmentQuestionPicker([{ ...row, bloom: { ...bloom, difficulty: "Hard" } }]),
-  );
 });
 
 test("current direct Assessment workspace accepts only the closed tagged origin", () => {

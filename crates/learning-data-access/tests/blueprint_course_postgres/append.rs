@@ -7,8 +7,7 @@ struct AppendPoolIds(AtomicUsize);
 impl CourseInstancePoolIdIssuer for AppendPoolIds {
     fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError> {
         let index = self.0.fetch_add(1, Ordering::SeqCst);
-        format!("{}K3M-X8P1", index + 1)
-            .parse()
+        QuestionPoolId::from_random_identifier(format!("AP{index:05}"))
             .map_err(|_| StoreError::InvalidRecord("append fixture Pool ID".into()))
     }
 }
@@ -125,8 +124,9 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .execute(&mut *student_fixture)
         .await
         .expect("daughter Student fixture role");
-    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) \
-        SELECT $1, course_instance_id, $2, clock_timestamp() FROM ple_data.course_instance WHERE course_instance_id = $3")
+    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at, updated_at) \
+        SELECT $1, course_instance_id, $2, statement_timestamp(), statement_timestamp() \
+          FROM ple_data.course_instance WHERE course_instance_id = $3")
         .bind(id(0xb220)).bind(student_account_id()).bind(&daughter_numbers[0])
         .execute(&mut *student_fixture).await.expect("daughter Student record");
     student_fixture
@@ -292,14 +292,13 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         WHERE c.course_instance_id = ANY($1) GROUP BY c.course_instance_id ORDER BY c.course_instance_id")
         .bind(vec![daughter_numbers[0].clone(), daughter_numbers[1].clone(), empty_number.clone()])
         .fetch_all(&mut inspection).await.expect("append counts after replay/no-op/stale");
-    assert_eq!(
-        counts,
-        vec![
-            (daughter_numbers[0].clone(), 2),
-            (daughter_numbers[1].clone(), 2),
-            (empty_number.clone(), 0)
-        ]
-    );
+    let mut expected_counts = vec![
+        (daughter_numbers[0].clone(), 2),
+        (daughter_numbers[1].clone(), 2),
+        (empty_number.clone(), 0),
+    ];
+    expected_counts.sort_unstable();
+    assert_eq!(counts, expected_counts);
     assert_eq!(
         old_daughter_rows(&mut inspection, &daughter_numbers).await,
         before

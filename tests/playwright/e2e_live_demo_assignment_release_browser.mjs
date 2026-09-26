@@ -109,7 +109,7 @@ try {
   const createdCourse = page.getByRole("listitem").filter({
     has: page.getByRole("heading", { name: courseLongName, exact: true }),
   });
-  await createdCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();
+  await createdCourse.getByRole("link", { name: "Open Course", exact: true }).click();
   await page.waitForURL(/\/courses\/CI[0-9A-HJKMNP-TV-Z]{8}$/u);
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
 

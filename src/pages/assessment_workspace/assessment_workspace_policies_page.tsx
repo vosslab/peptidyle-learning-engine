@@ -450,6 +450,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   );
   return (
     <PageFrame
+      // Policy editor panels. PageFrame owns the stack.
       contentClass="assessment-workspace-policies"
       routeSurface="assessmentWorkspace"
       headingId="assessment-policies-heading"

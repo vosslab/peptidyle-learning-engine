@@ -153,7 +153,6 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
 
   return (
     <PageFrame
-      contentClass="gradebook-page"
       routeSurface="gradebook"
       eyebrow="Course progress"
       title="Gradebook"
@@ -192,11 +191,7 @@ export function GradebookPage(): JSX.Element {
       when={course()}
       keyed
       fallback={
-        <PageFrame
-          contentClass="gradebook-page"
-          routeSurface="gradebook"
-          title="Gradebook unavailable"
-        >
+        <PageFrame routeSurface="gradebook" title="Gradebook unavailable">
           <section class="route-error" role="alert">
             <p>Return to your course list, then open the Gradebook again.</p>
           </section>

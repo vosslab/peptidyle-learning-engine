@@ -5,12 +5,6 @@
   gap: var(--ple-section-gap);
 }
 
-.assessment-workspace-overview,
-.assessment-workspace-policies {
-  display: grid;
-  gap: var(--ple-section-gap);
-}
-
 .assessment-workspace-policies .assessment-editor-policy-panel {
   min-width: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -192,11 +186,6 @@
   font-weight: 700;
 }
 
-.assessment-workspace-create {
-  display: grid;
-  gap: var(--ple-section-gap);
-}
-
 .assessment-workspace-create .assessment-editor-panel,
 .assessment-create-method,
 .assessment-create-template {
@@ -270,11 +259,6 @@
 
 .assessment-workspace-action-row {
   margin: 1rem 0 0;
-}
-
-.assessment-workspace-student-view {
-  display: grid;
-  gap: var(--ple-section-gap);
 }
 
 .student-view-cue {

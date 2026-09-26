@@ -5,10 +5,8 @@ export {
   type BlueprintCoursesWorkspaceProps,
 } from "./blueprint_course_workspace";
 export {
-  appendBlueprintCoursePage,
   appendPickedFixedEntries,
   appendPickedPool,
-  blueprintCourseContinuationPresentation,
   emptyBlueprintCourseContent,
   emptyReusableContent,
   moveReusableEntry,

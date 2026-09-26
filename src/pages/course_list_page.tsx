@@ -1,6 +1,6 @@
 // course_list_page.tsx - live Course Instance creation, empty or from exact Blueprint Revisions.
 
-import { A, useSearchParams } from "@solidjs/router";
+import { useSearchParams } from "@solidjs/router";
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
@@ -11,7 +11,6 @@ import type {
 } from "../api/course_instance";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
-import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
 import { courseInstanceRouteId, parseBlueprintCourseId } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 import {
@@ -19,10 +18,12 @@ import {
   emptyCourseClassification,
   type CourseClassificationDraft,
 } from "../components/course_classification_fields";
-import { CourseClassificationSummary } from "../components/course_classification_summary";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
 import "./course_list_page.css";
 
@@ -41,62 +42,6 @@ function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
   const revision = blueprint.current_revision_tuple;
   return `${revision.blueprintCourseId}:${revision.revisionNumber}`;
 }
-
-const courseRegions: ReadonlyArray<RecordRegion<CourseInstanceSummary>> = [
-  {
-    id: "identity",
-    role: "identity",
-    priority: "required",
-    width: "minmax(16rem, 1.5fr)",
-    align: "stretch",
-    content: (course): JSX.Element => {
-      const theme = courseThemeTokens(course.theme);
-      return (
-        <div
-          class="course-list-record__identity"
-          style={`--ple-course-list-theme-accent: ${theme.anchors.accent}`}
-        >
-          <p class="course-list-record__kind">Course Instance</p>
-          <h2>{course.longName}</h2>
-          <CourseClassificationSummary value={course.classification} />
-          <p class="course-list-record__metadata">
-            {course.term.startDate} through {course.term.endDate}
-          </p>
-        </div>
-      );
-    },
-  },
-  {
-    id: "theme",
-    role: "metadata",
-    priority: "medium",
-    width: "minmax(9rem, auto)",
-    align: "center",
-    content: (course): JSX.Element => {
-      const theme = courseThemeTokens(course.theme);
-      return <p aria-label={`Course theme: ${theme.name}`}>Theme: {theme.name}</p>;
-    },
-  },
-  {
-    id: "actions",
-    role: "actions",
-    priority: "required",
-    width: "auto",
-    align: "center",
-    content: (course): JSX.Element => {
-      const courseInstanceId = courseInstanceRouteId(course.id);
-      return (
-        <A
-          class="primary-link"
-          href={`/courses/${courseInstanceId}`}
-          id={`course-open-${courseInstanceId}`}
-        >
-          Open Course Instance
-        </A>
-      );
-    },
-  },
-];
 
 type CourseListMode = CourseInstanceLifecycleState;
 
@@ -199,9 +144,40 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   const [endDate, setEndDate] = createSignal("");
   const [isCreating, setIsCreating] = createSignal(false);
   const [creationError, setCreationError] = createSignal<string | null>(null);
+  const [createdCourseFocusId, setCreatedCourseFocusId] = createSignal<string>();
   const [creationDisclosure, setCreationDisclosure] = createSignal<boolean | undefined>(
     creationSource() === "adopted" ? true : undefined,
   );
+
+  const courseContent = (course: CourseInstanceSummary): RecordContent => ({
+    title: course.longName,
+    details: [
+      { kind: "courseClassification", value: course.classification },
+      {
+        kind: "text",
+        label: "Term",
+        value: `${course.term.startDate} through ${course.term.endDate}`,
+      },
+    ],
+    actions: [
+      {
+        id: "open-course",
+        kind: "link",
+        label: "Open Course",
+        href: `/courses/${courseInstanceRouteId(course.id)}`,
+        primary: true,
+        ref: (element): void => {
+          if (createdCourseFocusId() !== course.id) return;
+          queueMicrotask(() => {
+            if (createdCourseFocusId() === course.id) {
+              element.focus();
+              setCreatedCourseFocusId(undefined);
+            }
+          });
+        },
+      },
+    ],
+  });
 
   const visibleCourses = createMemo(() =>
     coursesForMode(
@@ -298,6 +274,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       if (created.courseInstance.lifecycleState !== "active") {
         throw new Error("A newly created Course Instance must be Active.");
       }
+      setCreatedCourseFocusId(created.courseInstance.id);
       setCreatedCourses((current) => [created.courseInstance, ...current]);
       setCreationDisclosure(false);
       setCreationSource("empty");
@@ -309,11 +286,6 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       setStartDate("");
       setEndDate("");
       void refetchCourses();
-      queueMicrotask(() =>
-        document
-          .getElementById(`course-open-${courseInstanceRouteId(created.courseInstance.id)}`)
-          ?.focus(),
-      );
     } catch (_error: unknown) {
       setCreationError("We could not create that Course Instance. Check the source and try again.");
     } finally {
@@ -528,7 +500,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
               : "Inactive Course Instances appear here after their Course Term ends.",
           }}
           recordId={(course) => course.id}
-          regions={courseRegions}
+          content={courseContent}
           rows={visibleCourses()}
           state={courseListState()}
         />

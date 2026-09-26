@@ -193,6 +193,53 @@ test("pagination failure retains loaded rows while external selection remains us
   assert.deepEqual(selection.questionIds, ["7K3M-79QP"]);
 });
 
+test("picker replaces one discovery page and forwards the Library page size", async () => {
+  const requests = [];
+  const states = [];
+  const session = new QuestionPickerSession(
+    {
+      search: async (request) => {
+        requests.push({ cursor: request.cursor, pageSize: request.pageSize });
+        if (request.pageSize === 100) {
+          return {
+            items: [row("7K3M-79QP", "Sized")],
+            aggregates: [],
+            nextCursor: null,
+            facetTruncation: noTruncation(),
+          };
+        }
+        if (request.cursor === null) {
+          return {
+            items: [row("2R5X-E7YA", "First page"), row("3S8B-24DZ", "Also first")],
+            aggregates: [],
+            nextCursor: "next",
+            facetTruncation: noTruncation(),
+          };
+        }
+        return {
+          items: [row("4T9C-C5EW", "Second page")],
+          aggregates: [],
+          nextCursor: null,
+          facetTruncation: noTruncation(),
+        };
+      },
+    },
+    (state) => states.push(state),
+  );
+  await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
+  await session.loadNext();
+  assert.equal(states.at(-1)?.rows.length, 1);
+  assert.equal(states.at(-1)?.rows[0]?.displayId, "4T9C-C5EW");
+  assert.equal(session.hasPrevious, true);
+  await session.loadPrevious();
+  assert.equal(states.at(-1)?.rows.length, 2);
+  assert.equal(session.hasPrevious, false);
+  await session.changePageSize(100);
+  assert.deepEqual(requests.at(-1), { cursor: null, pageSize: 100 });
+  assert.equal(states.at(-1)?.rows[0]?.displayId, "7K3M-79QP");
+  assert.equal(session.pageSize, 100);
+});
+
 function emptyQuery() {
   return {
     ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,

@@ -19,12 +19,56 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{Page, PageRequest, SessionTokenHash, StoreError};
+use crate::{DiscoveryPageRequest, Page, SessionTokenHash, StoreError};
+
+/// Visible deterministic order for Blueprint Course discovery.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlueprintCourseListSort {
+    /// Public Search and ordinary discovery keep the established name order.
+    #[default]
+    Name,
+    /// My Blueprint Courses with the most Course Instance adoptions first.
+    Adoptions,
+    /// My Blueprint Courses with the most enrolled Students first.
+    Students,
+}
+
+impl BlueprintCourseListSort {
+    pub const fn as_sql(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Adoptions => "adoptions",
+            Self::Students => "students",
+        }
+    }
+}
+
+/// One query-bound continuation position for Blueprint Course discovery.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "sort", rename_all = "camelCase", deny_unknown_fields)]
+pub enum BlueprintCourseListCursorPosition {
+    Name {
+        long_name: String,
+        blueprint_course_id: BlueprintCourseId,
+    },
+    Adoptions {
+        count: u64,
+        long_name: String,
+        blueprint_course_id: BlueprintCourseId,
+    },
+    Students {
+        count: u64,
+        long_name: String,
+        blueprint_course_id: BlueprintCourseId,
+    },
+}
 
 /// Bounded ordinary discovery, including optional literal name narrowing.
 #[derive(Debug, Clone)]
 pub struct BlueprintCourseListRequest {
-    pub page: PageRequest,
+    pub page: DiscoveryPageRequest,
+    pub sort: BlueprintCourseListSort,
     pub query: String,
     pub include_archived: bool,
     pub public_only: bool,

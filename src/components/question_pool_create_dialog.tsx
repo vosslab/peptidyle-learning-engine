@@ -20,11 +20,15 @@ import {
   type QuestionPoolStartingQuestion,
 } from "./question_pool_create_model";
 import { RecordSequence } from "./record_list/record_sequence";
-import type { RecordRegion } from "./record_list/region_spec";
 import "./question_pool_create_dialog.css";
 
 type CreationState = "choosing" | "reviewing" | "creating" | "created";
-type PoolCreationMember = { readonly title: string; readonly identity: string };
+type PoolCreationMember = {
+  readonly title: string;
+  readonly publishedQuestionId: string;
+  readonly revisionNumber: number;
+  readonly revisionIsFixed: boolean;
+};
 
 // Match PostgreSQL btrim and Rust trim_matches(' '), not JavaScript Unicode trim.
 function trimPoolDraft(value: string): string {
@@ -189,31 +193,36 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                       : [
                           {
                             title: props.startingQuestion.questionTitle,
-                            identity: `${props.startingQuestion.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${props.startingQuestion.publishedQuestionRevisionTuple.revisionNumber}`,
+                            publishedQuestionId:
+                              props.startingQuestion.publishedQuestionRevisionTuple
+                                .publishedQuestionId,
+                            revisionNumber:
+                              props.startingQuestion.publishedQuestionRevisionTuple.revisionNumber,
+                            revisionIsFixed: true,
                           },
                         ]),
                     ...selected().questions.map((question) => ({
                       title: question.row.questionTitle,
-                      identity: question.questionId,
+                      publishedQuestionId:
+                        question.row.publishedQuestionRevisionTuple.publishedQuestionId,
+                      revisionNumber: question.row.publishedQuestionRevisionTuple.revisionNumber,
+                      revisionIsFixed: false,
                     })),
                   ]}
-                  regions={
-                    [
+                  content={(member: PoolCreationMember) => ({
+                    title: member.title,
+                    details: [
                       {
-                        id: "identity",
-                        role: "identity",
-                        priority: "required",
-                        width: "minmax(0, 1fr)",
-                        align: "start",
-                        content: (member: PoolCreationMember) => (
-                          <>
-                            <strong>{member.title}</strong> ({member.identity})
-                          </>
-                        ),
+                        kind: "text",
+                        label: member.revisionIsFixed
+                          ? "Fixed Published Question revision"
+                          : "Current selected Question revision (rechecked when creating)",
+                        value: `${member.publishedQuestionId}, Revision ${member.revisionNumber}`,
                       },
-                    ] satisfies ReadonlyArray<RecordRegion<PoolCreationMember>>
-                  }
-                  recordId={(member) => member.identity}
+                    ],
+                    actions: [],
+                  })}
+                  recordId={(member) => `${member.publishedQuestionId}:${member.revisionNumber}`}
                   state={{ kind: "ready" }}
                   ariaLabel="Selected Questions in order"
                   emptyState={{ title: "No Questions are selected." }}

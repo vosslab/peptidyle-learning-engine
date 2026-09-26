@@ -124,7 +124,7 @@ WITH source_assessment AS (
            AND target.source_blueprint_course_id = $2
            AND target.source_blueprint_revision_number = $3
            AND target.source_blueprint_assessment_id::text = source.source
-           AND target.assessment_type = source.content ->> 'assessment_type'
+           AND target.assessment_type::text = source.content ->> 'assessment_type'
            AND snapshot.assessment_title = source.content ->> 'title'
            AND snapshot.assessment_instructions = source.content ->> 'instructions'
            AND target.assessment_status = 'unreleased'
@@ -134,19 +134,19 @@ WITH source_assessment AS (
                (source.content #>> '{defaults,assessment_attempt_time_limit_seconds}')::integer
            AND snapshot.assessment_attempt_limit IS NOT DISTINCT FROM
                (source.content #>> '{defaults,assessment_attempt_limit}')::integer
-           AND snapshot.late_work_rule = CASE source.content #>> '{defaults,late_work_rule}'
+           AND snapshot.late_work_rule::text = CASE source.content #>> '{defaults,late_work_rule}'
                WHEN 'accept' THEN 'accept' WHEN 'mark_late' THEN 'mark_late'
                WHEN 'reject' THEN 'reject' END
-           AND snapshot.question_variation_rule = CASE source.content #>> '{defaults,activity_rules,questionVariationRule}'
+           AND snapshot.question_variation_rule::text = CASE source.content #>> '{defaults,activity_rules,questionVariationRule}'
                WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END
-           AND snapshot.assessment_question_order_rule = CASE source.content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}'
+           AND snapshot.assessment_question_order_rule::text = CASE source.content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}'
                WHEN 'authoredOrder' THEN 'authored_order' WHEN 'shuffled' THEN 'shuffled' END
-           AND snapshot.feedback_score = source.content #>> '{defaults,student_feedback_release_rule,score}'
-           AND snapshot.feedback_per_item_correctness = source.content #>> '{defaults,student_feedback_release_rule,per_item_correctness}'
-           AND snapshot.feedback_submitted_response = source.content #>> '{defaults,student_feedback_release_rule,submitted_response}'
-           AND snapshot.feedback_question_answer = source.content #>> '{defaults,student_feedback_release_rule,question_answer}'
-           AND snapshot.feedback_question_answer_explanation = source.content #>> '{defaults,student_feedback_release_rule,question_answer_explanation}'
-           AND snapshot.feedback_class_statistics = source.content #>> '{defaults,student_feedback_release_rule,class_statistics}'
+           AND snapshot.feedback_score::text = source.content #>> '{defaults,student_feedback_release_rule,score}'
+           AND snapshot.feedback_per_item_correctness::text = source.content #>> '{defaults,student_feedback_release_rule,per_item_correctness}'
+           AND snapshot.feedback_submitted_response::text = source.content #>> '{defaults,student_feedback_release_rule,submitted_response}'
+           AND snapshot.feedback_question_answer::text = source.content #>> '{defaults,student_feedback_release_rule,question_answer}'
+           AND snapshot.feedback_question_answer_explanation::text = source.content #>> '{defaults,student_feedback_release_rule,question_answer_explanation}'
+           AND snapshot.feedback_class_statistics::text = source.content #>> '{defaults,student_feedback_release_rule,class_statistics}'
        ) AS matches
       FROM source_assessment AS source
       JOIN target_assessment AS target ON target.source_blueprint_assessment_id::text = source.source
@@ -167,7 +167,7 @@ WITH source_assessment AS (
            AND question.published_question_id = source.entry #>> '{published_question_revision_tuple,publishedQuestionId}'
            AND question.question_revision_number = (source.entry #>> '{published_question_revision_tuple,revisionNumber}')::integer
            AND question.points_possible::text = source.entry ->> 'points_possible'
-           AND entry.scoring_rule = CASE source.entry ->> 'scoring_rule'
+           AND entry.scoring_rule::text = CASE source.entry ->> 'scoring_rule'
                WHEN 'normal' THEN 'normal' WHEN 'fullCredit' THEN 'full_credit'
                WHEN 'extraCredit' THEN 'extra_credit' WHEN 'excluded' THEN 'excluded' END
            AND entry.question_attempt_limit IS NOT DISTINCT FROM
@@ -191,10 +191,10 @@ WITH source_assessment AS (
            AND entry.availability = 'available'
            AND pool.selection_count = (source.entry ->> 'selection_count')::integer
            AND pool.points_per_item::text = source.entry ->> 'points_per_item'
-           AND entry.scoring_rule = CASE source.entry ->> 'scoring_rule'
+           AND entry.scoring_rule::text = CASE source.entry ->> 'scoring_rule'
                WHEN 'normal' THEN 'normal' WHEN 'fullCredit' THEN 'full_credit'
                WHEN 'extraCredit' THEN 'extra_credit' WHEN 'excluded' THEN 'excluded' END
-           AND pool.selected_question_order = CASE source.entry #>> '{selection_rule,selectedQuestionOrder}'
+           AND pool.selected_question_order::text = CASE source.entry #>> '{selection_rule,selectedQuestionOrder}'
                WHEN 'questionPoolOrder' THEN 'question_pool_order' WHEN 'randomOrder' THEN 'random_order' END
            AND entry.question_attempt_limit IS NOT DISTINCT FROM
                (source.entry #>> '{question_attempt_limit,maxAttempts}')::integer

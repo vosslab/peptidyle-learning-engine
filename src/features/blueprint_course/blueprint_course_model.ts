@@ -25,11 +25,6 @@ export interface BlueprintCourseValidation {
   readonly message: string | null;
 }
 
-export interface BlueprintCourseContinuationPresentation {
-  readonly visible: boolean;
-  readonly action: string | null;
-}
-
 /** Visible lifecycle choices mirror the server's directed Blueprint state machine. */
 export interface BlueprintLifecyclePresentation {
   readonly meaning: string;
@@ -82,27 +77,6 @@ export function blueprintLifecyclePresentation(
     canArchive: false,
     canRestore: owner,
     canReturnToPrivate: false,
-  };
-}
-
-/** Appends a cursor page without duplicating an already visible Blueprint Course. */
-export function appendBlueprintCoursePage<Record extends { readonly id: string }>(
-  current: ReadonlyArray<Record>,
-  incoming: ReadonlyArray<Record>,
-): ReadonlyArray<Record> {
-  const known = new Set(current.map((record) => record.id));
-  return [...current, ...incoming.filter((record) => !known.has(record.id))];
-}
-
-/** Gives every cursor continuation a precise Blueprint Course action. */
-export function blueprintCourseContinuationPresentation(
-  hasMore: boolean,
-  retry: boolean,
-): BlueprintCourseContinuationPresentation {
-  if (!hasMore) return { visible: false, action: null };
-  return {
-    visible: true,
-    action: retry ? "Retry loading Blueprint Courses" : "Load more Blueprint Courses",
   };
 }
 

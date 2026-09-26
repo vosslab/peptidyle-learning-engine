@@ -259,6 +259,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Important information should stand out from supporting information.
 - Related information should be visually grouped and aligned.
 - Similar pages should place similar controls in consistent locations.
+- A page describes what each record shows and what the user can do. Shared record and page components own the markup, spacing, and reflow, so the same facts and actions stay readable when the page gets narrower.
 - Use headings and action labels that reflect the current state and next useful step.
 - Match feedback wording and visual emphasis to the outcome: success, information, warning, or
   error. Make the result and any next action easy to recognize.

@@ -7,8 +7,11 @@ import type { LibraryWatchNotification } from "../api/library_watch_notification
 import { useApplicationApi } from "../api/application_api";
 import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../format_datetime";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
 
 function eventLabel(value: LibraryWatchNotification): string {
   switch (value.eventKind) {
@@ -40,76 +43,62 @@ function inboxFailed(value: unknown): value is Error {
   return value instanceof Error;
 }
 
-function notificationRegions(
+function notificationContent(
   formatTimestamp: (timestamp: number | Date) => string,
-): ReadonlyArray<RecordRegion<LibraryWatchNotification>> {
+): (notification: LibraryWatchNotification) => RecordContent {
+  return (notification) => {
+    const activity = activityHref(notification);
+    return {
+      title: eventLabel(notification),
+      description: `${targetLabel(notification)}: ${notification.targetPublicId}`,
+      details: [
+        ...(notification.revisionNumber === null
+          ? []
+          : [
+              {
+                kind: "text" as const,
+                label: notification.targetKind === "questionPool" ? "Edit number" : "Revision",
+                value: String(notification.revisionNumber),
+              },
+            ]),
+        ...(notification.forkedPublicId === null
+          ? []
+          : [{ kind: "text" as const, label: "Fork ID", value: notification.forkedPublicId }]),
+        ...(notification.activityId === null
+          ? []
+          : [{ kind: "text" as const, label: "Activity ID", value: notification.activityId }]),
+        {
+          kind: "time" as const,
+          label: "Occurred",
+          value: formatTimestamp(notification.occurredAt),
+          dateTime: new Date(notification.occurredAt).toISOString(),
+        },
+      ],
+      actions:
+        activity === null
+          ? []
+          : [
+              {
+                id: "open-exact-activity",
+                kind: "link" as const,
+                label: "Open exact activity",
+                href: activity,
+                primary: true,
+              },
+            ],
+    };
+  };
+}
+
+function notificationId(notification: LibraryWatchNotification): string {
   return [
-    {
-      id: "event",
-      role: "identity",
-      priority: "required",
-      width: "minmax(11rem, 1fr)",
-      align: "start",
-      content: (notification) => (
-        <>
-          <span class="eyebrow">{eventLabel(notification)}</span>
-          <strong>{targetLabel(notification)}</strong>
-          <span>Library ID: {notification.targetPublicId}</span>
-        </>
-      ),
-    },
-    {
-      id: "details",
-      role: "metadata",
-      priority: "high",
-      width: "minmax(12rem, 1fr)",
-      align: "start",
-      content: (notification) => (
-        <>
-          <Show when={notification.revisionNumber !== null}>
-            <span>
-              {notification.targetKind === "questionPool" ? "Edit Number" : "Revision"}:{" "}
-              {notification.revisionNumber}
-            </span>
-          </Show>
-          <Show when={notification.forkedPublicId !== null}>
-            <span>Fork ID: {notification.forkedPublicId}</span>
-          </Show>
-          <Show when={notification.activityId !== null}>
-            <span>Activity ID: {notification.activityId}</span>
-          </Show>
-        </>
-      ),
-    },
-    {
-      id: "occurred-at",
-      role: "status",
-      priority: "medium",
-      width: "minmax(11rem, auto)",
-      align: "end",
-      content: (notification) => (
-        <time datetime={new Date(notification.occurredAt).toISOString()}>
-          {formatTimestamp(notification.occurredAt)}
-        </time>
-      ),
-    },
-    {
-      id: "actions",
-      role: "actions",
-      priority: "required",
-      width: "auto",
-      align: "end",
-      content: (notification) => (
-        <Show when={activityHref(notification)}>
-          {(href) => (
-            <A class="primary-link" href={href()}>
-              Open exact activity
-            </A>
-          )}
-        </Show>
-      ),
-    },
-  ];
+    notification.eventKind,
+    notification.targetPublicId,
+    notification.occurredAt,
+    notification.revisionNumber ?? "",
+    notification.forkedPublicId ?? "",
+    notification.activityId ?? "",
+  ].join("-");
 }
 
 /** Shows only this active Instructor's private, newest-first Watch inbox. */
@@ -147,10 +136,8 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
           title: "No Watch activity yet",
           message: "New Revisions, public forks, and stewardship activity will appear here.",
         }}
-        recordId={(notification) =>
-          `${notification.eventKind}-${notification.targetPublicId}-${notification.occurredAt}`
-        }
-        regions={notificationRegions(formatTimestamp)}
+        content={notificationContent(formatTimestamp)}
+        recordId={notificationId}
         rows={notifications() ?? []}
         state={notificationListState()}
       />

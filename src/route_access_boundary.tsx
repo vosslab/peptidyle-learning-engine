@@ -22,6 +22,7 @@ function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
   return (
     <div role="alert" aria-atomic="true">
       <PageFrame
+        // Failure card on the content region. PageFrame still owns the stack.
         contentClass="route-error"
         routeSurface="routeAccessDenied"
         deniedRoute={props.route.id}

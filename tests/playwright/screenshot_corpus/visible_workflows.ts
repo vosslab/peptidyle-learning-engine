@@ -62,7 +62,7 @@ export async function openInstructorCourse(
   await courses.click();
   await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
   const card = courseCard(page, title);
-  await card.getByRole("link", { name: "Open Course Instance", exact: true }).click();
+  await card.getByRole("link", { name: "Open Course", exact: true }).click();
   await page.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
 }
 
@@ -104,7 +104,7 @@ export const ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_
 export async function openStudentAssignment(page: Page): Promise<void> {
   const card = assignmentCard(page);
   // The card verb is Open, Resume, or Review depending on prior replays; the link is the same.
-  await card.locator("a.primary-link").click();
+  await card.getByRole("link").first().click();
   await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
   await page.getByRole("button", { name: ASSESSMENT_ENTRY_BUTTON }).waitFor();
 }
@@ -114,7 +114,7 @@ export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> 
   const card = assignmentCard(page);
   // The overview auto-resumes an active Attempt when its activeAttemptId loads, so the landing
   // action leads to the Attempt surface without requiring a transient overview button.
-  await card.locator("a.primary-link").click();
+  await card.getByRole("link").first().click();
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
 }
 

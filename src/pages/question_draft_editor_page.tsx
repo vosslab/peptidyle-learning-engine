@@ -1,7 +1,16 @@
 // question_draft_editor_page.tsx - route composition for one private Draft Question.
 
 import { A, useParams } from "@solidjs/router";
-import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  onMount,
+  type JSX,
+} from "solid-js";
 
 import { createPleQuestionJsonClient } from "../features/ple_question_json_authoring/question_json_client";
 import { useApplicationApi } from "../api/application_api";
@@ -17,6 +26,11 @@ import { PLE_QUESTION_JSON_EDITOR_STYLES } from "../features/ple_question_json_a
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
 import { PageFrame } from "../components/page_frame";
+import {
+  useClearRouteScopeLabels,
+  usePublishRouteScopeLabels,
+  useRouteScopePublication,
+} from "../ribbon/route_scope_context";
 
 function authorSafeMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.length > 0 && error.message.length < 240) {
@@ -87,7 +101,6 @@ function GeneralFeedbackOnlyPage(props: {
 
   return (
     <PageFrame
-      contentClass="ple-question-json-authoring"
       routeSurface="questionDraftGeneralFeedback"
       eyebrow="Private instructor authoring"
       title="General Feedback"
@@ -151,6 +164,10 @@ export function QuestionDraftEditorPage(): JSX.Element {
   const classificationClient = useApplicationApi().client;
   const generalFeedbackClient = createPleQuestionGeneralFeedbackClient();
   const repository = createPleQuestionJsonRepository(client);
+  const routeScopePublication = useRouteScopePublication();
+  const publishRouteScopeLabels = usePublishRouteScopeLabels();
+  const clearRouteScopeLabels = useClearRouteScopeLabels();
+  let publication: ReturnType<typeof routeScopePublication> | undefined;
   const draftQuestionId = createMemo(() => parseDraftQuestionId(params.draftQuestionId ?? ""));
   const [initial, { refetch }] = createResource(
     draftQuestionId,
@@ -177,11 +194,29 @@ export function QuestionDraftEditorPage(): JSX.Element {
       : undefined;
   });
 
+  onMount(() => {
+    publication = routeScopePublication();
+  });
+  createEffect(() => {
+    if (metadataOnlyEditor() !== undefined && publication !== undefined) {
+      publishRouteScopeLabels(publication, { questionTitle: "Draft Question" });
+    } else if (
+      publication !== undefined &&
+      (initial.error !== undefined || initialGeneralFeedback.error !== undefined)
+    ) {
+      clearRouteScopeLabels(publication);
+    }
+  });
+  onCleanup(() => {
+    if (publication !== undefined) clearRouteScopeLabels(publication);
+  });
+
   return (
     <Show
       when={draftQuestionId()}
       fallback={
         <PageFrame
+          // Failure card on the content region. PageFrame still owns the stack.
           contentClass="route-error"
           routeSurface="questionDraftEditorInvalid"
           title="Draft Question not found"

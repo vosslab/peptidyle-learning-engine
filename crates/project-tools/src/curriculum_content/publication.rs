@@ -137,8 +137,8 @@ async fn matching_blueprint(
 ) -> Result<Option<StoredBlueprintCourse>> {
     // Include retained history so archive cannot bypass the name collision/reuse guard.
     let mut matching = Vec::new();
-    let mut page = learning_data_access::PageRequest::first(
-        learning_data_access::PageSize::new(100).expect("bounded publication inventory"),
+    let mut page = learning_data_access::DiscoveryPageRequest::first(
+        learning_data_access::DiscoveryPageSize::new(100).expect("bounded publication inventory"),
     );
     loop {
         let result = store
@@ -146,6 +146,7 @@ async fn matching_blueprint(
                 session,
                 learning_data_access::BlueprintCourseListRequest {
                     page: page.clone(),
+                    sort: learning_data_access::BlueprintCourseListSort::Name,
                     query: String::new(),
                     include_archived: true,
                     public_only: false,

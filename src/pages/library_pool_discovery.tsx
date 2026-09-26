@@ -29,12 +29,20 @@ import { LibraryClassificationSearch } from "../components/library_classificatio
 import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
 import { RecordSequence } from "../components/record_list/record_sequence";
-import { RecordList } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordFact,
+} from "../components/record_list/record_list";
+import {
+  RecordPageControls,
+  type RecordPageSize,
+} from "../components/record_list/record_page_controls";
 import {
   BloomClassificationEditor,
   BloomClassificationText,
 } from "../components/bloom_classification";
+import type { QuestionPoolMemberView } from "../../generated/api/QuestionPoolMemberView";
 
 type PoolInspectionTarget = {
   readonly publicId: QuestionPoolLibrarySummary["questionPoolId"];
@@ -63,6 +71,18 @@ function selectedKnowledgeDimension(value: string): BloomKnowledgeDimension | nu
   throw new Error("Bloom Knowledge Dimension selection is invalid");
 }
 
+function poolMemberContent(member: QuestionPoolMemberView): RecordContent {
+  const revision = member.publishedQuestionRevisionTuple;
+  return {
+    title: member.question.question_library.summary.metadata.questionTitle,
+    details: [
+      { kind: "text", label: "Published Question ID", value: revision.publishedQuestionId },
+      { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
+    ],
+    actions: [],
+  };
+}
+
 export function LibraryPoolDiscovery(props: {
   readonly client: QuestionPoolLibraryClient &
     LibraryDiscussionClient &
@@ -77,7 +97,10 @@ export function LibraryPoolDiscovery(props: {
     EMPTY_LIBRARY_CLASSIFICATION_FILTER,
   );
   const [items, setItems] = createSignal<ReadonlyArray<QuestionPoolLibrarySummary>>([]);
-  const [cursor, setCursor] = createSignal<string | null>(null);
+  const [pageCursor, setPageCursor] = createSignal<string | null>(null);
+  const [previousCursors, setPreviousCursors] = createSignal<ReadonlyArray<string | null>>([]);
+  const [nextCursor, setNextCursor] = createSignal<string | null>(null);
+  const [pageSize, setPageSize] = createSignal<RecordPageSize>(50);
   const [bloomFacets, setBloomFacets] = createSignal<QuestionPoolBloomFacets | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal(false);
@@ -93,29 +116,43 @@ export function LibraryPoolDiscovery(props: {
   const [detailError, setDetailError] = createSignal(false);
   let listGeneration = 0;
   let detailGeneration = 0;
-  let retryCursor: string | undefined;
+  let retryCursor: string | null = null;
+  let retryPrevious: ReadonlyArray<string | null> = [];
   let returnButton: HTMLButtonElement | undefined;
   let poolSearchInput: HTMLInputElement | undefined;
   let detailHeading: HTMLHeadingElement | undefined;
   let returnScroll = 0;
 
-  async function readPage(after?: string): Promise<void> {
+  async function readPage(
+    requestedCursor: string | null,
+    requestedPrevious: ReadonlyArray<string | null>,
+  ): Promise<void> {
     const generation = ++listGeneration;
     const submittedFilter = submitted();
-    retryCursor = after;
+    const replacesQuery = requestedCursor === null && requestedPrevious.length === 0;
+    retryCursor = requestedCursor;
+    retryPrevious = requestedPrevious;
     setLoading(true);
     setError(false);
     setInvalidQuery(false);
-    if (after === undefined) {
+    if (replacesQuery) {
       setItems([]);
-      setCursor(null);
+      setPageCursor(null);
+      setPreviousCursors([]);
+      setNextCursor(null);
       setBloomFacets(null);
     }
     try {
-      const page = await props.client.listQuestionPools(after, 50, submittedFilter);
+      const page = await props.client.listQuestionPools(
+        requestedCursor ?? undefined,
+        pageSize(),
+        submittedFilter,
+      );
       if (generation !== listGeneration) return;
-      setItems((previous) => (after === undefined ? page.items : [...previous, ...page.items]));
-      setCursor(page.nextCursor);
+      setItems(page.items);
+      setPageCursor(requestedCursor);
+      setPreviousCursors(requestedPrevious);
+      setNextCursor(page.nextCursor);
       setBloomFacets(page.bloomFacets);
     } catch (cause) {
       if (generation !== listGeneration) return;
@@ -126,11 +163,70 @@ export function LibraryPoolDiscovery(props: {
     }
   }
 
+  function loadFirstPage(nextPageSize: RecordPageSize = pageSize()): void {
+    if (nextPageSize !== pageSize()) setPageSize(nextPageSize);
+    void readPage(null, []);
+  }
+
+  function loadNextPage(): void {
+    const cursor = nextCursor();
+    if (cursor === null || loading()) return;
+    void readPage(cursor, [...previousCursors(), pageCursor()]);
+  }
+
+  function loadPreviousPage(): void {
+    const cursors = previousCursors();
+    const cursor = cursors.length === 0 ? undefined : cursors[cursors.length - 1];
+    if (cursor === undefined || loading()) return;
+    void readPage(cursor, cursors.slice(0, -1));
+  }
+
+  function poolContent(pool: QuestionPoolLibrarySummary): RecordContent {
+    const details: RecordFact[] = [
+      {
+        kind: "courseClassification",
+        value: {
+          disciplineUuid: pool.metadata.disciplineUuid,
+          subjectUuid: pool.metadata.subjectUuid,
+          topicUuid: pool.metadata.topicUuid,
+          subtopicUuid: pool.metadata.subtopicUuid,
+          tags: pool.metadata.tags,
+        },
+      },
+    ];
+    const bloom = pool.bloom;
+    if (bloom !== null) {
+      details.push({
+        kind: "text",
+        label: "Bloom",
+        value: `${bloom.cognitiveProcess} / ${bloom.knowledgeDimension}`,
+      });
+    }
+    details.push(
+      { kind: "text", label: "Pool ID", value: pool.questionPoolId },
+      { kind: "text", label: "Edit", value: String(pool.questionPoolEditNumber) },
+      { kind: "text", label: "Members", value: String(pool.memberCount) },
+    );
+    return {
+      title: pool.metadata.title,
+      description: pool.metadata.description,
+      details,
+      actions: [
+        {
+          id: "inspect",
+          kind: "command",
+          label: `Inspect Pool ${pool.metadata.title}`,
+          onClick: (event) => inspect(pool, event.currentTarget),
+        },
+      ],
+    };
+  }
+
   function changeFilter(change: Partial<LibraryClassificationFilter>): void {
     setFilter((previous) => libraryClassificationFilter({ ...previous, ...change }));
     // Hierarchy changes apply to the current submitted search, never unsent drafts.
     setSubmitted((previous) => questionPoolLibraryFilter({ ...previous, ...filter() }));
-    void readPage();
+    loadFirstPage();
   }
 
   function submitSearch(): void {
@@ -147,7 +243,7 @@ export function LibraryPoolDiscovery(props: {
       setSubmitted(next);
       setText(next.text ?? "");
       setTags((next.tags ?? []).join(", "));
-      void readPage();
+      loadFirstPage();
     } catch (cause) {
       setValidation(cause instanceof Error ? cause.message : "Check your Pool search.");
     }
@@ -161,7 +257,7 @@ export function LibraryPoolDiscovery(props: {
   ): void {
     const next = questionPoolLibraryFilter({ ...submitted(), ...change });
     setSubmitted(next);
-    void readPage();
+    loadFirstPage();
   }
 
   function clearSearch(): void {
@@ -170,7 +266,7 @@ export function LibraryPoolDiscovery(props: {
     setTags("");
     setValidation("");
     setSubmitted(questionPoolLibraryFilter(EMPTY_LIBRARY_CLASSIFICATION_FILTER));
-    void readPage();
+    loadFirstPage();
   }
 
   async function readDetail(target: PoolInspectionTarget): Promise<void> {
@@ -202,7 +298,7 @@ export function LibraryPoolDiscovery(props: {
     setInspecting(null);
     setDetail(null);
     setDetailError(false);
-    if (items().length === 0) void readPage();
+    if (items().length === 0) loadFirstPage();
     queueMicrotask(() => {
       const focusTarget = returnButton?.isConnected ? returnButton : poolSearchInput;
       focusTarget?.focus({ preventScroll: true });
@@ -217,7 +313,7 @@ export function LibraryPoolDiscovery(props: {
   onMount(() => {
     const publicId = linkedPoolId();
     if (publicId === null) {
-      void readPage();
+      loadFirstPage();
       return;
     }
     const target = { publicId, title: "Question Pool" };
@@ -272,7 +368,7 @@ export function LibraryPoolDiscovery(props: {
             onClick={() => {
               setTags("");
               setSubmitted((previous) => questionPoolLibraryFilter({ ...previous, tags: [] }));
-              void readPage();
+              loadFirstPage();
             }}
           >
             Clear Pool Tags
@@ -398,7 +494,7 @@ export function LibraryPoolDiscovery(props: {
               : "Could not load Pools. Your applied search is retained. Retry this request."}
           </p>
           <Show when={!invalidQuery()}>
-            <button type="button" onClick={() => void readPage(retryCursor)}>
+            <button type="button" onClick={() => void readPage(retryCursor, retryPrevious)}>
               Retry Pool results
             </button>
           </Show>
@@ -409,57 +505,23 @@ export function LibraryPoolDiscovery(props: {
         <div class="question-library-results" aria-busy={loading()}>
           <RecordList
             rows={items()}
-            regions={
-              [
-                {
-                  id: "identity",
-                  role: "identity",
-                  priority: "required",
-                  width: "minmax(0, 1fr)",
-                  align: "start",
-                  content: (pool) => (
-                    <article class="question-library-pool-row">
-                      <h3>{pool.metadata.title}</h3>
-                      {/* ASVS 1.2.1: metadata is rendered as text, never injected HTML. */}
-                      <p>{pool.metadata.description}</p>
-                      <p>
-                        Discipline: {pool.metadata.disciplineName}
-                        <Show when={pool.metadata.disciplineIsRetired}> (retired)</Show>
-                      </p>
-                      <Show when={pool.bloom}>
-                        {(bloom) => (
-                          <p>
-                            <BloomClassificationText bloom={bloom()} />
-                          </p>
-                        )}
-                      </Show>
-                      <p>
-                        Pool ID: {pool.questionPoolId} | Edit: {pool.questionPoolEditNumber} |
-                        Members: {pool.memberCount}
-                      </p>
-                      <button type="button" onClick={(event) => inspect(pool, event.currentTarget)}>
-                        Inspect Pool {pool.metadata.title}
-                      </button>
-                    </article>
-                  ),
-                },
-              ] satisfies ReadonlyArray<RecordRegion<QuestionPoolLibrarySummary>>
-            }
+            content={poolContent}
             recordId={(pool) => pool.questionPoolId}
             state={{ kind: "ready" }}
             ariaLabel="Pool results"
             emptyState={{ title: "No published Pools match these filters." }}
           />
         </div>
-        <Show when={cursor() !== null && !error()}>
-          <button
-            type="button"
-            disabled={loading()}
-            onClick={() => void readPage(cursor() ?? undefined)}
-          >
-            Load more Pools
-          </button>
-        </Show>
+        <RecordPageControls
+          ariaLabel="Published Question Pool pages"
+          hasPrevious={previousCursors().length > 0}
+          hasNext={nextCursor() !== null}
+          loading={loading()}
+          onPrevious={loadPreviousPage}
+          onNext={loadNextPage}
+          pageSize={pageSize()}
+          onPageSizeChange={loadFirstPage}
+        />
       </div>
       <Show when={inspecting()}>
         {(pool) => (
@@ -525,9 +587,9 @@ export function LibraryPoolDiscovery(props: {
                           })
                         }
                         onCurrent={updateDetailBloom}
-                        onConflictCurrent={() => void readPage()}
+                        onConflictCurrent={() => loadFirstPage()}
                         onAccepted={(_bloom, changed) => {
-                          if (changed) void readPage();
+                          if (changed) loadFirstPage();
                         }}
                       />
                     )}
@@ -538,23 +600,7 @@ export function LibraryPoolDiscovery(props: {
                   <h3>Exact Question Revisions</h3>
                   <RecordSequence
                     rows={value().members}
-                    regions={
-                      [
-                        {
-                          id: "identity",
-                          role: "identity",
-                          priority: "required",
-                          width: "minmax(0, 1fr)",
-                          align: "start",
-                          content: (member) => (
-                            <>
-                              {member.publishedQuestionRevisionTuple.publishedQuestionId} |
-                              Revision: {member.publishedQuestionRevisionTuple.revisionNumber}
-                            </>
-                          ),
-                        },
-                      ] satisfies ReadonlyArray<RecordRegion<QuestionPoolView["members"][number]>>
-                    }
+                    content={poolMemberContent}
                     recordId={(member) =>
                       `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
                     }

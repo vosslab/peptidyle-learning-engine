@@ -111,12 +111,12 @@ pub use assessment_pool_selection_count::{
 pub use assessment_release::{
     ApplyAssessmentBlueprintUpdateInput, AssessmentBlueprintUpdateCannotApplyReason,
     AssessmentBlueprintUpdateContent, AssessmentBlueprintUpdateEntry,
-    AssessmentBlueprintUpdateReview, AssessmentQuestionPickerEntry, AssessmentReleaseIssue,
-    AssessmentReleaseValidation, AssessmentUnreleaseImpact, AuthoredAssessmentQuestion,
-    CourseAssessmentBlueprintUpdateSummary, CourseAssessmentSummary, CourseBlueprintUpdateReview,
-    CreateLiveAssessmentInput, DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore,
-    LiveAssessmentWorkspace, SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput,
-    SaveLiveAssessmentInput, UnreleasedLiveAssessment,
+    AssessmentBlueprintUpdateReview, AssessmentReleaseIssue, AssessmentReleaseValidation,
+    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentBlueprintUpdateSummary,
+    CourseAssessmentSummary, CourseBlueprintUpdateReview, CreateLiveAssessmentInput,
+    DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
+    SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
+    UnreleasedLiveAssessment,
 };
 pub use assessment_student_time_accommodation::AssessmentStudentTimeAccommodationStore;
 pub use assessment_student_view::{
@@ -155,11 +155,12 @@ pub use blueprint_change_proposal::{
     CreateBlueprintChangeProposalInput, StoredBlueprintChangeProposal,
 };
 pub use blueprint_course::{
-    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListRequest,
-    BlueprintCourseStore, BlueprintPromotionStore, StoredBlueprintAssessment,
-    StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
-    StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
-    StoredBlueprintPoolMembers, StoredBlueprintPromotion, StoredBlueprintRevision,
+    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListCursorPosition,
+    BlueprintCourseListRequest, BlueprintCourseListSort, BlueprintCourseStore,
+    BlueprintPromotionStore, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
+    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintPoolMembers,
+    StoredBlueprintPromotion, StoredBlueprintRevision,
 };
 pub use blueprint_history::{BlueprintHistoryKind, BlueprintHistoryStore};
 pub use blueprint_lineage::{
@@ -242,7 +243,9 @@ pub use live_student_course_landing::{
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
-pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
+pub use pagination::{
+    Cursor, DiscoveryPageRequest, DiscoveryPageSize, Page, PageRequest, PageSize, PaginationError,
+};
 pub use pool_bloom_preparation::PoolBloomPreparationReceipts;
 pub use question_bulk_metadata::{
     BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
@@ -258,7 +261,11 @@ pub use question_image_publication::{
     ClaimedQuestionImagePublication, PublicAssetPublicationStore,
 };
 pub use question_library::{
-    PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
+    PublishedQuestionAvailability, PublishedQuestionLibraryEntry,
+    QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
+    QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
+    QuestionLibrarySearchSort, QuestionLibraryStore, QuestionLibraryTextField,
+    QuestionLibraryTextTerm,
 };
 pub use question_pool_creation::{
     CreateQuestionPoolError, CreateQuestionPoolInput, CreatedQuestionPool,

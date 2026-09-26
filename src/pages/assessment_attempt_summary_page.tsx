@@ -60,7 +60,8 @@ function AssessmentAttemptHistoryContent(props: {
   }
   return (
     <PageFrame
-      contentClass="attempt-summary attempt-history"
+      // Recorded-work notice treatment on the content region. PageFrame owns the stack.
+      contentClass="attempt-summary"
       routeSurface="assessmentAttemptSummary"
       eyebrow={`${assessmentTypePresentation(props.history.assessment.assessmentType).label} · Attempt ${props.history.attemptNumber}`}
       title={props.history.assessment.title}
@@ -214,6 +215,7 @@ export function AssessmentAttemptSummaryPage(): JSX.Element {
       keyed
       fallback={
         <PageFrame
+          // Recorded-work notice treatment on the content region. PageFrame owns the stack.
           contentClass="attempt-summary"
           routeSurface="assessmentAttemptSummary"
           title="Recorded work"

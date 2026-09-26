@@ -15,6 +15,7 @@ import { routeContractForPathname, type RouteContract } from "./route_contract";
 import {
   deriveRibbonModel,
   type RibbonContextLabels,
+  type RibbonContextNavigation,
   type RibbonModel,
 } from "./ribbon/ribbon_contract";
 import type { StudentRibbonNavigation } from "./ribbon/student_ribbon_navigation";
@@ -28,13 +29,14 @@ function isPublicAccountRoute(pathname: string): boolean {
 
 function ribbonLabelsFor(
   routeData: CourseThemeRouteData | undefined,
-  assessmentTitle: string | undefined,
+  publishedLabels: RibbonContextLabels,
 ): RibbonContextLabels {
-  if (routeData === undefined) return assessmentTitle === undefined ? {} : { assessmentTitle };
+  if (routeData === undefined) return publishedLabels;
 
   if (routeData.kind === "assessmentAttempt") {
     const { context } = routeData;
     return {
+      ...publishedLabels,
       courseShortName: context.course.shortName,
       courseLongName: context.course.longName,
       assessmentAttemptTitle: context.assessment.title,
@@ -43,15 +45,16 @@ function ribbonLabelsFor(
   if (routeData.kind === "assessmentAttemptHistory") {
     const { history } = routeData;
     return {
+      ...publishedLabels,
       courseShortName: history.course.shortName,
       courseLongName: history.course.longName,
       assessmentAttemptTitle: history.assessment.title,
     };
   }
   return {
+    ...publishedLabels,
     courseShortName: courseRouteView(routeData).summary.shortName,
     courseLongName: courseRouteView(routeData).summary.longName,
-    assessmentTitle,
   };
 }
 
@@ -160,8 +163,9 @@ export function App(props: RouteSectionProps): JSX.Element {
   const pathname = (): string => location.pathname;
   function ribbonModel(
     routeData: CourseThemeRouteData | undefined,
-    assessmentTitle: string | undefined,
+    publishedLabels: RibbonContextLabels,
     studentNavigation: StudentRibbonNavigation | undefined,
+    publishedNavigation: RibbonContextNavigation,
   ): RibbonModel | undefined {
     const currentPathname = pathname();
     if (isPublicAccountRoute(currentPathname)) return undefined;
@@ -185,7 +189,8 @@ export function App(props: RouteSectionProps): JSX.Element {
         latestFeedbackAttemptId: studentNavigation?.latestFeedbackAttemptId,
       },
       { productRole: state.session.account.productRole },
-      ribbonLabelsFor(routeData, assessmentTitle),
+      ribbonLabelsFor(routeData, publishedLabels),
+      publishedNavigation,
     );
   }
 

@@ -83,7 +83,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
 
     await test.step("Elena enters the seeded Instructor session with its used Course", async () => {
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await expectUsedCourse(elena, "Course Instances you teach", "Open Course Instance");
+      await expectUsedCourse(elena, "Course Instances you teach", "Open Course");
     });
 
     await test.step("Mary enters and reenters her enrolled Student session", async () => {

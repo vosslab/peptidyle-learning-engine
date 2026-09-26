@@ -7,9 +7,10 @@ pub(super) fn discovery(
     include_archived: bool,
 ) -> learning_data_access::BlueprintCourseListRequest {
     learning_data_access::BlueprintCourseListRequest {
-        page: learning_data_access::PageRequest::first(
-            learning_data_access::PageSize::new(100).expect("bounded fixture discovery"),
+        page: learning_data_access::DiscoveryPageRequest::first(
+            learning_data_access::DiscoveryPageSize::new(100).expect("bounded fixture discovery"),
         ),
+        sort: learning_data_access::BlueprintCourseListSort::Name,
         query: String::new(),
         include_archived,
         public_only: false,

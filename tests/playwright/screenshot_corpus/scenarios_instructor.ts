@@ -96,7 +96,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByRole("link", { name: "My Active Courses", exact: true }).click();
     await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     const seededCourse = courseCard(session.page, COURSE_TITLE);
-    await seededCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();
+    await seededCourse.getByRole("link", { name: "Open Course", exact: true }).click();
     await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_assignment_workspace", session);
     await session.page.getByRole("link", { name: "Open Students", exact: true }).click();
@@ -170,7 +170,7 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
     const result = session.page.locator(".record-list__row").filter({
       has: session.page.getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true }),
     });
-    await result.getByRole("link", { name: "Open question", exact: true }).click();
+    await result.getByRole("link", { name: "Open", exact: true }).click();
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await captureCheckpoint(runtime, "published_question_detail", session);
     await navigateInstructorLibraryBrowse(session.page);
@@ -226,11 +226,19 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .waitFor();
     await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
     await captureCheckpoint(runtime, "blueprint_list", session);
-    await session.page.getByText(COURSE_TITLE, { exact: true }).click();
-    await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
+    await session.page
+      .getByRole("listitem")
+      .filter({ hasText: COURSE_TITLE })
+      .getByRole("link", { name: "Open Blueprint Course", exact: true })
+      .click();
+    await session.page.waitForURL(/\/blueprint-courses\/[^/]+$/u);
+    await session.page
+      .getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true })
+      .waitFor();
     await captureCheckpoint(runtime, "blueprint_detail", session);
     await session.page
-      .getByRole("link", { name: "Return to Blueprint Courses", exact: true })
+      .getByRole("link", { name: "My Blueprint Courses", exact: true })
+      .first()
       .click();
     await session.page
       .getByRole("button", { name: "Create Blueprint Course", exact: true })
@@ -248,7 +256,7 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("button", { name: "Choose published Questions", exact: true })
       .click();
     await session.page.getByRole("button", { name: "Search questions", exact: true }).click();
-    await session.page.locator(".question-picker-result input").first().waitFor();
+    await session.page.getByRole("heading", { name: "Current results", exact: true }).waitFor();
     await captureCheckpoint(runtime, "blueprint_question_picker", session);
   } finally {
     await runtime.close(session);
@@ -281,7 +289,7 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
         exact: true,
       })
       .waitFor();
-    await session.page.getByRole("link", { name: COURSE_TITLE, exact: true }).waitFor();
+    await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
     await captureCheckpoint(runtime, "filtered_results", session);
   } finally {
     await runtime.close(session);
@@ -303,7 +311,21 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
-    await page.getByRole("button", { name: "Add Question", exact: true }).first().click();
+    await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
+    const picker = page.getByRole("dialog", { name: "Choose published Questions", exact: true });
+    // The dialog loads one library page on open. Search isolates the seeded published title.
+    await picker.getByLabel("Search questions", { exact: true }).fill(PUBLISHED_NATIVE_TITLE);
+    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+    await picker
+      .getByRole("checkbox", { name: `Select ${PUBLISHED_NATIVE_TITLE}`, exact: true })
+      .check();
+    await picker.getByRole("button", { name: "Add selected Questions", exact: true }).click();
+    await page
+      .getByText(
+        "Available published Question added with its exact revision pin. Save Questions when ready.",
+        { exact: true },
+      )
+      .waitFor();
     await captureCheckpoint(runtime, "assignment_questions_draft", session);
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page

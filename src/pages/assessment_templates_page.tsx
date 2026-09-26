@@ -12,13 +12,12 @@ import { useApplicationApi } from "../api/application_api";
 import { ApiRequestError } from "../api/http_client/error";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
 import { PageFrame } from "../components/page_frame";
-import { RecordList, type RecordListState } from "../components/record_list/record_list";
-import type { RecordRegion } from "../components/record_list/region_spec";
 import {
-  ASSESSMENT_TYPE_OPTIONS,
-  assessmentTypePresentation,
-  isAssessmentType,
-} from "../assessment_type_presentation";
+  RecordList,
+  type RecordContent,
+  type RecordListState,
+} from "../components/record_list/record_list";
+import { ASSESSMENT_TYPE_OPTIONS, isAssessmentType } from "../assessment_type_presentation";
 import { AssessmentTemplateSettingsEditor } from "./assessment_template_settings_editor";
 import {
   assessmentTemplateDraft,
@@ -33,8 +32,6 @@ import "./assessment_templates_page.css";
 export interface AssessmentTemplatesSurfaceProps {
   readonly client: AssessmentTemplateClient;
 }
-
-type AssessmentTemplateListRow = AssessmentTemplate;
 
 function replaceTemplate(
   templates: ReadonlyArray<AssessmentTemplate>,
@@ -66,6 +63,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
   const [creating, setCreating] = createSignal(false);
   const [createDisclosure, setCreateDisclosure] = createSignal<boolean>();
   let pendingReplacement: (() => void) | undefined;
+  let replacementTrigger: HTMLElement | undefined;
 
   const isCreateExpanded = createMemo(
     () => createDisclosure() ?? (listState() === "ready" && templates().length === 0),
@@ -85,33 +83,20 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
     return { kind: "ready" };
   };
 
-  const templateRegions: ReadonlyArray<RecordRegion<AssessmentTemplateListRow>> = [
-    {
-      id: "template",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "stretch",
-      content: (template): JSX.Element => {
-        const presentation = assessmentTypePresentation(template.assessmentType);
-        return (
-          <button
-            type="button"
-            class="assessment-template-list-button"
-            classList={{
-              "assessment-template-list-button--selected": selected()?.template.id === template.id,
-            }}
-            aria-pressed={selected()?.template.id === template.id}
-            disabled={detailBusy() || creating()}
-            onClick={() => openTemplate(template)}
-          >
-            <strong>{template.name}</strong>
-            <span>{presentation.label}</span>
-          </button>
-        );
+  const templateRecordContent = (template: AssessmentTemplate): RecordContent => ({
+    title: template.name,
+    details: [{ kind: "assessmentType", value: template.assessmentType }],
+    actions: [
+      {
+        id: "edit-template",
+        kind: "command",
+        label: "Edit",
+        pressed: selected()?.template.id === template.id,
+        disabled: detailBusy() || creating(),
+        onClick: (): void => openTemplate(template),
       },
-    },
-  ];
+    ],
+  });
 
   async function loadTemplates(): Promise<void> {
     setListState("loading");
@@ -135,6 +120,8 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       action();
       return;
     }
+    replacementTrigger =
+      document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     pendingReplacement = action;
     setReplacementRequested(true);
   }
@@ -143,6 +130,13 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
     const action = pendingReplacement;
     pendingReplacement = undefined;
     action?.();
+  }
+
+  function clearReplacementRequest(): void {
+    setReplacementRequested(false);
+    queueMicrotask(() => {
+      if (!detailBusy() && !creating()) replacementTrigger?.focus();
+    });
   }
 
   function openTemplate(template: AssessmentTemplate): void {
@@ -278,6 +272,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
 
   return (
     <PageFrame
+      // Template editor controls inside the shared stack.
       contentClass="assessment-templates"
       routeSurface="assessmentTemplates"
       eyebrow="Assessments"
@@ -304,7 +299,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
               message: "Create one below to save settings you use often.",
             }}
             recordId={(template) => template.id}
-            regions={templateRegions}
+            content={templateRecordContent}
             rows={templates()}
             state={templateListState()}
           />
@@ -467,7 +462,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
         save={saveTemplate}
         manualLeave={{
           requested: replacementRequested,
-          clearRequest: () => setReplacementRequested(false),
+          clearRequest: clearReplacementRequest,
           continue: continueReplacement,
         }}
         copy={{

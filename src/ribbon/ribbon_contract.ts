@@ -74,6 +74,9 @@ export interface RibbonViewerIdentity {
   readonly productRole: ProductRole;
 }
 
+/** The two authorized collection parents for a directly loaded Blueprint Course. */
+export type BlueprintBreadcrumbParent = "myBlueprintCourses" | "publicBlueprintSearch";
+
 /**
  * Already-resolved display text only. These values are never identifiers,
  * resources, accessors, callbacks, promises, or projections.
@@ -83,6 +86,14 @@ export interface RibbonContextLabels {
   readonly courseLongName?: string;
   readonly assessmentTitle?: string;
   readonly assessmentAttemptTitle?: string;
+  readonly questionTitle?: string;
+  readonly blueprintCourseTitle?: string;
+  readonly blueprintBreadcrumbParent?: BlueprintBreadcrumbParent;
+}
+
+/** Validated link state from the current route, kept separate from display labels. */
+export interface RibbonContextNavigation {
+  readonly blueprintSearchReturnToken?: string;
 }
 
 /** The declared public route parameters are strings only; no resource is admitted here. */
@@ -535,6 +546,7 @@ function breadcrumbsFor(
   routeState: RibbonRouteState,
   productRole: ProductRole,
   labels: RibbonContextLabels,
+  navigation: RibbonContextNavigation,
 ): ReadonlyArray<RibbonBreadcrumbModel> {
   if (routeState.route.id === "signIn") return Object.freeze([]);
   const homeHref = productRoleHomePath(productRole);
@@ -549,9 +561,10 @@ function breadcrumbsFor(
   const library = breadcrumbLink("library");
   const drafts = breadcrumbLink("questionDrafts");
   const blueprints = breadcrumbLink("blueprintCourses");
+  const studentCourses = breadcrumbLink("studentCourses");
   const courseParams = { courseInstanceId: routeState.params.courseInstanceId };
   const courseAssessments = breadcrumbLink("courseAssessments", courseParams);
-  const studentCourse = breadcrumbLink("studentCourseProgress", courseParams);
+  const studentCourse = breadcrumbLink("studentCourseLanding", courseParams);
   const assessmentParams = {
     courseInstanceId: routeState.params.courseInstanceId,
     assessmentId: routeState.params.assessmentId,
@@ -576,10 +589,34 @@ function breadcrumbsFor(
   }
   const assessmentLabel = labels.assessmentTitle ?? "Assessment";
   const studentAssessmentAccessLabel = labels.assessmentTitle ?? "Before you start";
+  const questionLabel = labels.questionTitle ?? "Question";
+  const blueprintCourseLabel = labels.blueprintCourseTitle ?? "Blueprint Course";
+
+  function publicBlueprintSearchBreadcrumbHref(): string {
+    const token = navigation.blueprintSearchReturnToken;
+    const validToken =
+      typeof token === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(token);
+    if (!validToken) return breadcrumbLink("publicBlueprintSearch") ?? homeHref;
+    return `/blueprint-courses/search/public?${new URLSearchParams({ blueprintReturn: token }).toString()}`;
+  }
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
     if (courseHref === undefined) return [];
     return [home, courseBreadcrumbItem(courseHref), breadcrumbCurrent(current)];
+  }
+
+  function studentCourseTrail(
+    current: string,
+    courseHref: string | undefined,
+  ): RibbonBreadcrumbModel[] {
+    if (studentCourses === undefined || courseHref === undefined) return [];
+    return [
+      home,
+      breadcrumbLinkItem("Courses", studentCourses),
+      courseBreadcrumbItem(courseHref),
+      breadcrumbCurrent(current),
+    ];
   }
 
   switch (routeState.route.id) {
@@ -642,15 +679,21 @@ function breadcrumbsFor(
     case "courseAssessments":
       return Object.freeze([home, courseBreadcrumbItem(currentHref, true)]);
     case "studentCourseProgress":
-      return Object.freeze([home, courseBreadcrumbItem(currentHref, true)]);
+      return Object.freeze(studentCourseTrail("Progress", studentCourse));
     case "studentCourseLanding":
+      return studentCourses === undefined
+        ? Object.freeze([])
+        : Object.freeze([
+            home,
+            breadcrumbLinkItem("Courses", studentCourses),
+            courseBreadcrumbItem(currentHref, true),
+          ]);
+    case "studentResponseStats":
       return Object.freeze([
         home,
-        courseBreadcrumbItem(studentCourse ?? currentHref),
-        breadcrumbCurrent("All Coursework"),
+        breadcrumbLinkItem("Grades", breadcrumbLink("studentScores") ?? homeHref),
+        breadcrumbCurrent("Response Stats"),
       ]);
-    case "studentResponseStats":
-      return Object.freeze([home, breadcrumbCurrent("Response Stats")]);
     case "studentDueSoon":
       return Object.freeze([home, breadcrumbCurrent("Due Soon")]);
     case "studentCompleted":
@@ -658,14 +701,18 @@ function breadcrumbsFor(
     case "studentScores":
       return Object.freeze([home, breadcrumbCurrent("Scores")]);
     case "studentAttemptHistory":
-      return Object.freeze([home, breadcrumbCurrent("Attempt History")]);
+      return Object.freeze([
+        home,
+        breadcrumbLinkItem("Grades", breadcrumbLink("studentScores") ?? homeHref),
+        breadcrumbCurrent("Attempt History"),
+      ]);
     case "questionDetail":
       return library === undefined
         ? Object.freeze([])
         : Object.freeze([
             home,
             breadcrumbLinkItem("Question Library", library),
-            breadcrumbCurrent("Question"),
+            breadcrumbCurrent(questionLabel),
           ]);
     case "questionDraftEditor":
       return drafts === undefined
@@ -673,7 +720,7 @@ function breadcrumbsFor(
         : Object.freeze([
             home,
             breadcrumbLinkItem("My Draft Questions", drafts),
-            breadcrumbCurrent("Question"),
+            breadcrumbCurrent(questionLabel),
           ]);
     case "publicBlueprintSearch":
       return Object.freeze([home, breadcrumbCurrent("Search Public Blueprint Courses")]);
@@ -682,8 +729,13 @@ function breadcrumbsFor(
         ? Object.freeze([])
         : Object.freeze([
             home,
-            breadcrumbLinkItem("My Blueprint Courses", blueprints),
-            breadcrumbCurrent("Blueprint Course"),
+            labels.blueprintBreadcrumbParent === "publicBlueprintSearch"
+              ? breadcrumbLinkItem(
+                  "Search Public Blueprint Courses",
+                  publicBlueprintSearchBreadcrumbHref(),
+                )
+              : breadcrumbLinkItem("My Blueprint Courses", blueprints),
+            breadcrumbCurrent(blueprintCourseLabel),
           ]);
     case "assessmentWorkspaceQuestions":
     case "assessmentWorkspacePolicies":
@@ -704,7 +756,7 @@ function breadcrumbsFor(
     case "assessmentWorkspaceOverview":
       return Object.freeze(courseTrail(assessmentLabel, courseAssessments));
     case "assessmentOverview":
-      return Object.freeze(courseTrail(studentAssessmentAccessLabel, studentCourse));
+      return Object.freeze(studentCourseTrail(studentAssessmentAccessLabel, studentCourse));
     case "assessmentCreate":
       return Object.freeze(courseTrail("New Assessment", courseAssessments));
     case "gradebook":
@@ -719,6 +771,7 @@ function breadcrumbsFor(
       }
       return Object.freeze([
         home,
+        breadcrumbLinkItem("Courses", studentCourses ?? homeHref),
         courseBreadcrumbItem(studentCourse),
         breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
         breadcrumbCurrent("Attempt"),
@@ -727,6 +780,7 @@ function breadcrumbsFor(
       return studentCourse !== undefined && studentAssessment !== undefined
         ? Object.freeze([
             home,
+            breadcrumbLinkItem("Courses", studentCourses ?? homeHref),
             courseBreadcrumbItem(studentCourse),
             breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
             breadcrumbCurrent("Attempt history"),
@@ -747,6 +801,7 @@ export function deriveRibbonModel<
   routeState: ExactRouteState<RouteState>,
   viewerIdentity: Exact<RibbonViewerIdentity, ViewerIdentity>,
   contextLabels: Exact<RibbonContextLabels, ContextLabels>,
+  navigation: RibbonContextNavigation = {},
 ): RibbonModel {
   const schema = ribbonSchemaFor(viewerIdentity.productRole);
   const tabs = schema.map((slot) => {
@@ -756,7 +811,12 @@ export function deriveRibbonModel<
   });
   const taskAreas = taskAreasFor(routeState, viewerIdentity.productRole);
   const context = contextFor(viewerIdentity.productRole);
-  const breadcrumbs = breadcrumbsFor(routeState, viewerIdentity.productRole, contextLabels);
+  const breadcrumbs = breadcrumbsFor(
+    routeState,
+    viewerIdentity.productRole,
+    contextLabels,
+    navigation,
+  );
   return Object.freeze({
     scope: routeState.route.ribbon.scope,
     context,

@@ -466,7 +466,8 @@ $$;
 
 CREATE FUNCTION ple_api.list_blueprint_courses(
     p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
-    p_after_long_name text, p_after_blueprint_course_id text, p_limit integer,
+    p_sort text, p_after_count bigint, p_after_long_name text, p_after_blueprint_course_id text,
+    p_limit integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
     p_subtopic_uuid uuid, p_cross_discipline boolean
 )
@@ -481,9 +482,14 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 BEGIN
     -- ASVS 2.2.1/3: reject contradictory visibility and unbounded pages.
-    IF p_limit < 1 OR p_limit > 101 OR (p_public_only AND p_include_archived)
+    IF p_limit < 1 OR p_limit > 251 OR (p_public_only AND p_include_archived)
        OR length(p_query) > 256
-       OR (p_after_long_name IS NULL) <> (p_after_blueprint_course_id IS NULL) THEN
+       OR p_sort NOT IN ('name', 'adoptions', 'students')
+       OR (p_after_long_name IS NULL) <> (p_after_blueprint_course_id IS NULL)
+       OR (p_sort = 'name' AND p_after_count IS NOT NULL)
+       OR (p_sort <> 'name' AND
+           ((p_after_count IS NULL) <> (p_after_long_name IS NULL)))
+       OR (p_after_count IS NOT NULL AND p_after_count < 0) THEN
         RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
     END IF;
     -- ASVS 2.2.2/8.3.1: validate identity and actual parents through authenticated reads.
@@ -507,10 +513,12 @@ BEGIN
              WHERE item.content_subtopic_id = p_subtopic_uuid)) THEN
         RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
     END IF;
-    RETURN QUERY SELECT course.blueprint_course_id::text, course.short_name, course.long_name,
-           course.availability::text, course.blueprint_edit_number,
-           course.current_blueprint_revision_number::bigint,
-           course.owner_account_id = ple_api.current_session_account_id(),
+    RETURN QUERY
+    WITH matching AS MATERIALIZED (
+        SELECT course.blueprint_course_id::text AS blueprint_course_id, course.short_name,
+           course.long_name, course.availability::text AS availability, course.blueprint_edit_number,
+           course.current_blueprint_revision_number::bigint AS current_blueprint_revision_number,
+           course.owner_account_id = ple_api.current_session_account_id() AS is_owner,
            (SELECT count(*) FROM (
                 SELECT adoption.course_instance_id
                   FROM ple_data.course_instance AS adoption
@@ -519,7 +527,7 @@ BEGIN
                 SELECT source.source_course_instance_id
                   FROM ple_data.blueprint_course_instance_source AS source
                  WHERE source.blueprint_course_id = course.blueprint_course_id
-           ) AS adopted_course),
+           ) AS adopted_course)::bigint AS total_adoptions,
            (SELECT COALESCE(sum(CASE
                        WHEN adoption.retention_lifecycle_state = 'deleted'
                            THEN adoption.purged_students_ever_enrolled
@@ -537,7 +545,8 @@ BEGIN
                     SELECT source.source_course_instance_id
                       FROM ple_data.blueprint_course_instance_source AS source
                      WHERE source.blueprint_course_id = course.blueprint_course_id
-              ) AS adopted_course ON adopted_course.course_instance_id = adoption.course_instance_id),
+              ) AS adopted_course ON adopted_course.course_instance_id = adoption.course_instance_id)
+              AS total_students_ever_enrolled,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags
       FROM ple_data.blueprint_course AS course
@@ -554,9 +563,6 @@ BEGIN
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
             OR course.long_name ILIKE
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%')
-       AND (p_after_long_name IS NULL OR
-            (course.long_name COLLATE "C", course.blueprint_course_id COLLATE "C") >
-            (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))
        AND (
            -- ASVS 8.2.2/8.3.1: opt-in history never exposes another owner's Private course.
            course.availability = 'public'
@@ -564,7 +570,27 @@ BEGIN
                AND course.availability = 'private')
            OR (p_include_archived AND course.availability = 'archived')
        )
-     ORDER BY course.long_name COLLATE "C", course.blueprint_course_id COLLATE "C"
+    )
+    SELECT matched.* FROM matching AS matched
+     WHERE p_after_long_name IS NULL
+        OR (p_sort = 'name' AND
+            (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+            (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))
+        OR (p_sort = 'adoptions' AND
+            (matched.total_adoptions < p_after_count
+             OR (matched.total_adoptions = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'students' AND
+            (matched.total_students_ever_enrolled < p_after_count
+             OR (matched.total_students_ever_enrolled = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+     ORDER BY
+       CASE WHEN p_sort = 'name' THEN matched.long_name END COLLATE "C" ASC,
+       CASE WHEN p_sort = 'adoptions' THEN matched.total_adoptions END DESC,
+       CASE WHEN p_sort = 'students' THEN matched.total_students_ever_enrolled END DESC,
+       matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C"
      LIMIT p_limit;
 END
 $$;

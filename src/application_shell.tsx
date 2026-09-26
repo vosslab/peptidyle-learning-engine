@@ -23,14 +23,20 @@ import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
 import { RibbonAccountAvatar } from "./features/profile_avatar/ribbon_account_avatar";
 import { AppRibbon, SignedOutRibbonAvatar } from "./ribbon/app_ribbon";
 import { routeContractForPathname } from "./route_contract";
-import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
+import type {
+  RibbonBreadcrumbModel,
+  RibbonContextLabels,
+  RibbonContextNavigation,
+  RibbonModel,
+} from "./ribbon/ribbon_contract";
 import {
   loadStudentRibbonNavigation,
   type StudentRibbonNavigation,
 } from "./ribbon/student_ribbon_navigation";
 import {
   RouteScopeProvider,
-  useAssessmentTitle,
+  useRouteScopeLabels,
+  useRouteScopeNavigation,
   useRouteScopeData,
 } from "./ribbon/route_scope_context";
 
@@ -38,8 +44,9 @@ export interface ApplicationShellProps {
   readonly pathname: Accessor<string>;
   readonly ribbonModel: (
     routeData: CourseThemeRouteData | undefined,
-    assessmentTitle: string | undefined,
+    publishedLabels: RibbonContextLabels,
     studentNavigation: StudentRibbonNavigation | undefined,
+    publishedNavigation: RibbonContextNavigation,
   ) => RibbonModel | undefined;
   readonly content: (pathname: string) => JSX.Element;
 }
@@ -263,7 +270,8 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     // unresolved) value and prevent later cache resolution from reaching the
     // Ribbon model.
     const routeData = useRouteScopeData();
-    const assessmentTitle = useAssessmentTitle();
+    const publishedLabels = useRouteScopeLabels();
+    const publishedNavigation = useRouteScopeNavigation();
     const studentNavigationPath = createMemo(() => {
       const identity = session.state();
       if (identity.kind !== "authenticated" || identity.session.account.productRole !== "student") {
@@ -285,7 +293,7 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
       studentNavigationPath() === undefined ? undefined : studentNavigationLookup(),
     );
     const ribbonModel = createMemo(() =>
-      props.ribbonModel(routeData(), assessmentTitle(), studentNavigation()),
+      props.ribbonModel(routeData(), publishedLabels(), studentNavigation(), publishedNavigation()),
     );
     function ContentRegion(): JSX.Element {
       return (
@@ -379,7 +387,7 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
   }
 
   return (
-    <RouteScopeProvider pathname={props.pathname}>
+    <RouteScopeProvider pathname={props.pathname} sessionBoundary={session.state}>
       <ShellInterior />
     </RouteScopeProvider>
   );

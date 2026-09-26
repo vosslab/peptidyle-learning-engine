@@ -58,10 +58,15 @@ export interface QuestionPickerSelection {
   readonly questions: ReadonlyArray<QuestionPickerSelectedQuestion>;
 }
 
+/** Shared discovery page sizes. The picker forwards the same choice the Library uses. */
+export type QuestionPickerPageSize = 50 | 100 | 250;
+
 export interface QuestionPickerSearchRequest {
   readonly source: QuestionPickerSource;
   readonly query: QuestionLibraryBrowseQuery;
   readonly cursor: string | null;
+  /** Omitted requests use the Library default of 50. */
+  readonly pageSize?: QuestionPickerPageSize;
 }
 
 /**
@@ -208,10 +213,10 @@ export function questionLibraryPickerRepository(
   return {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
       if (request.source.kind === "library" || request.source.kind === "sharedLibrary") {
-        return await library.search(request.query, request.cursor);
+        return await library.search(request.query, request.cursor, request.pageSize);
       }
       if (request.source.kind === "mine") {
-        return await myQuestions.search(request.query, request.cursor);
+        return await myQuestions.search(request.query, request.cursor, request.pageSize);
       }
       {
         throw new Error("This picker composition has not connected that source yet.");
@@ -230,7 +235,11 @@ export function questionLibraryPickerSources(
   ];
 }
 
-const PICKER_SOURCE_PAGE_SIZE = 100;
+const DEFAULT_QUESTION_PICKER_PAGE_SIZE: QuestionPickerPageSize = 50;
+
+function pickerPageSize(pageSize: QuestionPickerPageSize | undefined): QuestionPickerPageSize {
+  return pageSize ?? DEFAULT_QUESTION_PICKER_PAGE_SIZE;
+}
 
 function pickerPageOffset(cursor: string | null): number {
   if (cursor === null) return 0;
@@ -338,6 +347,7 @@ export function blueprintCourseQuestionPickerRepository(
 ): QuestionPickerSourceRepository {
   return {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
+      const pageSize = pickerPageSize(request.pageSize);
       const offset = pickerPageOffset(request.cursor);
       let rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       if (request.source.kind === "blueprintCourseAssessment") {
@@ -351,7 +361,7 @@ export function blueprintCourseQuestionPickerRepository(
         throw new Error("Choose a Blueprint Course source for this picker composition.");
       }
       const matched = sourceRowsMatchQuery(rows, request.query);
-      const items = matched.slice(offset, offset + PICKER_SOURCE_PAGE_SIZE);
+      const items = matched.slice(offset, offset + pageSize);
       const nextOffset = offset + items.length;
       const nextCursor = nextOffset < matched.length ? String(nextOffset) : null;
       return {
@@ -376,6 +386,9 @@ export class QuestionPickerSession {
   #state: QuestionPickerState = { kind: "loading", rows: [], aggregates: [], nextCursor: null };
   #loading = false;
   #queuedReset = false;
+  #pageSize: QuestionPickerPageSize = DEFAULT_QUESTION_PICKER_PAGE_SIZE;
+  #pageCursor: string | null = null;
+  #previousCursors: ReadonlyArray<string | null> = [];
 
   public constructor(
     private readonly repository: QuestionPickerSourceRepository,
@@ -386,6 +399,18 @@ export class QuestionPickerSession {
     return this.#state;
   }
 
+  public get pageSize(): QuestionPickerPageSize {
+    return this.#pageSize;
+  }
+
+  public get hasPrevious(): boolean {
+    return this.#previousCursors.length > 0;
+  }
+
+  public get loading(): boolean {
+    return this.#loading;
+  }
+
   public async reset(
     source: QuestionPickerSource,
     query: QuestionLibraryBrowseQuery,
@@ -393,11 +418,21 @@ export class QuestionPickerSession {
     this.#generation += 1;
     this.#source = source;
     this.#query = normalizeQuestionLibraryBrowseQuery(query);
+    this.#pageCursor = null;
+    this.#previousCursors = [];
     if (this.#loading) {
       this.#queuedReset = true;
       return;
     }
-    await this.loadPage(null, true, this.#generation);
+    await this.loadPage(null, [], this.#generation);
+  }
+
+  public async changePageSize(pageSize: QuestionPickerPageSize): Promise<void> {
+    if (pageSize === this.#pageSize) return;
+    this.#pageSize = pageSize;
+    const source = this.#source;
+    if (source === undefined) return;
+    await this.reset(source, this.#query);
   }
 
   public async retry(): Promise<void> {
@@ -406,12 +441,23 @@ export class QuestionPickerSession {
       this.#queuedReset = true;
       return;
     }
-    await this.loadPage(null, true, this.#generation);
+    await this.loadPage(this.#pageCursor, this.#previousCursors, this.#generation);
   }
 
   public async loadNext(): Promise<void> {
     if (this.#loading || this.#state.kind !== "ready" || this.#state.nextCursor === null) return;
-    await this.loadPage(this.#state.nextCursor, false, this.#generation);
+    await this.loadPage(
+      this.#state.nextCursor,
+      [...this.#previousCursors, this.#pageCursor],
+      this.#generation,
+    );
+  }
+
+  public async loadPrevious(): Promise<void> {
+    if (this.#loading || this.#previousCursors.length === 0) return;
+    const cursors = this.#previousCursors;
+    const cursor = cursors[cursors.length - 1] ?? null;
+    await this.loadPage(cursor, cursors.slice(0, -1), this.#generation);
   }
 
   private setState(state: QuestionPickerState): void {
@@ -421,16 +467,16 @@ export class QuestionPickerSession {
 
   private async loadPage(
     cursor: string | null,
-    replace: boolean,
+    previousCursors: ReadonlyArray<string | null>,
     generation: number,
   ): Promise<void> {
     const source = this.#source;
     if (this.#loading || source === undefined) return;
     this.#loading = true;
     const previous = this.#state;
-    const retainedRows = replace || previous.kind === "empty" ? [] : previous.rows;
+    const retainedRows = previous.kind === "empty" ? [] : previous.rows;
     const retainedAggregates = previous.aggregates;
-    const retainedCursor = replace || previous.kind === "empty" ? null : previous.nextCursor;
+    const retainedCursor = previous.kind === "empty" ? null : previous.nextCursor;
     this.setState({
       kind: "loading",
       rows: retainedRows,
@@ -438,13 +484,18 @@ export class QuestionPickerSession {
       nextCursor: retainedCursor,
     });
     try {
-      const raw = await this.repository.search({ source, query: this.#query, cursor });
+      const raw = await this.repository.search({
+        source,
+        query: this.#query,
+        cursor,
+        pageSize: this.#pageSize,
+      });
       const page = decodeQuestionLibraryBrowsePage(raw);
       if (generation !== this.#generation) return;
+      this.#pageCursor = cursor;
+      this.#previousCursors = previousCursors;
       const rows = rowsWithCanonicalUniqueQuestionIds(
-        (replace ? page.items : [...retainedRows, ...page.items]).filter(
-          isCurrentProductionPickerRow,
-        ),
+        page.items.filter(isCurrentProductionPickerRow),
       );
       this.setState(
         rows.length === 0
@@ -464,7 +515,7 @@ export class QuestionPickerSession {
       this.#loading = false;
       if (this.#queuedReset) {
         this.#queuedReset = false;
-        void this.loadPage(null, true, this.#generation);
+        void this.loadPage(null, [], this.#generation);
       }
     }
   }

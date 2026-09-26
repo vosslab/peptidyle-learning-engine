@@ -1,9 +1,5 @@
 /* Practice outcomes stay grouped by exact Published Question Revision. */
 
-.student-course-response-stats {
-  margin-top: var(--ple-space-5);
-}
-
 .student-course-response-stats > p {
   max-width: 75ch;
 }

@@ -1250,7 +1250,10 @@ rule, [application_shell.tsx](../src/application_shell.tsx), and
 
 **Decision.** `PageFrame` owns page identity and fixed page-level layout: the
 required title, optional `eyebrow` and `lede`, optional page-level actions,
-content origin, standard vertical spacing, and width. Reading width is the
+content origin, standard vertical spacing, and width. Its content is one
+column stack. `PageSection`, in the same module, owns an in-page heading,
+optional helper and actions, and that section's body. `contentClass` remains
+only for a task-specific arrangement inside that stack. Reading width is the
 default; a route selects `fullWidth` only for dense content, using the
 page-layout contract rather than the Ribbon contract. The frame root has fixed
 production geometry and is not caller-classed.
@@ -1298,7 +1301,7 @@ never as permission evidence.
 Instructor destination rules, [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx),
 and [ribbon_selected_tab_visibility.ts](../src/ribbon/ribbon_selected_tab_visibility.ts).
 
-### Record presentations and windowing have separate ownership
+### Record presentations and server pages have separate ownership
 
 **Decision.** Each record component uses semantics that match its task:
 `RecordList` for compact scans, `RecordSequence` for saved order,
@@ -1307,29 +1310,30 @@ for nested membership, and `RecordDetailList` for expanded reviews and
 comparisons. They share loading, empty, and error states while callers retain
 domain and workflow state. `RecordTable` owns its shared table skin and internal
 horizontal scrolling; callers set task-specific column proportions and logical
-alignment. The window helper decides which existing `RecordList` records mount:
-visible range, overscan, scroll position, measured heights, and spacer heights.
+alignment. Bounded server pages replaced client windowing. Question, Pool, and
+Blueprint discovery each keep one server page of 50, 100, or 250 records.
+The client window helper is gone.
 
 **Why.** A scan row, table row, ordered entry, hierarchy, and full review have
 different structural meaning. A shared component should remove repeated
-presentation code without erasing those differences. Rendering a shorter scan
-slice must not change record identity, order, or layout.
+presentation code without erasing those differences. A shorter client slice of
+a larger result is no longer useful once discovery already returns one page.
 
 **Consequence.** All presentations use the same accessible collection states.
-A windowed scan uses the same row markup as an ordinary scan; windowing
-preserves a focused record in its mounted slice and does not own record state or
-presentation.
+RecordList renders the returned page. It does not calculate a mounted slice,
+overscan, spacers, or scroll-to-record position.
 
 **Owner.** The shared components under
-[src/components/record_list/](../src/components/record_list/),
-[record_list_window.ts](../src/components/record_list/record_list_window.ts),
+[src/components/record_list/](../src/components/record_list/)
 and their composition boundary in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md).
 
 ### Scan rows show one decision-sized summary
 
-**Decision.** A scan row carries identity, status that affects a decision, one
-decision-relevant value or date, and its main action. IDs and additional
-metadata belong on the detail page or behind progressive disclosure.
+**Decision.** A scan row carries the title and the facts a person needs to
+compare items without opening each one, plus the main action. Human Guidance
+names those facts for each collection. Question Library scans keep description,
+authors, classification, and the exact Question ID on the row. Public Blueprint
+scans keep classification and the usage counts the search already returns.
 
 **Why.** Repeated records need a compact, comparable decision surface rather
 than a compressed detail page.

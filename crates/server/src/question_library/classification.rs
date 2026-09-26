@@ -3,7 +3,7 @@ use axum::{http::StatusCode, response::Response};
 use learning_data_access::{
     ContentClassificationStore, ContentDisciplineDiscoveryStore, SessionTokenHash,
 };
-use question_model::{PublishedQuestionSharedMetadata, QuestionSearchRequest};
+use question_model::QuestionSearchRequest;
 
 use super::{route_error, store_error_response};
 
@@ -74,38 +74,14 @@ pub(super) async fn validate(
     Ok(())
 }
 
-pub(super) fn matches(
-    metadata: &PublishedQuestionSharedMetadata,
-    query: &QuestionSearchRequest,
-) -> bool {
-    (query.cross_discipline
-        || query
-            .discipline_uuid
-            .is_none_or(|id| id == metadata.discipline_uuid))
-        && query
-            .subject_uuid
-            .is_none_or(|id| id == metadata.subject_uuid)
-        && query
-            .topic_uuid
-            .is_none_or(|id| Some(id) == metadata.topic_uuid)
-        && query
-            .subtopic_uuid
-            .is_none_or(|id| Some(id) == metadata.subtopic_uuid)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use learning_data_access::StoreError;
-    use question_model::PublishedQuestionId;
     use uuid::Uuid;
 
     struct Vocabulary {
         unavailable: bool,
-    }
-
-    fn test_question_id(identifier: &str) -> PublishedQuestionId {
-        PublishedQuestionId::from_random_identifier(identifier).expect("canonical question ID")
     }
 
     impl Vocabulary {
@@ -223,37 +199,5 @@ mod tests {
                 .status(),
             StatusCode::SERVICE_UNAVAILABLE
         );
-    }
-
-    #[test]
-    fn cross_mode_relaxes_only_discipline_and_keeps_global_identity_restrictions() {
-        let metadata = PublishedQuestionSharedMetadata {
-            question_id: test_question_id("0000000"),
-            metadata_edit_number: 1,
-            tags: Vec::new(),
-            discipline_uuid: Uuid::from_u128(1),
-            subject_uuid: Uuid::from_u128(2),
-            topic_uuid: Some(Uuid::from_u128(3)),
-            subtopic_uuid: Some(Uuid::from_u128(4)),
-        };
-        let mut query = QuestionSearchRequest {
-            discipline_uuid: Some(Uuid::from_u128(10)),
-            subject_uuid: Some(metadata.subject_uuid),
-            topic_uuid: metadata.topic_uuid,
-            subtopic_uuid: metadata.subtopic_uuid,
-            ..QuestionSearchRequest::default()
-        };
-        assert!(!matches(&metadata, &query));
-        query.cross_discipline = true;
-        assert!(matches(&metadata, &query));
-        for field in 0..3 {
-            let mut changed = query.clone();
-            match field {
-                0 => changed.subject_uuid = Some(Uuid::from_u128(20)),
-                1 => changed.topic_uuid = Some(Uuid::from_u128(30)),
-                _ => changed.subtopic_uuid = Some(Uuid::from_u128(40)),
-            }
-            assert!(!matches(&metadata, &changed));
-        }
     }
 }

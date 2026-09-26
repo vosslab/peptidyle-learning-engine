@@ -15,7 +15,7 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    AssessmentQuestionPoolForkRecord, Cursor, PageRequest, PublishedQuestionPool,
+    AssessmentQuestionPoolForkRecord, Cursor, DiscoveryPageRequest, PublishedQuestionPool,
     QuestionPoolDiscoveryFilter, QuestionPoolDiscoveryPage, QuestionPoolLibraryStore,
     QuestionPoolTextFilter, SessionTokenHash, StoreError,
 };
@@ -62,7 +62,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
     async fn list_published_question_pools(
         &self,
         session_token_hash: SessionTokenHash,
-        page: PageRequest,
+        page: DiscoveryPageRequest,
         filter: QuestionPoolDiscoveryFilter,
         text: QuestionPoolTextFilter,
     ) -> Result<QuestionPoolDiscoveryPage, StoreError> {

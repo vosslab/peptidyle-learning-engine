@@ -95,13 +95,6 @@ export interface SaveLiveAssessmentInlineInput {
   readonly dueAt: LocalDateAndTime | null;
 }
 
-export interface AssessmentQuestionPickerEntry {
-  /** Exact current Question Revision chosen by this picker row. */
-  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
-  readonly description: string;
-  readonly bloom: BloomClassificationView | null;
-}
-
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
   readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
@@ -230,9 +223,6 @@ export interface LiveAssessmentReleaseClient {
     input: SaveLiveAssessmentInlineInput,
     expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<CourseAssessmentSummary>;
-  readonly listLiveAssessmentQuestionPicker: (
-    courseInstanceId: CourseInstanceId,
-  ) => Promise<ReadonlyArray<AssessmentQuestionPickerEntry>>;
   readonly createLiveAssessment: (
     courseInstanceId: CourseInstanceId,
     input: CreateLiveAssessmentInput,

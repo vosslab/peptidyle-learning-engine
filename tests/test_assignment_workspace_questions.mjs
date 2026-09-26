@@ -62,15 +62,7 @@ test("Questions picker adds an Available exact revision without flattening retai
   const entries = [pool];
   const added = appendAvailableFixedQuestion(
     entries,
-    {
-      publishedQuestionRevisionTuple: { publishedQuestionId: "7K4M-69QP", revisionNumber: 4 },
-      description: "Exact revision",
-      bloom: {
-        cognitiveProcess: "Apply",
-        knowledgeDimension: "Procedural Knowledge",
-        classificationEditNumber: "1",
-      },
-    },
+    { publishedQuestionId: "7K4M-69QP", revisionNumber: 4 },
     "00000000-0000-0000-0000-000000000004",
   );
 

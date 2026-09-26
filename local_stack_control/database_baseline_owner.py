@@ -427,12 +427,40 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
 			"-p", "learning-data-access", "--features", "postgres",
 			"--test", "blueprint_course_postgres",
-			"revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe",
+			"blueprint_course_postgres_lifecycle::revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe",
 			"--", "--ignored", "--exact", "--test-threads=1",
 		],
 		authoring_environment,
 		workspace,
 		"Blueprint Revision PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_discovery::discovery_pages_return_250_rows_and_one_blueprint_lookahead",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"250-row discovery PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_library::question_library_search_filters_and_pages_in_postgresql",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Question Library bounded PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
 

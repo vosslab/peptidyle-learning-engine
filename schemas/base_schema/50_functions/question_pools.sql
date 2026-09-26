@@ -184,10 +184,11 @@ BEGIN
     ) VALUES (p_question_pool_id, 1, created_at, actor_id, created_at,
         p_title, p_description, first_metadata.content_discipline_id, first_metadata.content_subject_id);
     INSERT INTO ple_data.question_pool_member(
-        question_pool_id, member_position, published_question_id, question_revision_number, created_at
+        question_pool_id, member_position, published_question_id, question_revision_number,
+        created_at, updated_at
     )
     SELECT p_question_pool_id, member.ordinality::integer, member.published_question_id,
-           p_member_revision_numbers[member.ordinality], created_at
+           p_member_revision_numbers[member.ordinality], created_at, created_at
       FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
     RETURN QUERY SELECT pool.question_pool_id::text, pool.question_pool_edit_number
@@ -278,10 +279,11 @@ BEGIN
     DELETE FROM ple_data.question_pool_member
      WHERE question_pool_id = p_question_pool_id;
     INSERT INTO ple_data.question_pool_member(
-        question_pool_id, member_position, published_question_id, question_revision_number, created_at
+        question_pool_id, member_position, published_question_id, question_revision_number,
+        created_at, updated_at
     )
     SELECT p_question_pool_id, member.ordinality::integer, member.published_question_id,
-           p_member_revision_numbers[member.ordinality], v_created_at
+           p_member_revision_numbers[member.ordinality], v_created_at, v_created_at
       FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
     UPDATE ple_data.question_pool
@@ -351,10 +353,11 @@ BEGIN
         source_metadata.tags
     );
     INSERT INTO ple_data.question_pool_member(
-        question_pool_id, member_position, published_question_id, question_revision_number, created_at
+        question_pool_id, member_position, published_question_id, question_revision_number,
+        created_at, updated_at
     )
     SELECT p_question_pool_id, member.member_position, member.published_question_id,
-           member.question_revision_number, v_created_at
+           member.question_revision_number, v_created_at, v_created_at
       FROM ple_data.question_pool_member AS member
      WHERE member.question_pool_id = p_source_question_pool_id
      ORDER BY member.member_position;
@@ -522,7 +525,7 @@ BEGIN
             OR ple_api.current_session_account_has_platform_administration()) THEN
         RETURN;
     END IF;
-    IF p_page_size NOT BETWEEN 1 AND 100
+    IF p_page_size NOT BETWEEN 1 AND 250
        OR (p_subject_uuid IS NOT NULL AND p_discipline_uuid IS NULL)
        OR (p_topic_uuid IS NOT NULL AND p_subject_uuid IS NULL)
        OR (p_subtopic_uuid IS NOT NULL AND p_topic_uuid IS NULL)

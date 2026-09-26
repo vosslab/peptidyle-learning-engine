@@ -3,6 +3,7 @@
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/api/AssessmentType";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
@@ -45,7 +46,7 @@ import {
 import { validateCanonicalPublicId, validateCanonicalQuestionIdSyntax } from "../../question_id";
 import { decodeCourseClassification } from "./course_classification";
 
-const MAX_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
 
 export function text(value: unknown, path: string): string {

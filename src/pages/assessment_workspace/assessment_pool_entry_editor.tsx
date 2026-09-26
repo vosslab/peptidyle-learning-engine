@@ -1,53 +1,42 @@
 // Exact-member editor for one Assessment-owned Question Pool fork.
 
-import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
+import { Show, createSignal, type JSX } from "solid-js";
 
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
-import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
+import {
+  QuestionPicker,
+  type QuestionPickerSelection,
+  type QuestionPickerSource,
+  type QuestionPickerSourceRepository,
+} from "../../features/question_picker";
 import { questionRevisionKey } from "./assessment_workspace_questions_model";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import type { RecordContent } from "../../components/record_list/record_list";
+import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 
 export interface AssessmentPoolEntryEditorProps {
   readonly entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>;
   readonly fork: AssessmentQuestionPoolForkView | undefined;
   readonly exactMembersUnavailable: boolean;
-  readonly availableQuestions: ReadonlyArray<AssessmentQuestionPickerEntry>;
+  readonly pickerRepository: QuestionPickerSourceRepository;
+  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
   readonly mutationsEnabled: boolean;
   readonly busy: boolean;
   readonly onSelectionCount: (selectionCount: number) => void;
-  readonly onReplaceMembers: (members: ReadonlyArray<PublishedQuestionRevisionTuple>) => void;
+  readonly onReplaceMembers: (
+    members: ReadonlyArray<PublishedQuestionRevisionTuple>,
+  ) => Promise<void>;
 }
-
-type AssessmentPoolMemberRecord = {
-  readonly member: AssessmentQuestionPoolForkView["members"][number];
-  readonly index: number;
-  readonly members: AssessmentQuestionPoolForkView["members"];
-};
 
 /** Renders exact immutable fork members and only the two permitted Assessment-owned mutations. */
 export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps): JSX.Element {
-  const [candidateKey, setCandidateKey] = createSignal("");
   const [attested, setAttested] = createSignal(false);
-  const candidates = createMemo(() => {
-    const existing = new Set(
-      props.fork?.members.map((member) =>
-        questionRevisionKey(member.publishedQuestionRevisionTuple),
-      ) ?? [],
-    );
-    return props.availableQuestions.filter(
-      (candidate) => !existing.has(questionRevisionKey(candidate.publishedQuestionRevisionTuple)),
-    );
-  });
-  const selectedCandidate = createMemo(() =>
-    candidates().find(
-      (candidate) =>
-        questionRevisionKey(candidate.publishedQuestionRevisionTuple) === candidateKey(),
-    ),
-  );
+  const [pickerOpen, setPickerOpen] = createSignal(false);
+  let pickerTrigger: HTMLButtonElement | undefined;
 
   function submitSelectionCount(value: string): void {
     const selectionCount = Number(value);
@@ -62,87 +51,31 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
     if (selectionCount !== props.entry.selectionCount) props.onSelectionCount(selectionCount);
   }
 
-  function append(): void {
-    const candidate = selectedCandidate();
+  function append(selection: QuestionPickerSelection): void {
+    setPickerOpen(false);
+    const candidate = selection.questions[0];
     if (candidate === undefined || !attested() || !props.mutationsEnabled || props.busy) return;
-    props.onReplaceMembers([
-      ...(props.fork?.members.map((member) => member.publishedQuestionRevisionTuple) ?? []),
-      candidate.publishedQuestionRevisionTuple,
-    ]);
-    setCandidateKey("");
+    const publishedQuestionRevisionTuple = candidate.row.publishedQuestionRevisionTuple;
+    const members =
+      props.fork?.members.map((member) => member.publishedQuestionRevisionTuple) ?? [];
+    if (
+      members.some(
+        (member) =>
+          questionRevisionKey(member) === questionRevisionKey(publishedQuestionRevisionTuple),
+      )
+    ) {
+      return;
+    }
+    void props.onReplaceMembers([...members, publishedQuestionRevisionTuple]);
     setAttested(false);
   }
 
-  function replaceMembers(members: ReadonlyArray<PublishedQuestionRevisionTuple>): void {
-    if (!attested() || !props.mutationsEnabled || props.busy) return;
-    props.onReplaceMembers(members);
+  function replaceMembers(members: ReadonlyArray<PublishedQuestionRevisionTuple>): Promise<void> {
+    if (!attested() || !props.mutationsEnabled || props.busy) return Promise.resolve();
+    const replacement = props.onReplaceMembers(members);
     setAttested(false);
+    return replacement;
   }
-
-  const memberRegions: ReadonlyArray<RecordRegion<AssessmentPoolMemberRecord>> = [
-    {
-      id: "identity",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (record) => (
-        <>
-          <strong>{record.member.publishedQuestionRevisionTuple.publishedQuestionId}</strong>{" "}
-          Revision {record.member.publishedQuestionRevisionTuple.revisionNumber}:{" "}
-          {record.member.question.question_library.summary.metadata.questionTitle}
-          <fieldset disabled={!props.mutationsEnabled || props.busy || !attested()}>
-            <legend>Membership order</legend>
-            <button
-              type="button"
-              disabled={record.index === 0}
-              onClick={() => {
-                const members = record.members.map(
-                  (current) => current.publishedQuestionRevisionTuple,
-                );
-                [members[record.index - 1], members[record.index]] = [
-                  members[record.index]!,
-                  members[record.index - 1]!,
-                ];
-                replaceMembers(members);
-              }}
-            >
-              Move earlier
-            </button>
-            <button
-              type="button"
-              disabled={record.index === record.members.length - 1}
-              onClick={() => {
-                const members = record.members.map(
-                  (current) => current.publishedQuestionRevisionTuple,
-                );
-                [members[record.index], members[record.index + 1]] = [
-                  members[record.index + 1]!,
-                  members[record.index]!,
-                ];
-                replaceMembers(members);
-              }}
-            >
-              Move later
-            </button>
-            <button
-              type="button"
-              disabled={record.members.length <= props.entry.selectionCount}
-              onClick={() =>
-                replaceMembers(
-                  record.members
-                    .filter((_current, index) => index !== record.index)
-                    .map((current) => current.publishedQuestionRevisionTuple),
-                )
-              }
-            >
-              Remove
-            </button>
-          </fieldset>
-        </>
-      ),
-    },
-  ];
 
   return (
     <section class="assessment-pool-fork" aria-labelledby={`assessment-pool-${props.entry.id}`}>
@@ -186,14 +119,48 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
               These Questions are interchangeable assessments of the intended learning.
             </label>
             <RecordSequence
-              rows={fork().members.map((member, index, members) => ({ member, index, members }))}
-              regions={memberRegions}
+              rows={fork().members.map((member, index) => ({ member, index }))}
+              content={(record): RecordContent => ({
+                // ASVS 1.2.1: ordinary JSX rendering keeps IDs inert; no HTML or raw JSON rendering.
+                title: `Question ${record.member.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${record.member.publishedQuestionRevisionTuple.revisionNumber}`,
+                description: record.member.question.question_library.summary.metadata.questionTitle,
+                details: [],
+                actions: [
+                  {
+                    id: "remove-member",
+                    kind: "command",
+                    label: "Remove",
+                    disabled:
+                      !props.mutationsEnabled ||
+                      props.busy ||
+                      !attested() ||
+                      fork().members.length <= props.entry.selectionCount,
+                    onClick: (): void =>
+                      void replaceMembers(
+                        fork()
+                          .members.filter((_member, index) => index !== record.index)
+                          .map((member) => member.publishedQuestionRevisionTuple),
+                      ),
+                  },
+                ],
+              })}
               recordId={(record) =>
                 questionRevisionKey(record.member.publishedQuestionRevisionTuple)
               }
               state={{ kind: "ready" }}
               ariaLabel="Ordered Assessment Pool members"
               emptyState={{ title: "No Pool members are available." }}
+              reorder={{
+                onMove: (sourceIndex, destinationIndex): Promise<void> =>
+                  replaceMembers(
+                    reorderedRecordListRows(fork().members, sourceIndex, destinationIndex).map(
+                      (member) => member.publishedQuestionRevisionTuple,
+                    ),
+                  ),
+                recordLabel: (record): string =>
+                  `Question ${record.member.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${record.member.publishedQuestionRevisionTuple.revisionNumber}`,
+                isDisabled: (): boolean => !props.mutationsEnabled || props.busy || !attested(),
+              }}
             />
             <Show when={fork().members.length <= props.entry.selectionCount}>
               <p class="assessment-editor-note">
@@ -216,33 +183,36 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                 This changes only this Assessment-owned Pool entry.
               </p>
             </fieldset>
-            <fieldset disabled={!props.mutationsEnabled || props.busy || candidates().length === 0}>
+            <fieldset
+              disabled={
+                !props.mutationsEnabled ||
+                props.busy ||
+                fork().members.length >= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
+              }
+            >
               <legend>Add one pinned Question</legend>
-              <label class="assessment-editor-field">
-                Available published Question
-                <select
-                  value={candidateKey()}
-                  onChange={(event) => setCandidateKey(event.currentTarget.value)}
-                >
-                  <option value="">Choose a Question</option>
-                  <For each={candidates()}>
-                    {(candidate) => (
-                      <option value={questionRevisionKey(candidate.publishedQuestionRevisionTuple)}>
-                        {candidate.publishedQuestionRevisionTuple.publishedQuestionId} Revision{" "}
-                        {candidate.publishedQuestionRevisionTuple.revisionNumber}:{" "}
-                        {candidate.description}
-                      </option>
-                    )}
-                  </For>
-                </select>
-              </label>
               <button
                 type="button"
-                disabled={selectedCandidate() === undefined || !attested()}
-                onClick={append}
+                ref={(element) => (pickerTrigger = element)}
+                disabled={!attested()}
+                onClick={() => setPickerOpen(true)}
               >
-                Add pinned Question
+                Choose a published Question
               </button>
+              <Show when={pickerOpen()}>
+                <QuestionPicker
+                  repository={props.pickerRepository}
+                  sources={props.pickerSources}
+                  mode="one"
+                  maximumSelection={1}
+                  trigger={pickerTrigger}
+                  title="Add one pinned Question"
+                  confirmLabel="Add pinned Question"
+                  instructions="The selected Question is appended with its exact Published Revision. Cancel leaves this Pool unchanged."
+                  onConfirm={append}
+                  onCancel={() => setPickerOpen(false)}
+                />
+              </Show>
             </fieldset>
           </>
         )}

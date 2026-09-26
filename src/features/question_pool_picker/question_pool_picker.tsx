@@ -1,6 +1,6 @@
 // Accessible existing-Pool selector for Blueprint Assessment authoring.
 
-import { Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Match, Switch, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
@@ -9,9 +9,12 @@ import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPool
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import "./question_pool_picker.css";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
-import { RecordList } from "../../components/record_list/record_list";
+import { RecordList, type RecordContent } from "../../components/record_list/record_list";
+import {
+  RecordPageControls,
+  type RecordPageSize,
+} from "../../components/record_list/record_page_controls";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 
@@ -32,18 +35,51 @@ function poolLabel(summary: QuestionPoolLibrarySummary): string {
   return `${summary.metadata.title} (${summary.questionPoolId}, Edit ${summary.questionPoolEditNumber})`;
 }
 
+function poolContent(summary: QuestionPoolLibrarySummary): RecordContent {
+  return {
+    title: summary.metadata.title,
+    description: summary.metadata.description,
+    details: [
+      { kind: "text", label: "Question Pool ID", value: summary.questionPoolId },
+      { kind: "text", label: "Edit", value: String(summary.questionPoolEditNumber) },
+      {
+        kind: "text",
+        label: "Members",
+        value: String(summary.memberCount),
+      },
+    ],
+    actions: [],
+  };
+}
+
+function poolMemberContent(member: QuestionPoolView["members"][number]): RecordContent {
+  const revision = member.publishedQuestionRevisionTuple;
+  return {
+    title: member.question.question_library.summary.metadata.questionTitle,
+    details: [
+      { kind: "text", label: "Published Question ID", value: revision.publishedQuestionId },
+      { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
+    ],
+    actions: [],
+  };
+}
+
 /** One dialog that selects a published Pool and previews its current membership. */
 export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [items, setItems] = createSignal<ReadonlyArray<QuestionPoolLibrarySummary>>([]);
-  const [cursor, setCursor] = createSignal<string | null>(null);
-  const [loadingMore, setLoadingMore] = createSignal(false);
+  const [pageCursor, setPageCursor] = createSignal<string | null>(null);
+  const [previousCursors, setPreviousCursors] = createSignal<ReadonlyArray<string | null>>([]);
+  const [nextCursor, setNextCursor] = createSignal<string | null>(null);
+  const [pageSize, setPageSize] = createSignal<RecordPageSize>(50);
+  const [loadingPage, setLoadingPage] = createSignal(false);
   const [selected, setSelected] = createSignal<QuestionPoolLibrarySummary>();
   const [detail, setDetail] = createSignal<QuestionPoolView>();
   const [detailState, setDetailState] = createSignal<LoadState>("empty");
   const [message, setMessage] = createSignal("Loading published Question Pools.");
   const [messageIsError, setMessageIsError] = createSignal(false);
   let detailRequest = 0;
+  let listRequest = 0;
   let dialog!: HTMLDialogElement;
 
   function cancel(): void {
@@ -52,35 +88,55 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
     queueMicrotask(() => props.trigger?.focus());
   }
 
-  async function load(reset: boolean): Promise<void> {
-    if (reset) {
-      setState("loading");
-      setMessage("Loading published Question Pools.");
-      setMessageIsError(false);
-    } else {
-      setLoadingMore(true);
-    }
+  async function loadPage(
+    requestedCursor: string | null,
+    requestedPreviousCursors: ReadonlyArray<string | null>,
+  ): Promise<void> {
+    const request = ++listRequest;
+    setState("loading");
+    setLoadingPage(true);
+    setMessage("Loading published Question Pools.");
+    setMessageIsError(false);
     try {
-      const page = await props.client.listQuestionPools(
-        reset ? undefined : (cursor() ?? undefined),
-      );
-      const nextItems = reset ? page.items : [...items(), ...page.items];
-      setItems(nextItems);
-      setCursor(page.nextCursor);
-      setState(nextItems.length === 0 ? "empty" : "ready");
+      const page = await props.client.listQuestionPools(requestedCursor ?? undefined, pageSize());
+      if (request !== listRequest) return;
+      setItems(page.items);
+      setPageCursor(requestedCursor);
+      setPreviousCursors(requestedPreviousCursors);
+      setNextCursor(page.nextCursor);
+      setState(page.items.length === 0 ? "empty" : "ready");
       setMessage(
-        nextItems.length === 0
+        page.items.length === 0
           ? "No published Question Pools are available."
           : "Choose one published Question Pool to inspect its current membership.",
       );
       setMessageIsError(false);
     } catch {
-      if (reset) setState("error");
+      if (request !== listRequest) return;
+      setState("error");
       setMessage("Question Pools could not load. Try again.");
       setMessageIsError(true);
     } finally {
-      setLoadingMore(false);
+      if (request === listRequest) setLoadingPage(false);
     }
+  }
+
+  function loadFirstPage(nextPageSize: RecordPageSize = pageSize()): void {
+    if (nextPageSize !== pageSize()) setPageSize(nextPageSize);
+    void loadPage(null, []);
+  }
+
+  function loadNextPage(): void {
+    const cursor = nextCursor();
+    if (cursor === null) return;
+    void loadPage(cursor, [...previousCursors(), pageCursor()]);
+  }
+
+  function loadPreviousPage(): void {
+    const cursors = previousCursors();
+    const cursor = cursors.length === 0 ? undefined : cursors[cursors.length - 1];
+    if (cursor === undefined) return;
+    void loadPage(cursor, cursors.slice(0, -1));
   }
 
   async function selectPool(summary: QuestionPoolLibrarySummary): Promise<void> {
@@ -131,9 +187,10 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
     });
   }
 
-  onMount(() => void load(true));
+  onMount(() => loadFirstPage());
   onCleanup(() => {
     detailRequest += 1;
+    listRequest += 1;
     if (dialog.open) dialog.close();
   });
 
@@ -174,7 +231,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
           <p>Loading published Question Pools...</p>
         </Match>
         <Match when={state() === "error"}>
-          <button type="button" onClick={() => void load(true)}>
+          <button type="button" onClick={() => loadFirstPage()}>
             Retry loading Question Pools
           </button>
         </Match>
@@ -187,50 +244,32 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
               <h3 id="question-pool-results-heading">Published Pools</h3>
               <RecordList
                 rows={items()}
-                regions={
-                  [
-                    {
-                      id: "identity",
-                      role: "identity",
-                      priority: "required",
-                      width: "minmax(0, 1fr)",
-                      align: "start",
-                      content: (item) => (
-                        <label>
-                          <input
-                            type="radio"
-                            name="question-pool"
-                            checked={selected()?.questionPoolId === item.questionPoolId}
-                            onInput={() => void selectPool(item)}
-                          />
-                          <span>
-                            <strong>{item.metadata.title}</strong>
-                            <small>{item.metadata.description}</small>
-                            <small>
-                              {item.questionPoolId}, Edit {item.questionPoolEditNumber};{" "}
-                              {item.memberCount} {item.memberCount === 1 ? "member" : "members"}
-                            </small>
-                          </span>
-                        </label>
-                      ),
-                    },
-                  ] satisfies ReadonlyArray<RecordRegion<QuestionPoolLibrarySummary>>
-                }
+                content={poolContent}
+                selection={{
+                  kind: "radio",
+                  selectedIds: () =>
+                    selected() === undefined
+                      ? new Set<string>()
+                      : new Set([selected()!.questionPoolId]),
+                  onChange: (item, checked) => {
+                    if (checked) void selectPool(item);
+                  },
+                }}
                 recordId={(item) => item.questionPoolId}
                 state={{ kind: "ready" }}
                 ariaLabel="Published Question Pools"
                 emptyState={{ title: "No published Question Pools are available." }}
               />
-              <Show when={cursor() !== null}>
-                <button
-                  class="quiet-action"
-                  type="button"
-                  disabled={loadingMore()}
-                  onClick={() => void load(false)}
-                >
-                  {loadingMore() ? "Loading more Pools..." : "Load more Pools"}
-                </button>
-              </Show>
+              <RecordPageControls
+                ariaLabel="Published Question Pool pages"
+                hasPrevious={previousCursors().length > 0}
+                hasNext={nextCursor() !== null}
+                loading={loadingPage()}
+                onPrevious={loadPreviousPage}
+                onNext={loadNextPage}
+                pageSize={pageSize()}
+                onPageSizeChange={loadFirstPage}
+              />
             </section>
 
             <section aria-labelledby="question-pool-detail-heading">
@@ -256,28 +295,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                   <CourseClassificationSummary value={detail()!.metadata} />
                   <RecordSequence
                     rows={detail()?.members ?? []}
-                    regions={
-                      [
-                        {
-                          id: "identity",
-                          role: "identity",
-                          priority: "required",
-                          width: "minmax(0, 1fr)",
-                          align: "start",
-                          content: (member) => (
-                            <>
-                              <strong>
-                                {member.question.question_library.summary.metadata.questionTitle}
-                              </strong>
-                              <span>
-                                {member.publishedQuestionRevisionTuple.publishedQuestionId},
-                                Revision {member.publishedQuestionRevisionTuple.revisionNumber}
-                              </span>
-                            </>
-                          ),
-                        },
-                      ] satisfies ReadonlyArray<RecordRegion<QuestionPoolView["members"][number]>>
-                    }
+                    content={poolMemberContent}
                     recordId={(member) =>
                       `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
                     }

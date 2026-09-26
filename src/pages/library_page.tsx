@@ -1,10 +1,12 @@
 // library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
 import { useLocation, useNavigate, useSearchParams } from "@solidjs/router";
-import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import { LibraryBloomDiscovery } from "../components/library_bloom_discovery";
 import { PageFrame } from "../components/page_frame";
+import { RecordPageControls } from "../components/record_list/record_page_controls";
+import { RecordSortControl } from "../components/record_list/record_sort_control";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
@@ -30,7 +32,6 @@ import {
   hasCanonicalPoolDeepLink,
   questionTypeLabel,
   RetainedSelectOption,
-  selectedQuestionLibrarySort,
 } from "./library_page_helpers";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
 import {
@@ -50,6 +51,7 @@ import {
   saveQuestionLibraryReturnState,
   takeQuestionLibraryReturnState,
   QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
+  type QuestionLibraryPageSize,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowseFacetAggregate,
   type QuestionLibraryBrowseQuery,
@@ -57,10 +59,6 @@ import {
   type QuestionLibraryBrowseState,
   type QuestionLibraryFacetTruncation,
 } from "./library_page_model";
-
-/* Each virtual row reserves room for a Question Title, two-line summary, and Question Authors.
- * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
-const FALLBACK_ROW_HEIGHT_PX = 112;
 
 export interface LibraryPageProps {
   readonly mode: "search" | "browse";
@@ -118,8 +116,12 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         },
   );
   const [scrollTop, setScrollTop] = createSignal(returnState?.scrollTop ?? 0);
-  const [viewportHeight, setViewportHeight] = createSignal(560);
-  const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
+  const [pageSize, setPageSize] = createSignal<QuestionLibraryPageSize>(
+    returnState?.position.pageSize ?? 50,
+  );
+  const [previousCursorCount, setPreviousCursorCount] = createSignal(
+    returnState?.position.previousCursors.length ?? 0,
+  );
   const [libraryWindow, setLibraryWindow] = createSignal<HTMLDivElement>();
   const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(new Set());
   const [selectionNotice, setSelectionNotice] = createSignal<string | null>(null);
@@ -135,7 +137,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [poolDiscoveryOpened, setPoolDiscoveryOpened] = createSignal(hasInitialPoolDeepLink);
   let pendingScrollRestore = returnState?.scrollTop ?? null;
   const questionReturnTokens = new Map<string, string>();
-  const session = new QuestionLibraryBrowseSession(props.repository, setState);
+  const session = new QuestionLibraryBrowseSession(props.repository, (next) => {
+    setState(next);
+    setPageSize(session.position.pageSize);
+    setPreviousCursorCount(session.position.previousCursors.length);
+  });
 
   createEffect(() => {
     const routeSearch = location.search;
@@ -252,6 +258,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     );
   }
 
+  function hasNextPage(): boolean {
+    const current = state();
+    return current.kind !== "initial" && current.kind !== "empty" && current.nextCursor !== null;
+  }
+
   function clearSelection(): void {
     setSelectedIds(new Set<string>());
     setEditorMetadata(null);
@@ -297,7 +308,15 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
 
   function saveReturnState(token: string): void {
     const current = session.state;
-    saveQuestionLibraryReturnState(sessionScope, props.mode, token, query(), current, scrollTop());
+    saveQuestionLibraryReturnState(
+      sessionScope,
+      props.mode,
+      token,
+      query(),
+      current,
+      scrollTop(),
+      session.position,
+    );
     // The source history entry receives the same route token, so browser Back
     // and the visible detail-page return link select the same saved view.
     history.replaceState(history.state, "", questionLibraryReturnPath(token));
@@ -320,23 +339,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   });
 
   onMount(() => {
-    function refreshRowHeight(): void {
-      const configured = Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--ple-question-library-row-block-size",
-        ),
-      );
-      if (Number.isFinite(configured) && configured > 0) setRowHeightPx(configured);
-    }
-
-    refreshRowHeight();
-    const observer = new ResizeObserver(refreshRowHeight);
-    observer.observe(document.documentElement);
-    onCleanup(() => observer.disconnect());
     if (returnState !== null && !returnState.refreshOnReturn) {
-      session.restore(returnState.query, returnState.browseState);
+      session.restore(returnState.query, returnState.browseState, returnState.position);
     } else if (returnState !== null) {
-      void session.reset(returnState.query);
+      void session.reset(returnState.query, returnState.position.pageSize);
     } else if (props.mode === "browse" && !invalidLinkOptions()) {
       void session.reset(query());
     }
@@ -344,6 +350,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
 
   return (
     <PageFrame
+      // Library controls, browse groups, and the active pool-creation review.
       contentClass={`library-page${questionPoolTaskActive() ? " question-pool-task-active" : ""}`}
       routeSurface={props.mode === "browse" ? "library-browse" : "library"}
       eyebrow="Shared educational content"
@@ -713,21 +720,16 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             disabled={editorBusy()}
             onChange={changeQuery}
           />
-          <div class="question-library-controls" role="group" aria-label="Result order">
-            <label>
-              Order results
-              <select
-                value={query().sort}
-                onChange={(event) =>
-                  changeQuery({ sort: selectedQuestionLibrarySort(event.currentTarget.value) })
-                }
-                disabled={editorBusy()}
-              >
-                <option value="titleAscending">Title (A-Z)</option>
-                <option value="publishedNewest">Recently published</option>
-              </select>
-            </label>
-          </div>
+          <RecordSortControl
+            label="Order results"
+            options={[
+              { value: "titleAscending", label: "Title (A-Z)" },
+              { value: "publishedNewest", label: "Recently published" },
+            ]}
+            value={query().sort}
+            disabled={editorBusy()}
+            onChange={(sort) => changeQuery({ sort })}
+          />
         </Show>
         <LibraryBrowseRows
           mayMutateLibrary={mayMutateLibrary}
@@ -735,15 +737,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           selectedIds={selectedIds}
           editorBusy={editorBusy}
           browseState={state}
-          scrollTop={scrollTop}
-          viewportHeight={viewportHeight}
-          rowHeightPx={rowHeightPx}
           setLibraryWindow={setLibraryWindow}
-          onScroll={(nextScrollTop, nextViewportHeight) => {
+          onScroll={(nextScrollTop) => {
             setScrollTop(nextScrollTop);
-            setViewportHeight(nextViewportHeight);
           }}
-          onNeedMore={() => void session.loadNext()}
           onRetry={() => void session.retry()}
           onUpdateSelection={updateSelection}
           onSelectLoaded={selectLoadedQuestions}
@@ -806,6 +803,19 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             )}
           </Show>
         </LibraryBrowseRows>
+        <Show when={props.mode === "browse" || state().kind !== "initial"}>
+          <RecordPageControls
+            ariaLabel="Published question pages"
+            hasPrevious={previousCursorCount() > 0}
+            hasNext={hasNextPage()}
+            loading={state().kind === "loading"}
+            disabled={editorBusy() || state().kind === "error"}
+            onPrevious={() => void session.loadPrevious()}
+            onNext={() => void session.loadNext()}
+            pageSize={pageSize()}
+            onPageSizeChange={(next) => void session.setPageSize(next)}
+          />
+        </Show>
       </Show>
     </PageFrame>
   );

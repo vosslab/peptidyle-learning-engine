@@ -13,11 +13,11 @@ use super::{
     connection::map_sqlx_error,
 };
 use crate::{
-    AssessmentQuestionPickerEntry, AssessmentReleaseIssue, AssessmentReleaseValidation,
-    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSummary,
-    CreateLiveAssessmentInput, DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore,
-    LiveAssessmentWorkspace, SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput,
-    SaveLiveAssessmentInput, SessionTokenHash, StoreError, UnreleasedLiveAssessment,
+    AssessmentReleaseIssue, AssessmentReleaseValidation, AssessmentUnreleaseImpact,
+    AuthoredAssessmentQuestion, CourseAssessmentSummary, CreateLiveAssessmentInput,
+    DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
+    SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
+    SessionTokenHash, StoreError, UnreleasedLiveAssessment,
 };
 
 const SAVE_ASSESSMENT_SQL: &str = "SELECT * FROM ple_api.save_assessment($1, $2, $3, \
@@ -182,35 +182,6 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .collect::<Result<Vec<_>, StoreError>>()?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(assessments)
-    }
-
-    async fn list_assessment_question_picker(
-        &self,
-        token: SessionTokenHash,
-        course_instance_id: CourseInstanceId,
-    ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT published_question_id, question_revision_number, question_description, bloom_cognitive_process, bloom_knowledge_dimension, bloom_classification_edit_number FROM ple_api.list_assessment_question_picker($1)")
-            .bind(course_instance_id.as_string()).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
-        let records = rows
-            .iter()
-            .map(|row| {
-                Ok(AssessmentQuestionPickerEntry {
-                    published_question_revision_tuple: published_question_revision_tuple(
-                        row.try_get("published_question_id")
-                            .map_err(map_sqlx_error)?,
-                        row.try_get("question_revision_number")
-                            .map_err(map_sqlx_error)?,
-                    )?,
-                    description: row
-                        .try_get("question_description")
-                        .map_err(map_sqlx_error)?,
-                    bloom: super::question_pool_library::decode_bloom(row)?,
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(records)
     }
 
     async fn create_live_assessment(

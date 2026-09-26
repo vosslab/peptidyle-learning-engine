@@ -44,6 +44,7 @@ import { MAX_ASSESSMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_A
 import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
 import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
+  MAX_QUESTION_DETAILS_STATIC_PROMPT_BLOCKS,
   decodeAssessmentId,
   decodeAssessmentTitle,
   decodeCourseName,
@@ -304,7 +305,7 @@ function decodeQuestionDetailsPromptView(value: unknown, path: string): Question
     blocks: decodeBoundedArray(
       field(record, "blocks", path),
       `${path}.blocks`,
-      MAX_QUESTION_SEARCH_PAGE_ITEMS,
+      MAX_QUESTION_DETAILS_STATIC_PROMPT_BLOCKS,
       (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
     ),
   };

@@ -213,18 +213,6 @@ impl SaveLiveAssessmentInput {
     }
 }
 
-/// Browser-safe Available Published Question row used by the bounded picker.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssessmentQuestionPickerEntry {
-    /// Exact currently accepted Question Revision that a new Entry will pin.
-    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
-    /// Answer-free Question description supplied by the current Question Library metadata.
-    pub description: String,
-    /// Exact Revision-owned Bloom Classification carried with the picker pin, when assigned.
-    pub bloom: Option<question_model::BloomClassificationView>,
-}
-
 /// Browser-safe current authored fixed-Question selection.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -642,13 +630,6 @@ pub trait LiveAssessmentStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError>;
-
-    /// Lists answer-free currently Available Published Questions for one authorized picker.
-    async fn list_assessment_question_picker(
-        &self,
-        session_token_hash: SessionTokenHash,
-        course_instance_id: CourseInstanceId,
-    ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError>;
 
     /// Creates one Unreleased Assessment without Question selection or Student activity.
     async fn create_live_assessment(

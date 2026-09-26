@@ -69,7 +69,7 @@ try {
   await page.getByLabel("Course Term end date").fill("2026-12-18");
   await page.getByRole("button", { name: "Create Course Instance" }).click();
   await page.getByRole("heading", { name: courseLongName }).waitFor();
-  await page.getByRole("link", { name: "Open Course Instance" }).first().click();
+  await page.getByRole("link", { name: "Open Course" }).first().click();
   await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
   await page.getByRole("heading", { name: courseLongName }).waitFor();
   await page.getByRole("heading", { name: "Teaching Team", exact: true }).waitFor();

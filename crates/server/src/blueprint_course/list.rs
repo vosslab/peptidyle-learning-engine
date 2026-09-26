@@ -12,9 +12,10 @@ use axum::{
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    BlueprintCourseListRequest, BlueprintCourseStore, Cursor, PageRequest, PageSize,
+    BlueprintCourseListCursorPosition, BlueprintCourseListRequest, BlueprintCourseListSort,
+    BlueprintCourseStore, Cursor, DiscoveryPageRequest, DiscoveryPageSize,
 };
-use question_model::{BlueprintCourseId, BlueprintCourseSummaryView};
+use question_model::BlueprintCourseSummaryView;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -37,6 +38,8 @@ pub(super) struct ListQuery {
     subtopic_uuid: Option<Uuid>,
     #[serde(default)]
     cross_discipline: bool,
+    #[serde(default)]
+    sort: BlueprintCourseListSort,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -48,12 +51,13 @@ struct ListCursor {
     public_only: bool,
     promoted_only: bool,
     page_size: u16,
-    after: (String, BlueprintCourseId),
+    after: BlueprintCourseListCursorPosition,
     discipline_uuid: Option<Uuid>,
     subject_uuid: Option<Uuid>,
     topic_uuid: Option<Uuid>,
     subtopic_uuid: Option<Uuid>,
     cross_discipline: bool,
+    sort: BlueprintCourseListSort,
 }
 
 #[derive(Serialize)]
@@ -87,6 +91,7 @@ pub(super) async fn list_blueprints(
         request.topic_uuid,
         request.subtopic_uuid,
         request.cross_discipline,
+        request.sort,
     );
     match state
         .blueprints
@@ -101,7 +106,7 @@ pub(super) async fn list_blueprints(
                         Err(_) => return unavailable(),
                     };
                     let cursor = ListCursor {
-                        version: 3,
+                        version: 4,
                         query: binding.0,
                         include_archived: binding.1,
                         public_only: binding.2,
@@ -113,6 +118,7 @@ pub(super) async fn list_blueprints(
                         topic_uuid: binding.7,
                         subtopic_uuid: binding.8,
                         cross_discipline: binding.9,
+                        sort: binding.10,
                     };
                     match serde_json::to_vec(&cursor) {
                         Ok(bytes) => Some(URL_SAFE_NO_PAD.encode(bytes)),
@@ -150,7 +156,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
     if normalized.chars().count() > 256 {
         return None;
     }
-    let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
+    let size = DiscoveryPageSize::new(query.page_size.unwrap_or(50)).ok()?;
     let after = match query.cursor {
         Some(token) => {
             if token.len() > 8192 {
@@ -158,7 +164,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
             }
             let cursor: ListCursor =
                 serde_json::from_slice(&URL_SAFE_NO_PAD.decode(token).ok()?).ok()?;
-            if cursor.version != 3
+            if cursor.version != 4
                 || cursor.query != normalized
                 || cursor.include_archived != query.include_archived
                 || cursor.public_only != query.public_only
@@ -169,7 +175,8 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
                 || cursor.topic_uuid != query.topic_uuid
                 || cursor.subtopic_uuid != query.subtopic_uuid
                 || cursor.cross_discipline != query.cross_discipline
-                || cursor.after.0.chars().count() > 500
+                || cursor.sort != query.sort
+                || !valid_cursor_position(&cursor.after, query.sort)
             {
                 return None;
             }
@@ -178,7 +185,8 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         None => None,
     };
     Some(BlueprintCourseListRequest {
-        page: PageRequest { after, size },
+        page: DiscoveryPageRequest { after, size },
+        sort: query.sort,
         query: normalized,
         include_archived: query.include_archived,
         public_only: query.public_only,
@@ -189,6 +197,27 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         subtopic_uuid: query.subtopic_uuid,
         cross_discipline: query.cross_discipline,
     })
+}
+
+fn valid_cursor_position(
+    position: &BlueprintCourseListCursorPosition,
+    sort: BlueprintCourseListSort,
+) -> bool {
+    match (sort, position) {
+        (
+            BlueprintCourseListSort::Name,
+            BlueprintCourseListCursorPosition::Name { long_name, .. },
+        ) => long_name.chars().count() <= 500,
+        (
+            BlueprintCourseListSort::Adoptions,
+            BlueprintCourseListCursorPosition::Adoptions { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::Students,
+            BlueprintCourseListCursorPosition::Students { long_name, .. },
+        ) => long_name.chars().count() <= 500,
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -218,24 +247,45 @@ mod tests {
     }
 
     #[test]
+    fn discovery_page_size_accepts_250_and_rejects_outside_bounds() {
+        let accepted =
+            serde_json::from_str::<ListQuery>(r#"{"pageSize":250}"#).expect("valid discovery size");
+        assert_eq!(
+            list_request(accepted)
+                .expect("250 is within the discovery boundary")
+                .page
+                .size
+                .get(),
+            250
+        );
+        for rejected_size in [0, 251] {
+            let rejected =
+                serde_json::from_str::<ListQuery>(&format!(r#"{{"pageSize":{rejected_size}}}"#))
+                    .expect("transport accepts the numeric value");
+            assert!(list_request(rejected).is_none());
+        }
+    }
+
+    #[test]
     fn classification_continuation_binds_every_filter_and_rejects_old_version() {
         let id = |value| Some(Uuid::from_u128(value));
         let cursor = ListCursor {
-            version: 3,
+            version: 4,
             query: "enzyme".to_owned(),
             include_archived: false,
             public_only: true,
             promoted_only: true,
             page_size: 50,
-            after: (
-                "Blueprint".to_owned(),
-                "BPABCDEFGJ".parse().expect("Blueprint Course ID"),
-            ),
+            after: BlueprintCourseListCursorPosition::Name {
+                long_name: "Blueprint".to_owned(),
+                blueprint_course_id: "BPABCDEFGJ".parse().expect("Blueprint Course ID"),
+            },
             discipline_uuid: id(1),
             subject_uuid: id(2),
             topic_uuid: id(3),
             subtopic_uuid: id(4),
             cross_discipline: true,
+            sort: BlueprintCourseListSort::Name,
         };
         let mut value = serde_json::to_value(&cursor).expect("cursor value");
         value.as_object_mut().expect("object").remove("version");
@@ -271,13 +321,13 @@ mod tests {
 
     #[test]
     fn continuation_cannot_change_the_applied_promotion_filter() {
-        let after = (
-            "Blueprint".to_owned(),
-            "BPABCDEFGJ".parse().expect("Blueprint Course ID"),
-        );
+        let after = BlueprintCourseListCursorPosition::Name {
+            long_name: "Blueprint".to_owned(),
+            blueprint_course_id: "BPABCDEFGJ".parse().expect("Blueprint Course ID"),
+        };
         let token = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&ListCursor {
-                version: 3,
+                version: 4,
                 query: String::new(),
                 include_archived: false,
                 public_only: true,
@@ -289,6 +339,7 @@ mod tests {
                 topic_uuid: None,
                 subtopic_uuid: None,
                 cross_discipline: false,
+                sort: BlueprintCourseListSort::Name,
             })
             .expect("cursor"),
         );
@@ -304,6 +355,7 @@ mod tests {
             topic_uuid: None,
             subtopic_uuid: None,
             cross_discipline: false,
+            sort: BlueprintCourseListSort::Name,
         };
         assert!(list_request(query(true)).is_some());
         assert!(list_request(query(false)).is_none());
@@ -312,5 +364,72 @@ mod tests {
                 .expect("default list")
                 .promoted_only
         );
+    }
+
+    #[test]
+    fn continuation_cannot_change_sort_or_cursor_position_kind() {
+        let cursor = ListCursor {
+            version: 4,
+            query: String::new(),
+            include_archived: false,
+            public_only: false,
+            promoted_only: false,
+            page_size: 50,
+            after: BlueprintCourseListCursorPosition::Adoptions {
+                count: 3,
+                long_name: "Blueprint".to_owned(),
+                blueprint_course_id: "BPABCDEFGJ".parse().expect("Blueprint Course ID"),
+            },
+            discipline_uuid: None,
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            cross_discipline: false,
+            sort: BlueprintCourseListSort::Adoptions,
+        };
+        let token = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("cursor"));
+        let query = |sort| ListQuery {
+            include_archived: false,
+            public_only: false,
+            promoted_only: false,
+            query: String::new(),
+            cursor: Some(token.clone()),
+            page_size: Some(50),
+            discipline_uuid: None,
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            cross_discipline: false,
+            sort,
+        };
+        assert!(list_request(query(BlueprintCourseListSort::Adoptions)).is_some());
+        assert!(list_request(query(BlueprintCourseListSort::Students)).is_none());
+        assert!(list_request(query(BlueprintCourseListSort::Name)).is_none());
+
+        let mut malformed = serde_json::to_value(&cursor).expect("cursor value");
+        malformed["after"] = serde_json::json!({
+            "sort": "adoptions",
+            "count": 3,
+            "blueprintCourseId": "BPABCDEFGJ"
+        });
+        let malformed_token = URL_SAFE_NO_PAD
+            .encode(serde_json::to_vec(&malformed).expect("malformed cursor payload"));
+        let mut malformed_query = query(BlueprintCourseListSort::Adoptions);
+        malformed_query.cursor = Some(malformed_token);
+        assert!(
+            list_request(malformed_query).is_none(),
+            "a count cursor must carry its complete name/ID continuation tuple"
+        );
+    }
+
+    #[test]
+    fn public_search_accepts_the_same_query_wide_sorts() {
+        let public_adoptions =
+            serde_json::from_str::<ListQuery>(r#"{"publicOnly":true,"sort":"adoptions"}"#)
+                .expect("typed query");
+        assert!(list_request(public_adoptions).is_some());
+        let public_name =
+            serde_json::from_str::<ListQuery>(r#"{"publicOnly":true}"#).expect("typed query");
+        assert!(list_request(public_name).is_some());
     }
 }

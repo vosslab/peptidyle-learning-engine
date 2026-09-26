@@ -8,6 +8,22 @@ if (!/^[0-9]+$/u.test(port ?? "") || !/^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/u.test
   throw new Error("expected the fixed HTTPS gateway port and a Course Instance ID");
 }
 
+function formatScoreValue(value) {
+  if (!Number.isFinite(value)) {
+    throw new Error("score must be finite");
+  }
+  const rounded = Math.round(Math.abs(value) * 100) / 100;
+  const signed = Math.sign(value) * rounded;
+  return Object.is(signed, -0) ? "0" : String(signed);
+}
+
+function visibleGradebookScore(work) {
+  if (work.score !== null) {
+    return `${formatScoreValue(work.score.pointsEarned)} / ${formatScoreValue(work.score.pointsPossible)}`;
+  }
+  return work.expiredSubmitting ? "Expired, submitting" : "-";
+}
+
 const origin = `https://localhost:${port}`;
 const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
 const context = await browser.newContext();
@@ -56,11 +72,9 @@ try {
   await page.locator('[data-route-surface="gradebook"]').waitFor();
   await page.getByRole("heading", { name: "Gradebook", exact: true }).waitFor();
   const evidence = page.getByRole("region", { name: "Student progress and scores" });
-  const records = evidence.getByRole("list", { name: "Student progress and scores" });
+  const records = evidence.getByRole("table", { name: "Student progress and scores" });
   await records.waitFor();
-  const record = records
-    .getByRole("listitem")
-    .filter({ has: page.getByText(first.rosterId, { exact: true }) });
+  const record = records.getByRole("row").filter({ hasText: first.rosterId });
   await record.getByText(first.rosterName, { exact: true }).waitFor();
   await record.getByText(first.rosterId, { exact: true }).waitFor();
   await record.getByText(first.assessmentTitle, { exact: true }).waitFor();
@@ -74,8 +88,8 @@ try {
       { exact: true },
     )
     .waitFor();
-  const score = record.locator('[data-record-region-id="score"]');
-  if (((await score.textContent()) ?? "").trim() === "") {
+  const scoreText = visibleGradebookScore(first);
+  if ((await record.getByText(scoreText, { exact: true }).count()) !== 1) {
     throw new Error("Gradebook browser did not render a score");
   }
   if ((await record.getByText(first.assessmentId, { exact: true }).count()) !== 0) {

@@ -12,11 +12,11 @@ import {
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
 } from "../question_picker";
+import type { RecordContent } from "../../components/record_list/record_list";
+import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 
 type PoolEntry = Extract<BlueprintAssessmentEntryInput, { kind: "pool" }>;
-type PoolMemberRecord = { readonly member: PublishedQuestionRevisionTuple; readonly index: number };
 
 export interface BlueprintPoolMembersEditorProps {
   readonly entry: PoolEntry;
@@ -131,16 +131,6 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
     changeMembers(next);
   }
 
-  function move(index: number, offset: -1 | 1): void {
-    const next = [...(members() ?? [])];
-    const member = next[index];
-    const adjacent = next[index + offset];
-    if (!member || !adjacent) return;
-    next[index] = adjacent;
-    next[index + offset] = member;
-    changeMembers(next);
-  }
-
   return (
     <section class="blueprint-course-content-card" aria-label="Blueprint Pool members">
       <h4>
@@ -165,60 +155,46 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
           <>
             <RecordSequence
               rows={list().map((member, index) => ({ member, index }))}
-              regions={
-                [
+              content={(record): RecordContent => ({
+                // ASVS 1.2.1: ordinary JSX rendering keeps IDs inert; no HTML or raw JSON rendering.
+                title: `Question ${record.member.publishedQuestionId}`,
+                details: [
                   {
-                    id: "identity",
-                    role: "identity",
-                    priority: "required",
-                    width: "minmax(0, 1fr)",
-                    align: "start",
-                    content: (record: PoolMemberRecord) => (
-                      <>
-                        {/* ASVS 1.2.1: ordinary JSX text keeps IDs inert; no HTML or raw JSON rendering. */}
-                        <span>
-                          Question {record.member.publishedQuestionId}, Revision{" "}
-                          {record.member.revisionNumber}
-                        </span>
-                        <Show when={props.editable}>
-                          <div class="blueprint-course-inline-actions">
-                            <button
-                              type="button"
-                              disabled={record.index === 0}
-                              onClick={() => move(record.index, -1)}
-                            >
-                              Move earlier
-                            </button>
-                            <button
-                              type="button"
-                              disabled={record.index === list().length - 1}
-                              onClick={() => move(record.index, 1)}
-                            >
-                              Move later
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                changeMembers(
-                                  list().filter((_, position) => position !== record.index),
-                                )
-                              }
-                            >
-                              Remove member
-                            </button>
-                          </div>
-                        </Show>
-                      </>
-                    ),
+                    kind: "text",
+                    label: "Revision",
+                    value: String(record.member.revisionNumber),
                   },
-                ] satisfies ReadonlyArray<RecordRegion<PoolMemberRecord>>
-              }
+                ],
+                actions: props.editable
+                  ? [
+                      {
+                        id: "remove-member",
+                        kind: "command",
+                        label: "Remove member",
+                        onClick: (): void =>
+                          changeMembers(list().filter((_, position) => position !== record.index)),
+                      },
+                    ]
+                  : [],
+              })}
               recordId={(record) =>
                 `${record.member.publishedQuestionId}:${record.member.revisionNumber}`
               }
               state={{ kind: "ready" }}
               ariaLabel="Ordered Blueprint Pool members"
               emptyState={{ title: "No Pool members are selected." }}
+              reorder={
+                props.editable
+                  ? {
+                      onMove: (sourceIndex, destinationIndex): void =>
+                        changeMembers(
+                          reorderedRecordListRows(list(), sourceIndex, destinationIndex),
+                        ),
+                      recordLabel: (record): string =>
+                        `Question ${record.member.publishedQuestionId}, Revision ${record.member.revisionNumber}`,
+                    }
+                  : undefined
+              }
             />
             <Show when={props.editable}>
               <button

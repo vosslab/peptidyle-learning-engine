@@ -14,7 +14,7 @@ use question_model::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{PageRequest, SessionTokenHash, StoreError};
+use crate::{DiscoveryPageRequest, SessionTokenHash, StoreError};
 
 /// Identity predicates against current Pool-owned lineage metadata.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -106,7 +106,7 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
     async fn list_published_question_pools(
         &self,
         session_token_hash: SessionTokenHash,
-        page: PageRequest,
+        page: DiscoveryPageRequest,
         filter: QuestionPoolDiscoveryFilter,
         text: QuestionPoolTextFilter,
     ) -> Result<QuestionPoolDiscoveryPage, StoreError>;

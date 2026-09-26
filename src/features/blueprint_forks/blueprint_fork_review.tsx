@@ -18,9 +18,12 @@ import type { BlueprintRevisionNumber } from "../../../generated/api/BlueprintRe
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { normalizeHumanEnteredPublicId } from "../../question_id";
-import { RecordList } from "../../components/record_list/record_list";
+import {
+  RecordList,
+  type RecordContent,
+  type RecordFact,
+} from "../../components/record_list/record_list";
 import { RecordDetailList } from "../../components/record_list/record_detail_list";
-import type { RecordRegion } from "../../components/record_list/region_spec";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
 import {
   assessmentDifferenceLabels,
@@ -399,6 +402,74 @@ function RelatedComparison(props: ForkProps): JSX.Element {
   );
 }
 
+function knownForkContent(
+  fork: BlueprintKnownForkView,
+  sourceCurrentRevision: BlueprintRevisionNumber,
+  comparisonId: string,
+  selectedForkId: string | undefined,
+  setComparisonTrigger: (element: HTMLButtonElement) => void,
+  selectFork: (forkId: string) => void,
+): RecordContent {
+  const sourceHasChanged =
+    BigInt(sourceCurrentRevision) > BigInt(fork.sourceRevisionTuple.revisionNumber);
+  const forkHasChanged = BigInt(fork.currentRevisionTuple.revisionNumber) > 1n;
+  const details: Array<RecordFact> = [
+    { kind: "text", label: "Short name", value: fork.shortName },
+    { kind: "text", label: "Availability", value: readableSettingName(fork.availability) },
+    {
+      kind: "text",
+      label: "Fork Revision",
+      value: String(fork.currentRevisionTuple.revisionNumber),
+    },
+    {
+      kind: "text",
+      label: "Source Revision",
+      value: String(fork.sourceRevisionTuple.revisionNumber),
+    },
+    { kind: "text", label: "Owning Instructor", value: fork.ownerDisplayName },
+  ];
+  if (sourceHasChanged) {
+    details.push({
+      kind: "text",
+      label: "Source changes",
+      value: "The source has Revisions since this fork was created.",
+    });
+  }
+  if (forkHasChanged) {
+    details.push({
+      kind: "text",
+      label: "Fork changes",
+      value: "This fork has saved changes since it was created.",
+    });
+  }
+  return {
+    title: fork.longName,
+    details,
+    actions: [
+      {
+        id: "open-fork",
+        kind: "link",
+        label: "Open",
+        href: coursePath(fork.id),
+        title: `Open fork: ${fork.longName}`,
+        primary: true,
+      },
+      {
+        id: "compare-with-source",
+        kind: "command",
+        label: "Compare with source",
+        title: `Compare fork with source: ${fork.longName}`,
+        expanded: selectedForkId === fork.id,
+        controls: selectedForkId === fork.id ? comparisonId : undefined,
+        onClick: (event: MouseEvent & { readonly currentTarget: HTMLButtonElement }): void => {
+          setComparisonTrigger(event.currentTarget);
+          selectFork(fork.id);
+        },
+      },
+    ],
+  };
+}
+
 /** Authorized rows only; source head is compared to source ancestry, never fork numbering. */
 export function BlueprintKnownForks(
   props: ForkProps & { readonly sourceCurrentRevision: BlueprintRevisionNumber },
@@ -406,69 +477,17 @@ export function BlueprintKnownForks(
   const [selectedFork, setSelectedFork] = createSignal<string>();
   const comparisonId = createUniqueId();
   let comparisonTrigger: HTMLButtonElement | undefined;
-  const forkRegions: ReadonlyArray<RecordRegion<BlueprintKnownForkView>> = [
-    {
-      id: "identity",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (fork) => (
-        <A class="quiet-link" href={coursePath(fork.id)} aria-label={`Open fork: ${fork.longName}`}>
-          {fork.longName}
-        </A>
-      ),
-    },
-    {
-      id: "metadata",
-      role: "metadata",
-      priority: "high",
-      width: "minmax(0, 2fr)",
-      align: "start",
-      content: (fork) => (
-        <>
-          <span>
-            {fork.shortName}; {readableSettingName(fork.availability)}; fork Revision{" "}
-            {fork.currentRevisionTuple.revisionNumber}; source Revision{" "}
-            {fork.sourceRevisionTuple.revisionNumber}.
-          </span>
-          <Show
-            when={
-              BigInt(props.sourceCurrentRevision) > BigInt(fork.sourceRevisionTuple.revisionNumber)
-            }
-          >
-            <span>The source has Revisions since this fork was created.</span>
-          </Show>
-          <Show when={BigInt(fork.currentRevisionTuple.revisionNumber) > 1n}>
-            <span>This fork has saved changes since it was created.</span>
-          </Show>
-          <span>Owning Instructor: {fork.ownerDisplayName}</span>
-        </>
-      ),
-    },
-    {
-      id: "actions",
-      role: "actions",
-      priority: "required",
-      width: "max-content",
-      align: "end",
-      content: (fork) => (
-        <button
-          class="quiet-action"
-          type="button"
-          aria-label={`Compare fork with source: ${fork.longName}`}
-          aria-expanded={selectedFork() === fork.id}
-          aria-controls={selectedFork() === fork.id ? comparisonId : undefined}
-          onClick={(event) => {
-            comparisonTrigger = event.currentTarget;
-            setSelectedFork(fork.id);
-          }}
-        >
-          Compare with source
-        </button>
-      ),
-    },
-  ];
+  const forkContent = (fork: BlueprintKnownForkView): RecordContent =>
+    knownForkContent(
+      fork,
+      props.sourceCurrentRevision,
+      comparisonId,
+      selectedFork(),
+      (element: HTMLButtonElement): void => {
+        comparisonTrigger = element;
+      },
+      setSelectedFork,
+    );
   const [forks, { refetch }] = createResource(
     () => props.blueprintCourseId,
     async (blueprintCourseId) => {
@@ -507,16 +526,14 @@ export function BlueprintKnownForks(
             when={items().length > 0}
             fallback={<p>No known forks are visible through your current access.</p>}
           >
-            <div class="blueprint-known-forks-list">
-              <RecordList
-                ariaLabel="Known Blueprint forks"
-                emptyState={{ title: "No known forks are visible through your current access." }}
-                recordId={(fork) => fork.id}
-                regions={forkRegions}
-                rows={items()}
-                state={{ kind: "ready" }}
-              />
-            </div>
+            <RecordList
+              ariaLabel="Known Blueprint forks"
+              emptyState={{ title: "No known forks are visible through your current access." }}
+              recordId={(fork) => fork.id}
+              content={forkContent}
+              rows={items()}
+              state={{ kind: "ready" }}
+            />
           </Show>
         )}
       </Show>
@@ -553,7 +570,7 @@ export function BlueprintForkReview(
 ): JSX.Element {
   let heading: HTMLHeadingElement | undefined;
   const uniqueId = createUniqueId();
-  const reviewId = (): string => props.blueprintCourseId ?? uniqueId;
+  const reviewId = (): string => props.id ?? uniqueId;
   onMount(() => heading?.focus());
   // Reactive pair owns this request; pending hides stale data when either Blueprint Course ID changes.
   const [review, { refetch }] = createResource(

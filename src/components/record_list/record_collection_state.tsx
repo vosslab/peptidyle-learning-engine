@@ -41,45 +41,56 @@ export function RecordCollectionStateView(props: RecordCollectionStateProps): JS
   const errorRetryLabel = (): string =>
     props.state.kind === "error" ? (props.state.retryLabel ?? "Retry") : "Retry";
 
+  const hasRows = (): boolean => !props.isEmpty;
+
+  function loadingNotice(): JSX.Element {
+    return (
+      <p class="record-collection__state record-collection__state--loading" role="status">
+        {loadingLabel()}
+      </p>
+    );
+  }
+
+  function errorNotice(): JSX.Element {
+    return (
+      <section class="record-collection__state record-collection__state--error" role="alert">
+        <h2>{errorTitle()}</h2>
+        <p>{errorMessage()}</p>
+        <Show when={props.state.kind === "error" && props.state.retry !== undefined}>
+          <button
+            class="quiet-action"
+            type="button"
+            onClick={() => props.state.kind === "error" && props.state.retry?.()}
+          >
+            {errorRetryLabel()}
+          </button>
+        </Show>
+      </section>
+    );
+  }
+
   return (
     <Show
-      when={props.state.kind === "ready"}
+      when={hasRows()}
       fallback={
         <Show
-          when={props.state.kind === "loading"}
+          when={props.state.kind === "ready"}
           fallback={
-            <section class="record-collection__state record-collection__state--error" role="alert">
-              <h2>{errorTitle()}</h2>
-              <p>{errorMessage()}</p>
-              <Show when={props.state.kind === "error" && props.state.retry !== undefined}>
-                <button
-                  class="quiet-action"
-                  type="button"
-                  onClick={() => props.state.kind === "error" && props.state.retry?.()}
-                >
-                  {errorRetryLabel()}
-                </button>
-              </Show>
-            </section>
+            <Show when={props.state.kind === "loading"} fallback={errorNotice()}>
+              {loadingNotice()}
+            </Show>
           }
         >
-          <p class="record-collection__state record-collection__state--loading" role="status">
-            {loadingLabel()}
-          </p>
-        </Show>
-      }
-    >
-      <Show
-        when={!props.isEmpty}
-        fallback={
           <section class="record-collection__state record-collection__state--empty" role="status">
             <h2>{props.emptyState.title}</h2>
             <Show when={props.emptyState.message}>{(message) => <p>{message()}</p>}</Show>
           </section>
-        }
-      >
-        {props.children}
-      </Show>
+        </Show>
+      }
+    >
+      <Show when={props.state.kind === "loading"}>{loadingNotice()}</Show>
+      <Show when={props.state.kind === "error"}>{errorNotice()}</Show>
+      {props.children}
     </Show>
   );
 }

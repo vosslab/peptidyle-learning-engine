@@ -10,6 +10,131 @@
 
 ### Developer Tests and Notes
 
+- Public Blueprint search shows the classification already returned with each result and can sort the whole query by name, adoptions, or students. Returning still restores that search, including scroll position. Stars, Watches, and last edit are not sort keys until the discovery row carries them.
+
+- Removed the unused Question Library virtual-row measurement. Browse and search render the current server page.
+
+- Removed the unused Blueprint Course page-append helper. My Blueprint Courses and public search replace each server page instead of accumulating rows.
+
+- Opening a Blueprint from public search keeps the return to that result page, including when the viewer owns the Blueprint. The breadcrumb parent still follows read access. Without a search token, owners return to My Blueprint Courses.
+
+- Closed the shared record and page presentation work. `./launchers/all_test.sh` passed, including live installation-data acceptance. The screenshot corpus completed, and the Blueprint detail checkpoint now opens the detail route so that capture stamps `blueprintCourseDetail`.
+
+- Removed the unused RecordList client window helper. Question and Blueprint discovery keep one server page of 50, 100, or 250 records. The browser contract no longer exercises windowing; status, actions, selection, media, body, refresh, reorder, paging, and notices stay.
+
+- PageFrame now owns the ordinary content stack. PageSection carries an in-page heading, optional helper and actions, and the section body. Student Courses puts invitations in page actions, and Grades groups each Course with PageSection. Repeated content-root gaps moved into that stack. `contentClass` remains only where an editor, table, library task, or failure card still needs an inner hook.
+
+- Student Coursework and Gradebook browser proofs now assert the visible Assessment title, action link, and score text. They no longer look for removed record-region nodes.
+
+- Removed the RecordRegion grid from RecordList and RecordSequence. Ordered Assessment Entries now use semantic identity plus a bounded Pool body, and shared movement stays on the Sequence.
+
+- Instructor screenshot scenarios add Assessment Questions through Choose published Questions, search, one checkbox per seeded title, and Add selected Questions. The retired Add Question and Question-ID controls are no longer driven.
+
+- Assessment Questions now adds published Questions and Pools through the bounded pickers. The catalog-dump route, store method and SQL function are removed. Save, capacity and conflict behavior remain.
+
+- Question Library search now asks the store for one bounded page, then reads native source only for those returned items. An invalid continuation is rejected before that read. The browser page shape is unchanged.
+
+- Question Pool discovery now shows one SQL page at a time through shared Previous/Next and 50/100/250 controls. Pool rows use semantic title, description, classification, Bloom, identity and Inspect; ordered members use a read-only Sequence. Inspection still returns focus and scroll to the results trigger.
+
+- Public Blueprint Course search keeps one server-ordered page, the shared 50/100/250 page size, and Previous/Next. Returning restores the current cursor and focus without replaying earlier pages.
+
+- Migrated the fixed Question point-value editor to semantic RecordList rows. Each row keeps the
+  exact Question revision as its title and the editable point value in the bounded body; aggregate
+  Save/Cancel, validation, conflicts and draft retention stay on the editor.
+
+- Continued the RecordList caller migration across Student, Instructor, Library and Blueprint pages.
+  Student Course, Course invitation and Assessment Overview records now expose their stable task
+  content through semantic rows; pending invitations retain the authenticated route, confirmation,
+  busy, reload and focus behavior. Proposal records preserve state, native creation time and paging;
+  Blueprint stewardship and starred-Instructor names retain their existing chronology and privacy.
+  Student Coursework now uses the shared Type and native due-time facts, and the Due Soon caller keeps
+  the distinct Course and Assessment destinations. Obsolete invitation, draft and due-soon row CSS
+  was removed where shared presentation replaced it. Independent review found and closed concrete
+  score wording, fixture validity, Course action evidence and stale due-time selector gaps. Focused
+  browser, existing workflow and source checks passed for the accepted packages. Focused populated
+  Scores and Draft contracts now protect Course grouping, released-score withholding, and the
+  confirmation, concurrency and recovery behavior for Draft deletion. A populated Due Soon proof
+  caught a formatter that captured UTC before the response loaded; the caller now tracks the loaded
+  Account zone, and Chromium confirms the resulting Chicago display time. The fast UI rerun also
+  found an incomplete Pending Invitations App-shell stub that kept the route in session loading;
+  the browser test now supplies the shell's null-avatar response and owns its invitation data inline.
+
+- Completed shared Sequence movement, sort and page controls, plus the WP-N2 loaded-name and parent
+  navigation publishers. Focused browser contracts and independent reviews passed; the full stack-free
+  UI gate passed on the integrated current tree. Native shared `RecordFact` time now retains ISO
+  `datetime` and visible formatted text for Watch and other time callers.
+
+- Implemented the first shared `RecordList` content contract: typed semantic facts, media, native
+  actions, bounded domain bodies, same-ID reactive updates, and collection notices that retain loaded
+  rows. Converted the fixed-points editor and Instructor Accounts to the existing Detail presentation,
+  and made Assessment workspace breadcrumb publication follow the current route/session generation.
+  The existing component browser contract and new fixed-points and A-to-B-to-A publisher browser
+  checks passed in the fast UI launcher; focused TypeScript, lint, format, and independent review
+  checks passed. The launcher required the host permissions Chromium needs on this macOS environment.
+
+- Migrated Student Course Progress and Attempt History to the shared semantic content model and
+  removed their row-specific and phone-specific presentation. Course grouping, score/activity states,
+  dates, links and per-Course cursor pagination remain in the caller data. Existing focused behavior
+  checks, type/lint/format checks and independent source review passed. The review restored Progress'
+  parent spacing and readable disclosure treatment while leaving row layout to RecordList; populated
+  wide/narrow screenshots remain part of final integrated validation.
+
+- Extended the shared semantic record content and bounded editor-body renderer to native ordered
+  `RecordSequence` items. Same-ID refresh retains body input state and action identity while metadata
+  updates; loading/error notices retain ordered records, and content reflows at the narrow viewport.
+  Compile-time mode checks, independent review, and the complete fast UI launcher passed. Remaining
+  callers and movement controls stay scheduled for their dependent work packages.
+
+- Migrated the Pool creation preview, Assessment Blueprint update review, and Blueprint History to
+  shared semantic list/sequence content. Exact Question revisions and Pool edits, current/proposed
+  labels, history order, Inspect action, Outline, and classification details remain visible. Added
+  a typed Course classification fact to the shared component and verified current/retired labels,
+  tags, and narrow layout in its browser contract. Focused caller tests, independent review, and the
+  integrated fast UI launcher passed.
+
+- Completed four editable Sequence migrations: Blueprint Assessment content, Blueprint Pool members,
+  Blueprint fork apply, and Assessment Pool entries. Shared movement/actions replace caller-owned
+  controls while bounded editors, destination selection, attestation, count restrictions, and deferred
+  saves remain with their owners. Independent reviews corrected fork removal semantics and verified
+  the Assessment Pool refresh/announcement path; its temporary populated caller proof was deleted
+  after acceptance. No caller-specific permanent browser tests were added.
+
+- Completed WP-N3 Blueprint local context. The selected Assessment shows its loaded Blueprint and
+  Module ancestry, preserves edits when returning to the outline, and restores focus to the originating
+  Assessment action. Independent source review and an ignored populated Chromium proof passed; the
+  temporary proof was removed and no caller-specific permanent test was retained.
+
+- Completed WP-P0 discovery bounds for Questions, Pools, and Blueprints. The canonical disposable
+  PostgreSQL baseline returned all 250 matching Pool rows without a continuation cursor and verified
+  Blueprint pagination across 250 results plus one lookahead row; the second page returned that final
+  row only. Generated contracts, zero/over-bound rejection, focused tests, and independent API/SQL
+  review also passed.
+
+- Completed WP-P1 and WP-P4 PostgreSQL query contracts. Question search passed typed metadata/text
+  filters, literal wildcard and exclusion behavior, and tied-title/tied-date keyset pages (50 + 1)
+  in canonical Question ID order. The Rust store now calls the 23-argument SQL contract, and the
+  private search uses private classification readers under its owner role; independent review
+  confirmed authorization and results remain equivalent. Blueprint sorting passed query-wide
+  ordering across 250 rows plus one lookahead. Populated plan samples returned 51 Question rows in
+  570.45 ms and 251 Blueprint rows in 14.945 ms, with zero disk reads; the ignored plans remain at
+  `tests/_temp/record_list_p1_p4_populated_plans.json` for WP-P6's scale review.
+
+- Accepted WP-C2P after an ignored Chromium composition proof of the production Course Progress page.
+  At 1280x800 and 393x852, released 7/8 and withheld-score states, shared Type labels, and semantic
+  RecordList rows remained visible without overflow or browser/console errors. The inline API data
+  and proof artifacts were removed; no caller-specific permanent test was added.
+
+- Accepted WP-C2H after an ignored Chromium composition proof of the production Attempt History page.
+  At 1280x900 and 393x852, Course groups, disclosed and withheld submitted scores, native Started and
+  Submitted times, per-Course 50+1 pagination, and flat shared boundaries remained intact without
+  browser errors. The Live Demo was unavailable, so the proof used inline API data; temporary scripts
+  and screenshots were removed after acceptance, with no caller-specific permanent test added.
+
+- Clarified the Question discovery handoff: WP-P1 owns the store-only typed predicate and cursor-position
+  contract, while WP-P3 retains the existing server parser and opaque query-bound cursor codec and
+  adapts once into the store. This keeps SQL from parsing browser text or owning cursor tokens and
+  avoids a duplicate parser across the two sequential data leases.
+
 - Applied the follow-up external review to the
   [RecordList plan](active_plans/active/record_list_page_frame_standardization_plan.md) and ledger.
   Clarified domain bodies versus shared record presentation, including form-local controls, and made
@@ -48,7 +173,7 @@
   This is planning only; no production code changed and no
   product tests ran.
 - Completed the initial caller investigation for the
-  [RecordList/PageFrame standardization plan](active_plans/active/record_list_page_frame_standardization_plan.md).
+  [record_list_page_frame_standardization_plan.md](active_plans/active/record_list_page_frame_standardization_plan.md).
   All 38 RecordList/Sequence consumer files now have source-based content dispositions and individual
   prerequisites in the ledger. The base contract is title, always-visible semantic details and native
   actions, with shared Assessment Type icon/label rendering required by Human Guidance. Selection,

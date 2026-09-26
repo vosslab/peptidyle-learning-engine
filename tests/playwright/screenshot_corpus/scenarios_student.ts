@@ -157,7 +157,7 @@ async function prepareStudentInvitation(
       await createForm.getByRole("button", { name: "Create Course Instance", exact: true }).click();
       await created.waitFor();
     }
-    await created.getByRole("link", { name: "Open Course Instance", exact: true }).click();
+    await created.getByRole("link", { name: "Open Course", exact: true }).click();
     await page.getByRole("link", { name: "Open Students", exact: true }).click();
     await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await page.getByText("Loading", { exact: false }).first().waitFor({ state: "hidden" });
@@ -186,7 +186,13 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
       await openStudentCourseList(page);
       await page.getByRole("link", { name: "Course invitations", exact: true }).click();
       await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
-      const invitation = courseCard(page, INVITATION_COURSE_LONG_NAME);
+      await page
+        .getByText("Loading course invitations...", { exact: true })
+        .waitFor({ state: "hidden" });
+      const invitation = page
+        .getByRole("list", { name: "Course invitations", exact: true })
+        .getByRole("listitem")
+        .filter({ hasText: INVITATION_COURSE_LONG_NAME });
       await invitation.waitFor();
       await captureCheckpoint(runtime, `invitation_index_${viewport}`, session);
       await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
@@ -217,7 +223,10 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
       await courseCards.first().waitFor();
       if ((await courseCards.count()) < 2) {
         await page.getByRole("link", { name: "Course invitations", exact: true }).click();
-        const invitation = courseCard(page, INVITATION_COURSE_LONG_NAME);
+        const invitation = page
+          .getByRole("list", { name: "Course invitations", exact: true })
+          .getByRole("listitem")
+          .filter({ hasText: INVITATION_COURSE_LONG_NAME });
         await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
         await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
         await page.getByRole("status").getByText("Invitation accepted.", { exact: true }).waitFor();
@@ -310,7 +319,9 @@ async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void>
         .click();
       await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
       await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
-      const latestAttempt = session.page.getByRole("link", { name: /^Attempt [0-9]+$/u }).first();
+      const latestAttempt = session.page
+        .getByRole("link", { name: "Review Attempt", exact: true })
+        .first();
       await latestAttempt.waitFor();
       await captureCheckpoint(runtime, `overview_history_${viewport}`, session);
       await latestAttempt.click();
@@ -487,7 +498,10 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
         .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
         .click();
       await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
-      const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
+      const previousAttempt = session.page.getByRole("link", {
+        name: "Review Attempt",
+        exact: true,
+      });
       await previousAttempt.waitFor();
       await previousAttempt.click();
       await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();

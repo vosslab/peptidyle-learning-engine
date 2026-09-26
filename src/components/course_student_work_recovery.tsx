@@ -8,8 +8,7 @@ import type {
 import { ApiRequestError } from "../api/http_client/error";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { RecordDetailList } from "./record_list/record_detail_list";
-import { RecordList } from "./record_list/record_list";
-import type { RecordRegion } from "./record_list/region_spec";
+import { RecordList, type RecordContent, type RecordFact } from "./record_list/record_list";
 import { formatAssessmentActivity } from "./student_assessment_presentation";
 
 function formatRecoveryInstant(
@@ -22,6 +21,23 @@ function formatRecoveryInstant(
   return Number.isNaN(timestamp)
     ? "Retained time unavailable"
     : formatAssessmentActivity(timestamp, formatDateTime);
+}
+
+function recoveryInstantFact(
+  label: string,
+  value: string | null,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+  unsetLabel: string,
+): RecordFact {
+  if (value === null) return { kind: "text", label, value: unsetLabel };
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return { kind: "text", label, value: "Retained time unavailable" };
+  return {
+    kind: "time",
+    label,
+    dateTime: value,
+    value: formatAssessmentActivity(timestamp, formatDateTime),
+  };
 }
 
 function Evidence(props: { readonly label: string; readonly text: string | null }): JSX.Element {
@@ -59,52 +75,39 @@ export function CourseStudentWorkRecovery(props: {
   const [selected, setSelected] = createSignal("");
   const [evidence, setEvidence] = createSignal<RecoveredAttempt>();
   const [message, setMessage] = createSignal("");
-  const attemptRegions: ReadonlyArray<RecordRegion<RecoverySelection["attempts"][number]>> = [
-    {
-      id: "attempt",
-      role: "identity",
-      priority: "required",
-      width: "minmax(0, 1fr)",
-      align: "start",
-      content: (attempt) => (
-        <label style={{ display: "grid", gap: "0.3rem", "overflow-wrap": "anywhere" }}>
-          <span>
-            <input
-              type="radio"
-              name="archived-student-work-attempt"
-              value={attempt.assessmentAttemptId}
-              checked={selected() === attempt.assessmentAttemptId}
-              onChange={() => {
-                setSelected(attempt.assessmentAttemptId);
-                setEvidence(undefined);
-              }}
-            />{" "}
-            {attempt.courseRosterTuple === null
-              ? "Roster ID not retained"
-              : `Roster ID: ${attempt.courseRosterTuple.rosterId}`}{" "}
-            | {attempt.assessmentTitle} | Attempt {attempt.assessmentAttemptNumber} (
-            {attempt.assessmentAttemptId})
-          </span>
-          <span>
-            Started:{" "}
-            {formatRecoveryInstant(attempt.startedAt, formatDateTime, "No retained start time")};
-            submitted:{" "}
-            {formatRecoveryInstant(
-              attempt.submittedAt,
-              formatDateTime,
-              "No retained submission time",
-            )}
-            ; deletion cutoff:{" "}
-            {formatRecoveryInstant(
-              attempt.deleteDueAt,
-              formatDateTime,
-              "No retained deletion cutoff",
-            )}
-          </span>
-        </label>
-      ),
-    },
-  ];
+  type RecoveryAttempt = RecoverySelection["attempts"][number];
+  const selectedAttemptIds = (): ReadonlySet<string> =>
+    selected() === "" ? new Set() : new Set([selected()]);
+  function attemptContent(attempt: RecoveryAttempt): RecordContent {
+    return {
+      title: `${attempt.assessmentTitle}: Attempt ${attempt.assessmentAttemptNumber}`,
+      details: [
+        {
+          kind: "text",
+          label: "Roster ID",
+          value:
+            attempt.courseRosterTuple === null
+              ? "Not retained"
+              : attempt.courseRosterTuple.rosterId,
+        },
+        { kind: "text", label: "Retained Attempt ID", value: attempt.assessmentAttemptId },
+        recoveryInstantFact("Started", attempt.startedAt, formatDateTime, "No retained start time"),
+        recoveryInstantFact(
+          "Submitted",
+          attempt.submittedAt,
+          formatDateTime,
+          "No retained submission time",
+        ),
+        recoveryInstantFact(
+          "Deletion cutoff",
+          attempt.deleteDueAt,
+          formatDateTime,
+          "No retained deletion cutoff",
+        ),
+      ],
+      actions: [],
+    };
+  }
   let generation = 0;
   let action: HTMLButtonElement | undefined;
   let heading: HTMLHeadingElement | undefined;
@@ -227,10 +230,19 @@ export function CourseStudentWorkRecovery(props: {
                     <legend>Select a retained Assessment Attempt</legend>
                     <RecordList
                       ariaLabel="Retained Assessment Attempts"
+                      content={attemptContent}
                       emptyState={{ title: "No retained archived Attempts are available." }}
                       recordId={(attempt) => attempt.assessmentAttemptId}
-                      regions={attemptRegions}
                       rows={page().attempts}
+                      selection={{
+                        kind: "radio",
+                        selectedIds: selectedAttemptIds,
+                        onChange: (attempt, isSelected) => {
+                          if (!isSelected) return;
+                          setSelected(attempt.assessmentAttemptId);
+                          setEvidence(undefined);
+                        },
+                      }}
                       state={{ kind: "ready" }}
                     />
                   </fieldset>

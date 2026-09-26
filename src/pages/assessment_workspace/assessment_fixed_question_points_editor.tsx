@@ -1,9 +1,9 @@
-import { Show, createMemo, createSignal, type JSX } from "solid-js";
+import { Show, createMemo, createSignal, type Accessor, type JSX } from "solid-js";
 
+import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
-import { RecordList } from "../../components/record_list/record_list";
-import type { RecordRegion } from "../../components/record_list/region_spec";
+import { RecordList, type RecordContent } from "../../components/record_list/record_list";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
@@ -11,6 +11,8 @@ import {
   questionSaveInput,
   withFixedQuestionPointValues,
 } from "./assessment_workspace_questions_model";
+
+type FixedQuestionEntry = Extract<AssessmentEntry, { readonly kind: "fixedQuestion" }>;
 
 export interface AssessmentFixedQuestionPointsEditorProps {
   readonly disabled: boolean;
@@ -103,6 +105,39 @@ export function AssessmentFixedQuestionPointsEditor(
     }
   }
 
+  function fixedQuestionContent(entry: FixedQuestionEntry): RecordContent {
+    const revision = entry.publishedQuestionRevisionTuple;
+    return {
+      title: `Question ${revision.publishedQuestionId}, Revision ${revision.revisionNumber}`,
+      details: [],
+      actions: [],
+    };
+  }
+
+  function renderPointValue(entry: Accessor<FixedQuestionEntry>): JSX.Element {
+    const inputId = `fixed-question-points-${entry().id}`;
+    const value = (): string => draft()[entry().id] ?? "";
+    return (
+      <label class="assessment-editor-field" for={inputId}>
+        Point value
+        <input
+          id={inputId}
+          inputmode="decimal"
+          value={value()}
+          aria-invalid={assessmentPointValueDraft(value()) === undefined}
+          onInput={(event) => {
+            setDraft((current) => ({
+              ...current,
+              [entry().id]: event.currentTarget.value,
+            }));
+            setMessage("");
+            setFailed(false);
+          }}
+        />
+      </label>
+    );
+  }
+
   async function reloadAfterConflict(): Promise<void> {
     if (!conflict() || reloading()) return;
     setReloading(true);
@@ -159,46 +194,9 @@ export function AssessmentFixedQuestionPointsEditor(
             <legend>Points assigned to each fixed Question</legend>
             <RecordList
               rows={fixedEntries()}
-              regions={
-                [
-                  {
-                    id: "identity",
-                    role: "identity",
-                    priority: "required",
-                    width: "minmax(0, 1fr)",
-                    align: "start",
-                    content: (entry): JSX.Element => {
-                      const inputId = `fixed-question-points-${entry.id}`;
-                      const value = (): string => draft()[entry.id] ?? "";
-                      return (
-                        <label class="assessment-editor-field" for={inputId}>
-                          Question {entry.publishedQuestionRevisionTuple.publishedQuestionId}{" "}
-                          Revision {entry.publishedQuestionRevisionTuple.revisionNumber}
-                          <input
-                            id={inputId}
-                            inputmode="decimal"
-                            value={value()}
-                            aria-invalid={assessmentPointValueDraft(value()) === undefined}
-                            onInput={(event) => {
-                              setDraft((current) => ({
-                                ...current,
-                                [entry.id]: event.currentTarget.value,
-                              }));
-                              setMessage("");
-                              setFailed(false);
-                            }}
-                          />
-                        </label>
-                      );
-                    },
-                  },
-                ] satisfies ReadonlyArray<
-                  RecordRegion<
-                    typeof fixedEntries extends () => ReadonlyArray<infer Entry> ? Entry : never
-                  >
-                >
-              }
               recordId={(entry) => entry.id}
+              content={fixedQuestionContent}
+              renderBody={renderPointValue}
               state={{ kind: "ready" }}
               ariaLabel="Fixed Question point values"
               emptyState={{
