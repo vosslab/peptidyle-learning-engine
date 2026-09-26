@@ -289,6 +289,7 @@ def write_or_check(root: pathlib.Path, output: str, check: bool) -> None:
 		return
 	if path.is_file() and not path.read_text(encoding="utf-8").startswith(OWNERSHIP_HEADER):
 		raise SystemExit(f"refusing to overwrite non-Question-ID generator output: {TYPESCRIPT_CONTRACT_PATH}")
+	path.parent.mkdir(parents=True, exist_ok=True)
 	path.write_text(output, encoding="utf-8")
 
 

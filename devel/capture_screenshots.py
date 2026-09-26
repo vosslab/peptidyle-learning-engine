@@ -47,6 +47,7 @@ def print_elapsed(name: str, started: float) -> None:
 
 def run_command(argv: list[str], cwd: pathlib.Path, env: dict[str, str] | None = None) -> None:
 	print("+ " + " ".join(argv), flush=True)
+	# ASVS 1.2.5: pass structured arguments directly to the process boundary.
 	result = subprocess.run(argv, cwd=cwd, env=env, check=False)
 	if result.returncode != 0:
 		raise SystemExit(result.returncode)
@@ -278,23 +279,9 @@ def write_review_copies(
 
 def start_live_demo(root: pathlib.Path) -> str:
 	started = print_step("stack", "launchers/run_live_demo.sh --headless")
-	result = subprocess.run(
-		["./launchers/run_live_demo.sh", "--headless"],
-		cwd=root,
-		check=False,
-		capture_output=True,
-		text=True,
-	)
-	sys.stderr.write(result.stdout)
-	sys.stderr.write(result.stderr)
-	if result.returncode != 0:
-		raise SystemExit(result.returncode)
-	entry = ""
-	for line in result.stdout.splitlines():
-		if line.startswith("Live demo entry: "):
-			entry = line[len("Live demo entry: ") :]
-	if entry == "":
-		raise SystemExit("The Live Demo did not report its entry URL.")
+	run_command(["./launchers/run_live_demo.sh", "--headless"], root)
+	origin = json.loads((root / CONTROL_RECEIPT).read_text())["origin"]
+	entry = origin.rstrip("/") + "/sign-in"
 	print_elapsed("stack", started)
 	return entry
 
@@ -363,6 +350,13 @@ def main() -> None:
 	args = parse_args(sys.argv[1:])
 	root = repo_root()
 	os.chdir(root)
+	if not all(
+		(root / "node_modules" / package / "package.json").is_file()
+		for package in ("playwright", "tsx")
+	):
+		started = print_step("dependencies", "devel/setup_typescript.sh")
+		run_command([str(root / "devel" / "setup_typescript.sh")], root)
+		print_elapsed("dependencies", started)
 	if args.verify:
 		started = print_step("verify-static", "tracked screenshot artifacts")
 		run_command(
@@ -379,8 +373,8 @@ def main() -> None:
 		print_elapsed("verify-static", started)
 	chromium_path = chromium_executable_path(root)
 	if chromium_path is None:
-		started = print_step("playwright", "devel/setup_playwright.sh")
-		run_command([str(root / "devel" / "setup_playwright.sh")], root)
+		started = print_step("playwright", "install Chromium for screenshot capture")
+		run_command(["node", "node_modules/playwright/cli.js", "install", "chromium"], root)
 		print_elapsed("playwright", started)
 	else:
 		print(f"[playwright] using installed Chromium: {chromium_path}")

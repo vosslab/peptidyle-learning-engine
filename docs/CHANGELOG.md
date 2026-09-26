@@ -8,6 +8,20 @@
 
 ## 2026-09-25
 
+### Fixes and Maintenance
+
+- The Question ID contract generator creates its output directory before writing. Clean checkouts
+  now build without a missing `generated/api/` failure during Live Demo screenshot startup.
+  Clean-directory generation, freshness checking, and the complete debug build passed.
+- Screenshot capture installs missing npm dependencies before browser setup or static verification,
+  installs its required Chromium browser, and streams Live Demo startup progress. Dependency ordering
+  and eight existing driver checks passed.
+  The fast gate passed Rust and browser-source checks; pytest passed 9,489 checks with one existing
+  broken `region_spec.ts` link in the September 25 record presentation audit.
+  Live capture passed host build and database initialization, then stalled at MinIO startup.
+  A direct pull of the configured Quay digest returned `unauthorized`, including with empty registry
+  credentials; the complete capture remains unverified.
+
 ### Developer Tests and Notes
 
 - Public Blueprint search shows the classification already returned with each result and can sort the whole query by name, adoptions, or students. Returning still restores that search, including scroll position. Stars, Watches, and last edit are not sort keys until the discovery row carries them.
