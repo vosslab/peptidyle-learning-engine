@@ -47,7 +47,7 @@ export const TIER_TWO_FILENAME_ALIASES: Readonly<Record<RibbonTaskId, string>> =
   appearance: "appearance",
 };
 
-/** Build a filename prefix from actual Tier 1 and Tier 2 catalog identifiers. */
+/** Validate both catalog identities and pair the Tier 1 slug with its Tier 2 filename alias. */
 export function catalogScreenshotFilename(
   tierOneId: RibbonTabId,
   tierTwoId: RibbonTaskId,

@@ -22,6 +22,10 @@
   and all 15 theme captures used the same Course workspace. `./devel/capture_screenshots.sh --fresh`
   and `./devel/capture_screenshots.sh --fresh --verify` completed successfully. Replay differences
   were not required to match image bytes; manifest closure, privacy, and receipt integrity passed.
+- Simplified screenshot filenames for audit browsing: all tiered captures retain their catalog
+  Tier 1 prefix and use explicit compact Tier 2 aliases, while Course theme comparisons use the
+  standalone `instructor/theme_sample-<theme>.png` pattern. Republished the galleries, manifest,
+  receipt, and images; the fresh replay passed, with byte differences remaining non-gating.
 
 ## 2026-09-25
 
