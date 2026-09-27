@@ -170,272 +170,542 @@
       }
     },
     {
-      "id": "instructor_theme_sample_tundra",
-      "path": "instructor/theme_sample-tundra.png",
+      "id": "instructor_theme_sample_tundra_light",
+      "path": "instructor/theme_sample-tundra-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample tundra",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample tundra light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_tundra",
+      "checkpoint": "theme_sample_tundra_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 9,
-        "caption": "Instructor Course workspace rendered with the tundra theme",
+        "caption": "Instructor Course workspace rendered with the tundra Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_forest",
-      "path": "instructor/theme_sample-forest.png",
+      "id": "instructor_theme_sample_tundra_dark",
+      "path": "instructor/theme_sample-tundra-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample forest",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample tundra dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_forest",
+      "checkpoint": "theme_sample_tundra_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 10,
-        "caption": "Instructor Course workspace rendered with the forest theme",
+        "caption": "Instructor Course workspace rendered with the tundra Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_desert",
-      "path": "instructor/theme_sample-desert.png",
+      "id": "instructor_theme_sample_forest_light",
+      "path": "instructor/theme_sample-forest-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample desert",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample forest light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_desert",
+      "checkpoint": "theme_sample_forest_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 11,
-        "caption": "Instructor Course workspace rendered with the desert theme",
+        "caption": "Instructor Course workspace rendered with the forest Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_grass",
-      "path": "instructor/theme_sample-grass.png",
+      "id": "instructor_theme_sample_forest_dark",
+      "path": "instructor/theme_sample-forest-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample grass",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample forest dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_grass",
+      "checkpoint": "theme_sample_forest_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 12,
-        "caption": "Instructor Course workspace rendered with the grass theme",
+        "caption": "Instructor Course workspace rendered with the forest Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_arctic",
-      "path": "instructor/theme_sample-arctic.png",
+      "id": "instructor_theme_sample_desert_light",
+      "path": "instructor/theme_sample-desert-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample arctic",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample desert light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_arctic",
+      "checkpoint": "theme_sample_desert_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 13,
-        "caption": "Instructor Course workspace rendered with the arctic theme",
+        "caption": "Instructor Course workspace rendered with the desert Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_ocean",
-      "path": "instructor/theme_sample-ocean.png",
+      "id": "instructor_theme_sample_desert_dark",
+      "path": "instructor/theme_sample-desert-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample ocean",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample desert dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_ocean",
+      "checkpoint": "theme_sample_desert_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 14,
-        "caption": "Instructor Course workspace rendered with the ocean theme",
+        "caption": "Instructor Course workspace rendered with the desert Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_tropical",
-      "path": "instructor/theme_sample-tropical.png",
+      "id": "instructor_theme_sample_grass_light",
+      "path": "instructor/theme_sample-grass-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample tropical",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample grass light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_tropical",
+      "checkpoint": "theme_sample_grass_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 15,
-        "caption": "Instructor Course workspace rendered with the tropical theme",
+        "caption": "Instructor Course workspace rendered with the grass Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_coral_reef",
-      "path": "instructor/theme_sample-coral-reef.png",
+      "id": "instructor_theme_sample_grass_dark",
+      "path": "instructor/theme_sample-grass-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample coral-reef",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample grass dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_coral_reef",
+      "checkpoint": "theme_sample_grass_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 16,
-        "caption": "Instructor Course workspace rendered with the coral-reef theme",
+        "caption": "Instructor Course workspace rendered with the grass Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_swamp",
-      "path": "instructor/theme_sample-swamp.png",
+      "id": "instructor_theme_sample_arctic_light",
+      "path": "instructor/theme_sample-arctic-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample swamp",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample arctic light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_swamp",
+      "checkpoint": "theme_sample_arctic_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 17,
-        "caption": "Instructor Course workspace rendered with the swamp theme",
+        "caption": "Instructor Course workspace rendered with the arctic Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_underground",
-      "path": "instructor/theme_sample-underground.png",
+      "id": "instructor_theme_sample_arctic_dark",
+      "path": "instructor/theme_sample-arctic-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample underground",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample arctic dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_underground",
+      "checkpoint": "theme_sample_arctic_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 18,
-        "caption": "Instructor Course workspace rendered with the underground theme",
+        "caption": "Instructor Course workspace rendered with the arctic Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_salt_marsh",
-      "path": "instructor/theme_sample-salt-marsh.png",
+      "id": "instructor_theme_sample_ocean_light",
+      "path": "instructor/theme_sample-ocean-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample salt-marsh",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample ocean light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_salt_marsh",
+      "checkpoint": "theme_sample_ocean_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 19,
-        "caption": "Instructor Course workspace rendered with the salt-marsh theme",
+        "caption": "Instructor Course workspace rendered with the ocean Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_wetland",
-      "path": "instructor/theme_sample-wetland.png",
+      "id": "instructor_theme_sample_ocean_dark",
+      "path": "instructor/theme_sample-ocean-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample wetland",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample ocean dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_wetland",
+      "checkpoint": "theme_sample_ocean_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 20,
-        "caption": "Instructor Course workspace rendered with the wetland theme",
+        "caption": "Instructor Course workspace rendered with the ocean Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_sea_floor",
-      "path": "instructor/theme_sample-sea-floor.png",
+      "id": "instructor_theme_sample_tropical_light",
+      "path": "instructor/theme_sample-tropical-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample sea-floor",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample tropical light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_sea_floor",
+      "checkpoint": "theme_sample_tropical_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 21,
-        "caption": "Instructor Course workspace rendered with the sea-floor theme",
+        "caption": "Instructor Course workspace rendered with the tropical Theme in light mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_magma",
-      "path": "instructor/theme_sample-magma.png",
+      "id": "instructor_theme_sample_tropical_dark",
+      "path": "instructor/theme_sample-tropical-dark.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample magma",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample tropical dark",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_magma",
+      "checkpoint": "theme_sample_tropical_dark",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 22,
-        "caption": "Instructor Course workspace rendered with the magma theme",
+        "caption": "Instructor Course workspace rendered with the tropical Theme in dark mode",
         "featured": false
       }
     },
     {
-      "id": "instructor_theme_sample_beach",
-      "path": "instructor/theme_sample-beach.png",
+      "id": "instructor_theme_sample_coral_reef_light",
+      "path": "instructor/theme_sample-coral-reef-light.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
-      "workflow": "Course theme comparison",
-      "state": "theme sample beach",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample coral-reef light",
       "scenario": "instructor_theme_samples",
-      "checkpoint": "theme_sample_beach",
+      "checkpoint": "theme_sample_coral_reef_light",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 23,
-        "caption": "Instructor Course workspace rendered with the beach theme",
+        "caption": "Instructor Course workspace rendered with the coral-reef Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_coral_reef_dark",
+      "path": "instructor/theme_sample-coral-reef-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample coral-reef dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_coral_reef_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 24,
+        "caption": "Instructor Course workspace rendered with the coral-reef Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_swamp_light",
+      "path": "instructor/theme_sample-swamp-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample swamp light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_swamp_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 25,
+        "caption": "Instructor Course workspace rendered with the swamp Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_swamp_dark",
+      "path": "instructor/theme_sample-swamp-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample swamp dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_swamp_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 26,
+        "caption": "Instructor Course workspace rendered with the swamp Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_underground_light",
+      "path": "instructor/theme_sample-underground-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample underground light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_underground_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 27,
+        "caption": "Instructor Course workspace rendered with the underground Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_underground_dark",
+      "path": "instructor/theme_sample-underground-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample underground dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_underground_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 28,
+        "caption": "Instructor Course workspace rendered with the underground Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_salt_marsh_light",
+      "path": "instructor/theme_sample-salt-marsh-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample salt-marsh light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_salt_marsh_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 29,
+        "caption": "Instructor Course workspace rendered with the salt-marsh Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_salt_marsh_dark",
+      "path": "instructor/theme_sample-salt-marsh-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample salt-marsh dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_salt_marsh_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 30,
+        "caption": "Instructor Course workspace rendered with the salt-marsh Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_wetland_light",
+      "path": "instructor/theme_sample-wetland-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample wetland light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_wetland_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 31,
+        "caption": "Instructor Course workspace rendered with the wetland Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_wetland_dark",
+      "path": "instructor/theme_sample-wetland-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample wetland dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_wetland_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 32,
+        "caption": "Instructor Course workspace rendered with the wetland Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_sea_floor_light",
+      "path": "instructor/theme_sample-sea-floor-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample sea-floor light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_sea_floor_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 33,
+        "caption": "Instructor Course workspace rendered with the sea-floor Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_sea_floor_dark",
+      "path": "instructor/theme_sample-sea-floor-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample sea-floor dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_sea_floor_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 34,
+        "caption": "Instructor Course workspace rendered with the sea-floor Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_magma_light",
+      "path": "instructor/theme_sample-magma-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample magma light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_magma_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 35,
+        "caption": "Instructor Course workspace rendered with the magma Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_magma_dark",
+      "path": "instructor/theme_sample-magma-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample magma dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_magma_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 36,
+        "caption": "Instructor Course workspace rendered with the magma Theme in dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_beach_light",
+      "path": "instructor/theme_sample-beach-light.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample beach light",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_beach_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 37,
+        "caption": "Instructor Course workspace rendered with the beach Theme in light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_theme_sample_beach_dark",
+      "path": "instructor/theme_sample-beach-dark.png",
+      "role": "instructor",
+      "routeId": "courseAssessments",
+      "area": "courses",
+      "workflow": "Course Theme comparison",
+      "state": "theme sample beach dark",
+      "scenario": "instructor_theme_samples",
+      "checkpoint": "theme_sample_beach_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 38,
+        "caption": "Instructor Course workspace rendered with the beach Theme in dark mode",
         "featured": false
       }
     },
@@ -452,7 +722,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 24,
+        "order": 39,
         "caption": "Answer-free Gradebook",
         "featured": true
       }
@@ -470,7 +740,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 25,
+        "order": 40,
         "caption": "Assignments Due Soon without current deadlines",
         "featured": false
       }
@@ -488,7 +758,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 26,
+        "order": 41,
         "caption": "Assignment creation",
         "featured": false
       }
@@ -506,7 +776,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 27,
+        "order": 42,
         "caption": "Draft Assignment Questions",
         "featured": false
       }
@@ -524,7 +794,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 28,
+        "order": 43,
         "caption": "Answer-free Assignment Preview",
         "featured": false
       }
@@ -542,7 +812,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 29,
+        "order": 44,
         "caption": "Released Assignment Policies",
         "featured": true
       }
@@ -560,7 +830,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 30,
+        "order": 45,
         "caption": "Editable Assessment Template",
         "featured": false
       }
@@ -578,7 +848,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 31,
+        "order": 46,
         "caption": "Question Library",
         "featured": true
       }
@@ -596,7 +866,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 32,
+        "order": 47,
         "caption": "Filtered Question Library",
         "featured": false
       }
@@ -614,7 +884,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 33,
+        "order": 48,
         "caption": "Published Question detail",
         "featured": false
       }
@@ -632,7 +902,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 34,
+        "order": 49,
         "caption": "Browse Question Library",
         "featured": false
       }
@@ -650,7 +920,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 35,
+        "order": 50,
         "caption": "Question Pool creation review",
         "featured": false
       }
@@ -668,7 +938,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 36,
+        "order": 51,
         "caption": "Answer-free WeBWorK generated example",
         "featured": false
       }
@@ -686,7 +956,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 37,
+        "order": 52,
         "caption": "HLA offspring genotype generated example",
         "featured": false
       }
@@ -704,7 +974,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 38,
+        "order": 53,
         "caption": "Monohybrid genotype matching generated example",
         "featured": false
       }
@@ -722,7 +992,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 39,
+        "order": 54,
         "caption": "X-linked offspring count table generated example",
         "featured": false
       }
@@ -740,7 +1010,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 40,
+        "order": 55,
         "caption": "True/False Statements About DNA Structure generated example",
         "featured": false
       }
@@ -758,7 +1028,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 41,
+        "order": 56,
         "caption": "Matching Meiosis Prophase I Stages to Descriptions generated example",
         "featured": false
       }
@@ -776,7 +1046,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 42,
+        "order": 57,
         "caption": "True/False Statements About Chi-Square Tests generated example",
         "featured": false
       }
@@ -794,8 +1064,62 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 43,
+        "order": 58,
         "caption": "Matching Chromosome Shapes to Descriptions generated example",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_personal_theme_library_light",
+      "path": "instructor/theme-personal-library-light.png",
+      "role": "instructor",
+      "routeId": "library",
+      "area": "question library",
+      "workflow": "Instructor personal Theme comparison",
+      "state": "Magma Light filtered library",
+      "scenario": "instructor_personal_theme_samples",
+      "checkpoint": "personal_theme_library_light",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 59,
+        "caption": "Instructor personal Magma Theme on a filtered Question Library in Light mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_personal_theme_library_dark",
+      "path": "instructor/theme-personal-library-dark.png",
+      "role": "instructor",
+      "routeId": "library",
+      "area": "question library",
+      "workflow": "Instructor personal Theme comparison",
+      "state": "Magma Dark filtered library",
+      "scenario": "instructor_personal_theme_samples",
+      "checkpoint": "personal_theme_library_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 60,
+        "caption": "Instructor personal Magma Theme on a filtered Question Library in Dark mode",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_personal_theme_question_dark",
+      "path": "instructor/theme-personal-question-detail-dark.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "Instructor personal Theme comparison",
+      "state": "Magma Dark published Question detail",
+      "scenario": "instructor_personal_theme_samples",
+      "checkpoint": "personal_theme_question_dark",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 61,
+        "caption": "Published Question detail using the Instructor personal Magma Theme in Dark mode",
         "featured": false
       }
     },
@@ -812,7 +1136,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 44,
+        "order": 62,
         "caption": "Instructor Profile",
         "featured": false
       }
@@ -830,7 +1154,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 45,
+        "order": 63,
         "caption": "Private Question drafts",
         "featured": false
       }
@@ -848,7 +1172,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 46,
+        "order": 64,
         "caption": "Saved private Question editor",
         "featured": false
       }
@@ -866,7 +1190,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 47,
+        "order": 65,
         "caption": "Question publication review",
         "featured": false
       }
@@ -884,7 +1208,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 48,
+        "order": 66,
         "caption": "Blueprint Courses",
         "featured": false
       }
@@ -902,7 +1226,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 49,
+        "order": 67,
         "caption": "Blueprint Course detail",
         "featured": false
       }
@@ -920,7 +1244,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 50,
+        "order": 68,
         "caption": "Blueprint Question picker",
         "featured": false
       }
@@ -938,7 +1262,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 51,
+        "order": 69,
         "caption": "Search Public Blueprint Courses",
         "featured": false
       }
@@ -956,7 +1280,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 52,
+        "order": 70,
         "caption": "Student courses",
         "featured": true
       }
@@ -974,7 +1298,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 53,
+        "order": 71,
         "caption": "Student courses on a tablet",
         "featured": false
       }
@@ -992,7 +1316,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 54,
+        "order": 72,
         "caption": "Student courses on a phone",
         "featured": false
       }
@@ -1010,7 +1334,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 55,
+        "order": 73,
         "caption": "Student courses on a square",
         "featured": false
       }
@@ -1028,7 +1352,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 56,
+        "order": 74,
         "caption": "Course-specific overview",
         "featured": false
       }
@@ -1046,7 +1370,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 57,
+        "order": 75,
         "caption": "Course-specific overview on a tablet",
         "featured": false
       }
@@ -1064,7 +1388,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 58,
+        "order": 76,
         "caption": "Course-specific overview on a phone",
         "featured": false
       }
@@ -1082,7 +1406,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 59,
+        "order": 77,
         "caption": "Course-specific overview on a square",
         "featured": false
       }
@@ -1100,7 +1424,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 60,
+        "order": 78,
         "caption": "Pending Course Invitations",
         "featured": false
       }
@@ -1118,7 +1442,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 61,
+        "order": 79,
         "caption": "Pending Course Invitations on a tablet",
         "featured": false
       }
@@ -1136,7 +1460,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 62,
+        "order": 80,
         "caption": "Pending Course Invitations on a phone",
         "featured": false
       }
@@ -1154,7 +1478,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 63,
+        "order": 81,
         "caption": "Pending Course Invitations on a square",
         "featured": false
       }
@@ -1172,7 +1496,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 64,
+        "order": 82,
         "caption": "Course Invitation review",
         "featured": false
       }
@@ -1190,7 +1514,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 65,
+        "order": 83,
         "caption": "Course Invitation review on a tablet",
         "featured": false
       }
@@ -1208,7 +1532,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 66,
+        "order": 84,
         "caption": "Course Invitation review on a phone",
         "featured": false
       }
@@ -1226,7 +1550,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 67,
+        "order": 85,
         "caption": "Course Invitation review on a square",
         "featured": false
       }
@@ -1244,7 +1568,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 68,
+        "order": 86,
         "caption": "Student with two active Courses",
         "featured": false
       }
@@ -1262,7 +1586,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 69,
+        "order": 87,
         "caption": "Student with two active Courses on a tablet",
         "featured": false
       }
@@ -1280,7 +1604,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 70,
+        "order": 88,
         "caption": "Student with two active Courses on a phone",
         "featured": false
       }
@@ -1298,7 +1622,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 71,
+        "order": 89,
         "caption": "Student with two active Courses on a square",
         "featured": false
       }
@@ -1316,7 +1640,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 72,
+        "order": 90,
         "caption": "Student Course Progress",
         "featured": true
       }
@@ -1334,7 +1658,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 73,
+        "order": 91,
         "caption": "Student Course Progress on a tablet",
         "featured": false
       }
@@ -1352,7 +1676,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 74,
+        "order": 92,
         "caption": "Student Course Progress on a phone",
         "featured": false
       }
@@ -1370,7 +1694,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 75,
+        "order": 93,
         "caption": "Student Course Progress on a square",
         "featured": false
       }
@@ -1388,7 +1712,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 76,
+        "order": 94,
         "caption": "Student Progress when an Attempt has no released score",
         "featured": false
       }
@@ -1406,7 +1730,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 77,
+        "order": 95,
         "caption": "Student Progress when an Attempt has no released score on a tablet",
         "featured": false
       }
@@ -1424,7 +1748,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 78,
+        "order": 96,
         "caption": "Student Progress when an Attempt has no released score on a phone",
         "featured": false
       }
@@ -1442,7 +1766,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 79,
+        "order": 97,
         "caption": "Student Progress when an Attempt has no released score on a square",
         "featured": false
       }
@@ -1460,7 +1784,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 80,
+        "order": 98,
         "caption": "Student Scores",
         "featured": false
       }
@@ -1478,7 +1802,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 81,
+        "order": 99,
         "caption": "Student Scores on a tablet",
         "featured": false
       }
@@ -1496,7 +1820,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 82,
+        "order": 100,
         "caption": "Student Scores on a phone",
         "featured": false
       }
@@ -1514,7 +1838,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 83,
+        "order": 101,
         "caption": "Student Scores on a square",
         "featured": false
       }
@@ -1532,7 +1856,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 84,
+        "order": 102,
         "caption": "Student Response Stats",
         "featured": false
       }
@@ -1550,7 +1874,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 85,
+        "order": 103,
         "caption": "Student Response Stats on a tablet",
         "featured": false
       }
@@ -1568,7 +1892,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 86,
+        "order": 104,
         "caption": "Student Response Stats on a phone",
         "featured": false
       }
@@ -1586,7 +1910,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 87,
+        "order": 105,
         "caption": "Student Response Stats on a square",
         "featured": false
       }
@@ -1604,7 +1928,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 88,
+        "order": 106,
         "caption": "Student Attempt History with Latest Feedback available",
         "featured": false
       }
@@ -1622,7 +1946,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 89,
+        "order": 107,
         "caption": "Student Attempt History with Latest Feedback available on a tablet",
         "featured": false
       }
@@ -1640,7 +1964,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 90,
+        "order": 108,
         "caption": "Student Attempt History with Latest Feedback available on a phone",
         "featured": false
       }
@@ -1658,7 +1982,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 91,
+        "order": 109,
         "caption": "Student Attempt History with Latest Feedback available on a square",
         "featured": false
       }
@@ -1676,7 +2000,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 92,
+        "order": 110,
         "caption": "Attempt review opened from Latest Feedback",
         "featured": false
       }
@@ -1694,7 +2018,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 93,
+        "order": 111,
         "caption": "Attempt review opened from Latest Feedback on a tablet",
         "featured": false
       }
@@ -1712,7 +2036,7 @@
       "viewport": "phone",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 94,
+        "order": 112,
         "caption": "Attempt review opened from Latest Feedback on a phone",
         "featured": false
       }
@@ -1730,7 +2054,7 @@
       "viewport": "square",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 95,
+        "order": 113,
         "caption": "Attempt review opened from Latest Feedback on a square",
         "featured": false
       }
@@ -1748,7 +2072,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 96,
+        "order": 114,
         "caption": "Student Coursework Due Soon",
         "featured": false
       }
@@ -1766,7 +2090,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 97,
+        "order": 115,
         "caption": "Student Coursework Due Soon on a tablet",
         "featured": false
       }
@@ -1784,7 +2108,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 98,
+        "order": 116,
         "caption": "Student Coursework Due Soon on a phone",
         "featured": false
       }
@@ -1802,7 +2126,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 99,
+        "order": 117,
         "caption": "Student Coursework Due Soon on a square",
         "featured": false
       }
@@ -1820,7 +2144,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 100,
+        "order": 118,
         "caption": "Student Completed Coursework",
         "featured": false
       }
@@ -1838,7 +2162,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 101,
+        "order": 119,
         "caption": "Student Completed Coursework on a tablet",
         "featured": false
       }
@@ -1856,7 +2180,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 102,
+        "order": 120,
         "caption": "Student Completed Coursework on a phone",
         "featured": false
       }
@@ -1874,7 +2198,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 103,
+        "order": 121,
         "caption": "Student Completed Coursework on a square",
         "featured": false
       }
@@ -1892,7 +2216,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 104,
+        "order": 122,
         "caption": "Not-started Course landing",
         "featured": false
       }
@@ -1910,7 +2234,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 105,
+        "order": 123,
         "caption": "Not-started Course landing on a tablet",
         "featured": false
       }
@@ -1928,7 +2252,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 106,
+        "order": 124,
         "caption": "Not-started Course landing on a phone",
         "featured": false
       }
@@ -1946,7 +2270,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 107,
+        "order": 125,
         "caption": "Not-started Course landing on a square",
         "featured": false
       }
@@ -1964,7 +2288,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 108,
+        "order": 126,
         "caption": "In-progress Course landing",
         "featured": false
       }
@@ -1982,7 +2306,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 109,
+        "order": 127,
         "caption": "In-progress Course landing on a tablet",
         "featured": false
       }
@@ -2000,7 +2324,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 110,
+        "order": 128,
         "caption": "In-progress Course landing on a phone",
         "featured": false
       }
@@ -2018,7 +2342,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 111,
+        "order": 129,
         "caption": "In-progress Course landing on a square",
         "featured": false
       }
@@ -2036,7 +2360,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 112,
+        "order": 130,
         "caption": "Completed Course landing",
         "featured": true
       }
@@ -2054,7 +2378,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 113,
+        "order": 131,
         "caption": "Completed Course landing on a tablet",
         "featured": false
       }
@@ -2072,7 +2396,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 114,
+        "order": 132,
         "caption": "Completed Course landing on a phone",
         "featured": false
       }
@@ -2090,7 +2414,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 115,
+        "order": 133,
         "caption": "Completed Course landing on a square",
         "featured": false
       }
@@ -2108,7 +2432,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 116,
+        "order": 134,
         "caption": "Unanswered Assignment overview",
         "featured": true
       }
@@ -2126,7 +2450,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 117,
+        "order": 135,
         "caption": "Unanswered Assignment overview on a tablet",
         "featured": false
       }
@@ -2144,7 +2468,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 118,
+        "order": 136,
         "caption": "Unanswered Assignment overview on a phone",
         "featured": false
       }
@@ -2162,7 +2486,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 119,
+        "order": 137,
         "caption": "Unanswered Assignment overview on a square",
         "featured": false
       }
@@ -2180,7 +2504,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 120,
+        "order": 138,
         "caption": "Assignment overview with previous attempts",
         "featured": false
       }
@@ -2198,7 +2522,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 121,
+        "order": 139,
         "caption": "Assignment overview with previous attempts on a tablet",
         "featured": false
       }
@@ -2216,7 +2540,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 122,
+        "order": 140,
         "caption": "Assignment overview with previous attempts on a phone",
         "featured": false
       }
@@ -2234,7 +2558,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 123,
+        "order": 141,
         "caption": "Assignment overview with previous attempts on a square",
         "featured": false
       }
@@ -2252,7 +2576,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 124,
+        "order": 142,
         "caption": "Latest Attempt review from Assignment history",
         "featured": false
       }
@@ -2270,7 +2594,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 125,
+        "order": 143,
         "caption": "Latest Attempt review from Assignment history on a tablet",
         "featured": false
       }
@@ -2288,7 +2612,7 @@
       "viewport": "phone",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 126,
+        "order": 144,
         "caption": "Latest Attempt review from Assignment history on a phone",
         "featured": false
       }
@@ -2306,7 +2630,7 @@
       "viewport": "square",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 127,
+        "order": 145,
         "caption": "Latest Attempt review from Assignment history on a square",
         "featured": false
       }
@@ -2324,7 +2648,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 128,
+        "order": 146,
         "caption": "Saved Student Assignment response",
         "featured": true
       }
@@ -2342,7 +2666,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 129,
+        "order": 147,
         "caption": "Saved Student Assignment response on a tablet",
         "featured": false
       }
@@ -2360,7 +2684,7 @@
       "viewport": "phone",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 130,
+        "order": 148,
         "caption": "Saved Student Assignment response on a phone",
         "featured": false
       }
@@ -2378,7 +2702,7 @@
       "viewport": "square",
       "privacyProfile": "student_selected_response",
       "gallery": {
-        "order": 131,
+        "order": 149,
         "caption": "Saved Student Assignment response on a square",
         "featured": false
       }
@@ -2396,7 +2720,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 132,
+        "order": 150,
         "caption": "Reloaded Student Assignment response",
         "featured": false
       }
@@ -2414,7 +2738,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 133,
+        "order": 151,
         "caption": "Reloaded Student Assignment response on a tablet",
         "featured": false
       }
@@ -2432,7 +2756,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 134,
+        "order": 152,
         "caption": "Reloaded Student Assignment response on a phone",
         "featured": false
       }
@@ -2450,7 +2774,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 135,
+        "order": 153,
         "caption": "Reloaded Student Assignment response on a square",
         "featured": false
       }
@@ -2468,7 +2792,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 136,
+        "order": 154,
         "caption": "Submitted Student Assignment",
         "featured": false
       }
@@ -2486,7 +2810,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 137,
+        "order": 155,
         "caption": "Submitted Student Assignment on a tablet",
         "featured": false
       }
@@ -2504,7 +2828,7 @@
       "viewport": "phone",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 138,
+        "order": 156,
         "caption": "Submitted Student Assignment on a phone",
         "featured": false
       }
@@ -2522,7 +2846,7 @@
       "viewport": "square",
       "privacyProfile": "student_feedback_released",
       "gallery": {
-        "order": 139,
+        "order": 157,
         "caption": "Submitted Student Assignment on a square",
         "featured": false
       }
@@ -2540,7 +2864,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 140,
+        "order": 158,
         "caption": "Student Question navigation, saved progress, and countdown timer",
         "featured": false
       }
@@ -2558,7 +2882,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 141,
+        "order": 159,
         "caption": "Student Question navigation, saved progress, and countdown timer on a tablet",
         "featured": false
       }
@@ -2576,7 +2900,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 142,
+        "order": 160,
         "caption": "Student Question navigation, saved progress, and countdown timer on a phone",
         "featured": false
       }
@@ -2594,7 +2918,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 143,
+        "order": 161,
         "caption": "Student Question navigation, saved progress, and countdown timer on a square",
         "featured": false
       }
@@ -2612,7 +2936,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 144,
+        "order": 162,
         "caption": "Student MC response controls on a laptop",
         "featured": false
       }
@@ -2630,7 +2954,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 145,
+        "order": 163,
         "caption": "Student MC response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2648,7 +2972,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 146,
+        "order": 164,
         "caption": "Student MC response controls on a tablet",
         "featured": false
       }
@@ -2666,7 +2990,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 147,
+        "order": 165,
         "caption": "Student MC response controls after saving a response on a tablet",
         "featured": false
       }
@@ -2684,7 +3008,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 148,
+        "order": 166,
         "caption": "Student MC response controls on a phone",
         "featured": false
       }
@@ -2702,7 +3026,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 149,
+        "order": 167,
         "caption": "Student MC response controls after saving a response on a phone",
         "featured": false
       }
@@ -2720,7 +3044,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 150,
+        "order": 168,
         "caption": "Student MC response controls on a square",
         "featured": false
       }
@@ -2738,7 +3062,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 151,
+        "order": 169,
         "caption": "Student MC response controls after saving a response on a square",
         "featured": false
       }
@@ -2756,7 +3080,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 152,
+        "order": 170,
         "caption": "Student MA response controls on a laptop",
         "featured": false
       }
@@ -2774,7 +3098,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 153,
+        "order": 171,
         "caption": "Student MA response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2792,7 +3116,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 154,
+        "order": 172,
         "caption": "Student MA response controls on a tablet",
         "featured": false
       }
@@ -2810,7 +3134,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 155,
+        "order": 173,
         "caption": "Student MA response controls after saving a response on a tablet",
         "featured": false
       }
@@ -2828,7 +3152,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 156,
+        "order": 174,
         "caption": "Student MA response controls on a phone",
         "featured": false
       }
@@ -2846,7 +3170,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 157,
+        "order": 175,
         "caption": "Student MA response controls after saving a response on a phone",
         "featured": false
       }
@@ -2864,7 +3188,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 158,
+        "order": 176,
         "caption": "Student MA response controls on a square",
         "featured": false
       }
@@ -2882,7 +3206,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 159,
+        "order": 177,
         "caption": "Student MA response controls after saving a response on a square",
         "featured": false
       }
@@ -2900,7 +3224,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 160,
+        "order": 178,
         "caption": "Student FIB response controls on a laptop",
         "featured": false
       }
@@ -2918,7 +3242,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 161,
+        "order": 179,
         "caption": "Student FIB response controls after saving a response on a laptop",
         "featured": false
       }
@@ -2936,7 +3260,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 162,
+        "order": 180,
         "caption": "Student FIB response controls on a tablet",
         "featured": false
       }
@@ -2954,7 +3278,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 163,
+        "order": 181,
         "caption": "Student FIB response controls after saving a response on a tablet",
         "featured": false
       }
@@ -2972,7 +3296,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 164,
+        "order": 182,
         "caption": "Student FIB response controls on a phone",
         "featured": false
       }
@@ -2990,7 +3314,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 165,
+        "order": 183,
         "caption": "Student FIB response controls after saving a response on a phone",
         "featured": false
       }
@@ -3008,7 +3332,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 166,
+        "order": 184,
         "caption": "Student FIB response controls on a square",
         "featured": false
       }
@@ -3026,7 +3350,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 167,
+        "order": 185,
         "caption": "Student FIB response controls after saving a response on a square",
         "featured": false
       }
@@ -3044,7 +3368,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 168,
+        "order": 186,
         "caption": "Student MULTI-FIB response controls on a laptop",
         "featured": false
       }
@@ -3062,7 +3386,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 169,
+        "order": 187,
         "caption": "Student MULTI-FIB response controls after saving a response on a laptop",
         "featured": false
       }
@@ -3080,7 +3404,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 170,
+        "order": 188,
         "caption": "Student MULTI-FIB response controls on a tablet",
         "featured": false
       }
@@ -3098,7 +3422,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 171,
+        "order": 189,
         "caption": "Student MULTI-FIB response controls after saving a response on a tablet",
         "featured": false
       }
@@ -3116,7 +3440,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 172,
+        "order": 190,
         "caption": "Student MULTI-FIB response controls on a phone",
         "featured": false
       }
@@ -3134,7 +3458,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 173,
+        "order": 191,
         "caption": "Student MULTI-FIB response controls after saving a response on a phone",
         "featured": false
       }
@@ -3152,7 +3476,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 174,
+        "order": 192,
         "caption": "Student MULTI-FIB response controls on a square",
         "featured": false
       }
@@ -3170,7 +3494,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 175,
+        "order": 193,
         "caption": "Student MULTI-FIB response controls after saving a response on a square",
         "featured": false
       }
@@ -3188,7 +3512,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 176,
+        "order": 194,
         "caption": "Student NUM response controls on a laptop",
         "featured": false
       }
@@ -3206,7 +3530,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 177,
+        "order": 195,
         "caption": "Student NUM response controls after saving a response on a laptop",
         "featured": false
       }
@@ -3224,7 +3548,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 178,
+        "order": 196,
         "caption": "Student NUM response controls on a tablet",
         "featured": false
       }
@@ -3242,7 +3566,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 179,
+        "order": 197,
         "caption": "Student NUM response controls after saving a response on a tablet",
         "featured": false
       }
@@ -3260,7 +3584,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 180,
+        "order": 198,
         "caption": "Student NUM response controls on a phone",
         "featured": false
       }
@@ -3278,7 +3602,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 181,
+        "order": 199,
         "caption": "Student NUM response controls after saving a response on a phone",
         "featured": false
       }
@@ -3296,7 +3620,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 182,
+        "order": 200,
         "caption": "Student NUM response controls on a square",
         "featured": false
       }
@@ -3314,7 +3638,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 183,
+        "order": 201,
         "caption": "Student NUM response controls after saving a response on a square",
         "featured": false
       }
@@ -3332,7 +3656,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 184,
+        "order": 202,
         "caption": "Student MATCH response controls on a laptop",
         "featured": false
       }
@@ -3350,7 +3674,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 185,
+        "order": 203,
         "caption": "Student MATCH response controls after saving a response on a laptop",
         "featured": false
       }
@@ -3368,7 +3692,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 186,
+        "order": 204,
         "caption": "Student MATCH response controls on a tablet",
         "featured": false
       }
@@ -3386,7 +3710,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 187,
+        "order": 205,
         "caption": "Student MATCH response controls after saving a response on a tablet",
         "featured": false
       }
@@ -3404,7 +3728,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 188,
+        "order": 206,
         "caption": "Student MATCH response controls on a phone",
         "featured": false
       }
@@ -3422,7 +3746,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 189,
+        "order": 207,
         "caption": "Student MATCH response controls after saving a response on a phone",
         "featured": false
       }
@@ -3440,7 +3764,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 190,
+        "order": 208,
         "caption": "Student MATCH response controls on a square",
         "featured": false
       }
@@ -3458,7 +3782,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 191,
+        "order": 209,
         "caption": "Student MATCH response controls after saving a response on a square",
         "featured": false
       }
@@ -3476,7 +3800,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 192,
+        "order": 210,
         "caption": "Student ORDER response controls on a laptop",
         "featured": false
       }
@@ -3494,7 +3818,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 193,
+        "order": 211,
         "caption": "Student ORDER response controls after saving a response on a laptop",
         "featured": false
       }
@@ -3512,7 +3836,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 194,
+        "order": 212,
         "caption": "Student ORDER response controls on a tablet",
         "featured": false
       }
@@ -3530,7 +3854,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 195,
+        "order": 213,
         "caption": "Student ORDER response controls after saving a response on a tablet",
         "featured": false
       }
@@ -3548,7 +3872,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 196,
+        "order": 214,
         "caption": "Student ORDER response controls on a phone",
         "featured": false
       }
@@ -3566,7 +3890,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 197,
+        "order": 215,
         "caption": "Student ORDER response controls after saving a response on a phone",
         "featured": false
       }
@@ -3584,7 +3908,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 198,
+        "order": 216,
         "caption": "Student ORDER response controls on a square",
         "featured": false
       }
@@ -3602,7 +3926,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 199,
+        "order": 217,
         "caption": "Student ORDER response controls after saving a response on a square",
         "featured": false
       }
@@ -3620,7 +3944,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 200,
+        "order": 218,
         "caption": "Student HOTSPOT uploaded-image response controls on a laptop",
         "featured": false
       }
@@ -3638,7 +3962,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 201,
+        "order": 219,
         "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a laptop",
         "featured": false
       }
@@ -3656,7 +3980,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 202,
+        "order": 220,
         "caption": "Student HOTSPOT uploaded-image response controls on a tablet",
         "featured": false
       }
@@ -3674,7 +3998,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 203,
+        "order": 221,
         "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a tablet",
         "featured": false
       }
@@ -3692,7 +4016,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 204,
+        "order": 222,
         "caption": "Student HOTSPOT uploaded-image response controls on a phone",
         "featured": false
       }
@@ -3710,7 +4034,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 205,
+        "order": 223,
         "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a phone",
         "featured": false
       }
@@ -3728,7 +4052,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 206,
+        "order": 224,
         "caption": "Student HOTSPOT uploaded-image response controls on a square",
         "featured": false
       }
@@ -3746,7 +4070,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 207,
+        "order": 225,
         "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a square",
         "featured": false
       }
@@ -3764,7 +4088,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 208,
+        "order": 226,
         "caption": "Student WeBWorK response controls on a laptop",
         "featured": false
       }
@@ -3782,7 +4106,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 209,
+        "order": 227,
         "caption": "Student WeBWorK response controls after saving a response on a laptop",
         "featured": false
       }
@@ -3800,7 +4124,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 210,
+        "order": 228,
         "caption": "Student WeBWorK response controls on a tablet",
         "featured": false
       }
@@ -3818,7 +4142,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 211,
+        "order": 229,
         "caption": "Student WeBWorK response controls after saving a response on a tablet",
         "featured": false
       }
@@ -3836,7 +4160,7 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 212,
+        "order": 230,
         "caption": "Student WeBWorK response controls on a phone",
         "featured": false
       }
@@ -3854,7 +4178,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 213,
+        "order": 231,
         "caption": "Student WeBWorK response controls after saving a response on a phone",
         "featured": false
       }
@@ -3872,7 +4196,7 @@
       "viewport": "square",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 214,
+        "order": 232,
         "caption": "Student WeBWorK response controls on a square",
         "featured": false
       }
@@ -3890,7 +4214,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 215,
+        "order": 233,
         "caption": "Student WeBWorK response controls after saving a response on a square",
         "featured": false
       }
@@ -3908,7 +4232,7 @@
       "viewport": "laptop",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 216,
+        "order": 234,
         "caption": "Student authorization denial",
         "featured": false
       }
@@ -3926,7 +4250,7 @@
       "viewport": "tablet",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 217,
+        "order": 235,
         "caption": "Student authorization denial on a tablet",
         "featured": false
       }
@@ -3944,7 +4268,7 @@
       "viewport": "phone",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 218,
+        "order": 236,
         "caption": "Student authorization denial on a phone",
         "featured": false
       }
@@ -3962,7 +4286,7 @@
       "viewport": "square",
       "privacyProfile": "authorization_denial",
       "gallery": {
-        "order": 219,
+        "order": 237,
         "caption": "Student authorization denial on a square",
         "featured": false
       }
@@ -3980,7 +4304,7 @@
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 220,
+        "order": 238,
         "caption": "Student Profile",
         "featured": false
       }
@@ -3998,7 +4322,7 @@
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 221,
+        "order": 239,
         "caption": "Student Profile on a tablet",
         "featured": false
       }
@@ -4016,7 +4340,7 @@
       "viewport": "phone",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 222,
+        "order": 240,
         "caption": "Student Profile on a phone",
         "featured": false
       }
@@ -4034,7 +4358,7 @@
       "viewport": "square",
       "privacyProfile": "student_self",
       "gallery": {
-        "order": 223,
+        "order": 241,
         "caption": "Student Profile on a square",
         "featured": false
       }
@@ -4052,7 +4376,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 224,
+        "order": 242,
         "caption": "System administration home",
         "featured": true
       }
@@ -4070,7 +4394,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 225,
+        "order": 243,
         "caption": "Instructor Accounts",
         "featured": false
       }
@@ -4088,7 +4412,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 226,
+        "order": 244,
         "caption": "Created Instructor Account",
         "featured": false
       }
@@ -4106,7 +4430,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 227,
+        "order": 245,
         "caption": "Deactivated Instructor Account",
         "featured": false
       }
@@ -4124,7 +4448,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 228,
+        "order": 246,
         "caption": "Instructor Account creation validation",
         "featured": false
       }
@@ -4338,21 +4662,36 @@
         "status": "captured",
         "captureIds": [
           "instructor_course_assignment_workspace",
-          "instructor_theme_sample_tundra",
-          "instructor_theme_sample_forest",
-          "instructor_theme_sample_desert",
-          "instructor_theme_sample_grass",
-          "instructor_theme_sample_arctic",
-          "instructor_theme_sample_ocean",
-          "instructor_theme_sample_tropical",
-          "instructor_theme_sample_coral_reef",
-          "instructor_theme_sample_swamp",
-          "instructor_theme_sample_underground",
-          "instructor_theme_sample_salt_marsh",
-          "instructor_theme_sample_wetland",
-          "instructor_theme_sample_sea_floor",
-          "instructor_theme_sample_magma",
-          "instructor_theme_sample_beach"
+          "instructor_theme_sample_tundra_light",
+          "instructor_theme_sample_tundra_dark",
+          "instructor_theme_sample_forest_light",
+          "instructor_theme_sample_forest_dark",
+          "instructor_theme_sample_desert_light",
+          "instructor_theme_sample_desert_dark",
+          "instructor_theme_sample_grass_light",
+          "instructor_theme_sample_grass_dark",
+          "instructor_theme_sample_arctic_light",
+          "instructor_theme_sample_arctic_dark",
+          "instructor_theme_sample_ocean_light",
+          "instructor_theme_sample_ocean_dark",
+          "instructor_theme_sample_tropical_light",
+          "instructor_theme_sample_tropical_dark",
+          "instructor_theme_sample_coral_reef_light",
+          "instructor_theme_sample_coral_reef_dark",
+          "instructor_theme_sample_swamp_light",
+          "instructor_theme_sample_swamp_dark",
+          "instructor_theme_sample_underground_light",
+          "instructor_theme_sample_underground_dark",
+          "instructor_theme_sample_salt_marsh_light",
+          "instructor_theme_sample_salt_marsh_dark",
+          "instructor_theme_sample_wetland_light",
+          "instructor_theme_sample_wetland_dark",
+          "instructor_theme_sample_sea_floor_light",
+          "instructor_theme_sample_sea_floor_dark",
+          "instructor_theme_sample_magma_light",
+          "instructor_theme_sample_magma_dark",
+          "instructor_theme_sample_beach_light",
+          "instructor_theme_sample_beach_dark"
         ]
       },
       {
@@ -4485,6 +4824,8 @@
           "instructor_library_default",
           "instructor_library_filtered",
           "instructor_pool_creation_review",
+          "instructor_personal_theme_library_light",
+          "instructor_personal_theme_library_dark",
           "student_denial_laptop",
           "student_denial_tablet",
           "student_denial_phone",
@@ -4515,7 +4856,8 @@
           "instructor_webwork_dna_structure",
           "instructor_webwork_meiosis_prophase",
           "instructor_webwork_chi_square",
-          "instructor_webwork_chromosome_shapes"
+          "instructor_webwork_chromosome_shapes",
+          "instructor_personal_theme_question_dark"
         ]
       },
       {
@@ -4637,6 +4979,8 @@
           "instructor_library_default",
           "instructor_library_filtered",
           "instructor_pool_creation_review",
+          "instructor_personal_theme_library_light",
+          "instructor_personal_theme_library_dark",
           "student_denial_laptop",
           "student_denial_tablet",
           "student_denial_phone",
@@ -4752,6 +5096,8 @@
           "instructor_library_default",
           "instructor_library_filtered",
           "instructor_pool_creation_review",
+          "instructor_personal_theme_library_light",
+          "instructor_personal_theme_library_dark",
           "student_denial_laptop",
           "student_denial_tablet",
           "student_denial_phone",
@@ -4784,21 +5130,36 @@
         "status": "captured",
         "captureIds": [
           "instructor_course_assignment_workspace",
-          "instructor_theme_sample_tundra",
-          "instructor_theme_sample_forest",
-          "instructor_theme_sample_desert",
-          "instructor_theme_sample_grass",
-          "instructor_theme_sample_arctic",
-          "instructor_theme_sample_ocean",
-          "instructor_theme_sample_tropical",
-          "instructor_theme_sample_coral_reef",
-          "instructor_theme_sample_swamp",
-          "instructor_theme_sample_underground",
-          "instructor_theme_sample_salt_marsh",
-          "instructor_theme_sample_wetland",
-          "instructor_theme_sample_sea_floor",
-          "instructor_theme_sample_magma",
-          "instructor_theme_sample_beach"
+          "instructor_theme_sample_tundra_light",
+          "instructor_theme_sample_tundra_dark",
+          "instructor_theme_sample_forest_light",
+          "instructor_theme_sample_forest_dark",
+          "instructor_theme_sample_desert_light",
+          "instructor_theme_sample_desert_dark",
+          "instructor_theme_sample_grass_light",
+          "instructor_theme_sample_grass_dark",
+          "instructor_theme_sample_arctic_light",
+          "instructor_theme_sample_arctic_dark",
+          "instructor_theme_sample_ocean_light",
+          "instructor_theme_sample_ocean_dark",
+          "instructor_theme_sample_tropical_light",
+          "instructor_theme_sample_tropical_dark",
+          "instructor_theme_sample_coral_reef_light",
+          "instructor_theme_sample_coral_reef_dark",
+          "instructor_theme_sample_swamp_light",
+          "instructor_theme_sample_swamp_dark",
+          "instructor_theme_sample_underground_light",
+          "instructor_theme_sample_underground_dark",
+          "instructor_theme_sample_salt_marsh_light",
+          "instructor_theme_sample_salt_marsh_dark",
+          "instructor_theme_sample_wetland_light",
+          "instructor_theme_sample_wetland_dark",
+          "instructor_theme_sample_sea_floor_light",
+          "instructor_theme_sample_sea_floor_dark",
+          "instructor_theme_sample_magma_light",
+          "instructor_theme_sample_magma_dark",
+          "instructor_theme_sample_beach_light",
+          "instructor_theme_sample_beach_dark"
         ]
       },
       {
