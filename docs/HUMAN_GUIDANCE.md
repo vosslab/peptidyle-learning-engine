@@ -324,26 +324,37 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Reordering must also have a precise keyboard-accessible method.
 - UUIDs should never appear in visible content, navigation URLs, or copyable links.
 
-### Role colors and themes
+### Role badges
 
+- The role badge is always in the upper left, just left of the logo.
 - **Sysadmin** uses tomato red as its role color.
 - **Instructor** uses teal green as its role color.
 - **Student** uses lavender purple as its role color.
+- The student role badge in mobile is shortened.
 - Role colors should be used consistently in role labels and other appropriate interface cues.
 - Demo role selection should clearly state both the user's role and name.
-- Courses use a fixed set of visually distinct biome and habitat themes.
-- Course Themes should have coordinated light and dark appearances.
-- Course Theme colors should remain accessible in their actual interface uses.
-- Light themes should use clearly light page backgrounds; dark themes should use clearly dark page
-  backgrounds. Use theme colors as accents on surfaces with readable contrast.
+
+### Themes
+
+- The interface uses a fixed set of 15 visually distinct biome and habitat themes.
+- Each theme has coordinated Light and Dark appearances.
+- An Instructor has a personal theme for global Instructor pages and independently controls the theme assigned to each Course.
+- Course pages use the Course theme. Global Instructor pages use the Instructor's personal theme.
+- Light/Dark is a separate user preference that applies across all themes and pages.
+- Light/Dark has only two selectable values: Light and Dark. When no explicit preference is saved, follow the browser setting.
+- Changing Light/Dark must not change the selected theme. Changing a theme must not change Light/Dark.
+- Themes should affect major page surfaces so each theme is visually distinct across the whole interface.
+- Each Light or Dark theme appearance is defined by five source colors: Canvas, Surface, Secondary, Accent, and Highlight.
+- Theme colors should remain accessible in their actual interface uses.
+- Light themes should use clearly light page backgrounds. Dark themes should use clearly dark page backgrounds.
 - Check text, controls, borders, and interaction states against their actual rendered backgrounds.
 - Apply the contrast requirements for text, controls, and other semantic uses in
-  [BIOME_THEME_PALETTES.md](/docs/BIOME_THEME_PALETTES.md)
-  to rendered components in both light and dark themes, including gradients and state backgrounds.
+  [BIOME_THEME_PALETTES.md](/docs/BIOME_THEME_PALETTES.md) to rendered components in both Light
+  and Dark modes, including gradients and state backgrounds.
 - Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
   recognizable across themes and color-vision differences.
-- Course Theme IDs are durable; changing a theme's display name or colors should not require a new ID.
-- Follow `docs/BIOME_THEME_PALETTES.md` for Course Theme names, palettes, accessibility, and implementation.
+- Theme IDs are durable. Changing a theme's display name or colors should not require a new ID.
+- Follow `docs/BIOME_THEME_PALETTES.md` for theme names, palettes, accessibility, and implementation.
 
 ### Typography
 
