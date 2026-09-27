@@ -336,7 +336,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Themes
 
-- The interface uses a fixed set of 15 visually distinct biome and habitat themes.
+- The interface uses a fixed set of visually distinct biome and habitat themes.
 - Each theme has coordinated Light and Dark appearances.
 - An Instructor has a personal theme for global Instructor pages and independently controls the theme assigned to each Course.
 - Course pages use the Course theme. Global Instructor pages use the Instructor's personal theme.
@@ -499,7 +499,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Higher-resolution 5:1 Course banner images are supported.
 - PLE responsively scales Course banners while preserving their aspect ratio.
 - Course banners appear as small centered banners rather than full-width page heroes.
-- An Instructor can upload a Course banner and select a three-color theme.
+- An Instructor can upload a Course banner and select a Course Theme from the fixed theme catalog.
 - Course Instance Assessments have two editors:
   - **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
   - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
