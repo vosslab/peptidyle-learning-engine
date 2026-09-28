@@ -195,18 +195,17 @@ const SIGN_OUT_ACTION: RibbonActionDescriptor = Object.freeze({
 
 function accountControlsFor(userRole: UserRole): ReadonlyArray<RibbonContextControlModel> {
   return Object.freeze(
-    RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
-      control.userRoles.includes(userRole),
-    ).map((control) =>
-      Object.freeze({
-        id: control.id,
-        label: control.label,
-        availability: control.availability,
-        glyph: control.glyph,
-        ...(control.id === "profile" && control.availability === "Available"
-          ? { href: "/profile" }
-          : {}),
-      }),
+    RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) => control.userRoles.includes(userRole)).map(
+      (control) =>
+        Object.freeze({
+          id: control.id,
+          label: control.label,
+          availability: control.availability,
+          glyph: control.glyph,
+          ...(control.id === "profile" && control.availability === "Available"
+            ? { href: "/profile" }
+            : {}),
+        }),
     ),
   );
 }
@@ -825,9 +824,7 @@ export function deriveRibbonModel<
     breadcrumbs:
       breadcrumbs.length > 0
         ? breadcrumbs
-        : Object.freeze([
-            breadcrumbLinkItem("Home", userRoleHomePath(viewerIdentity.userRole)),
-          ]),
+        : Object.freeze([breadcrumbLinkItem("Home", userRoleHomePath(viewerIdentity.userRole))]),
   });
 }
 

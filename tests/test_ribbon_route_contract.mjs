@@ -3,11 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  userRoleHomePath,
-  userRoleHomeRouteId,
-  ROUTE_CONTRACT,
-} from "../src/route_contract.ts";
+import { userRoleHomePath, userRoleHomeRouteId, ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 import { ribbonSchemaFor } from "../src/ribbon/ribbon_schema.ts";
 

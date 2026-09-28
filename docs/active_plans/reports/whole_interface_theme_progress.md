@@ -66,6 +66,12 @@ This report records completion evidence for the original scope and acceptance cr
   test totals are historical only. The recorded `all_test.sh`, browser, and connected acceptance
   receipts also predate the later User Role wire-name alignment and audit corrections. They remain
   dated Theme-completion evidence, not validation of the combined current tree.
+- The post-correction focused closeout restored generated prerequisites without changing lockfiles.
+  `./check_codebase.sh` passed both TypeScript projects, ESLint, Prettier, and `483` Node tests;
+  the focused Live Demo auth test passed `5`, the existing Ribbon route-scope command passed `8`,
+  and the existing Course Appearance accessibility evidence command passed. These results close
+  the User Role contract's local verification gap. They do not repeat or replace the historical
+  full-suite, connected PostgreSQL/MinIO, browser-probe, or screenshot-corpus receipts.
 - The final `./launchers/all_test.sh` receipt passed schema, Rust, WebAssembly, TypeScript, ESLint,
   Prettier, and Node (`484/484`). Pytest reported `9,645` passed, eight failed, and three existing
   line warnings. The launcher exited `1` only for the same eight baseline Markdown-link audits

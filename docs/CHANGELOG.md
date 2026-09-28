@@ -62,6 +62,11 @@
 
 ### Developer Tests and Notes
 
+- Restored generated prerequisites after the User Role contract correction and completed the
+  focused closeout: TypeScript, ESLint, Prettier, and `483` Node tests passed; the existing
+  Live Demo auth, Ribbon route-scope, and Course Appearance accessibility checks also passed.
+  The User Role rename's six affected files received formatter-only corrections, and the
+  route-scope fixture clears cached Course views before advancing its session.
 - M6 authority documents now record the settled 15 Themes, 30 looks, shared five-color projection,
   independent personal/Course Theme and display-mode model, and accepted palette review. Canonical
   screenshot verification passed its 246-capture manifest, privacy, and published-artifact checks;

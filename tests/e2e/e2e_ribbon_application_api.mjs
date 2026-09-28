@@ -37,10 +37,7 @@ try {
 } finally {
   globalThis.setInterval = nativeSetInterval;
 }
-const harness = createCountingApplicationApi(
-  createApplicationApi,
-  USER_ROLE_FIXTURES.instructor,
-);
+const harness = createCountingApplicationApi(createApplicationApi, USER_ROLE_FIXTURES.instructor);
 const session = await harness.applicationApi.client.getSession();
 
 assert.equal(session.account.userRole, "instructor");

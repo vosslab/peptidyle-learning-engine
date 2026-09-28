@@ -120,10 +120,7 @@ function Treatment(props: { readonly treatment: RibbonDesignTreatment }): JSX.El
             : "Retained credible alternative for comparison."}
         </p>
       </header>
-      <section
-        class="ple-ribbon-design-lab__schema-grid"
-        aria-label="Scope and User Role schemas"
-      >
+      <section class="ple-ribbon-design-lab__schema-grid" aria-label="Scope and User Role schemas">
         <For each={Object.entries(RIBBON_DESIGN_SCHEMAS)}>
           {([name, model]) => <Panel kind="schema" name={name} label={name} model={model} />}
         </For>

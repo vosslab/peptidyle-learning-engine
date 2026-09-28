@@ -254,6 +254,7 @@ test("route-scoped labels clear at session boundaries and reject stale A-B-A pub
   app.clearLabels(secondA);
   assert.deepEqual(app.labels(), {});
   app.publishLabels(secondA, { questionTitle: "Current Question" });
+  fixture.courseViews.clear();
   app.advanceSession();
   await nextTurn();
   assert.deepEqual(app.labels(), {});

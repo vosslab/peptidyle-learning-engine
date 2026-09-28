@@ -531,8 +531,7 @@ export function userRoleHomeRouteId(userRole: UserRole): RouteId {
 export function userRoleHomePath(userRole: UserRole): string {
   const routeId = userRoleHomeRouteId(userRole);
   const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
-  if (route === undefined)
-    throw new Error(`User Role home route is missing for ${userRole}.`);
+  if (route === undefined) throw new Error(`User Role home route is missing for ${userRole}.`);
   return route.path;
 }
 

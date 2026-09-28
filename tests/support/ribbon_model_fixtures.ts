@@ -239,11 +239,7 @@ function model(
     scope,
     context: {
       productLabel:
-        userRole === "student"
-          ? "Student"
-          : userRole === "instructor"
-            ? "Instructor"
-            : "Sysadmin",
+        userRole === "student" ? "Student" : userRole === "instructor" ? "Instructor" : "Sysadmin",
       signOutAction: SIGN_OUT,
       accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
         control.userRoles.includes(userRole),
