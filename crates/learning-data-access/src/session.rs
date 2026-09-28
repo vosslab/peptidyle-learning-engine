@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{AccountId, ProductRole, Timestamp};
+use question_model::{AccountId, UserRole, Timestamp};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -110,8 +110,8 @@ pub struct SessionRecord {
     pub token_hash: SessionTokenHash,
     /// Global login account authenticated by this session.
     pub account: AccountId,
-    /// Immutable product role of the authenticated account.
-    pub product_role: ProductRole,
+    /// Immutable user role of the authenticated account.
+    pub user_role: UserRole,
     /// Database-authoritative creation time.
     pub created_at: Timestamp,
     /// Database-authoritative exclusive expiration time.

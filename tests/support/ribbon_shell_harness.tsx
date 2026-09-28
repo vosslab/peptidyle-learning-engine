@@ -11,15 +11,13 @@ import { App } from "../../src/app";
 import { ApplicationShell } from "../../src/application_shell";
 import { SessionProvider } from "../../src/auth/session_context";
 import { PageFrame } from "../../src/components/page_frame";
-// prettier-ignore
-import {
-  useCourseThemePresentation,
-} from "../../src/features/course_appearance/course_theme_context";
+import { useAppearance } from "../../src/appearance/appearance_context";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type { CourseInstanceSummary, CourseInstanceView } from "../../src/api/course_instance";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { ProfileAvatarView } from "../../src/api/profile_avatar";
+import type { ProfileSettings } from "../../src/api/profile_settings";
 import type { CourseAssessmentSummary } from "../../src/api/assessment_release";
 import type { CourseGradebook } from "../../src/api/live_gradebook";
 import type { CourseRosterEntry } from "../../src/api/course_roster";
@@ -31,7 +29,7 @@ import type {
 } from "../../src/api/contracts";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import { routeContractForPathname, type RouteId } from "../../src/route_contract";
 // prettier-ignore
 import type {
@@ -180,6 +178,12 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
   };
   const client = {
     getProfileAvatar: (): Promise<ProfileAvatarView> => Promise.resolve({ avatar: null }),
+    getAccountSettings: (): Promise<ProfileSettings> =>
+      Promise.resolve({
+        timeZone: "America/Chicago",
+        displayModePreference: null,
+        personalTheme: "grass",
+      }),
     listCourseInstances: (): Promise<ReadonlyArray<CourseInstanceSummary>> => Promise.resolve([]),
     listBlueprintCourses: (): Promise<CursorPage<BlueprintCourseSummaryView>> =>
       Promise.resolve({ items: [], nextCursor: null }),
@@ -251,7 +255,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
 function instructorSession(): AuthenticatedSession {
   return {
     authenticated: true,
-    account: { id: "account-m10", productRole: "instructor" },
+    account: { id: "account-m10", userRole: "instructor" },
   };
 }
 
@@ -275,8 +279,8 @@ export interface RibbonShellHarness {
   readonly currentNavigate: (pathname: string) => void;
   readonly currentPathname: () => string;
   readonly fixtureNavigate: (pathname: string) => void;
-  /** Navigates a fixture through a declared signed-in Product Role and Route ID. */
-  readonly fixtureNavigateRoute: (productRole: ProductRole, routeId: RouteId) => void;
+  /** Navigates a fixture through a declared signed-in User Role and Route ID. */
+  readonly fixtureNavigateRoute: (userRole: UserRole, routeId: RouteId) => void;
   readonly fixturePathname: () => string;
   readonly scopeRequestCount: (courseInstanceId: string) => number;
   readonly assessmentQueryCount: () => number;
@@ -328,8 +332,8 @@ function productFixture(selectedTab: "courses" | "questions" | "productAssessmen
 function fixtureModelForPathname(pathname: string): RibbonModel {
   const route = routeContractForPathname(pathname);
   if (route === undefined || route.id === "signIn") return productFixture("courses");
-  const productRole = route.requiredProductRoles.includes("student") ? "student" : "instructor";
-  return materializeRibbonRoute(productRole, route.id).model;
+  const userRole = route.requiredUserRoles.includes("student") ? "student" : "instructor";
+  return materializeRibbonRoute(userRole, route.id).model;
 }
 
 /** Structural-shell-only content. Fast route cases mount the production App instead. */
@@ -337,13 +341,10 @@ function FixtureContent(props: {
   readonly pathname: string;
   readonly shouldThrow: () => boolean;
 }): JSX.Element {
-  const presentAppearance = useCourseThemePresentation();
+  const { presentCourseTheme } = useAppearance();
 
   function presentOceanTheme(): void {
-    if (presentAppearance === undefined) {
-      throw new Error("Shell fixture requires the source course-theme presentation context.");
-    }
-    presentAppearance({ ...courseRouteData("CI7K3M2QAZ").appearance, theme: "ocean" });
+    presentCourseTheme("ocean");
   }
 
   if (props.shouldThrow()) throw new Error("Shell fixture content sentinel failure");
@@ -380,8 +381,8 @@ export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness
     fixtureHistory.set({ value: pathname });
   }
 
-  function fixtureNavigateRoute(productRole: ProductRole, routeId: RouteId): void {
-    const materializedRoute = materializeRibbonRoute(productRole, routeId);
+  function fixtureNavigateRoute(userRole: UserRole, routeId: RouteId): void {
+    const materializedRoute = materializeRibbonRoute(userRole, routeId);
     setFixtureMaterializedRoute(materializedRoute);
     fixtureHistory.set({ value: materializedRoute.pathname });
   }

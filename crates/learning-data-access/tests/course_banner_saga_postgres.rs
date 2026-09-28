@@ -91,8 +91,8 @@ async fn mint_account(
     role: &str,
 ) -> String {
     sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', $1::ple_data.product_role, pg_catalog.transaction_timestamp()) RETURNING account_id",
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
+         VALUES ('U00000009', $1::ple_data.user_role, pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .bind(role)
     .fetch_one(&mut **transaction)
@@ -123,12 +123,12 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
     let instructor_id = mint_account(&mut transaction, "instructor").await;
     let student_id = mint_account(&mut transaction, "student").await;
     let foreign_id = mint_account(&mut transaction, "instructor").await;
-    sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour'),($4,$5,'student',decode($6,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour'),($7,$8,'instructor',decode($9,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour')")
+    sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, user_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour'),($4,$5,'student',decode($6,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour'),($7,$8,'instructor',decode($9,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour')")
         .bind(id(0xcc01)).bind(&instructor_id).bind(token(1).to_string())
         .bind(id(0xcc02)).bind(&student_id).bind(token(2).to_string())
         .bind(id(0xcc03)).bind(&foreign_id).bind(token(3).to_string())
         .execute(&mut *transaction).await.expect("sessions");
-    sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),clock_timestamp()-interval '2 hours',clock_timestamp()-interval '1 hour')")
+    sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, user_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),clock_timestamp()-interval '2 hours',clock_timestamp()-interval '1 hour')")
         .bind(id(0xcc04)).bind(&instructor_id).bind(token(4).to_string())
         .execute(&mut *transaction).await.expect("expired session");
     sqlx::query("SET LOCAL ROLE ple_api_owner")
@@ -233,7 +233,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 and MinIO course-appearance oracle"]
+#[ignore = "requires the disposable PostgreSQL and MinIO course-appearance oracle"]
 async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     let runtime = acceptance_runtime::CourseAppearanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();
@@ -673,7 +673,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .expect("remove preparation");
     set_inspection_role(&mut inspection, "ple_data_owner").await;
     let theme_before: String = sqlx::query_scalar(
-        "SELECT course_theme_id FROM ple_data.course_instance WHERE course_instance_id=$1",
+        "SELECT theme_id FROM ple_data.course_instance WHERE course_instance_id=$1",
     )
     .bind(course.as_str())
     .fetch_one(&mut inspection)
@@ -688,7 +688,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         "remove clears pointer without theme mutation"
     );
     let theme_after: String = sqlx::query_scalar(
-        "SELECT course_theme_id FROM ple_data.course_instance WHERE course_instance_id=$1",
+        "SELECT theme_id FROM ple_data.course_instance WHERE course_instance_id=$1",
     )
     .bind(course.as_str())
     .fetch_one(&mut inspection)

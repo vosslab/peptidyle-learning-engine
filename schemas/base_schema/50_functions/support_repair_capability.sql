@@ -130,7 +130,7 @@ BEGIN
          WHERE event.account_id = account.account_id
          ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
     ) AS state_event ON state_event.state = 'active'
-    WHERE account.account_id = p_sysadmin_account_id AND account.product_role = 'sysadmin';
+    WHERE account.account_id = p_sysadmin_account_id AND account.user_role = 'sysadmin';
     IF NOT FOUND THEN RETURN; END IF;
     now_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_private.support_repair_capability (
@@ -212,7 +212,7 @@ BEGIN
         JOIN ple_data.course_membership AS membership ON membership.account_id = issuer.account_id
          AND membership.course_instance_id = repair_course AND membership.role = 'instructor'
          AND ple_data.course_membership_is_active(membership.course_membership_id)
-        WHERE issuer.account_id = capability.issuer_account_id AND issuer.product_role = 'instructor'
+        WHERE issuer.account_id = capability.issuer_account_id AND issuer.user_role = 'instructor'
     ) THEN RETURN; END IF;
     event_id := ple_audit.record_support_repair_capability_event(
         capability.support_repair_capability_id, capability.sysadmin_account_id, capability.issuer_account_id,

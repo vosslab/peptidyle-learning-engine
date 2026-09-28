@@ -50,7 +50,7 @@ authority even when an optional OIDC or SAML identity integration is enabled.
 ## Scope and status
 
 The supported local topology has one Caddy gateway, one stateless API, one
-worker, one PostgreSQL 17 instance, one MinIO instance, and one private
+worker, one PostgreSQL instance, one MinIO instance, and one private
 stateless PG renderer. The normal developer/browser owner uses the seeded
 Live Demo workflow, which is the current local identity-verification substitute
 and issues the ordinary server-owned session. It does not select a caller
@@ -109,8 +109,8 @@ only from the API and worker private network as configured by Compose.
 | `webwork-renderer` | Bounded PG/PGML render and grade engine                | `renderer_private`; no host port    | One local stateless service                 |
 
 Named volumes `ple_pgdata` and `ple_miniodata` hold local state across a normal
-container stop. The PostgreSQL-major guard accepts an empty volume or a
-PostgreSQL 17 directory. A major upgrade requires backup, a new volume,
+container stop. The PostgreSQL-major guard accepts an empty volume or a directory
+whose major version matches the selected image. A major upgrade requires backup, a new volume,
 restore, application validation, and retention of the old volume until recovery
 is accepted; deleting a populated volume is not an upgrade procedure.
 
@@ -248,7 +248,7 @@ keep observability headers within its dedicated test image.
 ```text
 CloudFront/WAF -> ALB TLS origin -> private Fargate API tasks
                                       |
-                         private RDS PostgreSQL 17
+                         private RDS PostgreSQL
                          private S3 object domains
 
 private Fargate worker tasks ------> PostgreSQL queue and S3

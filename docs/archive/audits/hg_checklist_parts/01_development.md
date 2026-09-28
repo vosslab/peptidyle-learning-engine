@@ -52,8 +52,8 @@
 
 - [x] Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
   - Evidence (source): `tests/test_source_file_line_limit.py` `test_source_file_line_limit` enforces the exclusive `LINE_LIMIT = 1000` across tracked authored source; the current longest tracked `src/` source, `src/style.css`, is 994 lines.
-  - Evidence (source): `src/styles/product_role.css` `.ple-app-ribbon__product-role[data-product-role]` owns the extracted shared role-color selectors; `src/index.html` `styles/product_role.css` loads that focused stylesheet after `style.css`.
-  - Evidence (source): `pipeline/build.mjs` `STATIC_STYLESHEETS` copies and fingerprints `styles/product_role.css` into the production build.
+  - Evidence (source): `src/styles/user_role.css` `.ple-app-ribbon__user-role[data-user-role]` owns the extracted shared role-color selectors; `src/index.html` `styles/user_role.css` loads that focused stylesheet after `style.css`.
+  - Evidence (source): `pipeline/build.mjs` `STATIC_STYLESHEETS` copies and fingerprints `styles/user_role.css` into the production build.
   - Evidence (test): `tests/e2e/e2e_ribbon_production_styles.mjs` `production CSS includes the Ribbon root rule` rebuilds and inspects the emitted production CSS.
 - [ ] PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` rejects migration while the base release is pre-production and requires direct base-schema correction.
@@ -109,7 +109,7 @@
 - N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
   - Reason: human-owned project priority, not implemented PLE behavior.
 - [x] PLE should use one global installation with no institution boundaries.
-  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `ple_private.account` has no institution column or foreign key; product roles are global account data.
+  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `ple_private.account` has no institution column or foreign key; user roles are global account data.
 - [x] Project images and simulated live-stack data are disposable acceptance infrastructure.
   - Evidence (source): `local_stack_control/disposable_stack_adapter.py` `disposable_target` creates a closed disposable Compose target for acceptance infrastructure.
 - [x] `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller

@@ -19,10 +19,6 @@ import {
   type RecordContent,
   type RecordListState,
 } from "../components/record_list/record_list";
-import {
-  courseThemeStyle,
-  courseThemeTokens,
-} from "../features/course_appearance/course_theme_registry";
 import { formatLocalWallClockDateTime } from "../format_datetime";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
@@ -625,10 +621,7 @@ export function CourseInstancePage(): JSX.Element {
             eyebrow={`Course Instance · ${view().courseInstance.id}`}
             title={view().courseInstance.longName}
           >
-            <section
-              class="course-instance-page__content"
-              style={courseThemeStyle(courseThemeTokens(view().courseInstance.theme))}
-            >
+            <section class="course-instance-page__content">
               <section
                 class="course-instance-page__assessments"
                 aria-labelledby="course-assessments-heading"

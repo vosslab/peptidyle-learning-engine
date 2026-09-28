@@ -5,11 +5,11 @@
 ### Behavior or Interface Changes
 
 - Reconciled the Human Guidance compliance plan and priority audits with the current product model. Human Guidance remains authoritative; the plan now owns implementation scope and sequencing, terminology-contract updates, an objective SQL/UI screenshot checkpoint, and one canonical Caddy gateway. The SQL audit has a current lock ledger, while the UI audit treats old PNGs as historical and records both distinct required-Ribbon behaviors. The Course Appearance browser scenario now creates its isolation Course through the ordinary empty-Course path; its focused canonical HTTPS run passed without adding a Blueprint-adoption dependency.
-- Migrated connected Assessment release and Attempt acceptance off removed Assignment-era routes, wire keys, and SQL relations. The canonical HTTPS path now proves direct Assessment creation, exact Question Revision save/release, authorization and resume behavior, immutable credit with current points, worker-owned expiry, opaque WeBWorK response persistence, renderer-outage retry, and Gradebook scoring. The production-browser owner supplies its private Sysadmin authenticator to the same journeys after a fresh TOTP counter and exercises the current Instructor Account and seeded Course surfaces. Invitation export uses opaque Course references and current empty-Course creation; its narrow SECURITY DEFINER helper sees only forced-RLS-hidden pending invitation and event rows. Canvas restores its real external `<assignment>` metadata grammar, PostgreSQL feature gates, and existing disposable-runtime boundary, so the offline aggregate needs no live database. The formatter excludes the same external author-content dependency tree as its write path. Assessment editors retain title, release state, and Edit Number across both work areas with aligned labeled facts and accessible action groups; focused and full canonical HTTPS browser acceptance passed. Canonical Blueprint exchange uses one strict authority-free representation and ordinary actor-owned Private Revision-1 creation. The Instructor UI imports it with retry-safe idempotency; retained PostgreSQL 17 actual-role export/import/re-export proof passed semantic deep equality, fresh actor-owned identities, exact ordered pins, source preservation, and unauthorized denial.
+- Migrated connected Assessment release and Attempt acceptance off removed Assignment-era routes, wire keys, and SQL relations. The canonical HTTPS path now proves direct Assessment creation, exact Question Revision save/release, authorization and resume behavior, immutable credit with current points, worker-owned expiry, opaque WeBWorK response persistence, renderer-outage retry, and Gradebook scoring. The production-browser owner supplies its private Sysadmin authenticator to the same journeys after a fresh TOTP counter and exercises the current Instructor Account and seeded Course surfaces. Invitation export uses opaque Course references and current empty-Course creation; its narrow SECURITY DEFINER helper sees only forced-RLS-hidden pending invitation and event rows. Canvas restores its real external `<assignment>` metadata grammar, PostgreSQL feature gates, and existing disposable-runtime boundary, so the offline aggregate needs no live database. The formatter excludes the same external author-content dependency tree as its write path. Assessment editors retain title, release state, and Edit Number across both work areas with aligned labeled facts and accessible action groups; focused and full canonical HTTPS browser acceptance passed. Canonical Blueprint exchange uses one strict authority-free representation and ordinary actor-owned Private Revision-1 creation. The Instructor UI imports it with retry-safe idempotency; retained PostgreSQL actual-role export/import/re-export proof passed semantic deep equality, fresh actor-owned identities, exact ordered pins, source preservation, and unauthorized denial.
 - Updated the registered Instructor authoring acceptance journey to the current My Draft Questions
   heading and required Discipline/Subject publication contract. The focused canonical HTTPS
   scenario now publishes successfully with scoped gateway trust; this changes test setup only, not product behavior.
-- Accepted the bounded C210 archived-Work visibility contract. Fresh PostgreSQL 17.11 actual-role
+- Accepted the bounded C210 archived-Work visibility contract. Fresh PostgreSQL actual-role
   and production-server proof created submitted Work, showed it through active Student readers and
   Instructor Gradebook, archived through the real retention executor, and then confirmed concealment
   across the full ordinary Student Work route inventory and Gradebook. Only the current Course
@@ -73,7 +73,7 @@
   details. Temporary rendered empty/loading/error/populated evidence passed at 1280 by 800 and 320
   pixels; strict TypeScript, five focused Node tests, formatting, and diff checks passed. Connected
   Course-workspace acceptance remains pending.
-- Accepted the bounded C208 retention transition. Fresh PostgreSQL 17 actual-role proof created a
+- Accepted the bounded C208 retention transition. Fresh PostgreSQL actual-role proof created a
   released Assessment with issued Question, saved response, whole-Assessment submission,
   `question_response`, grading result/receipt, and aggregate; expiry deletion removed identifiable
   Student Work while preserving the global Account, teaching definitions, immutable source,
@@ -103,7 +103,7 @@
   generator, vendored WeBWorK/renderer, PLE demo, or official screenshot refresh changed. A future
   upstream regeneration can overwrite this artifact-only correction absent separately authorized
   producer repair. Receipt: `/private/tmp/ple-chromosome-spacing-receipts-20260916.md`.
-  Receipts: `/private/tmp/ple-invitation-claim-revoke-20260916.md`, `/private/tmp/ple-bloom-proof-20260916.md`, `/private/tmp/ple-template-duration-minutes-20260916.md`, `/private/tmp/ple-resumed-types-20260916.md`, and `/private/tmp/ple-hotspot-connected-interaction-20260916.md`. Current S01 presentation binds its joined result and `Open course` route to the exact claimed Course reference; I12 retains its empty seven-day/Account-time-zone explanation with a keyboard-routable Instructor management action. I13 now has required private Course-local roster names for reviewed CSV correction and authorized primary roster-name/Gradebook-title display, with source/compile, isolated actual-role SQL (including Course-lock waits and retention purge), and actual-component proof. Archived invitation claim now requires active retention after the Course lock before idempotent return; inactive unarchived claim remains allowed and revoke is unchanged. PostgreSQL 17 actual-role proof passed including a claim waiting behind archive; no deployment/live `8258` or full-retention closure is claimed. Receipt: `/private/tmp/ple-archive-invitation-claim-fix-20260916.md`. These bounded UI receipts are not connected live-browser acceptance. Receipts: `/private/tmp/ple-student-invitation-joined-state-20260916.md`, `/private/tmp/ple-due-soon-empty-next-action-20260916.md`, `/private/tmp/ple-gradebook-coursework-title-slice-20260916.md`, and `/private/tmp/ple-roster-name-backend-20260916.md`. Retention configuration uses a 70-day notice lead, day-100 archive, and 265-day post-archive interval; isolated PostgreSQL proof includes a day-200 archive that still deleted at day 365, but does not establish deployed worker or email delivery. The explicit Instructor recovery slice has separate isolated SQL, production-server HTTP, and actual-component/real-client-fixture proof; unavailable/ineligible selection is concealed `42501`/404 while an eligible exhausted page is empty 200. It does not establish integrated live browser/TLS/demo, nullable-roster HTTP, all-reader, worker/email, or global closure. Receipts: `/private/tmp/ple-retention-operational-schedule-20260916.md`, `/private/tmp/ple-course-recovery-selection-sql-20260916.md`, `/private/tmp/ple-course-recovery-http-proof-20260916.md`, and `/private/tmp/ple-course-recovery-instructor-ui-20260916.md`.
+  Receipts: `/private/tmp/ple-invitation-claim-revoke-20260916.md`, `/private/tmp/ple-bloom-proof-20260916.md`, `/private/tmp/ple-template-duration-minutes-20260916.md`, `/private/tmp/ple-resumed-types-20260916.md`, and `/private/tmp/ple-hotspot-connected-interaction-20260916.md`. Current S01 presentation binds its joined result and `Open course` route to the exact claimed Course reference; I12 retains its empty seven-day/Account-time-zone explanation with a keyboard-routable Instructor management action. I13 now has required private Course-local roster names for reviewed CSV correction and authorized primary roster-name/Gradebook-title display, with source/compile, isolated actual-role SQL (including Course-lock waits and retention purge), and actual-component proof. Archived invitation claim now requires active retention after the Course lock before idempotent return; inactive unarchived claim remains allowed and revoke is unchanged. PostgreSQL actual-role proof passed including a claim waiting behind archive; no deployment/live `8258` or full-retention closure is claimed. Receipt: `/private/tmp/ple-archive-invitation-claim-fix-20260916.md`. These bounded UI receipts are not connected live-browser acceptance. Receipts: `/private/tmp/ple-student-invitation-joined-state-20260916.md`, `/private/tmp/ple-due-soon-empty-next-action-20260916.md`, `/private/tmp/ple-gradebook-coursework-title-slice-20260916.md`, and `/private/tmp/ple-roster-name-backend-20260916.md`. Retention configuration uses a 70-day notice lead, day-100 archive, and 265-day post-archive interval; isolated PostgreSQL proof includes a day-200 archive that still deleted at day 365, but does not establish deployed worker or email delivery. The explicit Instructor recovery slice has separate isolated SQL, production-server HTTP, and actual-component/real-client-fixture proof; unavailable/ineligible selection is concealed `42501`/404 while an eligible exhausted page is empty 200. It does not establish integrated live browser/TLS/demo, nullable-roster HTTP, all-reader, worker/email, or global closure. Receipts: `/private/tmp/ple-retention-operational-schedule-20260916.md`, `/private/tmp/ple-course-recovery-selection-sql-20260916.md`, `/private/tmp/ple-course-recovery-http-proof-20260916.md`, and `/private/tmp/ple-course-recovery-instructor-ui-20260916.md`.
 - Updated Human Guidance execution priority: finish the SQL foundation and highest-impact UI gates first;
   Terra/Sol may run safe independent work in parallel, and full screenshots wait for those gates. Fresh
   canonical Course-purge proof corrected the actual-role validator grant, retained the anonymous deleted-
@@ -116,14 +116,14 @@
   captures and 16 private Student checkpoints passed, but nine type captures remain genuinely
   delivery-blocked: context returned 200 while progress returned 404 because the issue-only
   Attempt had nine issued positions and no Question Attempts. The first-issuance Ready asset-binding
-  correction now has independent source acceptance and fresh PostgreSQL 17 actual-role
+  correction now has independent source acceptance and fresh PostgreSQL actual-role
   `ple_auth`/`ple_app` rollback proof of exact checksums/dimensions, Pending refusal, retained-helper
   behavior, and outsider denial; the isolated container was stopped and auto-removed. Root Cargo
   check plus three focused Rust tests passed before the later correction, while Python passed 7,548
   tests in 5.48 seconds. Normal publisher integration and resume recovery remain under review; no
   current live acceptance or 77-item capture refresh is claimed. Receipt:
   `/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
-- Recorded the bounded Template single-Attempt SQL receipt. Fresh canonical PostgreSQL 17 installation
+- Recorded the bounded Template single-Attempt SQL receipt. Fresh canonical PostgreSQL installation
   as `ple_migrator` and actual-role `ple_auth`/`ple_app` proof passed: Quiz NULL create rejected with no
   row, Quiz/Exam limit-one round-tripped, Exam NULL save rejected with unchanged data/Edit Number, and
   Regular Assignment NULL remained unlimited. The labelled tmpfs container was verified stopped and
@@ -147,7 +147,7 @@
   `/private/tmp/ple-preview-asset-repair-20260916.md`.
 - Recorded the current bounded Pool text/Tags and control-surface CSS receipt. Pool text/Tags
   filtering is implemented source with accepted backend/frontend review, a fresh canonical
-  PostgreSQL 17 actual-role `ple_auth`/`ple_app` rollback proof, and current-component fixture
+  PostgreSQL actual-role `ple_auth`/`ple_app` rollback proof, and current-component fixture
   evidence at 1280/390px; it is not connected matching, deployed authorization, or broad Human
   Guidance closure. Root pytest session 43993 passed 7,545 tests in 5.75 seconds. Cargo session
   18824 predates the final SQL-only wrapper fix and is retained as historical evidence. The named
@@ -162,7 +162,7 @@
   lineage classification, and Pool matching uses Pool-owned metadata before ordering, `LIMIT`,
   lookahead, and continuation. Root generated 370 TypeScript types; five model tests (session
   44587), Cargo check, 13 Question tests, and two Pool tests (session 75888) passed. A fresh
-  network-none PostgreSQL 17 actual-role proof passed and its labelled disposable container was
+  network-none PostgreSQL actual-role proof passed and its labelled disposable container was
   removed. Root `cargo check -p server_core -p project-tools --tests` later passed in 3.87 seconds
   with no warnings; five model, 13 Question Rust, two Pool Rust, 24 focused Node, and strict
   TypeScript gates passed. Pytest session 48126 passed 7,532 tests in 5.58 seconds after
@@ -195,7 +195,7 @@
   Receipt: `/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
 - Recorded locally implemented Blueprint Promoted evidence without closing either Human Guidance
   row. Source adds searchable lineage metadata, cursor-bound promoted-only discovery, Sysadmin-only
-  metadata-ETag/CAS mutation, and the Public Blueprint Search filter. Canonical PostgreSQL 17
+  metadata-ETag/CAS mutation, and the Public Blueprint Search filter. Canonical PostgreSQL
   bootstrap/install as `ple_migrator` and isolated actual-role SQL proof passed (`BEGIN`, `PASS`,
   `DO`, `ROLLBACK`, exit 0); its exact labelled disposable container was removed. Root Cargo
   session 60804 passed in 7.74 seconds, stricter TypeScript plus 11 Blueprint-client Node tests
@@ -281,7 +281,7 @@
   correct Tags-only selections after, with save, parent-clear, and blank validation passing. Pool
   metadata source work spans SQL, Rust, API, and browser metadata but is not in running `8075`;
   HTTP/browser acceptance remains pending. SQL, final Rust/API, and browser re-reviews passed.
-  Fresh PostgreSQL 17 install, role/rollback, and two-client wait/commit proofs passed. `ple_app`
+  Fresh PostgreSQL install, role/rollback, and two-client wait/commit proofs passed. `ple_app`
   accepted 65 Tags, and the arbitrary 64-Tag cap was removed while per-Tag bounds remain. Root
   Cargo check passed in 9.61 seconds, `cargo tsgen` generated 370 types, and 348 Node tests passed.
   After three narrower test-lane repairs, full `python3 -m pytest tests/ -q` session 22889 terminally
@@ -316,7 +316,7 @@ project-tools --tests` passed in 3.32 seconds after the strict Course DTO consum
   `/private/tmp/ple-runtime-full-capture-receipt.md`.
 - Recorded bounded current-progress evidence: root `CARGO_INCREMENTAL=0 cargo check -p
 server_core -p project-tools --tests` passed in 11.37 seconds, `cargo tsgen` generated 369
-  types, and a repeated fresh PostgreSQL 17 canonical install through `ple_migrator` passed. These
+  types, and a repeated fresh PostgreSQL canonical install through `ple_migrator` passed. These
   do not establish all SQL or whole-feature acceptance. Self-contained actual-role
   Course-classification proof passed create/authorization, ETag no-op/stale/history, no-Revision,
   exact-pin, 65-hierarchy-tag, and fork/Instance-independence checks. The corrected actual-role
@@ -365,12 +365,12 @@ server_core -p project-tools --tests` passed in 11.37 seconds, `cargo tsgen` gen
   that Question. This does not establish mobile, theme, broad accessibility, failure, concurrency, or all-authoring behavior.
 - Recorded accepted bounded corrections: finalized `QuestionResponse` parent/Attempt/time
   identity, editable native response-control saves, receipt-gated anonymous-statistics retention
-  through Unrelease, and the narrow support-repair lock/reference fix. Fresh PostgreSQL 17.11
+  through Unrelease, and the narrow support-repair lock/reference fix. Fresh PostgreSQL
   parent, Unrelease, support-role, and mandatory-NULL shape proofs passed. Root-observed Cargo,
   TypeScript, and focused response-control checks passed. This does not claim connected-browser or
   deployed-app acceptance, whole-Course retention, public-statistics disclosure, resource-specific
   support authority, or global Human Guidance closure; the current reconciliation establishes only inventory fidelity.
-  A separate fresh PostgreSQL 17.11 proof retained exactly three valid unique indexes with no
+  A separate fresh PostgreSQL proof retained exactly three valid unique indexes with no
   duplicate access paths; independent review accepted the three redundant-index removals.
 - Recorded a bounded isolated HTTP/SQL receipt for the shared classification hierarchy. A vetted
   active Instructor and MFA-attested Sysadmin read all four hierarchy selectors; anonymous,
@@ -403,12 +403,12 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   full-width navigation with full keyboard-reachable breadcrumbs. Focused gates and the bounded
   browser receipt pass; the Profile breadcrumb reservation, awkward 200% overview wrapping, and
   global responsive/Human Guidance closure remain open.
-- Recorded the independently accepted PostgreSQL 17 content-classification command prerequisite:
+- Recorded the independently accepted PostgreSQL content-classification command prerequisite:
   role-aware vocabulary creation and selectors, trim-before-validation, global Subject uniqueness,
   Sysadmin-only nonempty association replacement, and two-session association serialization.
   This bounded SQL receipt does not claim HTTP/editor integration, content attachments, search,
   lifecycle, deployed state, Human Guidance closure, or permanent tests.
-- Recorded the bounded PostgreSQL 17 Published Question classification receipt. New Question
+- Recorded the bounded PostgreSQL Published Question classification receipt. New Question
   lineages and metadata bulk replacement require Discipline and Subject, with optional Topic and
   Subtopic UUIDs that satisfy the stored hierarchy; exact Question Revision and source bindings
   remain unchanged. Fresh-install proof passed valid publication, atomic invalid/stale refusal,
@@ -426,7 +426,7 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   integration, deployment, actual imports, new count-audit machinery, and global Human Guidance
   checklist closure are not claimed.
 - Corrected the Human Guidance classification evidence for the current Subject-Discipline
-  association schema. The bounded PostgreSQL 17 receipt proves multi-Discipline association,
+  association schema. The bounded PostgreSQL receipt proves multi-Discipline association,
   association integrity, one-parent Topic/Subtopic relationships, and owner-only access. Commands,
   content attachments, normalization, and the future atomic at-least-one association writer remain
   open; no Human Guidance, production, or permanent-test changes were made.
@@ -439,9 +439,9 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   verbatim source trailing whitespace remains visible rather than silently changing Human Guidance.
 - Added the current-plan receipt for the installed global classification-vocabulary prerequisite:
   four UUID vocabulary levels with mandatory parent references, owner-only forced RLS, no runtime
-  grants, and fresh PostgreSQL 17 proof. The 1,412 focused pytest gates cover tracked files; the
+  grants, and fresh PostgreSQL proof. The 1,412 focused pytest gates cover tracked files; the
   new SQL file separately passed source-size and ASCII checks. No live database changed and the
-  temporary proof containers were cleaned up. ProductRole-aware access, Discipline lifecycle,
+  temporary proof containers were cleaned up. UserRole-aware access, Discipline lifecycle,
   attachments, editors, search, and global feature closure remain open.
 - Corrected native Question response-control copy so a saved individual response is described as
   saved rather than submitted; the whole Assessment Attempt remains the Student submission
@@ -449,9 +449,9 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   promise feedback. MULTI-FIB instructions explain field navigation without a false per-Question
   "Submit answer" action. Save behavior, validation, and backend boundaries are unchanged.
 - Added one atomic Account-creation trigger that randomly selects and persists a currently
-  selectable PLE gallery avatar for every Product Role. An empty selectable gallery rejects
+  selectable PLE gallery avatar for every User Role. An empty selectable gallery rejects
   Account creation; existing self-selection and Profile-image authorization are unchanged.
-  Shell syntax, diff checks, and the fresh PostgreSQL 17 persistence, explicit-selection,
+  Shell syntax, diff checks, and the fresh PostgreSQL persistence, explicit-selection,
   replay, and empty-gallery rollback proof pass; independent review found no correctness
   or security issue. The owned disposable container was cleaned up. No HTTP or deployed
   acceptance is claimed, and no live database, migration, or backfill was changed.
@@ -566,7 +566,7 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   Cargo, or Podman changes were made by this audit task.
 - Closed four exact Assessment scoring rows from accepted current-rescore evidence: retained credit
   as the grading outcome, current-credit/current-points score calculation, current-point
-  recalculation, and immutable grading outcomes. Independent review accepted private PostgreSQL 17
+  recalculation, and immutable grading outcomes. Independent review accepted private PostgreSQL
   production-SQL lifecycle proof at `/private/tmp/ple-current-rescore-proof/proof.sql`; the artifact
   `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` exited 0. The fixture retained `0.5`
   credit, used authorized expected-current `ple_api.save_assessment` to change points from `8` to
@@ -579,7 +579,7 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   or full product acceptance. Part 09 gate, splice, and consistency pass at 828 bullets: 468
   verified, 317 open (310 owning), and 43 N/A.
 - Closed C510's highest-submitted-Attempt score row after removing the stale configurable
-  grade-rule enum, field, SQL columns, and editor choices. Accepted independent PostgreSQL 17
+  grade-rule enum, field, SQL columns, and editor choices. Accepted independent PostgreSQL
   lifecycle evidence recorded scores `12`, `4`, `16`, and an in-progress `NULL` fourth Attempt;
   both Instructor Gradebook and Student landing projected `12 / 16`, `12 / 16`, then `16 / 16`,
   while latest-Attempt state remained separate. The proof passed at
@@ -590,7 +590,7 @@ project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests`
   full Rust gate; a separate `cargo check -p learning-data-access --no-default-features` pass
   confirms the optional PostgreSQL adapter boundary. Part 09 gate, splice, and consistency pass at
   828 bullets: 465 verified, 320 open (312 owning), and 43 N/A.
-- Closed only the two unanswered-zero Assessment rows from a disposable root-only PostgreSQL 17
+- Closed only the two unanswered-zero Assessment rows from a disposable root-only PostgreSQL
   proof. `/private/tmp/ple-unanswered-connected-proof/run.sh --isolated` ran the non-versioned
   temporary fixture `/private/tmp/ple-unanswered-connected-proof/proof.sql`, which invoked ordinary
   `ple_api.prepare_student_assessment_attempt_finalization` and
@@ -816,7 +816,7 @@ curriculum_content::` passed, including four existing curriculum tests. It does 
   and multi-Revision cases remain open. This proof does not establish normal Student start, future
   Attempts, responses, submissions, grades, or all Student Work tables. Static server/build,
   TypeScript, scoped PostgreSQL LDA clippy, pytest (7,151), and Node (341) lanes passed; the
-  independent baseline-fixture reviewer accepted the focused PostgreSQL 17 sequence at
+  independent baseline-fixture reviewer accepted the focused PostgreSQL sequence at
   `/private/tmp/ple-expiry-unrelease-focused-artifacts.iOpO6r`. The full canonical database-baseline
   gate also passed as `database baseline E2E: PASS`; no aggregate `all_test.sh` claim is made.
 - Captured four one-time Instructor preview screenshots of new Genetics WeBWorK content from the
@@ -836,7 +836,7 @@ curriculum_content::` passed, including four existing curriculum tests. It does 
   browser errors occurred. Original adoption pin, Assessment, and entries remained unchanged;
   Work tables were empty, so no populated-Student-Work claim is made. Artifact:
   `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`. This is not Blueprint update
-  offer/review/approval/apply work. The independently accepted focused PostgreSQL 17 access-seed,
+  offer/review/approval/apply work. The independently accepted focused PostgreSQL access-seed,
   security, expiry, grading, and Assessment Unrelease sequence, including its causal row lock,
   passed at `/private/tmp/ple-expiry-unrelease-focused-artifacts.5Kb3MC`; it is a fixture cutover
   receipt, not a further HG-row closure. Checklist splice, diff, consistency, and the Course gate passed:
@@ -846,7 +846,7 @@ curriculum_content::` passed, including four existing curriculum tests. It does 
   permission-denied `ple_data` relational-identity query. No repair is claimed.
 - Corrected stale Quiz/Exam disclosure evidence without closing either HG row. The current
   `history_decision` calls `gate_quiz_exam_answers_for_current_cohort`, and
-  `project_released_content` applies that gate. Accepted independent PostgreSQL 17 installed-
+  `project_released_content` applies that gate. Accepted independent PostgreSQL installed-
   predicate proof with administrator-inserted synthetic fixtures covers never-started blocking,
   pending-invitation exclusion, joined-current-membership blocking, Account-deactivation membership
   preservation, Course-end noncompletion, ended-episode exit/new-episode rejoin, and retained submissions:
@@ -859,7 +859,7 @@ curriculum_content::` passed, including four existing curriculum tests. It does 
   permanent test is added. The full 7,151-test pytest run passed. The broad
   database-baseline gate failed because an existing negative fixture used the pre-public-reference
   return column. Its focused Course connected correction passed both existing tests sequentially
-  against fresh PostgreSQL 17 with 0 ignored:
+  against fresh PostgreSQL with 0 ignored:
   `/private/tmp/ple-course-lifecycle-proof-artifacts.l8ilq0/connected-test.log`. A later broad
   rerun passed the Course tests and security catalog, then failed because
   `tests/e2e/attempt_expiry_connected_oracle.sql` still calls removed
@@ -912,7 +912,7 @@ curriculum_content::` passed, including four existing curriculum tests. It does 
   43 N/A across 784 bullets. No product code or Human Guidance changed.
 - Closed only the shared underlying Assessment-model HG row. Canonical teaching types and
   ordinary adoption connect reusable Blueprint content to current Course Instance Assessments;
-  distinct storage/lifecycle projections are intentional. Fresh PostgreSQL 17 connected adoption
+  distinct storage/lifecycle projections are intentional. Fresh PostgreSQL connected adoption
   proof passed 1 test with 0 ignored, preserving Type, mixed ordered Pool/Fixed entries, nondefault
   teaching rules, exact Revision pins, independent daughter Pool IDs, and unset dates. Artifact:
   `/private/tmp/ple-shared-assessment-adoption-artifacts.IkYuXY`. No production rewrite was needed;
@@ -940,7 +940,7 @@ curriculum_content::` passed, including four existing curriculum tests. It does 
   and `/private/tmp/ple-pilot-format-binding-artifacts.CKzka1`. Chargaff, the non-published
   76-bank/13,434-row inventory, and conditional retained-catalog C840--C841 work remain open.
   The earlier Pilot PGML mismatch statement is superseded by this receipt.
-- Closed the exact C351 manual Draft-deletion checklist row. Accepted isolated PostgreSQL 17/MinIO
+- Closed the exact C351 manual Draft-deletion checklist row. Accepted isolated PostgreSQL/MinIO
   actual-server and focused browser proof covered owner cancel/confirm and list-reload persistence,
   owner-only current-ETag deletion, denial without source/Edit Number change for collaborator,
   unrelated Instructor, Student, Sysadmin, and anonymous callers, precondition failures, preserved

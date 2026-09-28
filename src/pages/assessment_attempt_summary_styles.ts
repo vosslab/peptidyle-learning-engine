@@ -66,7 +66,7 @@ export const ASSESSMENT_ATTEMPT_SUMMARY_STYLES = `
   .attempt-history .student-feedback-panel__table th,
   .attempt-history .student-feedback-panel__table td {
     padding: var(--ple-space-1) var(--ple-space-2);
-    border: 1px solid var(--ple-border);
+    border: 1px solid var(--ple-border-strong);
     text-align: start;
     vertical-align: top;
   }

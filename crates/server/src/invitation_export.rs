@@ -13,7 +13,7 @@ use learning_data_access::{
     InvitationExportStore, SessionTokenHash, StoreError,
     postgres::{PostgresInvitationExportStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceId, ProductRole};
+use question_model::{CourseInstanceId, UserRole};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -86,7 +86,7 @@ async fn instructor(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

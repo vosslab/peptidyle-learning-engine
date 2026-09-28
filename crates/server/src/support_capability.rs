@@ -17,7 +17,7 @@ use learning_data_access::{
     IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError, SupportRepairCapabilityStore,
     postgres::{PostgresSessionStore, PostgresSupportCapabilityStore},
 };
-use question_model::{CourseInstanceId, ProductRole};
+use question_model::{CourseInstanceId, UserRole};
 use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
@@ -126,7 +126,7 @@ async fn sysadmin_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Sysadmin => {
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
@@ -148,7 +148,7 @@ async fn instructor_session_hash(
     .await
     {
         // ASVS 8.2.1: the procedure repeats current direct membership atomically.
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

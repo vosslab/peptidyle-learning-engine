@@ -143,7 +143,7 @@ fixture should put an important match or popular Course beyond the former first 
 appears in the correct query-wide position. Exercise page replacement, selection, return and failure.
 
 For a temporary representative catalog, record returned rows, native source resolutions, retained
-browser rows and observed request/render work before and after. Capture PostgreSQL 17
+browser rows and observed request/render work before and after. Capture PostgreSQL
 `EXPLAIN (ANALYZE, BUFFERS)` for the actual inner page/facet queries. Treat timing as diagnostic
 evidence, not a new arbitrary pass threshold; justify an index only from the measured plan.
 PostgreSQL documents the need for deterministic page ordering in

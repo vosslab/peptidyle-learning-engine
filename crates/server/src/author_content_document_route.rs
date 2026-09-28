@@ -81,7 +81,12 @@ pub(crate) fn author_content_document_response(
             return crate::auth::no_store(StatusCode::SERVICE_UNAVAILABLE.into_response());
         }
     };
-    let html = document_html(author_content.source(), runtime.as_ref(), &nonce);
+    let html = document_html(
+        author_content.source(),
+        runtime.as_ref(),
+        &nonce,
+        browser_origin,
+    );
     let csp = document_csp(browser_origin, runtime.as_ref(), &nonce);
     let mut response = (StatusCode::OK, html).into_response();
     let response_headers = response.headers_mut();
@@ -136,6 +141,7 @@ fn document_html(
     source: &str,
     runtime: Option<&crate::author_content_dependency_assets::ReviewedRdkitRuntime>,
     nonce: &str,
+    browser_origin: &str,
 ) -> String {
     // Source must not enter HTML parsing: base64 carries its UTF-8 bytes to a
     // nonce-authorized bootstrap, which creates a nonce-authorized script DOM
@@ -150,7 +156,71 @@ fn document_html(
         ),
         None => String::new(),
     };
+    let appearance_bootstrap = format!(
+        r#"<script nonce="{nonce}">(() => {{
+const parentOrigin = {browser_origin:?};
+const colorKeys = ["background", "foreground", "surface", "secondary", "accent", "highlight", "muted", "border", "onAccent", "link"];
+const properties = [["--ple-document-background", "background"], ["--ple-document-foreground", "foreground"], ["--ple-document-surface", "surface"], ["--ple-document-secondary", "secondary"], ["--ple-document-accent", "accent"], ["--ple-document-highlight", "highlight"], ["--ple-document-muted", "muted"], ["--ple-document-border", "border"], ["--ple-document-on-accent", "onAccent"], ["--ple-document-link", "link"], ["--bs-body-bg", "background"], ["--bs-body-color", "foreground"], ["--bs-secondary-bg", "secondary"], ["--bs-tertiary-bg", "secondary"], ["--bs-border-color", "border"], ["--bs-primary", "accent"], ["--bs-link-color", "link"], ["--bs-link-hover-color", "link"]];
+const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const hasExactKeys = (value, keys) => Object.keys(value).length === keys.length && keys.every((key) => Object.keys(value).includes(key));
+const isAppearance = (value) => isRecord(value) && hasExactKeys(value, ["kind", "version", "mode", "colors"]) && value.kind === "ple.embed.appearance" && value.version === 1 && (value.mode === "light" || value.mode === "dark") && isRecord(value.colors) && hasExactKeys(value.colors, colorKeys) && colorKeys.every((key) => typeof value.colors[key] === "string" && /^#[0-9a-f]{{6}}$/i.test(value.colors[key]));
+const appearancePrefix = "ple.embed.appearance:";
+const decodeAppearance = (value) => {{
+  if (typeof value !== "string" || !value.startsWith(appearancePrefix)) return undefined;
+  try {{
+    const appearance = JSON.parse(value.slice(appearancePrefix.length));
+    return isAppearance(appearance) ? appearance : undefined;
+  }} catch {{ return undefined; }}
+}};
+window.addEventListener("message", (event) => {{
+  // ASVS 1.2.3, 2.2.1, 3.5.5: fixed output properties accept only the
+  // canonical parent's closed, validated cosmetic record.
+  const appearance = decodeAppearance(event.data);
+  if (event.origin !== parentOrigin || event.source !== window.parent || appearance === undefined) return;
+  const root = document.documentElement;
+  root.style.colorScheme = appearance.mode;
+  for (const [property, color] of properties) root.style.setProperty(property, appearance.colors[color]);
+  document.body.style.setProperty("background-color", appearance.colors.background);
+  document.body.style.setProperty("color", appearance.colors.foreground);
+}});
+}})();</script>"#
+    );
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\">{runtime_head}</head><body><div id=\"author-content-root\"></div><script nonce=\"{nonce}\">(() => {{ const bytes = Uint8Array.from(atob({encoded_source:?}), (value) => value.charCodeAt(0)); const author = document.createElement(\"script\"); author.setAttribute(\"nonce\", {nonce:?}); author.textContent = new TextDecoder().decode(bytes); document.body.append(author); }})();</script></body></html>"
+        "<!doctype html><html><head><meta charset=\"utf-8\">{runtime_head}</head><body><div id=\"author-content-root\"></div>{appearance_bootstrap}<script nonce=\"{nonce}\">(() => {{ const bytes = Uint8Array.from(atob({encoded_source:?}), (value) => value.charCodeAt(0)); const author = document.createElement(\"script\"); author.setAttribute(\"nonce\", {nonce:?}); author.textContent = new TextDecoder().decode(bytes); document.body.append(author); }})();</script></body></html>"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{document_csp, document_html};
+
+    #[test]
+    fn author_document_installs_the_closed_appearance_receiver_before_author_source() {
+        let html = document_html(
+            "window.authorRan = true;",
+            None,
+            "test-nonce",
+            "https://ple.test",
+        );
+        let receiver = html.find("ple.embed.appearance").unwrap();
+        let author = html.find("author.textContent").unwrap();
+
+        assert!(receiver < author);
+        assert!(html.contains("const parentOrigin = \"https://ple.test\";"));
+        assert!(html.contains("event.source !== window.parent"));
+        assert!(html.contains("/^#[0-9a-f]{6}$/i"));
+        assert!(html.contains("\"onAccent\", \"link\""));
+        assert!(html.contains("[\"--ple-document-link\", \"link\"]"));
+        assert!(html.contains("[\"--bs-link-color\", \"link\"]"));
+        assert!(html.contains("root.style.setProperty(property, appearance.colors[color])"));
+        assert!(!html.contains("style.cssText"));
+    }
+
+    #[test]
+    fn author_document_keeps_its_existing_nonce_only_content_policy() {
+        let csp = document_csp("https://ple.test", None, "test-nonce");
+        assert!(csp.contains("script-src 'nonce-test-nonce'"));
+        assert!(csp.contains("connect-src 'none'"));
+        assert!(!csp.contains("style-src"));
+    }
 }

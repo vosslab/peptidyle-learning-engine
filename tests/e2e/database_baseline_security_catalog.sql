@@ -211,11 +211,11 @@ $$;
 
 -- C24 authorization contract: an active Sysadmin receives the explicit
 -- platform-administration predicate but no Course membership or Course-record
--- read authority merely by holding that Product Role. The transaction rolls
+-- read authority merely by holding that User Role. The transaction rolls
 -- back its synthetic Account, leaving the canonical baseline unchanged.
 BEGIN;
 SET LOCAL ROLE ple_private_owner;
-INSERT INTO ple_private.account (account_id, product_role, created_at)
+INSERT INTO ple_private.account (account_id, user_role, created_at)
 VALUES ('U00000009', 'sysadmin', pg_catalog.transaction_timestamp())
 RETURNING account_id AS sysadmin_account_id \gset
 SET LOCAL ROLE ple_api_owner;
@@ -265,7 +265,7 @@ BEGIN
     ) OR ple_api.current_session_account_is_course_instructor(
         'CI0000000Y'
     ) THEN
-        RAISE EXCEPTION 'Sysadmin Product Role unexpectedly grants Course-record authority';
+        RAISE EXCEPTION 'Sysadmin User Role unexpectedly grants Course-record authority';
     END IF;
 END
 $$;

@@ -1,9 +1,19 @@
 // Generic browser surface for a document and response owned by a Question Backend.
 
-import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js";
+import {
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  Show,
+  useContext,
+  type JSX,
+} from "solid-js";
 
 import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
+import { postEmbedAppearance } from "../../appearance/embed_appearance";
+import { AppearanceContext } from "../../appearance/appearance_context";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { QuestionResponseControlBaseProps } from "./common";
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
@@ -112,6 +122,7 @@ export interface BackendOwnedDocumentProps extends QuestionResponseControlBasePr
  * document retains its own elements, interactions, and authored presentation.
  */
 export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Element {
+  const appearance = useContext(AppearanceContext);
   const [phase, setPhase] = createSignal<BackendOwnedPhase>("loading");
   const [message, setMessage] = createSignal("Loading Question...");
   let frame: HTMLIFrameElement | undefined;
@@ -120,6 +131,11 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
   let resolvePendingCapture: ((response: StudentResponse | null) => void) | undefined;
   let pendingCaptureId: string | undefined;
   const documentPath = backendOwnedDocumentPath(props.assessmentAttemptId, props.position);
+  const sendAppearance = (): void =>
+    appearance === undefined
+      ? undefined
+      : postEmbedAppearance(frame, appearance.appearance(), window.location.origin);
+  createEffect(sendAppearance);
 
   function isFrameMessage(event: MessageEvent<unknown>): boolean {
     return event.origin === window.location.origin && event.source === frame?.contentWindow;
@@ -238,6 +254,7 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
             title="Question document"
             sandbox="allow-scripts allow-forms allow-same-origin"
             referrerpolicy="same-origin"
+            onLoad={sendAppearance}
           />
         )}
       </Show>

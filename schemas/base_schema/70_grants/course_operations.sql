@@ -1,8 +1,8 @@
 -- Privileges from course_operations.sql.
 
 SET LOCAL ROLE ple_data_owner;
-GRANT SELECT ON TABLE ple_data.course_theme TO ple_api_owner, ple_app;
-GRANT REFERENCES ON TABLE ple_data.course_theme TO ple_api_owner;
+GRANT SELECT ON TABLE ple_data.theme TO ple_private_owner, ple_api_owner, ple_app;
+GRANT REFERENCES ON TABLE ple_data.theme TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
@@ -39,4 +39,3 @@ GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course
     ple_api.import_course_roster(text, text[], text[], text[], text[]),
     ple_api.claim_course_invitation(uuid, uuid, uuid, text),
     ple_api.revoke_course_roster_entry(uuid, text, text) TO ple_app;
-

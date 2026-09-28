@@ -12,7 +12,7 @@ not authorization; the server rechecks every protected request.
 
 ## Product frame
 
-The top bar owns application identity, current Product Role, and Profile access.
+The top bar owns application identity, current User Role, and Profile access.
 Sign Out belongs inside the Profile menu rather than beside the primary tabs.
 The Context Row identifies the current Course, Assessment, or other scope. The
 Task Row contains the ordered destinations for the selected primary area. Each
@@ -69,7 +69,7 @@ Assessment composition is the **Assessment Question Editor**. Settings are the
 appropriate content, not a competing primary Ribbon tab.
 
 Student View is an Instructor preview that retains Instructor identity and
-creates no Student Work. It is not a Product Role switch.
+creates no Student Work. It is not a User Role switch.
 
 ## Student navigation
 

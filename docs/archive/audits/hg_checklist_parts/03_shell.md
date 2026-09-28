@@ -128,13 +128,13 @@
 ### Role colors and themes
 
 - [x] **Sysadmin** uses tomato red as its role color.
-  - Evidence (source): `src/styles/product_role.css` `[data-product-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
+  - Evidence (source): `src/styles/user_role.css` `[data-user-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
 - [x] **Instructor** uses teal green as its role color.
-  - Evidence (source): `src/styles/product_role.css` `[data-product-role="instructor"]` defines `--ple-role-accent: #168575`.
+  - Evidence (source): `src/styles/user_role.css` `[data-user-role="instructor"]` defines `--ple-role-accent: #168575`.
 - [x] **Student** uses lavender purple as its role color.
-  - Evidence (source): `src/styles/product_role.css` `[data-product-role="student"]` defines `--ple-role-accent: #8861b5`.
+  - Evidence (source): `src/styles/user_role.css` `[data-user-role="student"]` defines `--ple-role-accent: #8861b5`.
 - [x] Role colors should be used consistently in role labels and other appropriate interface cues.
-  - Evidence (source): `src/styles/product_role.css` `.live-demo-persona-action[data-product-role]` and `.ple-app-ribbon__product-role[data-product-role]` consume the shared role tokens.
+  - Evidence (source): `src/styles/user_role.css` `.live-demo-persona-action[data-user-role]` and `.ple-app-ribbon__user-role[data-user-role]` consume the shared role tokens.
 - [x] Demo role selection should clearly state both the user's role and name.
   - Evidence (test): `tests/playwright/e2e_live_demo_authoring_browser.mjs` selects `Assume the role of Instructor Dr. Elena Rivera`.
 - [ ] Courses use a fixed set of visually distinct biome and habitat themes.
@@ -210,17 +210,17 @@
   - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` measures the persistent top row across model changes.
 - [x] The PLE logo and product name appear at the upper left and link to the user's home dashboard.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__brand` is the leading `href="/"` Peptidyle home link.
-- [x] Each Product Role has its own home dashboard and navigation.
-  - Evidence (source): `src/route_contract.ts` `productRoleHomeRouteId` declares one role-scoped home route for Instructor, Student, and Sysadmin; `src/ribbon/ribbon_contract.ts` `hrefFor` directs each Product Role's selected Courses navigation to that route.
-  - Evidence (test): `tests/test_ribbon_route_contract.mjs` `each Product Role has an explicit selected Courses home route` verifies the role-scoped route, selected Courses navigation, and matching link for every Product Role.
+- [x] Each User Role has its own home dashboard and navigation.
+  - Evidence (source): `src/route_contract.ts` `userRoleHomeRouteId` declares one role-scoped home route for Instructor, Student, and Sysadmin; `src/ribbon/ribbon_contract.ts` `hrefFor` directs each User Role's selected Courses navigation to that route.
+  - Evidence (test): `tests/test_ribbon_route_contract.mjs` `each User Role has an explicit selected Courses home route` verifies the role-scoped route, selected Courses navigation, and matching link for every User Role.
   - Generated evidence stale: `docs/screenshots/current_capture_manifest.json` marks the three new role-home routes `deferred`; it is not visual proof until a fresh Live Demo capture.
-- [x] Product Role appears once next to the PLE name.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__product-role` occurs once in the shared identity block beside `ple-app-ribbon__brand`.
+- [x] User Role appears once next to the PLE name.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__user-role` occurs once in the shared identity block beside `ple-app-ribbon__brand`.
 - [x] Role-specific navigation appears between the product identity and Profile.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` places `ple-app-ribbon__tabs` after identity and before account controls.
 - [x] Profile appears at the far right as an icon-only avatar.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__profile-endcap` renders the shared icon-only Profile button after the navigation region; `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` anchors that endcap at the inline end.
-  - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in Product Role has one accessible generic Profile end control` verifies the one accessible, text-free Profile control for Student, Instructor, and Sysadmin.
+  - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in User Role has one accessible generic Profile end control` verifies the one accessible, text-free Profile control for Student, Instructor, and Sysadmin.
   - Decision: A one-time real-shell probe verified the isolated Profile control at 1280 and 320 CSS pixels with a coarse pointer, including thumbnail-request isolation; it was removed rather than retained as a permanent browser test.
 - [x] Clicking the Profile avatar opens the Profile menu.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `openProfileMenu` controls the Profile trigger's `profileMenuOpen` state and renders the labelled `ple-profile-menu` menu.
@@ -237,7 +237,7 @@
 
 - [ ] Every Account is randomly assigned an avatar from the PLE avatar gallery when the Account is created.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
-- [ ] The same avatar gallery collection is available to all Product Roles.
+- [ ] The same avatar gallery collection is available to all User Roles.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
 - [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.

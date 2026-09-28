@@ -126,7 +126,7 @@ feedback settings, and purged with the Course.
 In normal access, authorized Students use only their own protected Course
 records. Current Course Instructors use only the authorized teaching
 projections for their Course; co-Instructors have equal authority. The Sysadmin
-Product Role has no ambient FERPA access. Support access is specific to a task,
+User Role has no ambient FERPA access. Support access is specific to a task,
 scoped to it, and recorded.
 
 After Instructor notice, archived records leave ordinary Student and Instructor

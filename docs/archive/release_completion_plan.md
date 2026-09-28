@@ -33,7 +33,7 @@ aggregate gates pass; vocabulary row 573 is checked without changing behavior or
 
 `WP-SD1-A-TERM-01-AWO1` is completed. The fresh database and every dependent private-authoring
 boundary name Authoring Workspace Owner while preserving Workspace Collaborator as the separate
-contributor relationship. PostgreSQL 17 and aggregate gates pass; vocabulary row 444 is checked
+contributor relationship. PostgreSQL and aggregate gates pass; vocabulary row 444 is checked
 without changing authorization behavior or adding a compatibility path.
 
 `WP-SD1-A-TERM-01-BA1` is completed. Blueprint Assignment now names the Blueprint Course-owned
@@ -113,7 +113,7 @@ the server-only new-lineage publication Store transaction after trusted bytes-fi
 new-lineage object-copy coordination is P2; same-lineage publication, cleanup, and browser delivery remain open. The final manager
 `source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures, Rust
 format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest tests,
-PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
+PostgreSQL fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
 PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Parent QSOM1 remains open only
 for separately owned publication, persistence, and cleanup work. Published Question Title and
 Description remain mutable lineage facts. [implementation_status.md](implementation_status.md)
@@ -129,7 +129,7 @@ and parent QSOM1 acceptance remain open.
 `WP-SD1-A-QSOM1-P2` is implemented and acceptance-open after P1. Its server-only
 coordinator resolves the exact authorized current Draft Question Source Object Record, verifies and
 copies those immutable bytes to a fresh Question Revision address, issues the HMAC-validated
-Question ID, and invokes P1. Focused Rust, strict Clippy, source hygiene, PostgreSQL 17
+Question ID, and invokes P1. Focused Rust, strict Clippy, source hygiene, PostgreSQL
 fresh/no-op/catalog/restricted/iMathAS, and final-tree aggregate evidence pass; independent review
 remains required. No publication Server Route or Browser Surface exists. Same-lineage publication,
 secret-file composition, orphan cleanup, Draft Question expiration, Question Search, and parent
@@ -148,7 +148,7 @@ required legacy phrase. The full aggregate,
 Question lineage and carries the exact Question Revision Reference for the accepted revision with
 the greatest Question Revision Number. PostgreSQL, Rust, generated TypeScript, strict browser,
 fixture, test, and current-documentation owners agree, and Question Revision Availability remains
-separate. Focused Rust, generation, browser, PostgreSQL 17 migration/catalog/restricted-login,
+separate. Focused Rust, generation, browser, PostgreSQL migration/catalog/restricted-login,
 formatting, and diff gates pass; vocabulary row 317 is checked.
 
 `WP-SD1-A-TERM-01-QT1` is completed. The direct pre-production Question Title cutover uses
@@ -172,7 +172,7 @@ Requirements, calculated Question Publication Validation at one exact Draft Ques
 and its complete Question Publication Issues without making validation a lifecycle state. Generic
 report/violation types are absent. Append-only migration `2026090304` gives the remaining Question
 Change Proposal Revision schema field and check constraint exact Question Publication Validation
-ownership; the PostgreSQL 17 catalog oracle requires them and rejects the predecessor. The actual
+ownership; the PostgreSQL catalog oracle requires them and rejects the predecessor. The actual
 publication operation and Browser Surface remain unimplemented QSOM work. Focused schema,
 documentation, PostgreSQL, aggregate, residual, and diff gates pass; vocabulary row 339 is checked.
 
@@ -191,7 +191,7 @@ fields, including a separate `replay` product state. The valid browser fixture m
 contract; operation-specific server-held Receipts remain non-Serde. Focused Blueprint Question Model,
 frontend, TypeScript, formatting, and documentation/source gates pass. Final aggregate acceptance
 generated 422 contracts, validated 3 fixtures, and passed Rust/Wasm, 288 Node, 4,850 Python,
-PostgreSQL 17, and PostgreSQL-plus-MinIO gates. The vocabulary boundary is complete. The separately
+PostgreSQL, and PostgreSQL-plus-MinIO gates. The vocabulary boundary is complete. The separately
 open product capability is a durable Blueprint operation Store and Server Route returning the same
 accepted exact Receipt for the same Account, Request Checksum, source/target, and revision facts.
 
@@ -201,20 +201,20 @@ Reference number and positive Blueprint Revision Number pair already used by Rus
 browser contracts. Course Instance, Course Origin, Assignment source, publication, availability,
 and collaboration records use that pair consistently. The final-tree aggregate generated 422
 contracts, validated 3 tracked fixtures, passed Rust formatting/checks/strict
-Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL 17
+Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL
 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the PostgreSQL-plus-MinIO
 course-appearance oracle. Vocabulary row 567 is checked without a compatibility column, backfill,
 route, Store operation, Browser Surface, or feature.
 
 `WP-SD1-A-TERM-01-BCO1` is completed. The sole durable owner relationship is
 `blueprint_course.blueprint_course_owner_account_id`; publication, availability, and Draft
-Blueprint Revision collaboration authorize that exact Blueprint Course Owner. PostgreSQL 17 proves
+Blueprint Revision collaboration authorize that exact Blueprint Course Owner. PostgreSQL proves
 another Instructor is refused while the owner succeeds. Rust, generated TypeScript, the strict
 decoder, the Blueprint Course workspace, and the hostile generic-owner refusal fixture agree on
 `BlueprintCourseReadAccess`. The approval-era database diagnostic is removed, and vocabulary row
 443 is checked. The final aggregate generated 422 contracts, validated 3 tracked fixtures, passed
 Rust formatting/checks/strict Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests,
-PostgreSQL 17 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
+PostgreSQL fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
 PostgreSQL-plus-MinIO course-appearance oracle. No route, Store, schema relationship, compatibility
 alias, Browser Surface, fixture family, or feature was added.
 
@@ -223,7 +223,7 @@ derived from a repeatable ordered chain of immutable Question Ownership Events. 
 owner records an accepted transfer, and the next owner must be an Active Instructor Account.
 Question Authorship stays separate; publication derives ownership server-side and browser contracts
 expose no owner identity. The Question Library rechecks Account State and remains visible to every
-Active Instructor Account regardless of ownership. PostgreSQL 17 proves the owner transition and
+Active Instructor Account regardless of ownership. PostgreSQL proves the owner transition and
 shared-visibility boundary. Vocabulary row 442 is checked without a route, Store operation, Browser
 Surface, compatibility path, or feature.
 
@@ -231,7 +231,7 @@ Surface, compatibility path, or feature.
 qualified Draft Question and Question Revision Source Bindings directly across RLS, Object Record
 validation, Bind Question Source, publication validation, and iMathAS resolution. The metadata-only
 2026090301 migration no longer copies from or drops a predecessor table, and retired-name-specific
-catalog assertions are deleted. Full aggregate and PostgreSQL 17 gates pass. Rows 262 and 325 remain
+catalog assertions are deleted. Full aggregate and PostgreSQL gates pass. Rows 262 and 325 remain
 open for the remaining QSOM1 cleanup, Question Search, route, browser, and final acceptance scope.
 
 `WP-SD1-A-TERM-01-SLWS1` is completed. Question Model now owns the only Student Late Work Status
@@ -279,7 +279,7 @@ Apply [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) and the permanent-test
 
 | Topic                         | Binding decision                                                                                                                                                                                                                                                                                                                                                                                                                                    | Owner                                                                                           |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Installation and roles        | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership and Student ownership. Sysadmin Create Instructor Account creates one active Account with the fixed Instructor Product Role from a normalized email address and creates no Sysadmin membership; support is explicit and audited. | WP-SD1                                                                                          |
+| Installation and roles        | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership and Student ownership. Sysadmin Create Instructor Account creates one active Account with the fixed Instructor User Role from a normalized email address and creates no Sysadmin membership; support is explicit and audited. | WP-SD1                                                                                          |
 | Reusable courses              | A revisioned `BlueprintCourse` owns reusable ordered structure. Every `CourseInstance` has one immutable Blueprint parent and applied revision; it alone owns Students, deadlines, releases, accommodations, grades, and delivery state.                                                                                                                                                                                                            | WP-SD1-B--G                                                                                     |
 | Published questions           | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionRevision` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically.                                                                                                                                                                                                                                                        | WP-R2, WP-SD1                                                                                   |
 | Draft questions               | One mutable Draft Question belongs to one Authoring Workspace. Its private UUID is server-only and its positive Draft Question Edit Number is the save/publication concurrency token. Publication creates an immutable `QuestionRevisionReference { question_id, revision_number }`; Draft Question revision history is not retained.                                                                                                               | DQM1 implemented pending independent review; QSRC2 implemented pending joint independent review |

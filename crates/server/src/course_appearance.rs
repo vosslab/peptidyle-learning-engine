@@ -27,7 +27,7 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    CourseAppearanceView, CourseInstanceId, CourseThemeUpdate, ProductRole, Timestamp,
+    CourseAppearanceView, CourseInstanceId, CourseThemeUpdate, UserRole, Timestamp,
 };
 
 use crate::auth::{AuthError, resolve_session};
@@ -87,9 +87,9 @@ pub fn course_appearance_router(
 
 /// Persists one independent Course Theme for the current Instructor.
 ///
-/// The Product Role check rejects every non-Instructor before persistence; the
+/// The User Role check rejects every non-Instructor before persistence; the
 /// Store repeats exact active Instructor Course Membership authorization in
-/// PostgreSQL.  Both checks are required because Product Role is not Course
+/// PostgreSQL.  Both checks are required because User Role is not Course
 /// Membership authority.
 async fn update_theme(
     State(state): State<RouteState>,
@@ -154,7 +154,7 @@ async fn update_course_appearance(
     banners: &(impl CourseBannerStore + ?Sized),
     session_hash: SessionTokenHash,
     course_instance_id: CourseInstanceId,
-    theme: question_model::CourseTheme,
+    theme: question_model::Theme,
 ) -> Result<CourseAppearanceView, StoreError> {
     let theme = themes
         .update_course_theme(session_hash, course_instance_id.clone().clone(), theme)
@@ -240,7 +240,7 @@ pub(super) async fn authenticated_session_hash(
     )
     .await
     {
-        // Deliberately accept every authenticated Product Role here.  The
+        // Deliberately accept every authenticated User Role here.  The
         // Store's Course Membership predicate grants the actual read access.
         Ok(session) => Ok(session.session_hash),
         // ASVS 1.2.3 and 8.2.2: anonymous and nonmember callers are
@@ -263,10 +263,10 @@ pub(super) async fn instructor_session_hash(
     )
     .await
     {
-        // ASVS 4.1.1: Product Role is a fast route gate.  The Store still
+        // ASVS 4.1.1: User Role is a fast route gate.  The Store still
         // invokes current_session_account_is_course_instructor for the exact
         // Course Membership authorization boundary.
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

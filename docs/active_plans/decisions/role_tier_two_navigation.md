@@ -2,7 +2,7 @@
 
 ## Current roles
 
-Instructor Tier 2 rows are fixed by Product Role and Tier 1. Routes select the current destination
+Instructor Tier 2 rows are fixed by User Role and Tier 1. Routes select the current destination
 when it matches; deeper context does not change the row.
 
 Student Tier 2 keeps a stable row while the Student moves within a Tier 1 area. The current grouping

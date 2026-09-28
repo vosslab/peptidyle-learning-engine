@@ -1,7 +1,7 @@
 //! Private Authentication Email value objects.
 //!
 //! AuthenticationEmail is a validated, redacted private
-//! normalized-and-delivery credential value. Account Product Role owns its
+//! normalized-and-delivery credential value. Account User Role owns its
 //! lifecycle and mutability: a Student Authentication Email is immutable, and
 //! a future verified Instructor Authentication Email replacement owns
 //! Instructor changes. It is deliberately separate from account identity,

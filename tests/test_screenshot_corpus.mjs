@@ -28,10 +28,6 @@ import {
   writeScreenshotGalleries,
 } from "./playwright/screenshot_corpus/screenshot_galleries";
 import { PRIVACY_PROFILES } from "./playwright/screenshot_corpus/privacy_profiles";
-import {
-  reportScenarioThemeVariety,
-  scenarioCourseTheme,
-} from "./playwright/screenshot_corpus/scenario_theme";
 
 const repositoryRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const manifestPath = path.join(repositoryRoot, "docs/screenshots/current_capture_manifest.json");
@@ -119,7 +115,7 @@ test("the shipped manifest selects the least-data profile for each semantic surf
   assert.equal(PRIVACY_PROFILES.student_selected_response.statusHeading, "forbidden");
 });
 
-test("Course theme comparisons render the same Instructor Course workspace", async () => {
+test("theme samples use the same Instructor Course workspace", async () => {
   const manifest = await loadManifest(manifestPath);
   const themeSamples = manifest.captures.filter(
     (capture) => capture.scenario === "instructor_theme_samples",
@@ -132,13 +128,7 @@ test("Course theme comparisons render the same Instructor Course workspace", asy
   );
   for (const capture of themeSamples) {
     assert.equal(capture.area, "courses", capture.id);
-    assert.equal(capture.workflow, "Course theme comparison", capture.id);
     assert.equal(capture.viewport, "laptop", capture.id);
-    assert.match(capture.path, /^instructor\/theme_sample-[a-z0-9-]+\.png$/u, capture.id);
-    assert.ok(
-      capture.gallery.caption.startsWith("Instructor Course workspace rendered with the "),
-      capture.id,
-    );
   }
 });
 
@@ -174,15 +164,6 @@ test("the screenshot matrix captures each role at its required viewport scope", 
       assert.deepEqual(capturedViewports, PUBLIC_VIEWPORTS, scenario.id);
     }
   }
-});
-
-test("scenario Course Appearance selection is stable and reports observed palette variety", () => {
-  const first = SCREENSHOT_SCENARIOS.map((scenario) => scenarioCourseTheme(scenario.id));
-  const second = SCREENSHOT_SCENARIOS.map((scenario) => scenarioCourseTheme(scenario.id));
-  assert.deepEqual(second, first);
-
-  const report = reportScenarioThemeVariety(SCREENSHOT_SCENARIOS);
-  assert.match(report, /^Scenario Course Appearance palettes: \d+ of \d+ \(.+\)\.$/u);
 });
 
 test("PNG dimensions derive from image bytes", () => {

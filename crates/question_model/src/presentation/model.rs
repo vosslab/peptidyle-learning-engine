@@ -4,7 +4,7 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
 use crate::PublishedQuestionRevisionTuple;
-use crate::course_appearance::CourseTheme;
+use crate::course_appearance::Theme;
 use crate::question_content::{QuestionContentBlock, QuestionImageAssetTuple};
 use crate::student_work::{AssessmentId, CourseInstanceId, QuestionAttemptId, Timestamp};
 
@@ -346,7 +346,7 @@ pub struct StudentAttemptDescriptor {
 pub struct StudentAssessmentAttemptScreenScope {
     pub course_instance_id: CourseInstanceId,
     pub assessment_id: AssessmentId,
-    pub theme: CourseTheme,
+    pub theme: Theme,
 }
 
 /// Student-visible Assessment Attempt context, without storage or policy internals.

@@ -149,7 +149,7 @@ pub trait InstructorAccountStore: Send + Sync {
     /// Records one immutable completed identity-vetting fact for a candidate.
     ///
     /// The authenticated Sysadmin is derived from `session_token_hash`; callers
-    /// cannot provide an approving Account or Product Role.
+    /// cannot provide an approving Account or User Role.
     async fn complete_instructor_identity_vetting(
         &self,
         session_token_hash: SessionTokenHash,

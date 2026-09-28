@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { createBrowserSessionBoundary } from "../src/auth/browser_session_boundary.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
-import { productRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
+import { userRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve declared teaching routes for instructors", () => {
   assert.equal(routeContractForPathname("/library/7K3M-79QP")?.id, "questionDetail");
@@ -17,9 +17,9 @@ test("route contracts fail closed and reserve declared teaching routes for instr
     routeContractForPathname("/blueprint-courses/search/public")?.id,
     "publicBlueprintSearch",
   );
-  assert.equal(productRoleMayAccessRoute("publicBlueprintSearch", "instructor"), true);
-  assert.equal(productRoleMayAccessRoute("publicBlueprintSearch", "student"), false);
-  assert.equal(productRoleMayAccessRoute("publicBlueprintSearch", "sysadmin"), false);
+  assert.equal(userRoleMayAccessRoute("publicBlueprintSearch", "instructor"), true);
+  assert.equal(userRoleMayAccessRoute("publicBlueprintSearch", "student"), false);
+  assert.equal(userRoleMayAccessRoute("publicBlueprintSearch", "sysadmin"), false);
   assert.equal(routeContractForPathname("/blueprint-courses/BP-7")?.id, "blueprintCourseDetail");
   assert.equal(routeContractForPathname("/blueprint-courses/BP-7/extra"), undefined);
   assert.equal(routeContractForPathname("/sysadmin/instructor-approval"), undefined);
@@ -58,19 +58,19 @@ test("route contracts fail closed and reserve declared teaching routes for instr
     routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/edit"),
     undefined,
   );
-  assert.equal(productRoleMayAccessRoute("assessmentOverview", "student"), true);
-  assert.equal(productRoleMayAccessRoute("assessmentOverview", "instructor"), false);
-  assert.equal(productRoleMayAccessRoute("courseAssessments", "student"), false);
-  assert.equal(productRoleMayAccessRoute("courseAssessments", "instructor"), true);
-  assert.equal(productRoleMayAccessRoute("assessmentWorkspaceOverview", "student"), false);
-  assert.equal(productRoleMayAccessRoute("assessmentWorkspaceOverview", "instructor"), true);
+  assert.equal(userRoleMayAccessRoute("assessmentOverview", "student"), true);
+  assert.equal(userRoleMayAccessRoute("assessmentOverview", "instructor"), false);
+  assert.equal(userRoleMayAccessRoute("courseAssessments", "student"), false);
+  assert.equal(userRoleMayAccessRoute("courseAssessments", "instructor"), true);
+  assert.equal(userRoleMayAccessRoute("assessmentWorkspaceOverview", "student"), false);
+  assert.equal(userRoleMayAccessRoute("assessmentWorkspaceOverview", "instructor"), true);
   assert.equal(routeContractForPathname("/workspace"), undefined);
   assert.equal(routeContractForPathname("/workspace/draft-1"), undefined);
   assert.equal(routeContractForPathname("/instructor/courses/C-1/grade-settings"), undefined);
   assert.equal(routeContractForPathname("/instructor/courses/C-1/teaching-operations"), undefined);
-  assert.equal(productRoleMayAccessRoute("blueprintCourses", "student"), false);
-  assert.equal(productRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);
-  assert.equal(productRoleMayAccessRoute("blueprintCourses", "instructor"), true);
+  assert.equal(userRoleMayAccessRoute("blueprintCourses", "student"), false);
+  assert.equal(userRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);
+  assert.equal(userRoleMayAccessRoute("blueprintCourses", "instructor"), true);
   assert.equal(routeContractForPathname("/account-settings"), undefined);
   assert.equal(routeContractForPathname("/account-settings/credentials"), undefined);
 });

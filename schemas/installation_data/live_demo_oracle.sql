@@ -53,34 +53,34 @@ BEGIN
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'elena.martinez@live-demo.invalid'
-       AND account.product_role = 'instructor';
+       AND account.user_role = 'instructor';
     SELECT email.account_id INTO mary
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu'
-       AND account.product_role = 'student';
+       AND account.user_role = 'student';
     SELECT email.account_id INTO jack
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu'
-       AND account.product_role = 'student';
+       AND account.user_role = 'student';
     SELECT email.account_id INTO avery
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu'
-       AND account.product_role = 'student';
+       AND account.user_role = 'student';
     SELECT email.account_id INTO priya
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'priya.shah@live-demo.invalid'
-       AND account.product_role = 'instructor';
+       AND account.user_role = 'instructor';
     SELECT account.account_id INTO sysadmin_id
       FROM ple_private.account AS account
-     WHERE account.product_role = 'sysadmin'
+     WHERE account.user_role = 'sysadmin'
      ORDER BY account.created_at, account.account_id
      LIMIT 1;
     IF elena IS NULL OR mary IS NULL OR jack IS NULL OR avery IS NULL
@@ -297,10 +297,10 @@ BEGIN
     END IF;
     IF EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000222'::uuid, elena, 'instructor'::ple_data.product_role, NULL::uuid),
-               ('00000000-0000-0000-0000-000000000261'::uuid, mary, 'student'::ple_data.product_role, '00000000-0000-0000-0000-000000000251'::uuid),
-               ('00000000-0000-0000-0000-000000000262'::uuid, jack, 'student'::ple_data.product_role, '00000000-0000-0000-0000-000000000252'::uuid),
-               ('00000000-0000-0000-0000-000000000263'::uuid, avery, 'student'::ple_data.product_role, '00000000-0000-0000-0000-000000000253'::uuid)
+               ('00000000-0000-0000-0000-000000000222'::uuid, elena, 'instructor'::ple_data.user_role, NULL::uuid),
+               ('00000000-0000-0000-0000-000000000261'::uuid, mary, 'student'::ple_data.user_role, '00000000-0000-0000-0000-000000000251'::uuid),
+               ('00000000-0000-0000-0000-000000000262'::uuid, jack, 'student'::ple_data.user_role, '00000000-0000-0000-0000-000000000252'::uuid),
+               ('00000000-0000-0000-0000-000000000263'::uuid, avery, 'student'::ple_data.user_role, '00000000-0000-0000-0000-000000000253'::uuid)
            ) AS expected(course_membership_id, account_id, role, student_record_id)
            LEFT JOIN ple_data.course_membership AS membership
              ON membership.course_membership_id = expected.course_membership_id
@@ -355,7 +355,7 @@ BEGIN
              ON invitation.course_invitation_id = expected.course_invitation_id
             AND invitation.course_instance_id = course_id
             AND invitation.target_account_id = expected.student_id
-            AND invitation.membership_role = 'student'::ple_data.product_role
+            AND invitation.membership_role = 'student'::ple_data.user_role
            LEFT JOIN ple_private.course_invitation_event AS invitation_event
              ON invitation_event.course_invitation_id = expected.course_invitation_id
             AND invitation_event.event_kind = 'accepted'

@@ -31,7 +31,7 @@ Use the repository's precise capability vocabulary in evidence and review:
 - **Service is implemented** only after its owned behavior and Store capability are implemented;
   it does not imply that a Server Route exists.
 - **Browser Surface is available** only after the complete browser-facing path is usable for its
-  permitted Product Roles.
+  permitted User Roles.
 - **Mount** only describes attaching a UI component, route component, or container to a rendered
   composition. Do not use it as a synonym for registering a Server Route or implementing a Service.
 
@@ -48,13 +48,13 @@ Use the repository's precise capability vocabulary in evidence and review:
 
 2. **Declare the executable route and real page, or record why no browser route is appropriate.**
    Add the route contract only when there is a real browser destination with a real content owner.
-   The route's path, Product Role ceiling, Ribbon Scope, selection metadata, and Content Layout
+   The route's path, User Role ceiling, Ribbon Scope, selection metadata, and Content Layout
    belong in [the route contract](../../src/route_contract.ts). Attach the real route component to
    the route composition, preserving its [route access boundary](../../src/route_access_boundary.tsx).
    If the capability has no Browser Surface, keep it out of the Ribbon and document that it has no
    browser-route rationale. A declared route or a component mounted in a fixture is not backing.
 
-3. **Put authorization at its actual owners.** Confirm the route's declared Product Role ceiling
+3. **Put authorization at its actual owners.** Confirm the route's declared User Role ceiling
    and the server-side authorization and relationship checks that protect each request. The
    [route access boundary](../../src/route_access_boundary.tsx) is a browser fail-closed boundary;
    it cannot authorize a server operation. Do not infer permission from catalog membership,
@@ -88,7 +88,7 @@ Use the repository's precise capability vocabulary in evidence and review:
    fixture may prove shell structure, but never this production-capability claim.
 
 8. **Specify relationship presentation and caching when the destination depends on one.** If
-   visibility needs a relationship beyond immutable Product Role, declare its requirement in the
+   visibility needs a relationship beyond immutable User Role, declare its requirement in the
    [Ribbon schema](../../src/ribbon/ribbon_schema.ts), identify its data owner and cache/query key
    in [the application API](../../src/api/application_api.tsx), and preserve the synchronous
    schema. While the relationship is outstanding, availability is `Checking` and the control is
@@ -106,7 +106,7 @@ Use the repository's precise capability vocabulary in evidence and review:
 
 10. **Verify model derivation and shell admission.** Confirm that
     [model derivation](../../src/ribbon/ribbon_contract.ts) projects the admitted entry only for
-    the intended Ribbon Scope, Product Role, route selection, and resolved relationship facts.
+    the intended Ribbon Scope, User Role, route selection, and resolved relationship facts.
     Confirm that [the production application](../../src/app.tsx) supplies the model and that
     `src/application_shell.tsx` remains the single persistent Ribbon
     owner. Do not create a second navigation surface, fetch topology in the Ribbon, or turn a
@@ -152,7 +152,7 @@ future destination.
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Canonical destination and designed position | [Interface terminology](../INTERFACE_TERMINOLOGY.md) and [Ribbon catalog](../../src/ribbon/ribbon_catalog.ts), with the exact control id and Tab/Task/Page Action classification.        |
 | Route and page                              | [Route contract](../../src/route_contract.ts) with `RouteId`, plus the mounted real page component. Or: explicit no-Browser-Surface rationale.                                           |
-| Product Role and authorization              | [Route access boundary](../../src/route_access_boundary.tsx), named server authorization owner, and relationship rule if applicable.                                                     |
+| User Role and authorization              | [Route access boundary](../../src/route_access_boundary.tsx), named server authorization owner, and relationship rule if applicable.                                                     |
 | Typed browser method                        | [API client](../../src/api/client.ts), request/response contract and decoder location, plus [application API](../../src/api/application_api.tsx) query key if cached.                    |
 | Service and Store                           | [Contract register](../CONTRACTS.md), exact Service module/symbol, exact Store module/symbol, and service/Store evidence.                                                                |
 | Server Route                                | [Production composition](../../crates/server/src/composition.rs), exact handler symbol, request mapping, and failure mapping; or explicit no-server-call justification.                  |

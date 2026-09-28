@@ -20,7 +20,7 @@ BEGIN
                     WHERE workspace.authoring_workspace_id
                           = '00000000-0000-0000-0000-000000000202'::uuid
                )
-           AND authenticated_session.product_role = 'instructor'
+           AND authenticated_session.user_role = 'instructor'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'PLE Example Content session is not the supplied temporary Instructor session';

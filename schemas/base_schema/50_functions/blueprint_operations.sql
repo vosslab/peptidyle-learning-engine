@@ -418,7 +418,7 @@ DECLARE
     v_course ple_data.blueprint_course%ROWTYPE;
     v_next_blueprint_edit_number bigint;
 BEGIN
-    -- ASVS 8.2.1/8.2.2: ownership, not ambient Product Role, permits mutation.
+    -- ASVS 8.2.1/8.2.2: ownership, not ambient User Role, permits mutation.
     SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = p_blueprint_course_id
        AND course.owner_account_id = ple_api.current_session_account_id()

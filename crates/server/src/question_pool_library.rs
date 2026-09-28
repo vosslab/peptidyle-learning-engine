@@ -25,7 +25,7 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEntryId, AssessmentId, AssessmentQuestionPoolForkView,
     BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
-    CourseInstanceId, ProductRole, QuestionPoolBloomCorrectionReceipt, QuestionPoolBloomFacets,
+    CourseInstanceId, UserRole, QuestionPoolBloomCorrectionReceipt, QuestionPoolBloomFacets,
     QuestionPoolId, QuestionPoolLibraryPage, QuestionPoolMemberView, QuestionPoolView,
 };
 use serde::{Deserialize, Serialize};
@@ -572,7 +572,7 @@ async fn instructor(
         .filter(|values| !values.is_empty())
         .map(|values| values.join("; "));
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
@@ -594,13 +594,13 @@ async fn library_reader(
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
         Ok(session)
             if matches!(
-                session.record.product_role,
-                ProductRole::Instructor | ProductRole::Sysadmin
+                session.record.user_role,
+                UserRole::Instructor | UserRole::Sysadmin
             ) =>
         {
             Ok((
                 session.session_hash,
-                session.record.product_role == ProductRole::Instructor,
+                session.record.user_role == UserRole::Instructor,
             ))
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

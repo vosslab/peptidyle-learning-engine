@@ -9,8 +9,8 @@ import {
   createDeferredResolution,
   createRoutingInFlightSignal,
   createScrollIntoViewStub,
-  mountForEachProductRole,
-  useProductRoleFixture,
+  mountForEachUserRole,
+  useUserRoleFixture,
   walkPathnamesThroughMountedApp,
 } from "./support/ribbon_test_support.ts";
 import {
@@ -18,12 +18,12 @@ import {
   RIBBON_RESPONSIVE_PROFILES,
 } from "./playwright/ui_corpus_manifest.ts";
 
-test("Product Role fixtures render one trivial Solid consumer for each immutable role", () => {
-  function ProductRoleConsumer() {
-    return useProductRoleFixture().productRole;
+test("User Role fixtures render one trivial Solid consumer for each immutable role", () => {
+  function UserRoleConsumer() {
+    return useUserRoleFixture().userRole;
   }
 
-  const renderedRoles = mountForEachProductRole(ProductRoleConsumer);
+  const renderedRoles = mountForEachUserRole(UserRoleConsumer);
   assert.deepEqual(renderedRoles, ["student", "instructor", "sysadmin"]);
 });
 

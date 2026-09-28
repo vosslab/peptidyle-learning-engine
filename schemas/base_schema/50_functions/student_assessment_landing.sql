@@ -395,7 +395,7 @@ BEGIN
        AND student.course_instance_id = course.course_instance_id
        AND student.student_account_id = account.account_id
      WHERE account.account_id = ple_api.current_session_account_id()
-       AND account.product_role = 'student'
+       AND account.user_role = 'student'
        AND course.course_instance_id = p_course_instance_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
@@ -494,7 +494,7 @@ BEGIN
        AND student.course_instance_id = course.course_instance_id
        AND student.student_account_id = account.account_id
      WHERE account.account_id = ple_api.current_session_account_id()
-       AND account.product_role = 'student'
+       AND account.user_role = 'student'
        AND course.course_instance_id = p_course_instance_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';

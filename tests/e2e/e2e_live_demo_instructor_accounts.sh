@@ -164,7 +164,7 @@ instructor_account_count_for_email() {
 		'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh \
 		"SELECT count(*) FROM ple_private.account_authentication_email AS email
           JOIN ple_private.account AS account ON account.account_id = email.account_id
-         WHERE email.normalized_email = '$email' AND account.product_role = 'instructor'"
+         WHERE email.normalized_email = '$email' AND account.user_role = 'instructor'"
 }
 
 assert_no_instructor_account_for_email() {
@@ -219,7 +219,7 @@ instructor_preservation_snapshot() {
 	postgres="$(service_id postgres)"
 	sql="WITH instructor AS (
     SELECT account_id FROM ple_private.account
-     WHERE account_id = :'account_id' AND product_role = 'instructor'
+     WHERE account_id = :'account_id' AND user_role = 'instructor'
 ), snapshot AS (
     SELECT
         (SELECT count(*) FROM ple_private.authoring_workspace AS workspace

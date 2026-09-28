@@ -19,7 +19,7 @@ use learning_data_access::{
     StoreError,
     postgres::{PostgresQuestionStarStore, PostgresSessionStore},
 };
-use question_model::{ProductRole, PublishedQuestionId};
+use question_model::{UserRole, PublishedQuestionId};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -175,7 +175,7 @@ async fn instructor_session_hash(
     {
         // ASVS 8.2.1 and 8.3.1: role authorization is server-derived. The
         // subsequent database procedure independently rechecks active status.
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

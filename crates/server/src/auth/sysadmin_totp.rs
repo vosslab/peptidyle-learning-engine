@@ -2,7 +2,7 @@
 //!
 //! This module intentionally does not provision a seed or create a demo-only
 //! authentication mode. A trusted primary ceremony supplies the database
-//! derived Account and Product Role; Sysadmin is the only role redirected to
+//! derived Account and User Role; Sysadmin is the only role redirected to
 //! this pending-MFA boundary.
 
 use std::{
@@ -26,7 +26,7 @@ use learning_data_access::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, SessionStore, StoreError,
     SysadminTotpAttestationId, SysadminTotpCounter, SysadminTotpStore,
 };
-use question_model::ProductRole;
+use question_model::UserRole;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use subtle::ConstantTimeEq;
@@ -85,7 +85,7 @@ pub async fn establish_primary_authentication<S>(
 where
     S: SessionStore + SysadminTotpStore,
 {
-    if primary.product_role != ProductRole::Sysadmin {
+    if primary.user_role != UserRole::Sysadmin {
         return super::issue_session(store, primary.account, config)
             .await
             .map(PrimaryAuthenticationOutcome::Authenticated);
@@ -262,7 +262,7 @@ where
             .await
         {
             Ok(Some(record)) => {
-                if record.product_role != ProductRole::Sysadmin || record.account != pending.account
+                if record.user_role != UserRole::Sysadmin || record.account != pending.account
                 {
                     return Err(TotpCompletionError::Unavailable);
                 }

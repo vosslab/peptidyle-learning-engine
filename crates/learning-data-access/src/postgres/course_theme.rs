@@ -1,7 +1,7 @@
 //! PostgreSQL persistence for the scalar Course Theme setting.
 
 use async_trait::async_trait;
-use question_model::{CourseInstanceId, CourseTheme};
+use question_model::{CourseInstanceId, Theme};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -52,7 +52,7 @@ impl CourseThemeStore for PostgresCourseThemeStore {
         &self,
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-    ) -> Result<CourseTheme, StoreError> {
+    ) -> Result<Theme, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         // ASVS 1.2.3 and 8.2.2: the database function binds this opaque Course
         // identity to the installed session's active Course Membership.
@@ -73,8 +73,8 @@ impl CourseThemeStore for PostgresCourseThemeStore {
         &self,
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-        selected_theme: CourseTheme,
-    ) -> Result<CourseTheme, StoreError> {
+        selected_theme: Theme,
+    ) -> Result<Theme, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         // ASVS 1.2.3 and 8.2.2: Instructor authorization is enforced by the
         // same session-aware database predicate as the update itself.
@@ -93,7 +93,7 @@ impl CourseThemeStore for PostgresCourseThemeStore {
     }
 }
 
-fn theme(value: String) -> Result<CourseTheme, StoreError> {
+fn theme(value: String) -> Result<Theme, StoreError> {
     value.parse().map_err(|_| {
         StoreError::InvalidRecord("database returned an invalid Course Theme".to_string())
     })

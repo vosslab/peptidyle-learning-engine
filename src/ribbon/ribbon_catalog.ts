@@ -1,6 +1,6 @@
 // ribbon_catalog.ts - declared Ribbon navigation inventory, independent of capability admission.
 
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import { type RibbonTabId, type RouteId } from "../route_contract";
 import type { RouteParamName } from "../navigation/route_params";
 
@@ -25,7 +25,7 @@ export type RibbonContextControlGlyphKey = "profile";
 export interface RibbonContextControlCatalogEntry {
   readonly id: RibbonContextControlId;
   readonly label: string;
-  readonly productRoles: ReadonlyArray<ProductRole>;
+  readonly userRoles: ReadonlyArray<UserRole>;
   readonly availability: RibbonContextControlAvailability;
   readonly glyph: RibbonContextControlGlyphKey;
 }
@@ -135,7 +135,7 @@ export const RIBBON_CONTEXT_CONTROL_CATALOG = [
   {
     id: "profile",
     label: "Profile",
-    productRoles: ["student", "instructor", "sysadmin"],
+    userRoles: ["student", "instructor", "sysadmin"],
     availability: "Available",
     glyph: "profile",
   },

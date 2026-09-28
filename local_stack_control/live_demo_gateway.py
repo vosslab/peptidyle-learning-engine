@@ -11,6 +11,7 @@ import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.models
+import local_stack_control.private_files
 import local_stack_control.process
 
 
@@ -31,7 +32,35 @@ def write_browser_certificate_trust(
 	workspace: pathlib.Path,
 	origin: str,
 ) -> None:
-	"""Export only this ready gateway's public CA and Chromium intermediate pin."""
+	"""Create trust artifacts for one newly launched ready gateway."""
+	files = browser_certificate_trust_files(runner, repo_root, origin)
+	for name, content in files.items():
+		descriptor = os.open(workspace / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+		with os.fdopen(descriptor, "wb") as output:
+			output.write(content)
+
+
+#============================================
+def refresh_browser_certificate_trust(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	workspace: pathlib.Path,
+	origin: str,
+) -> None:
+	"""Atomically replace the owner's trust artifacts for its current ready gateway."""
+	files = browser_certificate_trust_files(runner, repo_root, origin)
+	for name, content in files.items():
+		# ASVS 12.3.2/12.3.4: replace only the owner's CA and pinned intermediate.
+		local_stack_control.private_files.write_atomic_file(workspace / name, content, 0o600)
+
+
+#============================================
+def browser_certificate_trust_files(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	origin: str,
+) -> dict[str, bytes]:
+	"""Return the current gateway's bounded public browser trust artifacts."""
 	containers, _, _ = local_stack_control.discovery.discover_resources(
 		runner, repo_root, local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 	)
@@ -58,13 +87,12 @@ def write_browser_certificate_trust(
 		raise local_stack_control.models.ControllerError("gateway certificate pin could not be derived")
 	# ASVS 12.3.2/12.3.4: trust the owner's CA in this test process only, never all TLS errors.
 	files = {
-		"gateway-root.crt": certificates["root"],
-		"gateway-browser-trust.json": json.dumps({"origin": origin, "spki": pin.stdout.strip()}),
+		"gateway-root.crt": certificates["root"].encode("ascii"),
+		"gateway-browser-trust.json": json.dumps(
+			{"origin": origin, "spki": pin.stdout.strip()}, separators=(",", ":")
+		).encode("ascii"),
 	}
-	for name, content in files.items():
-		descriptor = os.open(workspace / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-		with os.fdopen(descriptor, "w", encoding="ascii") as output:
-			output.write(content)
+	return files
 
 
 #============================================

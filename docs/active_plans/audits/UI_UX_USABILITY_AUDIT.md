@@ -148,7 +148,7 @@ course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter re
   carry an answer-free saved-response count and render active Coursework as `N of M responses
 saved`; completed Coursework retains its existing grading and disclosed-score branch. Accepted
   source review, focused Cargo, strict TypeScript, and 1280/390 component-browser gates passed.
-  A fresh canonical PostgreSQL 17 actual-role `ple_auth` -> `ple_app` proof observed no-Attempt
+  A fresh canonical PostgreSQL actual-role `ple_auth` -> `ple_app` proof observed no-Attempt
   zero, an ordinary Student save from `0` to `1`, replacement remaining `1`, a later empty Attempt
   returning `0`, and Student/Course isolation. Receipts:
   `/private/tmp/ple-student-saved-progress-slice-20260916.md`,
@@ -706,13 +706,13 @@ refresh follows.
 HG owns the approved hierarchy, editing authority, and name-validation requirements. Current source
 implements the settled Discipline lifecycle: Sysadmin-only stable UUID create, rename, retire, and
 restore; no delete; active-only new choices; visible/discoverable retired references; exact
-inheritance/copy; and concurrency locks. Fresh PostgreSQL 17 actual-role proof closes the SQL row.
+inheritance/copy; and concurrency locks. Fresh PostgreSQL actual-role proof closes the SQL row.
 The compact Sysadmin page reports active/retired state; canonical browser acceptance remains open.
 
 Current source implements retained Question/Pool improvement threads and impact notices. Vetted
 Instructors participate in text-only threads; Question owners and Sysadmins administer Question
 activity, while Pool administration is Sysadmin-only. Sysadmins use read-only Library content
-controls outside those administration actions. Fresh PostgreSQL 17 actual-role proof closes private
+controls outside those administration actions. Fresh PostgreSQL actual-role proof closes private
 recipient delivery for Revision, fork, improvement-thread, and impact-notice events. Canonical
 browser notification presentation remains open.
 

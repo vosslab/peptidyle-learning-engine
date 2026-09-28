@@ -29,12 +29,12 @@ BEGIN
         JOIN LATERAL (SELECT state FROM ple_private.account_state_event
             WHERE account_id = account.account_id ORDER BY occurred_at DESC, event_id DESC LIMIT 1
         ) AS state_event ON state_event.state = 'active'
-        WHERE account.account_id = NEW.editor_account_id AND account.product_role = 'instructor')
+        WHERE account.account_id = NEW.editor_account_id AND account.user_role = 'instructor')
        OR NOT EXISTS (SELECT 1 FROM ple_private.account AS account
         JOIN LATERAL (SELECT state FROM ple_private.account_state_event
             WHERE account_id = account.account_id ORDER BY occurred_at DESC, event_id DESC LIMIT 1
         ) AS state_event ON state_event.state = 'active'
-        WHERE account.account_id = NEW.accepted_by_account_id AND account.product_role = 'instructor') THEN
+        WHERE account.account_id = NEW.accepted_by_account_id AND account.user_role = 'instructor') THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Revision editor and accepter must be Active Instructor Accounts';
     END IF;
@@ -67,7 +67,7 @@ BEGIN
         JOIN LATERAL (SELECT state FROM ple_private.account_state_event
             WHERE account_id = account.account_id ORDER BY occurred_at DESC, event_id DESC LIMIT 1
         ) AS state_event ON state_event.state = 'active'
-        WHERE account.account_id = NEW.owner_account_id AND account.product_role = 'instructor') THEN
+        WHERE account.account_id = NEW.owner_account_id AND account.user_role = 'instructor') THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Owner must be an Active Instructor Account';
     END IF;
@@ -184,7 +184,7 @@ BEGIN
           FROM ple_data.question_star AS star
           JOIN ple_private.account AS account
             ON account.account_id = star.instructor_account_id
-           AND account.product_role = 'instructor'
+           AND account.user_role = 'instructor'
           JOIN LATERAL (
               SELECT event.state
                 FROM ple_private.account_state_event AS event

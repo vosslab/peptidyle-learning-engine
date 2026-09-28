@@ -24,65 +24,125 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Roster with a pending invitation.** pending invitation - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the tundra theme](../screenshots/instructor/theme_sample-tundra.png)](../screenshots/instructor/theme_sample-tundra.png)
+[![Screenshot preview of Instructor Course workspace rendered with the tundra Theme in light mode](../screenshots/instructor/theme_sample-tundra-light.png)](../screenshots/instructor/theme_sample-tundra-light.png)
 
-**Instructor Course workspace rendered with the tundra theme.** theme sample tundra - laptop.
+**Instructor Course workspace rendered with the tundra Theme in light mode.** theme sample tundra light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the forest theme](../screenshots/instructor/theme_sample-forest.png)](../screenshots/instructor/theme_sample-forest.png)
+[![Screenshot preview of Instructor Course workspace rendered with the tundra Theme in dark mode](../screenshots/instructor/theme_sample-tundra-dark.png)](../screenshots/instructor/theme_sample-tundra-dark.png)
 
-**Instructor Course workspace rendered with the forest theme.** theme sample forest - laptop.
+**Instructor Course workspace rendered with the tundra Theme in dark mode.** theme sample tundra dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the desert theme](../screenshots/instructor/theme_sample-desert.png)](../screenshots/instructor/theme_sample-desert.png)
+[![Screenshot preview of Instructor Course workspace rendered with the forest Theme in light mode](../screenshots/instructor/theme_sample-forest-light.png)](../screenshots/instructor/theme_sample-forest-light.png)
 
-**Instructor Course workspace rendered with the desert theme.** theme sample desert - laptop.
+**Instructor Course workspace rendered with the forest Theme in light mode.** theme sample forest light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the grass theme](../screenshots/instructor/theme_sample-grass.png)](../screenshots/instructor/theme_sample-grass.png)
+[![Screenshot preview of Instructor Course workspace rendered with the forest Theme in dark mode](../screenshots/instructor/theme_sample-forest-dark.png)](../screenshots/instructor/theme_sample-forest-dark.png)
 
-**Instructor Course workspace rendered with the grass theme.** theme sample grass - laptop.
+**Instructor Course workspace rendered with the forest Theme in dark mode.** theme sample forest dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the arctic theme](../screenshots/instructor/theme_sample-arctic.png)](../screenshots/instructor/theme_sample-arctic.png)
+[![Screenshot preview of Instructor Course workspace rendered with the desert Theme in light mode](../screenshots/instructor/theme_sample-desert-light.png)](../screenshots/instructor/theme_sample-desert-light.png)
 
-**Instructor Course workspace rendered with the arctic theme.** theme sample arctic - laptop.
+**Instructor Course workspace rendered with the desert Theme in light mode.** theme sample desert light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the ocean theme](../screenshots/instructor/theme_sample-ocean.png)](../screenshots/instructor/theme_sample-ocean.png)
+[![Screenshot preview of Instructor Course workspace rendered with the desert Theme in dark mode](../screenshots/instructor/theme_sample-desert-dark.png)](../screenshots/instructor/theme_sample-desert-dark.png)
 
-**Instructor Course workspace rendered with the ocean theme.** theme sample ocean - laptop.
+**Instructor Course workspace rendered with the desert Theme in dark mode.** theme sample desert dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the tropical theme](../screenshots/instructor/theme_sample-tropical.png)](../screenshots/instructor/theme_sample-tropical.png)
+[![Screenshot preview of Instructor Course workspace rendered with the grass Theme in light mode](../screenshots/instructor/theme_sample-grass-light.png)](../screenshots/instructor/theme_sample-grass-light.png)
 
-**Instructor Course workspace rendered with the tropical theme.** theme sample tropical - laptop.
+**Instructor Course workspace rendered with the grass Theme in light mode.** theme sample grass light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the coral-reef theme](../screenshots/instructor/theme_sample-coral-reef.png)](../screenshots/instructor/theme_sample-coral-reef.png)
+[![Screenshot preview of Instructor Course workspace rendered with the grass Theme in dark mode](../screenshots/instructor/theme_sample-grass-dark.png)](../screenshots/instructor/theme_sample-grass-dark.png)
 
-**Instructor Course workspace rendered with the coral-reef theme.** theme sample coral-reef - laptop.
+**Instructor Course workspace rendered with the grass Theme in dark mode.** theme sample grass dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the swamp theme](../screenshots/instructor/theme_sample-swamp.png)](../screenshots/instructor/theme_sample-swamp.png)
+[![Screenshot preview of Instructor Course workspace rendered with the arctic Theme in light mode](../screenshots/instructor/theme_sample-arctic-light.png)](../screenshots/instructor/theme_sample-arctic-light.png)
 
-**Instructor Course workspace rendered with the swamp theme.** theme sample swamp - laptop.
+**Instructor Course workspace rendered with the arctic Theme in light mode.** theme sample arctic light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the underground theme](../screenshots/instructor/theme_sample-underground.png)](../screenshots/instructor/theme_sample-underground.png)
+[![Screenshot preview of Instructor Course workspace rendered with the arctic Theme in dark mode](../screenshots/instructor/theme_sample-arctic-dark.png)](../screenshots/instructor/theme_sample-arctic-dark.png)
 
-**Instructor Course workspace rendered with the underground theme.** theme sample underground - laptop.
+**Instructor Course workspace rendered with the arctic Theme in dark mode.** theme sample arctic dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the salt-marsh theme](../screenshots/instructor/theme_sample-salt-marsh.png)](../screenshots/instructor/theme_sample-salt-marsh.png)
+[![Screenshot preview of Instructor Course workspace rendered with the ocean Theme in light mode](../screenshots/instructor/theme_sample-ocean-light.png)](../screenshots/instructor/theme_sample-ocean-light.png)
 
-**Instructor Course workspace rendered with the salt-marsh theme.** theme sample salt-marsh - laptop.
+**Instructor Course workspace rendered with the ocean Theme in light mode.** theme sample ocean light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the wetland theme](../screenshots/instructor/theme_sample-wetland.png)](../screenshots/instructor/theme_sample-wetland.png)
+[![Screenshot preview of Instructor Course workspace rendered with the ocean Theme in dark mode](../screenshots/instructor/theme_sample-ocean-dark.png)](../screenshots/instructor/theme_sample-ocean-dark.png)
 
-**Instructor Course workspace rendered with the wetland theme.** theme sample wetland - laptop.
+**Instructor Course workspace rendered with the ocean Theme in dark mode.** theme sample ocean dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the sea-floor theme](../screenshots/instructor/theme_sample-sea-floor.png)](../screenshots/instructor/theme_sample-sea-floor.png)
+[![Screenshot preview of Instructor Course workspace rendered with the tropical Theme in light mode](../screenshots/instructor/theme_sample-tropical-light.png)](../screenshots/instructor/theme_sample-tropical-light.png)
 
-**Instructor Course workspace rendered with the sea-floor theme.** theme sample sea-floor - laptop.
+**Instructor Course workspace rendered with the tropical Theme in light mode.** theme sample tropical light - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the magma theme](../screenshots/instructor/theme_sample-magma.png)](../screenshots/instructor/theme_sample-magma.png)
+[![Screenshot preview of Instructor Course workspace rendered with the tropical Theme in dark mode](../screenshots/instructor/theme_sample-tropical-dark.png)](../screenshots/instructor/theme_sample-tropical-dark.png)
 
-**Instructor Course workspace rendered with the magma theme.** theme sample magma - laptop.
+**Instructor Course workspace rendered with the tropical Theme in dark mode.** theme sample tropical dark - laptop.
 
-[![Screenshot preview of Instructor Course workspace rendered with the beach theme](../screenshots/instructor/theme_sample-beach.png)](../screenshots/instructor/theme_sample-beach.png)
+[![Screenshot preview of Instructor Course workspace rendered with the coral-reef Theme in light mode](../screenshots/instructor/theme_sample-coral-reef-light.png)](../screenshots/instructor/theme_sample-coral-reef-light.png)
 
-**Instructor Course workspace rendered with the beach theme.** theme sample beach - laptop.
+**Instructor Course workspace rendered with the coral-reef Theme in light mode.** theme sample coral-reef light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the coral-reef Theme in dark mode](../screenshots/instructor/theme_sample-coral-reef-dark.png)](../screenshots/instructor/theme_sample-coral-reef-dark.png)
+
+**Instructor Course workspace rendered with the coral-reef Theme in dark mode.** theme sample coral-reef dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the swamp Theme in light mode](../screenshots/instructor/theme_sample-swamp-light.png)](../screenshots/instructor/theme_sample-swamp-light.png)
+
+**Instructor Course workspace rendered with the swamp Theme in light mode.** theme sample swamp light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the swamp Theme in dark mode](../screenshots/instructor/theme_sample-swamp-dark.png)](../screenshots/instructor/theme_sample-swamp-dark.png)
+
+**Instructor Course workspace rendered with the swamp Theme in dark mode.** theme sample swamp dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the underground Theme in light mode](../screenshots/instructor/theme_sample-underground-light.png)](../screenshots/instructor/theme_sample-underground-light.png)
+
+**Instructor Course workspace rendered with the underground Theme in light mode.** theme sample underground light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the underground Theme in dark mode](../screenshots/instructor/theme_sample-underground-dark.png)](../screenshots/instructor/theme_sample-underground-dark.png)
+
+**Instructor Course workspace rendered with the underground Theme in dark mode.** theme sample underground dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the salt-marsh Theme in light mode](../screenshots/instructor/theme_sample-salt-marsh-light.png)](../screenshots/instructor/theme_sample-salt-marsh-light.png)
+
+**Instructor Course workspace rendered with the salt-marsh Theme in light mode.** theme sample salt-marsh light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the salt-marsh Theme in dark mode](../screenshots/instructor/theme_sample-salt-marsh-dark.png)](../screenshots/instructor/theme_sample-salt-marsh-dark.png)
+
+**Instructor Course workspace rendered with the salt-marsh Theme in dark mode.** theme sample salt-marsh dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the wetland Theme in light mode](../screenshots/instructor/theme_sample-wetland-light.png)](../screenshots/instructor/theme_sample-wetland-light.png)
+
+**Instructor Course workspace rendered with the wetland Theme in light mode.** theme sample wetland light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the wetland Theme in dark mode](../screenshots/instructor/theme_sample-wetland-dark.png)](../screenshots/instructor/theme_sample-wetland-dark.png)
+
+**Instructor Course workspace rendered with the wetland Theme in dark mode.** theme sample wetland dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the sea-floor Theme in light mode](../screenshots/instructor/theme_sample-sea-floor-light.png)](../screenshots/instructor/theme_sample-sea-floor-light.png)
+
+**Instructor Course workspace rendered with the sea-floor Theme in light mode.** theme sample sea-floor light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the sea-floor Theme in dark mode](../screenshots/instructor/theme_sample-sea-floor-dark.png)](../screenshots/instructor/theme_sample-sea-floor-dark.png)
+
+**Instructor Course workspace rendered with the sea-floor Theme in dark mode.** theme sample sea-floor dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the magma Theme in light mode](../screenshots/instructor/theme_sample-magma-light.png)](../screenshots/instructor/theme_sample-magma-light.png)
+
+**Instructor Course workspace rendered with the magma Theme in light mode.** theme sample magma light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the magma Theme in dark mode](../screenshots/instructor/theme_sample-magma-dark.png)](../screenshots/instructor/theme_sample-magma-dark.png)
+
+**Instructor Course workspace rendered with the magma Theme in dark mode.** theme sample magma dark - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the beach Theme in light mode](../screenshots/instructor/theme_sample-beach-light.png)](../screenshots/instructor/theme_sample-beach-light.png)
+
+**Instructor Course workspace rendered with the beach Theme in light mode.** theme sample beach light - laptop.
+
+[![Screenshot preview of Instructor Course workspace rendered with the beach Theme in dark mode](../screenshots/instructor/theme_sample-beach-dark.png)](../screenshots/instructor/theme_sample-beach-dark.png)
+
+**Instructor Course workspace rendered with the beach Theme in dark mode.** theme sample beach dark - laptop.
 
 [![Screenshot preview of Answer-free Gradebook](../screenshots/instructor/courses-gradebook-gradebook.png)](../screenshots/instructor/courses-gradebook-gradebook.png)
 
@@ -163,6 +223,18 @@ Generated from the current screenshot manifest. Images link to their full-size f
 [![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](../screenshots/instructor/questions-search-webwork_chromosome_shapes.png)](../screenshots/instructor/questions-search-webwork_chromosome_shapes.png)
 
 **Matching Chromosome Shapes to Descriptions generated example.** Matching Chromosome Shapes to Descriptions generated example - laptop.
+
+[![Screenshot preview of Instructor personal Magma Theme on a filtered Question Library in Light mode](../screenshots/instructor/theme-personal-library-light.png)](../screenshots/instructor/theme-personal-library-light.png)
+
+**Instructor personal Magma Theme on a filtered Question Library in Light mode.** Magma Light filtered library - laptop.
+
+[![Screenshot preview of Instructor personal Magma Theme on a filtered Question Library in Dark mode](../screenshots/instructor/theme-personal-library-dark.png)](../screenshots/instructor/theme-personal-library-dark.png)
+
+**Instructor personal Magma Theme on a filtered Question Library in Dark mode.** Magma Dark filtered library - laptop.
+
+[![Screenshot preview of Published Question detail using the Instructor personal Magma Theme in Dark mode](../screenshots/instructor/theme-personal-question-detail-dark.png)](../screenshots/instructor/theme-personal-question-detail-dark.png)
+
+**Published Question detail using the Instructor personal Magma Theme in Dark mode.** Magma Dark published Question detail - laptop.
 
 [![Screenshot preview of Instructor Profile](../screenshots/instructor/default.png)](../screenshots/instructor/default.png)
 

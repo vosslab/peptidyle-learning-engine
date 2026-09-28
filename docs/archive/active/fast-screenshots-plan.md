@@ -468,7 +468,7 @@ milestones. No milestone below survives a measurement that says it saves nothing
 - Acceptance criteria: the route the page reached is recorded through `routeContractForPathname`
   and carried on the capture result, and a page on no declared route fails; the policy
   `validateCaptureRelationships` enforces today is kept and evaluated against the observed route -
-  a capture's role must be inside the route's `requiredProductRoles`, and a public capture must be
+  a capture's role must be inside the route's `requiredUserRoles`, and a public capture must be
   sign-in or expired-session recovery. While the manifest is still hand-written, the observed route
   is also compared against the declared one, which is today's `assertRoute` behavior unchanged.
 - Evidence or review: the corpus definition test rejecting a student capture on an instructor-only

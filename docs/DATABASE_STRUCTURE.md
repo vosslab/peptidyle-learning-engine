@@ -41,7 +41,7 @@ and checked within the protected transaction.
 ## Target product relationships
 
 ```text
-Global Account (one immutable Product Role)
+Global Account (one immutable User Role)
   +-- Course relationships
   |     +-- Course Instance
   |           +-- equal co-Instructor relationships

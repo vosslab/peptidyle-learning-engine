@@ -11,30 +11,30 @@ import {
 } from "solid-js";
 import { renderToString } from "solid-js/web";
 
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import { createHttpApiClient, type ApiFetch } from "../../src/api/http_client";
 
-export interface ProductRoleFixture {
-  readonly productRole: ProductRole;
+export interface UserRoleFixture {
+  readonly userRole: UserRole;
   readonly accountId: string;
 }
 
-const ProductRoleFixtureContext = createContext<ProductRoleFixture>();
+const UserRoleFixtureContext = createContext<UserRoleFixture>();
 
 /** Reads the role fixture supplied by a rendered test component tree. */
-export function useProductRoleFixture(): ProductRoleFixture {
-  const fixture = useContext(ProductRoleFixtureContext);
-  if (fixture === undefined) throw new Error("Product Role fixture provider is missing");
+export function useUserRoleFixture(): UserRoleFixture {
+  const fixture = useContext(UserRoleFixtureContext);
+  if (fixture === undefined) throw new Error("User Role fixture provider is missing");
   return fixture;
 }
 
-/** Stable authority fixtures for every current immutable Product Role. */
-export const PRODUCT_ROLE_FIXTURES = {
-  student: { productRole: "student", accountId: "00000000-0000-4000-8000-000000000001" },
-  instructor: { productRole: "instructor", accountId: "00000000-0000-4000-8000-000000000002" },
-  sysadmin: { productRole: "sysadmin", accountId: "00000000-0000-4000-8000-000000000003" },
-} as const satisfies Readonly<Record<ProductRole, ProductRoleFixture>>;
+/** Stable authority fixtures for every current immutable User Role. */
+export const USER_ROLE_FIXTURES = {
+  student: { userRole: "student", accountId: "00000000-0000-4000-8000-000000000001" },
+  instructor: { userRole: "instructor", accountId: "00000000-0000-4000-8000-000000000002" },
+  sysadmin: { userRole: "sysadmin", accountId: "00000000-0000-4000-8000-000000000003" },
+} as const satisfies Readonly<Record<UserRole, UserRoleFixture>>;
 
 export interface CountedApiRequest {
   readonly path: string;
@@ -53,10 +53,10 @@ function requestPath(input: RequestInfo | URL): string {
   return new URL(input.url).pathname;
 }
 
-function sessionResponse(fixture: ProductRoleFixture): Response {
+function sessionResponse(fixture: UserRoleFixture): Response {
   const payload = JSON.stringify({
     authenticated: true,
-    account: { id: fixture.accountId, productRole: fixture.productRole },
+    account: { id: fixture.accountId, userRole: fixture.userRole },
   });
   return new Response(payload, { headers: { "content-type": "application/json" } });
 }
@@ -67,7 +67,7 @@ function sessionResponse(fixture: ProductRoleFixture): Response {
  */
 export function createCountingApplicationApi<ApplicationApiOutput>(
   createApplicationApi: (client: OrdinaryBrowserApiClient) => ApplicationApiOutput,
-  fixture: ProductRoleFixture,
+  fixture: UserRoleFixture,
 ): CountingApplicationApi<ApplicationApiOutput> {
   const requests: CountedApiRequest[] = [];
   const fetch: ApiFetch = (input, init) => {
@@ -154,11 +154,11 @@ export function createRoutingInFlightSignal(initial = false): RoutingInFlightSig
   return { inFlight, setInFlight };
 }
 
-/** Renders a consumer component under every immutable Product Role fixture. */
-export function mountForEachProductRole(consumer: Component): readonly string[] {
-  return Object.values(PRODUCT_ROLE_FIXTURES).map(function renderFixture(fixture): string {
+/** Renders a consumer component under every immutable User Role fixture. */
+export function mountForEachUserRole(consumer: Component): readonly string[] {
+  return Object.values(USER_ROLE_FIXTURES).map(function renderFixture(fixture): string {
     function FixtureTree(): JSX.Element {
-      return createComponent(ProductRoleFixtureContext.Provider, {
+      return createComponent(UserRoleFixtureContext.Provider, {
         value: fixture,
         get children(): JSX.Element {
           return createComponent(consumer, {});

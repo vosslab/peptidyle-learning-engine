@@ -72,7 +72,7 @@ async fn authenticated_session_hash(
     .await
     {
         // ASVS 8.2.2 and 8.3.1: Course Membership is the trusted resolver
-        // authority, so every authenticated Product Role reaches the Store.
+        // authority, so every authenticated User Role reaches the Store.
         Ok(session) => Ok(session.session_hash),
         Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(

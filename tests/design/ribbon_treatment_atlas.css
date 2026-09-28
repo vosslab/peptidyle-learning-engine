@@ -67,7 +67,7 @@
   letter-spacing: 0.015em;
 }
 
-[data-ribbon-treatment="atlas"] .ple-app-ribbon__product-role,
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__user-role,
 [data-ribbon-treatment="atlas"] .ple-app-ribbon__context-details {
   color: var(--ple-muted, #536174);
   font-size: 0.7rem;
@@ -76,7 +76,7 @@
   text-transform: uppercase;
 }
 
-[data-ribbon-treatment="atlas"] .ple-app-ribbon__product-role::before {
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__user-role::before {
   content: "·";
   margin-inline-end: var(--ple-space-2, 0.5rem);
   color: var(--atlas-accent);

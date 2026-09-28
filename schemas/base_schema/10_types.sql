@@ -9,9 +9,10 @@ CREATE TYPE ple_data.bloom_knowledge_dimension AS ENUM (
     'Factual Knowledge', 'Conceptual Knowledge', 'Procedural Knowledge',
     'Metacognitive Knowledge'
 );
-CREATE TYPE ple_data.product_role AS ENUM (
+CREATE TYPE ple_data.user_role AS ENUM (
     'student', 'instructor', 'sysadmin'
 );
+CREATE TYPE ple_data.display_mode AS ENUM ('light', 'dark');
 CREATE TYPE ple_data.assessment_type AS ENUM (
     'regular_assignment', 'practice_question_assignment', 'quiz',
     'exam', 'bonus_assignment'
@@ -190,7 +191,8 @@ CREATE TYPE ple_data.passkey_ceremony_kind AS ENUM (
 GRANT USAGE ON TYPE
     ple_data.bloom_cognitive_process,
     ple_data.bloom_knowledge_dimension,
-    ple_data.product_role,
+    ple_data.user_role,
+    ple_data.display_mode,
     ple_data.assessment_type,
     ple_data.late_work_rule,
     ple_data.question_variation_rule,

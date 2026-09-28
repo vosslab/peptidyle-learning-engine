@@ -3,7 +3,7 @@
 import type { AccountId } from "../../../generated/api/AccountId";
 import type { CourseInstanceRouteSummary } from "../../../generated/api/CourseInstanceRouteSummary";
 import type { CreateBlueprintFromCourseInstanceInput } from "../../../generated/api/CreateBlueprintFromCourseInstanceInput";
-import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import type {
   CourseCreationInstructor,
   CourseInstanceSummary,
@@ -73,7 +73,7 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
-    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
   };
 }
 

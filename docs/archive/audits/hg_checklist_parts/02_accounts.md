@@ -11,7 +11,7 @@
   - Evidence (test): `crates/server/src/auth/live_demo.rs` `surviving_persona_issues_an_ordinary_session_with_its_account_role` protects seeded selection and the resulting ordinary session.
   - Decision: One-time runtime proof observed five personas, a seeded POST session, and an email-start request with no delivery, 404, and no cookie; it was removed rather than retained as a permanent test. The word "yet" leaves a future Live Demo email path unlocked, and no retired URL is a permanent contract.
 - [x] The three major user types are **Sysadmins**, **Instructors**, and **Students**.
-  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account.product_role` CHECK constraint.
+  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account.user_role` CHECK constraint.
 - N/A Potential future user roles are **Course Observers**, **Student Observers**, and **Graders**.
   - Reason: explicitly future product possibility, not current implementation behavior.
 - [ ] **Students** are required to use their university or institutional (`.edu` in the USA) email accounts.
@@ -20,22 +20,22 @@
   - Evidence (source): `schemas/base_schema/20_tables/authentication.sql` `ple_private.sysadmin_totp_credential` stores private Sysadmin TOTP credentials alongside browser-bound expiring attestations, used counters, and bounded verification attempts; `ple_private.create_authenticated_session` rejects the stored Sysadmin role at the database generic-session boundary. `crates/server/src/auth/sysadmin_totp.rs` routes trusted Sysadmin primary outcomes to pending genuine TOTP verification before creating the ordinary Sysadmin session.
   - Evidence (runtime): `schemas/base_schema/20_tables/authentication.sql` `ple_private.sysadmin_totp_attestation` passed accepted independent SQL boundary proof (`/private/tmp/ple-sysadmin-session-boundary-artifacts.kSMr1H`), denying generic Sysadmin issuance while preserving ordinary Student/Instructor sessions and limited grants. Actual-server HTTP proof (`/private/tmp/ple-sysadmin-session-boundary-http-artifacts.zexsoO`) observed pending MFA with no session, protected denial, missing/wrong browser-binding and bad-code denial, one valid success, replay/expiry/counter-reuse denial, and a five-attempt lock denying a fresh unused valid counter.
   - Decision: C15 closes only this higher-security row. The actual-server transport was loopback HTTP, not deployed TLS; full Live Demo authentication or broader Sysadmin authority is not claimed.
-- [x] Every Account has exactly one Product Role: **Student**, **Instructor**, or **Sysadmin**.
-  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `product_role text NOT NULL CHECK (product_role IN ('student', 'instructor', 'sysadmin'))`.
-- [x] Product Role is locked and cannot change during the lifetime of an Account.
+- [x] Every Account has exactly one User Role: **Student**, **Instructor**, or **Sysadmin**.
+  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `user_role text NOT NULL CHECK (user_role IN ('student', 'instructor', 'sysadmin'))`.
+- [x] User Role is locked and cannot change during the lifetime of an Account.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `reject_account_identity_change` trigger function.
-- [x] A person who needs more than one Product Role uses separate Accounts.
-  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account` single immutable `product_role` column.
+- [x] A person who needs more than one User Role uses separate Accounts.
+  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account` single immutable `user_role` column.
 - [ ] Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
   - Mismatch: `schemas/base_schema/50_functions/accounts.sql` `change_instructor_account_state` and `tests/e2e/e2e_live_demo_instructor_accounts.sh` establish the account-state transition, but do not prove preservation across authored content, Course relationships, and historical records.
-- [x] Reactivating an Instructor Account restores access to the same Account and Product Role.
-  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `change_instructor_account_state` preserves `account_id` and `product_role`.
+- [x] Reactivating an Instructor Account restores access to the same Account and User Role.
+  - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `change_instructor_account_state` preserves `account_id` and `user_role`.
   - Evidence (test): `tests/e2e/e2e_live_demo_instructor_accounts.sh` `reactivated` scenario.
 
 ### Instructor role
 
 - [x] All vetted **Instructors** have the same product capabilities.
-  - Evidence (source): `crates/server/src/question_library.rs` `instructor_session_hash` authorizes only shared `ProductRole::Instructor`.
+  - Evidence (source): `crates/server/src/question_library.rs` `instructor_session_hash` authorizes only shared `UserRole::Instructor`.
 - [ ] A **Sysadmin** vets an Instructor's real identity before creating the Instructor Account.
   - Mismatch: `crates/server/src/instructor_account.rs` `create_instructor_account` accepts an email but records no identity-vetting decision.
 - [x] Course membership determines which private Course records an Instructor may use.

@@ -196,7 +196,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE course_row ple_data.course_instance%ROWTYPE;
 DECLARE deletion_deadline timestamptz;
 BEGIN
-    -- ASVS 8.2.1: deny other Product Roles before acquiring a Course lock.
+    -- ASVS 8.2.1: deny other User Roles before acquiring a Course lock.
     IF NOT ple_api.current_session_account_is_instructor() THEN RETURN; END IF;
     -- ASVS 2.3.3/2.3.4: SHARE conflicts with retention's Course FOR UPDATE,
     -- including non-key lifecycle writes. Existing Course-media definer

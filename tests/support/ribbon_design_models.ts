@@ -1,6 +1,6 @@
 // ribbon_design_models.ts - closed, hand-written Ribbon models for design review.
 
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import type { RouteParamName } from "../../src/navigation/route_params";
 import type { RibbonScope } from "../../src/route_contract";
 import {
@@ -163,13 +163,13 @@ function studentCourseControl(
   };
 }
 
-function productLabel(role: ProductRole): RibbonModel["context"]["productLabel"] {
+function productLabel(role: UserRole): RibbonModel["context"]["productLabel"] {
   return role === "student" ? "Student" : role === "instructor" ? "Instructor" : "Sysadmin";
 }
 
 function model(
   scope: RibbonScope,
-  role: ProductRole,
+  role: UserRole,
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
   _unusedContentLayout: string,
@@ -183,7 +183,7 @@ function model(
       productLabel: productLabel(role),
       signOutAction: SIGN_OUT,
       accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
-        control.productRoles.includes(role),
+        control.userRoles.includes(role),
       ),
     },
     breadcrumbs: [],

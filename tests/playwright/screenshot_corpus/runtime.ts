@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 
 import type { Browser, BrowserContext, Page } from "playwright";
 
+import type { DisplayMode } from "../../../generated/api/DisplayMode";
 import { routeContractForPathname, type RouteId } from "../../../src/route_contract";
 import { TAB_CATALOG } from "../../../src/ribbon/ribbon_catalog";
 import { CANONICAL_VIEWPORTS, type CaptureRecord, type ViewportId } from "./manifest";
@@ -113,8 +114,11 @@ function declarationFor(scenario: ScenarioDefinition, checkpoint: string): Captu
   return matches[0];
 }
 
-function contextOptions(viewport: ViewportId): {
-  readonly colorScheme: "light";
+function contextOptions(
+  viewport: ViewportId,
+  displayMode: DisplayMode,
+): {
+  readonly colorScheme: DisplayMode;
   readonly deviceScaleFactor: 1;
   readonly hasTouch: boolean;
   readonly isMobile: boolean;
@@ -123,7 +127,7 @@ function contextOptions(viewport: ViewportId): {
 } {
   const profile = CANONICAL_VIEWPORTS[viewport];
   return {
-    colorScheme: "light",
+    colorScheme: displayMode,
     deviceScaleFactor: 1,
     hasTouch: profile.mobile,
     isMobile: profile.mobile,
@@ -154,7 +158,9 @@ export function createScenarioRuntime(options: {
 
   async function openSession(checkpoint: string): Promise<CaptureSession> {
     const declaration = declarationFor(options.scenario, checkpoint);
-    const context = await options.browser.newContext(contextOptions(declaration.viewport));
+    const context = await options.browser.newContext(
+      contextOptions(declaration.viewport, declaration.displayMode ?? "light"),
+    );
     const page = await context.newPage();
     const pageErrors: Error[] = [];
     configurePage(page, pageErrors);
@@ -210,6 +216,19 @@ export function createScenarioRuntime(options: {
     };
     console.log(`Checking screenshot checkpoint ${captureRecord.id}`);
     await session.page.evaluate(async () => document.fonts.ready);
+    const rootTheme = await session.page.locator("html").getAttribute("data-theme");
+    const rootMode = await session.page.locator("html").getAttribute("data-display-mode");
+    if (declaration.expectedTheme !== undefined && rootTheme !== declaration.expectedTheme) {
+      throw new Error(
+        `${captureRecord.id} resolved ${String(rootTheme)} instead of Theme ${declaration.expectedTheme}`,
+      );
+    }
+    const expectedMode = declaration.displayMode ?? "light";
+    if (rootMode !== expectedMode) {
+      throw new Error(
+        `${captureRecord.id} resolved ${String(rootMode)} instead of ${expectedMode} display mode`,
+      );
+    }
     await assertRibbon(session.page, captureRecord);
     console.log(`Checking screenshot privacy ${captureRecord.id}`);
     await session.privacy.assertSafe(captureRecord);

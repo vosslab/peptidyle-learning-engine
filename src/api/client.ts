@@ -19,7 +19,12 @@ import type {
   ProfileImageCropInput,
   SelectProvidedProfileAvatarInput,
 } from "./profile_avatar";
-import type { ProfileSettings, UpdateAccountSettingsInput } from "./profile_settings";
+import type {
+  ProfileSettings,
+  UpdateAccountSettingsInput,
+  UpdateDisplayModePreferenceInput,
+  UpdateInstructorPersonalThemeInput,
+} from "./profile_settings";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
@@ -119,6 +124,14 @@ export interface ApiClient
   readonly getAccountSettings: () => Promise<ProfileSettings>;
   /** Replaces only the authenticated Account's exact IANA display zone. */
   readonly updateAccountSettings: (input: UpdateAccountSettingsInput) => Promise<ProfileSettings>;
+  /** Sets or clears the authenticated Account's independent display-mode preference. */
+  readonly updateDisplayModePreference: (
+    input: UpdateDisplayModePreferenceInput,
+  ) => Promise<ProfileSettings>;
+  /** Sets the authenticated Instructor's global-page Theme. */
+  readonly updateInstructorPersonalTheme: (
+    input: UpdateInstructorPersonalThemeInput,
+  ) => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's currently selected avatar. */
   readonly getProfileAvatar: () => Promise<ProfileAvatarView>;
   /** Selects one validated PLE-provided avatar for the authenticated Account. */

@@ -119,8 +119,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Product vocabulary and glossary
 
-- **Account**: A global PLE user account with exactly one Product Role.
-- **Product Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
+- **Account**: A global PLE user account with exactly one User Role.
+- **User Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
 - **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates Accounts, and provides scoped administrative support.
 - **Instructor**: An approved user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
 - **Student**: A user who enrolls in **Course Instances** and completes Coursework.
@@ -193,11 +193,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Potential future user roles are **Course Observers**, **Student Observers**, and **Graders**.
 - **Students** are required to use their university or institutional (`.edu` in the USA) email accounts.
 - **Sysadmin** accounts should require higher security than other accounts, like TOTP authentication
-- Every Account has exactly one Product Role: **Student**, **Instructor**, or **Sysadmin**.
-- Product Role is locked and cannot change during the lifetime of an Account.
-- A person who needs more than one Product Role uses separate Accounts.
+- Every Account has exactly one User Role: **Student**, **Instructor**, or **Sysadmin**.
+- User Role is locked and cannot change during the lifetime of an Account.
+- A person who needs more than one User Role uses separate Accounts.
 - Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
-- Reactivating an Instructor Account restores access to the same Account and Product Role.
+- Reactivating an Instructor Account restores access to the same Account and User Role.
 
 ### Instructor role
 
@@ -381,8 +381,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - All signed-in users share the same top-left logo/account and top-right profile bar layout.
 - The top bar remains in a consistent location as users navigate.
 - The PLE logo and product name appear at the upper left and link to the user's home dashboard.
-- Each Product Role has its own home dashboard and navigation.
-- Product Role appears once next to the PLE name.
+- Each User Role has its own home dashboard and navigation.
+- User Role appears once next to the PLE name.
 - Role-specific navigation appears between the product identity and Profile.
 - Profile appears at the far right as an icon-only avatar.
 - Clicking the Profile avatar opens the Profile menu.
@@ -395,7 +395,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Profile avatar interface
 
 - Every Account is randomly assigned an avatar from the PLE avatar gallery when the Account is created.
-- The same avatar gallery collection is available to all Product Roles.
+- The same avatar gallery collection is available to all User Roles.
 - The current avatar or Profile image appears consistently anywhere PLE represents that user.
 
 #### Student avatars

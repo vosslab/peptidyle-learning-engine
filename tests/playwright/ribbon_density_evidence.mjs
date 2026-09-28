@@ -13,8 +13,7 @@ import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 import { chromium } from "playwright";
 
-const courseThemeRegistry =
-  await import("../../src/features/course_appearance/course_theme_registry.ts");
+const courseThemeRegistry = await import("../../src/appearance/theme_registry.ts");
 import {
   bundledRibbonDesignFixtureCss,
   loadRibbonDesignFixtureForSsr,
@@ -518,7 +517,7 @@ try {
 
   assert.deepEqual(
     evidence.themes.map((theme) => theme.id).sort(),
-    courseThemeRegistry.COURSE_THEME_OPTIONS.map((theme) => theme.id).sort(),
+    courseThemeRegistry.THEME_OPTIONS.map((theme) => theme.id).sort(),
     "browser evidence measures each closed course-theme panel once",
   );
   for (const theme of evidence.themes) {

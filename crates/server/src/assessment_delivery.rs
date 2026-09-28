@@ -25,7 +25,7 @@ use objects::s3::S3ObjectStore;
 use question_model::presentation::build_question_presentation;
 use question_model::question_library::QuestionBackendInterface;
 use question_model::{
-    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, ProductRole,
+    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, UserRole,
     PublishedQuestionRevisionTuple, QuestionBackend, QuestionBackendCapabilities,
     QuestionPresentation, QuestionPresentationChecksum, QuestionRevisionNumber,
     SourceObjectChecksum, StudentResponse,
@@ -649,7 +649,7 @@ pub(super) async fn student_with_sessions(
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(sessions, cookie(headers).as_deref()).await {
-        Ok(value) if value.record.product_role == ProductRole::Student => Ok(value.session_hash),
+        Ok(value) if value.record.user_role == UserRole::Student => Ok(value.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(error(
             StatusCode::SERVICE_UNAVAILABLE,

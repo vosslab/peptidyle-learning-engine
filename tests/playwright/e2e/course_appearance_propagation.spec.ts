@@ -5,8 +5,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import type { CourseTheme } from "../../../generated/api/CourseTheme";
-import { COURSE_THEME_REGISTRY } from "../../../src/features/course_appearance/course_theme_registry";
+import type { Theme } from "../../../generated/api/Theme";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -21,7 +20,7 @@ import {
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 120_000;
 const seededCourseTitle = "Biochemistry 301: Proteins and Peptides";
-const savedTheme: CourseTheme = "forest";
+const savedTheme: Theme = "forest";
 const contextOptions = { viewport: { width: 1280, height: 800 } };
 
 // Complete, non-animated PNG. The server decodes these bytes and derives its WebP renditions.
@@ -48,13 +47,10 @@ async function openAppearanceFromCourseActions(page: Page): Promise<void> {
   ).toHaveAttribute("aria-current", "page");
 }
 
-async function expectSavedTheme(page: Page, expectedTheme: CourseTheme): Promise<void> {
-  const scope = page.locator(`.course-theme-scope[data-course-theme="${expectedTheme}"]`);
-  await expect(scope).toHaveCount(1);
-  await expect(scope).toHaveCSS(
-    "--ple-theme-secondary",
-    COURSE_THEME_REGISTRY[expectedTheme].anchors.secondary,
-  );
+async function expectSavedTheme(page: Page, expectedTheme: Theme): Promise<void> {
+  const documentRoot = page.locator("html");
+  await expect(documentRoot).toHaveAttribute("data-theme", expectedTheme);
+  await expect(documentRoot).toHaveAttribute("data-display-mode", /^(?:light|dark)$/u);
 }
 
 async function createSecondCourseThroughVisibleControls(

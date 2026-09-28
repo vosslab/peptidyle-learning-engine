@@ -12,7 +12,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::{BlueprintPromotionStore, SessionTokenHash};
-use question_model::{BlueprintCourseId, ProductRole};
+use question_model::{BlueprintCourseId, UserRole};
 use serde::Deserialize;
 
 // ASVS 2.2.1/8.2.3: exact boolean command; no arbitrary metadata assignment.
@@ -33,7 +33,7 @@ async fn sysadmin_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Sysadmin => {
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

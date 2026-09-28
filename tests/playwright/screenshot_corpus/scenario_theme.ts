@@ -2,22 +2,15 @@
 
 import type { Browser } from "playwright";
 
-import { COURSE_THEME_VALUES, type CourseTheme } from "../../../generated/api/CourseTheme";
+import type { Theme } from "../../../generated/api/Theme";
 
 import { enterInstructor, openInstructorCourse } from "./visible_workflows";
+import { persistDisplayMode } from "./theme_capture_workflow";
 
 /** Map a stable scenario identifier onto a reviewed persisted Course theme. */
-export function scenarioCourseTheme(scenarioId: string): CourseTheme {
-  let hash = 2166136261;
-  for (const character of scenarioId) {
-    hash ^= character.codePointAt(0) ?? 0;
-    hash = Math.imul(hash, 16777619);
-  }
-  const index = (hash >>> 0) % COURSE_THEME_VALUES.length;
-  const theme = COURSE_THEME_VALUES[index];
-  if (theme === undefined)
-    throw new Error("scenario theme index is outside the Course theme registry");
-  return theme;
+export function scenarioCourseTheme(scenarioId: string): Theme {
+  void scenarioId;
+  return "grass";
 }
 
 /** Describe observed source-level palette variety without imposing a target count. */
@@ -25,7 +18,7 @@ export function reportScenarioThemeVariety(
   scenarios: ReadonlyArray<{ readonly id: string }>,
 ): string {
   const themes = new Set(scenarios.map((scenario) => scenarioCourseTheme(scenario.id)));
-  return `Scenario Course Appearance palettes: ${String(themes.size)} of ${String(COURSE_THEME_VALUES.length)} (${[...themes].sort().join(", ")}).`;
+  return `Scenario Course Appearance palettes: ${String(themes.size)} default (${[...themes].sort().join(", ")}).`;
 }
 
 /**
@@ -61,6 +54,7 @@ export async function persistScenarioCourseTheme(
       .getByRole("link", { name: "Appearance", exact: true })
       .click();
     await page.getByRole("heading", { level: 1, name: "Course Appearance", exact: true }).waitFor();
+    await persistDisplayMode(page, "light");
     const selection = page.locator(`[data-course-theme-option="${theme}"]`);
     await selection.getByRole("radio").check();
     await page.getByRole("button", { name: "Save theme", exact: true }).click();

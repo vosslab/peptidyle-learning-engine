@@ -206,7 +206,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
     SELECT course.course_instance_id,
            course.course_short_name,
            course.course_long_name,
-           course.course_theme_id AS course_theme,
+           course.theme_id AS course_theme,
            history.assessment_id,
            history.assessment_title,
            history.assessment_type,

@@ -14,7 +14,7 @@ use learning_data_access::{
     ContentDisciplineAdministrationStore, SessionTokenHash, StoreError,
     postgres::{PostgresContentClassificationStore, PostgresSessionStore},
 };
-use question_model::ProductRole;
+use question_model::UserRole;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -286,8 +286,8 @@ async fn reader_token(
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
         Ok(session)
             if matches!(
-                session.record.product_role,
-                ProductRole::Instructor | ProductRole::Sysadmin
+                session.record.user_role,
+                UserRole::Instructor | UserRole::Sysadmin
             ) =>
         {
             Ok(session.session_hash)
@@ -308,7 +308,7 @@ async fn sysadmin_token(
         .collect::<Option<Vec<_>>>()
         .map(|values| values.join("; "));
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
-        Ok(session) if session.record.product_role == ProductRole::Sysadmin => {
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use learning_data_access::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
 };
-use question_model::{AccountId, ProductRole, Timestamp};
+use question_model::{AccountId, UserRole, Timestamp};
 use tower::ServiceExt;
 
 fn account() -> AccountId {
@@ -36,7 +36,7 @@ impl SessionStore for MemorySessionStore {
             id: SessionId::generate()?,
             token_hash,
             account,
-            product_role: ProductRole::Student,
+            user_role: UserRole::Student,
             created_at: Timestamp::from_unix_millis(0),
             expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
         };
@@ -63,7 +63,7 @@ impl SessionStore for MemorySessionStore {
 }
 
 #[tokio::test]
-async fn session_issuer_returns_the_product_role_derived_by_the_session_store() {
+async fn session_issuer_returns_the_user_role_derived_by_the_session_store() {
     #[derive(Clone, Default)]
     struct InstructorSessionStore;
 
@@ -79,7 +79,7 @@ async fn session_issuer_returns_the_product_role_derived_by_the_session_store() 
                 id: SessionId::generate()?,
                 token_hash,
                 account,
-                product_role: ProductRole::Instructor,
+                user_role: UserRole::Instructor,
                 created_at: Timestamp::from_unix_millis(0),
                 expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
             })
@@ -105,7 +105,7 @@ async fn session_issuer_returns_the_product_role_derived_by_the_session_store() 
     .await
     .expect("session should issue");
 
-    assert_eq!(issued.record.product_role, ProductRole::Instructor);
+    assert_eq!(issued.record.user_role, UserRole::Instructor);
 }
 
 fn config(transport: CookieTransport) -> SessionConfig {

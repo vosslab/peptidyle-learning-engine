@@ -35,7 +35,7 @@ pub enum InstructorAuthority {
 /// Returns whether an account is a current Instructor for exactly `course`.
 ///
 /// This is the shared pure predicate for all course-Instructor operations.
-/// The Store establishes the Account's immutable Instructor Product Role before
+/// The Store establishes the Account's immutable Instructor User Role before
 /// it creates an Instructor Course Membership. The Assigned Instructor remains
 /// an accountability fact; it creates no authority distinction among Teaching Team Members.
 pub fn current_course_instructor(

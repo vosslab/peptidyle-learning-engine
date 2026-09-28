@@ -55,23 +55,23 @@
 .assessment-workspace-save-message {
   margin: 0;
   padding: 0.75rem 0.9rem;
-  border-inline-start: 0.35rem solid var(--ple-success, #237447);
+  border-inline-start: 0.35rem solid var(--ple-success);
   border-radius: var(--ple-radius-inset, 0.7rem);
-  background: color-mix(in srgb, var(--ple-success, #237447) 12%, var(--ple-card-surface));
+  background: color-mix(in srgb, var(--ple-success) 12%, var(--ple-card-surface));
 }
 
 .assessment-workspace-save-message[role="alert"] {
-  border-inline-start-color: var(--ple-danger, #a33a26);
-  background: color-mix(in srgb, var(--ple-danger, #a33a26) 10%, var(--ple-card-surface));
+  border-inline-start-color: var(--ple-danger);
+  background: color-mix(in srgb, var(--ple-danger) 10%, var(--ple-card-surface));
 }
 
 .assessment-workspace-unrelease-danger-zone {
   display: grid;
   gap: 0.75rem;
   padding: var(--ple-panel-padding, 0.85rem);
-  border-inline-start: 0.35rem solid var(--ple-danger, #a33a26);
+  border-inline-start: 0.35rem solid var(--ple-danger);
   border-radius: var(--ple-radius-inset, 0.7rem);
-  background: color-mix(in srgb, var(--ple-danger, #a33a26) 9%, var(--ple-card-surface));
+  background: color-mix(in srgb, var(--ple-danger) 9%, var(--ple-card-surface));
 }
 
 .assessment-workspace-unrelease-danger-zone h2,
@@ -106,9 +106,9 @@
 
 .assessment-workspace-danger-action {
   justify-self: start;
-  border-color: var(--ple-danger, #a33a26);
-  background: var(--ple-danger, #a33a26);
-  color: white;
+  border-color: var(--ple-danger);
+  background: var(--ple-danger);
+  color: var(--ple-on-danger);
 }
 
 .assessment-workspace-danger-action:focus-visible {
@@ -307,8 +307,9 @@
 }
 
 .student-view-question-buttons .selected {
-  border-color: var(--ple-focus);
-  background: color-mix(in srgb, var(--ple-focus) 12%, var(--ple-card-surface));
+  border-color: var(--ple-highlight);
+  background: var(--ple-highlight);
+  color: var(--ple-on-highlight);
   font-weight: 700;
 }
 

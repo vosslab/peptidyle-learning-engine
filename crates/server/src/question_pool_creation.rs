@@ -21,7 +21,7 @@ use learning_data_access::{
     postgres::{PostgresQuestionPoolCreationStore, PostgresSessionStore},
 };
 use question_model::{
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, ProductRole, PublishedQuestionId,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, UserRole, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionRevisionNumber,
 };
 use serde::{Deserialize, Serialize};
@@ -193,7 +193,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

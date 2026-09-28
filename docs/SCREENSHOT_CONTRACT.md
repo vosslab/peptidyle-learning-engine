@@ -22,7 +22,7 @@ rewrite image pixels or the source-owned generated atlas.
 
 ## Ownership
 
-Screenshot ownership follows the user-facing Product Role surface. Instructor,
+Screenshot ownership follows the user-facing User Role surface. Instructor,
 Student, and Sysadmin workflows have role-owned screenshots even when their
 implementations reuse shared components:
 
@@ -30,7 +30,7 @@ implementations reuse shared components:
 - `docs/screenshots/student/` owns Student surfaces.
 - `docs/screenshots/sysadmin/` owns Sysadmin surfaces.
 
-Current authenticated screenshots belong to the Product Role through which the
+Current authenticated screenshots belong to the User Role through which the
 surface is reached. Shared implementation does not create shared screenshot
 ownership. Pre-authentication surfaces belong under `docs/screenshots/public/`.
 
@@ -39,7 +39,7 @@ pages. Capture the actual role-owned page and workflow that a person reaches in
 the application; reuse low-level components without combining distinct pages.
 
 Playwright `getByRole(...)` names accessible UI roles such as buttons, links,
-headings, and dialogs. It is unrelated to PLE Product Roles and remains the
+headings, and dialogs. It is unrelated to PLE User Roles and remains the
 preferred selector for navigating these role-owned workflows.
 
 There is no `docs/screenshots/shared/` or `docs/screenshots/live_demo/`
@@ -93,7 +93,7 @@ current design is launch-ready.
 ## Ribbon visual evidence
 
 The Ribbon is shared application chrome and receives explicit visual coverage.
-Each Product Role keeps at least one current canonical desktop capture that
+Each User Role keeps at least one current canonical desktop capture that
 shows the normal Ribbon in a representative functional workflow. The capture
 uses a real role-owned page and normal navigation state, so it is evidence that
 the Ribbon remains visually coherent as the application evolves. Add tablet or

@@ -1,7 +1,7 @@
 //! Session-authorized current Course Theme persistence.
 
 use async_trait::async_trait;
-use question_model::{CourseInstanceId, CourseTheme};
+use question_model::{CourseInstanceId, Theme};
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -13,13 +13,13 @@ pub trait CourseThemeStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-    ) -> Result<CourseTheme, StoreError>;
+    ) -> Result<Theme, StoreError>;
 
     /// Replaces the current theme only when the current Account is an active Instructor Course Member.
     async fn update_course_theme(
         &self,
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-        theme: CourseTheme,
-    ) -> Result<CourseTheme, StoreError>;
+        theme: Theme,
+    ) -> Result<Theme, StoreError>;
 }

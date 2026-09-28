@@ -17,7 +17,7 @@ use learning_data_access::{
     QuestionWatchProjection, QuestionWatchStore, SessionTokenHash, StoreError,
     postgres::{PostgresQuestionWatchStore, PostgresSessionStore},
 };
-use question_model::{ProductRole, PublishedQuestionId};
+use question_model::{UserRole, PublishedQuestionId};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -148,7 +148,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

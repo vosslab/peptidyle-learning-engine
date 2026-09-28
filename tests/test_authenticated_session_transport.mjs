@@ -6,15 +6,15 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeAuthenticatedSession } from "../src/api/decoders.ts";
 
-test("session decoder accepts one immutable Account Product Role and rejects the retired user shape", () => {
+test("session decoder accepts one immutable Account User Role and rejects the retired user shape", () => {
   assert.deepEqual(
     decodeAuthenticatedSession({
       authenticated: true,
-      account: { id: "U7K3M2PA0", productRole: "instructor" },
+      account: { id: "U7K3M2PA0", userRole: "instructor" },
     }),
     {
       authenticated: true,
-      account: { id: "U7K3M2PA0", productRole: "instructor" },
+      account: { id: "U7K3M2PA0", userRole: "instructor" },
     },
   );
   assert.throws(

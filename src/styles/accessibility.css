@@ -15,14 +15,6 @@ html[data-contrast="increased"] :focus-visible {
   outline-offset: 2px;
 }
 
-html[data-contrast="increased"] .course-theme-scope {
-  --ple-ink: #111827 !important;
-  --ple-muted: #354052 !important;
-  --ple-focus: #111827 !important;
-  --ple-border: #718096 !important;
-  --ple-border-strong: #354052 !important;
-}
-
 @media (forced-colors: active) {
   .primary-action,
   .primary-link,

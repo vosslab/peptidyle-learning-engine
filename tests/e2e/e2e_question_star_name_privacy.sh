@@ -67,7 +67,7 @@ podman exec --env PGPASSWORD="$database_password" "$postgres_name" \
 # active Star actor is created through the C17/C18 HTTP vetting/account flow.
 podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -c "
     SET ROLE ple_private_owner;
-    INSERT INTO ple_private.account(account_id, product_role, created_at) VALUES
+    INSERT INTO ple_private.account(account_id, user_role, created_at) VALUES
       ('00000000-0000-0000-0000-00000000c831', 'sysadmin', pg_catalog.transaction_timestamp()),
       ('00000000-0000-0000-0000-00000000c832', 'student', pg_catalog.transaction_timestamp()),
       ('00000000-0000-0000-0000-00000000c833', 'instructor', clock_timestamp());

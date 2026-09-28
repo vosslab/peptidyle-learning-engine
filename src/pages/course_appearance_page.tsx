@@ -1,22 +1,17 @@
 // course_appearance_page.tsx - Instructor Course Appearance controls.
 
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
+import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseBannerAlternativeText } from "../../generated/api/CourseBannerAlternativeText";
-import type { CourseTheme } from "../../generated/api/CourseTheme";
+import type { Theme } from "../../generated/api/Theme";
 import { useApplicationApi } from "../api/application_api";
+import { useAppearance } from "../appearance/appearance_context";
 import { PageFrame } from "../components/page_frame";
-import {
-  courseRouteView,
-  useCourseThemePresentation,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../appearance/theme_context";
 import { COURSE_APPEARANCE_STYLES } from "../features/course_appearance/course_appearance_styles";
-import {
-  COURSE_THEME_OPTIONS,
-  courseThemeStyle,
-} from "../features/course_appearance/course_theme_registry";
+import { ThemeChooser } from "../appearance/theme_chooser";
 import {
   useReplaceCourseAppearance,
   useRetryRouteScope,
@@ -51,29 +46,16 @@ const COURSE_BANNER_5_TO_1_STYLES = `
 }
 `;
 
-function ThemePalettePreview(props: { readonly theme: CourseTheme }): JSX.Element {
-  const option = COURSE_THEME_OPTIONS.find((candidate) => candidate.id === props.theme);
-  return (
-    <div
-      class="course-appearance-palette-preview"
-      aria-label={`${option?.tokens.name ?? props.theme} palette roles`}
-    >
-      <span class="course-appearance-palette-canvas">Canvas</span>
-      <span class="course-appearance-palette-secondary">Secondary</span>
-      <span class="course-appearance-palette-accent">Accent</span>
-    </div>
-  );
-}
-
 function AppearanceThemeEditor(props: {
   readonly courseInstanceId: CourseInstanceId;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
   const replaceCourseAppearance = useReplaceCourseAppearance();
-  const presentAppearance = useCourseThemePresentation();
+  const appearance = useAppearance();
+  const { presentCourseTheme } = appearance;
   const storedTheme = createMemo(() => props.storedAppearance().theme);
-  const [selectedTheme, setSelectedTheme] = createSignal<CourseTheme>(storedTheme());
+  const [selectedTheme, setSelectedTheme] = createSignal<Theme>(storedTheme());
   const [themeDraftDirty, setThemeDraftDirty] = createSignal(false);
   const [saveState, setSaveState] = createSignal<SaveState>("ready");
   const [message, setMessage] = createSignal("");
@@ -85,14 +67,14 @@ function AppearanceThemeEditor(props: {
     const theme = storedTheme();
     if (!themeDraftDirty()) setSelectedTheme(theme);
   });
-  onCleanup(() => presentAppearance?.(undefined));
-  function selectTheme(theme: CourseTheme): void {
+  onCleanup(() => presentCourseTheme(undefined));
+  function selectTheme(theme: Theme): void {
     if (saving()) return;
     setSelectedTheme(theme);
     setThemeDraftDirty(true);
     setSaveState("ready");
     setMessage("");
-    presentAppearance?.({ ...props.storedAppearance(), theme });
+    presentCourseTheme(theme);
   }
   async function saveTheme(event: SubmitEvent): Promise<void> {
     event.preventDefault();
@@ -104,13 +86,13 @@ function AppearanceThemeEditor(props: {
         theme: selectedTheme(),
       });
       replaceCourseAppearance(props.courseInstanceId, saved);
-      presentAppearance?.(undefined);
+      presentCourseTheme(undefined);
       setSelectedTheme(saved.theme);
       setThemeDraftDirty(false);
       setSaveState("saved");
       setMessage("Theme saved.");
     } catch {
-      presentAppearance?.(undefined);
+      presentCourseTheme(undefined);
       setSelectedTheme(storedTheme());
       setThemeDraftDirty(false);
       setSaveState("error");
@@ -125,27 +107,14 @@ function AppearanceThemeEditor(props: {
           <p class="course-appearance-help">
             Selecting a theme previews it immediately. Save to make it visible to Course members.
           </p>
-          <div class="course-appearance-theme-grid">
-            <For each={COURSE_THEME_OPTIONS}>
-              {(option) => (
-                <label
-                  class="course-appearance-theme-card"
-                  data-course-theme-option={option.id}
-                  style={courseThemeStyle(option.tokens)}
-                >
-                  <input
-                    type="radio"
-                    name="course-theme"
-                    value={option.id}
-                    checked={selectedTheme() === option.id}
-                    onInput={() => selectTheme(option.id)}
-                  />
-                  <span class="course-appearance-theme-label">{option.tokens.name}</span>
-                  <ThemePalettePreview theme={option.id} />
-                </label>
-              )}
-            </For>
-          </div>
+          <ThemeChooser
+            name="course-theme"
+            selectedTheme={selectedTheme}
+            mode={() => appearance.appearance().mode}
+            disabled={saving}
+            courseOption
+            onSelect={selectTheme}
+          />
         </fieldset>
         <div class="course-appearance-save-actions">
           <button type="submit" disabled={saving()}>

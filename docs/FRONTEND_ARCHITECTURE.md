@@ -16,7 +16,7 @@ src/route_contract.ts and src/routes.ts
           -> strict runtime decoding of server JSON
 ```
 
-Route Product Role checks control presentation only. Every request repeats
+Route User Role checks control presentation only. Every request repeats
 authorization on the server. An opaque route ID locates a candidate; it
 never grants access.
 
@@ -43,7 +43,7 @@ Question.
 
 Course Instance pages expose Course-local roster, Assessments, Gradebook,
 appearance, and other implemented teaching tasks. Every current co-Instructor
-has equal access. Student View is an answer-free preview, not another Product
+has equal access. Student View is an answer-free preview, not another User
 Role or a Student Work creator.
 
 ### Student

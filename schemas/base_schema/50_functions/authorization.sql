@@ -33,7 +33,7 @@ AS $$
                LIMIT 1
           ) AS state_event ON state_event.state = 'active'
          WHERE account.account_id = ple_api.current_session_account_id()
-           AND account.product_role = p_role::ple_data.product_role
+           AND account.user_role = p_role::ple_data.user_role
     )
 $$;
 

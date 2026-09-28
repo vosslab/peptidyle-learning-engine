@@ -8,10 +8,10 @@ SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
     IF NEW.account_id IS DISTINCT FROM OLD.account_id
-       OR NEW.product_role IS DISTINCT FROM OLD.product_role
+       OR NEW.user_role IS DISTINCT FROM OLD.user_role
        OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Account identity and Product Role are immutable';
+            MESSAGE = 'Account identity and User Role are immutable';
     END IF;
     RETURN NEW;
 END
@@ -72,6 +72,23 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_invalid_account_time_zone();
 CREATE TRIGGER account_creation_records_default_time_zone
 AFTER INSERT ON ple_private.account
 FOR EACH ROW EXECUTE FUNCTION ple_private.record_default_account_time_zone();
+
+CREATE FUNCTION ple_private.record_default_account_appearance()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, ple_private
+AS $$
+BEGIN
+    INSERT INTO ple_private.account_appearance (account_id) VALUES (NEW.account_id);
+    IF NEW.user_role = 'instructor' THEN
+        INSERT INTO ple_private.instructor_personal_theme (account_id) VALUES (NEW.account_id);
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER account_creation_records_default_appearance
+AFTER INSERT ON ple_private.account
+FOR EACH ROW EXECUTE FUNCTION ple_private.record_default_account_appearance();
 
 SET LOCAL ROLE ple_audit_owner;
 
@@ -212,7 +229,7 @@ AS $$
       JOIN ple_audit.instructor_identity_vetting_decision AS decision
         ON decision.decision_id = creation.instructor_identity_vetting_decision_id
      WHERE creation.created_instructor_account_id = p_instructor_account_id
-       AND creation.created_instructor_product_role = 'instructor'
+       AND creation.created_instructor_user_role = 'instructor'
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -270,9 +287,9 @@ BEGIN
       FROM ple_private.account_time_zone AS instructor_preference
       JOIN ple_private.account AS instructor
         ON instructor.account_id = instructor_preference.account_id
-       AND instructor.product_role = 'instructor'
+       AND instructor.user_role = 'instructor'
       JOIN ple_private.account AS student
-        ON student.account_id = p_student_account_id AND student.product_role = 'student'
+        ON student.account_id = p_student_account_id AND student.user_role = 'student'
      WHERE student_preference.account_id = student.account_id
        AND student_preference.student_invitation_default_pending
        AND instructor.account_id = p_inviting_instructor_account_id;
@@ -296,12 +313,12 @@ BEGIN
     SELECT account.account_id INTO v_account_id
     FROM ple_private.account_authentication_email AS email
     JOIN ple_private.account AS account ON account.account_id = email.account_id
-    WHERE email.normalized_email = p_normalized_email AND account.product_role = 'student';
+    WHERE email.normalized_email = p_normalized_email AND account.user_role = 'student';
     IF FOUND THEN RETURN v_account_id; END IF;
     IF EXISTS (SELECT 1 FROM ple_private.account_authentication_email WHERE normalized_email = p_normalized_email) THEN
         RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'Student Authentication Email is unavailable';
     END IF;
-    INSERT INTO ple_private.account AS new_account (account_id, product_role, created_at)
+    INSERT INTO ple_private.account AS new_account (account_id, user_role, created_at)
     VALUES ('U00000009', 'student', v_now)
     RETURNING new_account.account_id INTO v_account_id;
     UPDATE ple_private.account_time_zone
@@ -336,7 +353,7 @@ BEGIN
         p_vetting_decision_id, p_normalized_email
     );
     v_created_at := pg_catalog.transaction_timestamp();
-    INSERT INTO ple_private.account AS new_account (account_id, product_role, created_at)
+    INSERT INTO ple_private.account AS new_account (account_id, user_role, created_at)
     VALUES ('U00000009', 'instructor', v_created_at)
     RETURNING new_account.account_id INTO v_account_id;
     INSERT INTO ple_private.account_authentication_email (
@@ -418,7 +435,7 @@ BEGIN
            WHERE state_event.account_id = account.account_id
            ORDER BY state_event.occurred_at DESC, state_event.event_id DESC LIMIT 1
       ) AS current_state ON true
-     WHERE account.account_id = p_account_id AND account.product_role = 'instructor';
+     WHERE account.account_id = p_account_id AND account.user_role = 'instructor';
 END
 $$;
 
@@ -433,7 +450,7 @@ BEGIN
     SELECT summary.account_id, summary.state, summary.last_successful_sign_in
     FROM ple_private.account AS account
     CROSS JOIN LATERAL ple_private.instructor_account_summary(account.account_id) AS summary
-    WHERE account.product_role = 'instructor' ORDER BY summary.account_id;
+    WHERE account.user_role = 'instructor' ORDER BY summary.account_id;
 END
 $$;
 
@@ -474,7 +491,7 @@ BEGIN
          WHERE event.account_id = account.account_id
          ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
     ) AS state_event ON true
-    WHERE account.account_id = p_account_id AND account.product_role = 'instructor'
+    WHERE account.account_id = p_account_id AND account.user_role = 'instructor'
     FOR UPDATE OF account;
     IF NOT FOUND OR v_current_state = p_next_state THEN RETURN; END IF;
     IF p_next_state = 'deactivated' AND char_length(btrim(p_reason)) NOT BETWEEN 1 AND 1000 THEN
@@ -513,13 +530,98 @@ BEGIN
                WHEN EXISTS (
                    SELECT 1 FROM ple_private.account AS account
                     WHERE account.account_id = v_account_id
-                      AND account.product_role = 'student'
+                      AND account.user_role = 'student'
                ) THEN false
                ELSE student_invitation_default_pending
            END
      WHERE account_id = v_account_id
     RETURNING time_zone INTO p_time_zone;
     RETURN p_time_zone;
+END
+$$;
+
+CREATE FUNCTION ple_private.current_authenticated_account_appearance()
+RETURNS TABLE(display_mode_preference text, personal_theme text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+DECLARE v_account_id text;
+BEGIN
+    v_account_id := ple_api.current_session_account_id();
+    IF v_account_id IS NULL OR NOT (
+        ple_api.current_session_account_has_active_role('student')
+        OR ple_api.current_session_account_has_active_role('instructor')
+        OR ple_api.current_session_account_has_active_role('sysadmin')
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Active Account required';
+    END IF;
+    RETURN QUERY
+    SELECT appearance.display_mode_preference::text,
+           CASE WHEN account.user_role = 'instructor' THEN personal.theme_id END
+      FROM ple_private.account AS account
+      JOIN ple_private.account_appearance AS appearance ON appearance.account_id = account.account_id
+      LEFT JOIN ple_private.instructor_personal_theme AS personal ON personal.account_id = account.account_id
+     WHERE account.account_id = v_account_id;
+END
+$$;
+
+CREATE FUNCTION ple_private.update_current_authenticated_account_display_mode_preference(
+    p_display_mode_preference text
+)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+DECLARE v_account_id text;
+BEGIN
+    -- ASVS 1.2.4 and 2.2.1--2.2.2: this parameterized procedure accepts only
+    -- the two closed display values or NULL, and derives its subject from the
+    -- installed session rather than any browser-controlled Account or role.
+    IF p_display_mode_preference IS NOT NULL
+       AND p_display_mode_preference NOT IN ('light', 'dark') THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Display mode preference is invalid';
+    END IF;
+    v_account_id := ple_api.current_session_account_id();
+    IF v_account_id IS NULL OR NOT (
+        ple_api.current_session_account_has_active_role('student')
+        OR ple_api.current_session_account_has_active_role('instructor')
+        OR ple_api.current_session_account_has_active_role('sysadmin')
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Active Account required';
+    END IF;
+    UPDATE ple_private.account_appearance
+       SET display_mode_preference = p_display_mode_preference::ple_data.display_mode,
+           updated_at = pg_catalog.transaction_timestamp()
+     WHERE account_id = v_account_id
+ RETURNING display_mode_preference::text INTO p_display_mode_preference;
+    RETURN p_display_mode_preference;
+END
+$$;
+
+CREATE FUNCTION ple_private.update_current_authenticated_instructor_personal_theme(p_theme text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE v_account_id text;
+BEGIN
+    -- ASVS 1.2.4 and 2.2.1--2.2.2: a parameterized closed theme value is
+    -- independently checked here; the authenticated Instructor is derived
+    -- exclusively from the installed server-side session.
+    IF p_theme IS NULL OR NOT EXISTS (SELECT 1 FROM ple_data.theme WHERE theme_id = p_theme) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Personal theme is invalid';
+    END IF;
+    v_account_id := ple_api.current_session_account_id();
+    IF v_account_id IS NULL
+       OR NOT ple_api.current_session_account_has_active_role('instructor') THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Active Instructor Account required';
+    END IF;
+    UPDATE ple_private.instructor_personal_theme
+       SET theme_id = p_theme, updated_at = pg_catalog.transaction_timestamp()
+     WHERE account_id = v_account_id
+ RETURNING theme_id INTO p_theme;
+    IF p_theme IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Active Instructor Account required';
+    END IF;
+    RETURN p_theme;
 END
 $$;
 
@@ -534,6 +636,24 @@ CREATE FUNCTION ple_api.update_current_account_time_zone(p_time_zone text)
 RETURNS text LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT ple_private.update_current_authenticated_account_time_zone(p_time_zone) $$;
+
+CREATE FUNCTION ple_api.current_account_appearance()
+RETURNS TABLE(display_mode_preference text, personal_theme text)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT * FROM ple_private.current_authenticated_account_appearance() $$;
+
+CREATE FUNCTION ple_api.update_current_account_display_mode_preference(p_display_mode_preference text)
+RETURNS text LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT ple_private.update_current_authenticated_account_display_mode_preference(
+    p_display_mode_preference
+) $$;
+
+CREATE FUNCTION ple_api.update_current_instructor_personal_theme(p_theme text)
+RETURNS text LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT ple_private.update_current_authenticated_instructor_personal_theme(p_theme) $$;
 
 CREATE FUNCTION ple_api.list_instructor_accounts()
 RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)

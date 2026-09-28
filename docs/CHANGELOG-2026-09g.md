@@ -269,7 +269,7 @@
   presentation builder check, and both diff checks passed. The repository-wide source-file limit
   failure was isolated to concurrent `src/style.css` at 1008 lines.
 
-- M13's clean PostgreSQL 17 migration acceptance and compatible second no-op run passed. Its
+- M13's clean PostgreSQL migration acceptance and compatible second no-op run passed. Its
   connected oracle covered direct-table and RLS denial, self-only reads, every-Account defaults,
   and the Student roster lifecycle; the disposable container, volume, and network were removed.
   Focused Rust tests passed, the full Python suite reported 6120 passed, and independent
@@ -539,12 +539,12 @@
   `git diff HEAD --check` passed on the mixed staged and unstaged working tree.
 
 - `source source_me.sh && python3 local_stack.py acceptance` passed the fresh
-  74-migration apply, no-op replay, PostgreSQL 17 catalog and restricted-login
+  74-migration apply, no-op replay, PostgreSQL catalog and restricted-login
   probes, all three iMathAS Question Backend PostgreSQL Store tests, cleanup,
   and the PostgreSQL-plus-MinIO Course Appearance coherence oracle.
 
 - `source source_me.sh && ./launchers/all_test.sh` passed on the final material
   tree: 416 generated Rust-owned TypeScript contracts, three tracked fixture
   contracts, Rust formatting/checks/strict Clippy/tests/doctests, 350 Node
-  tests, 5,969 pytest cases, the disposable PostgreSQL 17 schema/authority/
+  tests, 5,969 pytest cases, the disposable PostgreSQL schema/authority/
   persistence lane, and PostgreSQL-plus-MinIO Course Appearance coherence.

@@ -5,6 +5,7 @@
 
 use domain::assessment_activity::AssessmentActivityError;
 
+mod account_appearance;
 mod account_avatar;
 mod account_time_zone;
 mod archived_student_work_recovery;
@@ -74,6 +75,7 @@ pub mod session;
 mod store_error;
 mod support_capability;
 
+pub use account_appearance::{AccountAppearance, AccountAppearanceStore};
 pub use account_avatar::{
     AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork,
     FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageId, ProvidedAvatarId,

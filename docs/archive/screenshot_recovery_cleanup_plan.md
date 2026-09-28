@@ -54,7 +54,7 @@ names for Published Question and Question Pool identities.
 
 - The manifest contains 97 captures; the current receipt and atlas contain 92 active public,
   Instructor, and Student images. Five Sysadmin files remain available but deferred.
-- The final disposable PostgreSQL 17 checker pass inspected 272 ordinary PLE PL/pgSQL functions
+- The final disposable PostgreSQL checker pass inspected 272 ordinary PLE PL/pgSQL functions
   and 105 installed trigger functions with zero errors and zero warnings.
 - The current source builds the base schema successfully, and the security catalog's first
   authorization block passes under `ple_migrator`.
@@ -90,7 +90,7 @@ names for Published Question and Question Pool identities.
 - `node --import tsx tests/playwright/capture_live_demo_screenshots.mjs --verify-static`
 - `source source_me.sh && python3 devel/generate_schema_tables_doc.py && python3 schema_style/check_schema_style.py`
 - `bash -n tests/e2e/e2e_installation_data.sh`
-- Disposable PostgreSQL 17 base-schema install plus the catalog security block and current-source
+- Disposable PostgreSQL base-schema install plus the catalog security block and current-source
   `plpgsql_check` query.
 - `git diff --check`, followed by `source ./source_me.sh && ./launchers/run_fast_checks.sh`.
 - `source ./source_me.sh && ./launchers/all_test.sh` after the launcher-surface cleanup.

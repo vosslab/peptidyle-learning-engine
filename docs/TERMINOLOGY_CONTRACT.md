@@ -70,8 +70,8 @@ owning implementation contracts rather than defining product meaning here.
 ## Accounts and roles
 
 **Account** is one global PLE login identity. It has exactly one immutable
-**Product Role**: **Student**, **Instructor**, or **Sysadmin**. A person needing
-more than one Product Role uses separate Accounts.
+**User Role**: **Student**, **Instructor**, or **Sysadmin**. A person needing
+more than one User Role uses separate Accounts.
 
 **Instructor** is a Sysadmin-vetted user who teaches Courses and can discover,
 reuse, create, fork, and publish Questions. All vetted Instructors have the
@@ -88,11 +88,11 @@ passwords. Email authentication is not yet configured for the Live Demo.
 
 **Account State** describes Account access. Instructor Account deactivation
 preserves authored content, Course relationships, and history. Reactivation
-restores the same Account and Product Role. Account deactivation is distinct
+restores the same Account and User Role. Account deactivation is distinct
 from revoking one Course relationship.
 
 **Course relationship** binds one Account to one Course Instance in a scoped
-role. Current Student and Instructor relationships are not Product Roles.
+role. Current Student and Instructor relationships are not User Roles.
 Instructors may bulk add Students through roster import. They remove Students
 individually; PLE has no bulk Student-removal workflow.
 
@@ -113,14 +113,14 @@ All co-Instructors are equal. Do not use Course Owner, primary Instructor, or
 creator privilege for the current Course model.
 
 **Course Observer**, **Student Observer**, and **Grader** are possible future
-Course relationships rather than additional current Product Roles. A Course
+Course relationships rather than additional current User Roles. A Course
 Observer would have read-only Course content and non-FERPA aggregate access;
 a Student Observer would have authorized read-only access to a particular
 Student's Course information. These are future capabilities. Graders are not
 currently needed because grading is automatic.
 
 **Scoped Support Access** is deliberate Sysadmin access to an exact support
-need involving FERPA-protected records. It is recorded. The Sysadmin Product
+need involving FERPA-protected records. It is recorded. The Sysadmin User
 Role alone provides no ambient FERPA access.
 
 ## Human-facing identifiers
@@ -539,6 +539,22 @@ Assignment.
 Type supplies defaults. An Instructor may change settings without changing the
 Type. Instructors cannot create new Types.
 
+**Theme** is one of the 15 closed, durable visual identities. Each Theme has a
+coordinated Light appearance and Dark appearance. A **Look** is one Theme in
+one Display Mode, so PLE has 30 Looks. A **Palette Color** is one of a Look's
+five source colors: Canvas, Surface, Secondary, Accent, or Highlight.
+
+**Personal Theme** is an Instructor's Theme for global Instructor pages.
+**Course Theme** is the Theme an Instructor assigns to a Course. Course pages
+use their Course Theme; global Instructor pages use the Personal Theme; other
+global pages use the default `grass` Theme.
+
+**Display Mode** is Light or Dark. **Display Mode Preference** is an Account's
+nullable explicit Light or Dark choice. When it is unset, the document follows
+the browser preference live. Theme selection and Display Mode Preference are
+independent: neither changes the other. There is no System or Auto Display
+Mode, Theme inheritance, Theme-strength setting, or per-Course Display Mode.
+
 The product-defined Font Awesome Type icons are `pen-to-square` for Regular
 Assignment, `arrows-spin` for Practice Question Assignment, `star` for Bonus
 Assignment, `circle-question` for Quiz, and `file-signature` for Exam. Themes
@@ -709,7 +725,7 @@ context. **Profile menu** owns Profile settings, account settings, and Sign Out.
 The Profile avatar appears at the upper right.
 
 **Avatar Gallery** is the PLE-provided avatar collection available to all
-Product Roles. Every Account receives a random gallery avatar at creation.
+User Roles. Every Account receives a random gallery avatar at creation.
 Students may change their gallery selection but cannot upload Profile images.
 Instructors and Sysadmins share Profile functionality and may select a gallery
 avatar or upload and crop their own image.

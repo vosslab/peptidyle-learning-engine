@@ -1,9 +1,10 @@
 # Palette contrast audit
 
-This audit separates the global base palette from the 15 course themes. It
-uses the project's 5.5:1 target for normal text and 3:1 for focus indicators
-and boundaries; the method is defined in
-[COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md).
+This historical audit records measurements from the former Course-theme model.
+The current Theme palette authority is [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md),
+which requires 4.5:1 for text and 3:1 for meaningful controls, focus indicators, and required
+boundaries. The 5.5:1 house target in
+[COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md) remains a separate guide.
 
 ## Base palette
 
@@ -33,12 +34,10 @@ python3 /Users/vosslab/nsh/vosslab-skills/skills/color-accessibility-expert/scri
   -r 5.5
 ```
 
-## Course Theme Registry
+## Historical Course Theme Registry
 
-The closed registry is
-`src/features/course_appearance/course_theme_registry.ts`.
-It contains these 15 current themes. Each row records the raw canvas,
-secondary, and accent anchors exactly as the registry declares them.
+The former registry recorded 15 Course themes. Each row preserves its raw
+Canvas, Secondary, and Accent anchors.
 
 | Theme       | Canvas    | Secondary | Accent    |
 | ----------- | --------- | --------- | --------- |
@@ -64,19 +63,15 @@ and `#008852` anchors. Where an anchor cannot meet the normal-text target,
 the registry provides the darker `action` and `link` tokens instead; no raw
 anchor is silently remapped or reported as a text-pair pass.
 
-## Executable rendered-pair evidence
+## Historical executable rendered-pair evidence
 
-Contrast for course themes is measured from browser-computed colors because
-the relevant foreground/background pairs are composed from registry tokens,
-course-scope CSS, and component styles. The durable behavior gates are:
+Contrast for the former Course themes was measured from browser-computed colors because
+the relevant foreground/background pairs were composed from registry tokens,
+Course-scope CSS, and component styles. The current behavior gate is:
 
 - [`tests/test_course_theme_scope.mjs`](../tests/test_course_theme_scope.mjs)
-  checks the exact 15 IDs, complete tokens, 5.5:1 text pairs, and 3:1
-  focus/boundary pairs directly from registry values.
-- The current serial browser owner and screenshot rebuild provide connected
-  application evidence, but neither is a dedicated course-appearance save and
-  reload acceptance scenario. Screenshot publication remains a separate
-  deliberate operation, not a parallel browser suite.
+  is retained as the current Theme contrast behavior test. Its contract is described by
+  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md), not this historical audit.
 
 Run the durable behavior gates:
 
@@ -84,13 +79,8 @@ Run the durable behavior gates:
 node --import tsx --test tests/test_course_theme_scope.mjs
 ```
 
-The earlier dedicated course-appearance browser owner is not registered in the
-current suite. The current browser owner is `./devel/run_playwright_tests.sh
---build`, and `./devel/capture_screenshots.sh` produces the separate current
-screenshot corpus. The earlier 15-theme rendered comparison remains historical
-evidence; a theme UI change needs a dedicated connected owner and fresh human
-visual review in addition to the durable behavior gate.
+The earlier 15-theme rendered comparison remains historical evidence.
 
-This document therefore does not claim a single white-background ratio for
-every raw course swatch. The registry table preserves the source palette; the
-tests above are the current numerical oracle for the rendered pairs users see.
+This historical document does not claim a single white-background ratio for
+every raw course swatch. The table preserves former source data; consult the
+current palette authority for the rendered Theme contract.

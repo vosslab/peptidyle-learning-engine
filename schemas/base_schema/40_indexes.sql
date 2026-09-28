@@ -2,6 +2,14 @@
 
 SET LOCAL ROLE ple_private_owner;
 
+-- Rule 14 requires the full role-typed Account foreign key to lead an index.
+CREATE INDEX instructor_personal_theme_account_id_instructor_user_role_fk_idx
+    ON ple_private.instructor_personal_theme (account_id, instructor_user_role);
+
+-- Rule 14 requires the shared Theme vocabulary foreign key to lead an index.
+CREATE INDEX instructor_personal_theme_theme_id_fk_idx
+    ON ple_private.instructor_personal_theme (theme_id);
+
 CREATE INDEX email_authentication_challenge_active_token_idx
 ON ple_private.email_authentication_challenge (token_hash, expires_at) WHERE consumed_at IS NULL;
 
@@ -226,16 +234,16 @@ CREATE INDEX forced_question_correction_issued_question_targ_bfe39ee6_fk_idx
     ON ple_audit.forced_question_correction_issued_question_target (forced_question_correction_id);
 
 CREATE INDEX instructor_account_creation_event_created_by_sy_4138130d_fk_idx
-    ON ple_audit.instructor_account_creation_event (created_by_sysadmin_account_id, created_by_sysadmin_product_role);
+    ON ple_audit.instructor_account_creation_event (created_by_sysadmin_account_id, created_by_sysadmin_user_role);
 
 CREATE INDEX instructor_account_creation_event_created_instr_838b23f7_fk_idx
-    ON ple_audit.instructor_account_creation_event (created_instructor_account_id, created_instructor_product_role);
+    ON ple_audit.instructor_account_creation_event (created_instructor_account_id, created_instructor_user_role);
 
 CREATE INDEX instructor_account_creation_event_instructor_id_2eefdbbf_fk_idx
     ON ple_audit.instructor_account_creation_event (instructor_identity_vetting_decision_id);
 
 CREATE INDEX instructor_identity_vetting_decision_completed__5e383e9f_fk_idx
-    ON ple_audit.instructor_identity_vetting_decision (completed_by_sysadmin_account_id, completed_by_sysadmin_product_role);
+    ON ple_audit.instructor_identity_vetting_decision (completed_by_sysadmin_account_id, completed_by_sysadmin_user_role);
 
 CREATE INDEX object_cleanup_receipt_object_cleanup_manifest__f9f85e91_fk_idx
     ON ple_audit.object_cleanup_receipt (object_cleanup_manifest_id, disposition);
@@ -359,8 +367,8 @@ CREATE INDEX course_instance_course_instance_id_ce017de1_fk_idx
 CREATE INDEX course_instance_content_discipline_id_fk_idx
     ON ple_data.course_instance (content_discipline_id);
 
-CREATE INDEX course_instance_course_theme_id_fk_idx
-    ON ple_data.course_instance (course_theme_id);
+CREATE INDEX course_instance_theme_id_fk_idx
+    ON ple_data.course_instance (theme_id);
 
 CREATE INDEX course_membership_account_id_role_fk_idx
     ON ple_data.course_membership (account_id, role);
@@ -520,8 +528,8 @@ CREATE INDEX assessment_submission_authorized_by_account_id_fk_idx
 CREATE INDEX assessment_template_assessment_policy_snapshot_id_fk_idx
     ON ple_private.assessment_template (assessment_policy_snapshot_id);
 
-CREATE INDEX authenticated_session_account_id_product_role_fk_idx
-    ON ple_private.authenticated_session (account_id, product_role);
+CREATE INDEX authenticated_session_account_id_user_role_fk_idx
+    ON ple_private.authenticated_session (account_id, user_role);
 
 CREATE INDEX authoring_workspace_owner_account_id_fk_idx
     ON ple_private.authoring_workspace (owner_account_id);
@@ -569,7 +577,7 @@ CREATE INDEX course_invitation_event_performed_by_account_id_fk_idx
     ON ple_private.course_invitation_event (performed_by_account_id);
 
 CREATE INDEX course_retention_notification_recipient_account_5bb3f876_fk_idx
-    ON ple_private.course_retention_notification (recipient_account_id, recipient_product_role);
+    ON ple_private.course_retention_notification (recipient_account_id, recipient_user_role);
 
 CREATE INDEX course_roster_profile_student_account_id_fk_idx
     ON ple_private.course_roster_profile (student_account_id);

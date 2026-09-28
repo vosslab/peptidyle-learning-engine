@@ -1,0 +1,100 @@
+/* theme_chooser.css - shared current-mode Theme card presentation. */
+
+.theme-chooser {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--ple-compact-gap, 0.5rem);
+  margin-block-start: var(--ple-compact-gap, 0.5rem);
+}
+
+.theme-chooser__card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 0.6rem;
+  align-items: center;
+  min-block-size: var(--ple-control-min-height, 2.25rem);
+  padding: 0.55rem;
+  border: 2px solid color-mix(in srgb, var(--ple-border) 72%, transparent);
+  border-radius: var(--ple-radius-control, 0.25rem);
+  background: var(--ple-theme-canvas);
+  color: var(--ple-ink);
+  cursor: pointer;
+}
+
+.theme-chooser__card:has(input:checked) {
+  border-color: var(--ple-accent-strong);
+  box-shadow: 0 0 0 3px var(--ple-highlight);
+}
+
+.theme-chooser__card:focus-within {
+  outline: 2px solid var(--ple-focus);
+  outline-offset: 2px;
+}
+
+.theme-chooser__card input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin: 0;
+}
+
+.theme-chooser__label {
+  font-weight: 750;
+}
+
+.theme-chooser__palette {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ple-ink) 24%, transparent);
+  border-radius: var(--ple-radius-control, 0.25rem);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.theme-chooser__palette span {
+  min-inline-size: 0;
+  padding: 0.2rem 0.08rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-chooser__canvas {
+  background: var(--ple-theme-canvas);
+  color: var(--ple-ink);
+}
+.theme-chooser__surface {
+  background: var(--ple-theme-surface);
+  color: var(--ple-ink);
+}
+.theme-chooser__secondary {
+  background: var(--ple-theme-secondary);
+  color: var(--ple-theme-on-secondary);
+}
+.theme-chooser__accent {
+  background: var(--ple-accent);
+  color: var(--ple-on-action);
+}
+.theme-chooser__highlight {
+  background: var(--ple-highlight);
+  color: var(--ple-on-highlight);
+}
+
+@media (max-width: 30rem) {
+  .theme-chooser {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (forced-colors: active) {
+  .theme-chooser__card {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .theme-chooser__card:has(input:checked) {
+    border: 4px double Highlight;
+    box-shadow: none;
+  }
+}

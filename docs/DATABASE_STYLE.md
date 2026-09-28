@@ -7,7 +7,7 @@ Design rules for PostgreSQL tables in this repository. This document owns how a 
 
 The rules come from the findings of
 [docs/archive/audits/sql_schema_quality_audit.md](archive/audits/sql_schema_quality_audit.md),
-the PostgreSQL 17 documentation, and the design chapters of the local PostgreSQL corpus (see
+the PostgreSQL documentation, and the design chapters of the local PostgreSQL corpus (see
 [Sources](#sources)). Cite a rule by its heading when making a schema judgment call.
 
 ## Philosophy
@@ -38,8 +38,10 @@ the PostgreSQL 17 documentation, and the design chapters of the local PostgreSQL
 
 - Derive a value that follows from other stored columns: use a `GENERATED ALWAYS AS (...) STORED`
   column when the derivation is row-local and hot, a view otherwise.
-- Remove a column whose CHECK admits exactly one value. When a future feature needs that value,
-  that feature adds the column with its approved design (HUMAN_GUIDANCE.md:89).
+- Remove a column whose CHECK admits exactly one value. A user role column may remain when it is part
+  of a composite foreign key to Account that lets PostgreSQL enforce the Account's required user
+  role. When a future feature needs any other constant value, that feature adds the column with
+  its approved design (HUMAN_GUIDANCE.md:89).
 - Reach a parent's value through the foreign key on the same row. `notification.event_id` gives
   the event's kind through one join; the row stores the id and reads the kind.
 - Keep one copy of each payload. When a saved value is finalized, mark the row finalized in place
@@ -185,8 +187,8 @@ Specific rules:
   [Snapshots](#snapshots-copy-by-reference)) carries a comment at the column instead.
 - Bind the owner, not just the id: `FOREIGN KEY (assessment_id, course_instance_id) REFERENCES assessment
   (assessment_id, course_instance_id)` proves the Assessment belongs to the Course the row claims.
-- **Role-typed foreign keys are the standard way to require a Product Role.**
-  `FOREIGN KEY (actor_account_id, actor_role) REFERENCES account (account_id, product_role)` with
+- **Role-typed foreign keys are the standard way to require a User Role.**
+  `FOREIGN KEY (actor_account_id, actor_role) REFERENCES account (account_id, user_role)` with
   `actor_role` fixed to one enum value makes PostgreSQL enforce "this Account is an Instructor"
   declaratively. Keep the carrier column and give it the enum type.
 - Keep every CHECK row-local. Put cross-row rules in a trigger or a deferred constraint, because a
@@ -349,7 +351,7 @@ Follows [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md); the database-specific ad
   belong to the API contract and are mapped at the boundary.
 - `timestamptz` columns end in `_at`; `date` columns end in `_on`; durations end in `_seconds`
   or are `interval`.
-- Enum-typed columns are named for the vocabulary: `product_role`, `late_work_rule`, `event_kind`.
+- Enum-typed columns are named for the vocabulary: `user_role`, `late_work_rule`, `event_kind`.
   A state column carries its qualifier: `lease_state`, `retention_lifecycle_state`.
 - Event tables: `<entity>_<verb>_event` (`question_availability_event`). Snapshot tables:
   `<entity>_snapshot`. Receipt tables: `<operation>_receipt`.
@@ -363,7 +365,7 @@ question, the signal that it fails, and the fix. A table passes when every row r
 | # | Question | Fails when | Fix |
 | --- | --- | --- | --- |
 | 1 | What is this table? | The HUMAN_GUIDANCE.md concept is unnamed, or its role (current state, revision, event) is unclear. | Name it, pick one role, take that role's shape from [Current state, revisions, events](#current-state-revisions-events). |
-| 2 | Is every column a fact only this row can state? | A value is reachable by one join through an FK on the same row; a value is computable from other columns; a CHECK admits exactly one value. | Drop the column; derive it; or, when it must be frozen, cite the guidance line and reference a snapshot row. Constant CHECK: `rule_2_constant_columns`. |
+| 2 | Is every column a fact only this row can state? | A value is reachable by one join through an FK on the same row; a value is computable from other columns; a CHECK admits exactly one value. | Drop the column; derive it; or, when it must be frozen, cite the guidance line and reference a snapshot row. A fixed role column may remain when it is part of a composite foreign key to Account that enforces the Account's required user role. Constant CHECK: `rule_2_constant_columns`. |
 | 3 | Is every copied value a deliberate snapshot? | Columns were copied from a parent "so history survives" without a snapshot table. | Content-addressed immutable snapshot row, referenced by id. |
 | 4 | Do types say what the data is? | A `text` column has a `CHECK (col IN (...))`; a `timestamp` lacks a zone; a `varchar(n)`; a hex checksum in `text`; relational data inside `jsonb`. | Enum or reference table; `timestamptz`; `text` + CHECK or a domain; `bytea`; real columns. `rule_4_types`. |
 | 5 | Is each rule written once? | The same literal list, regex, or length CHECK appears on more than one column. | One enum type or one domain in `10_types.sql`. `rule_5_duplicate_literal_sets`. |
@@ -412,7 +414,7 @@ one costs nothing to keep passing; one that fails it after a semester of data co
 
 ## Sources
 
-- PostgreSQL 17 documentation: [Data Types](https://www.postgresql.org/docs/current/datatype.html),
+- PostgreSQL documentation: [Data Types](https://www.postgresql.org/docs/current/datatype.html),
   [Enumerated Types](https://www.postgresql.org/docs/current/datatype-enum.html),
   [Domains](https://www.postgresql.org/docs/current/domains.html),
   [Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html),

@@ -1,8 +1,5 @@
 # Whole-interface Theme palettes
 
-
-# Whole-interface Theme palettes
-
 ## Purpose
 
 This document defines the permanent color model and palette catalog for PLE
@@ -27,6 +24,9 @@ browser preference.
 Changing display mode never changes the selected Theme. Changing a Theme
 never changes display mode.
 
+There is no System or Auto display-mode option, Theme inheritance,
+Theme-strength setting, or per-Course display mode.
+
 The default Theme is `grass` (Grassland).
 
 ## Source colors
@@ -45,17 +45,26 @@ Canvas and Surface must carry enough of the Theme's color identity that
 Themes remain visibly distinct across major page areas. A Theme must not
 depend primarily on thin rails, borders, links, or buttons for its identity.
 
-## Registry
-
-[keep the 15-theme table here, without the Review state column]
-
 ## Semantic projection
 
 The five source colors define each look. Interface colors derived from them
 must use one shared semantic projection across all Themes. Do not add
 Theme-specific derived-color exceptions.
 
-[Document the FINAL shared derivation rules here once settled.]
+The current shared projection is implemented in
+[`src/appearance/theme_registry.ts`](../src/appearance/theme_registry.ts).
+For each look, it chooses `ink` between `#172033` and white for the stronger
+contrast against Canvas. It derives muted text, links, focus, strong and
+ordinary borders, and hover from shared Canvas, Secondary, Accent, and readable
+text blends; Accent supplies actions. Text on Accent, Secondary, Highlight, and
+ink is independently chosen between `#172033` and white for stronger contrast
+against that color. The exact blend shares belong to the shared implementation
+rule and may change when rendered evidence requires a correction.
+
+This is one implementation rule for all 30 looks. The all-look contrast gate
+and independent rendered review accepted the palette catalog. A later
+correction belongs in the shared rule or five source colors, never in a
+Theme-specific derived token.
 
 ## Accessibility
 
@@ -85,7 +94,7 @@ to the five-color model require an intentional update to this specification.
 
 This document records the current closed runtime registry from
 [`src/appearance/theme_registry.ts`](../src/appearance/theme_registry.ts). It
-is the palette authority for the active whole-interface Theme plan.
+is the palette authority for the completed whole-interface Theme implementation.
 
 | Field | Current evidence |
 | --- | --- |
@@ -93,9 +102,9 @@ is the palette authority for the active whole-interface Theme plan.
 | Default | `grass` |
 | Source colors | Canvas, Surface, Secondary, Accent, and Highlight for every Theme and display mode |
 | Token projection | One shared browser derivation for all semantic tokens |
-| Settled pilot pairs | Forest, Arctic, Magma, and Desert in Light and Dark |
-| Other 11 pairs | Interim values pending rendered review and contrast acceptance |
-| Acceptance | All-30 rendered contrast, browser, screenshot, and full-gate evidence remains pending |
+| Palette values | All 15 Light/Dark pairs are current implementation values |
+| Contrast gate | One behavior-level contrast test iterates all 30 looks and verifies normal text, text on color, focus, and control boundaries |
+| Visual acceptance | Independent review accepted the 16 Forest, Arctic, Magma, and Desert Light/Dark workspace/editor pilots and the final 30-look Course-workspace corpus |
 
 Each row gives the five source colors in Canvas / Surface / Secondary / Accent /
 Highlight order. They are source data, not a claim that a look has passed the
@@ -103,58 +112,20 @@ whole-interface acceptance criteria.
 
 ## Registry
 
-| Theme ID | Name | Light | Dark | Review state |
-| --- | --- | --- | --- | --- |
-| `tundra` | Tundra | `#e3e1da` / `#fcfbfb` / `#725e72` / `#485b3c` / `#faf9f8` | `#202126` / `#2c2d34` / `#a68da6` / `#93ad83` / `#41414a` | Interim |
-| `forest` | Forest | `#d8eadc` / `#f4fbf4` / `#c2e3c8` / `#17643b` / `#b8e3a5` | `#102319` / `#183226` / `#254a36` / `#a7e39d` / `#315c3d` | Pilot settled; acceptance pending |
-| `desert` | Desert | `#f7e6c5` / `#fff9ee` / `#eacb8e` / `#744117` / `#f3d9a7` | `#261c10` / `#382816` / `#59401e` / `#ffd18a` / `#6a4b20` | Pilot settled; acceptance pending |
-| `grass` | Grassland | `#bddeb1` / `#f7fbf6` / `#73c167` / `#008852` / `#f4faf2` | `#17271e` / `#23362a` / `#8dcc75` / `#55bd88` / `#314a37` | Interim |
-| `arctic` | Arctic | `#dceff5` / `#f6fcfe` / `#b9dce8` / `#1d5e78` / `#c6e8f5` | `#10232a` / `#18343e` / `#27505d` / `#9adcf2` / `#315f70` | Pilot settled; acceptance pending |
-| `ocean` | Ocean | `#ddeff5` / `#fbfdfe` / `#0b6c88` / `#123c69` / `#f9fcfd` | `#142630` / `#203641` / `#4ca5c0` / `#76a9dd` / `#2b4957` | Interim |
-| `tropical` | Tropical | `#e4f2d6` / `#fcfdfa` / `#1b7646` / `#8a1976` / `#f9fcf5` | `#1c2b20` / `#293b2c` / `#5fb77c` / `#cf76bd` / `#3b523d` | Interim |
-| `coral-reef` | Coral reef | `#e8f6f1` / `#fcfefd` / `#006d68` / `#b52d3d` / `#fafdfb` | `#172b2a` / `#243b39` / `#50b5aa` / `#e97883` / `#34504d` | Interim |
-| `swamp` | Swamp | `#e8e5c9` / `#fcfcf9` / `#4e5f23` / `#4b3426` / `#faf9f4` | `#28291c` / `#373824` / `#94a65b` / `#b89474` / `#4b4b30` | Interim |
-| `underground` | Underground | `#e6e0d8` / `#fcfbfa` / `#59504a` / `#c9732c` / `#faf8f6` | `#27231f` / `#36302b` / `#a69a91` / `#e99b59` / `#49413a` | Interim |
-| `salt-marsh` | Salt marsh | `#e8f0df` / `#fcfdfb` / `#1e6a6d` / `#76511f` / `#fafcf8` | `#1d2925` / `#2a3933` / `#65afb0` / `#c49a61` / `#3b4c45` | Interim |
-| `wetland` | Wetland | `#e4eee7` / `#fcfdfc` / `#466f59` / `#3b648c` / `#f9fbfa` | `#1d2923` / `#2a3930` / `#83ad91` / `#7da7d0` / `#3a4c40` | Interim |
-| `sea-floor` | Sea floor | `#dee8ed` / `#fbfcfd` / `#344e62` / `#086a72` / `#f9fafb` | `#19262d` / `#26353e` / `#819bad` / `#58adb2` / `#364852` | Interim |
-| `magma` | Magma | `#f6ded6` / `#fff8f5` / `#f0b9a9` / `#7a261f` / `#f1c3a4` | `#281514` / `#3a201e` / `#5d302b` / `#ffae8e` / `#733a32` | Pilot settled; acceptance pending |
-| `beach` | Beach | `#f3e7c9` / `#fefcf9` / `#56a8b0` / `#8a3d24` / `#fcfaf4` | `#2c271d` / `#3b3529` / `#83c5ca` / `#d38568` / `#4d4635` | Interim |
-
-## Application model
-
-`Theme` is shared appearance data. An Instructor has a personal Theme for
-global Instructor pages and independently controls the Theme assigned to each
-Course. Course pages use the Course Theme. Global Instructor pages use the
-Instructor's personal Theme. `grass` is the default Theme.
-
-Display mode is independent of Theme. It has two displayed values: Light and
-Dark. When the user has not explicitly selected either mode, the interface
-follows the browser preference. Changing display mode never changes the
-selected Theme, and changing a Theme never changes display mode.
-
-One document-level appearance owner resolves the active Theme and display mode
-and applies them consistently across the interface.
-
-No Theme inherits from another Theme. There is no Theme strength setting,
-per-Course display mode, or separate System/Auto mode.
-
-## Palette model
-
-Each Theme has five source colors in both Light and Dark modes:
-
-- Canvas
-- Surface
-- Secondary
-- Accent
-- Highlight
-
-These five colors define the visual identity of the Theme. Canvas and Surface
-must carry enough of the palette that Themes remain visibly different across
-major page areas, rather than differing only through thin accents, rails,
-links, or buttons.
-
-The five source colors are the stable palette contract. Additional interface
-colors may be derived from them through one shared implementation recipe.
-Exact derivation formulas are implementation details and may be adjusted when
-rendered testing shows a need. Do not add per-Theme derived-token exceptions.
+| Theme ID | Name | Light | Dark |
+| --- | --- | --- | --- |
+| `tundra` | Tundra | `#d8d0dc` / `#eee8ef` / `#d5c5d9` / `#485b3c` / `#e5d7e6` | `#24212a` / `#332d39` / `#413447` / `#93ad83` / `#493b50` |
+| `forest` | Forest | `#d8eadc` / `#f4fbf4` / `#c2e3c8` / `#17643b` / `#b8e3a5` | `#102319` / `#183226` / `#254a36` / `#a7e39d` / `#315c3d` |
+| `desert` | Desert | `#f7e6c5` / `#fff9ee` / `#eacb8e` / `#744117` / `#f3d9a7` | `#261c10` / `#382816` / `#59401e` / `#ffd18a` / `#6a4b20` |
+| `grass` | Grassland | `#cfe0a6` / `#e7f0ca` / `#d8e7b5` / `#008852` / `#edf4d1` | `#202919` / `#2e3b25` / `#394d2d` / `#55bd88` / `#465b38` |
+| `arctic` | Arctic | `#dceff5` / `#f6fcfe` / `#b9dce8` / `#1d5e78` / `#c6e8f5` | `#10232a` / `#18343e` / `#27505d` / `#9adcf2` / `#315f70` |
+| `ocean` | Ocean | `#c6e1ef` / `#e0f0f6` / `#cfe6f0` / `#123c69` / `#d8ecf4` | `#172b36` / `#233e4a` / `#2c5362` / `#76a9dd` / `#315565` |
+| `tropical` | Tropical | `#d5e6ae` / `#edf4ce` / `#ddefbb` / `#8a1976` / `#e6c6df` | `#251f2b` / `#372b3a` / `#433348` / `#cf76bd` / `#513b50` |
+| `coral-reef` | Coral reef | `#c5e7df` / `#dcf3ed` / `#cfece4` / `#b52d3d` / `#f0cbd0` | `#1d2b2a` / `#2a3d3a` / `#344c49` / `#e97883` / `#4d393d` |
+| `swamp` | Swamp | `#d8d5ac` / `#eeeac4` / `#e2deb6` / `#4b3426` / `#e7cdb2` | `#2d2b1f` / `#403d28` / `#514c31` / `#b89474` / `#5a4635` |
+| `underground` | Underground | `#dbd1c5` / `#eee5da` / `#e3d8cb` / `#c9732c` / `#efd1b8` | `#29231f` / `#3c312a` / `#4c3c32` / `#e99b59` / `#594238` |
+| `salt-marsh` | Salt marsh | `#ccdcca` / `#e4eee1` / `#d5e5d4` / `#76511f` / `#d8e8d8` | `#202c28` / `#2e4039` / `#385149` / `#c49a61` / `#40584f` |
+| `wetland` | Wetland | `#d1e1c8` / `#e7efdf` / `#dae8d4` / `#3b648c` / `#d0dfeb` | `#202b24` / `#2e4034` / `#394f40` / `#7da7d0` / `#40546a` |
+| `sea-floor` | Sea floor | `#cbd8df` / `#e0e9ed` / `#d5e1e7` / `#086a72` / `#cae4e4` | `#1c2b31` / `#2a3e46` / `#354f59` / `#58adb2` / `#3b5960` |
+| `magma` | Magma | `#f6ded6` / `#fff8f5` / `#f0b9a9` / `#7a261f` / `#f1c3a4` | `#281514` / `#3a201e` / `#5d302b` / `#ffae8e` / `#733a32` |
+| `beach` | Beach | `#e7d7ab` / `#f3e7c6` / `#eddfb9` / `#8a3d24` / `#cae8e3` | `#2d291e` / `#403929` / `#514730` / `#d38568` / `#365451` |

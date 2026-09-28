@@ -180,8 +180,8 @@ the renderer identity, and the available engine without mutating the stack.
 
 ## Existing data and migrations
 
-- **`existing PostgreSQL data volume is not compatible with the pinned
-PostgreSQL 17 image`:** preserve the volume and migrate it with an explicit
+- **`PostgreSQL data volume requires major <actual>; selected image requires major
+<selected>`:** preserve the volume and migrate it with an explicit
   PostgreSQL-major-version procedure. Do not delete it to make startup pass.
 - **`migration ... was previously applied but is missing in the resolved
 migrations`:** preserve the retained resource and private owner receipt.

@@ -15,7 +15,7 @@ use learning_data_access::{
     SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
-use question_model::{AccountId, ProductRole};
+use question_model::{AccountId, UserRole};
 use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -179,7 +179,7 @@ async fn sysadmin_session_hash(
     {
         // ASVS 8.2.1: route filtering is only an early boundary; the Store's
         // database procedures repeat the active Sysadmin authorization.
-        Ok(session) if session.record.product_role == ProductRole::Sysadmin => {
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

@@ -3,8 +3,8 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 
-import type { ProductRole } from "../../generated/api/ProductRole";
-import { productRoleHomeRouteId, ROUTE_CONTRACT } from "../../src/route_contract";
+import type { UserRole } from "../../generated/api/UserRole";
+import { userRoleHomeRouteId, ROUTE_CONTRACT } from "../../src/route_contract";
 import type { RibbonDestinationId } from "../../src/ribbon/ribbon_catalog";
 import { AppRibbon } from "../../src/ribbon/app_ribbon";
 import { deriveRibbonModel, type RibbonModel } from "../../src/ribbon/ribbon_contract";
@@ -35,7 +35,7 @@ function selectTask(model: RibbonModel, taskId: RibbonDestinationId): RibbonMode
 
 export interface RibbonResponsiveHarness {
   readonly dispose: () => void;
-  readonly setRoleHome: (productRole: ProductRole) => void;
+  readonly setRoleHome: (userRole: UserRole) => void;
   readonly selectTask: (taskId: RibbonDestinationId) => void;
   readonly selectTab: (tabId: RibbonTabId) => void;
   readonly setFixture: (fixture: M6RibbonFixtureName) => void;
@@ -50,13 +50,13 @@ export function mountRibbonResponsiveHarness(target: HTMLElement): RibbonRespons
   const dispose = render(() => <AppRibbon model={model()} reducedMotion={() => true} />, target);
   return {
     dispose,
-    setRoleHome: (productRole): void => {
-      const routeId = productRoleHomeRouteId(productRole);
+    setRoleHome: (userRole): void => {
+      const routeId = userRoleHomeRouteId(userRole);
       const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
       if (route === undefined) {
-        throw new Error(`Responsive harness cannot resolve ${productRole} home route.`);
+        throw new Error(`Responsive harness cannot resolve ${userRole} home route.`);
       }
-      setModel(deriveRibbonModel({ route, params: {} }, { productRole }, {}));
+      setModel(deriveRibbonModel({ route, params: {} }, { userRole }, {}));
     },
     selectTask: (taskId) => setModel((current) => selectTask(current, taskId)),
     selectTab: (tabId) => setModel((current) => selectTab(current, tabId)),

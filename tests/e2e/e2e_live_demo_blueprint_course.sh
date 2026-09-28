@@ -318,7 +318,7 @@ import json, sys
 owner, reader = (json.loads(value) for value in sys.argv[1:])
 for value in (owner, reader):
     account = value.get("account")
-    if value.get("authenticated") is not True or not isinstance(account, dict) or account.get("productRole") != "instructor":
+    if value.get("authenticated") is not True or not isinstance(account, dict) or account.get("userRole") != "instructor":
         raise SystemExit("C19 fixture Session is not an authenticated Instructor")
 if owner["account"].get("id") == reader["account"].get("id"):
     raise SystemExit("C19 fixture must use distinct owner and reader Instructors")

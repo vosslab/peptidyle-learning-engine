@@ -18,10 +18,10 @@
 The shared Account architecture remains authoritative, while several prerequisites are
 already complete:
 
-- `ProductRole` is immutable and fully replaces `AccountRole`.
+- `UserRole` is immutable and fully replaces `AccountRole`.
 - Create Instructor Account generates its Account ID server-side and requires an Active
   Sysadmin session.
-- Authenticated Session creation derives and stores Product Role from the Account.
+- Authenticated Session creation derives and stores User Role from the Account.
 - Account State uses Active, Deactivated, and Closed; deactivation revokes sessions.
 - Generic Retry Token and Account-subtype proposals are retired.
 
@@ -33,7 +33,7 @@ This plan is subordinate to:
 
 1. Direct current human decisions and [Human Guidance](../HUMAN_GUIDANCE.md).
 2. [Terminology Contract](../TERMINOLOGY_CONTRACT.md).
-3. [Product Roles and Course Membership](../USER_ROLES.md).
+3. [User Roles and Course Membership](../USER_ROLES.md).
 4. The remaining durable contracts and design documents.
 5. This implementation plan.
 
@@ -44,7 +44,7 @@ schedule changes to `TERMINOLOGY_CONTRACT.md` or `USER_ROLES.md`.
 
 - Record immutable audit evidence identifying the acting Sysadmin whenever Create Instructor
   Account succeeds.
-- Correct [Security Model](../SECURITY_MODEL.md) to describe the current Account, Product Role,
+- Correct [Security Model](../SECURITY_MODEL.md) to describe the current Account, User Role,
   Account State, Authenticated Session, and creation controls accurately.
 - Record the user-approved robustness principle in Human Guidance and express its technical
   outcomes in [Failure Recovery](../FAILURE_RECOVERY.md).
@@ -58,12 +58,12 @@ schedule changes to `TERMINOLOGY_CONTRACT.md` or `USER_ROLES.md`.
 ## Design philosophy
 
 - Preserve one shared Account, authentication, passkey, and Authenticated Session architecture
-  for all Product Roles.
+  for all User Roles.
 - Use the existing qualified authority paths:
   - installation administration may establish the first Sysadmin Account;
   - an Active Sysadmin performs Create Instructor Account after Instructor Vetting; and
   - Course Roster Import later resolves or creates Student Accounts under Instructor authority.
-- Treat the Terminology Contract and Product Roles and Course Membership as acceptance oracles.
+- Treat the Terminology Contract and User Roles and Course Membership as acceptance oracles.
   Private SQL or code identifiers remain implementation details and do not silently establish new
   product vocabulary.
 - Capture creator evidence inside the transaction that already verifies the actor.
@@ -85,7 +85,7 @@ schedule changes to `TERMINOLOGY_CONTRACT.md` or `USER_ROLES.md`.
 
 - Consolidate the existing security-plan drafts into this tracked active plan.
 - Add qualified immutable audit evidence to Create Instructor Account.
-- Preserve server-generated Account IDs, server-derived Product Role, Account State, and shared
+- Preserve server-generated Account IDs, server-derived User Role, Account State, and shared
   sessions.
 - Add permanent behavior tests and proportional mechanism evidence.
 - Record the approved robustness rule in Human Guidance and Failure Recovery.
@@ -120,14 +120,14 @@ schedule changes to `TERMINOLOGY_CONTRACT.md` or `USER_ROLES.md`.
 
 - [x] Read and follow guidelines in `TERMINOLOGY_CONTRACT.md` and `USER_ROLES.md`; treat these files
       as read only authority documents.
-- [x] Use Account, Sysadmin Account, Active Account, Product Role, Account State, Create Instructor
+- [x] Use Account, Sysadmin Account, Active Account, User Role, Account State, Create Instructor
       Account, passkey, and Authenticated Session with their existing meanings.
 - [x] Preserve qualified Account-creation paths: installation administration for the first
       Sysadmin, an Active Sysadmin for Create Instructor Account after Instructor Vetting, and future
       Instructor-owned Course Roster Import for Student Accounts.
 - [x] Treat installation setup credential and SQL event names as private implementation
       descriptions, not new canonical product terms.
-- [x] Preserve server-derived Product Role and the separation between Product Role and Course
+- [x] Preserve server-derived User Role and the separation between User Role and Course
       relationships.
 - [x] Require a separate authority-level review if implementation exposes a genuine
       contradiction.
@@ -144,13 +144,13 @@ updated separately after this plan and before its own implementation.
 | No Account subtype relations                                         | Preserved                                                                   |
 | Account State handles restriction and revocation                     | Implemented; retain and test                                                |
 | Server-generated Account IDs                                         | Implemented                                                                 |
-| Session derives Product Role and retains its foreign-key-pinned copy | Implemented; retain unchanged                                               |
+| Session derives User Role and retains its foreign-key-pinned copy | Implemented; retain unchanged                                               |
 | Creation records its actor transactionally                           | Preserved through qualified audit evidence                                  |
 | Generic creator column on every Account                              | Replaced by qualified evidence because creation paths have different actors |
 | Generic Retry Token                                                  | Rejected                                                                    |
 | No route or onboarding UI                                            | Superseded only if the isolated passkey capability is accepted              |
 | Permanent rules plus one-time mechanism evidence                     | Preserved                                                                   |
-| Product Role and Deactivated terminology                             | Implemented and mandatory                                                   |
+| User Role and Deactivated terminology                             | Implemented and mandatory                                                   |
 
 ## Required account-creation changes
 
@@ -184,7 +184,7 @@ Extend Failure Recovery without changing its committed, rejected, retryable, and
 model:
 
 - **Salvageable:** normalize or reconstruct only from authoritative facts; preserve the original
-  evidence when needed; never guess identity, Product Role, authority, credential state, or a
+  evidence when needed; never guess identity, User Role, authority, credential state, or a
   committed outcome.
 - **Clean retry:** discard only ephemeral attempt state and repeat the same logical operation.
   Preserve durable operation identity where an earlier commit may exist.
@@ -267,7 +267,7 @@ If accepted:
 - Preserve the closed allowed persona set while allowing the runtime to retain valid personas if
   one configured persona is missing or invalid.
 - An individual bad persona mapping is omitted or returns a bounded unavailable result; it cannot
-  be coerced into another Product Role.
+  be coerced into another User Role.
 - If at least one valid seeded persona remains, the seeded entry page continues to work and
   identifies that some demo Accounts are unavailable.
 - If no persona is valid, the seeded-entry capability is unavailable while the server and non-demo
@@ -288,7 +288,7 @@ If accepted:
 
 - Consolidate the two ignored security-plan drafts into this active plan.
 - Complete the authority-alignment checklist against Human Guidance, Terminology Contract, and
-  Product Roles and Course Membership.
+  User Roles and Course Membership.
 - Remove the superseded root copies after content reconciliation.
 - Run changelog rotation and record plan adoption.
 - Exit gate: the plan requires no authority-document changes.
@@ -382,8 +382,8 @@ separate outcomes.
 - Create Instructor Account records exactly one event naming its Active Sysadmin actor.
 - Invalid, inactive, non-Sysadmin, duplicate-email, and transactional-failure cases create no
   Account, Authentication Email, or event.
-- Product Role remains immutable.
-- Authenticated Session Product Role remains derived from the Account.
+- User Role remains immutable.
+- Authenticated Session User Role remains derived from the Account.
 - Deactivation prevents new sessions and revokes existing sessions.
 - Valid seeded personas remain usable when another persona mapping is absent or invalid.
 - An invalid optional capability does not crash the server or remove unrelated routes.
@@ -415,7 +415,7 @@ runs as an explicit isolated lane whose failure cannot make the baseline Live De
 
 ## Documentation closeout
 
-- Update Security Model unconditionally for the current Account, Product Role, Account State,
+- Update Security Model unconditionally for the current Account, User Role, Account State,
   Authenticated Session, and Create Instructor Account controls.
 - Correct stale `auth_session`, `course_member`, and archived-plan authority references.
 - Add passkey details to the security model only if the passkey capability is accepted. Otherwise
@@ -430,7 +430,7 @@ runs as an explicit isolated lane whose failure cannot make the baseline Live De
 - Synchronize lower-authority affected documents, migration counts, installation guidance,
   test-evidence descriptions, and the changelog according to the accepted or deferred outcome.
 - Before adopting `plan-student-activation-plan.md`, run a separate terminology-plan update against
-  the then-current Human Guidance, Terminology Contract, and Product Roles and Course Membership.
+  the then-current Human Guidance, Terminology Contract, and User Roles and Course Membership.
   No implementation proceeds from its current stale wording.
 
 ## Assumptions and locked defaults

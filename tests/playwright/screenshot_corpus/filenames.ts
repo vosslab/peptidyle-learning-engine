@@ -3,9 +3,9 @@
 import {
   RIBBON_TASK_CATALOG,
   TAB_CATALOG,
-  type RibbonTabId,
   type RibbonTaskId,
 } from "../../../src/ribbon/ribbon_catalog";
+import type { RibbonTabId } from "../../../src/route_contract";
 
 function catalogSlug(identifier: string): string {
   return identifier.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`);

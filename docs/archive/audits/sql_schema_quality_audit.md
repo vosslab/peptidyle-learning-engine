@@ -1,6 +1,6 @@
 # SQL schema quality and efficiency audit
 
-Read-only audit of the canonical PostgreSQL 17 base schema under
+Read-only audit of the canonical PostgreSQL base schema under
 `base_schema`, installed from
 [install.sql](../../../schemas/base_schema/install.sql). It extends the
 findings the human recorded in
@@ -191,7 +191,7 @@ Seventeen columns admit exactly one value (parser over all `CREATE TABLE` bodies
 
 | Column | Only value | Assessment |
 | --- | --- | --- |
-| `course_instance.assigned_instructor_role`, `course_invitation.inviting_instructor_role`, `course_retention_notification.recipient_product_role`, `support_repair_capability.sysadmin_role`, `forced_question_correction.approver_role`, three `*_product_role` columns in `ple_audit.instructor_*` | one role | **Keep the mechanism, shrink the column.** These are role-typed foreign keys: `FOREIGN KEY (account_id, role) REFERENCES account (account_id, product_role)` (11 sites) makes PostgreSQL enforce "this account is an Instructor" declaratively, with no trigger. That is good design. The cost is a `text` per row; convert `product_role` and every carrier to one `ple_private.product_role` enum (4 bytes, no CHECK). |
+| `course_instance.assigned_instructor_role`, `course_invitation.inviting_instructor_role`, `course_retention_notification.recipient_user_role`, `support_repair_capability.sysadmin_role`, `forced_question_correction.approver_role`, three `*_user_role` columns in `ple_audit.instructor_*` | one role | **Keep the mechanism, shrink the column.** These are role-typed foreign keys: `FOREIGN KEY (account_id, role) REFERENCES account (account_id, user_role)` (11 sites) makes PostgreSQL enforce "this account is an Instructor" declaratively, with no trigger. That is good design. The cost is a `text` per row; convert `user_role` and every carrier to one `ple_private.user_role` enum (4 bytes, no CHECK). |
 | `course_banner_rendition.rendition_kind`, `course_banner_delivery.rendition_kind` | `'banner'` | Remove; placeholder for a second rendition kind with no approved design (HUMAN_GUIDANCE.md:89). |
 | `job.job_kind`, `job.job_target_kind`, `job.worker_kind` | one each | Remove all three; rename the table `public_asset_publication_job` if the name should say what it is. |
 | `question_response_grading.grading_state` | `'graded'` | Remove with the table (1.3). |
@@ -207,7 +207,7 @@ place to edit when the vocabulary changes, and the CHECK text is not introspecta
 
 Candidate enum families (one type each, referenced from every table that uses it):
 
-- `product_role` (3 values, 11 role-typed FK sites)
+- `user_role` (3 values, 11 role-typed FK sites)
 - `assessment_type` (5), `late_work_rule` (3), `question_variation_rule` (2),
   `question_order_rule` (2), `feedback_release` (5, used by 18 columns across 3 tables)
 - `scoring_rule` (4, 2 tables), `entry_kind` (2), `entry_availability` (2)
@@ -479,5 +479,5 @@ Not established here:
 confirmed above as 1.5, 1.1, 1.3, 1.3, 1.3, and 1.4 respectively. One correction to that note:
 the fixed-role columns (`assigned_instructor_role` and friends) do carry information to the
 database even though they carry none to a reader; they are the composite-FK carrier that makes
-PostgreSQL enforce the Product Role of the referenced Account. Remove the `text` cost with an
+PostgreSQL enforce the User Role of the referenced Account. Remove the `text` cost with an
 enum (package A), not the column.

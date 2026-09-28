@@ -24,26 +24,10 @@
   --ple-ribbon-space-inline: var(--ple-space-4);
   --ple-ribbon-space-cue: var(--ple-space-6);
   --ple-ribbon-space-endcap: var(--ple-space-7);
-  --ple-ribbon-context-surface: color-mix(
-    in srgb,
-    var(--ple-surface-soft) 88%,
-    var(--ple-card-surface)
-  );
-  --ple-ribbon-tab-surface: color-mix(
-    in srgb,
-    var(--ple-card-surface) 84%,
-    var(--ple-surface-soft)
-  );
-  --ple-ribbon-task-surface: color-mix(
-    in srgb,
-    var(--ple-surface-soft) 54%,
-    var(--ple-card-surface)
-  );
-  --ple-ribbon-interaction-surface: color-mix(
-    in srgb,
-    var(--ple-surface-soft) 76%,
-    var(--ple-card-surface)
-  );
+  --ple-ribbon-context-surface: var(--ple-surface);
+  --ple-ribbon-tab-surface: var(--ple-highlight);
+  --ple-ribbon-task-surface: var(--ple-theme-secondary);
+  --ple-ribbon-interaction-surface: var(--ple-highlight);
 }
 
 /* The shell frame owns the viewport floor. This variant only replaces its
@@ -57,7 +41,6 @@
 }
 
 .ple-app-ribbon {
-  --ple-ribbon-course-accent: var(--ple-accent-strong);
   --ple-ribbon-rule: color-mix(in srgb, var(--ple-ink) 18%, transparent);
   --ple-ribbon-rule-quiet: color-mix(in srgb, var(--ple-ink) 10%, transparent);
   position: relative;
@@ -70,12 +53,7 @@
      an account-endcap overlay and must remain visible above the next row. */
   overflow: visible;
   color: var(--ple-ink);
-  background-color: var(--ple-card-surface);
-  background-image: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--ple-card-surface) 96%, var(--ple-ink)),
-    var(--ple-card-surface)
-  );
+  background-color: var(--ple-surface);
   /* The inset rule below paints the separator without adding a layout pixel
      to either the taskful or taskless Ribbon geometry. */
   border-block-end: 0;
@@ -184,9 +162,6 @@
   padding-inline: var(--ple-ribbon-space-inline);
   padding-inline-end: var(--ple-ribbon-space-endcap);
   background-color: var(--ple-ribbon-context-surface);
-  background-image:
-    linear-gradient(to bottom, rgb(255 255 255 / 34%), transparent 66%),
-    linear-gradient(to right, var(--ple-ribbon-rule-quiet), transparent 42%);
   box-shadow: inset 0 -1px 0 var(--ple-ribbon-rule);
 }
 
@@ -220,7 +195,7 @@
   place-items: center;
   border-radius: var(--ple-radius-control) var(--ple-radius-control) var(--ple-radius-control)
     var(--ple-ribbon-space-tight);
-  background: linear-gradient(145deg, var(--ple-accent), var(--ple-accent-strong));
+  background: var(--ple-accent);
   box-shadow: var(--ple-shadow);
   color: var(--ple-on-action);
 }
@@ -229,7 +204,7 @@
   font-size: 1.08rem;
 }
 
-.ple-app-ribbon__product-role {
+.ple-app-ribbon__user-role {
   /* Every signed-in role reserves the Instructor-sized badge so the first
      destination has one stable inline start across non-phone Ribbons. */
   display: inline-flex;
@@ -238,7 +213,8 @@
   inline-size: 6rem;
   justify-content: center;
   color: var(--ple-muted);
-  background: color-mix(in srgb, var(--ple-card-surface) 62%, transparent);
+  color: var(--ple-theme-on-secondary);
+  background: var(--ple-theme-secondary);
   border: 1px solid var(--ple-ribbon-rule);
   border-radius: calc(var(--ple-radius-control) / 2);
   padding-block: var(--ple-ribbon-space-tight);
@@ -330,6 +306,22 @@
   z-index: 3;
   inset-block-start: calc((var(--ple-ribbon-top-block-size) - 2rem) / 2);
   inset-inline-end: var(--ple-ribbon-space-inline);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ple-ribbon-space-tight);
+}
+
+.ple-app-ribbon__display-mode-toggle {
+  display: grid;
+  inline-size: 2rem;
+  block-size: 2rem;
+  min-block-size: 2rem;
+  place-items: center;
+  padding: 0;
+  border-color: var(--ple-ribbon-rule, var(--ple-border));
+  color: var(--ple-ink);
+  background: var(--ple-ribbon-interaction-surface, var(--ple-surface-soft));
+  font-size: 1rem;
 }
 
 .ple-app-ribbon__profile {
@@ -365,7 +357,7 @@
   padding: var(--ple-ribbon-space-tight);
   border: 1px solid var(--ple-ribbon-rule);
   border-radius: var(--ple-radius-control);
-  background: var(--ple-card-surface);
+  background: var(--ple-surface);
   box-shadow: var(--ple-shadow);
 }
 
@@ -420,14 +412,14 @@
 }
 
 .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
-  color: var(--ple-ink);
-  background: var(--ple-ribbon-interaction-surface);
-  box-shadow: inset 0 0 0 1px var(--ple-ribbon-rule-quiet);
+  color: var(--ple-on-highlight);
+  background: var(--ple-ribbon-tab-surface);
+  box-shadow: inset 0 0 0 1px var(--ple-border-strong);
   font-weight: 760;
 }
 
 .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
-  background: var(--ple-ribbon-course-accent);
+  background: var(--ple-on-highlight);
 }
 
 /* Tasks answer which part of the work to enter: a lighter strip with explicit
@@ -436,8 +428,8 @@
 .ple-app-ribbon__tasks {
   gap: var(--ple-ribbon-space-row);
   padding-inline: var(--ple-ribbon-space-inline);
+  color: var(--ple-theme-on-secondary);
   background-color: var(--ple-ribbon-task-surface);
-  background-image: linear-gradient(to bottom, rgb(255 255 255 / 18%), transparent 72%);
 }
 
 .ple-app-ribbon__task-area {
@@ -452,11 +444,9 @@
 }
 
 .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
-  color: var(--ple-on-action);
-  background: var(--ple-ribbon-course-accent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 34%),
-    inset 0 -1px 0 color-mix(in srgb, var(--ple-ink) 24%, transparent);
+  color: var(--ple-on-highlight);
+  background: var(--ple-highlight);
+  box-shadow: inset 0 -1px 0 var(--ple-border-strong);
   font-weight: 760;
 }
 
@@ -470,6 +460,10 @@
 .ple-app-ribbon__link:hover,
 .ple-app-ribbon__brand:hover,
 .ple-app-ribbon__profile:hover {
+  background-color: var(--ple-ribbon-interaction-surface);
+}
+
+.ple-app-ribbon__display-mode-toggle:hover:not(:disabled) {
   background-color: var(--ple-ribbon-interaction-surface);
 }
 
@@ -488,12 +482,13 @@
 }
 
 /* Pending feedback scans within the activated key without changing a box
-   metric. It reads as work in progress while the content region resolves. */
+   metric. The highlight foreground preserves the same visible gloss in every
+   resolved appearance. */
 .ple-app-ribbon__link[data-ribbon-pending="true"] {
   background-image: linear-gradient(
     105deg,
     transparent 28%,
-    rgb(255 255 255 / 42%) 44%,
+    color-mix(in srgb, var(--ple-on-highlight) 42%, transparent) 44%,
     transparent 60%
   );
   background-position: 150% 0;
@@ -516,6 +511,12 @@
 .ple-app-ribbon__brand:focus-visible,
 .ple-app-ribbon__profile:focus-visible,
 .ple-app-ribbon__profile-menu-item:focus-visible {
+  z-index: 1;
+  outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
+  outline-offset: var(--ple-ribbon-space-tight);
+}
+
+.ple-app-ribbon__display-mode-toggle:focus-visible {
   z-index: 1;
   outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
   outline-offset: var(--ple-ribbon-space-tight);
@@ -591,7 +592,7 @@
     display: none;
   }
 
-  .ple-app-ribbon__product-role {
+  .ple-app-ribbon__user-role {
     display: none;
   }
 

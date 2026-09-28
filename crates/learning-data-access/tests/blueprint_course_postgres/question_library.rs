@@ -260,7 +260,7 @@ async fn add_facet_bounds(admin: &sqlx::postgres::PgPool) {
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn question_library_search_filters_and_pages_in_postgresql() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");

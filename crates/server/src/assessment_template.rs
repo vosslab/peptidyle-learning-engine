@@ -17,7 +17,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceId, ProductRole,
+    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceId, UserRole,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -314,9 +314,9 @@ async fn instructor_session_hash(
     )
     .await
     {
-        // ASVS 8.2.1 and 8.3.1: Product Role comes only from the server-side
+        // ASVS 8.2.1 and 8.3.1: User Role comes only from the server-side
         // session. Each Store call repeats active-Instructor owner authority.
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

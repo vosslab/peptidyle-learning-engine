@@ -55,7 +55,7 @@ BEGIN
         IF NEW.actor_account_id::text <> workspace_owner
            OR NEW.collaborator_account_id::text = workspace_owner
            OR NOT EXISTS (SELECT 1 FROM ple_private.account
-               WHERE account_id = NEW.collaborator_account_id AND product_role = 'instructor') THEN
+               WHERE account_id = NEW.collaborator_account_id AND user_role = 'instructor') THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'only the Authoring Workspace Owner starts an Instructor collaborator relationship';
         END IF;

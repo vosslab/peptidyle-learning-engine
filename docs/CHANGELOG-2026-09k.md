@@ -4,7 +4,7 @@
 
 - Completed C831's bounded native-JSON reproduction closure. Native PLE JSON Questions now retain
   static reproduction without a seed or generated-parameter hash, while renderer-backed Questions
-  retain the paired private seed/hash facts. An accepted one-time isolated PostgreSQL 17 proof
+  retain the paired private seed/hash facts. An accepted one-time isolated PostgreSQL proof
   issued a shuffled-position-2 native Question with null private reproduction fields, retained a
   numeric seed and 64-character hash for a real WeBWorK Question, omitted both fields from public
   start/read/save/resume/restored payloads, and restored the same issued vector plus saved native
@@ -12,7 +12,7 @@
   `validate_issued_question_reproduction`. This does not claim JavaScript support, backend parity,
   or general randomness behavior. Artifact: `/private/tmp/ple-native-seed-artifacts.KfY7Op`.
 
-- Completed C838's first canonical-family publication prerequisite. Isolated PostgreSQL 17/MinIO
+- Completed C838's first canonical-family publication prerequisite. Isolated PostgreSQL/MinIO
   proof published `topic05-degrees-of-dominance-which-one` from its explicit manifest parameter as
   ordinary available WeBWorK Question `N7VC-R4N2` Revision 1, retaining its source, metadata, and
   provenance with SHA-256 `942922e8669bfaa47fcfe90ad169cc09234bc7e5e730112e784b64fdb2a88149`.
@@ -193,7 +193,7 @@
   Questions. The canonical-source validator now enforces the intended exact
   `pg/<topic>/...` and `genetics/<topic>/...` ownership paths instead of rejecting every real
   `pg/topicNN/...` `PathBuf`. Focused publication tests, project-tools check/build, the full Python
-  suite, and an isolated PostgreSQL 17/MinIO run passed. That run published three Questions, one
+  suite, and an isolated PostgreSQL/MinIO run passed. That run published three Questions, one
   ordered two-member Pool, and one `[pool, fixed]` Blueprint, then proved an unchanged exact rerun.
   It is publication/pin plumbing evidence, not PGML rendering or algorithmic-source acceptance.
   Bundled Genetics publication remains open: 76 unreplaced banks still reference 13,434 generated
@@ -207,7 +207,7 @@
   persistence; immediate resume returns the retained Attempt before source reads or randomness.
   Two connected Pool defects were also corrected: full Assessment saves resolve the canonical
   public Pool ID to the exact Assessment-owned fork, and workspace decoding returns one Pool Entry
-  while retaining all member Question facts. Focused Rust compilation, a fresh PostgreSQL 17 SQL
+  while retaining all member Question facts. Focused Rust compilation, a fresh PostgreSQL SQL
   gate, and independent review passed. Accepted authenticated Student HTTP evidence then covered
   authored order, a complete shuffled fixed-and-Pool vector, a real concurrent Instructor save
   blocked behind the Student-start lock, immutable same-Attempt resume after a current-rule edit,
@@ -233,7 +233,7 @@
   rewrite sibling renderer HTML while successful hardened-embed behavior remains unverified.
 - Projected each exact Question Revision's optional registered WeBWorK PG path through the
   Instructor-authorized private Question Library query and decoded it into the server-only Store
-  entry. A fresh PostgreSQL 17 installation proved the exact path through both list and
+  entry. A fresh PostgreSQL installation proved the exact path through both list and
   exact-Revision reads, the focused PostgreSQL LDA compile passed, and independent review accepted
   the private DTO boundary. This prerequisite does not implement or verify rendered WeBWorK
   Question preview.
@@ -243,7 +243,7 @@
   without obsolete authority booleans;
   Question and Properties routes, Ribbon tasks, headings, and breadcrumbs use their canonical
   names; and the owning editor CSS targets the current Assessment selectors. Accepted private
-  PostgreSQL 17, actual-server, and exact-main browser evidence added, moved, removed, re-added,
+  PostgreSQL, actual-server, and exact-main browser evidence added, moved, removed, re-added,
   saved, and reloaded two Questions, persisted one Properties instructions edit, saved and reloaded
   fixed-Question point values `2.5` and `1`, and verified the grouped two-column desktop and
   one-column 720px Properties layout. Cancel, Stay/Discard, and a real stale-write refusal with
@@ -320,7 +320,7 @@
   this is not connected HTTP evidence. Integrated codebase, pytest, and `server_core` library
   checks passed.
 - Replaced the misleading `coral-crossing` provided-avatar artwork with an original decorative Coral reef tile: branching coral, a small fish, and a contained ocean wave. The stable catalog ID and asset path remain unchanged; the canonical manifest and generated Rust, TypeScript, and SQL registry facts now use the name "Coral reef" and its accurate description.
-- Accepted C8's source boundary after independent review and a fresh root PostgreSQL 17 rerun:
+- Accepted C8's source boundary after independent review and a fresh root PostgreSQL rerun:
   Course-fixed exact Pool members, stable IDs, authorization, and retired/inactive handling are
   correct. Connected HTTP and Cargo execution remain pending the AWS Smithy dependency cutover.
 - Added `Verification pending:` as the open-checklist qualifier for implemented behavior awaiting
@@ -352,7 +352,7 @@
 - Added the independently accepted C503 Assessment-origin cutover. Manual five-argument creation
   now derives immutable direct origin with no Blueprint fields or source-choice API; Blueprint
   adoption alone records the exact nonnull Blueprint Course, Revision, and Assessment triplet, and
-  the Live Demo remains adopted. A fresh PostgreSQL 17 public-API proof passed direct fixed/Pool
+  the Live Demo remains adopted. A fresh PostgreSQL public-API proof passed direct fixed/Pool
   order and exact points, adopted save/load provenance, malformed shapes, and immutability. An
   attested `PostgresLiveAssessmentStore` proof also passed direct create/load/save and adopted
   load/save through the production mapper. The standalone proof did not rerun the full
@@ -380,7 +380,7 @@
   subset. Active Instructors can list, create, read, and replace only their own strict settings
   aggregates; creation uses server UUIDs and Type-derived canonical defaults, while full saves use
   strong Edit Number ETags without resetting supplied settings after a Type change. A fresh
-  PostgreSQL 17 actual-Store proof passed owner/nonowner and inactive-account authorization, stale
+  PostgreSQL actual-Store proof passed owner/nonowner and inactive-account authorization, stale
   CAS, strict row decoding, and settings round-trip behavior. Focused PostgreSQL-feature LDA
   compilation and strict Clippy passed; full server compilation remains blocked by the existing AWS
   Smithy dependency incompatibility. This does not add the Template UI, copy integration, sharing,
@@ -391,14 +391,14 @@
   remain correctable; Released saves enforce the same issues while unrelated edits preserve an
   unchanged near or past Due date. C519's valid-range row is also supported by public-save point
   checks, positive-or-null whole-Assessment Attempt/time limits, and the release-required time
-  limit: fresh PostgreSQL 17 actual-API proof atomically rejected `1000000001` and
-  `1000000000.99999`, then saved and released exact `1000000000.9999`. Fresh PostgreSQL 17 and
+  limit: fresh PostgreSQL actual-API proof atomically rejected `1000000001` and
+  `1000000000.99999`, then saved and released exact `1000000000.9999`. Fresh PostgreSQL and
   actual-component proofs passed exact date boundaries, refusal/correction/release, all three save
   paths, authorization, and least privilege.
 - Aligned Assessment Entry persistence with the existing typed point-value domain: zero through
   `1000000000.9999`, with at most four decimal places. Both complete-save Entry variants reject
   excess precision or range before writing, while table constraints protect alternate writers.
-  An independently rerun fresh PostgreSQL 17 proof passed exact maximum, `0.0001`, zero, rollback,
+  An independently rerun fresh PostgreSQL proof passed exact maximum, `0.0001`, zero, rollback,
   archived Question-pin preservation, and zero-point release; its temporary helper was removed.
 - Added the independently accepted C207 Course deadline synchronization. Assessment release and
   all three authorized save paths now serialize Course-first, reject a Due date after the immutable
@@ -406,7 +406,7 @@
   fact. Active Course retention follows that maximum or falls back to the cutoff; archive and delete
   freeze the retention anchor while the current maximum fact remains accurate. Canonical Live Demo
   installation now synchronizes its released Assessment and uses the canonical public Blueprint
-  lifecycle status. An ignored PostgreSQL 17 proof passed the actual APIs, stale CAS, authorization,
+  lifecycle status. An ignored PostgreSQL proof passed the actual APIs, stale CAS, authorization,
   cap rollback, deterministic two-Assessment concurrency, archive races and freeze, schedules,
   helper ACL denial, and the full seeded Live Demo maximum; independent unchanged rerun accepted it.
   The 2,791 focused source-style tests and scoped diff check also passed, and the temporary proof was
@@ -419,7 +419,7 @@
   defaults correct answers to after submission; Regular and Bonus default them to never; submitted
   responses, correctness, answers, and explanations remain independently timed; Question Feedback
   is shown when provided and has no separate delayed-release state.
-  Actual-component dialog and summary proofs passed, and fresh PostgreSQL 17 API proofs established
+  Actual-component dialog and summary proofs passed, and fresh PostgreSQL API proofs established
   no pre-submit response source, native PLE post-submit answer disclosure, and fail-closed Quiz/Exam
   release. `./check_codebase.sh` passed 328 Node tests and the latest manager pytest run passed 7042;
   the source-only publisher filter collected zero runtime-only tests and is not claimed as a pass.
@@ -428,19 +428,19 @@
 - Added the accepted Bonus and entry-level extra-credit Gradebook contribution boundary. Course
   Gradebook and pre-start/current Assessment worth preserve earned points while contributing zero
   points possible for Bonus, Extra Credit, and Excluded entries; raw Question and Assessment
-  Attempt performance remains unchanged. A fresh PostgreSQL 17 install and API proof passed, plus
+  Attempt performance remains unchanged. A fresh PostgreSQL install and API proof passed, plus
   the focused Rust and browser decoder gates. Configured Attempt selection and Course-total grade
   calculation remain open, so this does not close C510 globally.
 - Corrected the production Gradebook to select each Student's highest grading-complete submitted
   Assessment Attempt by earned points calculated from immutable credit and current Question point
   values. Later lower, unsubmitted, and grading-pending Attempts no longer erase an established
-  score; the latest Attempt still supplies progress when no score exists. Fresh PostgreSQL 17 API
+  score; the latest Attempt still supplies progress when no score exists. Fresh PostgreSQL API
   proof also preserved the Bonus zero denominator without adding score persistence or Course totals.
 - Cut over the Student Course landing to the same highest submitted Assessment-score selection
   while preserving the latest Attempt as the progress, completion, and resume authority. The
   selected Attempt's copied feedback policy controls disclosure, and the direct `assessmentScore`
   contribution accepts Bonus points over a zero denominator without weakening raw Attempt scores.
-  Fresh PostgreSQL 17 API proof passed earlier-high/later-low/newest-resumable and inverse
+  Fresh PostgreSQL API proof passed earlier-high/later-low/newest-resumable and inverse
   disclosure cases; strict decoder and compiled Solid browser proofs passed, including Bonus
   `8 / 0`. The focused `learning-data-access` PostgreSQL library check passed in 5.72 seconds
   without warnings, verifying the new model, decoder, and export. Full `server_core` compilation
@@ -456,7 +456,7 @@
   confirmation names the current server-projected title, explains the shared discovery and new-
   selection impact, and preserves exact Revisions and Student Work; stale title, ETag, lifecycle,
   and ownership changes refresh or close the affordance without exposing owner identity. A fresh
-  PostgreSQL 17 schema proved that the current non-Author Owner receives the capability while a
+  PostgreSQL schema proved that the current non-Author Owner receives the capability while a
   different active Instructor who is an Author does not. Actual-component Chromium proof passed
   confirmation, cancellation, success, failure, stale recovery, permission loss, and narrow layout
   against mock transport. The connected server/browser journey remains unverified because the
@@ -469,9 +469,9 @@
   discovery, server-HMAC-validated current Revision detail, and Course-Instructor-owned exact
   Assessment fork detail reuse the answer-free exact Question Revision projection. Every published
   Pool, including child forks, is reusable; global responses disclose no source provenance,
-  Course/Assessment association, or Student facts. A fresh PostgreSQL 17 proof passed global
+  Course/Assessment association, or Student facts. A fresh PostgreSQL proof passed global
   paging, current ordered pins, child-of-child reuse, and Student denial. A separate fresh
-  PostgreSQL 17 Course-adoption proof confirmed that a Blueprint may pin a child Pool and the
+  PostgreSQL Course-adoption proof confirmed that a Blueprint may pin a child Pool and the
   adopted Assessment fork records that immediate child Revision as its source without flattening
   provenance to the root Pool.
 - Cut over the retained Student Assessment Attempt Node contracts to canonical Assessment test
@@ -557,7 +557,7 @@
   and stores an actor-bound opaque idempotency receipt keyed to a canonical
   request digest. Stale, invalid, unavailable, unauthorized, duplicate, or
   oversized requests make no partial change and expose no per-target outcome.
-  The ignored fresh PostgreSQL 17 proof covered unvetted denial, replay,
+  The ignored fresh PostgreSQL proof covered unvetted denial, replay,
   same-key mismatch, stale/unknown/invalid rollback, and final zero-write
   state; it passed independent review and was removed. C367/C893 own the
   typed Store and HTTP outcomes.
@@ -567,7 +567,7 @@
   actor-scoped opaque idempotency receipt. Concurrent same-key requests return
   the same Draft; a reused key for another source is refused. The stored
   server-allocated compact Question ID is required if that Draft is later
-  published. The ignored PostgreSQL 17/RLS proof covered private ownership,
+  published. The ignored PostgreSQL/RLS proof covered private ownership,
   source pinning, actor scope, mismatch refusal, concurrent retry, and
   fork-versus-archive ordering; it passed independent review and was removed.
   C878-C879 still own the typed server command and Instructor workflow.
@@ -637,7 +637,7 @@
   Published Question; missing, archived, wrong-revision, Student, and
   unauthenticated requests receive no source fact. This schema phase creates no
   Draft, attribution, authoring operation, or client-facing identity path. The
-  ignored fresh PostgreSQL 17 proof passed and remains temporary under the
+  ignored fresh PostgreSQL proof passed and remains temporary under the
   plan's test-liability policy.
 - Completed C856's Blueprint Star verified-name projection. Only an active
   vetted Instructor viewing a Public or Archived Blueprint can receive active
@@ -661,7 +661,7 @@
   atomically; member sets cannot be changed after commit. Membership remains
   backend-neutral and stores no selected-count setting. There is no
   `ple_app`/browser mutation grant or public coordinator; C886-C887 own the
-  allocator, route, retry, and workflow. The ignored PostgreSQL 17
+  allocator, route, retry, and workflow. The ignored PostgreSQL
   uniqueness/revision/member-pin/RLS matrix passed and was removed after
   review. No permanent test was warranted.
 - Implemented C342's narrow schema projection for public content references.
@@ -690,7 +690,7 @@
   the expected next immutable Revision under a lineage lock. Direct table
   mutation remains unavailable to the application role; active Instructor
   capability is required for the narrow creation and CAS append procedures.
-  A disposable PostgreSQL 17 proof passed shape/collision, authorization,
+  A disposable PostgreSQL proof passed shape/collision, authorization,
   immutability, stale-CAS, and two-session race checks. It remains ignored
   temporary evidence because its container-backed implementation matrix does
   not earn a permanent test.
@@ -718,7 +718,7 @@
   name, every stable-reference whole Blueprint Assessment, and its ordered
   Assessment list. The schema has no application-facing source read path; it
   preserves origin-linked source snapshots for the later authorized C881-C884
-  comparison and selected-application chain. A disposable PostgreSQL 17 probe
+  comparison and selected-application chain. A disposable PostgreSQL probe
   verified source linkage, private nonenumeration, immutability, and append-only
   unit history; the ignored temporary proof was removed after acceptance.
 - Completed C881's canonical Blueprint fork comparator. It classifies only
@@ -792,13 +792,13 @@
   JSON baselines, which duplicated C412's immutable source origin/Revisions, omitted module-label
   changes, and could not atomically apply content with placement. C412 retains its independent Private fork, exact source Revision, immutable Course/Revision ancestry, and authorization/nonenumeration.
   Comparison, review, and selective application remain open through an ordinary-CAS full-tree save
-  from existing origin, source, and fork Revisions that may select related changes. Fresh C412 PostgreSQL 17 proof, focused `question_model` checks/tests/Clippy, hygiene, and review passed; no replacement baseline, merge framework, public status family, or permanent test was added, and C880/C881 completions are superseded historical evidence.
+  from existing origin, source, and fork Revisions that may select related changes. Fresh C412 PostgreSQL proof, focused `question_model` checks/tests/Clippy, hygiene, and review passed; no replacement baseline, merge framework, public status family, or permanent test was added, and C880/C881 completions are superseded historical evidence.
 - Corrected C847-C851/C209 retention-notification privacy/KISS and absolute-retention boundaries.
   Student-data deletion uses its configured scheduled archive deadline, not late observed archive time; an overdue Course archives then deletes in one pass.
   Observed archive time remains immutable evidence; ordinary recovery and Assessment definitions remain.
   Claims recheck the current eligible active Instructor and verified address; the private table no longer snapshots `verified_destination`. Removed `delivered_at`, delivery-record API/store/server callback, fourth notifier capability/grant/attestation, unused transport fields/outcome enum; claims advance `next_attempt_at` to lease expiry.
   Provider acceptance promises neither inbox delivery nor provider exactly-once, and delivery remains unimplemented. Preserved unique Course/action/due/recipient dedup/concealment, lease/SKIP LOCKED/order, stable pre-provider key, terminal no-resend, failure backoff, redaction, NotConfigured failure, and absolute nonblocking archive/delete.
-  Fresh PostgreSQL 17 proof passed recipient/address changes, distinct concurrent claims, dedup, lease/key reuse, accepted no-resend, failure then archive, absent snapshot/delivery columns, and exact three-function notifier authority; temporary proof removed. Notification-delivery Human Guidance remains OPEN because no provider exists.
+  Fresh PostgreSQL proof passed recipient/address changes, distinct concurrent claims, dedup, lease/key reuse, accepted no-resend, failure then archive, absent snapshot/delivery columns, and exact three-function notifier authority; temporary proof removed. Notification-delivery Human Guidance remains OPEN because no provider exists.
 - Verified the direct preproduction Assessment cutover has no legacy Assignment browser redirect or
   410 compatibility route/caller; authorities expose canonical Assessment paths. Its one-release
   redirect allowance is superseded historical evidence, not current policy.
@@ -808,7 +808,7 @@
   Response saves now share the Assessment -> Assessment Attempt -> Question Attempt lock order
   with finalization so a valid pre-Due response cannot be stranded by a worker race. Fixed-shape
   finalization rows also retain the declared generated-parameter checksum placeholder for empty
-  or otherwise source-free outcomes. A fresh PostgreSQL 17 canonical-schema proof passed actual
+  or otherwise source-free outcomes. A fresh PostgreSQL canonical-schema proof passed actual
   Student and expiry-worker APIs, including post-Due refusal, zero-saved submission with no
   Question Backend grading, deterministic stale-snapshot rejection, reprepare, and preservation
   of both pre-Due saved responses. The ignored proof was removed after independent acceptance;
@@ -816,7 +816,7 @@
 - Repaired the Student Assessment Attempt response-source history reader to reuse the existing
   exact Student-record ownership capability instead of requiring direct Student-record and Course-
   membership table reads. The ordinary retention fence remains intact and no table authority was
-  widened. A fresh PostgreSQL 17 actual-API proof returned one row only to the owning active
+  widened. A fresh PostgreSQL actual-API proof returned one row only to the owning active
   Student, zero to another Student or an Instructor, zero after archive, and false ownership after
   membership ended.
 - Corrected the Human Guidance assessment-compliance evidence: the live Gradebook query selects the
@@ -838,11 +838,11 @@
   now identify the two editor surfaces. A temporary Chromium fixture verified the distinct
   destructive panel and readable confirmation action at 1280px and 600px after review.
 - Repaired the Question Asset Publication claim to use the canonical Job attempt fields and
-  unambiguous Job-qualified CAS predicates. A fresh PostgreSQL 17 proof passed exact claim,
+  unambiguous Job-qualified CAS predicates. A fresh PostgreSQL proof passed exact claim,
   single-attempt increment, active-lease exclusion, and atomic Pending-to-Ready activation.
 - Repaired the deferred Question Asset Publication-to-Job invariant. The trigger now reads the
   referenced current Job row and null-safely checks its exact kind, target, worker, Question, and
-  Revision instead of reading nonexistent publication fields; a fresh PostgreSQL 17 proof passed
+  Revision instead of reading nonexistent publication fields; a fresh PostgreSQL proof passed
   valid Pending/Ready commits and rejected wrong bindings without disabling triggers or RLS.
 - Split accepted publication receipt and Question Library test owners into focused modules, and
   modularized Question-authoring and Blueprint SQL without changing their statements or behavior.
@@ -961,7 +961,7 @@
   removed after use. This is a durable design and contract decision, not a
   claim that the current implementation has completed the cutover.
 - Recorded the approved self-only Account Settings boundary. Every signed-in
-  Product Role uses `/account-settings` and `GET` / `PUT /api/account/settings`
+  User Role uses `/account-settings` and `GET` / `PUT /api/account/settings`
   for the one closed exact-IANA time-zone preference; callers select no Account,
   Course, or role, and PostgreSQL derives the active Account in the atomic
   update. The change affects display and later Instructor wall-clock entry, not

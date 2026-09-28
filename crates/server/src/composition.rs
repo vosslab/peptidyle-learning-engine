@@ -8,27 +8,27 @@ use axum::{Router, routing::get};
 use learning_data_access::{
     SessionLifetime,
     postgres::{
-        Pool, PostgresAccountAvatarGallery, PostgresAccountTimeZoneStore,
-        PostgresArchivedStudentWorkRecoveryStore, PostgresAssessmentAttemptExpirySweepStore,
-        PostgresAssessmentPoolForkStore, PostgresAssessmentPoolSelectionCountStore,
-        PostgresAssessmentTemplateStore, PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
-        PostgresBlueprintLineageStore, PostgresBlueprintStewardshipStore,
-        PostgresBulkPublishedQuestionMetadataStore, PostgresContentClassificationStore,
-        PostgresCourseBannerStore, PostgresCourseBlueprintPublicationStore,
-        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
-        PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
-        PostgresCourseRosterStore, PostgresCourseThemeStore, PostgresDraftQuestionImageStore,
-        PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
-        PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
-        PostgresLibraryDiscussionStore, PostgresLibraryWatchNotificationStore,
-        PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
-        PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
-        PostgresQuestionForkStore, PostgresQuestionImageDeliveryStore,
-        PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
-        PostgresQuestionPoolLibraryStore, PostgresQuestionPoolStewardshipStore,
-        PostgresQuestionStarStore, PostgresQuestionWatchStore, PostgresSessionStore,
-        PostgresSupportCapabilityStore, ProductionLoginProfile, local_development_pool,
-        production_pool,
+        Pool, PostgresAccountAppearanceStore, PostgresAccountAvatarGallery,
+        PostgresAccountTimeZoneStore, PostgresArchivedStudentWorkRecoveryStore,
+        PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
+        PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
+        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
+        PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
+        PostgresContentClassificationStore, PostgresCourseBannerStore,
+        PostgresCourseBlueprintPublicationStore, PostgresCourseGradebookStore,
+        PostgresCourseInstanceStore, PostgresCourseRetentionNotificationStore,
+        PostgresCourseRetentionStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
+        PostgresDraftQuestionImageStore, PostgresDraftQuestionSourceBindingStore,
+        PostgresInstructorAccountStore, PostgresInstructorStudentViewStore,
+        PostgresInvitationExportStore, PostgresLibraryDiscussionStore,
+        PostgresLibraryWatchNotificationStore, PostgresLiveAssessmentDeliveryStore,
+        PostgresLiveAssessmentStore, PostgresLiveStudentCourseLandingStore,
+        PostgresPublicAssetPublicationStore, PostgresQuestionForkStore,
+        PostgresQuestionImageDeliveryStore, PostgresQuestionLibraryStore,
+        PostgresQuestionPoolCreationStore, PostgresQuestionPoolLibraryStore,
+        PostgresQuestionPoolStewardshipStore, PostgresQuestionStarStore,
+        PostgresQuestionWatchStore, PostgresSessionStore, PostgresSupportCapabilityStore,
+        ProductionLoginProfile, local_development_pool, production_pool,
     },
 };
 use objects::s3::S3ObjectStore;
@@ -92,6 +92,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let archived_student_work_recovery =
         PostgresArchivedStudentWorkRecoveryStore::new(pool.clone());
     let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
+    let profile_appearance = PostgresAccountAppearanceStore::new(pool.clone());
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
     let assessment_pool_selection_counts =
         PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
@@ -262,6 +263,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::profile_settings::profile_settings_router(
             Arc::clone(&sessions),
             profile_time_zones,
+            profile_appearance,
         ))
         .merge(crate::support_capability::support_capability_router(
             Arc::clone(&sessions),
@@ -615,7 +617,7 @@ mod tests {
     use learning_data_access::{
         SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
     };
-    use question_model::{AccountId, ProductRole, Timestamp};
+    use question_model::{AccountId, UserRole, Timestamp};
     use std::{collections::BTreeMap, sync::Mutex};
     use tower::ServiceExt;
 
@@ -698,7 +700,7 @@ mod tests {
                 id: SessionId::generate()?,
                 token_hash,
                 account,
-                product_role: ProductRole::Student,
+                user_role: UserRole::Student,
                 created_at: Timestamp::from_unix_millis(0),
                 expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
             };

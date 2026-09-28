@@ -32,7 +32,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
-    ProductRole, Timestamp,
+    UserRole, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -566,7 +566,7 @@ async fn student_session_hash(
     )
     .await
     {
-        Ok(session) if student_profile_role_is_allowed(session.record.product_role) => {
+        Ok(session) if student_profile_role_is_allowed(session.record.user_role) => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
@@ -577,8 +577,8 @@ async fn student_session_hash(
     }
 }
 
-fn student_profile_role_is_allowed(role: ProductRole) -> bool {
-    role == ProductRole::Student
+fn student_profile_role_is_allowed(role: UserRole) -> bool {
+    role == UserRole::Student
 }
 
 fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
@@ -630,7 +630,7 @@ fn route_error(status: StatusCode, message: &'static str) -> Response {
 mod tests {
     use learning_data_access::{Cursor, PageRequest};
     use learning_data_access::{LiveStudentCourseInvitationSummary, StoreError};
-    use question_model::{CourseInstanceId, CourseTerm, ProductRole};
+    use question_model::{CourseInstanceId, CourseTerm, UserRole};
     use serde_json::json;
 
     use super::{
@@ -684,10 +684,10 @@ mod tests {
     }
 
     #[test]
-    fn student_course_landing_admits_only_the_student_product_role() {
-        assert!(student_profile_role_is_allowed(ProductRole::Student));
-        assert!(!student_profile_role_is_allowed(ProductRole::Instructor));
-        assert!(!student_profile_role_is_allowed(ProductRole::Sysadmin));
+    fn student_course_landing_admits_only_the_student_user_role() {
+        assert!(student_profile_role_is_allowed(UserRole::Student));
+        assert!(!student_profile_role_is_allowed(UserRole::Instructor));
+        assert!(!student_profile_role_is_allowed(UserRole::Sysadmin));
     }
 
     #[test]

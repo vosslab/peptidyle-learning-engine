@@ -1,4 +1,4 @@
-# Plan: Ribbon Application Shell for every Product Role
+# Plan: Ribbon Application Shell for every User Role
 
 Archived repository home: `docs/archive/ribbon_application_shell.md` (snake_case, per
 `docs/REPO_STYLE.md` archive rules). This completed plan supersedes
@@ -66,7 +66,7 @@ shrink the work:
   executable owner. This plan adopts those descriptions where they agree with the two authorities and
   corrects them where they do not; no new domain vocabulary is required.
 - **Much of the earlier plan's backend and audit work is already done or now out of scope.** The route
-  contract is 24 rows with `requiredProductRoles`, and **no row declares `sysadmin`**, so the Sysadmin
+  contract is 24 rows with `requiredUserRoles`, and **no row declares `sysadmin`**, so the Sysadmin
   route audit is closed. Parameters are already `:assignmentAttemptRef`, `:questionRef`,
   `:blueprintCourseRef`. `VOCABULARY_REPLACEMENTS.md` is retired with all 417 rows complete.
 
@@ -82,7 +82,7 @@ it, and must gain destinations by a one-line registry edit when a handler lands.
 
 - One shell-owned Ribbon instance with fixed geometry survives every navigation for Sysadmin,
   Instructor, and Student, so no visible control changes position after a click.
-- Ribbon topology is a pure synchronous function of Ribbon Scope and Product Role, so no network
+- Ribbon topology is a pure synchronous function of Ribbon Scope and User Role, so no network
   response can change which Ribbon Slots exist or where they sit.
 - Every visible Ribbon destination is backed by a capability that exists today, recorded as evidence
   a reader can check.
@@ -103,13 +103,13 @@ shift turn a trusted surface into "a skittish, tentative idiom that scares new u
 the more experienced" (`About_Face...-2014.md:4487`). This is the same conclusion
 `docs/DESIGN_DECISIONS.md:1048` reaches from the product side. Every other principle serves this one.
 
-**2. Topology is synchronous; data may only fill.** Ribbon Scope and immutable Product Role select
+**2. Topology is synchronous; data may only fill.** Ribbon Scope and immutable User Role select
 the schema on the first frame. Network results supply labels, color, and the third availability
 input, never the slot list. Enforced by construction: the derivation takes no resource.
 
 **3. A viewer's Ribbon is constant for the session.** This is the condition that makes omission safe
 rather than a violation of principle 1. Cooper's warning is about controls appearing and disappearing
-_during use_; PLE's omissions are decided by capability existence (static per build) and Product Role
+_during use_; PLE's omissions are decided by capability existence (static per build) and User Role
 (immutable per Account), so a viewer sees one set of controls in one order for an entire session and
 never watches the row rearrange. Where a genuinely late fact could add a Slot, the append-only
 ordering rule confines it to the end of the row. Under that condition, omitting beats disabling: dead
@@ -175,7 +175,7 @@ Aim past "the controls stopped jumping." The target is an application shell an I
 recognize as professional software rather than a course website: one instrument panel that never
 moves, dense enough that a teaching session's whole working set is visible at a glance, quiet enough
 to stare at for hours, legible at 200% text, usable by keyboard alone, and identical in structure for
-every Product Role. PLE's advantage over the comparison products is flat, always-visible primary
+every User Role. PLE's advantage over the comparison products is flat, always-visible primary
 navigation instead of a dashboard dropdown hiding ten destinations; this plan should widen that gap,
 not merely repair a defect. `docs/REPO_STYLE.md` calls this **dream big**: build the strongest durable
 version, then turn it into practical next steps -- which is what the milestone list is.
@@ -186,7 +186,7 @@ Ambition erodes at implementation time, one reasonable-sounding concession at a 
 concessions are ruled out here rather than argued later. These five do not bend:
 
 1. One shell-owned Ribbon instance; no navigation ever rebuilt by a route change.
-2. Topology synchronous from Ribbon Scope and Product Role; no network result changes the slot list.
+2. Topology synchronous from Ribbon Scope and User Role; no network result changes the slot list.
 3. Constant block size within a responsive profile; no application state moves the content origin.
 4. Deliberate information density; reserved space earns its keep rather than being padded out.
 5. Icon supports the label; the label is the accessible name.
@@ -250,7 +250,7 @@ rather than making the loading state prettier.
 ## Non-goals
 
 - Change any server, schema, session contract, decoder shape, or authorization behavior. The session
-  keeps `AuthenticatedSession { authenticated, account { id, productRole } }`
+  keeps `AuthenticatedSession { authenticated, account { id, userRole } }`
   (`src/api/contracts.ts:157-163`); the earlier plan's `courseMemberships` session field is dropped.
 - Create pages, routes, mock data, or Ribbon Slots for capabilities whose backend does not exist.
 - Build Question Star, Question Watch, Blueprint Updates, Instructor Accounts, Course Appearance, or
@@ -267,7 +267,7 @@ states the rule and the section explains why.
 
 1. **One shell instance.** The Ribbon has one DOM instance for the life of the authenticated shell;
    no route change rebuilds it. -- _Design philosophy, principle 1; identity oracle._
-2. **Synchronous topology.** Ribbon Scope and immutable Product Role decide the slot list on the
+2. **Synchronous topology.** Ribbon Scope and immutable User Role decide the slot list on the
    first frame; no network result changes which Slots exist. -- _Principle 2; three inputs to
    Availability._
 3. **Suffix-only late admission.** A Slot is never presented and then withdrawn, and a
@@ -300,10 +300,10 @@ Drift between the earlier plan and the tree, from a direct read:
 
 | Earlier plan states                                 | Today                                                                                                                                |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 32 route rows, `requiredRoles`                      | 24 rows, `requiredProductRoles` (`src/route_contract.ts:34,38-184`)                                                                  |
+| 32 route rows, `requiredRoles`                      | 24 rows, `requiredUserRoles` (`src/route_contract.ts:34,38-184`)                                                                  |
 | 13 course routes declare `sysadmin`; audit needed   | No row declares `sysadmin`; audit closed. Dead branch remains at `src/route_access_boundary.tsx:19-21,34,41-42`                      |
 | `src/api/runtime.tsx` holds the queries             | `src/api/application_api.tsx:55-108`, 10 cached queries                                                                              |
-| `AuthSession.roles` array; add `courseMemberships`  | `AuthenticatedSession.account.productRole` singular; decoder rejects extra fields (`src/api/decoders/assignment_attempt.ts:686-688`) |
+| `AuthSession.roles` array; add `courseMemberships`  | `AuthenticatedSession.account.userRole` singular; decoder rejects extra fields (`src/api/decoders/assignment_attempt.ts:686-688`) |
 | 16 `useCourseThemeRouteData()` consumers            | 12 (`src/features/course_appearance/course_theme_context.ts:37`)                                                                     |
 | `runRef`, `problemRef`, `curriculumRef` params      | `assignmentAttemptRef`, `questionRef`, `blueprintCourseRef`                                                                          |
 | Terminology contract owns Ribbon terms              | `docs/INTERFACE_TERMINOLOGY.md` owns them; `docs/TERMINOLOGY_CONTRACT.md:1188-1190` delegates                                        |
@@ -553,12 +553,12 @@ an Instructor and Sysadmin argument, applied to the surface those roles use all 
 | Layer                                                     | Owns                                                                                         | May never change     |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------- |
 | Design system (`src/style.css`, `app_ribbon.css`)         | Geometry, spacing, hierarchy, overflow, interaction states                                   | -                    |
-| Ribbon contract (`src/ribbon/ribbon_contract.ts`)         | Which Ribbon Slots and Ribbon Tasks exist per Ribbon Scope and Product Role, and their order | Geometry             |
+| Ribbon contract (`src/ribbon/ribbon_contract.ts`)         | Which Ribbon Slots and Ribbon Tasks exist per Ribbon Scope and User Role, and their order | Geometry             |
 | Capability registry (`src/ribbon/capability_registry.ts`) | Whether a declared destination is backed today                                               | Slot order, geometry |
 | Route (`src/route_contract.ts`)                           | Selected Ribbon Tab, which Task group fills the row, Content Layout                          | Slot list, geometry  |
 | Loaded data (`useRouteScopeData`)                         | Context labels and course theme color                                                        | Anything structural  |
 
-One line for the gates to test against: **Ribbon topology comes from Ribbon Scope and Product Role.
+One line for the gates to test against: **Ribbon topology comes from Ribbon Scope and User Role.
 Availability comes from the three inputs below. Routes supply selection. Data supplies labels and
 color.**
 
@@ -570,11 +570,11 @@ separate is what lets topology stay synchronous while availability is allowed to
 | Input                   | Question it answers                                                     | Timing                   | Source                                                      |
 | ----------------------- | ----------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------- |
 | Capability existence    | Does the complete usable path for this destination exist in this build? | Static, compile-time     | `capability_registry.ts`                                    |
-| Product Role permission | May this Account's immutable Product Role use that destination?         | Synchronous, first frame | `productRole` from the session; `productRoleMayAccessRoute` |
+| User Role permission | May this Account's immutable User Role use that destination?         | Synchronous, first frame | `userRole` from the session; `userRoleMayAccessRoute` |
 | Relationship facts      | Does the current scope relationship permit it for this viewer?          | May resolve late         | `useRouteScopeData` projection                              |
 
 Resolution rule, in order: an entry whose capability does not exist is **Unavailable** and is omitted
-from the shipped Ribbon, permanently and synchronously. An entry the Product Role may not use is
+from the shipped Ribbon, permanently and synchronously. An entry the User Role may not use is
 **Unavailable** and omitted, also synchronously. An entry whose remaining relationship facts have not
 resolved is **Checking**, and this is where an earlier draft of this plan contradicted itself: it had
 a Checking Slot render in place and then _disappear_ if the relationship excluded it. Watching a
@@ -595,10 +595,10 @@ from it. A Checking Slot therefore never renders as a dead or pending control in
 Since the first two inputs are synchronous and the third only withholds, nothing on screen ever moves
 or disappears because an answer arrived late.
 
-Today the third input is unused: no current schema Slot depends on a relationship fact beyond Product
+Today the third input is unused: no current schema Slot depends on a relationship fact beyond User
 Role, so every Slot resolves synchronously. `Checking` exists for the future Course Observer, Student
 Observer, and Grader relationships named in `docs/HUMAN_GUIDANCE.md`, which are not derivable from
-Product Role. M4 asserts that unused-today property rather than assuming it.
+User Role. M4 asserts that unused-today property rather than assuming it.
 
 ### Mapping (milestones / workstreams -> components / patches)
 
@@ -634,13 +634,13 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
 ### Milestone: M0 test harness
 
 - Depends on: none
-- Deliverables: Product Role fixtures (Student, Instructor, Sysadmin); a counting fake `ApiClient`
+- Deliverables: User Role fixtures (Student, Instructor, Sysadmin); a counting fake `ApiClient`
   injected through `createApplicationApi` (`src/api/application_api.tsx:55`); a synthetic transition
   driver that walks a pathname list through one mounted app; a deferred-resolution fixture the test
   releases on demand; a `scrollIntoView` stub; an injectable routing-in-flight signal; Playwright
   context options `forcedColors: "active"` and `reducedMotion: "reduce"`.
 - Entry criteria: none
-- Exit criteria: the harness mounts a trivial component under each Product Role fixture.
+- Exit criteria: the harness mounts a trivial component under each User Role fixture.
 - Parallel-plan ready: no. Every later workstream consumes it, so it lands first and alone.
 
 ### Milestone: M1 route parameters and scope key
@@ -667,8 +667,8 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
 
 - Depends on: M2
 - Deliverables: `TAB_CATALOG` and `RIBBON_TASK_CATALOG` carrying canonical labels from
-  `docs/INTERFACE_TERMINOLOGY.md:86-114`; `ribbonSchemaFor(scope, productRole)` total over all nine
-  pairs of the three Product Roles named in `docs/TERMINOLOGY_CONTRACT.md:110` and the three Ribbon
+  `docs/INTERFACE_TERMINOLOGY.md:86-114`; `ribbonSchemaFor(scope, userRole)` total over all nine
+  pairs of the three User Roles named in `docs/TERMINOLOGY_CONTRACT.md:110` and the three Ribbon
   Scopes, currently described by `docs/UI_DESIGN_GUIDE.md:78-82`, and shaped so a future Course
   Observer, Student Observer, or Grader relationship is a catalog edit rather than a layout change
   (`docs/HUMAN_GUIDANCE.md`); `capability_registry.ts` declaring, per
@@ -679,7 +679,7 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
   label equals its canonical visible name; no Ribbon Task declares an operation (Create Assignment
   stays a Page Action); every registry entry naming a live capability resolves to a route in
   `ROUTE_CONTRACT`; `ribbonAvailability` returns Unavailable synchronously for a missing capability
-  and for a Product Role that may not use the destination, and returns Checking only when a
+  and for a User Role that may not use the destination, and returns Checking only when a
   relationship fact is genuinely outstanding; a Checking Slot is withheld from the rendered row rather
   than drawn, so no Slot can be presented and later withdrawn.
 - Parallel-plan ready: yes (catalog, schema table, and registry are separable work packages).
@@ -692,12 +692,12 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
   that an implementer could pass loaded scope data through the synchronous boundary without noticing:
   `deriveRibbonModel(routeState, viewerIdentity, contextLabels)`, where `routeState` carries the
   matched route contract plus extracted parameters, `viewerIdentity` carries the synchronous
-  session-derived Product Role and nothing else, and `contextLabels` is a narrow record of
+  session-derived User Role and nothing else, and `contextLabels` is a narrow record of
   already-resolved display strings. No parameter type admits a resource, promise, accessor, or
   projection, so the compiler refuses the mistake the prose was relying on discipline to prevent.
 - Exit criteria: the function takes no resource and returns synchronously with the network fake set
   never to resolve; the slot list is identical before and after releasing every deferred fixture, for
-  each Product Role; with the current schemas every Slot resolves to Available or Unavailable
+  each User Role; with the current schemas every Slot resolves to Available or Unavailable
   synchronously, so no Slot renders Checking today, and the test states that as the current property
   rather than a permanent prohibition; every catalog destination's declared parameters are a subset of
   the parameters its declaring routes provide.
@@ -728,7 +728,7 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
   summed into `--ple-ribbon-block-size`; the shell grid keyed to that token.
 - Exit criteria: all three rows render including an empty Ribbon Task Row; the module graph of
   `app_ribbon.tsx` pulls in no session, router, or API module; **within one responsive profile**,
-  computed ribbon block size is equal across every Ribbon Scope, every Product Role fixture, a
+  computed ribbon block size is equal across every Ribbon Scope, every User Role fixture, a
   Task-less tab, a very long Course Instance title, a loading state, and an error state.
 - Accessibility exit criteria, from principle 8: at 200% text size every Ribbon label remains
   readable and every destination remains reachable, with the Ribbon growing rather than clipping;
@@ -920,12 +920,12 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
   and derived Ribbon Availability. A test regenerates it and fails when the committed file differs,
   so code and document cannot disagree. Its editorial section is hand-written prose per destination
   explaining what the surface is for and what a reader should know; no test asserts that prose.
-  `docs/ux/RIBBON_TASK_MODEL.md` (per Product Role: trigger, goal, decision points,
+  `docs/ux/RIBBON_TASK_MODEL.md` (per User Role: trigger, goal, decision points,
   information needs, error and recovery, completion evidence, plus the heuristic and accessibility
   ledger with acceptance criteria); `docs/ux/FRONTEND_CAPABILITY_INTEGRATION.md` (the ordered
   checklist a future backend follows); corrections to `docs/UI_DESIGN_GUIDE.md:70-73` so it points at
   `docs/INTERFACE_TERMINOLOGY.md` rather than the terminology contract, and to
-  `docs/DESIGN_DECISIONS.md:1040` so the entry reads as the shell-owned Ribbon for every Product Role;
+  `docs/DESIGN_DECISIONS.md:1040` so the entry reads as the shell-owned Ribbon for every User Role;
   a `docs/CHANGELOG.md` entry after each milestone.
 - **Generalize the philosophy into PLE's UI language, not AppRibbon trivia.** This workstream produces
   principles that should govern pages built long after it closes: restrained surfaces, proximity
@@ -1038,7 +1038,7 @@ Product Role. M4 asserts that unused-today property rather than assuming it.
 
 - Touch points: `docs/ux/RIBBON_TASK_MODEL.md`.
 - Depends on: WP-RETIRE.
-- Acceptance criteria: one task model per Product Role covering re-orientation after content changes,
+- Acceptance criteria: one task model per User Role covering re-orientation after content changes,
   moving between Course Instance Tabs, and entering and leaving an Assignment Attempt; each heuristic
   row states the guideline, its user-facing rationale, and the acceptance check that proves it,
   including WCAG 2.2 SC 3.2.3 Consistent Navigation and 3.2.4 Consistent Identification.
@@ -1066,9 +1066,9 @@ numeric gates):
   present in the first capture is absent from the second**; and **every newly admitted slot appears
   strictly after all slots from the first capture**, so admission is asserted as a suffix rather than
   left as an implication of index stability. The Ribbon block size is unchanged. Run it for the unresolved Course Instance, the invalid reference,
-  and each Product Role.
+  and each User Role.
 - **Geometry contract.** Computed ribbon block size equals `--ple-ribbon-block-size` across every
-  scope, Product Role, Task-less tab, long title, loading state, and error state. **The token is the
+  scope, User Role, Task-less tab, long title, loading state, and error state. **The token is the
   authority, and it is itself a function of profile and user settings**, so the oracle compares
   rendered geometry against the token's _currently computed_ value rather than against a baseline
   captured at default text size. Growth under 200% text is the token changing, which is correct
@@ -1078,14 +1078,14 @@ numeric gates):
 - **Chrome-during-load oracle.** With the projection deferred, the Ribbon Tab Row renders its scope's
   full schema, backed Slots are clickable, and an unresolved or invalid reference uses the Course
   Instance schema rather than the Product schema.
-- **Consistency oracle.** For each Product Role fixture, the Ribbon landmark has the same accessible
+- **Consistency oracle.** For each User Role fixture, the Ribbon landmark has the same accessible
   structure on every route that role can reach.
 - **Keyboard oracle.** Tab order reaches Context Row, Tab Row, Task Row, then content, on every route.
 - **Row-count and reachability oracle.** At 1280x800 and the tablet and phone profiles, each row
   renders as one row and every Tab is reachable. Treat a failure here as a design signal, not a test
   to loosen.
 - **Availability-never-exceeds-boundary.** For every authority fixture, each Available Slot's
-  destination is also permitted by `productRoleMayAccessRoute`. The Ribbon may show strictly less
+  destination is also permitted by `userRoleMayAccessRoute`. The Ribbon may show strictly less
   than the boundary allows, never more.
 - **Registry truthfulness.** Every Slot rendered in the shipped shell has a registry entry marked
   backed, and that entry names a route and a client method that exist.
@@ -1097,11 +1097,11 @@ property over it rather than re-walking roles, scopes, and profiles on its own.
 
 | Oracle                 | Unique regression it catches                                                                  | Matrix it needs                                        |
 | ---------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Identity               | The Ribbon element is rebuilt by a navigation                                                 | Transition list, one Product Role                      |
-| Topology-stability     | The Ribbon survives but its contents reorder, or a presented Slot is withdrawn, as data lands | Deferred projection, each Product Role                 |
+| Identity               | The Ribbon element is rebuilt by a navigation                                                 | Transition list, one User Role                      |
+| Topology-stability     | The Ribbon survives but its contents reorder, or a presented Slot is withdrawn, as data lands | Deferred projection, each User Role                 |
 | Geometry contract      | An application state changes the content origin within a profile                              | State list, one profile per run                        |
 | Chrome-during-load     | Geometry or schema waits on the network                                                       | Deferred projection, unresolved and invalid references |
-| Consistency            | The Ribbon's accessible structure differs between routes for one role                         | Routes per Product Role                                |
+| Consistency            | The Ribbon's accessible structure differs between routes for one role                         | Routes per User Role                                |
 | Text-resize and reflow | Fixed geometry clips content when the user enlarges text                                      | 200% text, 320px width                                 |
 | Keyboard               | Reading order or focus order breaks                                                           | One route per scope                                    |
 | Reachability           | A destination becomes unreachable at a narrow profile                                         | Tablet and phone profiles                              |
@@ -1165,7 +1165,7 @@ the production visual-acceptance gate remains unrun.
 ## Resolved decisions
 
 - **No session membership index.** The earlier plan's `courseMemberships` field on the session is
-  dropped, not deferred. Ribbon topology derives from Ribbon Scope and immutable Product Role
+  dropped, not deferred. Ribbon topology derives from Ribbon Scope and immutable User Role
   (`docs/DESIGN_DECISIONS.md:783-785`), so the index was only ever supplying the Course Instance
   title. The title is a label in a fixed-height slot, filled from the existing course projection when
   it resolves; a late label moves nothing.

@@ -29,7 +29,7 @@ No new domain vocabulary is needed for the planned Ribbon architecture.
 - **Instructor Approvals** -> **Instructor Accounts**.
 - **Followed** -> **Watched** and **Question Watch**.
 - `pendingAuthority` -> `checking`, corresponding to **Checking** Ribbon Availability.
-- `productRoles` -> singular `productRole` where one Account's Product Role is meant.
+- `userRoles` -> singular `userRole` where one Account's User Role is meant.
 - Bare course role -> **Course Membership Role**; prefer `courseMembershipRole` where
   the complete identifier is practical.
 - **Question Version** -> **Question Revision**.

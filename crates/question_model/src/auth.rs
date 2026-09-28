@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 /// This is the canonical public ID (`UXXXXXXXZ`), not a second identifier.
 pub use crate::public_route::AccountId;
 
-/// The one immutable global Product Role assigned to an Account.
+/// The one immutable global User Role assigned to an Account.
 ///
 /// Course-specific permissions remain exact course relationships and do not
-/// become global session Product Roles.
+/// become global session User Roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ProductRole {
+pub enum UserRole {
     /// Completes assigned Questions and views personal results.
     Student,
     /// Authors content and manages courses and assignments.
@@ -37,9 +37,9 @@ mod tests {
     #[test]
     fn roles_use_lower_camel_wire_names() {
         let encoded = serde_json::to_string(&[
-            ProductRole::Student,
-            ProductRole::Instructor,
-            ProductRole::Sysadmin,
+            UserRole::Student,
+            UserRole::Instructor,
+            UserRole::Sysadmin,
         ])
         .expect("roles should serialize");
 

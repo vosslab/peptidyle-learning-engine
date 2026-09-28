@@ -19,7 +19,7 @@ use learning_data_access::{
     LibraryImprovementThreadLifecycle, SessionTokenHash, StoreError,
     postgres::{PostgresLibraryDiscussionStore, PostgresSessionStore},
 };
-use question_model::{LibraryObjectKind, ProductRole, PublishedQuestionId, Timestamp};
+use question_model::{LibraryObjectKind, UserRole, PublishedQuestionId, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -528,7 +528,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
@@ -553,8 +553,8 @@ async fn instructor_or_sysadmin_session_hash(
     {
         Ok(session)
             if matches!(
-                session.record.product_role,
-                ProductRole::Instructor | ProductRole::Sysadmin
+                session.record.user_role,
+                UserRole::Instructor | UserRole::Sysadmin
             ) =>
         {
             Ok(session.session_hash)

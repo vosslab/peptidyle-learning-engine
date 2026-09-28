@@ -2,6 +2,8 @@
 
 import { VIEWPORT_IDS, type PrivacyProfileId, type ViewportId } from "./manifest";
 import type { ScenarioRuntime } from "./runtime";
+import type { DisplayMode } from "../../../generated/api/DisplayMode";
+import type { Theme } from "../../../generated/api/Theme";
 
 export interface CaptureDeclaration {
   readonly checkpoint: string;
@@ -13,6 +15,10 @@ export interface CaptureDeclaration {
   readonly privacyProfile: PrivacyProfileId;
   readonly caption: string;
   readonly featured?: boolean;
+  /** The document mode required when this image is written. Defaults to Light. */
+  readonly displayMode?: DisplayMode;
+  /** A resolved document Theme assertion for dedicated appearance evidence. */
+  readonly expectedTheme?: Theme;
 }
 
 export type ScenarioViewportCoverage =

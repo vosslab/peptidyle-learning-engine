@@ -13,7 +13,7 @@ use learning_data_access::{
     postgres::{PostgresAssessmentStudentTimeAccommodationStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentId, CourseInstanceId, ProductRole, SaveAssessmentStudentTimeAccommodationInput,
+    AssessmentId, CourseInstanceId, UserRole, SaveAssessmentStudentTimeAccommodationInput,
 };
 use std::sync::Arc;
 
@@ -131,7 +131,7 @@ async fn configuration(
         .filter(|values| !values.is_empty())
         .map(|values| values.join("; "));
     let token = match resolve_session(state.sessions.as_ref(), cookie.as_deref()).await {
-        Ok(value) if value.record.product_role == ProductRole::Instructor => value.session_hash,
+        Ok(value) if value.record.user_role == UserRole::Instructor => value.session_hash,
         Ok(_) | Err(AuthError::Unauthenticated) => return concealed(),
         Err(_) => return unavailable(),
     };

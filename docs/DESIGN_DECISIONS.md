@@ -177,17 +177,17 @@ releases, Student Work, and other delivery state are not copied.
 
 ## Accounts, roles, and authorization
 
-### Product roles are global and exclusive
+### User roles are global and exclusive
 
-**Decision.** Each global Account has exactly one immutable Product Role:
+**Decision.** Each global Account has exactly one immutable User Role:
 Student, Instructor, or Sysadmin. A person needing multiple roles uses separate
 Accounts.
 
 **Why.** Role-specific interfaces and access rules remain explicit.
 
-**Consequence.** Course relationships do not change the Account's Product Role.
+**Consequence.** Course relationships do not change the Account's User Role.
 Future Course Observer, Student Observer, and Grader roles are separate Course
-relationships, not Product Roles. Grader is not currently needed because
+relationships, not User Roles. Grader is not currently needed because
 grading is automatic.
 
 ### Course authority comes from relationships
@@ -253,7 +253,7 @@ turning the Sysadmin role into academic authority or changing ordinary teaching
 access.
 
 **Consequence.** Primary authentication creates only an opaque pending-MFA
-state. PostgreSQL derives the Account's stored Product Role and atomically
+state. PostgreSQL derives the Account's stored User Role and atomically
 creates a Sysadmin session only after it requires and consumes one unused,
 short-lived, Account- and browser-bound TOTP attestation. The server enforces
 the 30-second counter, replay protection, and rate limits, and does not log a
@@ -282,13 +282,15 @@ owns the implementation and verification details.
 
 ### Profile is the one time-zone preference page
 
-**Decision.** Every signed-in Product Role checks and edits the Account's exact
+**Decision.** Every signed-in User Role checks and edits the Account's exact
 time-zone preference on `/profile`. The page uses the self-only `GET` /
-`PUT /api/account/settings` API boundary. Both responses and the only accepted
-update body have the closed shape `{ "timeZone": "exact IANA name" }`. The
-boundary accepts no Account, Course, or Product Role selector. PostgreSQL
+`PUT /api/account/settings` API boundary. The update body has the closed shape
+`{ "timeZone": "exact IANA name" }`; its responses also include the Account's
+display-mode preference and personal Theme. Separate self-only appearance
+writes change those values. None of these boundaries accepts an Account, Course,
+or User Role selector. PostgreSQL
 derives the active Account from the authenticated session and atomically reads
-or replaces that Account's exact installed IANA name. Profile is the only
+or replaces that Account's exact installed IANA name. Profile is the Account
 preference page.
 
 **Why.** Profile is the one place to check this preference. The API boundary
@@ -591,12 +593,22 @@ The browser receives only a typed optional frame reference/availability and
 embeds it as `sandbox="allow-scripts" referrerpolicy="no-referrer" allow=""`.
 It never grants same-origin, forms, popups, downloads, modals, top navigation,
 pointer lock, storage access, or permissions. The script receives its own DOM
-and reviewed libraries, without parent initialization. Its only optional
-outbound message is versioned `author-content.resize`, with finite integer
-dimensions clamped to the declared bounds and accepted only when
-`event.source === iframe.contentWindow`; opaque-origin `null` therefore still
-has a source-identity check. The parent sends no messages and accepts no
-answer, URL, HTML, navigation, storage, or API command.
+and reviewed libraries. Its optional outbound message is versioned
+`author-content.resize`, with finite integer dimensions clamped to the declared
+bounds and accepted only when `event.source === iframe.contentWindow`;
+opaque-origin `null` therefore still has a source-identity check. The parent
+also sends the current resolved appearance as one cosmetic
+`ple.embed.appearance` version 1 record. It contains only `mode` and ten fixed
+`#rrggbb` roles: background, foreground, surface, secondary, accent, highlight,
+muted, border, onAccent, and link. `accent` and `onAccent` remain the control
+pair; the contrast-qualified `link` role supplies ordinary links and focus
+indicators. For an opaque sandbox, the parent delivers this
+closed cosmetic record to the exact frame with `*`; same-origin backend frames
+receive it at their canonical origin. A receiving bridge accepts only that
+canonical parent origin, the exact parent window, and the exact closed record
+keys and values. The protocol
+has no response, identifier, Course, Account, Question, Attempt, response,
+navigation, storage, or API command.
 
 **Why.** Executable author content is inspectable but never secret; it remains
 safe only when it is answer-free and grading-independent. The boundary applies
@@ -959,7 +971,7 @@ Account's avatar as a Profile link when a session is authenticated.
 from page tasks, and preserves every required destination even when its
 collection is empty. Every required Instructor destination also remains visible
 when its target is incomplete, but it is presented as unavailable rather than
-as a usable link. The top Ribbon carries PLE identity, Product Role, stable
+as a usable link. The top Ribbon carries PLE identity, User Role, stable
 navigation, and application controls; the compact signed-in phone treatment is
 defined below. Human-readable Course and Assessment
 hierarchy belongs in breadcrumbs, not in route-specific Ribbon labels. Sign Out
@@ -1001,11 +1013,11 @@ section caption is rendered.
 
 **Decision.** At phone width, keep the P mark, the signed-in role's Tier 1
 navigation, and the fixed Profile box together on the top row. Hide the full
-Peptidyle wordmark and Product Role badge there; keep Tier 2 in its normal row
+Peptidyle wordmark and User Role badge there; keep Tier 2 in its normal row
 beneath.
 
 **Why.** The phone view should read as a compact version of the same Ribbon.
-Moving Tier 1 to a second top-bar row and pushing the Product Role badge to the
+Moving Tier 1 to a second top-bar row and pushing the User Role badge to the
 far edge breaks the identity-to-navigation order.
 
 **Consequence.** The phone top row stays one row tall, reserves space for the
@@ -1018,14 +1030,14 @@ fixed Profile box, and tightens Tier 1 spacing to fit the role's navigation.
 
 **Decision.** Across non-phone Student, Instructor, and Sysadmin views, keep
 the same identity sequence and geometry: P mark, Peptidyle wordmark, and a
-reserved-width Product Role badge. Public pages keep their separate signed-out
+reserved-width User Role badge. Public pages keep their separate signed-out
 header.
 
 **Why.** The left edge of the Ribbon should stay in the same place across
 signed-in roles and non-phone viewport sizes. Role text can change inside its
 badge without moving the brand or navigation.
 
-**Consequence.** Product Role and pointer type change content or interaction
+**Consequence.** User Role and pointer type change content or interaction
 targets, not the non-phone identity layout. Phone uses the one signed-in
 compact exception defined above.
 
@@ -1035,12 +1047,12 @@ compact exception defined above.
 
 ### Tier-one navigation is role-only
 
-**Decision.** Tier-one Ribbon control IDs are selected by Product Role, not by
+**Decision.** Tier-one Ribbon control IDs are selected by User Role, not by
 route scope. Instructor tier one is Courses, Questions, and Assessments.
 Student tier one is Coursework, Grades, and Courses. Coursework and Grades
 show records across enrolled Courses; Courses provides direct access to each
-Course. Sysadmin tier one follows its Product Role catalog. Settled tier-two
-rows derive from Product Role and Tier 1; object-local navigation stays with
+Course. Sysadmin tier one follows its User Role catalog. Settled tier-two
+rows derive from User Role and Tier 1; object-local navigation stays with
 page content and breadcrumbs.
 
 **Why.** A role has one stable primary navigation model. Moving primary tabs
@@ -1230,7 +1242,7 @@ finalization, and aggregates only disclosed Student data.
 
 **Decision.** Every signed-in role reserves the breadcrumb and tier-two Ribbon
 rows at each screen size. Settled tier-two destinations and order remain fixed
-for a Product Role and Tier 1 area; row height does not depend on route state.
+for a User Role and Tier 1 area; row height does not depend on route state.
 
 **Why.** Fixed destinations keep navigation predictable. Stable row height
 keeps page content from jumping when route state changes or a row renders
@@ -1399,7 +1411,7 @@ delivery is self-only: Human Guidance does not settle a broader Profile-image
 privacy audience.
 
 **Why.** The same selected-or-generic avatar must represent each user
-consistently, while the allowed choice differs by Product Role. A single
+consistently, while the allowed choice differs by User Role. A single
 aggregate avoids treating Profile images as an Instructor-only feature and
 keeps the authorization boundary explicit.
 
@@ -1845,6 +1857,37 @@ is not a current product type.
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),
 [OBJECT_STORAGE.md](OBJECT_STORAGE.md).
+
+### Shared Theme value and independent display mode
+
+**Decision.** `Theme` is the shared closed value for Course appearance and an
+Instructor's personal appearance. Course operations keep their specific names:
+`CourseThemeUpdate`, `CourseThemeStore`, `updateCourseTheme`, and
+`update_course_theme` write a Course's selected `Theme`. The database value
+table is `ple_data.theme` with `theme_id`. A viewer's nullable `DisplayMode`
+preference is `light`, `dark`, or unset; unset follows the browser. `grass` is
+the default Theme.
+
+**Why.** The values no longer belong only to Courses. Keeping Course names at
+the write boundary states what the operation authorizes. A nullable preference
+expresses browser following without introducing a third display mode or a mode
+rules engine.
+
+**Consequence.** Every Theme look supplies exactly Canvas, Surface, Secondary,
+Accent, and Highlight. One shared derivation supplies the remaining concrete
+tokens: readable Canvas ink, Canvas-muted text, Accent actions, Accent/ink
+links and focus/strong borders, Accent mixed toward opposite readable text for
+hover, and Canvas/Secondary-mixed borders. Theme resolution selects the
+authorized Course Theme from a Course, Assessment Attempt, or Assessment
+Attempt History route first, then an Instructor's personal Theme on global
+Instructor pages, then `grass`; display mode resolves separately from that
+Theme choice. `AppearanceOwner` is the sole document-level appearance owner:
+it writes the resolved Theme tokens,
+`data-theme`, `data-display-mode`, and `color-scheme` to `<html>`. Pages and
+Course controls provide only route data or an unsaved Course-Theme preview to
+that owner; they do not create nested Theme scopes.
+
+**Owner.** [whole_interface_theme_plan.md](archive/whole_interface_theme_plan.md).
 
 ## Unresolved decisions
 

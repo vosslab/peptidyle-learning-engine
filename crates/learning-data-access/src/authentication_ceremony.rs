@@ -1,14 +1,14 @@
 //! Private passwordless credential-ceremony contracts.
 //!
 //! These records prove possession of an existing Account's credential. They
-//! never create an Account, assign a Product Role, or replace the canonical
+//! never create an Account, assign a User Role, or replace the canonical
 //! Authenticated Session record.
 
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{AccountId, ProductRole, Timestamp};
+use question_model::{AccountId, UserRole, Timestamp};
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -122,8 +122,8 @@ impl std::fmt::Debug for EmailAuthenticationChallenge {
 pub struct AuthenticatedAccount {
     /// Existing global Account verified by the ceremony.
     pub account: AccountId,
-    /// Immutable Product Role stored with that Account.
-    pub product_role: ProductRole,
+    /// Immutable User Role stored with that Account.
+    pub user_role: UserRole,
 }
 
 /// Durable identity for one registered passkey.

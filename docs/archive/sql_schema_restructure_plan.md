@@ -380,7 +380,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 - Owner: schema coder.
 - Touch points: `10_types.sql`.
 - Depends on: M0.
-- Acceptance criteria: one enum per family (`product_role`, `assessment_type`, `late_work_rule`,
+- Acceptance criteria: one enum per family (`user_role`, `assessment_type`, `late_work_rule`,
   `question_variation_rule`, `question_order_rule`, `feedback_release`, `scoring_rule`,
   `entry_kind`, `entry_availability`, `question_backend`, `question_format`, `question_type`,
   `library_object_kind`, `library_watch_event_kind`, `media_type`, `object_storage_area`,

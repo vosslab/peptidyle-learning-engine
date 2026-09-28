@@ -14,6 +14,12 @@ ALTER TABLE ple_private.account_time_zone ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.account_time_zone FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE ple_private.account_appearance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.account_appearance FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_private.instructor_personal_theme ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.instructor_personal_theme FORCE ROW LEVEL SECURITY;
+
 CREATE POLICY account_private_owner_access ON ple_private.account
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
@@ -21,6 +27,12 @@ CREATE POLICY account_state_event_private_owner_access ON ple_private.account_st
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY account_time_zone_private_owner_access ON ple_private.account_time_zone
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY account_appearance_private_owner_access ON ple_private.account_appearance
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY instructor_personal_theme_private_owner_access ON ple_private.instructor_personal_theme
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY account_api_owner_access ON ple_private.account
@@ -50,4 +62,3 @@ CREATE POLICY instructor_identity_vetting_decision_audit_owner_insert
 
 CREATE POLICY instructor_identity_vetting_decision_audit_owner_read
     ON ple_audit.instructor_identity_vetting_decision FOR SELECT TO ple_audit_owner USING (true);
-

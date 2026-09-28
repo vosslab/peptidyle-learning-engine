@@ -1,9 +1,21 @@
 // profile_page.tsx - role-neutral authenticated-self Profile surface.
 
 import { A } from "@solidjs/router";
-import { For, Match, Show, Switch, createResource, createSignal, type JSX } from "solid-js";
+import {
+  For,
+  Match,
+  Show,
+  Switch,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  type JSX,
+} from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import { useAppearance } from "../appearance/appearance_context";
+import { ProfileAppearance } from "../appearance/profile_appearance";
 import { PageFrame } from "../components/page_frame";
 import type { ProfileAvatarView } from "../api/profile_avatar";
 import { useSessionBootstrap } from "../auth/session_context";
@@ -24,16 +36,25 @@ import { StaffAvatarSettings } from "../features/profile_avatar/staff_avatar_set
 export function ProfilePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
-  const [profile, { mutate: mutateProfile }] = createResource(() =>
-    applicationApi.client.getProfile(),
-  );
+  const appearance = useAppearance();
   const [avatar, { mutate }] = createResource(() => applicationApi.client.getProfileAvatar());
   const [avatarSaving, setAvatarSaving] = createSignal(false);
   const [avatarMessage, setAvatarMessage] = createSignal("");
   const [timeZoneDraft, setTimeZoneDraft] = createSignal<string>();
   const [timeZoneSaving, setTimeZoneSaving] = createSignal(false);
   const [timeZoneMessage, setTimeZoneMessage] = createSignal("");
-  const selectedTimeZone = (): string => timeZoneDraft() ?? profile()?.timeZone ?? "UTC";
+  const authenticatedAccountId = createMemo(() => {
+    const state = session.state();
+    return state.kind === "authenticated" ? state.session.account.id : undefined;
+  });
+  const selectedTimeZone = (): string =>
+    timeZoneDraft() ?? appearance.settings()?.timeZone ?? "UTC";
+  createEffect(() => {
+    authenticatedAccountId();
+    setTimeZoneDraft(undefined);
+    setTimeZoneSaving(false);
+    setTimeZoneMessage("");
+  });
   const timeZones = (): readonly string[] => {
     const intl = Intl as typeof Intl & {
       readonly supportedValuesOf?: (key: "timeZone") => readonly string[];
@@ -52,12 +73,12 @@ export function ProfilePage(): JSX.Element {
         instructor: "Instructor",
         sysadmin: "Sysadmin",
       } as const
-    )[state.session.account.productRole];
+    )[state.session.account.userRole];
   };
   const canManageProfileImage = (): boolean => {
     const state = session.state();
     return (
-      state.kind === "authenticated" && profileRoleMayManageImage(state.session.account.productRole)
+      state.kind === "authenticated" && profileRoleMayManageImage(state.session.account.userRole)
     );
   };
   const selectedProvidedAvatarId = (): string | undefined => {
@@ -79,19 +100,20 @@ export function ProfilePage(): JSX.Element {
   async function saveTimeZone(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (timeZoneSaving()) return;
+    const accountId = authenticatedAccountId();
+    if (accountId === undefined) return;
     setTimeZoneSaving(true);
     setTimeZoneMessage("");
     try {
-      const saved = await applicationApi.client.updateAccountSettings({
-        timeZone: selectedTimeZone(),
-      });
-      mutateProfile(saved);
-      setTimeZoneDraft(saved.timeZone);
+      await appearance.updateTimeZone(selectedTimeZone());
+      if (authenticatedAccountId() !== accountId) return;
+      setTimeZoneDraft(appearance.settings()?.timeZone);
       setTimeZoneMessage("Your time zone was saved.");
     } catch {
-      setTimeZoneMessage("Your time zone could not be saved. Try again.");
+      if (authenticatedAccountId() === accountId)
+        setTimeZoneMessage("Your time zone could not be saved. Try again.");
     } finally {
-      setTimeZoneSaving(false);
+      if (authenticatedAccountId() === accountId) setTimeZoneSaving(false);
     }
   }
 
@@ -120,15 +142,15 @@ export function ProfilePage(): JSX.Element {
       <section aria-labelledby="profile-time-zone-heading">
         <h2 id="profile-time-zone-heading">Time zone</h2>
         <Switch>
-          <Match when={profile.loading}>
+          <Match when={appearance.settingsState() === "loading"}>
             <p class="calm-status" role="status">
               Loading your time zone...
             </p>
           </Match>
-          <Match when={profile.error !== undefined}>
+          <Match when={appearance.settingsState() === "error"}>
             <p role="alert">Your time zone is unavailable. Refresh to try again.</p>
           </Match>
-          <Match when={profile()}>
+          <Match when={appearance.settingsState() === "ready" && appearance.settings()}>
             {(settings) => (
               <form aria-busy={timeZoneSaving()} onSubmit={(event) => void saveTimeZone(event)}>
                 <label for="profile-time-zone">
@@ -157,6 +179,7 @@ export function ProfilePage(): JSX.Element {
           </p>
         </Show>
       </section>
+      <ProfileAppearance />
       <section aria-labelledby="profile-avatar-heading">
         <h2 id="profile-avatar-heading">Avatar Gallery</h2>
         <Switch>

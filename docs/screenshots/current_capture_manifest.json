@@ -4469,7 +4469,7 @@
       {
         "routeId": "courses",
         "status": "deferred",
-        "reason": "The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes."
+        "reason": "The root route is only signed-in User Role resolution; current canonical captures use their role-owned home routes."
       },
       {
         "routeId": "instructorHome",
@@ -4969,7 +4969,7 @@
       {
         "id": "tab:courses",
         "status": "deferred",
-        "reason": "The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes."
+        "reason": "The root route is only signed-in User Role resolution; current canonical captures use their role-owned home routes."
       },
       {
         "id": "tab:questions",

@@ -45,7 +45,7 @@ tree.
 ```text
 schemas/
 +- base_schema/
-|  +- install.sql                    Ordered, DDL-only PostgreSQL 17 manifest
+|  +- install.sql                    Ordered, DDL-only PostgreSQL manifest
 |  +- 00_roles.sql                   Bootstrap roles and schemas
 |  +- 10_types.sql                   Enums and public-ID domains
 |  +- 15_table_check_functions.sql   Domain CHECK helpers
@@ -140,6 +140,7 @@ Installation data is owned by [installation_data.rs](../crates/project-tools/src
 ```text
 src/
 +- api/                         Typed client contracts, HTTP client, and strict decoders
++- appearance/                  Resolved Theme, display-mode, and Profile appearance UI
 +- auth/                        Browser session and sign-in support
 +- components/                  Shared answer-free UI and Question presentation
 |  `- question_response_controls/backend_owned_document.tsx
@@ -150,7 +151,7 @@ src/
 |  +- blueprint_forks/          Blueprint fork review and apply UI
 |  +- question_picker/          Published, non-archived Question selection UI
 |  +- question_attempt/         Student Attempt interactions
-|  +- course_appearance/        Authorized course appearance UI
+|  +- course_appearance/        Authorized Course appearance editing UI
 |  +- ple_question_json_authoring/ Native PLE Question JSON editor
 |  `- profile_avatar/           Provided avatar and profile-image UI
 +- pages/

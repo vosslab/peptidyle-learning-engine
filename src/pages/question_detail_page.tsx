@@ -460,7 +460,7 @@ export function QuestionDetailPage(): JSX.Element {
   };
   const mayMutateLibrary = (): boolean => {
     const state = session.state();
-    return state.kind === "authenticated" && state.session.account.productRole === "instructor";
+    return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   };
   const [correctedBloom, setCorrectedBloom] = createSignal<BloomClassificationView>();
   let correctionTarget = "";

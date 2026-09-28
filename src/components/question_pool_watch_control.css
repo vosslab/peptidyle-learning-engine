@@ -25,9 +25,10 @@
 }
 
 .library-pool-watch-control button.selected {
-  border-color: var(--ple-focus);
-  background: color-mix(in srgb, var(--ple-focus) 18%, var(--ple-card-surface));
-  box-shadow: inset 0 0 0 1px var(--ple-focus);
+  border-color: var(--ple-highlight);
+  background: var(--ple-highlight);
+  box-shadow: inset 0 0 0 1px var(--ple-highlight);
+  color: var(--ple-on-highlight);
 }
 
 .library-pool-watch-control button:focus-visible {

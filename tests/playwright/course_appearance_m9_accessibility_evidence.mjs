@@ -55,11 +55,12 @@ try {
   const selectedTheme = page.locator('input[name="course-theme"]:checked');
   assert.notEqual(await selectedTheme.inputValue(), await startingTheme.inputValue());
   assert.equal(
-    await page.locator(".course-theme-scope").getAttribute("data-course-theme"),
+    await page.locator("html").getAttribute("data-theme"),
     await selectedTheme.inputValue(),
   );
   await expect(selectedTheme).toHaveAccessibleName(/\S/);
-  const selectedLabel = selectedTheme.locator("..").locator(".course-appearance-theme-label");
+  const selectedCard = selectedTheme.locator("..");
+  const selectedLabel = selectedCard.locator(".theme-chooser__label");
   await expect(selectedLabel).toBeVisible();
   await expect(selectedLabel).toHaveText(/\S/);
 
@@ -88,10 +89,7 @@ try {
     await failedTheme.textContent(),
     "Theme could not save. The saved theme is still displayed.",
   );
-  assert.equal(
-    await page.locator(".course-theme-scope").getAttribute("data-course-theme"),
-    "grass",
-  );
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "grass");
 
   await page.getByRole("radio", { name: "Ocean" }).check();
   await page.getByRole("button", { name: "Save theme" }).click();

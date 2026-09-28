@@ -23,7 +23,7 @@ use objects::{
     image_validation::{MAX_STILL_IMAGE_BYTES, ProfileImageCrop, normalized_profile_image_webp},
     s3::S3ObjectStore,
 };
-use question_model::{ObjectId, ProductRole, ProfileImageId, Timestamp};
+use question_model::{ObjectId, UserRole, ProfileImageId, Timestamp};
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
@@ -171,7 +171,7 @@ async fn replace_profile_image(State(state): State<RouteState>, request: Request
     };
     if !matches!(
         session.role,
-        ProductRole::Instructor | ProductRole::Sysadmin
+        UserRole::Instructor | UserRole::Sysadmin
     ) {
         return route_error(
             StatusCode::FORBIDDEN,
@@ -352,7 +352,7 @@ async fn deliver_profile_image(
     };
     if !matches!(
         session.role,
-        ProductRole::Instructor | ProductRole::Sysadmin
+        UserRole::Instructor | UserRole::Sysadmin
     ) {
         return concealed();
     }
@@ -415,7 +415,7 @@ async fn deliver_profile_image(
 
 struct SelfSession {
     token: SessionTokenHash,
-    role: ProductRole,
+    role: UserRole,
 }
 
 async fn self_session(
@@ -430,7 +430,7 @@ async fn self_session(
     {
         Ok(session) => Ok(SelfSession {
             token: session.session_hash,
-            role: session.record.product_role,
+            role: session.record.user_role,
         }),
         Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(

@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 use crate::auth::{AuthError, resolve_session};
-use question_model::ProductRole;
+use question_model::UserRole;
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = question_model::MAX_DISCOVERY_PAGE_SIZE as u16;
@@ -721,7 +721,7 @@ async fn instructor_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     let cookie_header = joined_cookie_header(headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
@@ -740,13 +740,13 @@ async fn library_reader_session_hash(
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
         Ok(session)
             if matches!(
-                session.record.product_role,
-                ProductRole::Instructor | ProductRole::Sysadmin
+                session.record.user_role,
+                UserRole::Instructor | UserRole::Sysadmin
             ) =>
         {
             Ok((
                 session.session_hash,
-                session.record.product_role == ProductRole::Instructor,
+                session.record.user_role == UserRole::Instructor,
             ))
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

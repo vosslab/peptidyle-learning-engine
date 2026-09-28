@@ -20,7 +20,7 @@ Read [CONTRACTS.md](CONTRACTS.md) for the contract register,
 | Presentation | The answer-free Question state shown for one Assessment Attempt. |
 | Typed key | A server-constructed object-store key, not a browser-supplied path. |
 
-An identifier is not authority. The server derives the Account, product role,
+An identifier is not authority. The server derives the Account, user role,
 Course membership, Blueprint ownership, Student record, Attempt, and Question
 Backend from authenticated context and stored relationships.
 
@@ -28,7 +28,7 @@ Backend from authenticated context and stored relationships.
 
 | Data category | Authority and persistence | Browser boundary | Detailed authority |
 | --- | --- | --- | --- |
-| Global Account | Server identity and immutable product role | Authorized account projection only | [USER_ROLES.md](USER_ROLES.md) |
+| Global Account | Server identity and immutable user role | Authorized account projection only | [USER_ROLES.md](USER_ROLES.md) |
 | Course relationship | Stored Course membership or Blueprint ownership | Only the relationship needed for the current page | [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) |
 | Draft Question | Authorized Instructor workspace; mutable and unpublished | Bounded Instructor result only | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
 | Published Question | Stable identity plus immutable Question Revisions | Answer-free render and permitted metadata | [QUESTION_MODEL.md](QUESTION_MODEL.md) |

@@ -670,14 +670,14 @@ export function decodeAuthenticatedSession(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["authenticated", "account"]);
   const account = decodeRecord(field(record, "account", path), `${path}.account`);
-  requireOnlyFields(account, `${path}.account`, ["id", "productRole"]);
+  requireOnlyFields(account, `${path}.account`, ["id", "userRole"]);
   const decoded = {
     authenticated: decodeTrue(field(record, "authenticated", path), `${path}.authenticated`),
     account: {
       id: decodeAccountId(field(account, "id", `${path}.account`), `${path}.account.id`),
-      productRole: decodeStringEnum(
-        field(account, "productRole", `${path}.account`),
-        `${path}.account.productRole`,
+      userRole: decodeStringEnum(
+        field(account, "userRole", `${path}.account`),
+        `${path}.account.userRole`,
         ["student", "instructor", "sysadmin"],
       ),
     },

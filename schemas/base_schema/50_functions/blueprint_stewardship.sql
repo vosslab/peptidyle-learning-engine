@@ -121,7 +121,7 @@ BEGIN
            ORDER BY occurred_at DESC, event_id DESC LIMIT 1
       ) AS state_event ON state_event.state = 'active'
      WHERE watch.blueprint_course_id = p_blueprint_course_id_number
-       AND account.product_role = 'instructor'
+       AND account.user_role = 'instructor'
     ON CONFLICT (recipient_account_id, event_kind, source_event_id) DO NOTHING;
 END
 $$;
@@ -205,7 +205,7 @@ BEGIN
           FROM ple_data.blueprint_course_star AS star
           JOIN ple_private.account AS account
             ON account.account_id = star.instructor_account_id
-           AND account.product_role = 'instructor'
+           AND account.user_role = 'instructor'
           JOIN LATERAL (
               SELECT event.state
                 FROM ple_private.account_state_event AS event
@@ -265,7 +265,7 @@ BEGIN
       FROM ple_data.blueprint_course_star AS star
       JOIN ple_private.account AS account
         ON account.account_id = star.instructor_account_id
-       AND account.product_role = 'instructor'
+       AND account.user_role = 'instructor'
       JOIN LATERAL (
           SELECT event.state
             FROM ple_private.account_state_event AS event

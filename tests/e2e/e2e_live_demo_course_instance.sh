@@ -310,7 +310,7 @@ instructor_account_id() {
 import json, re, sys
 value=json.loads(sys.argv[1])
 account_id=value.get("account",{}).get("id")
-if value.get("authenticated") is not True or value.get("account",{}).get("productRole") != "instructor":
+if value.get("authenticated") is not True or value.get("account",{}).get("userRole") != "instructor":
     raise SystemExit("Course fixture requires an authenticated Instructor")
 if not isinstance(account_id,str) or re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}", account_id) is None:
     raise SystemExit("Course fixture Instructor Account ID is invalid")

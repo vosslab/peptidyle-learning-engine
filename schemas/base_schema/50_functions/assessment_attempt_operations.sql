@@ -125,7 +125,7 @@ SET search_path = pg_catalog, ple_data AS $$
     SELECT course.course_instance_id::text,
            course.course_short_name,
            course.course_long_name,
-           course.course_theme_id
+           course.theme_id
       FROM ple_data.course_instance AS course
      WHERE course.course_instance_id = p_course_instance_id
 $$;

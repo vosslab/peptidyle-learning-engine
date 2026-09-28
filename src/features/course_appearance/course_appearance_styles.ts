@@ -33,83 +33,6 @@ export const COURSE_APPEARANCE_STYLES = `
   color: var(--ple-muted);
 }
 
-.course-appearance-theme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
-  gap: var(--ple-compact-gap, 0.5rem);
-  margin-block-start: var(--ple-compact-gap, 0.5rem);
-}
-
-.course-appearance-theme-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.45rem 0.6rem;
-  align-items: center;
-  min-block-size: var(--ple-control-min-height, 2.25rem);
-  padding: 0.55rem;
-  border: 2px solid color-mix(in srgb, var(--ple-border) 72%, transparent);
-  border-radius: var(--ple-radius-control, 0.25rem);
-  background:
-    linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent)) top / 100% 0.25rem
-      no-repeat,
-    var(--ple-theme-canvas);
-  color: var(--ple-ink);
-  cursor: pointer;
-}
-
-.course-appearance-theme-card:has(input:checked) {
-  border-color: var(--ple-accent-strong);
-  box-shadow: 0 0 0 3px var(--ple-theme-canvas);
-}
-
-.course-appearance-theme-card:focus-within {
-  outline: 2px solid var(--ple-focus);
-  outline-offset: 2px;
-}
-
-.course-appearance-theme-card input {
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  margin: 0;
-}
-
-.course-appearance-theme-label {
-  font-weight: 750;
-}
-
-.course-appearance-palette-preview {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ple-ink) 24%, transparent);
-  border-radius: var(--ple-radius-control, 0.25rem);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-.course-appearance-palette-preview span {
-  min-inline-size: 0;
-  padding: 0.2rem;
-}
-
-.course-appearance-palette-canvas {
-  background: var(--ple-theme-canvas);
-  color: var(--ple-ink);
-}
-
-.course-appearance-palette-secondary {
-  background: var(--ple-theme-secondary);
-  color: var(--ple-theme-on-secondary);
-}
-
-.course-appearance-palette-accent {
-  /* Raw habitat accents are decorative anchors, not guaranteed text surfaces. */
-  background: color-mix(in srgb, var(--ple-theme-accent) 12%, var(--ple-theme-canvas));
-  color: var(--ple-ink);
-}
-
 .course-appearance-save-actions {
   display: flex;
   flex-wrap: wrap;
@@ -188,14 +111,7 @@ export const COURSE_APPEARANCE_STYLES = `
   text-align: center;
 }
 
-@media (max-width: 30rem) {
-  .course-appearance-theme-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (forced-colors: active) {
-  .course-appearance-theme-card,
   .course-appearance-section,
   .course-appearance-error,
   .course-appearance-alternative-text,
@@ -205,9 +121,5 @@ export const COURSE_APPEARANCE_STYLES = `
     color: CanvasText;
   }
 
-  .course-appearance-theme-card:has(input:checked) {
-    border: 4px double Highlight;
-    box-shadow: none;
-  }
 }
 `;

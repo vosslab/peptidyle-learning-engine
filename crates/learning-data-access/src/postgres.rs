@@ -3,6 +3,8 @@
 //! Feature adapters return only after their exact clean-schema contracts exist.
 
 #[cfg(feature = "postgres")]
+mod account_appearance;
+#[cfg(feature = "postgres")]
 mod account_avatar;
 #[cfg(feature = "postgres")]
 mod account_time_zone;
@@ -145,6 +147,8 @@ mod support_capability;
 #[cfg(feature = "postgres")]
 mod sysadmin_totp;
 
+#[cfg(feature = "postgres")]
+pub use account_appearance::PostgresAccountAppearanceStore;
 #[cfg(feature = "postgres")]
 pub use account_avatar::PostgresAccountAvatarGallery;
 #[cfg(feature = "postgres")]

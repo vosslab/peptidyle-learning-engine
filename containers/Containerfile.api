@@ -13,6 +13,11 @@ FROM docker.io/library/rust:latest AS builder
 
 WORKDIR /build
 
+# Keep cold container builds within the available memory budget. This setting
+# applies to every build target derived from this stage and stays out of the
+# runtime image.
+ENV CARGO_BUILD_JOBS=1
+
 # Copy manifests first so dependency compilation caches independently of source
 # edits. Without this split, every source change rebuilds every dependency.
 COPY Cargo.toml Cargo.lock ./

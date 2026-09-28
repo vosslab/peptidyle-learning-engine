@@ -6,8 +6,11 @@ import sys
 import signal
 import secrets
 import pathlib
+import selectors
 import subprocess
 import dataclasses
+import time
+import codecs
 from collections.abc import Callable
 
 # local repo modules
@@ -22,6 +25,7 @@ from local_stack_control.browser_suite_private_state import DeveloperBrowserSuit
 
 
 LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = 240.0
+LAUNCH_OUTPUT_HEARTBEAT_SECONDS = 30.0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,18 +61,18 @@ def stream_launch(
 	root: pathlib.Path,
 	active: list[object],
 ) -> tuple[int, str]:
-	"""Run the launch child, echoing every output line to the supervisor log as it appears.
+	"""Run the launch child, echoing output and reporting a live silent child.
 
 	The lines are also retained so a failure keeps the same diagnostic the captured
 	form provided.  The child leads its own process group so an interrupt reaches the
-	build and Compose processes beneath it.
+	build and Compose processes beneath it.  A silent child is still a liveness fact,
+	not evidence that its build or Compose work made progress.
 	"""
 	child = subprocess.Popen(
 		argv,
 		stdin=subprocess.DEVNULL,
 		stdout=subprocess.PIPE,
 		stderr=subprocess.STDOUT,
-		text=True,
 		env=environment,
 		cwd=root,
 		start_new_session=True,
@@ -78,10 +82,49 @@ def stream_launch(
 	try:
 		if child.stdout is None:
 			raise DeveloperBrowserSuiteError("developer browser launch output is unavailable")
-		for line in child.stdout:
-			sys.stderr.write(line)
+		last_output = time.monotonic()
+		next_heartbeat = last_output + LAUNCH_OUTPUT_HEARTBEAT_SECONDS
+		output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
+
+		def retain_and_report(text: str) -> None:
+			"""Forward decoded child output while retaining the same diagnostic text."""
+			if not text:
+				return
+			sys.stderr.write(text)
 			sys.stderr.flush()
-			lines.append(line)
+			lines.append(text)
+
+		with selectors.DefaultSelector() as output_reader:
+			output_reader.register(child.stdout, selectors.EVENT_READ)
+			while True:
+				now = time.monotonic()
+				child_exited = child.poll() is not None
+				wait_seconds = 0.0 if child_exited else max(0.0, next_heartbeat - now)
+				if output_reader.select(wait_seconds):
+					chunk = os.read(child.stdout.fileno(), 4096)
+					if chunk == b"":
+						break
+					reported = output_decoder.decode(chunk)
+					retain_and_report(reported)
+					last_output = time.monotonic()
+					next_heartbeat = last_output + LAUNCH_OUTPUT_HEARTBEAT_SECONDS
+					continue
+				if child_exited:
+					break
+				now = time.monotonic()
+				if child.poll() is not None:
+					continue
+				if now >= next_heartbeat:
+					silent_seconds = now - last_output
+					report_phase(
+						"Launch child remains alive; no new launch output for "
+						+ format(silent_seconds, ".1f")
+						+ " seconds."
+					)
+					next_heartbeat = now + LAUNCH_OUTPUT_HEARTBEAT_SECONDS
+		# A descendant can retain the pipe after the direct child exits, so no EOF
+		# event is required before the completed child's diagnostic is retained.
+		retain_and_report(output_decoder.decode(b"", final=True))
 		returncode = child.wait()
 	finally:
 		active.clear()

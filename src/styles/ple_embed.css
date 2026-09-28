@@ -6,12 +6,30 @@
     "Liberation Mono", monospace;
   --ple-document-font-size: 16px;
   --ple-document-line-height: 1.48;
+  --ple-document-background: #ffffff;
+  --ple-document-foreground: #1b1b1b;
+  --ple-document-surface: #ffffff;
+  --ple-document-secondary: #edf2f5;
+  --ple-document-accent: #005a9c;
+  --ple-document-highlight: #e6f4fb;
+  --ple-document-muted: #53616d;
+  --ple-document-border: #8b98a3;
+  --ple-document-on-accent: #ffffff;
+  --ple-document-link: #005a9c;
   --bs-body-font-family: var(--ple-font-text);
   --bs-body-font-size: var(--ple-document-font-size);
   --bs-body-line-height: var(--ple-document-line-height);
   --bs-font-monospace: var(--ple-font-mono);
-  background: var(--ple-document-background, #ffffff);
-  color: var(--ple-document-foreground, #1b1b1b);
+  --bs-body-bg: var(--ple-document-background);
+  --bs-body-color: var(--ple-document-foreground);
+  --bs-secondary-bg: var(--ple-document-secondary);
+  --bs-tertiary-bg: var(--ple-document-secondary);
+  --bs-border-color: var(--ple-document-border);
+  --bs-primary: var(--ple-document-accent);
+  --bs-link-color: var(--ple-document-link);
+  --bs-link-hover-color: var(--ple-document-link);
+  background: var(--ple-document-background);
+  color: var(--ple-document-foreground);
   font-family: var(--ple-font-text);
 }
 
@@ -32,6 +50,8 @@ body {
   padding: 1rem;
   font-size: var(--ple-document-font-size);
   line-height: var(--ple-document-line-height);
+  background: var(--ple-document-background);
+  color: var(--ple-document-foreground);
 }
 
 input,
@@ -43,8 +63,42 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid #005a9c;
+  outline: 3px solid var(--ple-document-link);
   outline-offset: 2px;
+}
+
+a {
+  color: var(--ple-document-link);
+}
+
+/* Ordinary Question content receives a readable baseline. Specific authored
+ * widget colors still win through their own selectors and declarations. */
+table {
+  color: var(--ple-document-foreground);
+  border-color: var(--ple-document-border);
+}
+th {
+  background: var(--ple-document-secondary);
+  color: var(--ple-document-foreground);
+}
+td,
+th {
+  border-color: var(--ple-document-border);
+}
+pre,
+code,
+kbd,
+samp {
+  background: var(--ple-document-secondary);
+  color: var(--ple-document-foreground);
+}
+
+:is(input, button, select, textarea):not([type="hidden"]),
+:where(.problem-main-form) .form-control,
+:where(.problem-main-form) .form-select {
+  background-color: var(--ple-document-surface);
+  color: var(--ple-document-foreground);
+  border-color: var(--ple-document-border);
 }
 
 /* Document defaults also cover renderer warnings and footers outside the form.
@@ -88,7 +142,7 @@ textarea {
 
 .problem-main-form {
   --ple-document-radius-control: 0.45rem;
-  --ple-document-border-control: #8b98a3;
+  --ple-document-border-control: var(--ple-document-border);
   font-family: var(--ple-font-text);
 }
 

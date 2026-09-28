@@ -1,6 +1,9 @@
 // Opaque, no-write WeBWorK preview surface shared by Instructor inspection pages.
 
-import { createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount, useContext, type JSX } from "solid-js";
+
+import { postEmbedAppearance } from "../appearance/embed_appearance";
+import { AppearanceContext } from "../appearance/appearance_context";
 
 const PREVIEW_RESIZE_KIND = "ple.webwork.preview.resize";
 const PREVIEW_RESIZE_VERSION = 1;
@@ -42,8 +45,15 @@ export interface OpaqueWebworkPreviewFrameProps {
 
 /** Renders a backend-owned preview that may report only its bounded visible height. */
 export function OpaqueWebworkPreviewFrame(props: OpaqueWebworkPreviewFrameProps): JSX.Element {
+  const appearance = useContext(AppearanceContext);
   const [height, setHeight] = createSignal(PREVIEW_MINIMUM_HEIGHT);
   let frame: HTMLIFrameElement | undefined;
+  // This opaque sandbox has no stable target origin. The closed record contains
+  // only cosmetic colors, so `*` cannot disclose Course, Account, or response data.
+  const sendAppearance = (): void => {
+    if (appearance !== undefined) postEmbedAppearance(frame, appearance.appearance(), "*");
+  };
+  createEffect(sendAppearance);
 
   function handleResize(event: MessageEvent<unknown>): void {
     // ASVS 3.5.5: the opaque sandbox has origin null, so source identity and
@@ -71,6 +81,7 @@ export function OpaqueWebworkPreviewFrame(props: OpaqueWebworkPreviewFrameProps)
       sandbox="allow-scripts"
       referrerpolicy="no-referrer"
       allow=""
+      onLoad={sendAppearance}
       style={{ height: `${height()}px` }}
     />
   );

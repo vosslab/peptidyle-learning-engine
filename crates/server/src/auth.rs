@@ -1,6 +1,6 @@
 //! Provider-neutral authentication and replica-safe sessions.
 //!
-//! A credential provider establishes an Account and immutable Product Role. This module then
+//! A credential provider establishes an Account and immutable User Role. This module then
 //! mints a 256-bit opaque cookie credential, persists only its SHA-256 hash,
 //! and resolves an authenticated account session from the database row. Request
 //! parameters, headers, and bodies never construct authenticated identity.
@@ -19,7 +19,7 @@ use learning_data_access::{
     SessionLifetime, SessionRecord, SessionStore, StoreError, SysadminTotpAttestationId,
     SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
 };
-use question_model::{AccountId, ProductRole};
+use question_model::{AccountId, UserRole};
 use serde::Serialize;
 
 #[path = "auth/browser_boundary.rs"]
@@ -241,7 +241,7 @@ pub struct AuthenticatedSession {
 pub struct AuthSessionResponse {
     /// Literal true for this authenticated response shape.
     pub authenticated: bool,
-    /// Browser-safe identity with one immutable Product Role and no credential.
+    /// Browser-safe identity with one immutable User Role and no credential.
     pub account: AuthAccountResponse,
 }
 
@@ -251,8 +251,8 @@ pub struct AuthSessionResponse {
 pub struct AuthAccountResponse {
     /// Authenticated Account, not a course-work record identifier.
     pub id: AccountId,
-    /// Immutable Account Product Role.
-    pub product_role: ProductRole,
+    /// Immutable Account User Role.
+    pub user_role: UserRole,
 }
 
 impl AuthenticatedSession {
@@ -435,7 +435,7 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
         authenticated: true,
         account: AuthAccountResponse {
             id: record.account.clone(),
-            product_role: record.product_role,
+            user_role: record.user_role,
         },
     }
 }

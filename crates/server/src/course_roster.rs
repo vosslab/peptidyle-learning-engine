@@ -13,7 +13,7 @@ use learning_data_access::{
     CourseRosterImportInput, CourseRosterStore, SessionTokenHash, StoreError,
     postgres::{PostgresCourseRosterStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceId, ProductRole};
+use question_model::{CourseInstanceId, UserRole};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -56,7 +56,7 @@ async fn list_course_roster(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == ProductRole::Instructor).await
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await
         {
             Ok(value) => value,
             Err(response) => return *response,
@@ -78,7 +78,7 @@ async fn import_course_roster(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == ProductRole::Instructor).await
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await
         {
             Ok(value) => value,
             Err(response) => return *response,
@@ -103,7 +103,7 @@ async fn claim_course_invitation(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == ProductRole::Student).await {
+        match required_session_hash(&state, &headers, |role| role == UserRole::Student).await {
             Ok(value) => value,
             Err(response) => return *response,
         };
@@ -127,7 +127,7 @@ async fn revoke_course_roster_entry(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == ProductRole::Instructor).await
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await
         {
             Ok(value) => value,
             Err(response) => return *response,
@@ -149,7 +149,7 @@ fn course_instance_id(value: &str) -> Result<CourseInstanceId, Box<Response>> {
 async fn required_session_hash(
     state: &CourseRosterRouteState,
     headers: &HeaderMap,
-    permitted: impl FnOnce(ProductRole) -> bool,
+    permitted: impl FnOnce(UserRole) -> bool,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
@@ -157,7 +157,7 @@ async fn required_session_hash(
     )
     .await
     {
-        Ok(session) if permitted(session.record.product_role) => Ok(session.session_hash),
+        Ok(session) if permitted(session.record.user_role) => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

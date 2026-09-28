@@ -1,6 +1,6 @@
 // ribbon_contract.ts - pure, synchronous Ribbon model derivation.
 
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import {
   routeScopeKey,
   routeParams,
@@ -19,9 +19,9 @@ import {
 } from "../navigation/public_route";
 import {
   ROUTE_CONTRACT,
-  productRoleMayAccessRoute,
-  productRoleHomeRouteId,
-  productRoleHomePath,
+  userRoleMayAccessRoute,
+  userRoleHomeRouteId,
+  userRoleHomePath,
   routeContractForPathname,
   type RibbonScope,
   type RibbonTabId,
@@ -71,7 +71,7 @@ export interface RibbonRouteState {
 
 /** The immutable session fact the Ribbon may use for presentation admission. */
 export interface RibbonViewerIdentity {
-  readonly productRole: ProductRole;
+  readonly userRole: UserRole;
 }
 
 /** The two authorized collection parents for a directly loaded Blueprint Course. */
@@ -193,10 +193,10 @@ const SIGN_OUT_ACTION: RibbonActionDescriptor = Object.freeze({
   label: "Sign out",
 });
 
-function accountControlsFor(productRole: ProductRole): ReadonlyArray<RibbonContextControlModel> {
+function accountControlsFor(userRole: UserRole): ReadonlyArray<RibbonContextControlModel> {
   return Object.freeze(
     RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
-      control.productRoles.includes(productRole),
+      control.userRoles.includes(userRole),
     ).map((control) =>
       Object.freeze({
         id: control.id,
@@ -353,7 +353,7 @@ function hrefFor(
   control: RibbonCatalogControl<RibbonDestinationId>,
   routeState: RibbonRouteState,
   availability: RibbonAvailability,
-  productRole: ProductRole,
+  userRole: UserRole,
 ): string | undefined {
   if (availability !== "Available" || control.destination.kind !== "route") return undefined;
   if (control.id === "activeAttempt") {
@@ -370,13 +370,13 @@ function hrefFor(
   if (control.id === "coursework" || control.id === "grades") {
     return buildRoutePath(control.destination.routeId, {});
   }
-  if (control.id === "courses" && productRole === "student") {
+  if (control.id === "courses" && userRole === "student") {
     return buildRoutePath("studentCourses", {});
   }
   // The Courses tab is the role's stable home, not the anonymous root resolver.
   // This preserves direct role navigation even if a caller does not first visit `/`.
   if (control.id === "courses" && routeState.route.ribbon.scope === "product") {
-    return buildRoutePath(productRoleHomeRouteId(productRole), {});
+    return buildRoutePath(userRoleHomeRouteId(userRole), {});
   }
   const targetParams = targetParamsFor(control, routeState);
   if (targetParams === undefined) return undefined;
@@ -413,12 +413,12 @@ function selectedFor(
 function modelForControl<Id extends RibbonDestinationId>(
   control: RibbonCatalogControl<Id>,
   routeState: RibbonRouteState,
-  productRole: ProductRole,
+  userRole: UserRole,
 ): RibbonControlModel<Id> {
   const entry = CAPABILITY_REGISTRY[control.id];
   const admission = ribbonAvailability(
     entry,
-    productRole,
+    userRole,
     relationshipStateFor(entry.relationshipRequirement),
   );
   const hasContextualTarget =
@@ -428,7 +428,7 @@ function modelForControl<Id extends RibbonDestinationId>(
         ? routeState.latestFeedbackAttemptId !== undefined
         : true;
   const admitted = hasContextualTarget ? admission : "Unavailable";
-  const href = hrefFor(control, routeState, admitted, productRole);
+  const href = hrefFor(control, routeState, admitted, userRole);
   const availability = href === undefined && admitted === "Available" ? "Unavailable" : admitted;
   return Object.freeze({
     id: control.id,
@@ -449,19 +449,19 @@ function modelForControl<Id extends RibbonDestinationId>(
   });
 }
 
-function contextFor(productRole: ProductRole): RibbonContextModel {
+function contextFor(userRole: UserRole): RibbonContextModel {
   return Object.freeze({
-    productLabel: PRODUCT_LABELS[productRole],
-    accountControls: accountControlsFor(productRole),
+    productLabel: PRODUCT_LABELS[userRole],
+    accountControls: accountControlsFor(userRole),
     signOutAction: SIGN_OUT_ACTION,
   });
 }
 
 function taskAreasFor(
   routeState: RibbonRouteState,
-  productRole: ProductRole,
+  userRole: UserRole,
 ): ReadonlyArray<RibbonTaskAreaModel> {
-  const tierTwo = ribbonTierTwoSchemaFor(productRole, routeState.route.ribbon.tierOneArea);
+  const tierTwo = ribbonTierTwoSchemaFor(userRole, routeState.route.ribbon.tierOneArea);
   if (tierTwo.length === 0) return Object.freeze([]);
 
   const areas: Array<{
@@ -514,7 +514,7 @@ function taskAreasFor(
       };
       areas.push(modelArea);
     }
-    modelArea.controls.push(modelForControl(control, routeState, productRole));
+    modelArea.controls.push(modelForControl(control, routeState, userRole));
   }
   return Object.freeze(
     areas.map((area) => Object.freeze({ ...area, controls: Object.freeze([...area.controls]) })),
@@ -544,12 +544,12 @@ function breadcrumbLinkItem(label: string, href: string): RibbonBreadcrumbModel 
 
 function breadcrumbsFor(
   routeState: RibbonRouteState,
-  productRole: ProductRole,
+  userRole: UserRole,
   labels: RibbonContextLabels,
   navigation: RibbonContextNavigation,
 ): ReadonlyArray<RibbonBreadcrumbModel> {
   if (routeState.route.id === "signIn") return Object.freeze([]);
-  const homeHref = productRoleHomePath(productRole);
+  const homeHref = userRoleHomePath(userRole);
   const home = breadcrumbLinkItem("Home", homeHref);
   const currentHref = canonicalPathForRouteState(routeState);
   // A malformed declared route must never surface an ID-shaped label or
@@ -639,7 +639,7 @@ function breadcrumbsFor(
         home,
         breadcrumbLinkItem(
           "Course Invitations",
-          productRole === "student" ? "/student/course-invitations" : "/account/course-invitations",
+          userRole === "student" ? "/student/course-invitations" : "/account/course-invitations",
         ),
         breadcrumbCurrent("Course Invitation"),
       ]);
@@ -803,17 +803,17 @@ export function deriveRibbonModel<
   contextLabels: Exact<RibbonContextLabels, ContextLabels>,
   navigation: RibbonContextNavigation = {},
 ): RibbonModel {
-  const schema = ribbonSchemaFor(viewerIdentity.productRole);
+  const schema = ribbonSchemaFor(viewerIdentity.userRole);
   const tabs = schema.map((slot) => {
     const control = TAB_CATALOG.find((candidate) => candidate.id === slot.id);
     if (control === undefined) throw new Error(`Ribbon schema references unknown tab ${slot.id}.`);
-    return modelForControl(control, routeState, viewerIdentity.productRole);
+    return modelForControl(control, routeState, viewerIdentity.userRole);
   });
-  const taskAreas = taskAreasFor(routeState, viewerIdentity.productRole);
-  const context = contextFor(viewerIdentity.productRole);
+  const taskAreas = taskAreasFor(routeState, viewerIdentity.userRole);
+  const context = contextFor(viewerIdentity.userRole);
   const breadcrumbs = breadcrumbsFor(
     routeState,
-    viewerIdentity.productRole,
+    viewerIdentity.userRole,
     contextLabels,
     navigation,
   );
@@ -826,7 +826,7 @@ export function deriveRibbonModel<
       breadcrumbs.length > 0
         ? breadcrumbs
         : Object.freeze([
-            breadcrumbLinkItem("Home", productRoleHomePath(viewerIdentity.productRole)),
+            breadcrumbLinkItem("Home", userRoleHomePath(viewerIdentity.userRole)),
           ]),
   });
 }
@@ -834,8 +834,8 @@ export function deriveRibbonModel<
 /** The same boundary predicate retained beside derivation for model-level consumers. */
 export function ribbonModelAvailabilityMayAccessRoute(
   control: RibbonControlModel,
-  productRole: ProductRole,
+  userRole: UserRole,
 ): boolean {
   if (control.availability !== "Available" || control.destination.kind !== "route") return true;
-  return productRoleMayAccessRoute(control.destination.routeId, productRole);
+  return userRoleMayAccessRoute(control.destination.routeId, userRole);
 }

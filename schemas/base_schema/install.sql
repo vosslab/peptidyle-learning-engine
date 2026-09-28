@@ -8,6 +8,7 @@
 \ir 00_roles.sql
 \ir 10_types.sql
 \ir 15_table_check_functions.sql
+\ir 20_tables/theme.sql
 \ir 20_tables/account.sql
 \ir 20_tables/authentication.sql
 \ir 20_tables/content_classification.sql

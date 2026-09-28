@@ -72,10 +72,10 @@ previous code and matching resettable preproduction database together.
 There is no legacy browser redirect or API compatibility layer. The
 preproduction rebuild uses canonical Assessment paths and APIs directly.
 
-Profile is the only browser page that names or edits the self-owned, all-Product-Role
+Profile is the only browser page that names or edits the self-owned, role-independent
 exact IANA display preference. `GET` / `PUT /api/account/settings` has the closed
 `{ "timeZone": "exact IANA name" }` shape and accepts no Account, Course, or
-Product Role selector. PostgreSQL derives the active Account from the
+User Role selector. PostgreSQL derives the active Account from the
 authenticated session and atomically reads or updates that Account's
 preference. Roster import marks only a newly created Student Account for a
 one-time default; invitation acceptance copies the inviting Instructor's zone
@@ -134,7 +134,7 @@ discoverable in real Profile Settings.
 ## Authentication and sessions
 
 Primary authentication creates an opaque pending-MFA state when the
-database-derived Product Role is Sysadmin; it creates no authenticated session.
+database-derived User Role is Sysadmin; it creates no authenticated session.
 PostgreSQL alone derives that role and atomically requires and consumes one
 unused, short-lived, Account- and browser-bound TOTP attestation while creating
 the Sysadmin session. The one-use transition rolls back with session creation:

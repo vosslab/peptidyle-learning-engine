@@ -131,14 +131,14 @@ CREATE TABLE ple_private.sysadmin_totp_verification_attempt (
 CREATE TABLE ple_private.authenticated_session (
     session_id uuid PRIMARY KEY,
     account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    product_role ple_data.product_role NOT NULL,
+    user_role ple_data.user_role NOT NULL,
     token_hash bytea NOT NULL UNIQUE CHECK (pg_catalog.octet_length(token_hash) = 32),
     created_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
     CHECK (expires_at > created_at),
     CHECK (revoked_at IS NULL OR revoked_at >= created_at),
-    FOREIGN KEY (account_id, product_role) REFERENCES ple_private.account (account_id, product_role),
+    FOREIGN KEY (account_id, user_role) REFERENCES ple_private.account (account_id, user_role),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     CHECK (updated_at >= created_at)
 );

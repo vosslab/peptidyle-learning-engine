@@ -32,7 +32,7 @@ outside this lifecycle. Stop it through the same owner:
 ```
 
 The local identity selector replaces only identity verification. The server still
-derives each authenticated session, Product Role, and Course relationship from stored
+derives each authenticated session, User Role, and Course relationship from stored
 PLE records. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the ordinary teaching
 graph and its data boundaries.
 

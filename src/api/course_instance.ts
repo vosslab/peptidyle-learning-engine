@@ -5,7 +5,7 @@ import type { BlueprintRevisionTuple } from "../../generated/api/BlueprintRevisi
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
-import type { CourseTheme } from "../../generated/api/CourseTheme";
+import type { Theme } from "../../generated/api/Theme";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { CourseEditNumber } from "../../generated/api/CourseEditNumber";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
@@ -44,7 +44,7 @@ export interface CourseInstanceSummary {
   readonly longName: string;
   readonly term: CourseTerm;
   /** Row identity only; it does not apply a Course theme to the product route. */
-  readonly theme: CourseTheme;
+  readonly theme: Theme;
 }
 
 /** Initial Teaching Team workspace projection. */

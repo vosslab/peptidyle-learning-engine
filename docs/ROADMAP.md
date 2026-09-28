@@ -43,7 +43,7 @@ The canonical administration path is deliberately small:
 
 The final material tree has passed the following release-readiness evidence:
 
-- PostgreSQL 17 fresh initialization, replay, restricted application-role
+- PostgreSQL fresh initialization, replay, restricted application-role
   verification, schema ownership/RLS/DDL checks, and the populated Unrelease
   closure and lock race;
 - default full Live Demo provisioning and replay, plus the connected explicit

@@ -71,7 +71,7 @@ The authoritative exhaustive record is the
   cross-Discipline Subject checkbox is explicit and hierarchy parent changes clear descendants.
   The server and cursor bind/validate the same filters. Root Cargo session 31251, focused Rust
   session 56442, strict TypeScript plus 21 Node tests session 19414, full pytest session 39220
-  (7,462 passed), and fresh PostgreSQL 17 actual-role rollback proof passed. The reviewed
+  (7,462 passed), and fresh PostgreSQL actual-role rollback proof passed. The reviewed
   actual-component proof uses a fake read-only client, so live `8147` still provides no connected
   current-source HTTP/browser or real vocabulary-parent/authorization acceptance. This entry is
   only the Blueprint classification slice; later separate Question Library classification and
@@ -88,7 +88,7 @@ The authoritative exhaustive record is the
 - Blueprint Promoted implementation is local source evidence, not a closed workflow. The Public
   Blueprint Search can submit `promotedOnly=true`, retain that applied filter for retry and
   pagination, and clear it with the search. The server adds cursor-bound discovery and a
-  Sysadmin-only metadata-ETag/CAS promotion boundary. Canonical PostgreSQL 17 bootstrap/install
+  Sysadmin-only metadata-ETag/CAS promotion boundary. Canonical PostgreSQL bootstrap/install
   as `ple_migrator` and the isolated actual-role SQL proof passed; root Cargo session 60804,
   stricter TypeScript plus 11 Blueprint-client Node tests session 65918, and pytest session 36484
   passed. The proof container was removed. Deployed HTTP/browser integration remains unverified
@@ -233,7 +233,7 @@ The authoritative exhaustive record is the
   confirmed idle no-fetch and changed-session isolation. The temporary harness and screenshots were
   removed after acceptance; this is not connected HTTP evidence.
 
-- C58 closes seven advanced-search rows with accepted private PostgreSQL 17 and actual-server HTTP
+- C58 closes seven advanced-search rows with accepted private PostgreSQL and actual-server HTTP
   evidence. One production Store/route fixture exercised ordinary words, quoted phrases, minus
   exclusion, all five PLE field tags, active-vetted-Instructor access, anonymous and Student
   concealment, and `no-store`. The bounded 69-Question fixture does not establish expert usability
@@ -248,7 +248,7 @@ The authoritative exhaustive record is the
   narrowed rows, and Search screenshots. Test asset transport is not deployment-gateway or WASM-
   runtime evidence.
 
-- C61 closes its sixth and final G-A4-17 row. Accepted private PostgreSQL 17, actual-server,
+- C61 closes its sixth and final G-A4-17 row. Accepted private PostgreSQL, actual-server,
   and exact-main browser evidence returned two upcoming Assessments across the Instructor's two
   Courses, excluded an outsider Course, preserved anonymous/Student concealment, and matched each
   visible Due value to the actual HTTP instant in the returned Account zone. Follow-up exact-main
@@ -285,7 +285,7 @@ The authoritative exhaustive record is the
   the persisted result; separate direct links reached Search and Browse, browser Back restored the
   editor, and the unsaved-changes guard preserved Stay and required deliberate Discard. Exact-
   Revision inspection now resolves the authorized private source and checksum through the opaque
-  WeBWorK adapter and hardened iframe. Private PostgreSQL 17/MinIO plus unchanged-renderer HTTP
+  WeBWorK adapter and hardened iframe. Private PostgreSQL/MinIO plus unchanged-renderer HTTP
   evidence returned 200 with hardened headers and concealed missing Revision, Student, and
   anonymous requests; exact-main browser evidence rendered the prompt and five choices, with all
   five Student Work counts remaining zero before and after in this isolated preview path. C63 stays
@@ -295,7 +295,7 @@ The authoritative exhaustive record is the
   state-preserving return remain unverified.
 
 - C77--C78 now have accepted source, strict TypeScript, focused projection-test, and compiled
-  SolidJS/mock-API browser evidence. A fresh PostgreSQL 17 run also exercised the actual landing
+  SolidJS/mock-API browser evidence. A fresh PostgreSQL run also exercised the actual landing
   Store for Regular Assignment plus scheduled, expired unfinished, active resumable,
   Attempt-limit-reached resumable, and late-work-refused resumable states. This closes the direct
   Course-page state and scannable-list rows without claiming a connected HTTP-server run. The
@@ -377,7 +377,7 @@ The authoritative exhaustive record is the
 
 ### Interface design -- User top bar interface
 
-- Each Product Role has its own home dashboard and navigation.
+- Each User Role has its own home dashboard and navigation.
   - Source: `docs/HUMAN_GUIDANCE.md:204`
 
 - Profile appears at the far right as an icon-only avatar.

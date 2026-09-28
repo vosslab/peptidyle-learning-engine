@@ -19,7 +19,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
-    AssessmentPointValue, CourseInstanceId, ProductRole, PublishedQuestionId,
+    AssessmentPointValue, CourseInstanceId, UserRole, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
     QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber,
 };
@@ -336,7 +336,7 @@ async fn instructor(
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(state.sessions.as_ref(), cookie(headers).as_deref()).await {
-        Ok(value) if value.record.product_role == ProductRole::Instructor => Ok(value.session_hash),
+        Ok(value) if value.record.user_role == UserRole::Instructor => Ok(value.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
     }

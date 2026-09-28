@@ -65,7 +65,7 @@
   missing API process to that same safe 503 form. The sealed readiness runner proved every
   dependency's stopped, bounded-503, recovered, and healthy state. This does not add Job
   execution, a worker lease, or browser-task completion.
-- Completed Live Demo restoration M3. The connected fresh PostgreSQL 17 runtime now has one
+- Completed Live Demo restoration M3. The connected fresh PostgreSQL runtime now has one
   milestone gate for the immutable migration baseline, forced RLS/default deny, and the
   `ple_imathas_question_backend_grading_worker` claim-and-commit boundary. It proves a worker
   login cannot read protected tables or assume another role, while stale, foreign, and duplicate
@@ -149,7 +149,7 @@
   A deliberate resend requires `--send`, `--only`, and `--force-resend` together.
 - Completed Ribbon Application Shell M12: the generated 24-destination
   `docs/ux/RIBBON_DESTINATION_LEDGER.md` now derives canonical label, route identity, client method,
-  backing evidence, and per-Product-Role Ribbon Availability from the executable catalog and
+  backing evidence, and per-User-Role Ribbon Availability from the executable catalog and
   capability registry. Its exact-one generated-section markers are fail-closed and covered by a
   stale-document, ordering, editorial-preservation, invalid-argument, and openable-evidence test.
   The generator emits a Prettier-stable machine section without changing the editorial prose; a
@@ -169,7 +169,7 @@
 - PLE's general UI language now carries the Application Shell's restrained-surface, proximity-first,
   deliberate-density, stable-spatial-memory, point-of-interaction-feedback, discrete-responsive, and
   geometry-native accessibility principles beyond the Ribbon. The durable ownership decision gives
-  every authenticated Product Role one shell-owned Ribbon while route pages retain headings, local
+  every authenticated User Role one shell-owned Ribbon while route pages retain headings, local
   content, and Page Actions.
 
 ### Fixes and Maintenance
@@ -348,7 +348,7 @@
 
 ### Developer Tests and Notes
 
-- Adopted the Ribbon Application Shell plan and completed M0: Product Role Solid fixtures,
+- Adopted the Ribbon Application Shell plan and completed M0: User Role Solid fixtures,
   production `createApplicationApi` counted-fake-transport proof, one-mount transition,
   deferred-resolution, scroll, and routing helpers, plus forced-colors/reduced-motion context
   options are available for later milestones. Focused gates and full `./check_codebase.sh` pass
@@ -368,7 +368,7 @@
   and presentation independent; nine immutable role/scope schemas include the Sysadmin Instructor
   Accounts append point; and a total 24-entry registry joins those controls. Every current teaching
   destination is truthfully unbacked because no complete production handler exists; backed proof
-  requires runtime validation. Capability, Product Role, then relationship determine availability;
+  requires runtime validation. Capability, User Role, then relationship determine availability;
   `Checking` is withheld, and Ribbon visibility is not authorization. Focused 17 and full
   `./check_codebase.sh` (326 Node tests) pass. This is data-only M3, not a UI or M4 claim.
 - Consolidated Ribbon scope authority: `routeScopeKey` now derives from
@@ -377,7 +377,7 @@
   authorization boundary are unchanged. Focused 9 and full `./check_codebase.sh` (328 Node tests)
   pass.
 - Completed Ribbon Application Shell M4: pure synchronous `deriveRibbonModel` keeps typed route,
-  Product Role, and display-label inputs separate; fail-closed `buildRoutePath` canonically proves
+  User Role, and display-label inputs separate; fail-closed `buildRoutePath` canonically proves
   every one of 24 routes. The immutable designed topology is UI admission, not authorization:
   current controls remain all `Unavailable` with no `Checking`; deferred HTTP-client proof covers
   all three roles and scopes. Relationship `Checking` and a missing-course-reference Back guard

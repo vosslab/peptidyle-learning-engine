@@ -25,7 +25,7 @@
   real lifecycle status and workspace link, keeps roster and creation actions
   available, and removes obsolete restoration-lane copy from the product UI.
 
-- Made `/` the one Product Role-aware Course index promised by the route
+- Made `/` the one User Role-aware Course index promised by the route
   contract. Students now reach their real current Course Instances through the
   shared Courses Ribbon destination, and the redundant Student-only index route
   was removed instead of adding role-specific Ribbon navigation logic.
@@ -200,7 +200,7 @@
   `public/`, `instructor/`, `student/`, and `sysadmin/` screen folders; the
   dedicated `--verify` mode validates their PNG manifest without starting a
   stack. The current corpus includes one normal desktop Ribbon capture for
-  each Product Role and Student tablet, phone, and square responsive evidence.
+  each User Role and Student tablet, phone, and square responsive evidence.
 
 - Completed Live Demo restoration M15. Fresh controller-managed fixed HTTPS
   stacks passed `bash tests/e2e/e2e_live_demo_gradebook.sh --api` and

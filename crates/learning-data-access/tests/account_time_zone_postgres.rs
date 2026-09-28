@@ -3,13 +3,14 @@
 //! Connected PostgreSQL oracle for Student-owned Account time zones.
 
 use learning_data_access::postgres::{
-    PostgresAccountTimeZoneStore, PostgresCourseRosterStore, lazy_pool,
+    PostgresAccountAppearanceStore, PostgresAccountTimeZoneStore, PostgresCourseRosterStore,
+    lazy_pool,
 };
 use learning_data_access::{
-    AccountTimeZoneStore, CourseRosterImportEntry, CourseRosterImportInput, CourseRosterStore,
-    SessionTokenHash,
+    AccountAppearance, AccountAppearanceStore, AccountTimeZoneStore, CourseRosterImportEntry,
+    CourseRosterImportInput, CourseRosterStore, SessionTokenHash, StoreError,
 };
-use question_model::{AccountTimeZone, CourseInstanceId};
+use question_model::{AccountTimeZone, CourseInstanceId, DisplayMode, Theme};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -45,14 +46,14 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
         .await
         .expect("private fixture role");
     let instructor_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
     .await
     .expect("Instructor Account");
     let existing_student_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
@@ -81,7 +82,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
     .expect("existing Student Authentication Email");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
                  pg_catalog.transaction_timestamp() + interval '1 hour'), \
                 ($4, $5, 'student', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
@@ -184,7 +185,7 @@ async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> String {
     .expect("new Student Account");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'student', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
                  pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
@@ -222,7 +223,7 @@ async fn account_time_zone(admin: &sqlx::postgres::PgPool, account_id: &str) -> 
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviting_instructor_zone()
 {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
@@ -298,7 +299,68 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
         "an existing Student Account keeps its preference"
     );
 
-    let time_zones = PostgresAccountTimeZoneStore::new(application);
+    let appearance = PostgresAccountAppearanceStore::new(application.clone());
+    assert_eq!(
+        appearance
+            .authenticated_account_appearance(token(0xf1))
+            .await,
+        Ok(AccountAppearance {
+            display_mode_preference: None,
+            personal_theme: Some(Theme::Grass),
+        }),
+        "a new Instructor receives browser-following mode and the grass personal Theme",
+    );
+    assert_eq!(
+        appearance
+            .authenticated_account_appearance(token(0xf2))
+            .await,
+        Ok(AccountAppearance {
+            display_mode_preference: None,
+            personal_theme: None,
+        }),
+        "a Student receives browser-following mode and has no personal Theme",
+    );
+    assert_eq!(
+        appearance
+            .update_authenticated_account_display_mode_preference(
+                token(0xf1),
+                Some(DisplayMode::Dark),
+            )
+            .await,
+        Ok(Some(DisplayMode::Dark)),
+    );
+    assert_eq!(
+        appearance
+            .update_authenticated_instructor_personal_theme(token(0xf1), Theme::Magma)
+            .await,
+        Ok(Theme::Magma),
+    );
+    assert_eq!(
+        appearance
+            .update_authenticated_account_display_mode_preference(
+                token(0xf2),
+                Some(DisplayMode::Light),
+            )
+            .await,
+        Ok(Some(DisplayMode::Light)),
+        "a second session updates only its own Account row",
+    );
+    assert_eq!(
+        appearance
+            .update_authenticated_instructor_personal_theme(token(0xf2), Theme::Forest)
+            .await,
+        Err(StoreError::Forbidden),
+        "a Student cannot create or update an Instructor personal Theme",
+    );
+    assert_eq!(
+        appearance
+            .update_authenticated_account_display_mode_preference(token(0xf1), None)
+            .await,
+        Ok(None),
+        "explicit null clears the stored preference and resumes browser following",
+    );
+
+    let time_zones = PostgresAccountTimeZoneStore::new(application.clone());
     let saved = time_zones
         .update_authenticated_account_time_zone(
             token(0xf3),
@@ -316,5 +378,22 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
             .await,
         Ok(AccountTimeZone::parse("UTC").expect("valid Instructor Account zone")),
         "each active authenticated Account writes only its own display preference"
+    );
+    let fresh = PostgresAccountAppearanceStore::new(application.clone());
+    assert_eq!(
+        fresh.authenticated_account_appearance(token(0xf1)).await,
+        Ok(AccountAppearance {
+            display_mode_preference: None,
+            personal_theme: Some(Theme::Magma),
+        }),
+        "a fresh Store reads the committed Instructor preferences",
+    );
+    assert_eq!(
+        fresh.authenticated_account_appearance(token(0xf2)).await,
+        Ok(AccountAppearance {
+            display_mode_preference: Some(DisplayMode::Light),
+            personal_theme: None,
+        }),
+        "the Student session cannot observe or overwrite Instructor state",
     );
 }

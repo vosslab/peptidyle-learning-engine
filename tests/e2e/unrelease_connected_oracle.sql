@@ -34,11 +34,11 @@ SELECT encode(ple_private.ensure_assessment_policy_snapshot(
 -- Stable fixture identities keep the assertions readable without introducing
 -- a product-side test marker or alternate model.
 SET LOCAL ROLE ple_private_owner;
-INSERT INTO ple_private.account (account_id, product_role, created_at)
+INSERT INTO ple_private.account (account_id, user_role, created_at)
 VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp())
 RETURNING account_id AS instructor_id \gset
 SELECT set_config('ple.test_unrelease_instructor_id', :'instructor_id', false);
-INSERT INTO ple_private.account (account_id, product_role, created_at)
+INSERT INTO ple_private.account (account_id, user_role, created_at)
 VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp())
 RETURNING account_id AS student_id \gset
 SELECT set_config('ple.test_unrelease_student_id', :'student_id', false);

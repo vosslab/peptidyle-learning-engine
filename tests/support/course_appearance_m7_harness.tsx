@@ -11,7 +11,8 @@ import type { ApplicationApi } from "../../src/api/application_api";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type { CourseRouteView } from "../../src/api/contracts";
 import { ApplicationApiProvider } from "../../src/api/application_api";
-import { CourseThemeVariables } from "../../src/features/course_appearance/course_theme_variables";
+import { AppearanceOwner } from "../../src/appearance/appearance_owner";
+import { SessionProvider } from "../../src/auth/session_context";
 import { CourseAppearancePage } from "../../src/pages/course_appearance_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
@@ -36,6 +37,14 @@ function initialCourse(): CourseRouteView {
       role: "instructor",
     },
     appearance: { theme: "grass", banner: null },
+  };
+}
+
+function secondCourse(): CourseRouteView {
+  return {
+    ...initialCourse(),
+    summary: { ...initialCourse().summary, id: "CI4W8QF9AD", shortName: "BIOL 302" },
+    appearance: { theme: "forest", banner: null },
   };
 }
 
@@ -82,6 +91,7 @@ export interface CourseAppearanceM7Harness {
   readonly bannerRemoveCalls: () => number;
   readonly resolveScope: () => void;
   readonly rejectScope: () => void;
+  readonly switchCourse: () => void;
 }
 
 /** Mounts the production page and scope/theme providers with a controlled save response. */
@@ -97,8 +107,15 @@ export function mountCourseAppearanceM7Harness(
   let bannerRemovals = 0;
   let initialScopeResolved = false;
   let activeScope: DeferredScope | undefined;
+  let activeCourse: (() => CourseRouteView) | undefined;
   const applicationApi = {
     client: {
+      getAccountSettings: () =>
+        Promise.resolve({
+          timeZone: "America/Chicago",
+          displayModePreference: null,
+          personalTheme: "grass",
+        }),
       updateCourseTheme: (
         _courseInstanceId: CourseInstanceId,
         update: { readonly theme: CourseAppearanceView["theme"] },
@@ -128,12 +145,14 @@ export function mountCourseAppearanceM7Harness(
       fetchCourseBanner: () => Promise.resolve(new Blob(["hero"], { type: "image/webp" })),
     },
     queries: {
-      courseScope: () => {
+      courseScope: (courseInstanceId: CourseInstanceId) => {
+        const course = courseInstanceId === COURSE_INSTANCE_ID ? initialCourse : secondCourse;
         if (initialScope === "resolved" && !initialScopeResolved) {
           initialScopeResolved = true;
-          return Promise.resolve(initialCourse());
+          return Promise.resolve(course());
         }
         activeScope = deferredScope();
+        activeCourse = course;
         return activeScope.promise;
       },
       assessmentAttemptHistory: () =>
@@ -143,14 +162,26 @@ export function mountCourseAppearanceM7Harness(
     },
   } as unknown as ApplicationApi<OrdinaryBrowserApiClient>;
   const [pageVisible, setPageVisible] = createSignal(true);
+  const [pathname, setPathname] = createSignal(COURSE_PATH);
   const dispose = render(
     () => (
       <ApplicationApiProvider applicationApi={applicationApi}>
-        <RouteScopeProvider pathname={COURSE_PATH}>
-          <CourseThemeVariables>
-            {pageVisible() ? <CourseAppearancePage /> : <p data-m7-page-removed>Page removed</p>}
-          </CourseThemeVariables>
-        </RouteScopeProvider>
+        <SessionProvider
+          getSession={() =>
+            Promise.resolve({
+              authenticated: true,
+              account: { id: "account-m7", userRole: "instructor" },
+            })
+          }
+          logout={() => Promise.resolve()}
+          advanceSessionBoundary={() => undefined}
+        >
+          <RouteScopeProvider pathname={pathname}>
+            <AppearanceOwner>
+              {pageVisible() ? <CourseAppearancePage /> : <p data-m7-page-removed>Page removed</p>}
+            </AppearanceOwner>
+          </RouteScopeProvider>
+        </SessionProvider>
       </ApplicationApiProvider>
     ),
     target,
@@ -167,7 +198,10 @@ export function mountCourseAppearanceM7Harness(
     bannerUploadCalls: () => bannerUploads,
     bannerSetCalls: () => bannerSets,
     bannerRemoveCalls: () => bannerRemovals,
-    resolveScope: (): void => activeScope?.resolve(initialCourse()),
+    resolveScope: (): void => activeScope?.resolve(activeCourse?.() ?? initialCourse()),
     rejectScope: (): void => activeScope?.reject(),
+    switchCourse: (): void => {
+      setPathname("/instructor/courses/CI4W8QF9AD/appearance");
+    },
   };
 }

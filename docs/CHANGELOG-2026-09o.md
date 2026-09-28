@@ -106,7 +106,7 @@
   inspecting PostgreSQL enums. Fixed-suite teardown retries transient supervisor
   shutdown failures. Gate: `./launchers/all_test.sh`.
 
-- Recorded the one-time `plpgsql_check` PostgreSQL 17 diagnostic in
+- Recorded the one-time `plpgsql_check` PostgreSQL diagnostic in
   [PLPGSQL_CHECK_DIAGNOSTIC.md](PLPGSQL_CHECK_DIAGNOSTIC.md). A temporary
   derivative server image loaded the normal `base_schema` and checked 272
   ordinary PLE PL/pgSQL functions plus installed trigger functions; the receipt
@@ -141,7 +141,7 @@
   Gate: `./launchers/run_fast_checks.sh` then
   `./launchers/run_live_demo.sh --headless`.
 
-- Live Demo oracle membership checks compare `ple_data.product_role` rather
+- Live Demo oracle membership checks compare `ple_data.user_role` rather
   than text. Gate: `./launchers/run_fast_checks.sh` then
   `./launchers/run_live_demo.sh --headless`.
 
@@ -236,7 +236,7 @@
   Live Demo provision. Gate: `./devel/capture_screenshots.sh` after a clean
   Live Demo start.
 
-- Live Demo seeds the Sysadmin Account by `product_role` and does not insert
+- Live Demo seeds the Sysadmin Account by `user_role` and does not insert
   Morgan into `account_authentication_email`. That table is Student and
   Instructor only; the previous email insert failed provisioning with
   `Authentication Email requires a Student or Instructor Account`. Gate:

@@ -288,16 +288,16 @@ fn marked_unit_enums_emit_their_runtime_values() {
         /// @tsgen-runtime-values
         #[derive(Serialize)]
         #[serde(rename_all = "kebab-case")]
-        pub enum CourseTheme { CoralReef, SaltMarsh }
+        pub enum Theme { CoralReef, SaltMarsh }
     };
     let generated = generate_enum(&item).expect("generation should support runtime values");
     assert_eq!(
         generated.runtime_values,
         Some(vec!["coral-reef".to_string(), "salt-marsh".to_string()])
     );
-    let declarations = ["CourseTheme"].into_iter().map(str::to_string).collect();
+    let declarations = ["Theme"].into_iter().map(str::to_string).collect();
     let rendered = render(&generated, &declarations);
-    assert!(rendered.contains("export const COURSE_THEME_VALUES = [\"coral-reef\", \"salt-marsh\"] as const satisfies ReadonlyArray<CourseTheme>;"));
+    assert!(rendered.contains("export const THEME_VALUES = [\"coral-reef\", \"salt-marsh\"] as const satisfies ReadonlyArray<Theme>;"));
 }
 #[test]
 fn public_u32_constants_become_safe_typescript_constants() {

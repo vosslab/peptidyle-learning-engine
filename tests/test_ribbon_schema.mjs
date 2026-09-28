@@ -8,10 +8,10 @@ import {
   ribbonSchemaFor,
 } from "../src/ribbon/ribbon_schema.ts";
 
-const PRODUCT_ROLES = ["instructor", "student", "sysadmin"];
+const USER_ROLES = ["instructor", "student", "sysadmin"];
 
-test("Product Role tier-one schemas contain declared tabs and keep relationship slots append-only", () => {
-  for (const role of PRODUCT_ROLES) {
+test("User Role tier-one schemas contain declared tabs and keep relationship slots append-only", () => {
+  for (const role of USER_ROLES) {
     const schema = ribbonSchemaFor(role);
     assert.equal(schema, PRODUCT_TIER_ONE[role], role);
     assert.equal(hasAppendOnlyRelationshipSuffix(schema), true, role);

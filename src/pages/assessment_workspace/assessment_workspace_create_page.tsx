@@ -13,7 +13,7 @@ import { useApplicationApi } from "../../api/application_api";
 import { PageFrame } from "../../components/page_frame";
 import type { LiveAssessmentWorkspaceResponse } from "../../api/assessment_release";
 import { useSessionBootstrap } from "../../auth/session_context";
-import { courseRouteView } from "../../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../../appearance/theme_context";
 import {
   assessmentRouteId,
   parseCourseInstanceId,
@@ -59,7 +59,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
     const id = courseInstanceId();
     return (
       currentSession.kind === "authenticated" &&
-      currentSession.session.account.productRole === "instructor" &&
+      currentSession.session.account.userRole === "instructor" &&
       currentCourse?.role === "instructor" &&
       id !== null &&
       currentCourse.id === id

@@ -43,6 +43,20 @@
   padding: var(--ple-space-3);
 }
 
+.record-list__row--selectable:has(input:checked) {
+  --ple-record-list-text: var(--ple-on-highlight);
+  background: var(--ple-highlight);
+  border-color: var(--ple-border-strong);
+}
+
+.record-list__row--selectable:has(input:checked) .record-list__title,
+.record-list__row--selectable:has(input:checked) .record-list__description,
+.record-list__row--selectable:has(input:checked) .record-list__facts,
+.record-list__row--selectable:has(input:checked) .record-list__fact-label,
+.record-list__row--selectable:has(input:checked) a:not(.record-list__action--primary) {
+  color: var(--ple-record-list-text);
+}
+
 .record-list--gallery {
   gap: var(--ple-space-3);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
@@ -183,7 +197,7 @@
 
 .record-list__action--primary {
   background: var(--ple-accent);
-  color: var(--ple-card-surface);
+  color: var(--ple-on-action);
 }
 
 .record-list__body {

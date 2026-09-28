@@ -37,6 +37,8 @@ import {
   RibbonSelectedTabVisibilityController,
   type RibbonRowScrollport,
 } from "./ribbon_selected_tab_visibility";
+import type { DisplayMode } from "../../generated/api/DisplayMode";
+import { DisplayModeToggle } from "../appearance/display_mode_toggle";
 
 export interface AppRibbonProps {
   /** The complete synchronous presentation model; shell ownership stays outside this component. */
@@ -47,6 +49,10 @@ export interface AppRibbonProps {
   readonly reducedMotion?: Accessor<boolean>;
   /** Optional selected-avatar presentation; the shared control falls back to the generic user glyph. */
   readonly renderProfileAvatar?: () => JSX.Element;
+  /** Application-owned appearance input; omitted by standalone Ribbon fixtures. */
+  readonly displayMode?: DisplayMode;
+  readonly displayModeBusy?: boolean;
+  readonly onSwitchDisplayMode?: () => void;
 }
 
 /** Public account endcap with the same visual geometry as the signed-in Profile control. */
@@ -491,7 +497,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
     <section
       class="ple-app-ribbon"
       aria-label="PLE application Ribbon"
-      data-ribbon-product-role={props.model.context.productLabel.toLowerCase()}
+      data-ribbon-user-role={props.model.context.productLabel.toLowerCase()}
       data-ribbon-scope={props.model.scope}
     >
       <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="top">
@@ -509,8 +515,8 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               <span class="ple-app-ribbon__brand-word">Peptidyle</span>
             </a>
             <span
-              class="ple-app-ribbon__product-role"
-              data-product-role={props.model.context.productLabel.toLowerCase()}
+              class="ple-app-ribbon__user-role"
+              data-user-role={props.model.context.productLabel.toLowerCase()}
             >
               {props.model.context.productLabel}
             </span>
@@ -529,6 +535,13 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
         <RibbonOverflowCues state={topOverflow} />
       </section>
       <span class="ple-app-ribbon__profile-endcap">
+        <Show when={props.displayMode !== undefined && props.onSwitchDisplayMode !== undefined}>
+          <DisplayModeToggle
+            mode={props.displayMode!}
+            disabled={props.displayModeBusy ?? false}
+            onSwitch={props.onSwitchDisplayMode!}
+          />
+        </Show>
         <button
           class="ple-app-ribbon__profile"
           type="button"

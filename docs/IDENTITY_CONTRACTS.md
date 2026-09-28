@@ -27,7 +27,7 @@ Assessments. Assignment appears only in the three Assessment Type names.
 ## Account and relationship identities
 
 PLE is one installation with global Accounts. Each Account has exactly one
-immutable product role: Student, Instructor, or Sysadmin. A person who needs
+immutable user role: Student, Instructor, or Sysadmin. A person who needs
 more than one role uses separate Accounts.
 
 | Identity or relationship | Scope and meaning |
@@ -35,7 +35,7 @@ more than one role uses separate Accounts.
 | Account ID | One global login Account; distinct from Course membership and Student Work |
 | Student email | The immutable university or institutional address for one Student Account |
 | Session ID | One server-tracked login session; not the browser credential itself |
-| Product role | The Account's one immutable Student, Instructor, or Sysadmin role |
+| User role | The Account's one immutable Student, Instructor, or Sysadmin role |
 | Course Instance ID | One delivered Course |
 | Course relationship | One Account's Student or Instructor relationship to one Course |
 | Student record ID | The global Student Account's FERPA-protected record in one Course Instance. Internal only; recovery and public APIs use Course Roster identity instead |
@@ -157,7 +157,7 @@ an internal FERPA record key.
 ## Future Course relationships
 
 Course Observer, Student Observer, and Grader are future Course roles. They are
-not product roles and do not exist merely because a generic capability or row
+not user roles and do not exist merely because a generic capability or row
 shape could represent them. Each requires its own Course relationship and
 privacy contract before it becomes available. A Grader is not currently needed
 because PLE grading is automatic.
@@ -165,7 +165,7 @@ because PLE grading is automatic.
 ## Operational identities
 
 Internal job, lease, delivery, or support IDs name narrow technical operations.
-They do not establish product roles or justify new product lifecycle states.
+They do not establish user roles or justify new product lifecycle states.
 Scoped Sysadmin support access to FERPA-protected records must identify the
 support purpose and be recorded, but Human Guidance does not require a general
 audit identity for every ordinary action.

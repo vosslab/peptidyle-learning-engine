@@ -30,7 +30,7 @@ full aggregate gates pass; vocabulary row 573 is checked without a behavior or f
 
 `WP-SD1-A-TERM-01-AWO1` is completed. The fresh schema column, current-session predicates, RLS
 policies, dependent authoring operations, docs, catalog oracle, and SQL fixture name Authoring
-Workspace Owner while Workspace Collaborator remains separate. PostgreSQL 17 and aggregate gates
+Workspace Owner while Workspace Collaborator remains separate. PostgreSQL and aggregate gates
 pass; row 444 is checked with authorization behavior unchanged.
 
 `WP-SD1-A-TERM-01-BA1` is completed. Blueprint Assignment is the sole name for Assignment content
@@ -116,7 +116,7 @@ the server-only new-lineage publication Store transaction after trusted bytes-fi
 new-lineage object-copy coordination is P2; same-lineage publication, cleanup, and browser delivery remain open. The final manager
 `source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures, Rust
 format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest tests,
-PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
+PostgreSQL fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
 PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Parent QSOM1 remains open only
 for separately owned publication, persistence, and cleanup work. Published Question Title and
 Description remain mutable lineage facts. The status registry remains the sole allocation authority.
@@ -134,7 +134,7 @@ acceptance remain open.
 `WP-SD1-A-QSOM1-P2` is implemented and acceptance-open after P1. It owns the implemented
 server-only new-lineage publication coordinator, session-authorized exact Draft Question
 publication-source resolution, verified immutable object copy, HMAC-validated Question ID issuance,
-and P1 Store composition. Focused Rust, strict Clippy, source hygiene, PostgreSQL 17
+and P1 Store composition. Focused Rust, strict Clippy, source hygiene, PostgreSQL
 fresh/no-op/catalog/restricted/iMathAS, and final-tree aggregate evidence pass; independent review
 remains required. P2 adds no Server Route or Browser Surface. Same-lineage publication, secret-file
 composition, orphan cleanup, Draft Question expiration, Question Search, and parent QSOM1 acceptance
@@ -154,7 +154,7 @@ Question lineage and carries the exact Question Revision Reference for the accep
 the greatest Question Revision Number. The PostgreSQL projection, Rust model, generated TypeScript,
 strict browser decoder, fixtures, tests, and current documentation preserve that relationship while
 Question Revision Availability remains separate. Focused Rust, generated-contract, browser,
-PostgreSQL 17 migration/catalog/restricted-login, formatting, and diff gates pass. Vocabulary row
+PostgreSQL migration/catalog/restricted-login, formatting, and diff gates pass. Vocabulary row
 317 is checked.
 
 `WP-SD1-A-TERM-01-QT1` is completed. PLE-owned Question boundaries use Question Title consistently:
@@ -178,7 +178,7 @@ Question Publication Validation is their calculated result at one exact Draft Qu
 and Question Publication Issues are the complete findings. No validation lifecycle state or generic
 validation report/violation type remains. Append-only migration `2026090304` renames the last bare
 Question Change Proposal Revision schema field and its check constraint to exact Question Publication
-Validation ownership. The PostgreSQL 17 catalog oracle requires the canonical column/constraint and
+Validation ownership. The PostgreSQL catalog oracle requires the canonical column/constraint and
 rejects the predecessor. Focused schema, documentation, PostgreSQL, aggregate, residual, and diff
 gates pass; vocabulary row 339 is checked.
 
@@ -197,7 +197,7 @@ and rejects unknown nested fields, including an invented `replay` product state.
 fixture now agrees with the generated Rust contract, while operation-specific server-held Receipts
 remain non-Serde. Focused Blueprint Question Model (20), frontend (288 Node), TypeScript, formatting,
 and documentation/source gates pass. Final aggregate acceptance generated 422 contracts, validated 3
-fixtures, and passed Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL 17, and PostgreSQL-plus-MinIO
+fixtures, and passed Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL, and PostgreSQL-plus-MinIO
 gates. The vocabulary boundary is complete. The separately open product capability is a durable
 Blueprint operation Store and Server Route proving same-Receipt behavior for the same Account,
 Request Checksum, source/target, and revision facts.
@@ -211,7 +211,7 @@ that same foreign-key pair. The redundant Blueprint Revision UUID and parallel B
 plus revision identity are absent. Rust, generated TypeScript, browser decoders, fixtures, and
 interfaces already used the exact `BlueprintRevisionReference`. The final-tree aggregate generated
 422 contracts, validated 3 tracked fixtures, passed Rust formatting/checks/strict
-Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL 17
+Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL
 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the PostgreSQL-plus-MinIO
 course-appearance oracle. Vocabulary row 567 is checked; no compatibility column, backfill, route,
 Store operation, Browser Surface, or feature was added.
@@ -219,13 +219,13 @@ Store operation, Browser Surface, or feature was added.
 `WP-SD1-A-TERM-01-BCO1` is completed as the exact Blueprint Course Owner vocabulary closure. The
 sole durable owner relationship remains `blueprint_course.blueprint_course_owner_account_id`.
 Publication, availability, and Draft Blueprint Revision collaboration transitions authorize that
-exact relationship; the PostgreSQL 17 oracle proves another Instructor is refused while the owner
+exact relationship; the PostgreSQL oracle proves another Instructor is refused while the owner
 succeeds. Rust, generated TypeScript, the strict decoder, and the Blueprint Course workspace share
 `BlueprintCourseReadAccess` with `blueprint_course_owner` and `active_instructor`; the hostile
 fixture rejects generic `access: "owner"`. The residual approval-era database diagnostic is removed,
 and vocabulary row 443 is checked. The final aggregate generated 422 contracts, validated 3 tracked
 fixtures, passed Rust formatting/checks/strict Clippy/tests/doctests/Wasm, 288 Node tests, 4,850
-Python tests, PostgreSQL 17 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
+Python tests, PostgreSQL fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
 PostgreSQL-plus-MinIO course-appearance oracle. No route, Store, schema relationship, compatibility
 alias, Browser Surface, fixture family, or feature was added.
 
@@ -236,7 +236,7 @@ only the current owner records an accepted transfer, and the next owner must be 
 Account. Question Authorship remains separate. New-lineage publication derives ownership from the
 authenticated Account, and no browser contract exposes owner identity. The Question Library
 projection rechecks Account State and stays visible to every Active Instructor Account regardless of
-ownership. PostgreSQL 17 proves invalid-recorder and inactive-target refusal, two transfers,
+ownership. PostgreSQL proves invalid-recorder and inactive-target refusal, two transfers,
 current-owner derivation, shared active-Instructor visibility, and non-active exclusion. Vocabulary
 row 442 is checked without adding a route, Store operation, Browser Surface, compatibility path, or
 feature.
@@ -246,7 +246,7 @@ Migration 2910 creates separate Draft Question Source Binding and Question Revis
 tables; 2930, 2940, 2942, 2944, and 2026090102 directly own their RLS, Object Record validation,
 Bind Question Source operation, publication predicate, and iMathAS reader. Migration 2026090301 is
 now metadata-only and performs no predecessor copy/drop bridge. Retired-name-specific catalog tests
-were deleted in favor of canonical relationship behavior. Full aggregate and PostgreSQL 17 gates
+were deleted in favor of canonical relationship behavior. Full aggregate and PostgreSQL gates
 pass. Vocabulary rows 262 and 325 remain open for the remaining QSOM1 cleanup, Question Search,
 Server Route, Browser Surface, and final acceptance scope.
 
@@ -1270,7 +1270,7 @@ answer-free QTI client and the existing workspace route/editor, keeps the select
 only in component memory, requires an acknowledged report plus the displayed clean strong revision,
 and locks the stale editor through conversion/refetch recovery. Real-route Chromium and offline
 evidence passed. WP-QTI-11 live PostgreSQL/RLS/profile-to-PLE acceptance is complete: a fresh
-PostgreSQL 17 database exercised the real upload worker, mixed accepted/rejected report, native
+PostgreSQL database exercised the real upload worker, mixed accepted/rejected report, native
 conversion and publication, correct/incorrect grading, role denials, provenance, and exact cleanup.
 WP-QTI-12 independent review and documentation close-out are also complete: six separate passes
 reported no remaining P0/P1 issue after stale README and ownership-map findings were corrected and

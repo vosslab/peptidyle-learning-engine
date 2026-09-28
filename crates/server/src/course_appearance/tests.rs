@@ -169,7 +169,7 @@ impl CourseBannerStore for CompletionStore {
 
 #[derive(Clone, Copy)]
 struct ThemeStore {
-    accepted_theme: question_model::CourseTheme,
+    accepted_theme: question_model::Theme,
 }
 
 #[async_trait]
@@ -178,7 +178,7 @@ impl CourseThemeStore for ThemeStore {
         &self,
         _: SessionTokenHash,
         _: CourseInstanceId,
-    ) -> Result<question_model::CourseTheme, StoreError> {
+    ) -> Result<question_model::Theme, StoreError> {
         Ok(self.accepted_theme)
     }
 
@@ -186,8 +186,8 @@ impl CourseThemeStore for ThemeStore {
         &self,
         _: SessionTokenHash,
         _: CourseInstanceId,
-        _: question_model::CourseTheme,
-    ) -> Result<question_model::CourseTheme, StoreError> {
+        _: question_model::Theme,
+    ) -> Result<question_model::Theme, StoreError> {
         Ok(self.accepted_theme)
     }
 }
@@ -285,7 +285,7 @@ async fn theme_update_returns_the_current_course_banner_in_the_complete_appearan
     };
     let appearance = update_course_appearance(
         &ThemeStore {
-            accepted_theme: question_model::CourseTheme::Forest,
+            accepted_theme: question_model::Theme::Forest,
         },
         &CompletionStore {
             current_banner: Some(banner.clone()),
@@ -293,12 +293,12 @@ async fn theme_update_returns_the_current_course_banner_in_the_complete_appearan
         },
         SessionTokenHash::compute(b"theme-with-banner"),
         course,
-        question_model::CourseTheme::Forest,
+        question_model::Theme::Forest,
     )
     .await
     .expect("accepted theme update and current banner should form one appearance view");
 
-    assert_eq!(appearance.theme, question_model::CourseTheme::Forest);
+    assert_eq!(appearance.theme, question_model::Theme::Forest);
     assert_eq!(appearance.banner, Some(banner));
 }
 
@@ -306,17 +306,17 @@ async fn theme_update_returns_the_current_course_banner_in_the_complete_appearan
 async fn theme_update_keeps_banner_free_course_appearance_banner_free() {
     let appearance = update_course_appearance(
         &ThemeStore {
-            accepted_theme: question_model::CourseTheme::Ocean,
+            accepted_theme: question_model::Theme::Ocean,
         },
         &CompletionStore::default(),
         SessionTokenHash::compute(b"theme-without-banner"),
         CourseInstanceId::from_debug_serial(113),
-        question_model::CourseTheme::Ocean,
+        question_model::Theme::Ocean,
     )
     .await
     .expect("accepted theme update without a banner should form one appearance view");
 
-    assert_eq!(appearance.theme, question_model::CourseTheme::Ocean);
+    assert_eq!(appearance.theme, question_model::Theme::Ocean);
     assert_eq!(appearance.banner, None);
 }
 

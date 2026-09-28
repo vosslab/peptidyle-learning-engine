@@ -1,0 +1,33 @@
+// theme_context.ts - route-loaded appearance data shared without transport imports.
+
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
+import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
+import type { CourseRouteView } from "../api/contracts";
+import type { StudentAssessmentAttemptContext } from "../api/assessment_attempt_navigation";
+import type { StudentAssessmentAttemptHistory } from "../api/assessment_attempt_history";
+
+export type CourseThemeRouteData =
+  | { readonly kind: "course"; readonly course: CourseRouteView }
+  | { readonly kind: "assessmentAttempt"; readonly context: StudentAssessmentAttemptContext }
+  | {
+      readonly kind: "assessmentAttemptHistory";
+      readonly history: StudentAssessmentAttemptHistory;
+    };
+
+/** Resolves the authorized Course Route View already owned by the route. */
+export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
+  switch (data.kind) {
+    case "course":
+      return data.course;
+    case "assessmentAttempt":
+      throw new Error("Assessment Attempt context has no Course Route View");
+    case "assessmentAttemptHistory":
+      throw new Error("Assessment Attempt history has no Course Route View");
+  }
+}
+
+/** Replaces a saved Course Appearance in the presentation cache for its Course. */
+export type ReplaceCourseAppearance = (
+  courseInstanceId: CourseInstanceId,
+  appearance: CourseAppearanceView,
+) => void;

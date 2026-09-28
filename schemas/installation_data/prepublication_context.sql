@@ -21,7 +21,7 @@ BEGIN
       FROM ple_private.account_authentication_email AS email
      WHERE email.normalized_email = 'elena.martinez@live-demo.invalid';
     IF elena IS NULL THEN
-        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        INSERT INTO ple_private.account (account_id, user_role, created_at)
         VALUES (account_placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO elena;
         INSERT INTO ple_private.account_authentication_email (
@@ -30,13 +30,22 @@ BEGIN
             elena, 'elena.martinez@live-demo.invalid',
             'elena.martinez@live-demo.invalid', clock_timestamp(), clock_timestamp()
         );
+        UPDATE ple_private.instructor_personal_theme
+           SET theme_id = (
+                   SELECT theme_id FROM ple_data.theme
+                    WHERE theme_id <> 'grass'
+                    ORDER BY pg_catalog.random()
+                    LIMIT 1
+               ),
+               updated_at = pg_catalog.transaction_timestamp()
+         WHERE account_id = elena;
     END IF;
 
     SELECT email.account_id INTO mary
       FROM ple_private.account_authentication_email AS email
      WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu';
     IF mary IS NULL THEN
-        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        INSERT INTO ple_private.account (account_id, user_role, created_at)
         VALUES (account_placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO mary;
         INSERT INTO ple_private.account_authentication_email (
@@ -51,7 +60,7 @@ BEGIN
       FROM ple_private.account_authentication_email AS email
      WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu';
     IF jack IS NULL THEN
-        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        INSERT INTO ple_private.account (account_id, user_role, created_at)
         VALUES (account_placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO jack;
         INSERT INTO ple_private.account_authentication_email (
@@ -66,7 +75,7 @@ BEGIN
       FROM ple_private.account_authentication_email AS email
      WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu';
     IF avery IS NULL THEN
-        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        INSERT INTO ple_private.account (account_id, user_role, created_at)
         VALUES (account_placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO avery;
         INSERT INTO ple_private.account_authentication_email (
@@ -79,11 +88,11 @@ BEGIN
 
     SELECT account.account_id INTO sysadmin_id
       FROM ple_private.account AS account
-     WHERE account.product_role = 'sysadmin'
+     WHERE account.user_role = 'sysadmin'
      ORDER BY account.created_at, account.account_id
      LIMIT 1;
     IF sysadmin_id IS NULL THEN
-        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        INSERT INTO ple_private.account (account_id, user_role, created_at)
         VALUES (account_placeholder, 'sysadmin', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO sysadmin_id;
     END IF;
@@ -92,7 +101,7 @@ BEGIN
       FROM ple_private.account_authentication_email AS email
      WHERE email.normalized_email = 'priya.shah@live-demo.invalid';
     IF priya IS NULL THEN
-        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        INSERT INTO ple_private.account (account_id, user_role, created_at)
         VALUES (account_placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO priya;
         INSERT INTO ple_private.account_authentication_email (
@@ -101,6 +110,19 @@ BEGIN
             priya, 'priya.shah@live-demo.invalid',
             'priya.shah@live-demo.invalid', clock_timestamp(), clock_timestamp()
         );
+        UPDATE ple_private.instructor_personal_theme
+           SET theme_id = (
+                   SELECT theme_id FROM ple_data.theme
+                    WHERE theme_id <> 'grass'
+                      AND theme_id <> (
+                          SELECT theme_id FROM ple_private.instructor_personal_theme
+                           WHERE account_id = elena
+                      )
+                    ORDER BY pg_catalog.random()
+                    LIMIT 1
+               ),
+               updated_at = pg_catalog.transaction_timestamp()
+         WHERE account_id = priya;
     END IF;
 
     SELECT ple_audit.record_completed_instructor_identity_vetting_decision(

@@ -8,7 +8,7 @@ SET search_path = pg_catalog, ple_private
 AS $$
 DECLARE v_role text;
 BEGIN
-    SELECT product_role INTO v_role FROM ple_private.account WHERE account_id = NEW.account_id;
+    SELECT user_role INTO v_role FROM ple_private.account WHERE account_id = NEW.account_id;
     IF v_role NOT IN ('student', 'instructor') THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Authentication Email requires a Student or Instructor Account';
@@ -31,7 +31,7 @@ SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
     IF NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.account_id IS DISTINCT FROM OLD.account_id
-       OR NEW.product_role IS DISTINCT FROM OLD.product_role OR NEW.token_hash IS DISTINCT FROM OLD.token_hash
+       OR NEW.user_role IS DISTINCT FROM OLD.user_role OR NEW.token_hash IS DISTINCT FROM OLD.token_hash
        OR NEW.created_at IS DISTINCT FROM OLD.created_at OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
        OR (OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at) THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Session identity is immutable';
@@ -62,12 +62,12 @@ AFTER INSERT ON ple_private.account_state_event
 FOR EACH ROW EXECUTE FUNCTION ple_private.revoke_sessions_after_account_deactivation_or_closure();
 
 CREATE FUNCTION ple_private.resolve_active_authenticated_session(p_token_hash bytea)
-RETURNS TABLE (account_id text, session_id uuid, product_role text, token_hash bytea,
+RETURNS TABLE (account_id text, session_id uuid, user_role text, token_hash bytea,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
-    SELECT session.account_id, session.session_id, session.product_role, session.token_hash,
+    SELECT session.account_id, session.session_id, session.user_role, session.token_hash,
            session.created_at, session.expires_at
     FROM ple_private.authenticated_session AS session
     JOIN LATERAL (
@@ -82,7 +82,7 @@ $$;
 CREATE FUNCTION ple_private.create_authenticated_session(
     p_session_id uuid, p_account_id text, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, user_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_data
@@ -93,7 +93,7 @@ BEGIN
        OR p_lifetime_seconds NOT BETWEEN 1 AND 31536000 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid authenticated session input';
     END IF;
-    SELECT account.product_role INTO v_role FROM ple_private.account AS account
+    SELECT account.user_role INTO v_role FROM ple_private.account AS account
     JOIN LATERAL (
         SELECT event.state FROM ple_private.account_state_event AS event
          WHERE event.account_id = account.account_id
@@ -108,11 +108,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Sysadmin TOTP completion required for a session';
     END IF;
     RETURN QUERY INSERT INTO ple_private.authenticated_session (
-        session_id, account_id, product_role, token_hash, created_at, expires_at
-    ) VALUES (p_session_id, p_account_id, v_role::ple_data.product_role, p_token_hash, v_now,
+        session_id, account_id, user_role, token_hash, created_at, expires_at
+    ) VALUES (p_session_id, p_account_id, v_role::ple_data.user_role, p_token_hash, v_now,
               v_now + p_lifetime_seconds * interval '1 second')
     RETURNING authenticated_session.session_id, authenticated_session.token_hash,
-              authenticated_session.account_id::text, authenticated_session.product_role::text,
+              authenticated_session.account_id::text, authenticated_session.user_role::text,
               authenticated_session.created_at, authenticated_session.expires_at;
 END
 $$;
@@ -133,7 +133,7 @@ $$;
 CREATE FUNCTION ple_private.consume_email_authentication_challenge(
     p_challenge_id uuid, p_proof_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id text, product_role text)
+RETURNS TABLE (account_id text, user_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -145,14 +145,14 @@ AS $$
           AND pg_catalog.octet_length(p_proof_hash) = 32
           AND pg_catalog.octet_length(p_browser_binding_hash) = 32
         RETURNING target_account_id
-    ) SELECT account.account_id, account.product_role FROM consumed
+    ) SELECT account.account_id, account.user_role FROM consumed
       JOIN ple_private.account AS account ON account.account_id = consumed.target_account_id
 $$;
 
 CREATE FUNCTION ple_private.consume_passkey_authentication(
     p_ceremony_id uuid, p_credential_id_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id text, product_role text)
+RETURNS TABLE (account_id text, user_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -167,7 +167,7 @@ AS $$
         UPDATE ple_private.passkey SET last_used_at = pg_catalog.transaction_timestamp()
         FROM consumed WHERE credential_id_hash = p_credential_id_hash AND revoked_at IS NULL
           AND pg_catalog.octet_length(p_credential_id_hash) = 32 RETURNING account_id
-    ) SELECT account.account_id, account.product_role FROM used
+    ) SELECT account.account_id, account.user_role FROM used
       JOIN ple_private.account AS account ON account.account_id = used.account_id
 $$;
 
@@ -192,7 +192,7 @@ BEGIN
             WHERE event.account_id = account.account_id
             ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
         ) AS state ON state.state = 'active'
-        WHERE account.account_id = p_account_id AND account.product_role = 'sysadmin'
+        WHERE account.account_id = p_account_id AND account.user_role = 'sysadmin'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Active Sysadmin Account required';
     END IF;
@@ -237,7 +237,7 @@ BEGIN
           WHERE event.account_id = account.account_id
           ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
       ) AS state ON state.state = 'active'
-     WHERE account.account_id = p_account_id AND account.product_role = 'sysadmin'
+     WHERE account.account_id = p_account_id AND account.user_role = 'sysadmin'
     RETURNING sysadmin_totp_attestation.sysadmin_totp_attestation_id;
 END
 $$;
@@ -266,7 +266,7 @@ AS $$
        AND attestation.browser_binding_hash = p_browser_binding_hash
        AND attestation.consumed_at IS NULL
        AND attestation.expires_at > pg_catalog.clock_timestamp()
-       AND account.product_role = 'sysadmin'
+       AND account.user_role = 'sysadmin'
        AND pg_catalog.octet_length(p_browser_binding_hash) = 32
 $$;
 
@@ -302,7 +302,7 @@ BEGIN
        AND attestation.browser_binding_hash = p_browser_binding_hash
        AND attestation.consumed_at IS NULL
        AND attestation.expires_at > pg_catalog.clock_timestamp()
-       AND account.product_role = 'sysadmin'
+       AND account.user_role = 'sysadmin'
      FOR UPDATE OF attestation;
     IF NOT FOUND THEN RETURN; END IF;
 
@@ -347,7 +347,7 @@ CREATE FUNCTION ple_private.consume_sysadmin_totp_attestation_into_session(
     p_attestation_id uuid, p_browser_binding_hash bytea, p_totp_counter bigint,
     p_session_id uuid, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, user_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -377,7 +377,7 @@ BEGIN
            AND attestation.browser_binding_hash = p_browser_binding_hash
            AND attestation.consumed_at IS NULL
            AND attestation.expires_at > pg_catalog.clock_timestamp()
-           AND account.product_role = 'sysadmin'
+           AND account.user_role = 'sysadmin'
          FOR UPDATE OF attestation
     ), counter_once AS (
         INSERT INTO ple_private.sysadmin_totp_used_counter (account_id, totp_counter, used_at)
@@ -386,14 +386,14 @@ BEGIN
         RETURNING sysadmin_totp_used_counter.account_id
     ), created AS (
         INSERT INTO ple_private.authenticated_session (
-            session_id, account_id, product_role, token_hash, created_at, expires_at
-        ) SELECT p_session_id, candidate.account_id, account.product_role, p_token_hash, v_now,
+            session_id, account_id, user_role, token_hash, created_at, expires_at
+        ) SELECT p_session_id, candidate.account_id, account.user_role, p_token_hash, v_now,
                  v_now + p_lifetime_seconds * interval '1 second'
             FROM candidate
             JOIN counter_once ON counter_once.account_id = candidate.account_id
             JOIN ple_private.account AS account ON account.account_id = candidate.account_id
         RETURNING authenticated_session.session_id, authenticated_session.token_hash,
-                  authenticated_session.account_id, authenticated_session.product_role,
+                  authenticated_session.account_id, authenticated_session.user_role,
                   authenticated_session.created_at, authenticated_session.expires_at
     ), consumed AS (
         UPDATE ple_private.sysadmin_totp_attestation AS attestation SET consumed_at = v_now
@@ -401,7 +401,7 @@ BEGIN
          WHERE attestation.sysadmin_totp_attestation_id = p_attestation_id
            AND attestation.account_id = created.account_id
         RETURNING attestation.sysadmin_totp_attestation_id
-    ) SELECT created.session_id, created.token_hash, created.account_id::text, created.product_role::text,
+    ) SELECT created.session_id, created.token_hash, created.account_id::text, created.user_role::text,
              created.created_at, created.expires_at
         FROM created CROSS JOIN consumed;
 END
@@ -410,7 +410,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.resolve_and_install_session(p_token_hash bytea)
-RETURNS TABLE (account_id text, session_id uuid, product_role text, token_hash bytea,
+RETURNS TABLE (account_id text, session_id uuid, user_role text, token_hash bytea,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
@@ -424,7 +424,7 @@ BEGIN
     IF NOT FOUND THEN RETURN; END IF;
     PERFORM pg_catalog.set_config('ple.session_account_id', resolved.account_id::text, true);
     PERFORM pg_catalog.set_config('ple.session_id', resolved.session_id::text, true);
-    RETURN QUERY SELECT resolved.account_id, resolved.session_id, resolved.product_role,
+    RETURN QUERY SELECT resolved.account_id, resolved.session_id, resolved.user_role,
         resolved.token_hash, resolved.created_at, resolved.expires_at;
 END
 $$;
@@ -432,7 +432,7 @@ $$;
 CREATE FUNCTION ple_api.create_authenticated_session(
     p_session_id uuid, p_account_id text, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, user_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
@@ -448,7 +448,7 @@ AS $$ SELECT ple_private.revoke_authenticated_session(p_token_hash) $$;
 CREATE FUNCTION ple_api.consume_email_authentication_challenge(
     p_challenge_id uuid, p_proof_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id text, product_role text)
+RETURNS TABLE (account_id text, user_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.consume_email_authentication_challenge(
@@ -458,7 +458,7 @@ AS $$ SELECT * FROM ple_private.consume_email_authentication_challenge(
 CREATE FUNCTION ple_api.consume_passkey_authentication(
     p_ceremony_id uuid, p_credential_id_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id text, product_role text)
+RETURNS TABLE (account_id text, user_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.consume_passkey_authentication(
@@ -511,7 +511,7 @@ CREATE FUNCTION ple_api.consume_sysadmin_totp_attestation_into_session(
     p_attestation_id uuid, p_browser_binding_hash bytea, p_totp_counter bigint,
     p_session_id uuid, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, user_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private

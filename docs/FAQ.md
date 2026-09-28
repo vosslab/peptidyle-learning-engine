@@ -119,7 +119,7 @@ Attempt, response, credit, or Student Work.
 
 ## How are roles separated?
 
-Each global Account has exactly one immutable Product Role: Student,
+Each global Account has exactly one immutable User Role: Student,
 Instructor, or Sysadmin. All co-Instructors in a Course have equal authority.
 A Sysadmin has no ambient Course membership or FERPA access; support access is
 deliberate, scoped, and recorded.
@@ -151,7 +151,7 @@ shapes. It never owns authorization, Answer Keys, grading, or Student Work.
 
 No. It is a disposable installation with seeded fictional Accounts and ordinary
 product records. Its Account selector replaces identity verification only. The
-server still derives Product Role, Course relationships, and authorization.
+server still derives User Role, Course relationships, and authorization.
 
 ## Is PLE ready for production?
 

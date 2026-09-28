@@ -26,7 +26,7 @@ async fn migration_pool() -> PgPool {
 // Protects the HG unanswered-zero invariant: evaluated zero credit is not
 // unanswered work, so Full Credit must continue to apply to the former only.
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn unanswered_scoring_preserves_evaluated_zero_credit_distinction() {
     let pool = migration_pool().await;
     let mut tx = pool.begin().await.expect("scoring contract transaction");
@@ -136,7 +136,7 @@ async fn seed_grading_graph(pool: &PgPool) {
     .await
     .expect("Question source binding");
     let instructor_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U0000001' || ple_private.crockford_checksum_character('U0000001'), \
                  'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
@@ -144,7 +144,7 @@ async fn seed_grading_graph(pool: &PgPool) {
     .await
     .expect("Instructor Account");
     let student_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
@@ -451,7 +451,7 @@ async fn wait_until_expired(
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     let pool = migration_pool().await;
     let late_attempt = Uuid::from_u128(0xf5200000000000000000000000000001);

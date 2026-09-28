@@ -11,10 +11,7 @@ import {
 } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import type {
-  CourseThemeRouteData,
-  ReplaceCourseAppearance,
-} from "../features/course_appearance/course_theme_context";
+import type { CourseThemeRouteData, ReplaceCourseAppearance } from "../appearance/theme_context";
 import { createRouteScopeController, type RouteScopeLoadState } from "./route_scope_controller";
 import type { RouteScopeKey } from "../navigation/route_params";
 import { routeContractForPathname, type ContentLayout } from "../route_contract";
@@ -93,6 +90,7 @@ export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element 
   const [publishedNavigation, setPublishedNavigation] = createSignal<PublishedRouteNavigation>();
   let previousPathname: string | undefined;
   let previousSessionBoundary: unknown = Symbol("initial-route-scope-session-boundary");
+  let hasSessionBoundary = false;
 
   createEffect(() => {
     const nextPathname = currentPathname();
@@ -105,8 +103,14 @@ export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element 
 
   createEffect(() => {
     const nextSessionBoundary = sessionBoundary();
+    if (!hasSessionBoundary) {
+      hasSessionBoundary = true;
+      previousSessionBoundary = nextSessionBoundary;
+      return;
+    }
     if (nextSessionBoundary === previousSessionBoundary) return;
     previousSessionBoundary = nextSessionBoundary;
+    controller.invalidateSession();
     setSessionGeneration((current) => current + 1);
     setPublishedLabels(undefined);
     setPublishedNavigation(undefined);
@@ -196,6 +200,11 @@ function useRouteScopeContext(): RouteScopeContextValue {
 /** Reads the current synchronous URL-syntax identity; it does not authorize a route. */
 export function useRouteScopeIdentity(): RouteScopeIdentity {
   return useRouteScopeContext().identity();
+}
+
+/** Reads the reactive URL-syntax scope identity for owners that must wait on its data. */
+export function useRouteScopeIdentityAccessor(): Accessor<RouteScopeIdentity> {
+  return useRouteScopeContext().identity;
 }
 
 /** Reads the current route's declared content geometry through the persistent shell context. */

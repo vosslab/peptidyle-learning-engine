@@ -53,8 +53,8 @@ fn token(marker: u8) -> SessionTokenHash {
 
 async fn mint_account(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, role: &str) -> String {
     sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', $1::ple_data.product_role, pg_catalog.transaction_timestamp()) RETURNING account_id",
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
+         VALUES ('U00000009', $1::ple_data.user_role, pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .bind(role)
     .fetch_one(&mut **tx)
@@ -127,7 +127,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     .expect("Student Account Time Zone");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'student', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
                  pg_catalog.transaction_timestamp() + interval '1 hour'), \
                 ($4, $5, 'student', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \

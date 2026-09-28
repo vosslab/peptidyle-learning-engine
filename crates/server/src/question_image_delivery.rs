@@ -20,7 +20,7 @@ use learning_data_access::{
 };
 use objects::ObjectAddress;
 use question_model::{
-    ProductRole, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
+    UserRole, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
     QuestionRevisionNumber,
 };
 use url::Url;
@@ -143,8 +143,8 @@ async fn asset_session_hash(
     match resolve_session(state.sessions.as_ref(), cookie(headers).as_deref()).await {
         Ok(value)
             if matches!(
-                value.record.product_role,
-                ProductRole::Instructor | ProductRole::Student
+                value.record.user_role,
+                UserRole::Instructor | UserRole::Student
             ) =>
         {
             Ok(value.session_hash)

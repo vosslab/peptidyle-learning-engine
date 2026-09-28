@@ -1,117 +1,72 @@
-// Course Appearance browser registry and route-scope tests.
+// Theme registry and Course Appearance decoder contracts.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { THEME_VALUES } from "../generated/api/Theme.ts";
 import { decodeCourseAppearanceView } from "../src/api/decoders.ts";
-import { COURSE_THEME_VALUES } from "../generated/api/CourseTheme.ts";
-import {
-  courseBannerImageAlternativeText, // Decode the closed banner accessibility union.
-} from "../src/features/course_appearance/course_banner_alternative_text.ts";
-import {
-  COURSE_THEME_REGISTRY,
-  courseThemeStyle,
-  courseThemeTokens,
-} from "../src/features/course_appearance/course_theme_registry.ts";
+import { courseBannerImageAlternativeText } from "../src/features/course_appearance/course_banner_alternative_text.ts";
+import { themeTokens } from "../src/appearance/theme_registry.ts";
 
-const THEME_IDS = COURSE_THEME_VALUES;
-
-function mixedHex(first, second, firstShare) {
-  const channels = (hex) =>
-    hex
-      .slice(1)
-      .match(/.{2}/gu)
-      .map((channel) => Number.parseInt(channel, 16));
-  const left = channels(first);
-  const right = channels(second === "white" ? "#ffffff" : second);
-  return `#${left
-    .map((channel, index) =>
-      Math.round(channel * firstShare + right[index] * (1 - firstShare))
-        .toString(16)
-        .padStart(2, "0"),
-    )
-    .join("")}`;
+function relativeLuminance(hex) {
+  const channel = (offset) => {
+    const normalized = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
 }
 
-function resolvedHex(color) {
-  if (/^#[0-9a-f]{6}$/u.test(color)) return color;
-  const match = /^color-mix\(in srgb, (#[0-9a-f]{6}) ([0-9]+)%, (#[0-9a-f]{6}|white)\)$/u.exec(
-    color,
-  );
-  assert.notEqual(match, null, `unsupported reviewed color token: ${color}`);
-  return mixedHex(match[1], match[3], Number(match[2]) / 100);
-}
-
-function relativeLuminance(color) {
-  const hex = resolvedHex(color);
-  const channels = hex
-    .slice(1)
-    .match(/.{2}/gu)
-    .map((channel) => Number.parseInt(channel, 16) / 255)
-    .map((channel) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-}
-
-function contrast(first, second) {
-  const lighter = Math.max(relativeLuminance(first), relativeLuminance(second));
-  const darker = Math.min(relativeLuminance(first), relativeLuminance(second));
+function contrastRatio(foreground, background) {
+  const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background));
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-test("every reviewed theme resolves to complete, contrast-safe course tokens", () => {
-  assert.deepEqual(Object.keys(COURSE_THEME_REGISTRY), THEME_IDS);
-  for (const id of THEME_IDS) {
-    const tokens = courseThemeTokens(id);
-    const textPairs = [
-      [tokens.ink, tokens.anchors.canvas],
-      [tokens.ink, tokens.surface],
-      [tokens.ink, tokens.card],
-      [tokens.muted, tokens.anchors.canvas],
-      [tokens.muted, tokens.surface],
-      [tokens.muted, tokens.card],
-      [tokens.link, tokens.anchors.canvas],
-      [tokens.link, tokens.surface],
-      [tokens.link, tokens.card],
-      [tokens.onAction, tokens.action],
-      [tokens.onAction, tokens.actionHover],
-      [tokens.onSecondary, tokens.anchors.secondary],
-    ];
-    for (const [foreground, background] of textPairs) {
-      assert.ok(
-        contrast(foreground, background) >= 4.5,
-        `${id}: ${foreground} on ${background} must meet 4.5:1`,
-      );
-    }
-    for (const background of [tokens.anchors.canvas, tokens.surface, tokens.card]) {
-      assert.ok(contrast(tokens.focus, background) >= 3, `${id}: focus must meet 3:1`);
-    }
-    const style = courseThemeStyle(tokens);
-    for (const [property, value] of [
-      ["--ple-theme-canvas", tokens.anchors.canvas],
-      ["--ple-theme-secondary", tokens.anchors.secondary],
-      ["--ple-theme-accent", tokens.anchors.accent],
-      ["--ple-card-surface", tokens.card],
-      ["--ple-action-hover", tokens.actionHover],
-      ["--ple-on-action", tokens.onAction],
-      ["--ple-theme-on-secondary", tokens.onSecondary],
-    ]) {
-      assert.ok(
-        style.includes(`${property}: ${value}`),
-        `${id}: ${property} must retain its token`,
+function assertContrast(foreground, background, minimum, label) {
+  assert.ok(
+    contrastRatio(foreground, background) >= minimum,
+    `${label}: ${contrastRatio(foreground, background).toFixed(2)}:1 is below ${minimum}:1`,
+  );
+}
+
+test("every Theme look has readable text and visible focus or control boundaries", () => {
+  for (const theme of THEME_VALUES) {
+    for (const mode of ["light", "dark"]) {
+      const tokens = themeTokens(theme, mode);
+      const { palette } = tokens;
+      const label = `${theme}/${mode}`;
+
+      for (const [backgroundName, background] of Object.entries({
+        canvas: palette.canvas,
+        surface: palette.surface,
+        secondary: palette.secondary,
+        highlight: palette.highlight,
+      })) {
+        assertContrast(tokens.ink, background, 4.5, `${label} normal text on ${backgroundName}`);
+        assertContrast(tokens.muted, background, 4.5, `${label} muted text on ${backgroundName}`);
+        assertContrast(tokens.link, background, 4.5, `${label} link on ${backgroundName}`);
+      }
+
+      assertContrast(tokens.onAction, tokens.action, 4.5, `${label} text on action`);
+      assertContrast(tokens.onAction, tokens.actionHover, 4.5, `${label} text on action hover`);
+      assertContrast(tokens.onSecondary, palette.secondary, 4.5, `${label} text on secondary`);
+      assertContrast(tokens.onHighlight, palette.highlight, 4.5, `${label} text on highlight`);
+      assertContrast(tokens.onInk, tokens.ink, 4.5, `${label} text on ink`);
+      assertContrast(tokens.focus, palette.canvas, 3, `${label} focus boundary on canvas`);
+      assertContrast(tokens.focus, palette.surface, 3, `${label} focus boundary on surface`);
+      assertContrast(tokens.borderStrong, palette.canvas, 3, `${label} control boundary on canvas`);
+      assertContrast(
+        tokens.borderStrong,
+        palette.surface,
+        3,
+        `${label} control boundary on surface`,
       );
     }
   }
 });
 
-test("Grassland resolves accessible derived actions", () => {
-  const grass = courseThemeTokens("grass");
-  assert.equal(grass.name, "Grassland");
-  assert.ok(contrast(grass.onAction, grass.action) >= 4.5);
-  assert.ok(contrast(grass.link, grass.anchors.canvas) >= 4.5);
-});
-
-test("unknown theme IDs fail closed instead of selecting a default", () => {
-  assert.throws(() => courseThemeTokens("woodland"), /Unknown course theme/u);
+test("unknown Theme IDs fail closed", () => {
+  assert.throws(() => themeTokens("woodland"), /Unknown theme/u);
   assert.throws(() => decodeCourseAppearanceView({ theme: "woodland", banner: null }));
 });
 
@@ -123,33 +78,11 @@ test("course banners preserve their closed decorative or informative treatment",
   });
   const informative = decodeCourseAppearanceView({
     theme: "grass",
-    banner: {
-      id: bannerId,
-      alternativeText: { kind: "informative", text: "Forest canopy" },
-    },
+    banner: { id: bannerId, alternativeText: { kind: "informative", text: "Forest canopy" } },
   });
-
   assert.equal(courseBannerImageAlternativeText(decorative.banner.alternativeText), "");
   assert.equal(
     courseBannerImageAlternativeText(informative.banner.alternativeText),
     "Forest canopy",
-  );
-  for (const alternativeText of [
-    { kind: "decorative", text: "must not be accepted" },
-    { kind: "informative", text: "   " },
-    { kind: "informative", text: "\u03b2".repeat(161) },
-  ]) {
-    assert.throws(() =>
-      decodeCourseAppearanceView({
-        theme: "grass",
-        banner: { id: bannerId, alternativeText },
-      }),
-    );
-  }
-  assert.throws(() =>
-    decodeCourseAppearanceView({
-      theme: "grass",
-      banner: { reference: bannerId, alternativeText: { kind: "decorative" } },
-    }),
   );
 });

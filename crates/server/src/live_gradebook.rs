@@ -23,7 +23,7 @@ use learning_data_access::{
     CourseGradebookStore, SessionTokenHash, StoreError,
     postgres::{PostgresCourseGradebookStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceId, ProductRole};
+use question_model::{CourseInstanceId, UserRole};
 use serde::Deserialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -150,7 +150,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

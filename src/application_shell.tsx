@@ -17,8 +17,9 @@ import {
 import { useApplicationApi } from "./api/application_api";
 import { useSessionBootstrap } from "./auth/session_context";
 import { PageFrame } from "./components/page_frame";
-import type { CourseThemeRouteData } from "./features/course_appearance/course_theme_context";
-import { CourseThemeVariables } from "./features/course_appearance/course_theme_variables";
+import type { CourseThemeRouteData } from "./appearance/theme_context";
+import { AppearanceOwner } from "./appearance/appearance_owner";
+import { useAppearance } from "./appearance/appearance_context";
 import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
 import { RibbonAccountAvatar } from "./features/profile_avatar/ribbon_account_avatar";
 import { AppRibbon, SignedOutRibbonAvatar } from "./ribbon/app_ribbon";
@@ -82,6 +83,43 @@ interface ContentErrorProps {
   readonly reset: () => void;
 }
 
+function AppearanceRibbon(props: {
+  readonly model: RibbonModel;
+  readonly renderProfileAvatar: () => JSX.Element;
+}): JSX.Element {
+  const appearance = useAppearance();
+  const switchDisplayMode = (): void => {
+    const next = appearance.appearance().mode === "light" ? "dark" : "light";
+    void appearance.updateDisplayModePreference(next).catch(() => undefined);
+  };
+  return (
+    <AppRibbon
+      model={props.model}
+      displayMode={appearance.appearance().mode}
+      displayModeBusy={appearance.busy()}
+      onSwitchDisplayMode={switchDisplayMode}
+      renderProfileAvatar={props.renderProfileAvatar}
+    />
+  );
+}
+
+/** Holds authenticated Course chrome until its authoritative appearance is ready to paint. */
+function AppearanceReadyShell(props: { readonly children: JSX.Element }): JSX.Element {
+  const appearance = useAppearance();
+  return (
+    <Show
+      when={appearance.initialAppearanceReady()}
+      fallback={
+        <span class="sr-only" role="status" aria-live="polite" aria-busy="true">
+          Preparing your learning space
+        </span>
+      }
+    >
+      {props.children}
+    </Show>
+  );
+}
+
 function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): JSX.Element {
   const breadcrumbs = (): ReadonlyArray<RibbonBreadcrumbModel> => props.model?.breadcrumbs ?? [];
   const [trail, setTrail] = createSignal<HTMLElement>();
@@ -136,7 +174,7 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
       <div
         class="ple-shell__breadcrumb-prelude"
         aria-live="polite"
-        data-product-role={props.model?.context.productLabel.toLowerCase()}
+        data-user-role={props.model?.context.productLabel.toLowerCase()}
       >
         <Show
           when={breadcrumbs().length > 0}
@@ -274,12 +312,12 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     const publishedNavigation = useRouteScopeNavigation();
     const studentNavigationPath = createMemo(() => {
       const identity = session.state();
-      if (identity.kind !== "authenticated" || identity.session.account.productRole !== "student") {
+      if (identity.kind !== "authenticated" || identity.session.account.userRole !== "student") {
         return undefined;
       }
       const route = routeContractForPathname(props.pathname());
       if (
-        route?.requiredProductRoles.includes("student") !== true ||
+        route?.requiredUserRoles.includes("student") !== true ||
         !["coursework", "grades", "courses"].includes(route.ribbon.tierOneArea)
       ) {
         return undefined;
@@ -319,70 +357,76 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     }
 
     return (
-      <CourseThemeVariables>
-        <a class="skip-link" href="#main-content" onClick={() => queueMicrotask(focusMainContent)}>
-          Skip to learning content
-        </a>
-        <span class="sr-only" role="status" aria-live="polite">
-          {signOutError()}
-        </span>
-        <div
-          classList={{
-            "ple-shell-frame": true,
-            "ple-ribbon-shell-grid": ribbonModel() !== undefined,
-          }}
-          data-ribbon-product-role={ribbonModel()?.context.productLabel.toLowerCase()}
-        >
-          <Show
-            when={ribbonModel()}
-            fallback={
-              <header class="site-header">
-                <A class="brand" href="/" aria-label="Peptidyle home">
-                  <span class="brand-mark" aria-hidden="true">
-                    P
-                  </span>
-                  <span>Peptidyle</span>
-                </A>
-                <Show
-                  when={session.state().kind === "authenticated"}
-                  fallback={<SignedOutRibbonAvatar />}
-                >
-                  <A
-                    class="ple-app-ribbon__profile"
-                    href="/profile"
-                    aria-label="Profile"
-                    title="Profile"
-                  >
-                    <RibbonAccountAvatar
-                      client={applicationApi.client}
-                      renderProvidedAvatar={(providedAvatarId) => (
-                        <AvatarVisual avatarId={providedAvatarId} decorative size={24} />
-                      )}
-                    />
-                  </A>
-                </Show>
-              </header>
-            }
+      <AppearanceOwner>
+        <AppearanceReadyShell>
+          <a
+            class="skip-link"
+            href="#main-content"
+            onClick={() => queueMicrotask(focusMainContent)}
           >
-            {(model) => (
-              <div on:ple-ribbon-action={handleRibbonAction}>
-                <AppRibbon
-                  model={model()}
-                  renderProfileAvatar={(): JSX.Element => (
-                    <RibbonAccountAvatar
-                      client={applicationApi.client}
-                      renderProvidedAvatar={(providedAvatarId) => (
-                        <AvatarVisual avatarId={providedAvatarId} decorative size={24} />
-                      )}
-                    />
-                  )}
-                />
-              </div>
-            )}
-          </Show>
-          <ContentRegion />
-        </div>
-      </CourseThemeVariables>
+            Skip to learning content
+          </a>
+          <span class="sr-only" role="status" aria-live="polite">
+            {signOutError()}
+          </span>
+          <div
+            classList={{
+              "ple-shell-frame": true,
+              "ple-ribbon-shell-grid": ribbonModel() !== undefined,
+            }}
+            data-ribbon-user-role={ribbonModel()?.context.productLabel.toLowerCase()}
+          >
+            <Show
+              when={ribbonModel()}
+              fallback={
+                <header class="site-header">
+                  <A class="brand" href="/" aria-label="Peptidyle home">
+                    <span class="brand-mark" aria-hidden="true">
+                      P
+                    </span>
+                    <span>Peptidyle</span>
+                  </A>
+                  <Show
+                    when={session.state().kind === "authenticated"}
+                    fallback={<SignedOutRibbonAvatar />}
+                  >
+                    <A
+                      class="ple-app-ribbon__profile"
+                      href="/profile"
+                      aria-label="Profile"
+                      title="Profile"
+                    >
+                      <RibbonAccountAvatar
+                        client={applicationApi.client}
+                        renderProvidedAvatar={(providedAvatarId) => (
+                          <AvatarVisual avatarId={providedAvatarId} decorative size={24} />
+                        )}
+                      />
+                    </A>
+                  </Show>
+                </header>
+              }
+            >
+              {(model) => (
+                <div on:ple-ribbon-action={handleRibbonAction}>
+                  <AppearanceRibbon
+                    model={model()}
+                    renderProfileAvatar={(): JSX.Element => (
+                      <RibbonAccountAvatar
+                        client={applicationApi.client}
+                        renderProvidedAvatar={(providedAvatarId) => (
+                          <AvatarVisual avatarId={providedAvatarId} decorative size={24} />
+                        )}
+                      />
+                    )}
+                  />
+                </div>
+              )}
+            </Show>
+            <ContentRegion />
+          </div>
+        </AppearanceReadyShell>
+      </AppearanceOwner>
     );
   }
 

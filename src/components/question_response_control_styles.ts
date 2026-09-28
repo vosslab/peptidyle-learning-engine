@@ -21,7 +21,7 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .choice-card:has(input:focus-visible) { outline: 2px solid var(--ple-focus); outline-offset: 2px; }
   .question-response-control .choice-card input { width: 1.125rem; height: 1.125rem; margin: 0; accent-color: var(--ple-accent-strong); }
   .question-response-control .choice-card input:focus-visible { outline: 0; }
-  .question-response-control .choice-number { display: inline-grid; width: 1.45rem; height: 1.45rem; place-items: center; border-radius: 999px; background: color-mix(in srgb, var(--ple-accent) 10%, white); color: var(--ple-accent-strong); font-size: 0.76rem; font-weight: 760; }
+  .question-response-control .choice-number { display: inline-grid; width: 1.45rem; height: 1.45rem; place-items: center; border-radius: 999px; background: var(--ple-highlight); color: var(--ple-on-highlight); font-size: 0.76rem; font-weight: 760; }
   .question-response-control .matching-progress { margin: 0; font-weight: 700; }
   .question-response-control .matching-selection-status { margin: 0; min-height: 1.4em; font-size: 0.9rem; }
   .question-response-control .matching-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); align-items: start; gap: var(--ple-space-3, 0.75rem); }
@@ -30,7 +30,7 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .matching-group { display: grid; gap: 0.2rem; margin-bottom: 0.5rem; }
   .question-response-control .matching-prompt { margin: 0; overflow-wrap: anywhere; font-weight: 650; }
   .question-response-control .matching-slot-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.25rem; align-items: start; }
-  .question-response-control .matching-slot { min-height: 44px; width: 100%; min-width: 0; box-sizing: border-box; padding: 0.35rem 0.65rem; border: 1px solid var(--ple-muted); border-radius: var(--ple-radius-control, 0.45rem); background: var(--ple-surface-soft); color: inherit; font: inherit; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+  .question-response-control .matching-slot { min-height: 44px; width: 100%; min-width: 0; box-sizing: border-box; padding: 0.35rem 0.65rem; border: 1px solid var(--ple-border-strong); border-radius: var(--ple-radius-control, 0.45rem); background: var(--ple-surface-soft); color: inherit; font: inherit; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
   .question-response-control .matching-slot:focus-visible, .question-response-control .matching-clear:focus-visible { outline: 2px solid var(--ple-focus); outline-offset: 2px; }
   .question-response-control .matching-clear { min-width: 44px; min-height: 44px; }
   .question-response-control .matching-choice-content { display: grid; gap: 0.2rem; }
@@ -42,8 +42,8 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .order-action { min-width: 44px; }
   .question-response-control .format-status, .question-response-control .field-help { margin: 0; }
   .question-response-control .format-status { min-height: 2.25rem; padding: 0.35rem 0.5rem; border-left: 3px solid var(--ple-accent); background: var(--ple-surface-soft); color: var(--ple-accent-strong); font-weight: 680; }
-  .question-response-control .format-status.ready { border-color: var(--ple-success); background: color-mix(in srgb, var(--ple-success) 7%, white); color: var(--ple-success); }
-  .question-response-control .format-status.error { border-color: var(--ple-danger); background: color-mix(in srgb, var(--ple-danger) 7%, white); color: var(--ple-danger); font-weight: 700; }
+  .question-response-control .format-status.ready { border-color: var(--ple-success); background: color-mix(in srgb, var(--ple-success) 10%, var(--ple-surface)); color: var(--ple-success); }
+  .question-response-control .format-status.error { border-color: var(--ple-danger); background: color-mix(in srgb, var(--ple-danger) 10%, var(--ple-surface)); color: var(--ple-danger); font-weight: 700; }
   .question-response-control .status-spinner { display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.35rem; border: 2px solid currentcolor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .question-response-control .response-actions, .question-response-control .imathas-question-backend-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
   .question-response-control .imathas-question-backend-frame, .question-response-control .backend-owned-document__frame { width: 100%; min-height: 24rem; border: 1px solid currentColor; }

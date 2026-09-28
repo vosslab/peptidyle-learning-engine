@@ -29,7 +29,7 @@ concealed() { [ "$(status "$1")" = 404 ] || { echo "Support capability authority
 course_id() { python3 -c 'import json,re,sys; values=[x.get("id") for x in json.loads(sys.argv[1]).get("items",[]) if isinstance(x,dict)]; course_id=sys.argv[2]
 if not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",course_id) or values.count(course_id)!=1: raise SystemExit("Owned Course Instance identity is invalid or absent")
 print(course_id)' "$1" "$2"; }
-sysadmin_id() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT account_id FROM ple_private.account WHERE product_role = '\''sysadmin'\'' ORDER BY account_id LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
+sysadmin_id() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT account_id FROM ple_private.account WHERE user_role = '\''sysadmin'\'' ORDER BY account_id LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
 if not re.fullmatch(r"U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",value): raise SystemExit("Sysadmin identity is invalid")
 print(value)'; }
 prove_issue() {
@@ -101,7 +101,7 @@ support_sql() { podman exec -i "$postgres" sh -lc 'exec psql -X -q -v ON_ERROR_S
 # the issuing co-Instructor departs, isolating the exact authority condition.
 authority_course="$(support_sql -v capability="$student_repair" <<'SQL'
 BEGIN;
-INSERT INTO ple_private.account(account_id,product_role,created_at)
+INSERT INTO ple_private.account(account_id,user_role,created_at)
 VALUES ('U00000009','instructor',pg_catalog.transaction_timestamp())
 RETURNING account_id AS authority_instructor_id \gset
 INSERT INTO ple_data.course_instance(
@@ -173,7 +173,7 @@ SELECT result FROM ple_audit.support_repair_capability_event WHERE capability_id
 SQL
 )"
 [ "$authority_events" = $'issued\nused\nused' ] || { echo "Denied original issuer authority use produced a success audit" >&2; exit 1; }
-podman exec "$postgres" sh -lc "psql -X -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -c \"SELECT account.product_role || ':' || count(membership.course_membership_id) FROM ple_private.account AS account LEFT JOIN ple_data.course_membership AS membership ON membership.account_id = account.account_id AND membership.course_instance_id = '$course' WHERE account.account_id = '$sysadmin' GROUP BY account.product_role\"" | rg -qx 'sysadmin:0' || { echo "Support capability escalated Sysadmin role or Course membership" >&2; exit 1; }
+podman exec "$postgres" sh -lc "psql -X -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -c \"SELECT account.user_role || ':' || count(membership.course_membership_id) FROM ple_private.account AS account LEFT JOIN ple_data.course_membership AS membership ON membership.account_id = account.account_id AND membership.course_instance_id = '$course' WHERE account.account_id = '$sysadmin' GROUP BY account.user_role\"" | rg -qx 'sysadmin:0' || { echo "Support capability escalated Sysadmin role or Course membership" >&2; exit 1; }
 revoked_student="$(request "$repair_path/$student_repair/revoke" "$instructor_cookie" POST '{}')"
 [ "$(status "$revoked_student")" = 200 ] || { echo "Issuing Instructor could not revoke Student repair capability" >&2; exit 1; }
 concealed "$(request "$(repair_record_path "$student_repair")" "$sysadmin_cookie")"

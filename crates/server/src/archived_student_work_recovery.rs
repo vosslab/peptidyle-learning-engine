@@ -13,7 +13,7 @@ use learning_data_access::{
     ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoverySummary, StoreError,
     postgres::{PostgresArchivedStudentWorkRecoveryStore, PostgresSessionStore},
 };
-use question_model::{AssessmentAttemptId, CourseInstanceId, ProductRole};
+use question_model::{AssessmentAttemptId, CourseInstanceId, UserRole};
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
 
@@ -89,7 +89,7 @@ async fn recover(
         .filter(|v| !v.is_empty())
         .map(|v| v.join("; "));
     let session = match resolve_session(state.sessions.as_ref(), cookie.as_deref()).await {
-        Ok(s) if s.record.product_role == ProductRole::Instructor => s,
+        Ok(s) if s.record.user_role == UserRole::Instructor => s,
         Ok(_) | Err(AuthError::Unauthenticated) => return concealed(),
         Err(_) => {
             return error(

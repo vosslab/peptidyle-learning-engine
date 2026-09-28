@@ -24,7 +24,7 @@
 }
 
 .blueprint-operations-status[role="alert"] {
-  color: var(--ple-danger, #a11d2f);
+  color: var(--ple-danger);
 }
 
 .blueprint-operations-form,
@@ -76,8 +76,14 @@
 
 .blueprint-operations-operation:has(input:checked),
 .blueprint-operations-source:has(input:checked) {
-  border-color: var(--ple-accent);
-  background: color-mix(in srgb, var(--ple-accent) 10%, var(--ple-card-surface));
+  border-color: var(--ple-highlight);
+  background: var(--ple-highlight);
+  color: var(--ple-on-highlight);
+}
+
+.blueprint-operations-operation:has(input:checked) span,
+.blueprint-operations-source:has(input:checked) span {
+  color: var(--ple-on-highlight);
 }
 
 .blueprint-operations-operation input,
@@ -155,7 +161,7 @@
 }
 
 .blueprint-operations-recovery {
-  border-color: color-mix(in srgb, var(--ple-warning, #a15c00) 55%, var(--ple-border));
+  border-color: color-mix(in srgb, var(--ple-warning) 55%, var(--ple-border));
 }
 
 @media (max-width: 70rem) {

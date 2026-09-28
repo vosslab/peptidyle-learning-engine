@@ -1,7 +1,7 @@
 // capability_registry.ts - truthfulness boundary for declared Ribbon destinations.
 
-import type { ProductRole } from "../../generated/api/ProductRole";
-import { productRoleMayAccessRoute, type RouteId } from "../route_contract";
+import type { UserRole } from "../../generated/api/UserRole";
+import { userRoleMayAccessRoute, type RouteId } from "../route_contract";
 import {
   RIBBON_TASK_CATALOG,
   TAB_CATALOG,
@@ -643,13 +643,13 @@ export function isRibbonAvailabilityVisible(
  */
 export function ribbonAvailability(
   entry: RibbonCapabilityEntry,
-  productRole: ProductRole,
+  userRole: UserRole,
   relationshipState: RibbonRelationshipState,
 ): RibbonAvailability {
   if (!isBackedRibbonCapabilityEntry(entry)) {
     return "Unavailable";
   }
-  if (!productRoleMayAccessRoute(entry.routeId, productRole)) {
+  if (!userRoleMayAccessRoute(entry.routeId, userRole)) {
     return "Unavailable";
   }
   if (entry.relationshipRequirement !== "none") {
@@ -666,8 +666,8 @@ export function ribbonAvailability(
 /** Convenience predicate for rendering code; Checking is withheld by construction. */
 export function isRibbonEntryVisible(
   entry: RibbonCapabilityEntry,
-  productRole: ProductRole,
+  userRole: UserRole,
   relationshipState: RibbonRelationshipState,
 ): boolean {
-  return isRibbonAvailabilityVisible(ribbonAvailability(entry, productRole, relationshipState));
+  return isRibbonAvailabilityVisible(ribbonAvailability(entry, userRole, relationshipState));
 }

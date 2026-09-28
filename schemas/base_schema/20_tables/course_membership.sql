@@ -21,10 +21,10 @@ CREATE TABLE ple_data.course_membership (
     course_membership_id uuid PRIMARY KEY,
     course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
     account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    role ple_data.product_role NOT NULL,
+    role ple_data.user_role NOT NULL,
     student_record_id uuid REFERENCES ple_data.student_record (student_record_id),
     joined_at timestamp with time zone NOT NULL,
-    FOREIGN KEY (account_id, role) REFERENCES ple_private.account (account_id, product_role),
+    FOREIGN KEY (account_id, role) REFERENCES ple_private.account (account_id, user_role),
     CHECK ((role = 'student' AND student_record_id IS NOT NULL)
         OR (role = 'instructor' AND student_record_id IS NULL)),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -49,15 +49,15 @@ CREATE TABLE ple_private.course_invitation (
     course_invitation_id uuid PRIMARY KEY,
     course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
     target_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    membership_role ple_data.product_role NOT NULL,
+    membership_role ple_data.user_role NOT NULL,
     inviting_instructor_account_id ple_data.account_id NOT NULL,
-    inviting_instructor_role ple_data.product_role NOT NULL DEFAULT 'instructor',
+    inviting_instructor_role ple_data.user_role NOT NULL DEFAULT 'instructor',
     issued_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL CHECK (expires_at > issued_at),
     FOREIGN KEY (target_account_id,membership_role)
-        REFERENCES ple_private.account(account_id,product_role),
+        REFERENCES ple_private.account(account_id,user_role),
     FOREIGN KEY (inviting_instructor_account_id,inviting_instructor_role)
-        REFERENCES ple_private.account(account_id,product_role),
+        REFERENCES ple_private.account(account_id,user_role),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 

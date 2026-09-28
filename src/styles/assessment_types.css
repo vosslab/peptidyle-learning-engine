@@ -1,10 +1,18 @@
 /* assessment_types.css - semantic color hooks for the fixed Assessment Type registry. */
 
-:root,
-.course-theme-scope {
-  --ple-assessment-type-regular-assignment: var(--ple-accent);
-  --ple-assessment-type-practice-question-assignment: var(--ple-success);
-  --ple-assessment-type-bonus-assignment: var(--ple-focus);
-  --ple-assessment-type-quiz: var(--ple-accent-strong);
-  --ple-assessment-type-exam: var(--ple-danger);
+:root {
+  /* Fixed semantic identities, separate from the selected Theme. */
+  --ple-assessment-type-regular-assignment: #005a9f;
+  --ple-assessment-type-practice-question-assignment: #19633b;
+  --ple-assessment-type-bonus-assignment: #69418f;
+  --ple-assessment-type-quiz: #7a4a00;
+  --ple-assessment-type-exam: #aa2637;
+}
+
+html[data-display-mode="dark"] {
+  --ple-assessment-type-regular-assignment: #78c7ff;
+  --ple-assessment-type-practice-question-assignment: #7cdda2;
+  --ple-assessment-type-bonus-assignment: #d3adff;
+  --ple-assessment-type-quiz: #ffd072;
+  --ple-assessment-type-exam: #ffaaa4;
 }

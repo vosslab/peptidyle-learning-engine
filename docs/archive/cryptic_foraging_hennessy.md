@@ -275,7 +275,7 @@ Banner section to the existing page.
 
 - Depends on: M2 and M3, so the response shape is right the first time.
 - First act: **identify the existing course-scoped membership oracle** and name it in the record.
-  `assignment_release.rs:289-294` establishes only `ProductRole::Instructor`, which is not a
+  `assignment_release.rs:289-294` establishes only `UserRole::Instructor`, which is not a
   course-membership rule. Named starting points: `crates/question_model/src/teaching_authority.rs`,
   `crates/learning-data-access/src/course_instance.rs`,
   `crates/learning-data-access/src/live_student_course_landing.rs:78`,

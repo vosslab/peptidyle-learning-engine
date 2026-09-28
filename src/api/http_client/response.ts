@@ -18,7 +18,12 @@ import type {
   ProfileImageCropInput,
   SelectProvidedProfileAvatarInput,
 } from "../profile_avatar";
-import type { ProfileSettings, UpdateAccountSettingsInput } from "../profile_settings";
+import type {
+  ProfileSettings,
+  UpdateAccountSettingsInput,
+  UpdateDisplayModePreferenceInput,
+  UpdateInstructorPersonalThemeInput,
+} from "../profile_settings";
 import type { StudentQuestionAttempt } from "../contracts";
 import { questionIdPath, questionSearchPath } from "../question_search_query";
 import {
@@ -43,6 +48,8 @@ import {
 import {
   decodeProfileSettings,
   decodeUpdateAccountSettingsInput,
+  decodeUpdateDisplayModePreferenceInput,
+  decodeUpdateInstructorPersonalThemeInput,
 } from "../decoders/profile_settings";
 import {
   decodeProfileAvatarView,
@@ -196,6 +203,44 @@ async function saveAccountSettings(
 ): Promise<ProfileSettings> {
   const path = "/api/account/settings";
   const request = decodeUpdateAccountSettingsInput(input, "request");
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "PUT",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(request),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeProfileSettings(await boundedResponseJson(response, path));
+}
+
+async function saveDisplayModePreference(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  input: UpdateDisplayModePreferenceInput,
+): Promise<ProfileSettings> {
+  const path = "/api/account/appearance/display-mode-preference";
+  const request = decodeUpdateDisplayModePreferenceInput(input, "request");
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "PUT",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(request),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeProfileSettings(await boundedResponseJson(response, path));
+}
+
+async function saveInstructorPersonalTheme(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  input: UpdateInstructorPersonalThemeInput,
+): Promise<ProfileSettings> {
+  const path = "/api/instructor/personal-theme";
+  const request = decodeUpdateInstructorPersonalThemeInput(input, "request");
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "PUT",
     headers: { accept: "application/json", "content-type": "application/json" },
@@ -431,6 +476,8 @@ export function createResponseClient(
   | "getProfile"
   | "getAccountSettings"
   | "updateAccountSettings"
+  | "updateDisplayModePreference"
+  | "updateInstructorPersonalTheme"
   | "getProfileAvatar"
   | "selectProvidedProfileAvatar"
   | "replaceProfileAvatarImage"
@@ -460,6 +507,10 @@ export function createResponseClient(
     getProfile: () => profileSettings(fetchImplementation, basePath),
     getAccountSettings: () => accountSettings(fetchImplementation, basePath),
     updateAccountSettings: (input) => saveAccountSettings(fetchImplementation, basePath, input),
+    updateDisplayModePreference: (input) =>
+      saveDisplayModePreference(fetchImplementation, basePath, input),
+    updateInstructorPersonalTheme: (input) =>
+      saveInstructorPersonalTheme(fetchImplementation, basePath, input),
     getProfileAvatar: () => profileAvatar(fetchImplementation, basePath),
     selectProvidedProfileAvatar: (input) =>
       selectProvidedProfileAvatar(fetchImplementation, basePath, input),

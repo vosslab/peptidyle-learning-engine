@@ -29,7 +29,7 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId, AssessmentQuestionOrderRule,
     CourseInstanceId, InstructorStudentView, InstructorStudentViewEntry,
-    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, ProductRole,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, UserRole,
     PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionPresentationResponseFormat,
     QuestionRevisionNumber,
 };
@@ -664,7 +664,7 @@ async fn instructor_with_sessions(
         .filter(|values| !values.is_empty())
         .map(|values| values.join("; "));
     match resolve_session(sessions, cookie.as_deref()).await {
-        Ok(value) if value.record.product_role == ProductRole::Instructor => Ok(value.session_hash),
+        Ok(value) if value.record.user_role == UserRole::Instructor => Ok(value.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
     }
@@ -727,7 +727,7 @@ mod tests {
 
     struct RoleSessionStore {
         expected_hash: SessionTokenHash,
-        role: ProductRole,
+        role: UserRole,
     }
 
     #[async_trait]
@@ -752,7 +752,7 @@ mod tests {
                 id: SessionId::from_uuid(Uuid::from_u128(1)),
                 token_hash,
                 account: AccountId::from_debug_serial(2),
-                product_role: self.role,
+                user_role: self.role,
                 created_at: Timestamp::from_unix_millis(1),
                 expires_at: Timestamp::from_unix_millis(2),
             }))
@@ -780,7 +780,7 @@ mod tests {
         let (headers, expected_hash) = session_headers();
         let instructor_store = RoleSessionStore {
             expected_hash,
-            role: ProductRole::Instructor,
+            role: UserRole::Instructor,
         };
         assert_eq!(
             instructor_with_sessions(&instructor_store, &headers)
@@ -791,10 +791,10 @@ mod tests {
 
         let student_store = RoleSessionStore {
             expected_hash,
-            role: ProductRole::Student,
+            role: UserRole::Student,
         };
         let response = match instructor_with_sessions(&student_store, &headers).await {
-            Ok(_) => panic!("Student Product Role must not enter Instructor Student View"),
+            Ok(_) => panic!("Student User Role must not enter Instructor Student View"),
             Err(response) => response,
         };
         assert_eq!(response.status(), StatusCode::NOT_FOUND);

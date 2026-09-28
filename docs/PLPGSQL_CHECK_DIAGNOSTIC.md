@@ -2,7 +2,7 @@
 
 This is a disposable diagnostic receipt, not a permanent acceptance gate. It
 records the 2026-09-20 experiment and the 2026-09-21 current-source rerun against
-the PostgreSQL 17 base schema.
+the PostgreSQL base schema.
 
 ## Reproducing the container
 

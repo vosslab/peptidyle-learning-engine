@@ -6,7 +6,7 @@ CREATE FUNCTION ple_api.read_course_theme(p_course_instance_id text)
 RETURNS TABLE(course_theme text) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course_theme_id AS course_theme FROM ple_data.course_instance
+    SELECT theme_id AS course_theme FROM ple_data.course_instance
      WHERE course_instance_id = p_course_instance_id AND ple_api.current_session_account_is_course_member(p_course_instance_id)
 $$;
 
@@ -14,9 +14,9 @@ CREATE FUNCTION ple_api.update_course_theme(p_course_instance_id text, p_course_
 RETURNS TABLE(course_theme text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    UPDATE ple_data.course_instance SET course_theme_id = p_course_theme
+    UPDATE ple_data.course_instance SET theme_id = p_course_theme
      WHERE course_instance_id = p_course_instance_id AND ple_api.current_session_account_is_course_instructor(p_course_instance_id)
- RETURNING course_theme_id AS course_theme
+ RETURNING theme_id AS course_theme
 $$;
 
 CREATE FUNCTION ple_api.resolve_course_navigation(p_course_instance_id text)
@@ -93,7 +93,7 @@ BEGIN
     ELSIF ple_api.current_session_account_is_sysadmin() THEN
         SELECT account.account_id INTO assigned FROM ple_private.account AS account
          WHERE account.account_id = p_assigned_instructor_account_id
-           AND account.product_role = 'instructor';
+           AND account.user_role = 'instructor';
         IF NOT FOUND THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'the selected Assigned Instructor is unavailable';
@@ -226,7 +226,7 @@ BEGIN
            LIMIT 1
       ) AS state_event ON state_event.state = 'active'
      WHERE account.account_id = p_instructor_account_id
-       AND account.product_role = 'instructor';
+       AND account.user_role = 'instructor';
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'the requested Instructor is unavailable';
@@ -246,7 +246,7 @@ RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_sta
               course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
-           course.term_starts_on, course.term_ends_on, course.course_theme_id AS course_theme,
+           course.term_starts_on, course.term_ends_on, course.theme_id AS course_theme,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags, course.course_edit_number, course.course_lifecycle_state
       FROM ple_data.course_instance AS course
@@ -268,7 +268,7 @@ RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_sta
               tags text[], course_edit_number bigint, course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
-           course.term_starts_on, course.term_ends_on, course.course_theme_id AS course_theme,
+           course.term_starts_on, course.term_ends_on, course.theme_id AS course_theme,
            (SELECT count(*) FROM ple_data.course_membership AS teammate
              WHERE teammate.course_instance_id = course.course_instance_id AND teammate.role = 'instructor'
                AND ple_data.course_membership_is_active(teammate.course_membership_id)),
@@ -341,7 +341,7 @@ RETURNS TABLE(account_id text) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
     SELECT account_id FROM ple_private.account
-     WHERE product_role = 'instructor' AND ple_api.current_session_account_is_sysadmin()
+     WHERE user_role = 'instructor' AND ple_api.current_session_account_is_sysadmin()
      ORDER BY account_id
 $$;
 
@@ -489,7 +489,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
        AND ple_data.course_membership_is_active(membership.course_membership_id)
       JOIN ple_data.course_instance AS course ON course.course_instance_id = membership.course_instance_id
      WHERE account.account_id = ple_api.current_session_account_id()
-       AND account.product_role = 'student'
+       AND account.user_role = 'student'
      ORDER BY course.course_long_name, course.course_instance_id
 $$;
 
@@ -536,7 +536,7 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, pl
       JOIN ple_data.course_instance AS course
         ON course.course_instance_id = pending_invitation.course_instance_id
      WHERE account.account_id = ple_api.current_session_account_id()
-       AND account.product_role = 'student'
+       AND account.user_role = 'student'
      ORDER BY course.course_long_name, course.course_instance_id
 $$;
 

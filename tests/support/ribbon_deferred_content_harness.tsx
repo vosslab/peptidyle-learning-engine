@@ -77,7 +77,7 @@ function instructorCourse(courseInstanceId: string): CourseRouteView {
 function instructorSession(): AuthenticatedSession {
   return {
     authenticated: true,
-    account: { id: "deferred-content-evidence-account", productRole: "instructor" },
+    account: { id: "deferred-content-evidence-account", userRole: "instructor" },
   };
 }
 

@@ -101,25 +101,25 @@ BEGIN
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'elena.martinez@live-demo.invalid'
-       AND account.product_role = 'instructor';
+       AND account.user_role = 'instructor';
     SELECT email.account_id INTO mary
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu'
-       AND account.product_role = 'student';
+       AND account.user_role = 'student';
     SELECT email.account_id INTO jack
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu'
-       AND account.product_role = 'student';
+       AND account.user_role = 'student';
     SELECT email.account_id INTO avery
       FROM ple_private.account_authentication_email AS email
       JOIN ple_private.account AS account
         ON account.account_id = email.account_id
      WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu'
-       AND account.product_role = 'student';
+       AND account.user_role = 'student';
     IF elena IS NULL OR mary IS NULL OR jack IS NULL OR avery IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo fictional identities are incomplete';
@@ -564,7 +564,7 @@ BEGIN
          WHERE authenticated_session.session_id = v_session_id
            AND authenticated_session.account_id
                = current_setting('ple.installation_live_demo_elena_account_id')
-           AND authenticated_session.product_role = 'instructor'
+           AND authenticated_session.user_role = 'instructor'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Pilot publication session is not the supplied temporary Instructor session';

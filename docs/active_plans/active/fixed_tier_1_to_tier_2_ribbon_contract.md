@@ -24,7 +24,7 @@ been superseded by the approved Student contract above.
 
 ## Design philosophy
 
-Resolve fixed rows from Product Role and Tier 1. Use hubs, page links, and
+Resolve fixed rows from User Role and Tier 1. Use hubs, page links, and
 breadcrumbs for object-local navigation. Count a destination as reachable when
 a user has a reasonable path to it from the relevant workflow, not merely when
 its URL works.

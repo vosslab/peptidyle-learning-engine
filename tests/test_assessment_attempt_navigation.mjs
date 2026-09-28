@@ -414,9 +414,9 @@ test("Student Assessment Attempt GET projections match their request", async () 
   );
 });
 
-test("Attempt routes admit the Student product role", () => {
+test("Attempt routes admit the Student user role", () => {
   for (const routeId of ["assessmentAttempt", "assessmentAttemptSummary"]) {
     const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
-    assert.deepEqual(route?.requiredProductRoles, ["student"]);
+    assert.deepEqual(route?.requiredUserRoles, ["student"]);
   }
 });

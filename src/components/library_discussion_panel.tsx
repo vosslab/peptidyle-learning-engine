@@ -239,7 +239,7 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
 
   function mayParticipate(): boolean {
     const state = session.state();
-    return state.kind === "authenticated" && state.session.account.productRole === "instructor";
+    return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   }
 
   return (

@@ -108,7 +108,7 @@ Verified in source during planning:
 - The only `<nav>` elements are the two Ribbon rows and `.course-card-actions`
   (`src/pages/course_instance_page.tsx:128`). `.nav-action` has no consumers.
 - `/` is the role-aware Product Course index (2026-09-08 changelog entry), and `ContentError`
-  already sends users there, so it is the correct brand destination for every Product Role.
+  already sends users there, so it is the correct brand destination for every User Role.
 - `.ple-app-ribbon` links are plain `<a href>` (`src/ribbon/app_ribbon.tsx:99-118`), and
   `tests/playwright/ribbon_shell_evidence.mjs` proves the shell survives their activation.
 - The `tests/playwright/ribbon_*_evidence.mjs` scripts are bare node scripts driving
@@ -381,14 +381,14 @@ region.
   `:413-470`, `:474-500`, `tests/design/ribbon_treatment_atlas.css`
 - Depends on: WP-4.1
 - Acceptance criteria:
-  - `__product-name` is replaced by a brand link, with the `__product-role` badge beside it:
+  - `__product-name` is replaced by a brand link, with the `__user-role` badge beside it:
 
     ```tsx
     <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
       <span class="ple-app-ribbon__brand-mark" aria-hidden="true">P</span>
       <span class="ple-app-ribbon__brand-word">Peptidyle</span>
     </a>
-    <span class="ple-app-ribbon__product-role">{props.model.context.productLabel}</span>
+    <span class="ple-app-ribbon__user-role">{props.model.context.productLabel}</span>
     ```
 
   - Plain `<a href>`, matching `RibbonLink` (`:99-118`); the Ribbon keeps importing nothing from

@@ -68,7 +68,7 @@ struct StudentAssessmentAttemptCourseContext {
     id: CourseInstanceId,
     short_name: String,
     long_name: String,
-    theme: question_model::CourseTheme,
+    theme: question_model::Theme,
 }
 
 #[derive(Serialize)]

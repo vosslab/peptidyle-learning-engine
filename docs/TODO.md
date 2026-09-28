@@ -59,3 +59,7 @@ documentation layer. Keep accepted decisions in the owning contract, code, test,
 or operational guide; retire duplicate or superseded working evidence. Permanent
 tests protect durable behavior, authorization, evidence integrity, or lifecycle
 contracts.
+
+## Theme follow-up
+
+- [ ] Decide whether to expose or remove the unused `html[data-contrast="increased"]` styling.

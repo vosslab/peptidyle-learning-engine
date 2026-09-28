@@ -66,8 +66,8 @@ Student Course-pinning work is superseded by
   - [x] Focused TypeScript and route-contract evidence passed with the 29 Ribbon Node tests.
   - Residual evidence: route inventory shows every applicable route selects a role-valid tab.
 
-- [x] **WP-A2 - key tier one to Product Role.** `src/ribbon/ribbon_schema.ts` exports
-      `PRODUCT_TIER_ONE` and `ribbonSchemaFor(productRole)`; Student includes Courses, Coursework,
+- [x] **WP-A2 - key tier one to User Role.** `src/ribbon/ribbon_schema.ts` exports
+      `PRODUCT_TIER_ONE` and `ribbonSchemaFor(userRole)`; Student includes Courses, Coursework,
       and Grades.
   - [x] Focused schema and Ribbon-contract checks passed in the 29 Ribbon Node tests.
   - Residual evidence: tab IDs are invariant on every route reachable by each role.

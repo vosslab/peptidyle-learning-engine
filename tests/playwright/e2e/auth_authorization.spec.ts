@@ -3,7 +3,7 @@
 // Selector contract:
 // - src/pages/sign_in_page.tsx owns seeded-demo entry.
 // - src/pages/course_list_page.tsx owns role-scoped populated and empty Course Instance states.
-// - src/route_access_boundary.tsx owns Product Role denial before a protected route reads data.
+// - src/route_access_boundary.tsx owns User Role denial before a protected route reads data.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
@@ -113,7 +113,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
       ).toBeVisible();
     });
 
-    await test.step("Mary receives Product Role denial before a Question Library read", async () => {
+    await test.step("Mary receives User Role denial before a Question Library read", async () => {
       await mary.goto("/library");
       await expect(
         mary.getByRole("heading", {

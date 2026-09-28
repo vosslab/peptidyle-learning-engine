@@ -1,105 +1,42 @@
-// scenarios_instructor_theme_samples.ts - Persisted Course palette comparisons.
+// scenarios_instructor_theme_samples.ts - final persisted Course Theme comparisons.
 
-import { COURSE_THEME_VALUES, type CourseTheme } from "../../../generated/api/CourseTheme";
+import type { DisplayMode } from "../../../generated/api/DisplayMode";
+import { THEME_VALUES, type Theme } from "../../../generated/api/Theme";
 
 import type { ScenarioDefinition } from "./scenario_types";
 import type { ScenarioRuntime } from "./runtime";
-import { choosePersona, courseCard, COURSE_TITLE, scrollTop } from "./visible_workflows";
+import {
+  openSeededCourseAppearance,
+  openSeededCourseWorkspace,
+  persistCourseAppearance,
+} from "./theme_capture_workflow";
+import { scrollTop } from "./visible_workflows";
 
-function checkpoint(theme: CourseTheme): string {
-  return `theme_sample_${theme.replace(/-/gu, "_")}`;
+const DISPLAY_MODES = ["light", "dark"] as const satisfies ReadonlyArray<DisplayMode>;
+
+function checkpoint(theme: Theme, mode: DisplayMode): string {
+  return `theme_sample_${theme.replace(/-/gu, "_")}_${mode}`;
 }
 
 async function captureThemeSample(
   runtime: ScenarioRuntime,
-  theme: CourseTheme,
+  theme: Theme,
+  mode: DisplayMode,
   expectedCourseInstanceId: string | undefined,
 ): Promise<string> {
-  const session = await runtime.open(checkpoint(theme));
+  const session = await runtime.open(checkpoint(theme, mode));
   try {
-    const page = session.page;
-    await choosePersona(page, "Elena Rivera");
-    const tabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
-    await tabs.getByRole("link", { name: "Courses", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/instructor");
-    await page.locator('[data-route-surface="courses"]').waitFor();
-    await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
-
-    const course = courseCard(page, COURSE_TITLE);
-    await course.waitFor({ state: "visible" });
-    const courseCount = await course.count();
-    if (courseCount !== 1) {
-      throw new Error(
-        `Expected one seeded Course Instance named ${COURSE_TITLE}; found ${String(courseCount)}.`,
-      );
-    }
-    const courseInstanceId = await course.getAttribute("data-record-id");
-    if (courseInstanceId === null || courseInstanceId.length === 0) {
-      throw new Error(`Seeded Course ${COURSE_TITLE} has no stable record ID.`);
-    }
+    const courseInstanceId = await openSeededCourseAppearance(session.page);
     if (expectedCourseInstanceId !== undefined && courseInstanceId !== expectedCourseInstanceId) {
       throw new Error(
-        `Course theme captures changed Course record ID from ${expectedCourseInstanceId} ` +
-          `to ${courseInstanceId}.`,
+        `Course Theme captures changed Course record ID from ${expectedCourseInstanceId} to ${courseInstanceId}.`,
       );
     }
-    await course.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
-    await course.getByRole("link", { name: "Open Course", exact: true }).click();
-    await page.locator('[data-route-surface="courseInstance"]').waitFor();
-    await page.getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true }).waitFor();
-    await page
-      .getByRole("navigation", { name: "Course actions", exact: true })
-      .getByRole("link", { name: "Appearance", exact: true })
-      .click();
-    await page.locator('[data-route-surface="courseAppearance"]').waitFor();
-
-    const option = page.locator(`[data-course-theme-option="${theme}"]`);
-    const radio = option.getByRole("radio");
-    await radio.check();
-    const savedThemeResponse = page.waitForResponse((response) => {
-      const request = response.request();
-      return (
-        request.method() === "PUT" &&
-        new URL(response.url()).pathname === `/api/course-instances/${courseInstanceId}/appearance`
-      );
-    });
-    await page.getByRole("button", { name: "Save theme", exact: true }).click();
-    const saved = await savedThemeResponse;
-    if (!saved.ok()) {
-      throw new Error(`Course theme ${theme} did not persist for ${courseInstanceId}.`);
-    }
-    const savedAppearance = (await saved.json()) as { readonly theme?: string };
-    if (savedAppearance.theme !== theme) {
-      throw new Error(
-        `Course ${courseInstanceId} saved ${String(savedAppearance.theme)} instead of ${theme}.`,
-      );
-    }
-
-    await page.reload({ waitUntil: "commit" });
-    await page.locator('[data-route-surface="courseAppearance"]').waitFor();
-    await radio.waitFor({ state: "visible" });
-    if (!(await radio.isChecked())) {
-      throw new Error(
-        `Course ${courseInstanceId} did not reload with its persisted ${theme} theme.`,
-      );
-    }
-
-    await tabs.getByRole("link", { name: "Courses", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/instructor");
-    await page.locator('[data-route-surface="courses"]').waitFor();
-    await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
-    const activeCourse = courseCard(page, COURSE_TITLE);
-    await activeCourse.waitFor({ state: "visible" });
-    await activeCourse.getByRole("link", { name: "Open Course", exact: true }).click();
-    await page.locator('[data-route-surface="courseInstance"]').waitFor();
-    await page.getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true }).waitFor();
-    await page
-      .locator(
-        `.course-theme-scope[data-course-theme="${theme}"][data-course-instance-id="${courseInstanceId}"]`,
-      )
-      .waitFor();
-    await scrollTop(page);
-    await runtime.captureCheckpoint(session, checkpoint(theme));
+    const appearance = { theme, mode } as const;
+    await persistCourseAppearance(session.page, courseInstanceId, appearance);
+    await openSeededCourseWorkspace(session.page, appearance);
+    await scrollTop(session.page);
+    await runtime.captureCheckpoint(session, checkpoint(theme, mode));
     return courseInstanceId;
   } finally {
     await runtime.close(session);
@@ -109,38 +46,44 @@ async function captureThemeSample(
 export const INSTRUCTOR_THEME_SAMPLE_SCENARIO: ScenarioDefinition = {
   id: "instructor_theme_samples",
   role: "instructor",
-  captures: COURSE_THEME_VALUES.map((theme) => ({
-    checkpoint: checkpoint(theme),
-    filenameStem: `theme_sample-${theme}`,
-    area: "courses",
-    workflow: "Course theme comparison",
-    state: `theme sample ${theme}`,
-    viewport: "laptop",
-    privacyProfile: "instructor_answer_free",
-    caption: `Instructor Course workspace rendered with the ${theme} theme`,
-  })),
+  captures: THEME_VALUES.flatMap((theme) =>
+    DISPLAY_MODES.map((mode) => ({
+      checkpoint: checkpoint(theme, mode),
+      filenameStem: `theme_sample-${theme}-${mode}`,
+      area: "courses",
+      workflow: "Course Theme comparison",
+      state: `theme sample ${theme} ${mode}`,
+      viewport: "laptop" as const,
+      privacyProfile: "instructor_answer_free" as const,
+      displayMode: mode,
+      expectedTheme: theme,
+      caption: `Instructor Course workspace rendered with the ${theme} Theme in ${mode} mode`,
+    })),
+  ),
   viewportCoverage: {
     laptop: { status: "captured" },
     tablet: {
       status: "covered_by",
-      target: "theme_sample_forest",
-      reason: "Course theme comparisons use the canonical Instructor laptop workspace.",
+      target: checkpoint("forest", "light"),
+      reason: "Course Theme comparisons use the canonical Instructor laptop workspace.",
     },
     phone: {
       status: "covered_by",
-      target: "theme_sample_forest",
-      reason: "Course theme comparisons use the canonical Instructor laptop workspace.",
+      target: checkpoint("forest", "light"),
+      reason: "Course Theme comparisons use the canonical Instructor laptop workspace.",
     },
     square: {
       status: "covered_by",
-      target: "theme_sample_forest",
-      reason: "Course theme comparisons use the canonical Instructor laptop workspace.",
+      target: checkpoint("forest", "light"),
+      reason: "Course Theme comparisons use the canonical Instructor laptop workspace.",
     },
   },
   run: async (runtime): Promise<void> => {
     let courseInstanceId: string | undefined;
-    for (const theme of COURSE_THEME_VALUES) {
-      courseInstanceId = await captureThemeSample(runtime, theme, courseInstanceId);
+    for (const theme of THEME_VALUES) {
+      for (const mode of DISPLAY_MODES) {
+        courseInstanceId = await captureThemeSample(runtime, theme, mode, courseInstanceId);
+      }
     }
   },
 };

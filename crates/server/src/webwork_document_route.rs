@@ -309,7 +309,7 @@ mod tests {
                     id: "CIABCDEFGS".parse().unwrap(),
                     short_name: "Course".into(),
                     long_name: "Course".into(),
-                    theme: question_model::CourseTheme::Forest,
+                    theme: question_model::Theme::Forest,
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
                     id: "AABCDEFG8".parse().unwrap(),

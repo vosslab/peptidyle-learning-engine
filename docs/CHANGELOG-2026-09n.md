@@ -181,7 +181,7 @@
   counts changed with enums and clocks). Gate:
   `source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py`
   exits 0 with advisory `rule_11` and `rule_14`. Catalog snapshot type display
-  keeps schema-qualified enums (`ple_data.product_role`). Live Demo seed and
+  keeps schema-qualified enums (`ple_data.user_role`). Live Demo seed and
   Rust `AccountId`/`CourseInstanceId`/`AssessmentId` mappings still follow.
 
 - M1 WP-1.6: the concurrency token is the Edit Number only. SQL columns are

@@ -79,7 +79,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     throw new Error("Question Library requires an authenticated session scope");
   }
   const sessionScope = sessionBootstrapState.session;
-  const mayMutateLibrary = sessionScope.account.productRole === "instructor";
+  const mayMutateLibrary = sessionScope.account.userRole === "instructor";
   const location = useLocation();
   const navigate = useNavigate();
   const hasInitialPoolDeepLink = hasCanonicalPoolDeepLink(location.search);

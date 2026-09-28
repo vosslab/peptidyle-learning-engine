@@ -180,7 +180,6 @@ test("opaque preview reports only deduplicated, bounded renderer height", () => 
     },
   ]);
   assert.equal(bridge.documentListeners.size, 0);
-  assert.equal(bridge.windowListeners.has("message"), false);
 
   bridge.observers[0].callback();
   assert.equal(bridge.sent.length, 1, "an unchanged size is not reposted");

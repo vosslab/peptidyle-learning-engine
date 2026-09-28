@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { productRoleMayAccessRoute } from "../src/route_contract.ts";
+import { userRoleMayAccessRoute } from "../src/route_contract.ts";
 import {
   CAPABILITY_REGISTRY,
   createRibbonCapabilityEntry,
@@ -11,7 +11,7 @@ import {
 } from "../src/ribbon/capability_registry.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
 
-const PRODUCT_ROLES = ["instructor", "student", "sysadmin"];
+const USER_ROLES = ["instructor", "student", "sysadmin"];
 const RESOLVED_ALLOW = { kind: "resolved", allowed: true };
 const RESOLVED_DENY = { kind: "resolved", allowed: false };
 const OUTSTANDING = { kind: "outstanding" };
@@ -64,11 +64,11 @@ test("Checking remains withheld and Available never exceeds the route role ceili
   const checking = backedEntry("grader");
   assert.equal(isRibbonAvailabilityVisible("Checking"), false);
   assert.equal(isRibbonEntryVisible(checking, "instructor", OUTSTANDING), false);
-  for (const role of PRODUCT_ROLES) {
+  for (const role of USER_ROLES) {
     for (const entry of Object.values(CAPABILITY_REGISTRY)) {
       if (ribbonAvailability(entry, role, RESOLVED_ALLOW) !== "Available") continue;
       assert.ok(entry.routeId, entry.id);
-      assert.equal(productRoleMayAccessRoute(entry.routeId, role), true, entry.id);
+      assert.equal(userRoleMayAccessRoute(entry.routeId, role), true, entry.id);
     }
   }
 });

@@ -10,11 +10,11 @@ ACCOUNT_ID_PATTERN = re.compile(r"^U[0-9A-HJKMNP-TV-Z]{8}$")
 
 @dataclasses.dataclass(frozen=True)
 class SeededAccount:
-	"""One email-keyed Product Role mapping for deployment-gated demo entry."""
+	"""One email-keyed User Role mapping for deployment-gated demo entry."""
 
 	setting: str
 	email: str
-	product_role: str
+	user_role: str
 
 
 SEEDED_ACCOUNTS = (
@@ -55,7 +55,7 @@ SEEDED_ACCOUNTS = (
 def seeded_account_id_query_script() -> str:
 	"""Return psql that prints minted persona setting=id lines."""
 	value_rows = ", ".join(
-		f"('{account.email}', '{account.setting}', '{account.product_role}')"
+		f"('{account.email}', '{account.setting}', '{account.user_role}')"
 		for account in SEEDED_ACCOUNTS
 	)
 	script = (
@@ -65,15 +65,15 @@ def seeded_account_id_query_script() -> str:
 		"SELECT wanted.setting || '=' || matched.account_id "
 		"FROM (VALUES "
 		f"{value_rows}"
-		") AS wanted(normalized_email, setting, product_role) "
+		") AS wanted(normalized_email, setting, user_role) "
 		"JOIN LATERAL ("
 		"SELECT account.account_id "
 		"FROM ple_private.account AS account "
 		"LEFT JOIN ple_private.account_authentication_email AS email "
 		"ON email.account_id = account.account_id "
 		"AND email.normalized_email = wanted.normalized_email "
-		"WHERE account.product_role = wanted.product_role::ple_data.product_role "
-		"AND (wanted.product_role = 'sysadmin' "
+		"WHERE account.user_role = wanted.user_role::ple_data.user_role "
+		"AND (wanted.user_role = 'sysadmin' "
 		"OR email.normalized_email = wanted.normalized_email) "
 		"ORDER BY account.created_at, account.account_id "
 		"LIMIT 1"

@@ -5,7 +5,7 @@ import type { CourseBannerAlternativeText } from "../../../generated/api/CourseB
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseBanner } from "../../../generated/api/CourseBanner";
 import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
-import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
 import {
   DecodeError,
@@ -58,7 +58,7 @@ export function decodeCourseAppearanceView(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["theme", "banner"]);
   return {
-    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
     banner: decodeNullable(field(record, "banner", path), `${path}.banner`, decodeCourseBanner),
   };
 }
@@ -91,6 +91,6 @@ export function decodeCourseThemeUpdate(value: unknown, path = "request"): Cours
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["theme"]);
   return {
-    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
   };
 }

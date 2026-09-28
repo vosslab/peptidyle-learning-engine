@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
-    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId,
-    QuestionImageAssetId, StudentAssessmentAttemptProgress, StudentFeedback,
-    StudentFeedbackReleaseRule, StudentResponse, Timestamp,
+    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, GradingResult,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId, QuestionImageAssetId,
+    StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
+    Theme, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -86,7 +86,7 @@ pub struct StudentAssessmentAttemptHistoryCourse {
     pub id: CourseInstanceId,
     pub short_name: String,
     pub long_name: String,
-    pub theme: CourseTheme,
+    pub theme: Theme,
 }
 
 /// Public Assessment identity for a selected owned history record.
@@ -470,7 +470,7 @@ pub struct StudentAssessmentAttemptContext {
     pub course_instance_id: CourseInstanceId,
     pub course_short_name: String,
     pub course_long_name: String,
-    pub course_theme: CourseTheme,
+    pub course_theme: Theme,
     pub assessment_id: AssessmentId,
     pub assessment_type: AssessmentType,
     pub assessment_title: String,

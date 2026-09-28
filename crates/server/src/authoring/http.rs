@@ -129,7 +129,7 @@ pub(crate) async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.product_role == question_model::ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == question_model::UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

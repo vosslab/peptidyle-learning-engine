@@ -18,7 +18,7 @@
   `60_policies`, `70_grants`) with catalog `COMMENT ON` and a generated `docs/SCHEMA_TABLES.md`
   as the audit completion gate, and an 18-question "is my table well designed" checklist with fail
   signals, scored against `assessment_attempt` as a worked example (11 of 18 fail). Sources:
-  PostgreSQL 17 docs, Angelakos *PostgreSQL Mistakes*, and the normalization chapter of the local
+  PostgreSQL docs, Angelakos *PostgreSQL Mistakes*, and the normalization chapter of the local
   corpus. Listed as a durable authority in `AGENTS.md` and linked from `DATABASE_STRUCTURE.md`.
 
 ### Behavior or Interface Changes
@@ -64,7 +64,7 @@
 - Clarified that Bloom Classification supports Question Library search and Assessment item sorting.
   The database stores only the two closed enum dimensions. Publication now requires a private,
   one-use receipt bound to the exact Bloom-relevant candidate content; the browser cannot supply
-  either the receipt or classification. Fresh PostgreSQL 17 actual-role proof covered preparation
+  either the receipt or classification. Fresh PostgreSQL actual-role proof covered preparation
   privileges, kind/content binding, rollback, one-use consumption, deferred completeness, and
   Question and Pool Library admission. A configured real AI classifier remains required before
   connected publication can pass.
@@ -74,7 +74,7 @@
   shared choice bank. WeBWorK keeps its backend-owned preview. Rust model, strict TypeScript,
   focused decoder checks, production client build, and temporary Chromium checks at 390/1280 passed.
   Canonical connected acceptance and the official screenshot refresh remain milestone checks.
-- Added the Course tools action to create a new Blueprint from a Course Instance. Its compact accessible dialog pre-fills only new Blueprint short name, long name, and classification; explains copied reusable structure and unchanged source/first Adoption; validates the canonical Course reference; sends only the metadata DTO with retry-stable idempotency; requires `201`/`no-store`; retains values and reports accessibly; returns focus on cancel; and opens the owner-visible Private Revision-1 receipt. `cargo tsgen`, focused Node, TypeScript, ESLint, Prettier, and `./check_codebase.sh` (369 Node tests) passed. The backend atomically derives ordered reusable structure, forks Course-owned Pools, and records immutable source provenance. PostgreSQL 17 actual-role proof passed authorization/no-write, stale rollback, idempotency, source preservation, exact pins, Adoption/student counts, and lifecycle rollback. Canonical HTTPS C420 proof made one child-route POST from `CI0QR41X` to Private Revision-1 `BPJD8H28`, showed Adoption count 1, counted source Students only in the statistic, copied no roster/delivery state, and left the source addressable and unchanged.
+- Added the Course tools action to create a new Blueprint from a Course Instance. Its compact accessible dialog pre-fills only new Blueprint short name, long name, and classification; explains copied reusable structure and unchanged source/first Adoption; validates the canonical Course reference; sends only the metadata DTO with retry-stable idempotency; requires `201`/`no-store`; retains values and reports accessibly; returns focus on cancel; and opens the owner-visible Private Revision-1 receipt. `cargo tsgen`, focused Node, TypeScript, ESLint, Prettier, and `./check_codebase.sh` (369 Node tests) passed. The backend atomically derives ordered reusable structure, forks Course-owned Pools, and records immutable source provenance. PostgreSQL actual-role proof passed authorization/no-write, stale rollback, idempotency, source preservation, exact pins, Adoption/student counts, and lifecycle rollback. Canonical HTTPS C420 proof made one child-route POST from `CI0QR41X` to Private Revision-1 `BPJD8H28`, showed Adoption count 1, counted source Students only in the statistic, copied no roster/delivery state, and left the source addressable and unchanged.
 - Accepted C522 connected Student delivery and Work issuance through the production
   server/data-access/access-page chain, including denied access. Accepted C879 connected
   Question-fork proof with two Instructors, exact source attribution, private denial,
@@ -174,7 +174,7 @@
 - Replaced stale short Blueprint, Course Instance, and Assessment reference
   validators with one canonical SQL predicate. It accepts only the exact
   seven-random-character, checksum-bearing `BP`, `CI`, `A`, and `U` forms.
-  A disposable PostgreSQL 17 base-schema install confirmed canonical acceptance
+  A disposable PostgreSQL base-schema install confirmed canonical acceptance
   and rejection of legacy-short, lowercase, wrong-prefix, and bad-checksum IDs.
 - Removed the watered-down BIOL 301 RNA/DNA Question variant from the active Fall 2026 Genetics
   pilot selection. The upstream BiologyProblems.org source and its source mirror remain intact;
@@ -190,7 +190,7 @@
 
 - Added the read-only SQL schema quality and efficiency audit
   ([sql_schema_quality_audit.md](archive/audits/sql_schema_quality_audit.md)) over the
-  146-table base schema, installed into a disposable PostgreSQL 17 container for catalog evidence
+  146-table base schema, installed into a disposable PostgreSQL container for catalog evidence
   (281 FKs, 166 without a referencing-side index; 497 CHECKs; 3 native enums against ~110
   text-plus-CHECK closed vocabularies; 92 hand-listed immutability comparisons). It confirms and
   extends the human's repetition note: the Assessment Attempt copies the whole current Assessment

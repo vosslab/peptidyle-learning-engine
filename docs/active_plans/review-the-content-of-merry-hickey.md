@@ -75,7 +75,7 @@ build in-repo.
 
 ## Scope
 
-- Make tier-1 tabs depend on Product Role only, and move scope-specific tabs to tier-2.
+- Make tier-1 tabs depend on User Role only, and move scope-specific tabs to tier-2.
 - Add `tierOneArea` to the route contract and select tier-1 from it.
 - Keep Course IDs in Course-specific Student destinations; global Coursework and Grades follow the
   completed [Student Progress and Response Stats plan](../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md).
@@ -107,7 +107,7 @@ build in-repo.
 
 | Area            | Now                                                | After                                                                          |
 | --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Tier-1 tabs     | Keyed by route scope; change per page              | Keyed by Product Role; same everywhere                                         |
+| Tier-1 tabs     | Keyed by route scope; change per page              | Keyed by User Role; same everywhere                                         |
 | Tier-2 row      | Collapses when empty; content shifts               | Always present for every role; empty is valid                                  |
 | Breadcrumb row  | Drawn only when reserved                           | Always present when signed in                                                  |
 | Page width      | `class="page"` in ~38 files, plus 4 private widths | `PageFrame` reads `contentLayout`                                              |
@@ -131,7 +131,7 @@ edit it. When a sweep leaves a rule or token unused, that stream reports the nam
 removes it in WP-C5. This keeps the "one writer per file" guarantee literally true rather than
 nearly true.
 
-The shared ownership contract is: Ribbon carries PLE identity, Product Role, stable role navigation,
+The shared ownership contract is: Ribbon carries PLE identity, User Role, stable role navigation,
 and application controls; breadcrumbs carry human-readable route hierarchy; PageFrame owns page
 identity, the heading/action slots admitted by WP-C1, width, content origin, and standard spacing;
 page content owns task-specific material. `reading` is the default page width, with route-level
@@ -346,7 +346,7 @@ by their page; workflow-internal controls remain in task content.
 - Evidence or review, when useful: `npx tsc --noEmit`.
 - Obvious follow-ons: WP-A2.
 
-### Work package: WP-A2 key tier-1 to Product Role
+### Work package: WP-A2 key tier-1 to User Role
 
 - Owner: `expert_coder`.
 - Touch points:
@@ -354,7 +354,7 @@ by their page; workflow-internal controls remain in task content.
   [src/ribbon/ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts):360-368.
 - Depends on: WP-A1, because selection reads the new field.
 - Acceptance criteria: `SCHEMAS` is replaced by
-  `PRODUCT_TIER_ONE: Record<ProductRole, ReadonlyArray<RibbonSchemaSlot>>`; `ribbonSchemaFor` no
+  `PRODUCT_TIER_ONE: Record<UserRole, ReadonlyArray<RibbonSchemaSlot>>`; `ribbonSchemaFor` no
   longer takes `scope`; instructor is `courses, questions, productAssessments`, student is
   `coursework, grades, courses`, sysadmin is
   `courses, questions, instructorAccounts, disciplines`; `selectedFor` reads `tierOneArea`.

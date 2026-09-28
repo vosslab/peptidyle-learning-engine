@@ -541,21 +541,21 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .await
         .expect("private fixture role");
     let instructor_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("Instructor account");
     let reader_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("reader Instructor account");
     let student_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
@@ -563,7 +563,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Student fixture");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
                  pg_catalog.transaction_timestamp() + interval '1 hour'), \
                 ($4, $5, 'instructor', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
@@ -800,8 +800,8 @@ pub(super) async fn seed_if_needed(admin: &sqlx::postgres::PgPool) {
            JOIN ple_private.account AS account ON account.account_id = session.account_id \
           WHERE session.session_id = $1 \
             AND session.token_hash = decode($2, 'hex') \
-            AND session.product_role = 'instructor' \
-            AND account.product_role = 'instructor' \
+            AND session.user_role = 'instructor' \
+            AND account.user_role = 'instructor' \
             AND EXISTS ( \
                 SELECT 1 FROM ple_private.question_revision_source_binding AS binding \
                  WHERE binding.published_question_id = $3 AND binding.revision_number = 1 \

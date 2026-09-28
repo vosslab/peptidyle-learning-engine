@@ -14,7 +14,7 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{AuthenticatedAccount, SysadminTotpStore};
-use question_model::{AccountId, ProductRole};
+use question_model::{AccountId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -46,11 +46,11 @@ impl SeededDemoPersona {
         Self::MorganSysadmin,
     ];
 
-    fn required_product_role(self) -> ProductRole {
+    fn required_user_role(self) -> UserRole {
         match self {
-            Self::ElenaInstructor | Self::PriyaInstructor => ProductRole::Instructor,
-            Self::MaryStudent | Self::JackStudent | Self::AveryStudent => ProductRole::Student,
-            Self::MorganSysadmin => ProductRole::Sysadmin,
+            Self::ElenaInstructor | Self::PriyaInstructor => UserRole::Instructor,
+            Self::MaryStudent | Self::JackStudent | Self::AveryStudent => UserRole::Student,
+            Self::MorganSysadmin => UserRole::Sysadmin,
         }
     }
 }
@@ -292,7 +292,7 @@ where
             return no_store((StatusCode::UNAUTHORIZED, "demo entry unavailable").into_response());
         }
     };
-    if issued.record.product_role != selected.persona.required_product_role() {
+    if issued.record.user_role != selected.persona.required_user_role() {
         // ASVS 2.3.3 and 8.3.1: a store-derived role mismatch invalidates the
         // whole operation.  The just-issued credential was never exposed, and
         // is revoked before this bounded failure response.
@@ -339,13 +339,13 @@ where
     // for every resulting session record; request data cannot name a role.
     let primary = AuthenticatedAccount {
         account: selected.account.clone(),
-        product_role: selected.persona.required_product_role(),
+        user_role: selected.persona.required_user_role(),
     };
     match establish_primary_authentication(state.sessions.as_ref(), primary, state.session_config)
         .await
     {
         Ok(PrimaryAuthenticationOutcome::Authenticated(issued)) => {
-            if issued.record.product_role != selected.persona.required_product_role() {
+            if issued.record.user_role != selected.persona.required_user_role() {
                 // A non-Sysadmin mapping whose persisted role changed never
                 // exposes the just-created credential.
                 let _ = state
@@ -452,7 +452,7 @@ mod tests {
                 id: SessionId::generate()?,
                 token_hash,
                 account,
-                product_role: ProductRole::Student,
+                user_role: UserRole::Student,
                 created_at: Timestamp::from_unix_millis(0),
                 expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
             };
@@ -612,7 +612,7 @@ mod tests {
             .expect("body");
         assert_eq!(
             body,
-            r#"{"authenticated":true,"account":{"id":"U0000002G","productRole":"student"}}"#
+            r#"{"authenticated":true,"account":{"id":"U0000002G","userRole":"student"}}"#
         );
     }
 }

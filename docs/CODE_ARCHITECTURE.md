@@ -25,6 +25,7 @@ Assessment Type names `regular_assignment`, `practice_question_assignment`, and
 | [crates/objects/](../crates/objects/) | Typed object identity, integrity, validation, and storage backends |
 | [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts |
 | [src/](../src/) | SolidJS shell, strict decoders, role-specific pages, and answer-safe interaction |
+| [src/appearance/](../src/appearance/) | One `AppearanceOwner` resolves Themes and display mode, then applies them to `<html>` |
 | [local_stack_control/](../local_stack_control/) | Disposable-stack lifecycle and connected acceptance orchestration |
 
 The Rust workspace is rooted at [Cargo.toml](../Cargo.toml); browser tooling is
@@ -156,7 +157,7 @@ See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
 
 ## Authorization boundaries
 
-The server resolves the authenticated Account and current Product Role, then
+The server resolves the authenticated Account and current User Role, then
 checks the exact Course, Student, workspace, or Blueprint-owner relationship.
 PostgreSQL repeats the protected predicate through forced RLS and narrow
 functions in the same transaction.

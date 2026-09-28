@@ -1,6 +1,6 @@
-// ribbon_schema.ts - Stable, synchronous Ribbon topology by scope and Product Role.
+// ribbon_schema.ts - Stable, synchronous Ribbon topology by scope and User Role.
 
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import type { RibbonTaskId } from "./ribbon_catalog";
 import { RIBBON_TAB_IDS, type RibbonTabId, type TierOneArea } from "../route_contract";
 
@@ -20,7 +20,7 @@ export interface RibbonSchemaSlot {
   readonly relationshipRequirement: RibbonRelationshipRequirement;
 }
 
-export type ProductTierOne = Readonly<Record<ProductRole, ReadonlyArray<RibbonSchemaSlot>>>;
+export type ProductTierOne = Readonly<Record<UserRole, ReadonlyArray<RibbonSchemaSlot>>>;
 
 function universalSlot(id: RibbonTabId): RibbonSchemaSlot {
   return Object.freeze({ id, relationshipRequirement: "none" });
@@ -57,7 +57,7 @@ export type RibbonTierTwoSlot =
   | { readonly kind: "currentStudentCourses" };
 
 type ProductTierTwo = Readonly<
-  Record<ProductRole, Readonly<Partial<Record<TierOneArea, ReadonlyArray<RibbonTierTwoSlot>>>>>
+  Record<UserRole, Readonly<Partial<Record<TierOneArea, ReadonlyArray<RibbonTierTwoSlot>>>>>
 >;
 
 function destinations(...ids: ReadonlyArray<RibbonTaskId>): ReadonlyArray<RibbonTierTwoSlot> {
@@ -102,21 +102,21 @@ export const PRODUCT_TIER_TWO: ProductTierTwo = Object.freeze({
 
 /** Returns the complete Tier 2 schema for one role and Tier 1 area. */
 export function ribbonTierTwoSchemaFor(
-  productRole: ProductRole,
+  userRole: UserRole,
   tierOneArea: TierOneArea,
 ): ReadonlyArray<RibbonTierTwoSlot> {
-  return PRODUCT_TIER_TWO[productRole][tierOneArea] ?? Object.freeze([]);
+  return PRODUCT_TIER_TWO[userRole][tierOneArea] ?? Object.freeze([]);
 }
 
 /**
- * Returns the designed tier-one topology for one immutable Product Role.
+ * Returns the designed tier-one topology for one immutable User Role.
  *
  * This intentionally does not ask whether a destination has shipped or is
  * authorized. The capability registry and route boundary apply those later;
  * topology remains synchronous and stable for the session.
  */
-export function ribbonSchemaFor(productRole: ProductRole): ReadonlyArray<RibbonSchemaSlot> {
-  return PRODUCT_TIER_ONE[productRole];
+export function ribbonSchemaFor(userRole: UserRole): ReadonlyArray<RibbonSchemaSlot> {
+  return PRODUCT_TIER_ONE[userRole];
 }
 
 /** True when universal positions precede every relationship-narrowed suffix. */

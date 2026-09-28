@@ -12,7 +12,7 @@ boundary. Preserve registered external names exactly. For PLE-owned names, use
 the canonical product noun even when the current table, route, or component has
 an old name.
 
-Use Student, Instructor, and Sysadmin for people and Product Roles. Use Account
+Use Student, Instructor, and Sysadmin for people and User Roles. Use Account
 for the global authenticated identity. Use the exact Course relationship,
 Student record, Blueprint owner, or workspace relationship for scoped
 authority. Avoid generic `user`, `owner`, or `admin` when the precise PLE role
@@ -130,7 +130,7 @@ to "Question ID," but source names keep the boundary explicit.
 
 | Domain | Canonical naming |
 | --- | --- |
-| Account/session | `account_id` (Account ID), `session_id` UUID, immutable Product Role |
+| Account/session | `account_id` (Account ID), `session_id` UUID, immutable User Role |
 | Course relationship | `course_membership_id` UUID or precise Student/Instructor relationship name |
 | Student record | `student_record_id` UUID under one Course Instance; FERPA-internal, not a recovery or public API field |
 | Course Roster | `CourseRosterId` and `CourseRosterTuple { courseInstanceId, rosterId }` |

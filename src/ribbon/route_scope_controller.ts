@@ -7,10 +7,9 @@ import type { OrdinaryBrowserApiClient } from "../api/client";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import {
-  courseRouteView,
   type CourseThemeRouteData,
   type ReplaceCourseAppearance,
-} from "../features/course_appearance/course_theme_context";
+} from "../appearance/theme_context";
 import { routeContractForPathname } from "../route_contract";
 import { routeScopeKey, type RouteScopeKey } from "../navigation/route_params";
 
@@ -58,6 +57,8 @@ export interface RouteScopeController {
   readonly loadState: Accessor<RouteScopeLoadState>;
   /** Starts a fresh current-scope read after a presentation request failed. */
   readonly retry: () => void;
+  /** Drops route presentation data from the previous authenticated browser session. */
+  readonly invalidateSession: () => void;
   /** Replaces only a resolved Course's saved appearance presentation data. */
   readonly replaceCourseAppearance: ReplaceCourseAppearance;
 }
@@ -92,6 +93,7 @@ export function createRouteScopeController(
     string,
     ReturnType<RouteScopeQueries["assessmentAttemptScope"]>
   >();
+  let sessionGeneration = 0;
 
   const assessmentAttemptScope = (
     assessmentAttemptId: Parameters<RouteScopeQueries["assessmentAttemptScope"]>[0],
@@ -104,6 +106,7 @@ export function createRouteScopeController(
   };
 
   const load = (scope: RouteScopeKey, pathnameForScope: string, key: string): void => {
+    const generationForLoad = sessionGeneration;
     entries.set(key, { state: "pending" });
     setCacheVersion((version) => version + 1);
     let request: Promise<CourseThemeRouteData>;
@@ -130,10 +133,12 @@ export function createRouteScopeController(
     }
     void request.then(
       (loaded) => {
+        if (generationForLoad !== sessionGeneration) return;
         entries.set(key, { state: "resolved", data: loaded });
         setCacheVersion((version) => version + 1);
       },
       () => {
+        if (generationForLoad !== sessionGeneration) return;
         entries.set(key, { state: "rejected" });
         setCacheVersion((version) => version + 1);
       },
@@ -143,6 +148,7 @@ export function createRouteScopeController(
   // Scope changes own loading. A consumer may read `data` late (or not at all)
   // without changing which route scope has begun resolving.
   createEffect(() => {
+    cacheVersion();
     const pathnameForScope = currentPathname();
     const scope = identity();
     const key = scopeCacheKey(scope, pathnameForScope);
@@ -201,6 +207,13 @@ export function createRouteScopeController(
     setCacheVersion((version) => version + 1);
   };
 
+  const invalidateSession = (): void => {
+    sessionGeneration += 1;
+    entries.clear();
+    assessmentAttemptScopes.clear();
+    setCacheVersion((version) => version + 1);
+  };
+
   const replaceCourseAppearance: ReplaceCourseAppearance = (
     courseInstanceId: CourseInstanceId,
     appearance: CourseAppearanceView,
@@ -209,8 +222,8 @@ export function createRouteScopeController(
     for (const [key, entry] of entries) {
       if (
         entry.state !== "resolved" ||
-        entry.data.kind === "assessmentAttempt" ||
-        courseRouteView(entry.data).summary.id !== courseInstanceId
+        entry.data.kind !== "course" ||
+        entry.data.course.summary.id !== courseInstanceId
       )
         continue;
       entries.set(key, { state: "resolved", data: withCourseAppearance(entry.data, appearance) });
@@ -224,6 +237,7 @@ export function createRouteScopeController(
     data,
     loadState,
     retry,
+    invalidateSession,
     replaceCourseAppearance,
   };
 }

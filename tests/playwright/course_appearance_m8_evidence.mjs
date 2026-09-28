@@ -71,10 +71,7 @@ try {
   await page.getByText("Banner saved.", { exact: true }).waitFor({ state: "visible" });
   assert.equal(await page.evaluate(() => window.courseAppearanceM7.bannerUploadCalls()), 1);
   assert.equal(await page.evaluate(() => window.courseAppearanceM7.bannerSetCalls()), 1);
-  assert.equal(
-    await page.locator(".course-theme-scope").getAttribute("data-course-theme"),
-    "magma",
-  );
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "magma");
   assert.equal(await page.getByRole("radio", { name: "Magma" }).isChecked(), true);
   await page.locator("[data-course-banner-saved-preview]").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Save theme" }).click();
@@ -85,10 +82,7 @@ try {
   await page.getByText("Banner removed.", { exact: true }).waitFor({ state: "visible" });
   assert.equal(await page.evaluate(() => window.courseAppearanceM7.bannerRemoveCalls()), 1);
   assert.equal(await page.locator("[data-course-banner-saved-preview]").count(), 0);
-  assert.equal(
-    await page.locator(".course-theme-scope").getAttribute("data-course-theme"),
-    "ocean",
-  );
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "ocean");
   assert.equal(await page.getByRole("radio", { name: "Ocean" }).isChecked(), true);
   await page.evaluate(() => window.courseAppearanceM7.hidePage());
   await page.waitForSelector("[data-m7-page-removed]");

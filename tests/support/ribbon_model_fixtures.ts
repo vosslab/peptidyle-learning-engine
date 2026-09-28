@@ -1,9 +1,9 @@
 // ribbon_model_fixtures.ts - catalog-valid presentation models for Ribbon component evidence.
 
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import { routeParams, type RouteParamName } from "../../src/navigation/route_params";
 import {
-  productRoleMayAccessRoute,
+  userRoleMayAccessRoute,
   ROUTE_CONTRACT,
   type RibbonScope,
   type RouteContract,
@@ -46,11 +46,11 @@ const CANONICAL_FIXTURE_PARAMS = {
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
-const RIBBON_ROUTE_PRODUCT_ROLES = ["instructor", "student", "sysadmin"] as const;
+const RIBBON_ROUTE_USER_ROLES = ["instructor", "student", "sysadmin"] as const;
 const COURSE_SHORT_NAME = "BCHM 355";
 
 export interface RibbonRouteMaterialization {
-  readonly productRole: ProductRole;
+  readonly userRole: UserRole;
   readonly route: RouteContract;
   readonly pathname: string;
   readonly model: RibbonModel;
@@ -71,13 +71,13 @@ function paramsForRoute(route: RouteContract): DeclaredRibbonRouteParams {
  * This is the shared browser-harness source for complete route/role evidence.
  */
 export function materializeRibbonRoute(
-  productRole: ProductRole,
+  userRole: UserRole,
   routeId: RouteId,
 ): RibbonRouteMaterialization {
   const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
   if (route === undefined) throw new Error(`Ribbon fixture has no declared route ${routeId}.`);
-  if (!productRoleMayAccessRoute(route.id, productRole)) {
-    throw new Error(`Ribbon fixture cannot give ${productRole} access to ${route.id}.`);
+  if (!userRoleMayAccessRoute(route.id, userRole)) {
+    throw new Error(`Ribbon fixture cannot give ${userRole} access to ${route.id}.`);
   }
   if (route.id === "signIn") {
     throw new Error("Ribbon fixture does not materialize the signed-out sign-in route.");
@@ -94,7 +94,7 @@ export function materializeRibbonRoute(
     {
       route,
       params: ribbonParams,
-      ...(productRole === "student"
+      ...(userRole === "student"
         ? {
             studentCourses: [
               {
@@ -111,21 +111,21 @@ export function materializeRibbonRoute(
           }
         : {}),
     },
-    { productRole },
+    { userRole },
     {
       assessmentTitle: "Problem Set 7",
     },
   );
-  return Object.freeze({ productRole, route, pathname, model });
+  return Object.freeze({ userRole, route, pathname, model });
 }
 
 /** Every signed-in role/route pair that the declared browser boundary admits. */
 export const RIBBON_ROUTE_MATERIALIZATIONS: ReadonlyArray<RibbonRouteMaterialization> =
   Object.freeze(
-    RIBBON_ROUTE_PRODUCT_ROLES.flatMap((productRole) =>
+    RIBBON_ROUTE_USER_ROLES.flatMap((userRole) =>
       ROUTE_CONTRACT.filter(
-        (route) => route.id !== "signIn" && productRoleMayAccessRoute(route.id, productRole),
-      ).map((route) => materializeRibbonRoute(productRole, route.id)),
+        (route) => route.id !== "signIn" && userRoleMayAccessRoute(route.id, userRole),
+      ).map((route) => materializeRibbonRoute(userRole, route.id)),
     ),
   );
 
@@ -229,7 +229,7 @@ function studentCourseControl(
 
 function model(
   scope: RibbonScope,
-  productRole: ProductRole,
+  userRole: UserRole,
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
   _unusedContentLayout: string,
@@ -239,14 +239,14 @@ function model(
     scope,
     context: {
       productLabel:
-        productRole === "student"
+        userRole === "student"
           ? "Student"
-          : productRole === "instructor"
+          : userRole === "instructor"
             ? "Instructor"
             : "Sysadmin",
       signOutAction: SIGN_OUT,
       accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
-        control.productRoles.includes(productRole),
+        control.userRoles.includes(userRole),
       ),
     },
     tabs,

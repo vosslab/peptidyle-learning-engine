@@ -3,8 +3,8 @@
 use std::str::FromStr;
 
 use question_model::{
-    AccountTimeZone, AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId,
-    CourseTheme, Timestamp,
+    AccountTimeZone, AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, Theme,
+    Timestamp,
 };
 use sqlx::Row;
 
@@ -57,7 +57,7 @@ impl PostgresLiveAssessmentDeliveryStore {
                 row.try_get("course_long_name").map_err(map_sqlx_error)?,
                 "Course long name",
             )?,
-            course_theme: CourseTheme::from_str(
+            course_theme: Theme::from_str(
                 &row.try_get::<String, _>("course_theme")
                     .map_err(map_sqlx_error)?,
             )

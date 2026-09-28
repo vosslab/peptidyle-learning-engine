@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
-    CourseMembershipRole, CourseSummary, CourseTerm, CourseTheme,
+    CourseMembershipRole, CourseSummary, CourseTerm, Theme,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -299,7 +299,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                         row.try_get("term_starts_on").map_err(map_sqlx_error)?,
                         row.try_get("term_ends_on").map_err(map_sqlx_error)?,
                     )?,
-                    theme: CourseTheme::default(),
+                    theme: Theme::default(),
                 },
             };
             transaction.commit().await.map_err(map_sqlx_error)?;
@@ -495,7 +495,7 @@ fn membership_role(value: &str) -> Result<CourseMembershipRole, StoreError> {
     }
 }
 
-fn theme(value: String) -> Result<CourseTheme, StoreError> {
+fn theme(value: String) -> Result<Theme, StoreError> {
     value.parse().map_err(|_| invalid("Course Theme"))
 }
 

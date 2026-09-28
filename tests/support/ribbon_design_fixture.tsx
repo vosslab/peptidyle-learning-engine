@@ -2,10 +2,7 @@
 
 import { For, Show, type JSX } from "solid-js";
 
-import {
-  COURSE_THEME_OPTIONS,
-  courseThemeStyle,
-} from "../../src/features/course_appearance/course_theme_registry";
+import { THEME_OPTIONS, themeStyle, themeTokens } from "../../src/appearance/theme_registry";
 import { AppRibbon } from "../../src/ribbon/app_ribbon";
 import type { RibbonModel } from "../../src/ribbon/ribbon_contract";
 import { RibbonIcon } from "../../src/ribbon/ribbon_icon";
@@ -125,7 +122,7 @@ function Treatment(props: { readonly treatment: RibbonDesignTreatment }): JSX.El
       </header>
       <section
         class="ple-ribbon-design-lab__schema-grid"
-        aria-label="Scope and Product Role schemas"
+        aria-label="Scope and User Role schemas"
       >
         <For each={Object.entries(RIBBON_DESIGN_SCHEMAS)}>
           {([name, model]) => <Panel kind="schema" name={name} label={name} model={model} />}
@@ -137,14 +134,14 @@ function Treatment(props: { readonly treatment: RibbonDesignTreatment }): JSX.El
         </For>
       </section>
       <section class="ple-ribbon-design-lab__theme-grid" aria-label="Course theme specimens">
-        <For each={COURSE_THEME_OPTIONS}>
+        <For each={THEME_OPTIONS}>
           {(option) => (
             <Panel
               kind="theme"
               name={option.id}
-              label={option.tokens.name}
+              label={option.definition.name}
               model={RIBBON_DESIGN_STATE_SPECIMENS.courseAppearance}
-              themeStyle={courseThemeStyle(option.tokens)}
+              themeStyle={themeStyle(themeTokens(option.id))}
             />
           )}
         </For>

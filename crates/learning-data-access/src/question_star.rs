@@ -1,6 +1,6 @@
 //! Authenticated Instructor Star state for one Published Question lineage.
 //!
-//! This boundary intentionally names neither an Account nor a Product Role.
+//! This boundary intentionally names neither an Account nor a User Role.
 //! PostgreSQL derives both from the installed session and returns only the
 //! current caller's state, public aggregate, and the approved public display
 //! identities. It never returns an Account identifier, email, credential,

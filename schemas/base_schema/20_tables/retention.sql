@@ -14,7 +14,7 @@ CREATE TABLE ple_private.course_retention_notification (
     action_kind ple_data.retention_action_kind NOT NULL,
     due_at timestamp with time zone NOT NULL,
     recipient_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    recipient_product_role ple_data.product_role NOT NULL DEFAULT 'instructor',
+    recipient_user_role ple_data.user_role NOT NULL DEFAULT 'instructor',
     provider_idempotency_key uuid NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     created_at timestamp with time zone NOT NULL,
     next_attempt_at timestamp with time zone NOT NULL,
@@ -28,8 +28,8 @@ CREATE TABLE ple_private.course_retention_notification (
     CONSTRAINT course_retention_notification_identity
         UNIQUE (course_instance_id, action_kind, due_at, recipient_account_id),
     UNIQUE (provider_idempotency_key),
-    FOREIGN KEY (recipient_account_id, recipient_product_role)
-        REFERENCES ple_private.account (account_id, product_role),
+    FOREIGN KEY (recipient_account_id, recipient_user_role)
+        REFERENCES ple_private.account (account_id, user_role),
     CHECK (ple_private.work_lease_pair_is_valid(lease_token, lease_expires_at, created_at)),
     CHECK ((claimed_at IS NULL) = (lease_token IS NULL)),
     CHECK (claimed_at IS NULL OR claimed_at >= created_at),

@@ -71,7 +71,7 @@
 
 - Replaced PLE-owned family wording with the exact Question Backend, Question Format, and
   Operation Kind terms. The preview model and current authoring, catalog, prefetch, authorization,
-  and Product Role documentation now preserve those distinct boundaries.
+  and User Role documentation now preserve those distinct boundaries.
 
 - Replaced the Question Collection member's invented retained-selection state with the exact
   Current Question Version Availability. Generated contracts, strict decoding, collection filtering,
@@ -171,7 +171,7 @@
   manifest with a permitted disposition and worker Job plus a separate immutable cleanup receipt.
   The allocation and migration filename now name Object Storage Checks and Object Cleanup; the
   vocabulary checklist and operational documentation use the same terms. The disposable
-  PostgreSQL 17 baseline gate passes fresh apply, no-op reapply, catalog/ACL checks, and restricted
+  PostgreSQL baseline gate passes fresh apply, no-op reapply, catalog/ACL checks, and restricted
   login probes.
 
 - Replaced the grading-operations list's generic grouping boundary with a closed Grading
@@ -252,9 +252,9 @@
 
 - Merged Course Instance delivery fields into the canonical Assignment relation and rebound export, external-tool, and Job foreign keys to that Assignment parent. The baseline no longer retains a duplicate Assignment-delivery ownership layer.
 
-- Renamed the active Sysadmin-only Account Creation broker and immutable creation time to `create_account` and `created_at`; its return contract now names `product_role` directly. The clean PostgreSQL baseline contains no provisioning-shaped Account terminology.
+- Renamed the active Sysadmin-only Account Creation broker and immutable creation time to `create_account` and `created_at`; its return contract now names `user_role` directly. The clean PostgreSQL baseline contains no provisioning-shaped Account terminology.
 
-- Removed the unapproved Student Observer schema authority. The fresh baseline now models only the owner-approved Course Observer Relationship; its trusted predicate requires current Instructor approval and refuses that read path for a current Teaching Team Member. The fresh PostgreSQL 17 staged migration and idempotent verification pass.
+- Removed the unapproved Student Observer schema authority. The fresh baseline now models only the owner-approved Course Observer Relationship; its trusted predicate requires current Instructor approval and refuses that read path for a current Teaching Team Member. The fresh PostgreSQL staged migration and idempotent verification pass.
 
 - Replaced the oversized terminology ledger with the focused terminology contract: global Accounts, role-distinct Authenticated Sessions, exact Course Membership and Student Record authority, immutable content and delivery records, and explicit authorization inheritance paths now share one concise vocabulary authority.
 
@@ -264,7 +264,7 @@
 
 - Removed the unmounted automated-grading fault profile, its Compose overlay, dedicated browser recovery scenario, and retained screenshots. Browser recovery now uses its single gateway-outage path and the declared live-demo evidence matches the API-and-gateway topology; focused Python contracts (43) pass.
 
-- Reduced the fresh PostgreSQL baseline to its mounted API/session authority: removed worker, recovery, fast-path, and automated-grading pool factories, login contracts, local credentials, role creation, ACL grants, and dependent RLS policies. The staged-database and cross-store runtime fixtures now emit and validate only the migrator URL; focused lifecycle (43), PostgreSQL (27), Rust acceptance-runtime (17), and Python runtime-manifest (18) suites pass. The disposable PostgreSQL 17 staged acceptance gate also passes fresh apply, idempotent reapply, catalog/ACL checks, and restricted API/session probes.
+- Reduced the fresh PostgreSQL baseline to its mounted API/session authority: removed worker, recovery, fast-path, and automated-grading pool factories, login contracts, local credentials, role creation, ACL grants, and dependent RLS policies. The staged-database and cross-store runtime fixtures now emit and validate only the migrator URL; focused lifecycle (43), PostgreSQL (27), Rust acceptance-runtime (17), and Python runtime-manifest (18) suites pass. The disposable PostgreSQL staged acceptance gate also passes fresh apply, idempotent reapply, catalog/ACL checks, and restricted API/session probes.
 
 - Removed the ordinary grading-worker service from the current Compose and browser-stack lifecycle. Its command target and server implementation were already retired, so the standard local stack now starts only its mounted API and gateway services. The local provisioning path now creates only the API login and no longer emits retired worker or execution credentials; focused lifecycle and ownership suites pass (98).
 
@@ -328,13 +328,13 @@
 
 - Replaced the public `RunPolicies` contract with `AssignmentActivityRules`. Assignment configuration and generated browser contracts now name the four independent rules directly. The corresponding Rust module and pool-draw variant now name Assignment Activity Rules and an Assignment Attempt, while the glossary terminology is reflected in the Question Model, Instructor, API, and mastery-design documentation.
 
-- Made authenticated-session issuance derive the immutable Product Role from the existing global Account. The Rust `SessionStore`, PostgreSQL broker, and Live Demo boundary no longer accept a caller-selected role; the resulting session validates the configured demo persona against the role returned by the protected Store. Focused Rust tests and the staged PostgreSQL acceptance lane pass.
+- Made authenticated-session issuance derive the immutable User Role from the existing global Account. The Rust `SessionStore`, PostgreSQL broker, and Live Demo boundary no longer accept a caller-selected role; the resulting session validates the configured demo persona against the role returned by the protected Store. Focused Rust tests and the staged PostgreSQL acceptance lane pass.
 
 - Replaced the phantom SD1 ownership-map reference in the design decisions with the maintained database and service authorization contracts. Those documents now explicitly own the exact authorization predicates used by the schema, Store, brokers, and acceptance evidence.
 
-- Recorded the fixed-role session-issuance rule: passwordless authentication establishes an existing Account, and the future trusted session broker derives that Account's immutable Product Role instead of accepting it as an independently selectable input. The current broker signature remains explicit pending SD1 implementation work.
+- Recorded the fixed-role session-issuance rule: passwordless authentication establishes an existing Account, and the future trusted session broker derives that Account's immutable User Role instead of accepting it as an independently selectable input. The current broker signature remains explicit pending SD1 implementation work.
 
-- Replaced the remaining live documentation use of **Account Role** with the canonical **Product Role**. Account classification is now consistently distinguished from Course Membership Role, while `AccountRole` remains named only where it identifies the current Rust implementation.
+- Replaced the remaining live documentation use of **Account Role** with the canonical **User Role**. Account classification is now consistently distinguished from Course Membership Role, while `AccountRole` remains named only where it identifies the current Rust implementation.
 
 - Reclassified the API, concurrency, and QTI contract documents around the current mounted production surface. Readiness, Authenticated Session, and the deployment-gated seeded Live Demo selector are the available route families; Store-backed delivery remains explicit target work with its concurrency and acceptance requirements preserved. The repository-wide Markdown link gate passes (184 documents).
 
@@ -436,21 +436,21 @@
 
 - Reconnected durable documentation and retained historical records after the clean schema and planning-corpus deletion. Current material now links to its implementation-status, release, schema, security, and payload authorities; historical entries name retired evidence without dead links.
 
-- Replaced the browser's stale multi-role user session DTO with the server's exact Authenticated Session projection: one `account` with one immutable Product Role. The strict decoder rejects the retired user/role-list shape, and route guards now consume that single Account role.
+- Replaced the browser's stale multi-role user session DTO with the server's exact Authenticated Session projection: one `account` with one immutable User Role. The strict decoder rejects the retired user/role-list shape, and route guards now consume that single Account role.
 
 - Removed the unreferenced account-presentation PostgreSQL oracle. It asserted deleted account, session, preference, and broker relations from the retired schema epoch; the fresh baseline has no corresponding product capability.
 
 - Replaced the remaining `UserId` ownership types in personal question collections, saved searches, and Instructor pool previews with the exact global `AccountId`. These private curation relationships now name their actual owner rather than retaining generic-user vocabulary.
 
-- Added `2026082934_sysadmin_account_provisioning_broker.sql`, establishing a current-session Sysadmin-only path to create one global Account with its immutable Product Role. Passwordless authentication remains unable to create Accounts or assign roles.
+- Added `2026082934_sysadmin_account_provisioning_broker.sql`, establishing a current-session Sysadmin-only path to create one global Account with its immutable User Role. Passwordless authentication remains unable to create Accounts or assign roles.
 
 - Replaced retired account-authentication table and index names in the database map with the fresh private Account, Authentication Email, challenge, Passkey, and Authenticated Session relations. The authorization and role documents now include the `2026082933` atomic credential-completion capability.
 
 - Corrected the student, install, usage, cookbook, security, and Live Demo documentation to distinguish the required email-code/passkey product design from the currently executable seeded-demo entry. The removed adapters are no longer represented as a completed live-demo reauthentication journey.
 
-- Added `2026082933_authentication_ceremony_brokers.sql` to the fresh baseline. Its execute-only `ple_auth` brokers atomically consume browser-bound email-code or validated-passkey ceremonies and return only the existing Account and immutable Product Role for canonical session creation.
+- Added `2026082933_authentication_ceremony_brokers.sql` to the fresh baseline. Its execute-only `ple_auth` brokers atomically consume browser-bound email-code or validated-passkey ceremonies and return only the existing Account and immutable User Role for canonical session creation.
 
-- Added the single-session passwordless credential contract in `learning-data-access`: bounded, browser-bound email challenges and private passkeys can return only an existing Account plus immutable Product Role. Raw credential proofs stay hashed and redacted; the route layer alone then creates the canonical Authenticated Session.
+- Added the single-session passwordless credential contract in `learning-data-access`: bounded, browser-bound email challenges and private passkeys can return only an existing Account plus immutable User Role. Raw credential proofs stay hashed and redacted; the route layer alone then creates the canonical Authenticated Session.
 
 - Converged the mounted authentication route inventory on the one current Authenticated Session surface: session lookup, sign-out, and the deployment-gated seeded Live Demo entry. The route policy, composition test, API contract, and database-structure narrative no longer advertise retired passwordless/passkey adapters or their obsolete auxiliary cookies. The fresh email-code and passkey schema roots remain the explicit next reconstruction package.
 
@@ -470,7 +470,7 @@
 
 - Restored `AuthenticationEmail` as a focused private credential value object, with strict IDNA lookup normalization, delivery spelling, and redacted diagnostics. It no longer shares a module with obsolete account-session or authorization models.
 
-- Made Account Creation explicit and separate from authentication. Email challenges now bind an existing Account and have only `sign_in` or `change_email` purposes; Account creation and Product Role assignment remain Sysadmin-owned lifecycle operations.
+- Made Account Creation explicit and separate from authentication. Email challenges now bind an existing Account and have only `sign_in` or `change_email` purposes; Account creation and User Role assignment remain Sysadmin-owned lifecycle operations.
 
 - Added the private one-to-one `account_authentication_email` relation to the fresh passwordless schema. A verified mutable Authentication Email now identifies an existing global Account for email-code sign-in without becoming Account identity, a role grant, course authority, or a browser DTO.
 

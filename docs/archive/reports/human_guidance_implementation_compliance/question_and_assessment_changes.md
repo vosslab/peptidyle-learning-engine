@@ -32,7 +32,7 @@ Current Pool text/Tags and control-surface receipt (2026-09-16): Pool text/Tags 
 implemented source with bounded backend, actual-role SQL, and frontend fixture evidence; the older
 "unavailable" statement below is historical, not current source status. Independent backend and
 frontend reviews accepted their bounded slices. After proof-fixture correction and the
-vocabulary-reader authority fix, root's fresh canonical PostgreSQL 17 `pool_text_fixed` proof passed
+vocabulary-reader authority fix, root's fresh canonical PostgreSQL `pool_text_fixed` proof passed
 as actual `ple_auth`/`ple_app` with rollback; labelled tmpfs container
 `ple-pool-text-proof-20260916` was stopped and auto-removed. Root pytest session 43993 passed 7,545
 tests in 5.75 seconds. Cargo session 18824 predates the SQL-only wrapper fix, so it is historical
@@ -60,7 +60,7 @@ current lineage classification; Pool matching uses Pool-owned lineage metadata b
 `LIMIT`, lookahead, and continuation. Root `cargo tsgen` generated 370 types; five model tests
 passed in session 44587, and `cargo check -p server_core -p project-tools --tests` passed in 10.48
 seconds before 13 Question and two Pool Rust tests passed in session 75888. A fresh network-none
-PostgreSQL 17 proof as `ple_migrator` passed actual-role rollback cases, including cross-only
+PostgreSQL proof as `ple_migrator` passed actual-role rollback cases, including cross-only
 matching, member independence, unchanged pins, and role denial; its labelled disposable container
 was removed. The subsequent production-import style cleanup found an omitted test-only import and
 is being rerun, so no later style-gate pass is claimed. No HTTP, UI, deployed, or connected
@@ -89,7 +89,7 @@ publication preparation, numeric region authoring, and a PLE-owned Student image
 control. Root `cargo check -p server_core -p project-tools --tests` session 32160 passed in 2.77
 seconds; root full pytest session 36235 passed 7,462 tests in 5.62 seconds; and `npx tsc --noEmit`
 session 35906 passed. The 353-test Node receipt predates the final geometry/readiness fixes, though
-their focused checks passed independently. Fresh canonical PostgreSQL 17 install and the isolated
+their focused checks passed independently. Fresh canonical PostgreSQL install and the isolated
 actual-role `ple_auth`/`ple_app` proof passed after the helper correction, with genuine changed
 successor source and exact `PQR01` stale handling. The isolated actual-component dot proof then
 passed at 1280 and 390 pixels: intrinsic geometry, pointer and keyboard selection, clear and
@@ -131,7 +131,7 @@ KISS/design constraints are audited N/A where not independently closable, but st
 The older 998-bullet statements below are historical provenance, not current counts.
 
 Current Pool evidence is bounded. SQL, Rust, API, and browser metadata source work is complete,
-but is not in running `8075`; HTTP/browser acceptance remains pending. Fresh PostgreSQL 17
+but is not in running `8075`; HTTP/browser acceptance remains pending. Fresh PostgreSQL
 installation through `ple_migrator`, `/private/tmp/ple-pool-metadata-proof.sql`, and
 `/private/tmp/ple-pool-concurrency-proof.py` passed their stated installation, role/rollback,
 concurrent-wait, and dual-commit cases. Actual `ple_app` metadata accepted 65 Tags; SQL and Rust
@@ -174,7 +174,7 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
-- Fresh canonical PostgreSQL 17.11 Course-purge evidence supersedes the earlier
+- Fresh canonical PostgreSQL Course-purge evidence supersedes the earlier
   historical source-only statement for its narrow actual-role boundary. The
   canonical validator grant repaired a real retention-executor CHECK failure
   without PUBLIC access or a proof-only workaround. One deleted daughter kept
@@ -195,7 +195,7 @@ The authoritative exhaustive record is the
   ordinary Instructor-release/Student-start/resume 180-second lifecycle. It does not establish
   browser, HTTP, renderer, real Instructor override save, or broad delivery acceptance. The
   incomplete accommodation slice is not ratio/UI or effective-24-hour-cap acceptance.
-- Accepted fresh PostgreSQL 17 `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`
+- Accepted fresh PostgreSQL `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`
   (exit 0) closes only unchanged resume: the same Student's second start SQL call returns the
   original Attempt, exactly one Attempt exists, and original start/expiry stay exactly eight
   seconds apart. Another browser/authenticated HTTP session remains open. The working-speed
@@ -213,7 +213,7 @@ The authoritative exhaustive record is the
 
 - Part 09 closes four exact current-rescore rows: stored credit as the grading outcome, score
   calculation from stored credit and current points, recalculation after a current-points edit, and
-  immutable grading outcomes. Independent review accepted private PostgreSQL 17 production-SQL
+  immutable grading outcomes. Independent review accepted private PostgreSQL production-SQL
   lifecycle proof at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact
   `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` exited 0. It retained `0.5` credit,
   used authorized expected-current `ple_api.save_assessment` to set points from `8` to `13` and
@@ -271,7 +271,7 @@ The authoritative exhaustive record is the
   `LiveAssessmentWorkspace` use canonical teaching types, and normal adoption materializes
   `SaveLiveAssessmentInput` through `assessment_values_json` into ordinary `ple_data.assessment`.
   Separate reusable and delivery storage/lifecycle projections are intentional, not separate
-  pedagogical models. Accepted fresh PostgreSQL 17 connected adoption proof passed 1 test with
+  pedagogical models. Accepted fresh PostgreSQL connected adoption proof passed 1 test with
   0 ignored, preserving mixed ordered Pool/Fixed entries, nondefault points/scoring/retry/timing/
   activity/feedback rules, exact Revision pins, independent daughter Pool IDs, and unset dates.
   Read-only SQL also verified two Unreleased adopted Regular Assignments retained the source Type
@@ -326,7 +326,7 @@ The authoritative exhaustive record is the
   projection used a bounded 69-Question fixture, so expert usability or performance for a very
   large production library remains open.
 
-- C523 has accepted independent PostgreSQL 17 actual-API receipts for the three Course Instance
+- C523 has accepted independent PostgreSQL actual-API receipts for the three Course Instance
   Assessment due/late defaults. Direct and reusable-content creation boundaries default late work
   to `reject`; an Attempt under that rule pins its immutable expiration to the effective Due date,
   while an accommodation remains authoritative. Post-Due start, save, and Student commit were
@@ -342,7 +342,7 @@ The authoritative exhaustive record is the
   `assessment_release_issues` authority returns the five date issues: missing Due, Due less than
   24 hours ahead, Due after the Course Active limit, Available after Due, and Due after Closes.
   Every released-state writer uses the same hard gate; unchanged near/past-Due Assessments may be
-  saved, while changed invalid values are rejected. The accepted fresh PostgreSQL 17 actual-API
+  saved, while changed invalid values are rejected. The accepted fresh PostgreSQL actual-API
   receipt covered authorization, rollback, date boundaries, correction, rerun, and successful
   release. The actual Assessment Properties component receipt covered all five actionable messages
   and correction/rerun/release. These receipts close only the narrow release-date rows below.
@@ -366,7 +366,7 @@ The authoritative exhaustive record is the
   `schemas/base_schema/50_functions/grading_access.sql` `read_assessment_gradebook_evidence` to select the
   highest grading-complete submitted Attempt; latest-Attempt progress remains separate. The stale
   configurable grade-rule enum, model field, SQL columns, and editor choices were removed from the
-  production boundary. Accepted independent fresh PostgreSQL 17 lifecycle evidence recorded
+  production boundary. Accepted independent fresh PostgreSQL lifecycle evidence recorded
   individual Attempt scores `12`, `4`, `16`, then `NULL` for an in-progress fourth Attempt. Both
   projections reported `12 / 16`, `12 / 16`, then `16 / 16`; the in-progress Attempt preserved its
   latest state without replacing the selected score. Artifact:
@@ -392,7 +392,7 @@ The authoritative exhaustive record is the
   Question Feedback is shown when provided without a separate delayed-release state.
   Actual-component proof switched the create dialog Type both ways while preserving
   title, entries, and selected-Type defaults. Accepted whole-submission proof navigated to the
-  existing server-redacted summary while failures remained on the Attempt. A fresh PostgreSQL 17
+  existing server-redacted summary while failures remained on the Attempt. A fresh PostgreSQL
   actual-API proof found zero history response-source rows before whole submission and one after;
   the native PLE summary preserved the disclosed correct answer. Its authorization matrix returned
   `owner=1`, `other Student=0`, `Instructor=0`, `archived=0`, and ended-membership ownership false.
@@ -422,7 +422,7 @@ The authoritative exhaustive record is the
 
 - C525 remains open, with corrected current-boundary evidence. `history_decision` calls
   `gate_quiz_exam_answers_for_current_cohort`, and `project_released_content` applies its result.
-  Accepted independent PostgreSQL 17 installed-predicate proof with administrator-inserted synthetic
+  Accepted independent PostgreSQL installed-predicate proof with administrator-inserted synthetic
   fixtures establishes never-started blocking, pending-invitation exclusion, joined-current-membership
   blocking, Account-deactivation membership preservation, Course-end noncompletion, ended-episode
   exit/new-episode rejoin, and retained submission behavior:
@@ -448,7 +448,7 @@ The authoritative exhaustive record is the
   independent of answer disclosure; the runtime WeBWorK fixture supplied no transient backend
   feedback and proves no renderer-feedback preservation or reconstruction.
 
-- C838/C839 accepted the fresh canonical Genetics publication. Isolated PostgreSQL 17/MinIO
+- C838/C839 accepted the fresh canonical Genetics publication. Isolated PostgreSQL/MinIO
   evidence published all 42 canonical PGML sources (41 official biologyproblems-website sources
   plus HLA) as ordinary available WeBWorK Question lineages at Revision 1 across nine topics,
   with 42 direct Fixed entries and zero Pools. The canonical Blueprint replay was unchanged; a
@@ -472,7 +472,7 @@ The authoritative exhaustive record is the
   used an ordinary-Instructor session. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
   This does not claim Sysadmin authentication, rendering, browser acceptance, or a retained catalog.
 
-- C831 has accepted isolated PostgreSQL 17 native-reproduction evidence. The actual PLE Question
+- C831 has accepted isolated PostgreSQL native-reproduction evidence. The actual PLE Question
   at shuffled position 2 retained null seed and hash, while the real WeBWorK Question retained a
   numeric seed and 64-character hash privately. Public start/read/save/resume/restored payloads
   omitted those reproduction fields; the same issued vector and saved native response restored on
@@ -493,7 +493,7 @@ The authoritative exhaustive record is the
 - Instructors may delete Draft Questions they no longer need.
   - Source: `docs/HUMAN_GUIDANCE.md:523`
 
-  Accepted isolated PostgreSQL 17/MinIO actual-server and focused browser evidence establishes the
+  Accepted isolated PostgreSQL/MinIO actual-server and focused browser evidence establishes the
   manual owner-delete boundary. The browser cancelled once, then confirmed deletion and reloaded the
   list without the Draft. The source path locks the owner-owned Draft and applies Edit Number CAS;
   current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous deletes were

@@ -1,6 +1,6 @@
 // Theme browser evidence: saved selections persist and abandoned previews are released.
 // Selector contract: CourseAppearancePage renders the route surface, native radios, and Save theme
-// button. The rendered course scope publishes the selected preview theme.
+// button. The document root publishes the selected preview theme.
 
 import assert from "node:assert/strict";
 import { once } from "node:events";
@@ -44,13 +44,10 @@ try {
   await page.waitForSelector('[data-route-surface="courseAppearance"]');
   await page.waitForFunction(() => window.courseAppearanceM7 !== undefined);
 
-  const shellTheme = page.locator(".course-theme-scope");
-  assert.equal(await shellTheme.getAttribute("data-course-theme"), "grass");
+  const shellTheme = page.locator("html");
+  assert.equal(await shellTheme.getAttribute("data-theme"), "grass");
   await page.getByRole("radio", { name: "Ocean" }).check();
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".course-theme-scope")?.getAttribute("data-course-theme") === "ocean",
-  );
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "ocean");
   assert.equal(await page.evaluate(() => window.courseAppearanceM7.saveCalls()), 0);
 
   await page.getByRole("button", { name: "Save theme" }).click();
@@ -59,16 +56,22 @@ try {
     window.courseAppearanceM7.resolveSave({ theme: "ocean", banner: null }),
   );
   await page.getByText("Theme saved.", { exact: true }).waitFor({ state: "visible" });
-  assert.equal(await shellTheme.getAttribute("data-course-theme"), "ocean");
+  assert.equal(await shellTheme.getAttribute("data-theme"), "ocean");
 
   await page.getByRole("radio", { name: "Magma" }).check();
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "magma");
+  await page.evaluate(() => window.courseAppearanceM7.switchCourse());
+  await page
+    .getByRole("heading", { name: "Loading Course Appearance" })
+    .waitFor({ state: "visible" });
+  await page.evaluate(() => window.courseAppearanceM7.resolveScope());
+  await page.getByRole("heading", { name: "Course Appearance" }).waitFor({ state: "visible" });
   await page.waitForFunction(
-    () =>
-      document.querySelector(".course-theme-scope")?.getAttribute("data-course-theme") === "magma",
+    () => document.documentElement.getAttribute("data-theme") === "forest",
   );
   await page.evaluate(() => window.courseAppearanceM7.hidePage());
   await page.locator("[data-m7-page-removed]").waitFor({ state: "visible" });
-  assert.equal(await shellTheme.getAttribute("data-course-theme"), "ocean");
+  assert.equal(await shellTheme.getAttribute("data-theme"), "forest");
   assert.deepEqual(pageErrors, []);
 } finally {
   await browser.close();

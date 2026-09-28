@@ -4,7 +4,7 @@ import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptI
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { CourseTheme } from "../../generated/api/CourseTheme";
+import type { Theme } from "../../generated/api/Theme";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
@@ -41,7 +41,7 @@ export interface StudentAssessmentAttemptHistory {
     readonly id: CourseInstanceId;
     readonly shortName: string;
     readonly longName: string;
-    readonly theme: CourseTheme;
+    readonly theme: Theme;
   };
   readonly assessment: {
     readonly id: AssessmentId;

@@ -101,8 +101,8 @@
   vertical-align: top;
 }
 .record-table thead th {
-  background: var(--ple-surface-soft);
-  color: var(--ple-accent-strong);
+  background: var(--ple-theme-secondary);
+  color: var(--ple-theme-on-secondary);
   font-size: 0.73rem;
   font-weight: 740;
   letter-spacing: 0.045em;
@@ -113,5 +113,5 @@
   font-weight: 400;
 }
 .record-table tbody tr:hover {
-  background: color-mix(in srgb, var(--ple-surface-soft) 55%, white);
+  background: var(--ple-surface-soft);
 }

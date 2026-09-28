@@ -15,7 +15,7 @@ use crate::{
 /// Relationship that may be persisted on one direct course membership.
 ///
 /// This scopes an Account's participation in one Course Instance. It is not
-/// another inventory of human Product Roles, and Sysadmin is never a membership
+/// another inventory of human User Roles, and Sysadmin is never a membership
 /// value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

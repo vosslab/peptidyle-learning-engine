@@ -10,9 +10,9 @@ use crate::{
     StudentAssessmentAttemptHistoryQuestion,
 };
 use question_model::{
-    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
-    StudentFeedback, StudentFeedbackReleaseRule, Timestamp,
+    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, GradingResult,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber, StudentFeedback,
+    StudentFeedbackReleaseRule, Theme, Timestamp,
 };
 use serde::Deserialize;
 use sqlx::Row;
@@ -104,7 +104,7 @@ pub(super) async fn read(
                 row.try_get("course_long_name").map_err(map_sqlx_error)?,
                 "Course long name",
             )?,
-            theme: CourseTheme::from_str(
+            theme: Theme::from_str(
                 &row.try_get::<String, _>("course_theme")
                     .map_err(map_sqlx_error)?,
             )

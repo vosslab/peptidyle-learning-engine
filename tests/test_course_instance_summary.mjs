@@ -11,7 +11,7 @@ import {
   decodeCreateCourseInstanceInput,
 } from "../src/api/decoders/course_instance.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
-import { courseThemeTokens } from "../src/features/course_appearance/course_theme_registry.ts";
+import { themeTokens } from "../src/appearance/theme_registry.ts";
 import { decodeCourseClassification } from "../src/api/decoders/course_classification.ts";
 
 const classification = {
@@ -43,7 +43,7 @@ test("the Instructor Course list accepts both closed activity states and one clo
 
   assert.equal(course.lifecycleState, "active");
   assert.equal(course.theme, "forest");
-  assert.equal(courseThemeTokens(course.theme).name, "Forest");
+  assert.equal(themeTokens(course.theme).name, "Forest");
   const [inactiveCourse] = decodeCourseInstanceList({
     items: [courseSummary("inactive")],
     nextCursor: null,

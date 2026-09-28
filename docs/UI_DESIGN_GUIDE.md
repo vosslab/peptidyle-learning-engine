@@ -9,7 +9,7 @@ permanent noise, and makes the next action easy to recognize.
 
 The Application Shell follows a **precision field console** philosophy: it is an instrument for
 teaching work, not a marketing surface. Context and destination bands always own distinct neutral
-planes; settled Instructor Task Row destinations follow Product Role and Tier 1 rather than the
+planes; settled Instructor Task Row destinations follow User Role and Tier 1 rather than the
 current object route. The course accent signals scoped identity and selection instead of decorating
 the chrome. Subtle rules, tonal depth, and immediate state paint establish hierarchy without excess
 padding, oversized controls, or nested cards. A row reserved by its navigation model remains stable
@@ -68,7 +68,7 @@ custom properties in `src/style.css` own the geometry most likely to change afte
 | `--ple-reading-max-inline`, bounded-list geometry            | Reading measure and Question Library working height                                    |
 | `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline` | Assessment columns and Question Search filter allocation                               |
 | `--ple-*-table-min-inline`, `--ple-*-block-size`             | Deliberate overflow thresholds for dense data and bounded lists                        |
-| `--ple-course-scope-*`, `--ple-course-theme-*`               | Course canvas inset, color washes, identity rail, and surface fade                     |
+| `--ple-theme-*`                                              | Resolved Canvas, Surface, Secondary, Accent, Highlight, and derived semantic colors    |
 | `.ple-shell-frame`                                           | The one structural viewport-height floor for Ribbon and non-Ribbon shells              |
 
 Adjust these tokens first when evidence supports a density change. Page styles may derive small
@@ -83,9 +83,8 @@ surface should make the current teaching decision easy to locate, act on, and ve
 turning each local group into a card or making an ordinary state change rearrange the workspace.
 
 - **Restrained surfaces have a named owner.** The page or feature that owns a decision owns its
-  local grouping; `src/style.css` supplies the shared canvas and spacing tokens; and
-  `src/features/course_appearance/course_theme_variables.tsx` supplies a course's applied visual
-  variables. Start with alignment, shared background, and proximity. Add a divider for scan
+  local grouping; `src/style.css` supplies shared spacing tokens; and `AppearanceOwner` supplies
+  the resolved Theme variables on `<html>`. Start with alignment, shared background, and proximity. Add a divider for scan
   structure or a boundary only when it identifies a real contained unit. Browser review must be
   able to identify the grouping purpose; nested decorative containers are a defect, not neutral
   polish.
@@ -101,15 +100,15 @@ turning each local group into a card or making an ordinary state change rearrang
   reachability; a preference for more empty chrome is not evidence.
 - **Spatial memory is a behavioral contract.** `src/application_shell.tsx` owns the persistent
   shell frame, viewport-height floor, and content origin; `src/ribbon/app_ribbon.tsx` presents the
-  named Ribbon rows from Product Role, Tier 1, and current route context. Context and Tab remain
-  reserved. Settled Instructor Task Rows derive from Product Role and Tier 1; Student Task Rows derive
+  named Ribbon rows from User Role, Tier 1, and current route context. Context and Tab remain
+  reserved. Settled Instructor Task Rows derive from User Role and Tier 1; Student Task Rows derive
   from Student Tier 1 and stay fixed through Attempt routes. Loading, error, theme,
   label, and capability-admission changes may update content or paint, but may not change the
   applicable row topology or move a visible control. Identity and geometry evidence must prove that
   a deferred or recovered route does not replace the shell or shift its visible controls.
 - **Contextual and asynchronous state fills a stable frame.** A page owns its heading, recovery,
   and Page Action at the point where that work occurs. `src/ribbon/ribbon_contract.ts` derives
-  settled Instructor task destinations from Product Role and Tier 1, while current Student Attempt
+  settled Instructor task destinations from User Role and Tier 1, while current Student Attempt
   controls retain their route context. Capability availability determines whether a destination is
   admitted without letting a late response add a surprise layout. Immediate selected or pending
   treatment belongs on the activated control, while the keyed content region may resolve separately.
@@ -147,7 +146,7 @@ The catalog preserves the designed locations of future destinations, but the cap
 admits a control only when its complete usable path is backed. A retained future label or route
 identity does not claim a Browser Surface, Service, Server Route, or authorization grant.
 
-Use one ordered Ribbon Schema for each Ribbon Scope and immutable Product Role pair. Every role uses
+Use one ordered Ribbon Schema for each Ribbon Scope and immutable User Role pair. Every role uses
 the same Application Shell and Ribbon architecture with a completely distinct menu:
 
 | Ribbon Scope | Instructor | Student | Sysadmin |
@@ -164,13 +163,13 @@ Coursework and specific Assessment Type names rather than the internal Assessmen
 fixed task rows are documented in Human Guidance.
 Sysadmin navigation exposes platform administration without granting ambient Course or FERPA access.
 
-Product Role is available with the Authenticated Session, so one Account uses one stable schema for
+User Role is available with the Authenticated Session, so one Account uses one stable schema for
 each scope throughout its session. Exact server and Store checks continue to authorize every
 destination and operation.
 
-Place the single Peptidyle home identity, one Product Role label, role-specific Product Tabs,
+Place the single Peptidyle home identity, one User Role label, role-specific Product Tabs,
 and the far-right Profile control in one information-dense top bar at a desktop
-1280 by 800 viewport. Product Role has no duplicate account-label rendering. Every visible Ribbon
+1280 by 800 viewport. User Role has no duplicate account-label rendering. Every visible Ribbon
 navigation item has a same-origin Font Awesome glyph and text except Profile. Every signed-in role's
 Profile link has the accessible name `Profile` while its visible rounded-square content is a generic
 user glyph or the selected Profile image. Sign Out is in the Profile menu rather than the top bar.
@@ -224,10 +223,10 @@ Within each Ribbon Schema, Slots available to every applicable Course Membership
 relationship-narrowed Slots form the remaining suffix. Resolve that suffix before displaying it,
 omit Unavailable Slots, and preserve the relative order of visible controls. A later availability
 result can therefore append controls without moving a visible control. This rule supports future
-Course Observer, Student Observer, and Grader relationships that are independent of Product Role.
+Course Observer, Student Observer, and Grader relationships that are independent of User Role.
 
 The Context and Tab Rows are always reserved as the persistent Ribbon's spatial grammar. For settled
-Instructor Tier 1 areas, Task Row destinations derive from Product Role and Tier 1 and remain the same
+Instructor Tier 1 areas, Task Row destinations derive from User Role and Tier 1 and remain the same
 across deeper routes; the current route selects a destination only when it matches. Course- and
 Assessment-specific navigation belongs in page content and breadcrumbs. Student Tier 2 destinations
 derive from Student Tier 1 and remain stable through Course, Assessment, Attempt, and review routes.
@@ -264,38 +263,31 @@ Tables use alignment and subtle row rules. Expanded detail uses an inset surface
 before any technical metadata. Empty states state what is absent, why that matters, and the primary
 next step; a dashed placeholder alone is not a finished state.
 
-## Course themes
+## Themes
 
-An Instructor may upload one Course banner and choose the Course's three-color palette. Course
+An Instructor may upload one Course banner and choose the Course Theme. Each Instructor also has a
+personal Theme for global Instructor pages; Courses retain their own Theme. Course
 banners use a 5:1 aspect ratio, with 1280 by 256 pixels as the recommended authoring size.
 Higher-resolution 5:1 images are supported. PLE responsively scales the image while preserving its
 aspect ratio and presents it as a small centered banner rather than a full-width page hero. The same
 geometry applies within every supported viewport. Theme names use biomes and habitats such as
 Forest, Grassland, Ocean, and Desert.
 
-Each stored three-color palette is meaningful. Standard presentation uses the full canvas anchor for
-the course environment, then derives separate tinted work, grouping, and reading-card surfaces. The
-raw secondary anchor identifies the active course-navigation section with a measured light or dark
-label, while the accent anchor remains visible in the course rail and local composition. Links,
-actions, text, focus, and quiet boundaries stay related to those same three anchors.
+Each Theme and display-mode look has five source colors: Canvas, Surface, Secondary, Accent, and
+Highlight. A shared rule derives the remaining semantic colors. Canvas and Surface carry enough
+color identity for the whole interface; the Theme does not depend on a rail or thin accents.
 
-The shared `THEME_MIX` recipe in `course_theme_registry.ts` owns the projection percentages. Change that
-recipe and the shared `--ple-course-theme-*` CSS controls before adding a theme-specific override;
-reserve explicit overrides for a measured exception such as the Grass palette. The stored anchors do
-not need to change merely because the presentation should become stronger or quieter.
+[`BIOME_THEME_PALETTES.md`](BIOME_THEME_PALETTES.md) owns the five-color model, the shared
+derivation, and the palette catalog. Course Appearance supplies an unsaved Course preview to
+`AppearanceOwner`; it does not create a local Theme scope.
 
-Ordinary text meets at least 5.5:1 against its rendered background, but a pair already meeting the
-target should not be darkened toward maximum contrast without another need. Shared standard-theme
-text tokens stay at or below 8.25:1 so normal presentation does not collapse toward black and white;
-this ceiling does not apply to action states or the user-selected increased-contrast presentation.
-The theme chooser and visual contact sheet must preview applied palette roles rather than presenting
-three tiny swatches or an unrelated banner as the theme's primary identity.
+Theme text must meet 4.5:1 contrast against its rendered background. Meaningful controls, focus
+indicators, and required boundaries must meet 3:1. The theme chooser and visual contact sheet must
+preview applied palette roles rather than presenting tiny swatches or an unrelated banner as the
+Theme's primary identity.
 
-Increased contrast is an account-backed presentation option. It strengthens text, focus, selected
-states, and necessary boundaries while retaining the same theme hue family and course identity. It
-does not change Course data, Question content, grading, Assessment behavior, or authorization.
-Forced-colors is automatic browser/operating-system behavior and remains independent of the stored
-preference.
+`html[data-contrast="increased"]` remains unused styling. A later decision will either expose it or
+remove it. Forced-colors remains browser and operating-system behavior.
 
 ## Assessment Type appearance
 
@@ -335,8 +327,7 @@ direct Question ID entry remains an occasional recovery and communication path.
 Use behavior tests for durable interaction and authorization contracts. Use computed browser styles,
 screenshots, and human inspection for geometry, density, hierarchy, theme character, focus, and
 responsive composition. Canonical evidence includes 1280 by 800 instructor pages, student pages at
-both 1280 by 800 and 800 by 1280, a narrow-phone overflow guard, and standard plus
-increased-contrast theme samples.
+both 1280 by 800 and 800 by 1280, and a narrow-phone overflow guard.
 Current baseline screenshots are governed by [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) and
 enumerated in `docs/screenshots/current_capture_manifest.json`. [UI_DESIGN_REVIEW.md](UI_DESIGN_REVIEW.md)
 and [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md) retain historical review context rather

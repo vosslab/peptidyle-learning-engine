@@ -142,7 +142,7 @@ pub use crate::assessment_workspace::{
     AssessmentReleaseIssue, AssessmentReleaseValidation, CreateAssessmentRequest,
     ReplaceAssessmentContentRequest, ReplaceAssessmentPoliciesRequest,
 };
-pub use crate::auth::{AccountId, ProductRole};
+pub use crate::auth::{AccountId, UserRole};
 pub use crate::bloom_classification::{
     BloomClassification, BloomClassificationCorrectionRequest, BloomClassificationEditNumber,
     BloomClassificationEditNumberError, BloomClassificationView, BloomCognitiveProcess,
@@ -180,7 +180,7 @@ pub use crate::course::{
 pub use crate::course_appearance::{
     CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerId,
     CourseBannerInformativeText, CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadId,
-    CourseBannerUploadReceipt, CourseTheme, CourseThemeUpdate,
+    CourseBannerUploadReceipt, CourseThemeUpdate, DisplayMode, Theme,
 };
 pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,

@@ -10,8 +10,95 @@
   const captureRequestPattern = /^ple\.backendOwned\.capture:([a-f0-9]{16})$/;
   const responseKind = "ple.backendOwned.response";
   const previewResizeKind = "ple.webwork.preview.resize";
+  const appearanceKind = "ple.embed.appearance";
+  const appearanceVersion = 1;
+  const appearancePrefix = `${appearanceKind}:`;
   const previewMinimumHeight = 160;
   const previewMaximumHeight = 1200;
+  const hexColor = /^#[0-9a-f]{6}$/i;
+  const appearanceColorKeys = [
+    "background",
+    "foreground",
+    "surface",
+    "secondary",
+    "accent",
+    "highlight",
+    "muted",
+    "border",
+    "onAccent",
+    "link",
+  ];
+  const appearanceProperties = [
+    ["--ple-document-background", "background"],
+    ["--ple-document-foreground", "foreground"],
+    ["--ple-document-surface", "surface"],
+    ["--ple-document-secondary", "secondary"],
+    ["--ple-document-accent", "accent"],
+    ["--ple-document-highlight", "highlight"],
+    ["--ple-document-muted", "muted"],
+    ["--ple-document-border", "border"],
+    ["--ple-document-on-accent", "onAccent"],
+    ["--ple-document-link", "link"],
+    ["--bs-body-bg", "background"],
+    ["--bs-body-color", "foreground"],
+    ["--bs-secondary-bg", "secondary"],
+    ["--bs-tertiary-bg", "secondary"],
+    ["--bs-border-color", "border"],
+    ["--bs-primary", "accent"],
+    ["--bs-link-color", "link"],
+    ["--bs-link-hover-color", "link"],
+  ];
+
+  function isRecord(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function hasExactKeys(value, keys) {
+    const received = Object.keys(value);
+    return received.length === keys.length && keys.every((key) => received.includes(key));
+  }
+
+  function isAppearanceMessage(value) {
+    if (!isRecord(value) || !hasExactKeys(value, ["kind", "version", "mode", "colors"]))
+      return false;
+    if (value.kind !== appearanceKind || value.version !== appearanceVersion) return false;
+    if (value.mode !== "light" && value.mode !== "dark") return false;
+    if (!isRecord(value.colors) || !hasExactKeys(value.colors, appearanceColorKeys)) return false;
+    return appearanceColorKeys.every(
+      (key) => typeof value.colors[key] === "string" && hexColor.test(value.colors[key]),
+    );
+  }
+
+  function applyAppearance(message) {
+    // ASVS 1.2.3/2.2.1: validated colors enter only this fixed property list;
+    // no received property name or CSS text is ever interpreted.
+    const root = document.documentElement;
+    if (root === undefined) return;
+    root.style.colorScheme = message.mode;
+    for (const [property, color] of appearanceProperties)
+      root.style.setProperty(property, message.colors[color]);
+  }
+
+  function decodedAppearance(value) {
+    if (typeof value !== "string" || !value.startsWith(appearancePrefix)) return undefined;
+    try {
+      const message = JSON.parse(value.slice(appearancePrefix.length));
+      return isAppearanceMessage(message) ? message : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function receiveAppearance(event) {
+    // ASVS 3.5.5: require the canonical parent origin, exact parent window,
+    // and a closed cosmetic record before altering the isolated document.
+    const appearance = decodedAppearance(event.data);
+    if (event.origin !== parentOrigin || event.source !== window.parent || appearance === undefined)
+      return;
+    applyAppearance(appearance);
+  }
+
+  window.addEventListener("message", receiveAppearance);
 
   function visibleBottom(element) {
     if (element.getClientRects().length === 0) return 0;

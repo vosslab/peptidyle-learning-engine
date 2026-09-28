@@ -102,10 +102,10 @@ export function SignInPage(): JSX.Element {
       const currentSession = session.state();
       navigate(
         currentSession.kind === "authenticated" &&
-          currentSession.session.account.productRole === "instructor"
+          currentSession.session.account.userRole === "instructor"
           ? "/library"
           : currentSession.kind === "authenticated" &&
-              currentSession.session.account.productRole === "student"
+              currentSession.session.account.userRole === "student"
             ? "/"
             : "/",
       );
@@ -176,7 +176,7 @@ export function SignInPage(): JSX.Element {
                 {(account) => (
                   <button
                     class="quiet-action live-demo-persona-action"
-                    data-product-role={seededDemoRole(account.persona)}
+                    data-user-role={seededDemoRole(account.persona)}
                     type="button"
                     disabled={seededDemo().kind === "opening"}
                     onClick={() => void selectSeededDemoAccount(account)}

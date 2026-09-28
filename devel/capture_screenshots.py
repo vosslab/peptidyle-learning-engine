@@ -16,6 +16,8 @@ import sys
 import time
 
 import change_scope
+import local_stack_control.live_demo_gateway
+import local_stack_control.process
 
 
 ROLE_FOLDERS = ("public", "instructor", "student", "sysadmin")
@@ -348,6 +350,14 @@ def capture_corpus(
 	run_command(argv, root, env)
 	print_elapsed("capture", started)
 
+#============================================
+def refresh_browser_certificate_trust(root: pathlib.Path, origin: str) -> None:
+	"""Refresh the private browser trust receipt for the ready owned gateway."""
+	workspace = root / "local_stack_state" / "live_demo_browser" / "workspace"
+	local_stack_control.live_demo_gateway.refresh_browser_certificate_trust(
+		local_stack_control.process.SubprocessRunner(), root, workspace, origin
+	)
+
 
 def main() -> None:
 	args = parse_args(sys.argv[1:])
@@ -406,6 +416,7 @@ def main() -> None:
 	control = root / CONTROL_RECEIPT
 	origin = json.loads(control.read_text())["origin"]
 	entry = origin + "sign-in" if origin.endswith("/") else origin + "/sign-in"
+	refresh_browser_certificate_trust(root, origin)
 
 	before = png_hashes(root)
 	capture_corpus(root, entry, args)

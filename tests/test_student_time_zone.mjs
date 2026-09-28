@@ -15,17 +15,28 @@ test("Account Settings uses one self-only no-store GET and PUT contract", async 
     fetch: async (input, init) => {
       requests.push({ input, init });
       const timeZone = init?.method === "PUT" ? "America/Los_Angeles" : "America/New_York";
-      return new Response(JSON.stringify({ timeZone }), {
-        headers: { "content-type": "application/json", "cache-control": "no-store" },
-      });
+      return new Response(
+        JSON.stringify({
+          timeZone,
+          displayModePreference: null,
+          personalTheme: "grass",
+        }),
+        {
+          headers: { "content-type": "application/json", "cache-control": "no-store" },
+        },
+      );
     },
   });
 
   assert.deepEqual(await client.getAccountSettings(), {
     timeZone: "America/New_York",
+    displayModePreference: null,
+    personalTheme: "grass",
   });
   assert.deepEqual(await client.updateAccountSettings({ timeZone: "America/Los_Angeles" }), {
     timeZone: "America/Los_Angeles",
+    displayModePreference: null,
+    personalTheme: "grass",
   });
   assert.equal(requests[0].input, "/live/api/account/settings");
   assert.equal(requests[0].init?.method, undefined);
@@ -38,14 +49,27 @@ test("Account Settings uses one self-only no-store GET and PUT contract", async 
 
 test("Account Settings rejects unsupported zones and client-supplied identity", async () => {
   assert.throws(
-    () => decodeProfileSettings({ timeZone: "America/Chicago", accountId: "private" }),
+    () =>
+      decodeProfileSettings({
+        timeZone: "America/Chicago",
+        displayModePreference: null,
+        personalTheme: null,
+        accountId: "private",
+      }),
     DecodeError,
   );
   const client = createHttpApiClient({
     fetch: async () =>
-      new Response(JSON.stringify({ timeZone: "not/a-zone" }), {
-        headers: { "content-type": "application/json", "cache-control": "no-store" },
-      }),
+      new Response(
+        JSON.stringify({
+          timeZone: "not/a-zone",
+          displayModePreference: null,
+          personalTheme: null,
+        }),
+        {
+          headers: { "content-type": "application/json", "cache-control": "no-store" },
+        },
+      ),
   });
   await assert.rejects(client.getAccountSettings(), DecodeError);
   assert.throws(

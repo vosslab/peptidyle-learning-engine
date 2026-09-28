@@ -1,8 +1,8 @@
-# Product roles and course membership
+# User roles and course membership
 
-PLE has three human Product Roles: **Student**, **Instructor**, and
+PLE has three human User Roles: **Student**, **Instructor**, and
 **Sysadmin**. An **Account** is a global authenticated identity with exactly
-one immutable Product Role. A person needing more than one role uses separate
+one immutable User Role. A person needing more than one role uses separate
 Accounts. Account State determines whether that role is currently active.
 
 This document owns role vocabulary. Exact authorization predicates are in
@@ -37,7 +37,7 @@ and service-capability boundaries are in
   deactivation also closes the Account's Instructor capabilities.
 - Instructor Account deactivation preserves authored content, Course
   relationships, and historical records. Reactivation restores the same
-  Account and Product Role. No permanent Account-closure workflow is currently
+  Account and User Role. No permanent Account-closure workflow is currently
   defined.
 
 ## Sysadmin
@@ -54,17 +54,17 @@ and service-capability boundaries are in
 ## Future Course roles
 
 Course Observer, Student Observer, and Grader are possible future Course roles,
-not current Product Roles. Course Observers are read-only and may receive Course
+not current User Roles. Course Observers are read-only and may receive Course
 content plus non-FERPA aggregate information. Student Observers require
 authorized read-only access to one Student's Course information. Graders are not
 currently needed because Assessment grading is automatic. Their future
 authorization must be added as explicit relationships rather than widening a
-current Product Role.
+current User Role.
 
 ## Course membership
 
 Course Membership is a current relationship between one Account and one Course
-Instance. Its role must match the Account's Product Role:
+Instance. Its role must match the Account's User Role:
 
 | Membership role | Current authority |
 | --- | --- |
@@ -85,7 +85,7 @@ Student Work.
 
 `ple_app`, `ple_auth`, `ple_student`, public-asset publication, Question Backend
 evaluation, approved background processes, schema owners, and `ple_unrelease_executor` are PostgreSQL
-capabilities or service identities. They are not Accounts, Product Roles,
+capabilities or service identities. They are not Accounts, User Roles,
 Course Membership roles, browser personas, or human permissions. Each service
 login can assume only the capability required by its process.
 
@@ -99,7 +99,7 @@ Use **Student**, **Instructor**, and **Sysadmin** for people. Use **course
 instructor** or **Teaching Team member** for exact course authority. Use
 **service identity** for a non-human technical principal and **PostgreSQL
 capability** for its restricted database role. A workspace owner is an access
-relationship, not a fourth Product Role.
+relationship, not a fourth User Role.
 
 Published **Question Revisions** and **Blueprint Revisions** are the product
 Revision concepts. Question Pools, Assessments, and Course Instance

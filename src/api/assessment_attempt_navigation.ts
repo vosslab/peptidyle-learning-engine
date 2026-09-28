@@ -2,7 +2,7 @@ import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptI
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { CourseTheme } from "../../generated/api/CourseTheme";
+import type { Theme } from "../../generated/api/Theme";
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { StudentQuestionPresentation } from "./decoders/presentation_delivery";
@@ -32,7 +32,7 @@ export interface StudentAssessmentAttemptContext {
     readonly id: CourseInstanceId;
     readonly shortName: string;
     readonly longName: string;
-    readonly theme: CourseTheme;
+    readonly theme: Theme;
   };
   readonly assessment: {
     readonly id: AssessmentId;

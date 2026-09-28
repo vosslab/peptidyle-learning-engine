@@ -337,10 +337,10 @@ function validateCaptureRelationships(captures: ReadonlyArray<CaptureRecord>): v
     if (
       capture.role !== "public" &&
       capture.privacyProfile !== "authorization_denial" &&
-      route.requiredProductRoles.length > 0 &&
-      !new Set<string>(route.requiredProductRoles).has(capture.role)
+      route.requiredUserRoles.length > 0 &&
+      !new Set<string>(route.requiredUserRoles).has(capture.role)
     ) {
-      throw new Error(`capture ${capture.id} has a Product Role outside its route contract`);
+      throw new Error(`capture ${capture.id} has a User Role outside its route contract`);
     }
     if (capture.role === "public" && capture.routeId !== "signIn" && capture.state !== "expired") {
       throw new Error(`public capture ${capture.id} must be sign-in or expired-session recovery`);

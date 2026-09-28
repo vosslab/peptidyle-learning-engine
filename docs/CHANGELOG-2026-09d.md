@@ -11,16 +11,16 @@
 - Completed vocabulary row 489 after a repository-wide audit: no current PLE Retry Token or idempotency-key contract remains. Repeated operations use their existing Question Attempt, Roster Import/revision, iMathAS Session/result, or Blueprint request/Receipt facts; the narrow remaining references are classified technical vocabulary, read-only authority, or superseded history.
 - Continued the terminology migration's direct PLE-domain cutover: Correction Generation work, Course Retention object deletion, Assignment Activity contract mapping, database authorization evidence, Question Statistics, and the fresh Account State baseline now name their exact constrained operation or Receipt instead of a generic repeat-operation abstraction. Active, Deactivated, and Closed replace the retired suspended state; Deactivation or Closure revokes current Authenticated Sessions. Standard HTTP/platform terminology and read-only authority remain deliberately classified rather than renamed.
 
-- Completed `WP-SD1-A-TERM-01-QVAR1` and row 179: retired combined Variation Policy state is absent across current code, schema, API, generated contracts, interfaces, fixtures, and tests. Question Pool Reuse Rule and Assignment Question Variation Rule independently cross Assignment, released/issued snapshots, PostgreSQL evidence, strict browser controls, Student presentation, and all four focused combinations. No Instructor-selected exact-variation feature exists. Completed row 510: Question Statistics Eligibility is the server-derived, frozen Issued Question fact through Rust, fresh PostgreSQL schema/procedures/catalog, strict browser wire, and the existing serialized fixture; focused contracts and the PostgreSQL 17 acceptance lane pass without an alias, new fixture, or feature. Corrected the unsupported global Question Statistics release shape: global difficulty/discrimination/duration/attempt metrics, availability filter/facet, aggregate machinery, and browser presentation are removed; exact accepted-grade counts remain private, unavailable is the only current public state, and the prior row 327 checkbox is reopened. Completed row 501: `dropped_assignment_grades` / `droppedAssignmentGrades` replaces the generic ID wording through the pure Course Grade calculator, wire, generated contract, strict decoder, and existing focused test; no Course Grade persistence, route, schema, fixture, or feature was invented.
-- Completed `WP-SD1-A-TERM-01-BA1` and vocabulary row 565: Blueprint Assignment replaces all seven current reusable-assignment phrases, and the Assignment Editor's separate saved-Course-Assignment source now owns the exact `RetainedAssignmentQuestionSource` type instead of masquerading as a `BlueprintAssignment`. Focused and aggregate gates pass; the three tracked fixtures are unchanged, with no schema, API wire, route, test behavior, compatibility path, or feature added. Implemented acceptance-open `WP-SD1-A-TERM-01-BMOD1`: direct Blueprint Module vocabulary cutover replaces `BlueprintCourseModuleView`, `BlueprintModuleId`, `module_id`, and both edit-handle types with Blueprint Module View/Reference/Edit Choice and Blueprint Assignment Edit Choice across the Question Model, generated contracts, strict browser decoder, editor, and focused tests. Rows 566, 568, and 569 remain open because the complete immutable Blueprint Revision Content Store/Server Route does not exist; no fixture or compatibility path was added. Completed `WP-SD1-A-TERM-01-BAREF1` and vocabulary row 460: the direct `BlueprintAssignmentReference` / `blueprint_assignment_reference` cutover now covers the Question Model, Blueprint-operation records, generated contract, strict decoder, editor/picker consumers, and focused tests; ordinary Course Assignment IDs remain separate private record identities, and no fixture or compatibility path was added. Completed `WP-SD1-A-TERM-01-AAR1` and vocabulary row 457: removed the dead browser-only `StartedAssignmentAttemptId` alias; current state, private record ID, and the `R-` Assignment Attempt Reference remain separate. `WP-SD1-A-TERM-01-NOI1` removes the unsupported Question Submission, Course Roster, and iMathAS Result Exchange Retry Token expansion: repeated requests now use the existing Question Attempt, Roster Import/revision, and iMathAS Session/result identities, returning an existing result or a conflict. Focused browser (52), LDA (33), adapter (8), TypeScript, documentation/SQL (1,216), and PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS-service (3) gates pass; no fixture changed. Completed `WP-SD1-A-TERM-01-RRT2` and vocabulary row 483: Blueprint `RequestRetryToken` and `RequestRetryBinding` are removed across reservations, apply records, commands, receipts, browser intent/decoder/client, and generated contracts. The exact Account, Request Checksum, reservation/target, revision/source, and Receipt facts remain; no Blueprint Store/Server Route demonstrates a separate-token need. Focused Question Model (146), browser (3), TypeScript, generation, residual, formatting, and diff gates pass. Completed `WP-SD1-A-TERM-01-RRT3` and rows 481--482: the unsupported Instructor Grading Retry Token, replay registry, test-only Store, receipt field, generated contract, strict transport/header, and page UUID are removed. Exact operation/action/revision/Request Checksum/Receipt facts remain; no Store or Server Route demonstrates a dedicated-token need. Focused Rust, browser API, LDA, browser (8), TypeScript, generation, residual, formatting, and diff gates pass. Completed `WP-SD1-A-TERM-01-QVAR1` and row 474: the retired selected-problem-variant aggregate is absent across current code, schema, API, generated contracts, interfaces, fixtures, and tests. Question Pool Reuse Rule and Assignment Question Variation Rule separately control later-Attempt selection and issued variations; there is no Instructor-selected exact-variation feature. Focused model/browser, TypeScript, residual, documentation, formatting, and diff gates pass.
+- Completed `WP-SD1-A-TERM-01-QVAR1` and row 179: retired combined Variation Policy state is absent across current code, schema, API, generated contracts, interfaces, fixtures, and tests. Question Pool Reuse Rule and Assignment Question Variation Rule independently cross Assignment, released/issued snapshots, PostgreSQL evidence, strict browser controls, Student presentation, and all four focused combinations. No Instructor-selected exact-variation feature exists. Completed row 510: Question Statistics Eligibility is the server-derived, frozen Issued Question fact through Rust, fresh PostgreSQL schema/procedures/catalog, strict browser wire, and the existing serialized fixture; focused contracts and the PostgreSQL acceptance lane pass without an alias, new fixture, or feature. Corrected the unsupported global Question Statistics release shape: global difficulty/discrimination/duration/attempt metrics, availability filter/facet, aggregate machinery, and browser presentation are removed; exact accepted-grade counts remain private, unavailable is the only current public state, and the prior row 327 checkbox is reopened. Completed row 501: `dropped_assignment_grades` / `droppedAssignmentGrades` replaces the generic ID wording through the pure Course Grade calculator, wire, generated contract, strict decoder, and existing focused test; no Course Grade persistence, route, schema, fixture, or feature was invented.
+- Completed `WP-SD1-A-TERM-01-BA1` and vocabulary row 565: Blueprint Assignment replaces all seven current reusable-assignment phrases, and the Assignment Editor's separate saved-Course-Assignment source now owns the exact `RetainedAssignmentQuestionSource` type instead of masquerading as a `BlueprintAssignment`. Focused and aggregate gates pass; the three tracked fixtures are unchanged, with no schema, API wire, route, test behavior, compatibility path, or feature added. Implemented acceptance-open `WP-SD1-A-TERM-01-BMOD1`: direct Blueprint Module vocabulary cutover replaces `BlueprintCourseModuleView`, `BlueprintModuleId`, `module_id`, and both edit-handle types with Blueprint Module View/Reference/Edit Choice and Blueprint Assignment Edit Choice across the Question Model, generated contracts, strict browser decoder, editor, and focused tests. Rows 566, 568, and 569 remain open because the complete immutable Blueprint Revision Content Store/Server Route does not exist; no fixture or compatibility path was added. Completed `WP-SD1-A-TERM-01-BAREF1` and vocabulary row 460: the direct `BlueprintAssignmentReference` / `blueprint_assignment_reference` cutover now covers the Question Model, Blueprint-operation records, generated contract, strict decoder, editor/picker consumers, and focused tests; ordinary Course Assignment IDs remain separate private record identities, and no fixture or compatibility path was added. Completed `WP-SD1-A-TERM-01-AAR1` and vocabulary row 457: removed the dead browser-only `StartedAssignmentAttemptId` alias; current state, private record ID, and the `R-` Assignment Attempt Reference remain separate. `WP-SD1-A-TERM-01-NOI1` removes the unsupported Question Submission, Course Roster, and iMathAS Result Exchange Retry Token expansion: repeated requests now use the existing Question Attempt, Roster Import/revision, and iMathAS Session/result identities, returning an existing result or a conflict. Focused browser (52), LDA (33), adapter (8), TypeScript, documentation/SQL (1,216), and PostgreSQL fresh/no-op/catalog/restricted/iMathAS-service (3) gates pass; no fixture changed. Completed `WP-SD1-A-TERM-01-RRT2` and vocabulary row 483: Blueprint `RequestRetryToken` and `RequestRetryBinding` are removed across reservations, apply records, commands, receipts, browser intent/decoder/client, and generated contracts. The exact Account, Request Checksum, reservation/target, revision/source, and Receipt facts remain; no Blueprint Store/Server Route demonstrates a separate-token need. Focused Question Model (146), browser (3), TypeScript, generation, residual, formatting, and diff gates pass. Completed `WP-SD1-A-TERM-01-RRT3` and rows 481--482: the unsupported Instructor Grading Retry Token, replay registry, test-only Store, receipt field, generated contract, strict transport/header, and page UUID are removed. Exact operation/action/revision/Request Checksum/Receipt facts remain; no Store or Server Route demonstrates a dedicated-token need. Focused Rust, browser API, LDA, browser (8), TypeScript, generation, residual, formatting, and diff gates pass. Completed `WP-SD1-A-TERM-01-QVAR1` and row 474: the retired selected-problem-variant aggregate is absent across current code, schema, API, generated contracts, interfaces, fixtures, and tests. Question Pool Reuse Rule and Assignment Question Variation Rule separately control later-Attempt selection and issued variations; there is no Instructor-selected exact-variation feature. Focused model/browser, TypeScript, residual, documentation, formatting, and diff gates pass.
 - Completed `WP-SD1-A-TERM-01-ICI1` and vocabulary row 451: the sole current live-delivery plan now uses Instructor Course Invitation, and the Terminology Contract distinguishes it from a general Course Invitation by exact target, Instructor Course Membership Role, acceptance-only Teaching Team outcome, and non-membership-change boundary. No fixture, schema, API, route, or behavior changed.
-- Completed `WP-SD1-A-TERM-01-AWO1` and vocabulary row 444: the fresh schema column, current-session predicates, RLS policies, dependent private-authoring operations, documentation, catalog oracle, and SQL fixture now use Authoring Workspace Owner while retaining Workspace Collaborator as a separate relationship. PostgreSQL 17 and aggregate gates pass; authorization behavior is unchanged and no compatibility path, fixture, route, Browser Surface, or feature was added.
+- Completed `WP-SD1-A-TERM-01-AWO1` and vocabulary row 444: the fresh schema column, current-session predicates, RLS policies, dependent private-authoring operations, documentation, catalog oracle, and SQL fixture now use Authoring Workspace Owner while retaining Workspace Collaborator as a separate relationship. PostgreSQL and aggregate gates pass; authorization behavior is unchanged and no compatibility path, fixture, route, Browser Surface, or feature was added.
 - Completed `WP-SD1-A-TERM-01-ALPHA1` and vocabulary row 573: Blueprint Course is the sole PLE reusable source-course identity across code, schema, contracts, Browser Surfaces, fixtures, tests, and active plans. Alpha Course remains only as attributed LibreTexts ADAPT prior-art vocabulary; focused and full aggregate gates pass with no behavior, fixture, schema, route, or feature change.
 - Completed `WP-SD1-A-TERM-01-QO1` and vocabulary row 442: `owning instructor` is now exactly Question Owner. Immutable Question Ownership Events form a repeatable ordered chain; only the current owner records an accepted transfer to an Active Instructor Account.
   Question Authorship remains separate, new-lineage publication derives its owner server-side, and no browser contract exposes owner identity.
   The Question Library rechecks Account State and stays visible to every Active Instructor Account regardless of ownership.
-  PostgreSQL 17 proves invalid-recorder/inactive-target refusal, two transfers, current-owner derivation, shared visibility, and non-active exclusion.
-  Final aggregate: 422 contracts, 3 fixtures, Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL 17, and PostgreSQL-plus-MinIO pass; no route or Browser Surface was added.
+  PostgreSQL proves invalid-recorder/inactive-target refusal, two transfers, current-owner derivation, shared visibility, and non-active exclusion.
+  Final aggregate: 422 contracts, 3 fixtures, Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL, and PostgreSQL-plus-MinIO pass; no route or Browser Surface was added.
 - Completed `WP-SD1-A-TERM-01-QSB1`: the fresh schema directly creates qualified Draft Question and Question Revision Source Bindings; RLS, Object Record validation, Bind Question Source, publication validation, and iMathAS resolution use them without a mixed-table copy/drop bridge. The metadata-only 2026090301 migration was renamed, retired-name inventory assertions were deleted, no fixture was added or changed, and full aggregate acceptance passes. Rows 262 and 325 remain open for remaining QSOM1 work.
 - Completed `WP-SD1-A-TERM-01-SLWS1` and vocabulary row 186: Question Model now solely owns `StudentLateWorkStatus` (On Time, Accepted Late, Marked Late), Domain re-exports it, and `student_late_work_status` crosses the decision, delivery, generated contract, decoder, and Student presentation. Late Work Refused remains a separate access denial; focused and full aggregate gates pass with no fixture, schema, route, or feature added.
 - Completed `WP-SD1-A-TERM-01-QANS1` and vocabulary row 286: the trusted PLE grader now names its `QuestionAnswer` builder and uses accepted-response wording for display-ready content; the authoring HCI brief names its local preview as an Answer Key and Question Feedback check. Exact QTI and private grading/correctness language remains; focused and full aggregate gates pass with no fixture, schema, route, or feature added.
@@ -29,12 +29,12 @@
 - Completed `WP-SD1-A-TERM-01-SRI1` and vocabulary row 285: the retained future inspection browser contract now uses exact `studentResponseInspection` and `studentResponseInspectionFeedback` members; Domain, generated contracts, strict decoding, tests, and visible privacy copy explicitly separate Student Response, permitted correctness/score, Question Answer, Question Answer Explanation, Answer Key, and Question Grading Input. Focused and full aggregate gates pass; no fixture, schema, Server Route, Browser Surface, or feature was added.
 - Completed `WP-SD1-A-TERM-01-BCO1` and vocabulary row 443, replacing the residual generic `owning instructor` meaning with the exact Blueprint Course Owner relationship. The sole durable
   owner field is `blueprint_course.blueprint_course_owner_account_id`; publication, availability, and Draft Blueprint Revision collaboration transitions authorize that relationship. The
-  PostgreSQL 17 oracle proves that another Instructor cannot act as owner while the exact Blueprint Course Owner can complete each transition. The database diagnostic no longer carries the retired
+  PostgreSQL oracle proves that another Instructor cannot act as owner while the exact Blueprint Course Owner can complete each transition. The database diagnostic no longer carries the retired
   Instructor Approval model. Rust and generated TypeScript expose `BlueprintCourseReadAccess`; the strict decoder and Blueprint Course workspace use `blueprint_course_owner` or
   `active_instructor`, and the existing hostile fixture rejects generic `access: "owner"`.
   The final aggregate generated 422 contracts, validated 3 tracked fixtures, passed Rust
   formatting/checks/strict Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests,
-  PostgreSQL 17 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
+  PostgreSQL fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
   PostgreSQL-plus-MinIO course-appearance oracle. No route, Store, schema relationship,
   compatibility alias, Browser Surface, fixture family, or feature was added.
 - Completed `WP-SD1-A-TERM-01-BRI1` and vocabulary row 567 with a direct Blueprint Revision
@@ -48,7 +48,7 @@
   Number. Rust, generated TypeScript, strict browser decoding, fixtures, and interfaces were already
   canonical. The final-tree aggregate generated 422 contracts, validated 3 tracked fixtures, passed
   Rust formatting/checks/strict Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests,
-  PostgreSQL 17 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
+  PostgreSQL fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
   PostgreSQL-plus-MinIO course-appearance oracle. No compatibility column, backfill, route, Store
   operation, Browser Surface, or feature was added.
 - Completed `WP-SD1-A-TERM-01-BRR1` as a Blueprint result/Receipt-boundary prerequisite. The
@@ -58,7 +58,7 @@
   contract, while operation-specific server-held Receipts remain non-Serde. Focused Blueprint
   Question Model (20), frontend (288 Node), TypeScript, formatting, and documentation/source gates
   pass. Final aggregate acceptance generated 422 contracts, validated 3 fixtures, and passed
-  Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL 17, and PostgreSQL-plus-MinIO gates. Vocabulary row
+  Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL, and PostgreSQL-plus-MinIO gates. Vocabulary row
   596 remains open until an implemented durable Blueprint operation Store and Server Route return the
   same accepted exact Receipt for the same Account, Request Checksum, reservation, and revision/source
   facts. No schema, wire member,
@@ -77,7 +77,7 @@
   validated lifecycle state. Generic `PublicationViolation` and `PublicationValidationReport`
   types are absent from current source and contracts. Append-only migration `2026090304` directly
   renames the remaining Question Change Proposal Revision `publication_validation` column and its
-  check constraint to exact Question Publication Validation ownership. The PostgreSQL 17 oracle
+  check constraint to exact Question Publication Validation ownership. The PostgreSQL oracle
   requires the canonical non-null JSONB column and bound constraint and rejects the predecessor.
   The unimplemented publication operation and Browser Surface remain QSOM work. Focused
   documentation (2,490), schema, PostgreSQL, aggregate, residual, and diff gates pass. Vocabulary
@@ -98,7 +98,7 @@
   compatibility reader for the retired wire member. Question Prompt remains the task, while
   external QTI/XML `title` attributes and exact Assignment, Course, Blueprint Course, and Grade
   Category titles remain distinct. The final aggregate generated 422 declarations, validated 3
-  tracked fixtures, and passed Rust/Wasm, 286 Node, 4,850 Python, PostgreSQL 17, and
+  tracked fixtures, and passed Rust/Wasm, 286 Node, 4,850 Python, PostgreSQL, and
   PostgreSQL-plus-MinIO gates. Vocabulary row 321 is checked.
 - Completed `WP-SD1-A-TERM-01-QSLR1`, converging Question Summary and Latest Question
   Revision across the Rust model, PostgreSQL projection, generated TypeScript contract, strict
@@ -106,7 +106,7 @@
   names a stable Published Question lineage and carries the exact Question Revision Reference with
   the greatest accepted Question Revision Number; Question Revision Availability remains separate.
   Focused Rust Question Library tests (10), generated-contract regeneration (422 declarations),
-  browser decoder tests (2), PostgreSQL 17 fresh/no-op/catalog/restricted-login acceptance including
+  browser decoder tests (2), PostgreSQL fresh/no-op/catalog/restricted-login acceptance including
   the greatest-accepted-revision oracle and 3 iMathAS Store tests, formatting, and diff validation
   pass. Later audit reopened row 317 for two Current Question Revision residuals.
 - Corrected and revalidated `WP-SD1-A-TERM-01-SAV1` after external review reopened row 707. Active
@@ -114,7 +114,7 @@
   direct Server Route existence, Service implementation, and Browser Surface availability language.
   The final 82-match inventory contains 10 real technical mount operations, 71 immutable history,
   audit, or archive matches, and the ledger's one required legacy phrase. Full aggregate acceptance
-  passes with 422 contracts, 3 fixtures, Rust/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL 17,
+  passes with 422 contracts, 3 fixtures, Rust/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL,
   and PostgreSQL-plus-MinIO; 2,488 documentation/source, residual, formatting, and diff gates pass.
   Vocabulary row 707 is checked. This correction changes no API, schema, wire contract, behavior,
   fixture, or feature.
@@ -128,10 +128,10 @@
   Question ID from OS-CSPRNG entropy plus an HMAC-SHA-256 validation character, and invokes P1.
   `QuestionRevisionReason` now owns the trimmed, bounded, control-free Question Revision Reason
   invariant. Focused model, Learning Data Access, server, strict Clippy, source-hygiene, and
-  PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS gates pass. The final-tree aggregate
+  PostgreSQL fresh/no-op/catalog/restricted/iMathAS gates pass. The final-tree aggregate
   generated 422 Rust-owned TypeScript types, validated 3 tracked fixtures, passed Rust
   formatting/checks/strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,850 Python tests,
-  PostgreSQL 17 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
+  PostgreSQL fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
   PostgreSQL-plus-MinIO Course Appearance oracle; complete live acceptance is green. Independent
   review remains open, so P2 and parent QSOM1 are not accepted. No Server Route or Browser Surface
   exists; same-lineage publication, secret-file composition, orphan cleanup, Draft Question
@@ -145,11 +145,11 @@
   Question Metadata and Source Binding, credit, ownership, publication, and Available evidence.
   Reviewed author display names create no inferred Account relationship; a later exact Account-aware
   input may establish that optional relation without conflating credit and ownership.
-  The PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS lane passes stale-edit,
+  The PostgreSQL fresh/no-op/catalog/restricted/iMathAS lane passes stale-edit,
   cross-workspace, non-string-author, complete-write, and post-Draft-deletion checks. The final-tree
   aggregate generated 421 Rust-owned TypeScript types, validated 3 tracked fixtures, passed Rust
   formatting/checks/strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,850 Python tests, the
-  PostgreSQL 17 fresh/no-op/catalog/restricted-login lane with 3 iMathAS Store tests, and the
+  PostgreSQL fresh/no-op/catalog/restricted-login lane with 3 iMathAS Store tests, and the
   PostgreSQL-plus-MinIO Course Appearance oracle; complete live acceptance is green. Independent
   review remains open, so P1 and the parent QSOM1 are not accepted. No publication
   Server Route or Browser Surface exists; object-copy coordination, same-lineage publication,
@@ -160,7 +160,7 @@
   Question Revision Source Binding; uses exact Object Address equality; and
   rewires Published Question projections and publication-event completeness.
   The retired mixed nullable-XOR table and inline mutable metadata are removed.
-  Independent re-review passes after fresh PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS
+  Independent re-review passes after fresh PostgreSQL fresh/no-op/catalog/restricted/iMathAS
   evidence and focused Learning Data Access Question Source tests (3 passed). Parent QSOM1,
   vocabulary rows, publication, Question Search, cleanup, routes, and browser work remain open.
 
@@ -290,7 +290,7 @@ object }` address. External fields and code identifiers remain exact.
   and final generic-root deletion are accepted and completed after independent review. The final
   `source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures,
   Rust format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest
-  tests, PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
+  tests, PostgreSQL fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
   PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Vocabulary rows 181, 182,
   and 275 are accepted for their exact source-model boundaries. Parent QSOM1 remains open only for
   separately owned publication, persistence, and cleanup work; its remaining vocabulary rows are
@@ -388,7 +388,7 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   acceptance, contextual residual, formatting, and hygiene evidence pass. Independent schema/LDA
   and documentation/contracts reviews pass. The manager terminal `source source_me.sh &&
 ./all_test.sh` passes Rust/generated/browser/documentation gates, 4,912 pytest checks,
-  PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS, and Course Appearance
+  PostgreSQL fresh/no-op/catalog/restricted/iMathAS, and Course Appearance
   PostgreSQL-plus-MinIO acceptance. QSOM1 remains open for the opaque-source, publication, and
   browser work not claimed by this persistence correction.
 
@@ -429,14 +429,14 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   `state_precondition`; revoke, accept, and decline require that exact type for `If-Match`, while
   create retains its Location and strong-ETag validation. The retired generic Rust export and
   generated declaration are removed. AE1 `AssignmentEditNumber`, AC1R deletion and Scenario
-  modifiers, CR1 `CourseRosterChangeNumber`, Product Role, route, Store, schema, migration,
+  modifiers, CR1 `CourseRosterChangeNumber`, User Role, route, Store, schema, migration,
   fixture, browser scenario, compatibility behavior, and permanent tests are unchanged. Focused
   Rust/Node/TypeScript, generation, formatting, strict Clippy, aggregate Rust/codebase,
   generic/residual, and diff gates pass. The final generic detector is zero and retired. Row 603
   now closes only the stable generic `TeachingOperationRevision` replacement with four exact
   outcomes: AE1 `AssignmentEditNumber`; rejected AC1 followed by AC1R mutation-surface removal
   with value-only Scenario modifiers; CR1 `CourseRosterChangeNumber`; and CI1
-  `CourseInvitationStatePrecondition`. Product Role remains separately allocated and pending.
+  `CourseInvitationStatePrecondition`. User Role remains separately allocated and pending.
   Nonblocking coverage observation: the existing focused invitation Node suite covers creation
   decoding but has no dedicated HTTP transport assertion for invitation list/revoke/respond; this
   documentation-only closure adds no test.
@@ -454,7 +454,7 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   and diff checks pass. Independent CR1 review passes; only the one-time scoped CR1 detector is
   retired. Row 603 remains open for CI1 and final generic retirement.
 
-- Accepted and completed `WP-SD1-A-TERM-01-PR1` and vocabulary row 446. `ProductRole`/`product_role`/`productRole` directly replace the immutable global Account and Authenticated Session classification through fresh schema, Rust, generated contract, strict browser decoder, route gate, Live Demo selector, direct PostgreSQL oracle, and current documentation. Course Membership Role remains distinct, Authentication Email retains its local role-qualified integrity meaning, and authorization/RLS behavior is unchanged. Independent review and the exact-owner PR1 detector pass; the detector is retired. Final exact-tree acceptance generated 424 TypeScript declarations, validated 3 fixtures, passed Rust/TypeScript, 315 Node and 4,912 Python tests, PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS (3/3), and PostgreSQL-plus-MinIO (1/1) cleanup. No compatibility alias, new feature, fixture family, or permanent test was added.
+- Accepted and completed `WP-SD1-A-TERM-01-PR1` and vocabulary row 446. `UserRole`/`user_role`/`userRole` directly replace the immutable global Account and Authenticated Session classification through fresh schema, Rust, generated contract, strict browser decoder, route gate, Live Demo selector, direct PostgreSQL oracle, and current documentation. Course Membership Role remains distinct, Authentication Email retains its local role-qualified integrity meaning, and authorization/RLS behavior is unchanged. Independent review and the exact-owner PR1 detector pass; the detector is retired. Final exact-tree acceptance generated 424 TypeScript declarations, validated 3 fixtures, passed Rust/TypeScript, 315 Node and 4,912 Python tests, PostgreSQL fresh/no-op/catalog/restricted/iMathAS (3/3), and PostgreSQL-plus-MinIO (1/1) cleanup. No compatibility alias, new feature, fixture family, or permanent test was added.
 
 - Rejected and superseded `WP-SD1-A-TERM-01-603-AC1`: its proposed Accommodation revision
   reference had no producer and incorrectly received an Assignment edit number at the unmounted
@@ -652,7 +652,7 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   and `WP-SD1-A-TERM-01-PMAR1`: `source source_me.sh && ./all_test.sh`
   generated 448 TypeScript declarations and validated 3 tracked fixtures;
   passed Rust format, checks, strict Clippy, tests, doctests, and Wasm; 327
-  Node and 5,005 Python tests; PostgreSQL 17 fresh/no-op/ACL/restricted and
+  Node and 5,005 Python tests; PostgreSQL fresh/no-op/ACL/restricted and
   iMathAS three-oracle lanes; PostgreSQL-plus-MinIO Course Appearance;
   cleanup; and complete live acceptance. Expected opt-in ignores were 3
   iMathAS HTTP, 7 WeBWorK HTTP, 4 PDF/DOCX reader, 3 ordinary iMathAS
@@ -681,7 +681,7 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   generated 448 TypeScript declarations; validated 3 tracked fixtures; passed
   Rust format/default/all-feature checks, strict Clippy, workspace
   tests/doctests/Wasm, 5 frontend checks with 327 Node tests, 5,005 Python
-  tests, PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS (3 tests),
+  tests, PostgreSQL fresh/no-op/catalog/restricted/iMathAS (3 tests),
   PostgreSQL-plus-MinIO Course Appearance, and complete live acceptance. Three
   established opt-in iMathAS loopback HTTP tests remained ignored; connected
   Playwright is outside this aggregate gate.
@@ -774,11 +774,11 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   added.
 
 - Completed vocabulary row 432: PLE now uses Account for global identity,
-  Product Role for its immutable product classification, and Course Membership
+  User Role for its immutable product classification, and Course Membership
   Role for participation in one Course Instance. UA1--UA6 completed the direct
   cutover through the Account, Student Record, ownership, schema, and local
   stack boundaries; Live Demo configuration uses only explicit
-  `*_ACCOUNT_ID` values. The fresh PostgreSQL 17 receipt passed apply/no-op,
+  `*_ACCOUNT_ID` values. The fresh PostgreSQL receipt passed apply/no-op,
   catalog, restricted-login and role probes, Object Delivery, iMathAS Question
   Backend authority, and cleanup. Remaining `user` spelling is contextual
   non-PLE vocabulary, explicit rejected legacy decoder input, or retained

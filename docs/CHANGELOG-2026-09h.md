@@ -191,7 +191,7 @@
   the active changelog retains the September 14 and September 13 blocks.
 
 - WP-G1 passed 88 server tests, 88 learning-data-access unit tests, strict all-target/all-feature
-  Clippy, and the canonical fresh PostgreSQL 17 baseline. The connected listener oracle used the
+  Clippy, and the canonical fresh PostgreSQL baseline. The connected listener oracle used the
   native worker Service Identity, ignored a WeBWorK notification, and accepted the matching
   native notification. With Tokio time paused, two trivial ready Jobs committed back-to-back with
   zero elapsed task time, proving removal of the former deliberate three-second floor. Fake Store
@@ -204,13 +204,13 @@
   unfinished-Job requeue, stale-token refusal, and terminal results.
 
 - WP-E0 exact-boundary domain tests, focused Rust and PostgreSQL compile/lint gates, and the
-  canonical fresh PostgreSQL 17 database baseline passed. The connected access oracle verifies
+  canonical fresh PostgreSQL database baseline passed. The connected access oracle verifies
   the full restricted Student projection, completed-Attempt counting, effective Student IANA
   time zone, and close/available/limit/late precedence.
 
 - WP-E1 generated 332 browser contract types and passed the strict TypeScript no-emit check,
   12 focused Node decoder/HTTP tests, Rust contract and server checks, warning-denying Clippy,
-  the 407-test `./check_codebase.sh` front door, and the canonical fresh PostgreSQL 17 baseline.
+  the 407-test `./check_codebase.sh` front door, and the canonical fresh PostgreSQL baseline.
   The connected oracle proves scheduled visibility, access/landing decision agreement, and
   cross-Student accommodation isolation.
 
@@ -222,7 +222,7 @@
 
 - WP-E4 passed the Student-only Rust route test, warning-denying Rust checks, three focused Node
   profile/model tests, and headless Chromium save/re-render evidence with no serious or critical
-  axe violations. The canonical fresh PostgreSQL 17 baseline passed with a connected oracle for
+  axe violations. The canonical fresh PostgreSQL baseline passed with a connected oracle for
   the inviting-Instructor default, existing-Account preservation, Student self-update, and
   Instructor refusal. One initial aggregate run exposed a fixed test-only session-token collision;
   distinct fixture tokens resolved it before the passing clean rerun.
@@ -255,7 +255,7 @@ acceptance is green.`
   in its owning code or canonical document; no parallel audit-report layer was
   retained.
 
-- Final PostgreSQL 17 baseline acceptance passed contaminated-database refusal,
+- Final PostgreSQL baseline acceptance passed contaminated-database refusal,
   fresh installation, no-op
   replay, restricted application-role verification, catalog authorization,
   authoring source binding, populated Unrelease closure, and its deterministic
@@ -292,7 +292,7 @@ acceptance is green.`
 
 ### Behavior or Interface Changes
 
-- The authenticated top bar now presents Product Role once in its boxed plate. Instructor Profile
+- The authenticated top bar now presents User Role once in its boxed plate. Instructor Profile
   is the far-right accessible icon-only rounded-square control after Sign Out; it shows the generic
   user glyph until the existing self-only uploaded thumbnail is available. Browser written UI now
   uses locally bundled Atkinson Hyperlegible Next normal and italic variable fonts, while explicit
@@ -346,7 +346,7 @@ acceptance is green.`
 - Archived the superseded terminology reconciliation plan, its draft successor, and its concern
   note after the accepted database-baseline plan consolidated their decisions.
 
-- The dedicated `database-migrator` image now contains the Debian 13 PostgreSQL 17 client needed
+- The dedicated `database-migrator` image now contains the Debian 13 PostgreSQL client needed
   to execute the canonical base-schema manifest. API, Live Demo, and production targets still
   inherit the client-free non-root runtime base. A built migrator reported `psql 17.11`; the
   runtime-base target confirmed that `psql` is absent and UID 10001 remains active. A full
@@ -475,7 +475,7 @@ destination ledger generated section is current.`
   WeBWorK render, Instructor Accounts, support capability, invitation export, and Course-seed
   journeys also passed.
 
-- M10 acceptance combines the accepted WP-DUE1 PostgreSQL 17 fresh/no-op migration and revocation
+- M10 acceptance combines the accepted WP-DUE1 PostgreSQL fresh/no-op migration and revocation
   receipt with a final read-only browser run at `https://localhost:55104` that exited 0. It proved
   the current Instructor-only view, Account-zone rendering, status/order, links, and one expected
   intercepted `503` retry with no unexpected HTTP, page, or console errors. Independent visual
@@ -490,7 +490,7 @@ destination ledger generated section is current.`
   unreleased and released Assignments. It is not a new product-policy or human-guidance decision.
   The Store independently applies the existing active-Instructor membership predicate, so revoked
   membership removes Course rows, and returns no Student, response, Attempt, grading, or answer
-  data. The reviewed PostgreSQL 17 acceptance run passed fresh and no-op migration application,
+  data. The reviewed PostgreSQL acceptance run passed fresh and no-op migration application,
   the full catalog through migration `2026091028`, the Due Soon window/status/revocation oracle,
   restricted-login probes, persistence probes, and disposable cleanup
   (`/private/tmp/ple-interface-cleanup.QVsF3M/m10-due1-postgres-repaired.log`). Offline

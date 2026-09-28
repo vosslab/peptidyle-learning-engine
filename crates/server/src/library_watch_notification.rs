@@ -16,7 +16,7 @@ use learning_data_access::{
     SessionStore, SessionTokenHash, StoreError,
     postgres::{PostgresLibraryWatchNotificationStore, PostgresSessionStore},
 };
-use question_model::ProductRole;
+use question_model::UserRole;
 use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -219,7 +219,7 @@ async fn instructor_session_hash(
     match resolve_session(sessions, joined_cookie_header(headers).as_deref()).await {
         // ASVS 8.2.1/8.3.1: the trusted SQL boundary repeats this predicate
         // from the installed session; no browser-provided actor can enter it.
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

@@ -9,7 +9,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.support_repair_capability (
     support_repair_capability_id uuid PRIMARY KEY,
     sysadmin_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    sysadmin_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
+    sysadmin_role ple_data.user_role NOT NULL DEFAULT 'sysadmin',
     issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     resource_class text NOT NULL DEFAULT 'student',
     resource_path text NOT NULL CHECK (
@@ -23,7 +23,7 @@ CREATE TABLE ple_private.support_repair_capability (
     expires_at timestamp with time zone NOT NULL CHECK (expires_at > issued_at),
     revoked_at timestamp with time zone,
     FOREIGN KEY (sysadmin_account_id, sysadmin_role)
-        REFERENCES ple_private.account (account_id, product_role),
+        REFERENCES ple_private.account (account_id, user_role),
     CHECK (revoked_at IS NULL OR revoked_at >= issued_at),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );

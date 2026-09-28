@@ -55,7 +55,7 @@ compatibility workflow merely because job infrastructure exists.
   Blueprint Assessment does not grant the Blueprint owner Course access.
 - Any vetted Instructor may create a Blueprint Course Change Proposal; only
   the receiving Blueprint owner accepts changes into a new Revision.
-- A Sysadmin product role is not ambient Course membership or FERPA authority.
+- A Sysadmin user role is not ambient Course membership or FERPA authority.
   Support access is deliberate, scoped, and recorded.
 
 Account deactivation closes new access while preserving authorship, Course

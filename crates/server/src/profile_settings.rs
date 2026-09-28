@@ -1,6 +1,6 @@
-//! Role-neutral, authenticated-self Profile Settings time-zone seam.
+//! Role-neutral, authenticated-self Account Settings and appearance seam.
 //!
-//! This route deliberately carries no Account identifier, supplied Product Role,
+//! This route deliberately carries no Account identifier, supplied User Role,
 //! avatar catalog, or image delivery. Those are separate concerns. PostgreSQL
 //! derives the Account from the installed session for this read.
 
@@ -15,10 +15,12 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{
-    AccountTimeZoneStore, SessionTokenHash, StoreError,
-    postgres::{PostgresAccountTimeZoneStore, PostgresSessionStore},
+    AccountAppearanceStore, AccountTimeZoneStore, SessionTokenHash, StoreError,
+    postgres::{
+        PostgresAccountAppearanceStore, PostgresAccountTimeZoneStore, PostgresSessionStore,
+    },
 };
-use question_model::AccountTimeZone;
+use question_model::{AccountTimeZone, DisplayMode, Theme};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -27,15 +29,14 @@ use crate::auth::{AuthError, resolve_session};
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     time_zones: PostgresAccountTimeZoneStore,
+    appearance: PostgresAccountAppearanceStore,
 }
 
-/// Registers the all-role, self-only read surface consumed by `/profile`.
-///
-/// Account Settings owns preference writes at `/api/account/settings`; this
-/// Profile Settings seam intentionally has no mutation method.
+/// Registers all-role self-only settings reads and independent preference writes.
 pub fn profile_settings_router(
     sessions: Arc<PostgresSessionStore>,
     time_zones: PostgresAccountTimeZoneStore,
+    appearance: PostgresAccountAppearanceStore,
 ) -> Router {
     Router::new()
         .route("/api/profile", get(read_profile_settings))
@@ -43,9 +44,18 @@ pub fn profile_settings_router(
             "/api/account/settings",
             get(read_account_settings).put(update_account_settings),
         )
+        .route(
+            "/api/account/appearance/display-mode-preference",
+            axum::routing::put(update_display_mode_preference),
+        )
+        .route(
+            "/api/instructor/personal-theme",
+            axum::routing::put(update_instructor_personal_theme),
+        )
         .with_state(RouteState {
             sessions,
             time_zones,
+            appearance,
         })
 }
 
@@ -53,6 +63,8 @@ pub fn profile_settings_router(
 #[serde(rename_all = "camelCase")]
 struct ProfileSettings {
     time_zone: AccountTimeZone,
+    display_mode_preference: Option<DisplayMode>,
+    personal_theme: Option<Theme>,
 }
 
 /// Closed, Account-owned preference payload. The browser can name only its
@@ -63,6 +75,29 @@ struct UpdateAccountSettingsInput {
     time_zone: AccountTimeZone,
 }
 
+/// Closed payload for an Account-owned explicit mode or browser-following clear.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct UpdateDisplayModePreferenceInput {
+    // The explicit deserializer makes this nullable field required: JSON null
+    // clears the preference, while an omitted member is rejected.
+    #[serde(deserialize_with = "required_nullable_display_mode_preference")]
+    display_mode_preference: Option<DisplayMode>,
+}
+
+fn required_nullable_display_mode_preference<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<DisplayMode>, D::Error> {
+    Option::<DisplayMode>::deserialize(deserializer)
+}
+
+/// Closed payload for an authenticated Instructor's global page Theme.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct UpdateInstructorPersonalThemeInput {
+    theme: Theme,
+}
+
 const MAX_ACCOUNT_SETTINGS_UPDATE_BYTES: usize = 256;
 
 async fn read_profile_settings(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -70,15 +105,8 @@ async fn read_profile_settings(State(state): State<RouteState>, headers: HeaderM
         Ok(token) => token,
         Err(response) => return *response,
     };
-    match state
-        .time_zones
-        .authenticated_account_time_zone(token)
-        .await
-    {
-        // ASVS 4.1.1: Json supplies the matching application/json response type.
-        Ok(time_zone) => crate::auth::no_store(Json(ProfileSettings { time_zone }).into_response()),
-        Err(error) => store_error_response(error),
-    }
+    // ASVS 4.1.1: Json supplies the matching application/json response type.
+    account_settings_response(&state, token).await
 }
 
 async fn read_account_settings(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -127,19 +155,118 @@ async fn update_account_settings(
         .update_authenticated_account_time_zone(token, input.time_zone)
         .await
     {
-        Ok(time_zone) => crate::auth::no_store(Json(ProfileSettings { time_zone }).into_response()),
+        Ok(_) => account_settings_response(&state, token).await,
         Err(error) => store_error_response(error),
     }
 }
 
 async fn account_settings_response(state: &RouteState, token: SessionTokenHash) -> Response {
-    match state
+    let time_zone = match state
         .time_zones
         .authenticated_account_time_zone(token)
         .await
     {
-        Ok(time_zone) => crate::auth::no_store(Json(ProfileSettings { time_zone }).into_response()),
+        Ok(time_zone) => time_zone,
+        Err(error) => return store_error_response(error),
+    };
+    match state
+        .appearance
+        .authenticated_account_appearance(token)
+        .await
+    {
+        Ok(appearance) => crate::auth::no_store(
+            Json(ProfileSettings {
+                time_zone,
+                display_mode_preference: appearance.display_mode_preference,
+                personal_theme: appearance.personal_theme,
+            })
+            .into_response(),
+        ),
         Err(error) => store_error_response(error),
+    }
+}
+
+async fn update_display_mode_preference(
+    State(state): State<RouteState>,
+    request: axum::extract::Request,
+) -> Response {
+    let token = match self_session_hash(&state, request.headers()).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    let input = match decode_json_body::<UpdateDisplayModePreferenceInput>(
+        request,
+        "Display mode preference",
+    )
+    .await
+    {
+        Ok(input) => input,
+        Err(response) => return *response,
+    };
+    match state
+        .appearance
+        .update_authenticated_account_display_mode_preference(token, input.display_mode_preference)
+        .await
+    {
+        Ok(_) => account_settings_response(&state, token).await,
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn update_instructor_personal_theme(
+    State(state): State<RouteState>,
+    request: axum::extract::Request,
+) -> Response {
+    let token = match self_session_hash(&state, request.headers()).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    let input = match decode_json_body::<UpdateInstructorPersonalThemeInput>(
+        request,
+        "Instructor personal theme",
+    )
+    .await
+    {
+        Ok(input) => input,
+        Err(response) => return *response,
+    };
+    match state
+        .appearance
+        .update_authenticated_instructor_personal_theme(token, input.theme)
+        .await
+    {
+        Ok(_) => account_settings_response(&state, token).await,
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn decode_json_body<T: serde::de::DeserializeOwned>(
+    request: axum::extract::Request,
+    label: &'static str,
+) -> Result<T, Box<Response>> {
+    // ASVS 1.5.2, 2.2.1--2.2.2, and 4.1.4: authenticate first, then accept
+    // one bounded closed JSON shape for this self-only preference write.
+    if !has_content_type(request.headers(), "application/json") {
+        return Err(Box::new(route_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "Account Settings is invalid",
+        )));
+    }
+    match to_bytes(request.into_body(), MAX_ACCOUNT_SETTINGS_UPDATE_BYTES).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| {
+            Box::new(route_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                match label {
+                    "Display mode preference" => "Display mode preference is invalid",
+                    "Instructor personal theme" => "Instructor personal theme is invalid",
+                    _ => "Account Settings is invalid",
+                },
+            ))
+        }),
+        Err(_) => Err(Box::new(route_error(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "Account Settings is too large",
+        ))),
     }
 }
 
@@ -214,4 +341,36 @@ fn concealed() -> Response {
 
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DisplayMode, UpdateDisplayModePreferenceInput};
+
+    #[test]
+    fn display_mode_preference_requires_one_closed_nullable_field() {
+        for (body, expected) in [
+            (
+                r#"{"displayModePreference":"light"}"#,
+                Some(DisplayMode::Light),
+            ),
+            (
+                r#"{"displayModePreference":"dark"}"#,
+                Some(DisplayMode::Dark),
+            ),
+            (r#"{"displayModePreference":null}"#, None),
+        ] {
+            let input = serde_json::from_str::<UpdateDisplayModePreferenceInput>(body)
+                .expect("valid required nullable display-mode preference");
+            assert_eq!(input.display_mode_preference, expected);
+        }
+
+        assert!(serde_json::from_str::<UpdateDisplayModePreferenceInput>(r#"{}"#).is_err());
+        assert!(
+            serde_json::from_str::<UpdateDisplayModePreferenceInput>(
+                r#"{"displayModePreference":"light","unexpected":true}"#
+            )
+            .is_err()
+        );
+    }
 }

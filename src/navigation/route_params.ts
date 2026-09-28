@@ -108,7 +108,7 @@ function invalidScope(scope: DeclaredRouteScope | undefined): RouteScopeKey {
 }
 
 /**
- * Produces only URL-syntax scope identity. Product Role and service authorization
+ * Produces only URL-syntax scope identity. User Role and service authorization
  * remain enforced by the route access boundary and backend policy.
  */
 export function routeScopeKey(pathname: string): RouteScopeKey {

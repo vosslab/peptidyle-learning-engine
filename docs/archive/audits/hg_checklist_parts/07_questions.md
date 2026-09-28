@@ -29,7 +29,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `delete_draft_question` resolves only the current Instructor-owned Draft, locks and compares its Edit Number, then deletes that private aggregate without considering the separate Published Question lineage.
   - Evidence (source): `crates/learning-data-access/src/postgres/authoring.rs` `delete_authoring_draft` carries the SQL compare-and-swap through the authenticated Store.
   - Evidence (source): `crates/server/src/authoring.rs` `delete_draft` requires the parsed `If-Match` Edit Number and maps a concurrent change to 412; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` supplies explicit Keep/Delete confirmation.
-  - Evidence (runtime): `crates/server/src/authoring.rs` `delete_draft` passed accepted isolated PostgreSQL 17/MinIO actual-server and focused browser proof: cancel, confirm, and list reload; valid-current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous 404 denials while owner source/Edit Number remained unchanged; 428 missing, 400 malformed, and 412 stale preconditions; preserved parsed Published Question lineage and Revision JSON after a published-origin Draft deletion; and 404 repeat DELETE/PUT. Artifact: `/private/tmp/ple-draft-delete-artifacts.km9ybM`.
+  - Evidence (runtime): `crates/server/src/authoring.rs` `delete_draft` passed accepted isolated PostgreSQL/MinIO actual-server and focused browser proof: cancel, confirm, and list reload; valid-current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous 404 denials while owner source/Edit Number remained unchanged; 428 missing, 400 malformed, and 412 stale preconditions; preserved parsed Published Question lineage and Revision JSON after a published-origin Draft deletion; and 404 repeat DELETE/PUT. Artifact: `/private/tmp/ple-draft-delete-artifacts.km9ybM`.
 - N/A PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
   - Reason: Automated abandoned-Draft cleanup is an explicitly optional future capability; HG sets no clock or durations.
 - [ ] A Draft Question must pass Question Publication Validation before becoming a Published Question.
@@ -71,7 +71,7 @@
 - [x] Native JSON Questions are static, not algorithmic nor random, and receive no random seed.
   - Evidence (source): `crates/question_model/src/generation.rs` `QuestionReproduction` distinguishes static source reproduction from the inseparable seeded generator pair; `crates/adapters/ple/src/lib/question_json_source.rs` `presentation` issues native PLE JSON with `QuestionReproduction::Static`.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempts.sql` `validate_issued_question_reproduction` rejects a seed for a `ple` source and requires one for renderer-backed sources.
-  - Evidence (runtime): `schemas/base_schema/50_functions/assessment_attempts.sql` `validate_issued_question_reproduction` passed in `/private/tmp/ple-native-seed-proof.sh --isolated --native-seed-http` against PostgreSQL 17: shuffled-position-2 native seed/hash were null, real WeBWorK retained numeric seed/64-character hash privately, public start/read/save/resume/restored payloads omitted both fields, resume retained the same issued Questions and saved native response, and invalid native seed insertion failed. Artifact: `/private/tmp/ple-native-seed-artifacts.KfY7Op`.
+  - Evidence (runtime): `schemas/base_schema/50_functions/assessment_attempts.sql` `validate_issued_question_reproduction` passed in `/private/tmp/ple-native-seed-proof.sh --isolated --native-seed-http` against PostgreSQL: shuffled-position-2 native seed/hash were null, real WeBWorK retained numeric seed/64-character hash privately, public start/read/save/resume/restored payloads omitted both fields, resume retained the same issued Questions and saved native response, and invalid native seed insertion failed. Artifact: `/private/tmp/ple-native-seed-artifacts.KfY7Op`.
 - [x] Native PLE JSON supports MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonResponse` defines all eight native types.
   - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each released native type at laptop and phone widths with exact published Revision checks. The 16 native captures establish presentation only; response interaction, save/reload, and grading remain separately scoped per type. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
@@ -221,7 +221,7 @@
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_selected_with_context` and `publish_source` passed selected ordinary-Instructor CLI proof publishing one available Revision-1 Question from one canonical source, with no Pool or Blueprint; replay made no additional publication. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
 - [x] Use a Question Pool with algorithmic Questions only when the **Instructor** wants selection among distinct Questions, not to represent variants of one algorithmic Question.
   - Evidence (source): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` resolves selected Published Question Revisions and requires the Instructor's interchangeability attestation; `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects distinct immutable members without backend-specific variant expansion.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted fresh PostgreSQL 17/MinIO actual-server and private bundled-main HTTP-proxy browser proof: 42 canonical Genetics Questions installed with zero implicit Pools, then the Instructor visibly selected distinct DNA structure and nucleotide components Revision-1 PGML Questions, attested interchangeability, created a reusable Pool, and imported a distinct Assessment-owned fork with `selection_count=1`. Real WeBWorK rendering, radio-response save/resume, exact fork Pool/Question Revision, issued ID, seed/hash preservation, whole-Attempt submit, and fresh new-Attempt selection/issued IDs passed; a new Attempt may select the same Question and need not have different seeds. Artifact: `/private/tmp/ple-algorithmic-pool-artifacts.K2Kk6Z`. Release used a 3600-second time limit and Correct answer Never; answer disclosure, full Live Demo/authentication/TLS, and all-backend acceptance are outside this receipt. Browser error arrays were empty after route teardown completed.
+  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted fresh PostgreSQL/MinIO actual-server and private bundled-main HTTP-proxy browser proof: 42 canonical Genetics Questions installed with zero implicit Pools, then the Instructor visibly selected distinct DNA structure and nucleotide components Revision-1 PGML Questions, attested interchangeability, created a reusable Pool, and imported a distinct Assessment-owned fork with `selection_count=1`. Real WeBWorK rendering, radio-response save/resume, exact fork Pool/Question Revision, issued ID, seed/hash preservation, whole-Attempt submit, and fresh new-Attempt selection/issued IDs passed; a new Attempt may select the same Question and need not have different seeds. Artifact: `/private/tmp/ple-algorithmic-pool-artifacts.K2Kk6Z`. Release used a 3600-second time limit and Correct answer Never; answer disclosure, full Live Demo/authentication/TLS, and all-backend acceptance are outside this receipt. Browser error arrays were empty after route teardown completed.
 - [x] BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
   - Evidence (source): `crates/project-tools/src/curriculum_content.rs` `validate_selected_parameterized_manifest` validates canonical source pins before publication.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication importing all 42 C839-accepted canonical PGML sources (41 BiologyProblems.org sources plus HLA), preserving source pins and producing ordinary available WeBWorK Question lineages. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
@@ -309,7 +309,7 @@
   - Evidence (runtime): `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_new_question_lineage` passed the accepted C879 3-by-3 PostgreSQL publication proof: each exact source Revision license was preserved across three supported compatible CC licenses and every mismatched requested license was rejected.
 - [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL actual-role proof for all four private Watch event kinds.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
 #### Published Question behavior specifications
@@ -392,7 +392,7 @@
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL actual-role proof for all four private Watch event kinds.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
 #### Question Pool metadata
@@ -488,10 +488,10 @@
 
 - [ ] Published Questions and Question Pools may retain privacy-safe aggregate statistics.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` and `question_revision_choice_statistics` retain identity-free Question Revision counts; `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` preserves those aggregate rows while deleting Course Student evidence.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate had no submitted Student Work or aggregate-statistics fixture. Pool Revision/use/selection statistics, privacy thresholds, product display, and connected retention acceptance remain open.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL purge gate had no submitted Student Work or aggregate-statistics fixture. Pool Revision/use/selection statistics, privacy thresholds, product display, and connected retention acceptance remain open.
 - [ ] Statistics are kept separately for each Published Question Revision and Question Pool Revision.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` keys Question statistics by `(question_id, revision_number)` and preserves those identity-free rows through `ple_api.delete_course_student_records`.
-  - Verification pending: no Pool Revision/use/selection statistics model exists, and the 2026-09-16 actual-role PostgreSQL 17 purge gate exercised neither submitted Work nor aggregate rows.
+  - Verification pending: no Pool Revision/use/selection statistics model exists, and the 2026-09-16 actual-role PostgreSQL purge gate exercised neither submitted Work nor aggregate rows.
 - [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit,
   and unanswered results.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` retains accepted graded-Attempt and correct counts by exact Question Revision, and `question_revision_choice_statistics` retains eligible choice counts.
@@ -509,11 +509,11 @@
   - Verification pending: no accepted aggregate disclosure/small-cohort rule, Pool aggregate model, or connected product surface proves that all exposed statistics prevent reconstruction of Student activity.
 - [ ] Privacy-safe aggregate statistics remain after the underlying Student records are deleted.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` explicitly preserves existing identity-free aggregate rows; `schemas/base_schema/20_tables/statistics.sql` documents retained Question Revision statistics after Course Student-record deletion.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate exercised no submitted Student Work or aggregate rows. Pool statistics, privacy thresholds, and connected retention acceptance remain open.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL purge gate exercised no submitted Student Work or aggregate rows. Pool statistics, privacy thresholds, and connected retention acceptance remain open.
 - [ ] Student data retention removes the underlying Student evidence without removing approved aggregate
   statistics.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` removes private Attempt roots and Course Student evidence while preserving existing identity-free aggregate rows.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate proved bounded deletion but had no submitted Student Work or aggregate-statistics fixture. Approved aggregate policy, Pool coverage, and connected acceptance remain open.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL purge gate proved bounded deletion but had no submitted Student Work or aggregate-statistics fixture. Approved aggregate policy, Pool coverage, and connected acceptance remain open.
 - [ ] Removing Student names alone does not make statistics anonymous.
   - Mismatch: no released Question Statistics policy establishes this behavior.
 - [ ] Shared statistics should be shown only when individual Students cannot reasonably be identified
@@ -539,11 +539,11 @@
   - Verification pending: source implementation is present, but connected Instructor proof must sort mixed fixed and Pool Entries, save, reload, and show persisted order plus a concurrent-save conflict. Library discovery has source evidence but still needs connected proof, so this combined requirement remains open.
 - [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` stores a Pool Revision's own pair by `(question_pool_id, revision_number)`, rather than deriving it from member Questions.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of protected candidate/receipt binding and Pool Library admission.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL actual-role proof of protected candidate/receipt binding and Pool Library admission.
   - Verification pending: classifier/provider selection and orchestration, typed API/UI projection, and connected search/reporting remain open.
 - [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
   Library.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of deferred completeness and Question plus Pool Library admission through one-use protected receipts.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL actual-role proof of deferred completeness and Question plus Pool Library admission through one-use protected receipts.
   - Verification pending: configured classifier/provider orchestration and connected publication/browser acceptance remain open.
 - [ ] AI assigns the initial Bloom Classification as part of publication.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records the closed SQL preparation boundary: protected candidate/receipt binding, one use, rollback restoration, and publication admission.
@@ -551,13 +551,13 @@
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` CAS-updates only paired metadata and its classification Edit Number. Typed Question and Pool Stores bind complete-pair commands to exact Revisions; `crates/server/src/question_library.rs` and `src/api/http_client/bloom_classification.ts` expose their routes. `src/components/bloom_classification.tsx` retains drafts, reloads stale state without retrying, and returns focus after completion; Question and Pool detail editors bind exact Revision targets.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 gate proved bounded authorization/no-op/stale behavior. Connected two-Instructor, denied-role, and browser correction/focus proof remains open.
+  - Verification pending: the 2026-09-16 PostgreSQL gate proved bounded authorization/no-op/stale behavior. Connected two-Instructor, denied-role, and browser correction/focus proof remains open.
 - [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
   - Evidence (source): `crates/question_model/src/question_search.rs` retains two independent exact Bloom filters, unchanged sorts, and normalized-query-bound cursors. `crates/learning-data-access/src/postgres/question_library.rs` applies them to the whole Library relation and computes all six plus all four guide-order counts; `src/pages/library_search_parameters.ts`, `src/pages/library_page.tsx`, and `src/components/library_bloom_discovery.tsx` retain URL/saved-search values, zeros, and empty results.
   - Verification pending: connected multi-page, role, and browser proof remains required. It stays open independently of the connected mixed-entry Assessment-sort/save/reload/concurrent-save proof required by the preceding row.
 - [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` accepts only the guide's six Cognitive Process and four Knowledge Dimension spellings.
-  - Verification pending: fresh PostgreSQL 17 actual-role proof closes storage and publication-required attachment; classifier/provider semantics, Instructor-facing teaching interpretation, and connected search/reporting remain open.
+  - Verification pending: fresh PostgreSQL actual-role proof closes storage and publication-required attachment; classifier/provider semantics, Instructor-facing teaching interpretation, and connected search/reporting remain open.
 
 #### Question Library stewardship specifications
 
@@ -578,7 +578,7 @@
   - Verification pending: connected subscription controls and browser proof remain open.
 - [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
   forks, improvement threads, and impact notices.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for private Revision, fork, improvement-thread, and impact-notice delivery.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL actual-role proof for private Revision, fork, improvement-thread, and impact-notice delivery.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 - [ ] An **Instructor's** watch list remains private.
   - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records private Question/Pool Watch persistence and recipient delivery.

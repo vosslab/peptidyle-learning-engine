@@ -20,7 +20,7 @@ export function ContentDisciplinesPage(): JSX.Element {
   const session = useSessionBootstrap();
   const isSysadmin = createMemo(() => {
     const current = session.state();
-    return current.kind === "authenticated" && current.session.account.productRole === "sysadmin";
+    return current.kind === "authenticated" && current.session.account.userRole === "sysadmin";
   });
   const [disciplines, { mutate, refetch }] = createResource<
     ReadonlyArray<ContentClassificationItem>,

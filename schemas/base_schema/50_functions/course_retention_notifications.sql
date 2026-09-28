@@ -44,7 +44,7 @@ BEGIN
       FROM recipient
       JOIN ple_private.account AS account
         ON account.account_id = recipient.account_id
-       AND account.product_role = 'instructor'
+       AND account.user_role = 'instructor'
       JOIN LATERAL (
           SELECT state.state
             FROM ple_private.account_state_event AS state
@@ -68,7 +68,7 @@ BEGIN
           FROM ple_private.course_retention_notification AS receipt
           JOIN ple_private.account AS account
             ON account.account_id = receipt.recipient_account_id
-           AND account.product_role = 'instructor'
+           AND account.user_role = 'instructor'
           JOIN LATERAL (
               SELECT state.state
                 FROM ple_private.account_state_event AS state

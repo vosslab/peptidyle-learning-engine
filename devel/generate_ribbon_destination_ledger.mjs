@@ -10,7 +10,7 @@ import { getRepoRoot } from "./repo_root.mjs";
 
 export const generatedStart = "<!-- BEGIN GENERATED RIBBON DESTINATION LEDGER -->";
 export const generatedEnd = "<!-- END GENERATED RIBBON DESTINATION LEDGER -->";
-const productRoles = ["instructor", "student", "sysadmin"];
+const userRoles = ["instructor", "student", "sysadmin"];
 const resolvedAllowedRelationship = { kind: "resolved", allowed: true };
 const catalog = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 
@@ -89,7 +89,7 @@ function handlerEvidence(entry) {
 }
 
 function availabilityByRole(entry) {
-  return productRoles
+  return userRoles
     .map((role) => `${role}: ${ribbonAvailability(entry, role, resolvedAllowedRelationship)}`)
     .join("<br>");
 }
@@ -146,7 +146,7 @@ export function renderGeneratedLedger() {
     ].join(""),
     "",
     [
-      "Ribbon Availability is projected with every Product Role and a resolved, allowed ",
+      "Ribbon Availability is projected with every User Role and a resolved, allowed ",
       "relationship.",
     ].join(""),
     "This documents the role ceiling before relationship denial: `ribbonAvailability(entry, role,",

@@ -8,9 +8,9 @@
 
 ## Scope and evidence
 
-The current screenshot corpus in `docs/screenshots/` shows the Product Role twice in each
+The current screenshot corpus in `docs/screenshots/` shows the User Role twice in each
 authenticated top bar: once in the boxed plate and again as `Instructor account`, `Student account`,
-or `System administrator`. The current session boundary (`src/api/contracts.ts`) has a Product Role,
+or `System administrator`. The current session boundary (`src/api/contracts.ts`) has a User Role,
 but no account name that would make the second label useful.
 
 The same screenshots show an unstyled, underlined `Profile` link. The requested behavior is a
@@ -33,9 +33,9 @@ new Profile storage/API behavior.
   `src/ribbon/app_ribbon.css`, and the now-unused `account` context glyph in
   `src/ribbon/ribbon_icons.ts`.
 - Update the existing Ribbon models and contract/icon tests that construct or assert the deleted
-  field. Keep role-specific availability and the Product Role plate unchanged.
+  field. Keep role-specific availability and the User Role plate unchanged.
 
-**Outcome:** each authenticated bar presents Product Role exactly once, in the boxed plate.
+**Outcome:** each authenticated bar presents User Role exactly once, in the boxed plate.
 
 ### A2. Keep the pure Ribbon boundary and inject the Instructor avatar
 
@@ -88,12 +88,12 @@ new Profile storage/API behavior.
 
 ### A5. Reconcile durable interaction documentation
 
-- In `docs/HUMAN_GUIDANCE.md`, add only the owner's direct guidance or close paraphrase: Product
+- In `docs/HUMAN_GUIDANCE.md`, add only the owner's direct guidance or close paraphrase: User
   Role is shown once in the role plate; Instructor Profile is a rightmost icon-only generic user
   image until an uploaded Profile image replaces it. Do not add a search-bar statement.
 - Update `docs/DESIGN_DECISIONS.md`, `docs/UI_DESIGN_GUIDE.md`, and
   `docs/ux/RIBBON_TASK_MODEL.md`. In the task model, replace the Instructor and Sysadmin
-  `Account label` information need with the single Product Role plate and identify the Instructor
+  `Account label` information need with the single User Role plate and identify the Instructor
   Profile control as an accessible icon-only end control.
 - Add concise behavior/interface and verification entries under the current date in
   `docs/CHANGELOG.md`.
@@ -136,7 +136,7 @@ the current browser build is known healthy.
 
 1. Run TypeScript and lint checks required by the changed source, then the focused existing Ribbon
    contract/icon tests. Retain only permanent tests that protect the stable public contract: one
-   Product Role plate and the accessible Profile link name/order. Use
+   User Role plate and the accessible Profile link name/order. Use
    `getByRole("link", { name: "Profile", exact: true })` in browser evidence; avoid a data-attribute
    selector when the accessible link can express the user behavior.
 2. Run the existing build-copy proof for locally bundled fonts and its focused failure recovery.

@@ -10,7 +10,7 @@ Usage is in [USAGE.md](USAGE.md).
 ### ple_private.public_id_reservation
 
 - Role: vocabulary
-- Comment: role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.
+- Comment: role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
 
 Columns:
 
@@ -35,21 +35,21 @@ Indexes:
 ### ple_private.account
 
 - Role: current state
-- Comment: role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.
+- Comment: role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
 
 Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
 | account_id | ple_data.account_id | NOT NULL |
-| product_role | ple_data.product_role | NOT NULL |
+| user_role | ple_data.user_role | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (account_id)
-- UNIQUE (account_id, product_role)
+- UNIQUE (account_id, user_role)
 
 Foreign keys:
 
@@ -58,12 +58,12 @@ Foreign keys:
 Indexes:
 
 - ple_private.account_pkey UNIQUE (account_id)
-- ple_private.account_unique_0 UNIQUE (account_id, product_role)
+- ple_private.account_unique_0 UNIQUE (account_id, user_role)
 
 ### ple_private.account_state_event
 
 - Role: event
-- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.
+- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
 
 Columns:
 
@@ -91,7 +91,7 @@ Indexes:
 ### ple_private.account_time_zone
 
 - Role: current state
-- Comment: role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.
+- Comment: role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
 
 Columns:
 
@@ -116,10 +116,67 @@ Indexes:
 
 - ple_private.account_time_zone_pkey UNIQUE (account_id)
 
+### ple_private.account_appearance
+
+- Role: current state
+- Comment: role: current state, Account-owned display-mode preference; NULL follows the browser setting.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| account_id | ple_data.account_id | NOT NULL |
+| display_mode_preference | ple_data.display_mode | NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (account_id)
+
+Foreign keys:
+
+- (account_id) -> ple_private.account (account_id)
+
+Indexes:
+
+- ple_private.account_appearance_pkey UNIQUE (account_id)
+
+### ple_private.instructor_personal_theme
+
+- Role: current state
+- Comment: role: current state, Instructor-owned global-page theme preference.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| account_id | ple_data.account_id | NOT NULL |
+| instructor_user_role | ple_data.user_role | NOT NULL |
+| theme_id | text | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (account_id)
+- CHECK instructor_user_role: `(instructor_user_role = 'instructor')`
+
+Foreign keys:
+
+- (account_id, instructor_user_role) -> ple_private.account (account_id, user_role)
+- (theme_id) -> ple_data.theme (theme_id)
+
+Indexes:
+
+- ple_private.instructor_personal_theme_pkey UNIQUE (account_id)
+- instructor_personal_theme_account_id_instructor_user_role_fk_idx (account_id, instructor_user_role)
+- instructor_personal_theme_theme_id_fk_idx (theme_id)
+
 ### ple_audit.instructor_account_creation_event
 
 - Role: event
-- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.
+- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
 
 Columns:
 
@@ -127,9 +184,9 @@ Columns:
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
 | created_instructor_account_id | ple_data.account_id | NOT NULL |
-| created_instructor_product_role | ple_data.product_role | NOT NULL |
+| created_instructor_user_role | ple_data.user_role | NOT NULL |
 | created_by_sysadmin_account_id | ple_data.account_id | NOT NULL |
-| created_by_sysadmin_product_role | ple_data.product_role | NOT NULL |
+| created_by_sysadmin_user_role | ple_data.user_role | NOT NULL |
 | instructor_identity_vetting_decision_id | uuid | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
@@ -140,22 +197,22 @@ Constraints:
 
 Foreign keys:
 
-- (created_instructor_account_id, created_instructor_product_role) -> ple_private.account (account_id, product_role)
-- (created_by_sysadmin_account_id, created_by_sysadmin_product_role) -> ple_private.account (account_id, product_role)
+- (created_instructor_account_id, created_instructor_user_role) -> ple_private.account (account_id, user_role)
+- (created_by_sysadmin_account_id, created_by_sysadmin_user_role) -> ple_private.account (account_id, user_role)
 - (instructor_identity_vetting_decision_id) -> ple_audit.instructor_identity_vetting_decision (decision_id)
 
 Indexes:
 
 - ple_audit.instructor_account_creation_event_pkey UNIQUE (event_id)
 - ple_audit.instructor_account_creation_event_unique_0 UNIQUE (created_instructor_account_id)
-- instructor_account_creation_event_created_by_sy_4138130d_fk_idx (created_by_sysadmin_account_id, created_by_sysadmin_product_role)
-- instructor_account_creation_event_created_instr_838b23f7_fk_idx (created_instructor_account_id, created_instructor_product_role)
+- instructor_account_creation_event_created_by_sy_4138130d_fk_idx (created_by_sysadmin_account_id, created_by_sysadmin_user_role)
+- instructor_account_creation_event_created_instr_838b23f7_fk_idx (created_instructor_account_id, created_instructor_user_role)
 - instructor_account_creation_event_instructor_id_2eefdbbf_fk_idx (instructor_identity_vetting_decision_id)
 
 ### ple_audit.instructor_identity_vetting_decision
 
 - Role: event
-- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.
+- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
 
 Columns:
 
@@ -165,7 +222,7 @@ Columns:
 | normalized_email | text | NOT NULL |
 | verified_instructor_display_name | text | NOT NULL |
 | completed_by_sysadmin_account_id | ple_data.account_id | NOT NULL |
-| completed_by_sysadmin_product_role | ple_data.product_role | NOT NULL |
+| completed_by_sysadmin_user_role | ple_data.user_role | NOT NULL |
 | completed_at | timestamp with time zone | NOT NULL |
 
 Constraints:
@@ -177,13 +234,13 @@ Constraints:
 
 Foreign keys:
 
-- (completed_by_sysadmin_account_id, completed_by_sysadmin_product_role) -> ple_private.account (account_id, product_role)
+- (completed_by_sysadmin_account_id, completed_by_sysadmin_user_role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
 - ple_audit.instructor_identity_vetting_decision_pkey UNIQUE (decision_id)
 - ple_audit.instructor_identity_vetting_decision_unique_0 UNIQUE (normalized_email)
-- instructor_identity_vetting_decision_completed__5e383e9f_fk_idx (completed_by_sysadmin_account_id, completed_by_sysadmin_product_role)
+- instructor_identity_vetting_decision_completed__5e383e9f_fk_idx (completed_by_sysadmin_account_id, completed_by_sysadmin_user_role)
 
 ## 20_tables/assessment.sql
 
@@ -1432,7 +1489,7 @@ Columns:
 | --- | --- | --- |
 | session_id | uuid | NOT NULL |
 | account_id | ple_data.account_id | NOT NULL |
-| product_role | ple_data.product_role | NOT NULL |
+| user_role | ple_data.user_role | NOT NULL |
 | token_hash | bytea | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
@@ -1448,7 +1505,7 @@ Constraints:
 Foreign keys:
 
 - (account_id) -> ple_private.account (account_id)
-- (account_id, product_role) -> ple_private.account (account_id, product_role)
+- (account_id, user_role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
@@ -1457,7 +1514,7 @@ Indexes:
 - authenticated_session_active_account_idx (account_id, expires_at) WHERE revoked_at IS NULL
 - authenticated_session_expired_sweep_idx (expires_at) WHERE revoked_at IS NULL
 - authenticated_session_revoked_sweep_idx (revoked_at) WHERE revoked_at IS NOT NULL
-- authenticated_session_account_id_product_role_fk_idx (account_id, product_role)
+- authenticated_session_account_id_user_role_fk_idx (account_id, user_role)
 
 ## 20_tables/blueprint_course.sql
 
@@ -2175,7 +2232,7 @@ Columns:
 | replacement_question_id | text | NOT NULL |
 | replacement_revision_number | integer | NOT NULL |
 | approved_by_account_id | ple_data.account_id | NOT NULL |
-| approver_role | ple_data.product_role | NOT NULL |
+| approver_role | ple_data.user_role | NOT NULL |
 | approved_at | timestamptz | NOT NULL |
 | correction_generation | integer | NOT NULL |
 | reason | ple_data.correction_reason | NOT NULL |
@@ -2193,7 +2250,7 @@ Foreign keys:
 
 - (flawed_question_id, flawed_revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 - (replacement_question_id, replacement_revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-- (approved_by_account_id, approver_role) -> ple_private.account (account_id, product_role)
+- (approved_by_account_id, approver_role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
@@ -2294,31 +2351,6 @@ Indexes:
 
 ## 20_tables/course_instance.sql
 
-### ple_data.course_theme
-
-- Role: vocabulary
-- Comment: role: vocabulary, authored Course appearance palettes. Deleted by: none.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| course_theme_id | text | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (course_theme_id)
-- CHECK course_theme_id: `( course_theme_id = btrim(course_theme_id) AND course_theme_id ~ '^[a-z][a-z0-9-]{0,31}$' )`
-
-Foreign keys:
-
-- none
-
-Indexes:
-
-- ple_data.course_theme_pkey UNIQUE (course_theme_id)
-
 ### ple_data.course_instance
 
 - Role: current state
@@ -2342,7 +2374,7 @@ Columns:
 | course_edit_number | bigint | NOT NULL |
 | term_starts_on | date | NOT NULL |
 | term_ends_on | date | NOT NULL |
-| course_theme_id | text | NOT NULL |
+| theme_id | text | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | active_until_at | timestamp with time zone | NOT NULL |
 | course_lifecycle_state | ple_data.course_lifecycle_state | NOT NULL |
@@ -2372,7 +2404,7 @@ Foreign keys:
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 - (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
 - (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
-- (course_theme_id) -> ple_data.course_theme (course_theme_id)
+- (theme_id) -> ple_data.theme (theme_id)
 - (blueprint_course_id, blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
 - (course_instance_id, current_course_banner_id) -> ple_data.course_banner (course_instance_id, course_banner_id)
 
@@ -2385,7 +2417,7 @@ Indexes:
 - course_instance_content_topic_id_content_subtopic_id_fk_idx (content_topic_id, content_subtopic_id)
 - course_instance_course_instance_id_ce017de1_fk_idx (course_instance_id, current_course_banner_id)
 - course_instance_content_discipline_id_fk_idx (content_discipline_id)
-- course_instance_course_theme_id_fk_idx (course_theme_id)
+- course_instance_theme_id_fk_idx (theme_id)
 
 ### ple_data.course_origin
 
@@ -2807,7 +2839,7 @@ Columns:
 | course_membership_id | uuid | NOT NULL |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | account_id | ple_data.account_id | NOT NULL |
-| role | ple_data.product_role | NOT NULL |
+| role | ple_data.user_role | NOT NULL |
 | student_record_id | uuid | NULL |
 | joined_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -2821,7 +2853,7 @@ Foreign keys:
 - (course_instance_id) -> ple_data.course_instance (course_instance_id)
 - (account_id) -> ple_private.account (account_id)
 - (student_record_id) -> ple_data.student_record (student_record_id)
-- (account_id, role) -> ple_private.account (account_id, product_role)
+- (account_id, role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
@@ -2873,9 +2905,9 @@ Columns:
 | course_invitation_id | uuid | NOT NULL |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | target_account_id | ple_data.account_id | NOT NULL |
-| membership_role | ple_data.product_role | NOT NULL |
+| membership_role | ple_data.user_role | NOT NULL |
 | inviting_instructor_account_id | ple_data.account_id | NOT NULL |
-| inviting_instructor_role | ple_data.product_role | NOT NULL |
+| inviting_instructor_role | ple_data.user_role | NOT NULL |
 | issued_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -2889,8 +2921,8 @@ Foreign keys:
 
 - (course_instance_id) -> ple_data.course_instance (course_instance_id)
 - (target_account_id) -> ple_private.account (account_id)
-- (target_account_id, membership_role) -> ple_private.account (account_id, product_role)
-- (inviting_instructor_account_id, inviting_instructor_role) -> ple_private.account (account_id, product_role)
+- (target_account_id, membership_role) -> ple_private.account (account_id, user_role)
+- (inviting_instructor_account_id, inviting_instructor_role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
@@ -4769,7 +4801,7 @@ Columns:
 | action_kind | ple_data.retention_action_kind | NOT NULL |
 | due_at | timestamp with time zone | NOT NULL |
 | recipient_account_id | ple_data.account_id | NOT NULL |
-| recipient_product_role | ple_data.product_role | NOT NULL |
+| recipient_user_role | ple_data.user_role | NOT NULL |
 | provider_idempotency_key | uuid | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | next_attempt_at | timestamp with time zone | NOT NULL |
@@ -4792,7 +4824,7 @@ Foreign keys:
 
 - (course_instance_id) -> ple_data.course_instance (course_instance_id)
 - (recipient_account_id) -> ple_private.account (account_id)
-- (recipient_account_id, recipient_product_role) -> ple_private.account (account_id, product_role)
+- (recipient_account_id, recipient_user_role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
@@ -4800,7 +4832,7 @@ Indexes:
 - ple_private.course_retention_notification_unique_0 UNIQUE (course_instance_id, action_kind, due_at, recipient_account_id)
 - ple_private.course_retention_notification_unique_1 UNIQUE (provider_idempotency_key)
 - course_retention_notification_claim_idx (due_at, notification_id) WHERE provider_accepted_at IS NULL
-- course_retention_notification_recipient_account_5bb3f876_fk_idx (recipient_account_id, recipient_product_role)
+- course_retention_notification_recipient_account_5bb3f876_fk_idx (recipient_account_id, recipient_user_role)
 
 ## 20_tables/statistics.sql
 
@@ -4952,7 +4984,7 @@ Columns:
 | --- | --- | --- |
 | support_repair_capability_id | uuid | NOT NULL |
 | sysadmin_account_id | ple_data.account_id | NOT NULL |
-| sysadmin_role | ple_data.product_role | NOT NULL |
+| sysadmin_role | ple_data.user_role | NOT NULL |
 | issuer_account_id | ple_data.account_id | NOT NULL |
 | resource_class | text | NOT NULL |
 | resource_path | text | NOT NULL |
@@ -4973,7 +5005,7 @@ Foreign keys:
 
 - (sysadmin_account_id) -> ple_private.account (account_id)
 - (issuer_account_id) -> ple_private.account (account_id)
-- (sysadmin_account_id, sysadmin_role) -> ple_private.account (account_id, product_role)
+- (sysadmin_account_id, sysadmin_role) -> ple_private.account (account_id, user_role)
 
 Indexes:
 
@@ -5018,3 +5050,30 @@ Indexes:
 - support_repair_capability_event_issuer_account_id_fk_idx (issuer_account_id)
 - support_repair_capability_event_support_repair__975ebcdb_fk_idx (support_repair_capability_id)
 - support_repair_capability_event_sysadmin_account_id_fk_idx (sysadmin_account_id)
+
+## 20_tables/theme.sql
+
+### ple_data.theme
+
+- Role: vocabulary
+- Comment: role: vocabulary, reviewed Course and Instructor appearance palettes. Deleted by: none.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| theme_id | text | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (theme_id)
+- CHECK theme_id: `( theme_id = btrim(theme_id) AND theme_id ~ '^[a-z][a-z0-9-]{0,31}$' )`
+
+Foreign keys:
+
+- none
+
+Indexes:
+
+- ple_data.theme_pkey UNIQUE (theme_id)

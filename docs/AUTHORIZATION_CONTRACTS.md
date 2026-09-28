@@ -9,7 +9,7 @@ describes the PostgreSQL roles and grants that enforce this contract.
 
 Authorization is separate from authentication, identifier syntax, request
 validation, edit-number conflicts, and lifecycle validation. A caller's URL,
-DTO, queue message, or claimed product role never establishes authority.
+DTO, queue message, or claimed user role never establishes authority.
 
 ## Request and database boundary
 
@@ -34,9 +34,9 @@ conflict or validation result: an obsolete Edit Number is a conflict, invalid
 resulting content or an incorrect confirmation is validation failure, and a
 wrong lifecycle state is a lifecycle conflict.
 
-## Product roles and course scope
+## User roles and course scope
 
-Each Account has one immutable Product Role: Student, Instructor, or
+Each Account has one immutable User Role: Student, Instructor, or
 Sysadmin. A role is active only while its current Account State is active. A
 person requiring more than one role uses separate Accounts.
 
@@ -65,7 +65,7 @@ Account therefore stops subsequent access. An Instructor can inspect the
 course's authorized teaching projections but does not become a Student; one
 Student has no authority over another Student's work.
 
-Sysadmin is a platform Product Role, not ambient teaching or FERPA authority.
+Sysadmin is a platform User Role, not ambient teaching or FERPA authority.
 Course-instance bootstrap and support operations use their separately bounded,
 audited predicates. They do not create a Sysadmin Course Membership or general
 access to Student Work.

@@ -3,7 +3,7 @@
 .roster-page .roster-feedback-success {
   padding: 0.75rem;
   border-left: 3px solid var(--ple-success);
-  background: color-mix(in srgb, var(--ple-success) 7%, white);
+  background: color-mix(in srgb, var(--ple-success) 7%, var(--ple-card-surface));
   color: var(--ple-success);
 }
 

@@ -61,7 +61,7 @@ async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash
         .await
         .expect("private fixture role");
     let account_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
@@ -69,7 +69,7 @@ async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash
     .expect("Instructor Account");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
          pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
@@ -83,7 +83,7 @@ async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");

@@ -6,10 +6,7 @@ import { Show, type JSX } from "solid-js";
 import { ApplicationShell } from "./application_shell";
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
 import { PageFrame } from "./components/page_frame";
-import {
-  courseRouteView,
-  type CourseThemeRouteData,
-} from "./features/course_appearance/course_theme_context";
+import { courseRouteView, type CourseThemeRouteData } from "./appearance/theme_context";
 import { routeParams, type RouteParams } from "./navigation/route_params";
 import { routeContractForPathname, type RouteContract } from "./route_contract";
 import {
@@ -188,7 +185,7 @@ export function App(props: RouteSectionProps): JSX.Element {
         activeAttemptId: studentNavigation?.activeAttemptId,
         latestFeedbackAttemptId: studentNavigation?.latestFeedbackAttemptId,
       },
-      { productRole: state.session.account.productRole },
+      { userRole: state.session.account.userRole },
       ribbonLabelsFor(routeData, publishedLabels),
       publishedNavigation,
     );

@@ -47,12 +47,12 @@ try {
   for (const [viewportId, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const materialization of RIBBON_ROUTE_MATERIALIZATIONS) {
-      const { productRole, pathname, route } = materialization;
-      if (productRole !== "student" && viewportId !== "laptop") continue;
+      const { userRole, pathname, route } = materialization;
+      if (userRole !== "student" && viewportId !== "laptop") continue;
 
       await page.evaluate(
         ({ role, routeId }) => window.ribbonShell.fixtureNavigateRoute(role, routeId),
-        { role: productRole, routeId: route.id },
+        { role: userRole, routeId: route.id },
       );
       await waitForPath(page, "fixture-shell", pathname);
       const ribbon = fixtureCase.getByRole("region", {
@@ -64,18 +64,18 @@ try {
         ({ role }) =>
           document
             .querySelector('[data-m10-case="fixture-shell"] .ple-app-ribbon')
-            ?.getAttribute("data-ribbon-product-role") === role,
-        { role: productRole },
+            ?.getAttribute("data-ribbon-user-role") === role,
+        { role: userRole },
       );
 
       const { pageTitleLeft, ...offsets } = await shellGeometry(fixtureCase);
-      const key = `${viewportId}/${productRole}`;
+      const key = `${viewportId}/${userRole}`;
       const previousOffsets = shellOffsets.get(key);
       if (previousOffsets === undefined) shellOffsets.set(key, offsets);
       else
         assert.deepEqual(offsets, previousOffsets, `${key} shell geometry drifts at ${route.id}`);
 
-      if (productRole === "student") {
+      if (userRole === "student") {
         const previousTitleLeft = studentTitleEdges.get(viewportId);
         if (previousTitleLeft === undefined) studentTitleEdges.set(viewportId, pageTitleLeft);
         else assert.equal(pageTitleLeft, previousTitleLeft, `${key} PageFrame title origin drifts`);

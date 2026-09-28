@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_data_owner;
 
 -- ASVS 8.2.1/8.2.2: no runtime/API direct reads or writes are exposed by
 -- the foundation. SQL ownership is an installation capability, not Sysadmin
--- Product Role authorization. Authenticated operations grant the private command
+-- User Role authorization. Authenticated operations grant the private command
 -- owner explicit access separately; API/runtime roles retain no table grants.
 ALTER TABLE ple_data.content_discipline ENABLE ROW LEVEL SECURITY;
 

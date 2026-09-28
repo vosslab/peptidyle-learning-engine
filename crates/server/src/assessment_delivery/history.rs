@@ -285,9 +285,9 @@ mod tests {
         StudentAssessmentAttemptHistoryCourse, StudentAssessmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult,
-        PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
-        StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+        AssessmentId, AssessmentType, CourseInstanceId, GradingResult, PublishedQuestionId,
+        PublishedQuestionRevisionTuple, QuestionRevisionNumber, StudentFeedback,
+        StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Theme,
     };
 
     fn evidence() -> StudentAssessmentAttemptHistoryEvidence {
@@ -299,7 +299,7 @@ mod tests {
                     id: CourseInstanceId::new("CIABCDEFGS").expect("valid Course Instance ID"),
                     short_name: "Mol Bio".to_string(),
                     long_name: "Molecular biology".to_string(),
-                    theme: CourseTheme::Forest,
+                    theme: Theme::Forest,
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
                     id: AssessmentId::new("AABCDEFG8").expect("valid Assessment ID"),

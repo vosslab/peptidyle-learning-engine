@@ -131,7 +131,7 @@ BEGIN
       FROM ple_private.account AS account
       CROSS JOIN LATERAL ple_private.instructor_account_summary(account.account_id) AS summary
       LEFT JOIN ple_private.account_avatar AS avatar ON avatar.account_id = account.account_id
-     WHERE account.product_role = 'instructor'
+     WHERE account.user_role = 'instructor'
      ORDER BY summary.account_id;
 END
 $$;

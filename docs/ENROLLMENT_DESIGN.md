@@ -10,7 +10,7 @@ PLE keeps four concepts separate:
 
 | Concept | Meaning |
 | --- | --- |
-| Global Account | One login identity with one immutable Product Role |
+| Global Account | One login identity with one immutable User Role |
 | Course relationship | A Student or Instructor's current access to one Course Instance |
 | Student record | That Student Account's FERPA-protected data in one Course Instance |
 | Assessment Attempt | Student Work for one Course Instance Assessment |
@@ -20,23 +20,23 @@ does not erase Student Work, Course history, authorship, or Instructor
 relationships. Course retention remains separate from Account deactivation.
 No permanent Account-closure workflow is currently defined.
 
-## Product roles
+## User roles
 
 Each Account is exactly one of Student, Instructor, or Sysadmin. A person who
 needs multiple roles uses separate Accounts.
 
-Course relationships do not change Product Role. Every current co-Instructor
+Course relationships do not change User Role. Every current co-Instructor
 has equal Course authority; the creator or first Instructor is not a Course
 owner. A Sysadmin has no implicit Course relationship or ambient FERPA access.
 
 Future Course Observer, Student Observer, and Grader roles require separate
-Course-scoped relationship and privacy designs. They are not current Product
+Course-scoped relationship and privacy designs. They are not current User
 Roles or inferred capabilities. Grader is not currently needed because Question
 grading is automatic.
 
 ## Creating Course relationships
 
-An authorized Course workflow may invite or add an Account whose Product Role
+An authorized Course workflow may invite or add an Account whose User Role
 matches the Course relationship. Acceptance rechecks the Account, role, Course,
 invitation state, and current Course policy. Invitation possession alone is not
 permanent Course authority.
@@ -103,7 +103,7 @@ or Course relationship changes do not rewrite this evidence.
 - Restoring a valid relationship can restore access while retention permits it.
 - Deactivating an Instructor Account blocks authentication while preserving
   Course relationships, authorship, and history; reactivation restores the
-  same Account and Product Role.
+  same Account and User Role.
 - Deactivating a Student's Course access blocks that Course relationship while
   preserving the global Student Account and Student Work; it may be restored
   while retention permits it.

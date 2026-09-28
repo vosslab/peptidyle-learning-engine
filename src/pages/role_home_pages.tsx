@@ -1,10 +1,10 @@
-// role_home_pages.tsx - explicit Product Role home dashboards and root resolution.
+// role_home_pages.tsx - explicit User Role home dashboards and root resolution.
 
 import { A, useNavigate } from "@solidjs/router";
 import { createEffect, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap } from "../auth/session_context";
-import { productRoleHomePath } from "../route_contract";
+import { userRoleHomePath } from "../route_contract";
 import { CourseListPage } from "./course_list_page";
 import { StudentAllCourseworkPage } from "./student_course_landing_page";
 import { useApplicationApi } from "../api/application_api";
@@ -19,7 +19,7 @@ export function RoleHomeResolutionPage(): JSX.Element {
   createEffect(() => {
     const state = session.state();
     if (state.kind === "authenticated") {
-      navigate(productRoleHomePath(state.session.account.productRole), { replace: true });
+      navigate(userRoleHomePath(state.session.account.userRole), { replace: true });
     }
   });
 
@@ -35,7 +35,7 @@ export function RoleHomeResolutionPage(): JSX.Element {
       lede={
         session.state().kind === "error"
           ? undefined
-          : "Sign in to open the dashboard for your Product Role."
+          : "Sign in to open the dashboard for your User Role."
       }
     >
       <Show

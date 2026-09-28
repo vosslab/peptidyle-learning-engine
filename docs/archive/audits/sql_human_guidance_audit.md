@@ -15,14 +15,14 @@ capability issuance no longer takes the redundant Account key-share lock.
 Those receipts supersede the two historical blockers only; they do not certify
 the remaining SQL or product boundaries below.
 
-The fresh PostgreSQL 17 actual-role proof closes the previously open public-ID,
+The fresh PostgreSQL actual-role proof closes the previously open public-ID,
 vocabulary, Bloom, and Watch-notification SQL boundaries. Current production
 Backend scope is PLE and WeBWorK; Human Guidance defers iMathAS and H5P.
 The current ledger below is the release-facing status; dated findings later in
 this audit remain historical evidence unless the ledger points to them as open.
 
 Historical source-only Course-purge reproduction is now superseded for its
-narrow boundary by a fresh canonical PostgreSQL 17.11 actual-role receipt. The
+narrow boundary by a fresh canonical PostgreSQL actual-role receipt. The
 canonical validator privilege correction is included: the retention executor can
 run the Course classification CHECK without a workaround grant, while PUBLIC
 execution remains revoked. That receipt does not expand the two narrow
@@ -45,19 +45,19 @@ application gates. A failed current-source database proof reopens its row.
 
 | Required SQL-owned boundary | Status | Current evidence or remaining work |
 | --- | --- | --- |
-| Retained Question statistics and support-capability locking | Closed SQL | Fresh PostgreSQL 17.11 actual-role receipts supersede the two historical reproduced defects. |
-| Universal canonical public IDs | Closed SQL | Fresh PostgreSQL 17 actual-role proof covers canonical stored IDs, shared Question/Pool lookup identity, global reservation, invalid-value rejection, collision retry, and permanent non-reuse. |
+| Retained Question statistics and support-capability locking | Closed SQL | Fresh PostgreSQL actual-role receipts supersede the two historical reproduced defects. |
+| Universal canonical public IDs | Closed SQL | Fresh PostgreSQL actual-role proof covers canonical stored IDs, shared Question/Pool lookup identity, global reservation, invalid-value rejection, collision retry, and permanent non-reuse. |
 | Course and Pool classification, metadata, and mandatory-null shapes | Closed SQL | Current base-schema contracts and bounded actual-role receipts cover independent Course classification, Pool admission rules, and the corrected conditional shapes. |
-| Sysadmin vocabulary lifecycle and referenced-classification behavior | Closed SQL | Fresh PostgreSQL 17 actual-role proof covers stable UUID create, rename, retire, restore, active-only new choice, and retained referenced values. |
-| Required Bloom metadata for every Question and Pool Revision | Closed SQL | Fresh PostgreSQL 17 actual-role proof covers enum-backed pairs, exact candidate/receipt binding, least-privilege preparation, one use, rollback restoration, deferred completeness, and Question plus Pool Library admission. Application-owned classifier/provider selection and orchestration remain open. |
-| Create a new Blueprint from an existing Course Instance's reusable structure | Closed SQL | `course_blueprint_publication.sql` locks the authorized source, copies only reusable ordered Assessment structure into a distinct actor-owned Private Revision 1, forks Course-owned Pools with exact ordered pins, and records immutable source provenance without changing the Course. Fresh PostgreSQL 17 actual-role proof covers denial/no-write, stale rollback, replay, source preservation, first-Adoption/student counts, and the lifecycle rollback rule. |
+| Sysadmin vocabulary lifecycle and referenced-classification behavior | Closed SQL | Fresh PostgreSQL actual-role proof covers stable UUID create, rename, retire, restore, active-only new choice, and retained referenced values. |
+| Required Bloom metadata for every Question and Pool Revision | Closed SQL | Fresh PostgreSQL actual-role proof covers enum-backed pairs, exact candidate/receipt binding, least-privilege preparation, one use, rollback restoration, deferred completeness, and Question plus Pool Library admission. Application-owned classifier/provider selection and orchestration remain open. |
+| Create a new Blueprint from an existing Course Instance's reusable structure | Closed SQL | `course_blueprint_publication.sql` locks the authorized source, copies only reusable ordered Assessment structure into a distinct actor-owned Private Revision 1, forks Course-owned Pools with exact ordered pins, and records immutable source provenance without changing the Course. Fresh PostgreSQL actual-role proof covers denial/no-write, stale rollback, replay, source preservation, first-Adoption/student counts, and the lifecycle rollback rule. |
 | Blueprint Change Proposal persistence and Entire/Selected acceptance | Closed SQL | Fresh isolated actual-role proof covers exact pins, stale-basis locking, both decision forms, atomic outcome, and unchanged daughters. API, UI, and connected review remain application gates. |
 | Blueprint Promoted storage, Sysadmin mutation, and discovery | Closed SQL | Current source and isolated actual-role proof cover the lineage flag, authorization, CAS mutation, and cursor-bound discovery. |
 | Pool Stars and Watches | Closed SQL | Current canonical SQL/LDA proof covers public vetted-Instructor Stars and private Watches. |
-| Required Question/Pool notification kinds | Closed SQL | Fresh PostgreSQL 17 actual-role proof covers private recipient delivery and all four kinds: Revision, fork, improvement-thread, and impact notice. Browser notification presentation remains an application gate. |
+| Required Question/Pool notification kinds | Closed SQL | Fresh PostgreSQL actual-role proof covers private recipient delivery and all four kinds: Revision, fork, improvement-thread, and impact notice. Browser notification presentation remains an application gate. |
 | Current production Backend set across authoring, delivery, completion, and reproduction | Closed SQL | Current production Backends are PLE and WeBWorK. Human Guidance defers desired iMathAS and H5P behavior, so their existing or absent SQL seams are not current implementation requirements and do not keep the SQL lock open. |
-| Archived Student Work concealment, protected recovery, and expiry deletion | Closed SQL | C208/C210 PostgreSQL 17.11 actual-role and production-server proof covers ordinary-reader concealment, current-Instructor recovery, expiry, and deletion. Browser presentation remains outside the SQL lock. |
-| Canonical Blueprint metadata/content exchange boundary | Closed SQL | Retained PostgreSQL 17 actual-role proof authorizes export/import/re-export semantic deep equality, assigns fresh actor-owned Private Revision-1 Blueprint/module/Assessment/Pool identities, retains exact fixed and ordered Pool-member pins, leaves the source unchanged, and denies unauthorized access. |
+| Archived Student Work concealment, protected recovery, and expiry deletion | Closed SQL | C208/C210 PostgreSQL actual-role and production-server proof covers ordinary-reader concealment, current-Instructor recovery, expiry, and deletion. Browser presentation remains outside the SQL lock. |
+| Canonical Blueprint metadata/content exchange boundary | Closed SQL | Retained PostgreSQL actual-role proof authorizes export/import/re-export semantic deep equality, assigns fresh actor-owned Private Revision-1 Blueprint/module/Assessment/Pool identities, retains exact fixed and ordered Pool-member pins, leaves the source unchanged, and denies unauthorized access. |
 
 ## Current bounded implementation receipts
 
@@ -70,14 +70,14 @@ the final ASCII-space-only display-name correction. Fresh actual-role proof now 
 Watch delivery for Revision, fork, improvement-thread, and impact-notice events. HTTP/UI controls
 remain application evidence.
 
-Native Student Work recovery now has fresh PostgreSQL 17.11 actual-role and production-server proof
+Native Student Work recovery now has fresh PostgreSQL actual-role and production-server proof
 covering the ordinary Student route inventory, Instructor Gradebook concealment, protected
 current-Instructor recovery, expiry concealment, and deletion. The Instructor-zone time display and
 full screenshots remain application evidence. These receipts close the SQL recovery row only; they
 do not establish application or global Human Guidance closure or change checklist status.
 
 Canonical Blueprint exchange has a reviewed model/Store/server implementation and retained
-PostgreSQL 17 actual-role proof for the strict, authority-free representation. Authorized
+PostgreSQL actual-role proof for the strict, authority-free representation. Authorized
 export/import/re-export has semantic deep equality, creates a distinct actor-owned Private
 Revision-1 root with fresh Module, Assessment, and Pool identities, retains exact fixed and ordered
 Pool-member pins, leaves the source unchanged, and denies unauthorized access. It adds no exchange
@@ -126,7 +126,7 @@ classification SQL. Findings describe that working copy, not a clean release.
 The authority's SHA-256 at review was
 `9e92c864a019d89ef9952cfb6e3b9c05a4f45d6055b6c3f49520c400f4dc7055`.
 
-An isolated, network-disabled PostgreSQL 17.11 container was used for temporary
+An isolated, network-disabled PostgreSQL container was used for temporary
 tests. The complete base manifest installed successfully under a reconstructed
 owner/capability role bootstrap. No existing database, application service, or
 tracked SQL was modified. This does not establish success of the supported
@@ -165,17 +165,17 @@ mutation to the application role.
 | --- | --- | --- |
 | Course classification | Required Discipline on both Blueprint and Instance; optional hierarchy-consistent Subject/Topic/Subtopic and Tags; Instance classification independent of source Blueprint | **2026-09-16 current-source addendum:** `course_core.sql` and `blueprints.sql` now store the required Discipline plus optional hierarchy and Tags independently. The historical absence finding is superseded; actual-role and connected acceptance remain separate. |
 | Pool metadata and classification | Pool-level Title/Description and classification; first Question establishes Discipline/Subject; every addition matches; exact member Revisions remain pinned | **2026-09-16 current-source addendum:** Pool metadata already exists. Creation establishes the pair; append checks only new admissions. A retained member may reclassify independently; remove/re-add is a new admission; and a source fork preserves Pool metadata and exact member pins. Human Guidance does not require an ongoing metadata-write veto. Historical actual-role/concurrency evidence is not refreshed here; connected and global acceptance remain open. |
-| Bloom metadata | Two independent required dimensions keyed to each Question/Pool Revision, with Instructor correction independent of immutable Revision content | **2026-09-17 actual-role addendum:** PostgreSQL 17 proves enum-backed pairs, candidate-bound one-use receipts, rollback restoration, deferred completeness, and Question/Pool Library admission. Configured AI execution remains an application decision. |
-| Tags and vocabulary lifecycle | Any number of Tags, including none; establish the promised Sysadmin Discipline lifecycle and how referenced vocabulary changes are handled | **2026-09-17 actual-role addendum:** PostgreSQL 17 proves stable UUID Discipline create/rename/retire/restore, no delete, active-only new choice, and retained referenced values. |
+| Bloom metadata | Two independent required dimensions keyed to each Question/Pool Revision, with Instructor correction independent of immutable Revision content | **2026-09-17 actual-role addendum:** PostgreSQL proves enum-backed pairs, candidate-bound one-use receipts, rollback restoration, deferred completeness, and Question/Pool Library admission. Configured AI execution remains an application decision. |
+| Tags and vocabulary lifecycle | Any number of Tags, including none; establish the promised Sysadmin Discipline lifecycle and how referenced vocabulary changes are handled | **2026-09-17 actual-role addendum:** PostgreSQL proves stable UUID Discipline create/rename/retire/restore, no delete, active-only new choice, and retained referenced values. |
 | Create Blueprint from Course Instance | Authorized creation of a new Private Revision-1 Blueprint Course by copying reusable structure from an existing Course Instance, with explicit source, provenance, and content boundaries | **2026-09-17 current-source addendum:** the SQL boundary is closed. `course_blueprint_publication.sql` creates a distinct actor-owned Private Revision-1 Blueprint, records immutable source provenance and the source Course as its first Adoption, copies only reusable structure, and leaves the Course Instance unchanged. Current actual-role proof is recorded in the lock ledger. Accepted canonical HTTPS C420 proof created `BPJD8H28` from `CI0QR41X`, showed one Adoption, counted source Students only in the statistic, copied no roster/delivery state, and left the source unchanged. |
 | Blueprint Change Proposals | Persistent source/target exact Revision pins, canonical proposed content, selected acceptance/outcome, and stale-target handling; acceptance produces a target Revision, never direct daughter mutation | **2026-09-17 current-source addendum:** immutable Proposal persistence retains exact source/target pins and reconstructs canonical evidence through the existing exporter. Fresh actual-role proof covers stale-basis handling, Entire and Selected acceptance, one durable outcome, atomic successor creation, and unchanged daughters. API/UI and connected acceptance remain outside the SQL lock. |
 | Blueprint Promoted and discovery | Sysadmin-controlled boolean stored independently from immutable reusable content and available in discovery queries | **2026-09-17 current-source addendum:** current source and actual-role proof cover storage, Sysadmin-only CAS mutation, and cursor-bound discovery without creating a content Revision. |
-| Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | **2026-09-17 actual-role addendum:** PostgreSQL 17 proves the private inbox path and all four Watch event kinds. Browser presentation remains separate. |
-| Required notification kinds | Stable representation for Question/Pool improvement-thread and impact events, in addition to Revision/fork notifications | **2026-09-17 actual-role addendum:** PostgreSQL 17 proves private recipient delivery for Revision, fork, improvement-thread, and impact-notice events. |
+| Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | **2026-09-17 actual-role addendum:** PostgreSQL proves the private inbox path and all four Watch event kinds. Browser presentation remains separate. |
+| Required notification kinds | Stable representation for Question/Pool improvement-thread and impact events, in addition to Revision/fork notifications | **2026-09-17 actual-role addendum:** PostgreSQL proves private recipient delivery for Revision, fork, improvement-thread, and impact-notice events. |
 | Current production backend set | Consistent PLE/WeBWorK source types across authoring, revisions, delivery, reproduction and whole-Attempt completion | Current production scope is PLE and WeBWorK. iMathAS and H5P are desired but deferred under Human Guidance and are not current implementation requirements. |
-| Assessment-only response terminology and parentage | `question_response` per-Question evidence explicitly belongs to its owning Assessment submission | **2026-09-16 current-source addendum:** the terminology and parentage repair has fresh PostgreSQL 17.11 actual-role evidence. The historical finding below is retained only to explain why this stable Assessment-only boundary matters. |
+| Assessment-only response terminology and parentage | `question_response` per-Question evidence explicitly belongs to its owning Assessment submission | **2026-09-16 current-source addendum:** the terminology and parentage repair has fresh PostgreSQL actual-role evidence. The historical finding below is retained only to explain why this stable Assessment-only boundary matters. |
 | Archive recovery | A narrowly authorized SQL recovery/read capability providing sufficient retained responses, exact delivery evidence and outcomes during the archive period | **2026-09-17 current-source addendum:** the SQL recovery boundary is closed. Fresh actual-role and production-server proof covers ordinary-reader concealment, current-Instructor recovery, expiry, and deletion without reopening ordinary access or extending permanent deletion. Instructor-zone display and full browser presentation remain application gates. |
-| Canonical Blueprint metadata/content boundary | Complete exchange JSON includes Blueprint metadata and ordered reusable content with exact pins; relational data remains primary persistence | **2026-09-17 current-source addendum:** `CanonicalBlueprintCourse` assembles the complete authority-free exchange projection rather than exposing stored Revision content alone. PostgreSQL 17 actual-role export/import/re-export passed semantic deep equality, fresh identities, exact ordered pins, source preservation, and unauthorized denial. |
+| Canonical Blueprint metadata/content boundary | Complete exchange JSON includes Blueprint metadata and ordered reusable content with exact pins; relational data remains primary persistence | **2026-09-17 current-source addendum:** `CanonicalBlueprintCourse` assembles the complete authority-free exchange projection rather than exposing stored Revision content alone. PostgreSQL actual-role export/import/re-export passed semantic deep equality, fresh identities, exact ordered pins, source preservation, and unauthorized denial. |
 
 If a required capability is intentionally deferred, record its approved exclusion
 from the production scope. That is a release decision, not evidence that the
@@ -187,7 +187,7 @@ to make this audit look complete.
 
 - Close remaining NULL holes in mandatory shape checks. The historical Quiz/Exam
   Template Attempt-limit hole is now corrected and has a fresh isolated
-  PostgreSQL 17 actual-role receipt: invalid Quiz creation and Exam save reject
+  PostgreSQL actual-role receipt: invalid Quiz creation and Exam save reject
   atomically, while a Regular Assignment keeps NULL-as-unlimited behavior. The
   fixed-entry/Pool-entry observations remain separate work. Use explicit
   nullability in conditional shapes. This protects the model as application
@@ -293,7 +293,7 @@ contention on widely used Questions.
 
 Current `statistics.sql` increments retained aggregates exactly once when an
 observation receipt wins, with the existing idempotency identity; it does not
-rebuild after every grade. The fresh PostgreSQL 17.11 actual-role receipt covers
+rebuild after every grade. The fresh PostgreSQL actual-role receipt covers
 duplicate refusal, concurrent increments, rollback, and Unrelease retention.
 Future performance work must begin with a current measured bottleneck rather
 than revive this completed redesign.
@@ -413,7 +413,7 @@ execution of the complete authorized Course retention workflow. Current
 `statistics.sql` eliminates the rebuild path: its receipt winner calls the
 transactional `ple_data.increment_question_revision_statistics` UPSERT helper,
 and `unrelease.sql` no longer reads receipts or reconstructs counts. The fresh
-actual-role PostgreSQL 17.11 receipt at `/private/tmp/ple-sql-final-statistics.log`
+actual-role PostgreSQL receipt at `/private/tmp/ple-sql-final-statistics.log`
 records retained counts through authorized Unrelease, duplicate refusal,
 concurrent increments, and rollback of a forced helper failure. It is narrow:
 it does not establish whole-Course retention, a full new-grade lifecycle after
@@ -434,7 +434,7 @@ Current `support_repair_capability.sql` removes that redundant Account lock
 without granting Account UPDATE. It resolves the canonical Student roster
 resource, requires the issuing Instructor's exact Course authority, and retains
 recipient/resource, expiry, revocation, and immutable-audit checks. The fresh
-actual-role PostgreSQL 17.11 receipt at
+actual-role PostgreSQL receipt at
 `/private/tmp/ple-support-exact-authority-result.log` covers allowed issuance
 and use plus the named denial and audit cases. This supports the corrected
 Student-roster capability only. It does not prove all support access, all
@@ -469,7 +469,7 @@ establish actual-role, connected, or global acceptance.
 
 Current `question_bloom.sql` supersedes the historical absence finding: it stores the two required
 dimensions independently for exact Question and Pool Revisions and provides Instructor CAS
-correction without a content Revision. Fresh PostgreSQL 17 actual-role proof covers the protected,
+correction without a content Revision. Fresh PostgreSQL actual-role proof covers the protected,
 candidate-bound one-use receipt, rollback restoration, deferred completeness, and Question plus
 Pool Library admission. Choosing and operating a protected-content classifier/provider is
 application work; connected publication and browser proof remain open. The SQL also lacks full
@@ -482,7 +482,7 @@ Question and Pool stars/watches plus retained Question/Pool improvement threads
 and impact notices have current SQL/LDA source support. Active vetted Instructors
 participate in text-only threads; Question owners and Sysadmins administer
 Question state/notices, while Pool administration is Sysadmin-only. Resolved
-threads and cancelled notices remain retained. Fresh PostgreSQL 17 actual-role
+threads and cancelled notices remain retained. Fresh PostgreSQL actual-role
 proof covers private Watch delivery for Revision, fork, improvement-thread, and
 impact-notice events. HTTP/UI controls and notification presentation remain open.
 Statistics provide accepted-graded and correct totals plus choice counts;
@@ -583,7 +583,7 @@ Sources consulted from
   These chapters overlap substantially with the preceding book's examples;
   agreement between them is not independent validation.
 - `reference_survey.md`: topic/source mapping. Version-sensitive conclusions were
-  checked against PostgreSQL 17 documentation rather than applying older book
+  checked against PostgreSQL documentation rather than applying older book
   syntax or benchmarks indiscriminately.
 
 ### Conclusions from the reference checks
@@ -597,7 +597,7 @@ Sources consulted from
 | Conditional required fields and NULL semantics | Exact Entry CHECK/NOT NULL/generated definitions copied with LIKE accepted fixed Question points=NULL and a Pool entry with selection_count/points_per_item/order=NULL. Negative fixed points were rejected. | Additional reproduced DDL weakness. Add explicit non-NULL conditions to mandatory variants before freezing the schema. Supported command validation is a separate question. |
 | Foreign-key indexing | Referencing-side indexes are not implicit. Earlier diagnostic identified 144 overinclusive candidates. | Measure high-volume join/delete paths; prioritize actual Course purge/Attempt cascades. Do not add 144 indexes by rote. |
 | Duplicate indexes | Historical catalog evidence found three exact duplicated access paths on issued Question, per-Question finalized-response, and Assessment-submission records. | **Superseded:** the redundant nonunique copies were removed; a fresh installation retains the three valid unique access paths. The write/storage savings remain unquantified. |
-| Assessment-only submission boundary | Historical source review found the per-Question finalized-response evidence written only during whole-Assessment finalization, but without an explicit parent-submission invariant. | **Superseded:** `question_response` and its explicit Assessment-submission parentage have fresh PostgreSQL 17.11 actual-role evidence. No independent Student Question finalization operation was found. |
+| Assessment-only submission boundary | Historical source review found the per-Question finalized-response evidence written only during whole-Assessment finalization, but without an explicit parent-submission invariant. | **Superseded:** `question_response` and its explicit Assessment-submission parentage have fresh PostgreSQL actual-role evidence. No independent Student Question finalization operation was found. |
 | Unused indexes and partial indexes | Question search GIN has no matching search predicate in the reviewed Library command; active passkey/challenge/expiry indexes already use partial predicates. | Reconcile search query/index usage. Do not drop an index merely because a fresh test database reports zero scans; production/replica usage was not inspected. |
 | Index type and predicate match | B-trees cover many exact identity/ordering lookups; GIN is used for Question text search. The historical statistics Revision-filtering experiment is superseded by the retained-counter design. | Keep workload-based index choices. No evidence justifies replacing B-trees wholesale with Hash/BRIN or adding generic GIN indexes to all JSON. |
 | Query volume/projection and expression indexing | Explicit public/Student projections coexist with internal SELECT * row locking; Library returns an unbounded catalog with correlated metadata work. | Internal complete-row loading is not automatically a defect. Bound expensive catalog projections and connect search to the existing expression index. |
@@ -607,7 +607,7 @@ Sources consulted from
 | Table inheritance and rewrite rules | Catalog found no inherited tables or custom non-view rewrite rules. | No corresponding inheritance/CREATE RULE anti-pattern found. No redesign needed. |
 | Partitioning and capacity | None of the 131 domain tables is partitioned. Receipt/evidence growth and retention determine future scale. | Absence of partitioning is not a launch blocker by itself. Estimate retained row volume and purge cost before choosing partition keys; partitioning can complicate uniqueness/FKs. |
 | Explicit locking, lock order, retries and idempotency | Source has table-wide public-reference locks, hot-Assessment locking and per-Revision statistics serialization; support row-lock privilege fails. | Fix the demonstrated privilege problem; measure contention and deterministic two-session outcomes before weakening locks. Concurrency remains an unverified readiness concern. |
-| Fresh install and target version | Full manifest installed again on PostgreSQL 17.11 with the restricted migrator and temporary role bootstrap. | Pass for this fresh-install environment; no supported application/database-initializer execution is claimed. |
+| Fresh install and target version | Full manifest installed again on PostgreSQL with the restricted migrator and temporary role bootstrap. | Pass for this fresh-install environment; no supported application/database-initializer execution is claimed. |
 | Dump/restore feasibility | pg_dump output restored transactionally into a second disposable database. Both catalog reports matched after normalizing unordered rows, including 131 tables, forced RLS, 402 fixed-path definers and 12 avatar seed rows. | Pass for base schema and structural seed round-trip. Roles already existed in the same cluster. This is not a populated Student-data restore, PITR, cluster-role recovery or proof that every restored command is authorized correctly. |
 | Installation replay | SQL preserves ordinary identities/pins and checks important fixture roots, but does not enforce complete equality of every existing teaching setting. | Resolve preserve-versus-reject semantics for fixture edits. Do not infer full convergence solely from root/pin checks. |
 | Runtime configuration, pooling, maintenance, backups/HA | These directories do not provide a running production cluster's connection metrics, autovacuum behavior, replica lag or recovery history. | Outside the SQL-only verdict. No claim that these capabilities are absent, and no tuning or infrastructure prescription based only on schema source. |
@@ -647,7 +647,7 @@ parent Assessment-submission relationship is explicit in SQL. Fresh PostgreSQL
 necessary per-Question credit/evidence; the repair does not remove the
 response/grading facts needed to interpret the submitted Assessment.
 
-PostgreSQL 17 references supporting these judgments:
+PostgreSQL references supporting these judgments:
 [data types](https://www.postgresql.org/docs/17/datatype.html),
 [numeric types](https://www.postgresql.org/docs/17/datatype-numeric.html),
 [constraints](https://www.postgresql.org/docs/17/ddl-constraints.html),
@@ -656,7 +656,7 @@ PostgreSQL 17 references supporting these judgments:
 
 ### Additional temporary test evidence
 
-The second network-disabled container used the same PostgreSQL 17.11 image and
+The second network-disabled container used the same PostgreSQL image and
 fresh SQL files. Temporary scripts/logs used the prefix
 `/private/tmp/ple-sql-qc-*`. The tested Entry clone copied actual installed CHECKs,
 NOT NULL and generated-column definitions; LIKE deliberately did not copy FKs,
@@ -737,7 +737,7 @@ missing logical ownership, dormant functionality or identifying values in JSON.
 | Tool/check | What it can establish | Use in this audit |
 | --- | --- | --- |
 | PostgreSQL catalogs: `pg_constraint`, `pg_index`, `pg_attribute`, `pg_class`, `pg_proc`, ACL/RLS catalogs | Declared relationships, validation flags, key/index structure, types, function configuration and permission metadata | Used for integrity, duplicate indexes, fixed definer paths, forced RLS and the 132-table/244-FK graph. Requires explicit review queries; not one built-in schema approval command. |
-| [pg_amcheck / amcheck](https://www.postgresql.org/docs/17/app-pgamcheck.html) | Physical table/TOAST and supported index consistency, including B-tree uniqueness/heap-to-index checks | Executed successfully in the disposable PostgreSQL 17.11 database. This is not a logical FK, HG, authorization or concurrency test. GIN and other unsupported access methods are not certified by it. |
+| [pg_amcheck / amcheck](https://www.postgresql.org/docs/17/app-pgamcheck.html) | Physical table/TOAST and supported index consistency, including B-tree uniqueness/heap-to-index checks | Executed successfully in the disposable PostgreSQL database. This is not a logical FK, HG, authorization or concurrency test. GIN and other unsupported access methods are not certified by it. |
 | [plpgsql_check](https://github.com/okbob/plpgsql_check) | Static analysis of PL/pgSQL functions, including many SQL/type/reference errors and warnings | Useful next analysis on an installed disposable schema; not installed or executed in this audit. It is a third-party extension, not part of default PL/pgSQL execution. Findings need role/context and behavior review. |
 | [SQLFluff](https://docs.sqlfluff.com/en/stable/) | SQL parsing/style linting using its PostgreSQL dialect | Not run. Style/parser findings are supplementary; psql includes and PL/pgSQL constructs need tool-appropriate handling. Successful lint cannot certify data semantics. |
 | [Squawk](https://squawkhq.com/docs/) | PostgreSQL migration-risk linting | Not run. Most relevant to later forward migrations and changes on populated databases, rather than treating every blocking operation in a fresh base as unsafe. |
@@ -784,7 +784,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Account rules, 134-147: passwordless passkey/email authentication | `authentication.sql`: email challenges, passkeys, ceremonies, hashed sessions | Boundary. SQL supports passwordless persistence; delivery and credential verification are outside this audit. |
 | Account rules, 134-147: stronger Sysadmin authentication | `authentication.sql`: encrypted TOTP credentials, used counters, pending attestations, session consumption | Supported database substrate; external encryption and TOTP verification not certified. |
 | Account rules, 145-147: deactivate/reactivate Instructor without deleting content or identity | `accounts.sql`: state events and Instructor state commands; `authentication.sql`: session revocation trigger | Supported. State is separate from Account identity and authored content. |
-| Instructor role, 148-157: vetted identity before creation; same global capabilities | `accounts.sql`: vetting decision, Instructor creation event and commands | Supported source path. No separate higher teaching Product Role is modeled. |
+| Instructor role, 148-157: vetted identity before creation; same global capabilities | `accounts.sql`: vetting decision, Instructor creation event and commands | Supported source path. No separate higher teaching User Role is modeled. |
 | Instructor role, 148-157: private Course authority through membership | `authorization.sql`: exact Course Instructor/member predicates | Supported source path. Runtime review did not exhaust every RLS policy/caller. |
 | Instructor role, 148-157: answer-free Student view without identity change | `assessment_student_view.sql`: Instructor-scoped preview source/duration reads | Boundary. SQL authorizes as Instructor; source stripping and rendered absence of answers are application responsibilities. |
 | Student role, 158-179: global Account survives Course/term and Course retention | `course_membership.sql`: separate Account and Course-scoped Student Record; `course_retention_transitions.sql`: purge | Accepted narrow actual-role receipt: one global Student Account remained after one adopted daughter was purged, while its Course-scoped memberships, records, profiles, invitations, and events were removed. This is not a complete descendant or deployed purge claim. |
@@ -794,18 +794,18 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Student role, 158-179: ending enrollment revokes access without immediately deleting work; later restoration | `course_membership.sql`: immutable episodes, started/ended events, one active episode | Supported persistence model. Restoration uses a new episode, not rewriting an ended episode. Full command execution was not tested. |
 | Student role, 158-179: bulk add, individual removal, no bulk removal product operation | `course_operations.sql`: array roster import; membership transition model | Boundary. Bulk import exists; UI/command exposure of removals is outside the reviewed SQL guarantee. |
 | Sysadmin role, 180-191: platform authority does not automatically confer FERPA access | `authorization.sql`: distinct platform and Course predicates; `support_repair_capability.sql` | Partial. The architecture separates scope; repaired support issuance also needs issuer/resource authority review. |
-| Sysadmin role, 180-191: task-scoped and audited support access | `support_repair_capability.sql`: issue command and capability events; roster repair projection | Historical lock defect is corrected narrowly with a PostgreSQL 17.11 actual-role receipt. The current Student-roster capability does not establish all support or FERPA authority. |
+| Sysadmin role, 180-191: task-scoped and audited support access | `support_repair_capability.sql`: issue command and capability events; roster repair projection | Historical lock defect is corrected narrowly with a PostgreSQL actual-role receipt. The current Student-roster capability does not establish all support or FERPA authority. |
 | Profile avatar interface, 312-333: random initial gallery avatar; shared gallery; Students cannot upload; Instructor/Sysadmin self images | `profile_media.sql`: initial-avatar trigger, self-owned image validation and role-scoped operations; `provided_avatar_catalog.sql` | Supported database structure. Crop UI, pixel checks and cross-system media execution remain outside SQL certification. |
 
 ### Identity, classification, privacy, retention, and time
 
 | HG requirement and locator | SQL evidence | Assessment |
 | --- | --- | --- |
-| Human-facing public IDs, 667-704: exact canonical IDs, global uniqueness, collision retry, permanent nonreuse | `public_ids.sql`, `accounts.sql`, and Course/Assessment/Blueprint keys | Closed SQL. PostgreSQL 17 actual-role proof covers the global registry, exact canonical storage, invalid-value denial, collision retry, and permanent non-reuse. |
-| Question/Pool public identity, 973-980 and 1028-1031: shared checked Question/Pool IDs | `question_lineages.sql`, `question_pools.sql`, and `public_ids.sql` | Closed SQL. PostgreSQL 17 actual-role proof covers the shared `XXXX-ZXXX` namespace and exact canonical stored values. |
+| Human-facing public IDs, 667-704: exact canonical IDs, global uniqueness, collision retry, permanent nonreuse | `public_ids.sql`, `accounts.sql`, and Course/Assessment/Blueprint keys | Closed SQL. PostgreSQL actual-role proof covers the global registry, exact canonical storage, invalid-value denial, collision retry, and permanent non-reuse. |
+| Question/Pool public identity, 973-980 and 1028-1031: shared checked Question/Pool IDs | `question_lineages.sql`, `question_pools.sql`, and `public_ids.sql` | Closed SQL. PostgreSQL actual-role proof covers the shared `XXXX-ZXXX` namespace and exact canonical stored values. |
 | Content classification, 644-690: one shared vocabulary; globally unique Subject; Subject in multiple Disciplines; Topic/Subtopic parentage | `content_classification.sql`: vocabulary keys, associations and parent FKs | Supported model. Writer paths preserve nonempty Subject associations; arbitrary owner-level writes were not certified. |
 | Content classification, 644-690: normalized progressively longer names | `content_classification_operations.sql`: normalize helper and 120/240/480 limits | Supported. Normalization precedes command validation. |
-| Content classification, 644-690: Sysadmin manages Discipline; Instructor creates/selects other vocabulary; explicit association of existing Subject | `content_classification_operations.sql`: stable UUID create/rename/retire/restore, role guards, active/new-use locks, find/associate/list commands | Closed SQL. PostgreSQL 17 actual-role proof covers the stable lifecycle and retained referenced values. Browser behavior remains separate. |
+| Content classification, 644-690: Sysadmin manages Discipline; Instructor creates/selects other vocabulary; explicit association of existing Subject | `content_classification_operations.sql`: stable UUID create/rename/retire/restore, role guards, active/new-use locks, find/associate/list commands | Closed SQL. PostgreSQL actual-role proof covers the stable lifecycle and retained referenced values. Browser behavior remains separate. |
 | Content classification, 644-690: hierarchy selections; LibraryObject exactly one Discipline/Subject | `question_lineages.sql`: required Question fields and composite FKs; `question_pools.sql`: Pool classification and admission checks | Partial. Published Questions enforce hierarchy. Current Pool source establishes its Discipline/Subject from the first member and checks new admissions; retained members may reclassify independently, remove/re-add is a new admission, and source forks preserve Pool metadata and exact pins. This does not refresh actual-role/concurrency proof or establish connected or global acceptance. |
 | Course classification, 1076-1089: required Discipline; optional Subject/Topic/Subtopic/Tags; may differ from parent Blueprint | `course_core.sql`, `blueprints.sql` | Current source supports independent Course Instance and Blueprint classification. This supersedes the historical absence finding; actual-role and connected acceptance remain open. |
 | Content classification/Library metadata, 644-690 and 998-1014: any number of Tags, including none | `question_lineages.sql`: metadata Tag validator; `question_pools.sql`: Pool metadata; Course/Blueprint validators | Current source supports empty or unbounded Tags for Questions, Pools, Course Instances, and Blueprint Courses. This supersedes the historical 64-Tag/Course-Tag absence finding; connected and global acceptance remain open. |
@@ -813,7 +813,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Student and FERPA data, 691-709: exact Course membership and Student ownership | `authorization.sql`: exact record ownership; `assessment_attempt_operations.sql`: current-Attempt ownership assertion | Supported source paths, subject to the support-scope concern already identified. |
 | Data/history and FERPA, 627-634 and 691-709: no Student evidence in ordinary logs/analytics/URLs/browser storage | Private evidence tables and narrow projections | Boundary. SQL separation contributes; logging, URLs and browser storage cannot be certified from schema files. |
 | FERPA, 691-709: Student Work/Attempts/submissions/grades follow Course purge; teaching definitions remain | `course_retention_transitions.sql`: targeted deletion and dependent cascades | Historical source-only assessment is superseded: fresh canonical actual-role archive/purge removed the observed Course-scoped Student evidence while teaching definitions and the other daughter remained. This row contributes to the current Closed SQL retention boundary. The fixture had no submitted Student Work, so object-store cleanup, worker execution, deployed behavior, and complete cross-system purge acceptance remain outside this SQL receipt; those limitations do not reopen the Closed SQL row. |
-| FERPA/statistics, 691-709 and 1015-1033: privacy-safe aggregates survive Student deletion | `statistics.sql`: receipt-gated increment; Attempt/receipt cascade | Historical rebuild defect is corrected narrowly with a PostgreSQL 17.11 actual-role receipt. Whole-Course retention and public-statistics policy remain unverified. |
+| FERPA/statistics, 691-709 and 1015-1033: privacy-safe aggregates survive Student deletion | `statistics.sql`: receipt-gated increment; Attempt/receipt cascade | Historical rebuild defect is corrected narrowly with a PostgreSQL actual-role receipt. Whole-Course retention and public-statistics policy remain unverified. |
 | FERPA/statistics, 691-709 and 1015-1033: no individual reconstruction; privacy thresholds for shared rollups | `statistics.sql`: count tables, private receipts and grants | Boundary/Partial. Aggregates are distinct from evidence, but thresholded shared display is not implemented here. No public disclosure was reproduced. |
 | Retention, 710-733: six-month creation-based Active cap; dates cannot extend beyond it | `course_core.sql`: UTC six-month cutoff and immutable schedule; Assessment validation | Supported source enforcement. |
 | Retention, 710-733: latest Assessment deadline starts retention; changing deadlines moves it within cap | `assessment_deadline_sync.sql`: maximum current due instant and Course synchronization | Supported. No-deadline fallback is Active cutoff; that fallback is an implementation choice, not explicit HG wording. |
@@ -849,9 +849,9 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Library, 984-1014: global Questions and Pools, vetted Instructor reuse, no Drafts or Student Library access | `question_library_operations.sql`: Instructor-only Question projection; Pool operations | Partial. Global published Question path exists; the combined discoverable Question-and-Pool projection is incomplete. |
 | Library, 984-1014: practical bulk metadata/search/filter/sort | `published_question_metadata_operations.sql`: bulk CAS writer; Question Library projection/GIN index | Partial. Bulk Question metadata exists; query-side search/filter/paging and Pool coverage remain incomplete. UI search was not audited. |
 | Statistics, 1015-1033: Revision-first totals and eligible choice counts, optional partial/unanswered/Pool aggregates | `statistics.sql`: Revision totals and choice tables | Partial optional capability. Missing optional categories/Pool statistics are not by themselves mandatory launch blockers; retained-count loss is. |
-| Bloom, 1034-1048: independent required Cognitive Process/Knowledge Dimension per Question/Pool Revision; editable without new Revision | `question_bloom.sql`: exact-Revision pair tables, closed vocabularies, Edit Number, and Instructor correction commands | Closed SQL. PostgreSQL 17 actual-role proof covers receipt ACL, exact binding, one use, rollback, deferred completeness, and Question/Pool Library admission. AI execution remains application work. |
+| Bloom, 1034-1048: independent required Cognitive Process/Knowledge Dimension per Question/Pool Revision; editable without new Revision | `question_bloom.sql`: exact-Revision pair tables, closed vocabularies, Edit Number, and Instructor correction commands | Closed SQL. PostgreSQL actual-role proof covers receipt ACL, exact binding, one use, rollback, deferred completeness, and Question/Pool Library admission. AI execution remains application work. |
 | Stewardship, 1049-1061: public vetted-Instructor stars/identities; private watches; no Student/anonymous disclosure | `question_stewardship.sql` and Pool stewardship operations: Question and Pool star/watch reads/writes | Supported in current SQL/LDA proof. HTTP/UI and notifications are separate application/event gates. |
-| Stewardship/revisions, 914-933, 943-967 and 1049-1061: notifications for Revisions, forks, improvement threads, impact notices | `library_discussion_operations.sql` and `question_watch_notifications.sql` | Closed SQL. PostgreSQL 17 actual-role proof covers private recipient delivery for all four event kinds. Browser presentation remains separate. |
+| Stewardship/revisions, 914-933, 943-967 and 1049-1061: notifications for Revisions, forks, improvement threads, impact notices | `library_discussion_operations.sql` and `question_watch_notifications.sql` | Closed SQL. PostgreSQL actual-role proof covers private recipient delivery for all four event kinds. Browser presentation remains separate. |
 
 ### Courses and Blueprints
 
@@ -871,7 +871,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Blueprint forks, 1160-1176: new Private owned child, source pin, fresh Assessment/Pool identities, same exact Questions, independent subsequent history | `blueprint_operations.sql`: fork; `blueprint_pools.sql`; fork receipt/lineage | Supported source construction paths. |
 | Blueprint lineage/comparison, 1160-1176 and 1204-1215: visible forks/owners, visible related current heads, on-request JSON comparison | `blueprint_lineage.sql`: fork list and comparison sources | Supported source reads. Semantic difference calculation/presentation belongs to the domain/application. |
 | Change Proposals, 1177-1203: exact source/target pins, canonical proposed JSON, selected acceptance, durable outcome, stale-target handling; no direct daughter mutation | `blueprint_change_proposals.sql` and the data-access Store persist immutable exact Revision/metadata-event pins, exporter-reconstructed canonical evidence, and a one-final-decision accepted result. The bounded receiving-owner backend accepts both Entire and Selected decisions under the target lock, preserving exact ordered Question/Pool Revision pins; accepted metadata-only changes create the required identical-content successor. | Partial. Fresh isolated actual-role proof accepts both decision forms, verifies final-decision-insert rollback of the successor, metadata, and Pool allocations, and confirms adopted daughter Course/Assessment/entry/Pool records remain unchanged. Source-copy create/read retains explicit Private-source sharing while ordinary Private source/history reads remain denied. API, human-readable proposal review/UI, connected acceptance, and concurrent work remain open; no global checklist-status change follows. |
-| Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [canonical_exchange.rs](../../../crates/question_model/src/blueprint_course/canonical_exchange.rs): `CanonicalBlueprintCourse` assembles metadata and ordered reusable content; [exchange.rs](../../../crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs): `assert_actual_role_round_trip` | Closed SQL. Retained PostgreSQL 17 actual-role export/import/re-export passed semantic deep equality, fresh identities, exact ordered pins, unchanged source, and unauthorized denial; relational storage remains primary. |
+| Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [canonical_exchange.rs](../../../crates/question_model/src/blueprint_course/canonical_exchange.rs): `CanonicalBlueprintCourse` assembles metadata and ordered reusable content; [exchange.rs](../../../crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs): `assert_actual_role_round_trip` | Closed SQL. Retained PostgreSQL actual-role export/import/re-export passed semantic deep equality, fresh identities, exact ordered pins, unchanged source, and unauthorized denial; relational storage remains primary. |
 | Course Instances, 1232-1244: only co-Instructors/enrolled Students; teaching data; retained inactive metadata; new term uses new Instance | Course membership policies and lifecycle; no distinct rollover object | Supported source representation/access paths, not an exhaustive policy proof. |
 | Adoption counts, 1245-1261: count daughter Instances, retain parent/exact source | `course_core.sql`: source relationship; `blueprint_operations.sql`: discovery count | Narrow actual-role receipt retained each deleted daughter's anonymous distinct Account count exactly once; ordinary reimport/reclaim did not alter it. Broader discovery, worker, and deployed behavior remain unproved. |
 | Names, 1262-1271: independent deliberate short/long names, short name preferably under about 16 characters | Course/Blueprint name fields and rename operations | Supported. The suggested compact length is guidance, not a mandatory SQL 16-character constraint. |
@@ -881,10 +881,10 @@ identify the SQL object or operation to inspect. The statuses mean:
 | HG requirement and locator | SQL evidence | Assessment |
 | --- | --- | --- |
 | Assessment model/content, 1272-1294: shared model, five types, ordered Question/Pool positions, exact pins, add/remove/reorder | `assessments.sql`: type CHECK and ordered entries; `assessment_operations.sql`: atomic saves; Blueprint content validator | Supported source model; no separate Assignment category or weights hierarchy. |
-| Types, 1295-1318: settings changes do not change Type; Quiz/Exam one Attempt; Bonus zero denominator | `assessments.sql`: save allowed keys exclude Type; start policy; `grading.sql`: contribution functions | Supported command semantics. The historical sibling Template nullable-Quiz/Exam CHECK observation is separately corrected; its isolated PostgreSQL 17 actual-role receipt does not prove deployed or runtime-wide SQL acceptance. |
+| Types, 1295-1318: settings changes do not change Type; Quiz/Exam one Attempt; Bonus zero denominator | `assessments.sql`: save allowed keys exclude Type; start policy; `grading.sql`: contribution functions | Supported command semantics. The historical sibling Template nullable-Quiz/Exam CHECK observation is separately corrected; its isolated PostgreSQL actual-role receipt does not prove deployed or runtime-wide SQL acceptance. |
 | Blueprint Assessments, 1319-1329: published content/points/reusable defaults; no Students/dates/Templates | `blueprints.sql`: closed reusable shape and pin integrity | Supported source validator/persistence. |
 | Instance Assessments, 1330-1338: delivery settings distinct; daughter copy editable; new Blueprint members copied unreleased | Assessment source/default fields and adoption/update operations | Supported SQL mechanisms; publication-trigger orchestration not certified. |
-| Templates, 1339-1351: own editable per-Instructor settings, one Type, no Questions/Pools, copy independent defaults | `assessment_templates.sql`, `assessment_template_copy.sql` | Supported structure/commands. The corrected Template CHECK rejects Quiz NULL creation and Exam NULL save without residue/change, accepts Quiz/Exam limit one, and preserves Regular Assignment NULL-as-unlimited in a fresh canonical PostgreSQL 17 `ple_auth`/`ple_app` rollback proof. Templates are not a live settings link; this is not deployed or runtime-wide SQL acceptance. |
+| Templates, 1339-1351: own editable per-Instructor settings, one Type, no Questions/Pools, copy independent defaults | `assessment_templates.sql`, `assessment_template_copy.sql` | Supported structure/commands. The corrected Template CHECK rejects Quiz NULL creation and Exam NULL save without residue/change, accepts Quiz/Exam limit one, and preserves Regular Assignment NULL-as-unlimited in a fresh canonical PostgreSQL `ple_auth`/`ple_app` rollback proof. Templates are not a live settings link; this is not deployed or runtime-wide SQL acceptance. |
 | Release, 1354-1369: start unreleased; Questions/settings valid; dates ordered; due at least 24h ahead and within Active cap | `assessment_creation.sql`, `assessment_release_validation.sql`: structured issues and hard validation | Supported source path. Error explanation/retry interaction outside SQL. Raw nullable Entry CHECKs warrant independent hardening review. |
 | Submission defaults, 1370-1375: late work rejected; no new starts/submissions beyond due by default | `assessment_creation.sql`: reject default; Attempt start/finalization due logic | Supported source defaults. Live Demo's explicit late-work acceptance is an override, not a global-default defect. |
 | Disclosure, 1376-1390: independent policies; Practice answers after submit; Quiz/Exam only after all Students complete, not correctness | Attempt policy snapshots; `assessment_attempt_history.sql`: submission-based cohort predicate | Boundary. SQL supplies immutable policy/cohort facts; adapter/server enforcement of answer disclosure was not audited. Creation's `after_submit` alone is not proof of premature Quiz answers. |
@@ -986,7 +986,7 @@ history changes are part of this audit.
 
 ## Course-purge evidence addendum
 
-Fresh canonical PostgreSQL 17.11 installation as `ple_migrator` accepted the
+Fresh canonical PostgreSQL installation as `ple_migrator` accepted the
 canonical `course_classification_tags_are_valid` grant to
 `ple_course_retention_executor`; the earlier actual-role archive failure was a
 real privilege defect and is now corrected in source, not bypassed in the proof.
@@ -1014,7 +1014,7 @@ limits do not reopen the current Closed SQL retention row. Receipt:
 The current claim guard now requires `retention_lifecycle_state = 'active'`
 after the Course-root lock and before the active-membership idempotent return.
 An Inactive but unarchived Course remains claimable; revocation is unchanged.
-Fresh PostgreSQL 17 actual-role `ple_auth`/`ple_app` proof passed: archived
+Fresh PostgreSQL actual-role `ple_auth`/`ple_app` proof passed: archived
 pending and idempotent claims return generic `42501` without child/event rows,
 and claim waited behind a real archive lock before the archive committed and
 the denial held. This does not prove deployment, touch live `8258`, or close

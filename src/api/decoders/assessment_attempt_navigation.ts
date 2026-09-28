@@ -26,7 +26,7 @@ import {
   type AssessmentAttemptRouteId,
   parseAssessmentAttemptId,
 } from "../../navigation/public_route";
-import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
 import { decodeAccountTimeZone } from "./student_assessment_decision";
 import { decodeStudentQuestionPresentation } from "./presentation_delivery";
@@ -97,7 +97,7 @@ export function decodeStudentAssessmentAttemptContext(
       theme: decodeStringEnum(
         field(course, "theme", `${path}.course`),
         `${path}.course.theme`,
-        COURSE_THEME_VALUES,
+        THEME_VALUES,
       ),
     },
     assessment: {

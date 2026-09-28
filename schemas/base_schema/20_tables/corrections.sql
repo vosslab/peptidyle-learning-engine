@@ -10,7 +10,7 @@ CREATE TABLE ple_data.forced_question_correction (
     replacement_question_id text NOT NULL,
     replacement_revision_number integer NOT NULL CHECK (replacement_revision_number > 0),
     approved_by_account_id ple_data.account_id NOT NULL,
-    approver_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
+    approver_role ple_data.user_role NOT NULL DEFAULT 'sysadmin',
     approved_at timestamptz NOT NULL,
     correction_generation integer NOT NULL CHECK (correction_generation > 0),
     reason ple_data.correction_reason NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE ple_data.forced_question_correction (
     FOREIGN KEY (replacement_question_id, replacement_revision_number)
         REFERENCES ple_data.question_revision(published_question_id, revision_number),
     FOREIGN KEY (approved_by_account_id, approver_role)
-        REFERENCES ple_private.account(account_id, product_role),
+        REFERENCES ple_private.account(account_id, user_role),
     UNIQUE (flawed_question_id, flawed_revision_number, correction_generation),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );

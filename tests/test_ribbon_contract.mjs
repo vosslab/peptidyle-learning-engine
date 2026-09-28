@@ -7,8 +7,8 @@ import { renderToString } from "solid-js/web";
 import { buildRoutePath, deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 import { routeParams } from "../src/navigation/route_params.ts";
 import {
-  productRoleMayAccessRoute,
-  productRoleHomePath,
+  userRoleMayAccessRoute,
+  userRoleHomePath,
   routeContractForPathname,
   ROUTE_CONTRACT,
 } from "../src/route_contract.ts";
@@ -18,7 +18,7 @@ import { ribbonTierTwoSchemaFor } from "../src/ribbon/ribbon_schema.ts";
 import { loadAppRibbonForSsr } from "./support/ribbon_component_ssr.ts";
 import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 
-const PRODUCT_ROLES = ["student", "instructor", "sysadmin"];
+const USER_ROLES = ["student", "instructor", "sysadmin"];
 const LABELS = {};
 const PARAMETER_VALUES = {
   courseInstanceId: "CI7K3M2QAZ",
@@ -54,7 +54,7 @@ function routeStateFor(routeId) {
   return { route, params: { ...declaredParams } };
 }
 
-function controlsFor(routeId, productRole, labels = LABELS) {
+function controlsFor(routeId, userRole, labels = LABELS) {
   const routeState = routeStateFor(routeId);
   const params =
     routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
@@ -68,11 +68,11 @@ function controlsFor(routeId, productRole, labels = LABELS) {
     {
       ...routeState,
       params,
-      ...(productRole === "student"
+      ...(userRole === "student"
         ? { studentCourses: [{ id: PARAMETER_VALUES.courseInstanceId, shortName: "BCHM 355" }] }
         : {}),
     },
-    { productRole },
+    { userRole },
     labels,
   );
   return { model, controls: [...model.tabs, ...model.taskAreas.flatMap((area) => area.controls)] };
@@ -113,14 +113,14 @@ test("derived Ribbon controls are immutable model-owned descriptors", () => {
 
 test("admission withholds unavailable controls and respects declared role ceilings", () => {
   for (const route of ROUTE_CONTRACT) {
-    for (const role of PRODUCT_ROLES) {
+    for (const role of USER_ROLES) {
       for (const control of controlsFor(route.id, role).controls) {
         if (control.availability === "Unavailable") {
           assert.equal(control.href, undefined, `${route.id}/${role}/${control.id}`);
         }
         if (control.availability === "Available" && control.destination.kind === "route") {
           assert.equal(
-            productRoleMayAccessRoute(control.destination.routeId, role),
+            userRoleMayAccessRoute(control.destination.routeId, role),
             true,
             `${route.id}/${role}/${control.id}`,
           );
@@ -133,7 +133,7 @@ test("admission withholds unavailable controls and respects declared role ceilin
 // Permanent contract: every signed-in role reaches the same self-owned account
 // commands through the compact Profile menu. A regression would either strand a
 // role from Profile or scatter Sign out back into the top bar.
-test("every signed-in Product Role has one accessible generic Profile end control", async () => {
+test("every signed-in User Role has one accessible generic Profile end control", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   for (const [role, routeId] of [
     ["student", "studentHome"],
@@ -329,7 +329,7 @@ test("Student Tier 2 choices and order stay fixed across routes and Course conte
     ],
   };
   for (const route of ROUTE_CONTRACT) {
-    if (!route.requiredProductRoles.includes("student")) continue;
+    if (!route.requiredUserRoles.includes("student")) continue;
     const expected = expectedTaskRows[route.ribbon.tierOneArea];
     if (expected === undefined) continue;
     const model = controlsFor(route.id, "student").model;
@@ -396,7 +396,7 @@ test("global Student Tier 2 destinations stay available without Course context",
   const params = { assessmentAttemptId: routeState.params.assessmentAttemptId };
   const model = deriveRibbonModel(
     { route: routeState.route, params },
-    { productRole: "student" },
+    { userRole: "student" },
     LABELS,
   );
   const controls = model.taskAreas.flatMap((area) => area.controls);
@@ -418,7 +418,7 @@ test("Active Attempt links directly to the server-selected resumable Attempt", (
       ...routeState,
       activeAttemptId: attemptId,
     },
-    { productRole: "student" },
+    { userRole: "student" },
     LABELS,
   );
   const activeAttempt = model.taskAreas
@@ -496,7 +496,7 @@ test("breadcrumb trails are canonical route projections with one current termina
             },
           }
         : routeState,
-      { productRole: "instructor" },
+      { userRole: "instructor" },
       labels,
     );
     assert.deepEqual(
@@ -518,7 +518,7 @@ test("breadcrumb trails are canonical route projections with one current termina
   }
   const courseBreadcrumb = deriveRibbonModel(
     routeStateFor("assessmentWorkspaceQuestions"),
-    { productRole: "instructor" },
+    { userRole: "instructor" },
     labels,
   ).breadcrumbs[1];
   assert.deepEqual(
@@ -530,7 +530,7 @@ test("breadcrumb trails are canonical route projections with one current termina
   assert.ok(malformed);
   const invalid = deriveRibbonModel(
     { route: malformed, params: { courseInstanceId: "C-1/not-an-id" } },
-    { productRole: "instructor" },
+    { userRole: "instructor" },
     labels,
   );
   assert.deepEqual(
@@ -540,7 +540,7 @@ test("breadcrumb trails are canonical route projections with one current termina
   );
   const scoped = deriveRibbonModel(
     routeStateFor("courseAppearance"),
-    { productRole: "instructor" },
+    { userRole: "instructor" },
     labels,
   );
   assert.deepEqual(Object.keys(scoped.context).sort(), [
@@ -558,7 +558,7 @@ test("loaded Blueprint access selects its actual collection parent", () => {
     blueprintCourseTitle: "Public Molecular Biology Blueprint",
     blueprintBreadcrumbParent: "publicBlueprintSearch",
   };
-  const model = deriveRibbonModel(routeState, { productRole: "instructor" }, publicLabels, {
+  const model = deriveRibbonModel(routeState, { userRole: "instructor" }, publicLabels, {
     blueprintSearchReturnToken: "8f5e7d01-b6c7-4c14-8a0b-4bfef6390d6d",
   });
   assert.deepEqual(
@@ -580,7 +580,7 @@ test("loaded Blueprint access selects its actual collection parent", () => {
   for (const navigation of [{}, { blueprintSearchReturnToken: "not-a-token" }]) {
     const directModel = deriveRibbonModel(
       routeState,
-      { productRole: "instructor" },
+      { userRole: "instructor" },
       publicLabels,
       navigation,
     );
@@ -632,7 +632,7 @@ test("Student breadcrumb parents use their real collection and Course destinatio
     ],
   ];
   for (const [routeId, expectedLabels, expectedHrefs] of cases) {
-    const model = deriveRibbonModel(routeStateFor(routeId), { productRole: "student" }, labels);
+    const model = deriveRibbonModel(routeStateFor(routeId), { userRole: "student" }, labels);
     assert.deepEqual(
       model.breadcrumbs.map(({ label }) => label),
       expectedLabels,
@@ -650,7 +650,7 @@ test("Student breadcrumb parents use their real collection and Course destinatio
 test("Student Course Invitation acceptance stays outside Course breadcrumb context", () => {
   const model = deriveRibbonModel(
     routeStateFor("studentCourseInvitation"),
-    { productRole: "student" },
+    { userRole: "student" },
     LABELS,
   );
   assert.deepEqual(
@@ -669,9 +669,9 @@ test("deferred scope labels retain a linked human-readable current breadcrumb", 
     ["studentResponseStats", "student", ["Home", "Grades", "Response Stats"]],
     ["assessmentAttempt", "student", ["Home", "Attempt"]],
   ];
-  for (const [routeId, productRole, expectedLabels] of cases) {
+  for (const [routeId, userRole, expectedLabels] of cases) {
     const state = routeStateFor(routeId);
-    const model = deriveRibbonModel(state, { productRole }, LABELS);
+    const model = deriveRibbonModel(state, { userRole }, LABELS);
     assert.deepEqual(
       model.breadcrumbs.map(({ label }) => label),
       expectedLabels,
@@ -694,7 +694,7 @@ test("deferred scope labels retain a linked human-readable current breadcrumb", 
 test("deferred assessment-attempt summary retains only its linked current breadcrumb", () => {
   const state = routeStateFor("assessmentAttemptSummary");
   assert.deepEqual(Object.keys(state.params), ["assessmentAttemptId"]);
-  const model = deriveRibbonModel(state, { productRole: "student" }, LABELS);
+  const model = deriveRibbonModel(state, { userRole: "student" }, LABELS);
   assert.deepEqual(model.breadcrumbs, [
     { label: "Home", href: "/student", current: false },
     {
@@ -715,7 +715,7 @@ test("Course breadcrumbs preserve the authored long name", () => {
     "Course CI7K3M2QAZ: Molecular Biology",
     "CI7K3M2QAZ: Molecular Biology",
   ]) {
-    const model = deriveRibbonModel(state, { productRole: "instructor" }, { courseLongName });
+    const model = deriveRibbonModel(state, { userRole: "instructor" }, { courseLongName });
     assert.deepEqual(
       model.breadcrumbs.map(({ label }) => label),
       ["Home", courseLongName],
@@ -724,9 +724,9 @@ test("Course breadcrumbs preserve the authored long name", () => {
 });
 
 test("every signed-in route reserves linked breadcrumbs rooted at its role home", () => {
-  for (const productRole of PRODUCT_ROLES) {
+  for (const userRole of USER_ROLES) {
     for (const route of ROUTE_CONTRACT) {
-      if (route.id === "signIn" || !productRoleMayAccessRoute(route.id, productRole)) continue;
+      if (route.id === "signIn" || !userRoleMayAccessRoute(route.id, userRole)) continue;
       const state = routeStateFor(route.id);
       const model = deriveRibbonModel(
         {
@@ -737,19 +737,19 @@ test("every signed-in route reserves linked breadcrumbs rooted at its role home"
             assessmentId: PARAMETER_VALUES.assessmentId,
           },
         },
-        { productRole },
+        { userRole },
         {
           courseLongName: "Biochemistry I",
           assessmentTitle: "Problem Set 7",
           assessmentAttemptTitle: "Problem Set 7",
         },
       );
-      assert.equal(model.breadcrumbs[0].href, productRoleHomePath(productRole), route.id);
+      assert.equal(model.breadcrumbs[0].href, userRoleHomePath(userRole), route.id);
       assert.equal(model.breadcrumbs.filter(({ current }) => current).length, 1, route.id);
       assert.equal(
         model.breadcrumbs.at(-1).href,
         route.id === "courses"
-          ? productRoleHomePath(productRole)
+          ? userRoleHomePath(userRole)
           : buildRoutePath(route.id, paramsForRoute(route)),
         route.id,
       );

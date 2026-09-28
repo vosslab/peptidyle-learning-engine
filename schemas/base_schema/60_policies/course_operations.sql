@@ -2,10 +2,10 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-ALTER TABLE ple_data.course_theme ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.course_theme FORCE ROW LEVEL SECURITY;
-CREATE POLICY course_theme_read ON ple_data.course_theme
-    FOR SELECT TO ple_data_owner, ple_api_owner, ple_app USING (true);
+ALTER TABLE ple_data.theme ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.theme FORCE ROW LEVEL SECURITY;
+CREATE POLICY course_theme_read ON ple_data.theme
+    FOR SELECT TO ple_data_owner, ple_private_owner, ple_api_owner, ple_app USING (true);
 
 -- Course, roster, and narrowly scoped support operations. Structures live in
 -- the preceding Course modules so this file can resolve their exact roots.
@@ -27,4 +27,3 @@ CREATE POLICY student_record_instructor_or_self_read ON ple_data.student_record
         ple_api.current_session_account_is_course_instructor(course_instance_id)
         OR ple_api.current_session_account_owns_student_record(course_instance_id, student_record_id)
     );
-

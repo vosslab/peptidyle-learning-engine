@@ -11,7 +11,7 @@ import {
   captureIdentity,
   requiresFreshViewportContext,
 } from "../tests/playwright/screenshot_corpus/runtime.ts";
-import { COURSE_THEME_VALUES } from "../generated/api/CourseTheme.ts";
+import { THEME_VALUES } from "../generated/api/Theme.ts";
 import {
   catalogScreenshotFilename,
   TIER_TWO_FILENAME_ALIASES,
@@ -91,7 +91,10 @@ test("Course theme comparisons use purpose-only filenames for every theme", () =
     (candidate) => candidate.id === "instructor_theme_samples",
   );
   assert.ok(scenario);
-  const expected = COURSE_THEME_VALUES.map((theme) => `theme_sample-${theme}`);
+  const expected = THEME_VALUES.flatMap((theme) => [
+    `theme_sample-${theme}-light`,
+    `theme_sample-${theme}-dark`,
+  ]);
   assert.deepEqual(
     scenario.captures.map((capture) => capture.filenameStem).sort(),
     [...expected].sort(),
@@ -126,8 +129,11 @@ test("tiered screenshot filenames use explicit aliases for every catalog task", 
   for (const scenario of SCREENSHOT_SCENARIOS) {
     for (const capture of scenario.captures) {
       if (capture.filenameStem === undefined) continue;
-      if (scenario.id === "instructor_theme_samples") {
-        assert.match(capture.filenameStem, /^theme_sample-[a-z0-9-]+$/u);
+      if (
+        scenario.id === "instructor_theme_samples" ||
+        scenario.id === "instructor_personal_theme_samples"
+      ) {
+        assert.match(capture.filenameStem, /^theme(?:_sample)?-[a-z0-9-]+$/u);
         continue;
       }
       assert.ok(
@@ -161,7 +167,7 @@ test("a student capture cannot use an instructor-only route", () => {
         ],
         { routes: [], ribbonDestinations: [] },
       ),
-    /Product Role outside its route contract/,
+    /User Role outside its route contract/,
   );
 });
 

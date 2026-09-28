@@ -12,8 +12,8 @@ backend documents, callback payloads, cache entries, queue messages, and object
 paths as untrusted input. The server derives authority from an authenticated
 Account plus the exact stored relationship required by the operation.
 
-Each Account has one immutable Product Role: Student, Instructor, or Sysadmin.
-Course relationships supply Course authority. Product Role, object possession,
+Each Account has one immutable User Role: Student, Instructor, or Sysadmin.
+Course relationships supply Course authority. User Role, object possession,
 or a visible ID never substitutes for that relationship.
 
 ## Authorization boundaries

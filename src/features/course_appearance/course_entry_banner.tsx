@@ -6,7 +6,7 @@ import { useApplicationApi } from "../../api/application_api";
 import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import { courseBannerImageAlternativeText } from "./course_banner_alternative_text";
 import { createCourseBannerUrl } from "./course_banner_delivery";
-import { courseRouteView } from "./course_theme_context";
+import { courseRouteView } from "../../appearance/theme_context";
 
 const COURSE_ENTRY_BANNER_STYLES = `
 .course-entry-banner-container {

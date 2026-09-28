@@ -91,7 +91,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   const session = useSessionBootstrap();
   const isInstructor = createMemo(() => {
     const state = session.state();
-    return state.kind === "authenticated" && state.session.account.productRole === "instructor";
+    return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   });
   const [courses, { refetch: refetchCourses }] = createResource(isInstructor, async (instructor) =>
     instructor ? applicationApi.client.listCourseInstances() : [],
@@ -509,12 +509,12 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   );
 }
 
-/** Canonical Course index for the signed-in Account's Product Role. */
+/** Canonical Course index for the signed-in Account's User Role. */
 export function CourseListPage(): JSX.Element {
   const session = useSessionBootstrap();
   const isStudent = (): boolean => {
     const state = session.state();
-    return state.kind === "authenticated" && state.session.account.productRole === "student";
+    return state.kind === "authenticated" && state.session.account.userRole === "student";
   };
   return (
     <Show when={isStudent()} fallback={<TeachingCourseListPage mode="active" />}>

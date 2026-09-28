@@ -3,21 +3,6 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-CREATE TABLE ple_data.course_theme (
-    course_theme_id text PRIMARY KEY CHECK (
-        course_theme_id = btrim(course_theme_id)
-        AND course_theme_id ~ '^[a-z][a-z0-9-]{0,31}$'
-    ),
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
-);
-INSERT INTO ple_data.course_theme (course_theme_id) VALUES
-    ('tundra'), ('forest'), ('desert'), ('grass'), ('arctic'),
-    ('ocean'), ('tropical'), ('coral-reef'), ('swamp'), ('underground'),
-    ('salt-marsh'), ('wetland'), ('sea-floor'), ('magma'), ('beach');
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.course_theme IS
-    'role: vocabulary, authored Course appearance palettes. Deleted by: none.';
-
 -- Current Course Instance truth and immutable source history.
 CREATE TABLE ple_data.course_instance (
     course_instance_id ple_data.course_instance_id PRIMARY KEY,
@@ -48,8 +33,8 @@ CREATE TABLE ple_data.course_instance (
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
     term_starts_on date NOT NULL,
     term_ends_on date NOT NULL CHECK (term_ends_on >= term_starts_on),
-    course_theme_id text NOT NULL DEFAULT 'grass'
-        REFERENCES ple_data.course_theme (course_theme_id),
+    theme_id text NOT NULL DEFAULT 'grass'
+        REFERENCES ple_data.theme (theme_id),
     created_at timestamp with time zone NOT NULL,
     active_until_at timestamp with time zone NOT NULL,
     course_lifecycle_state ple_data.course_lifecycle_state NOT NULL DEFAULT 'active',
@@ -210,4 +195,3 @@ COMMENT ON COLUMN ple_data.course_origin.source_course_instance_id IS 'NULL mean
 SET LOCAL ROLE ple_audit_owner;
 COMMENT ON COLUMN ple_audit.course_instance_creation_event.blueprint_course_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_audit.course_instance_creation_event.blueprint_revision_number IS 'NULL means this optional fact is absent.';
-

@@ -61,7 +61,7 @@ BEGIN
       ) AS watch
       JOIN ple_private.account AS account
         ON account.account_id = watch.instructor_account_id
-       AND account.product_role = 'instructor'
+       AND account.user_role = 'instructor'
       JOIN LATERAL (
           SELECT state FROM ple_private.account_state_event
            WHERE account_id = account.account_id

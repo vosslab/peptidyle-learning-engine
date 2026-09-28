@@ -361,11 +361,11 @@ export const RIBBON_TASK_CATALOG: ReadonlyArray<CommandDefinition>;
 
 export interface RibbonAuthority {
   /**
-   * The Account's one immutable Product Role. Session storage carries one role, never a
+   * The Account's one immutable User Role. Session storage carries one role, never a
    * collection (DESIGN_DECISIONS.md), and Course Membership Role must match it - so this
    * single synchronous value selects the schema in every Ribbon Scope.
    */
-  readonly productRole: UserRole;
+  readonly userRole: UserRole;
 }
 
 /** Fills a declared path template from resolved scope references. */
@@ -429,26 +429,26 @@ loaded data  (from network)  -> identity.contextLabel and theme color ONLY
 Because `deriveRibbonModel` takes no resource and returns no promise, topology cannot depend on the
 network by construction - a stronger guarantee than a convention that says it should not.
 
-#### Each Product Role gets its own ribbon, and that makes topology fully synchronous
+#### Each User Role gets its own ribbon, and that makes topology fully synchronous
 
 Instructor, Student, and Sysadmin use the same Application Shell, the same three rows, the same slot
 model, and the same geometry contract - and **completely distinct menus**. The schema is selected by
-scope *and* Product Role:
+scope *and* User Role:
 
 ```ts
 /** Pure lookup. Both inputs are synchronous, so topology never awaits anything. */
-export function ribbonSchemaFor(scope: RibbonScope, productRole: UserRole): ReadonlyArray<TabId>;
+export function ribbonSchemaFor(scope: RibbonScope, userRole: UserRole): ReadonlyArray<TabId>;
 ```
 
 This is a stronger guarantee than the earlier draft achieved, because of two facts already settled in
 the repository:
 
-- **Product Role is immutable and lives in the session.** "Account creation assigns one immutable
-  Product Role" (`docs/TERMINOLOGY_CONTRACT.md`), and session storage "carries one role, never a
+- **User Role is immutable and lives in the session.** "Account creation assigns one immutable
+  User Role" (`docs/TERMINOLOGY_CONTRACT.md`), and session storage "carries one role, never a
   collection" (`docs/DESIGN_DECISIONS.md:570-571`). So it is known on the first frame, always.
-- **Course Membership Role must match Product Role** (`docs/DESIGN_DECISIONS.md:572`). An Instructor
+- **Course Membership Role must match User Role** (`docs/DESIGN_DECISIONS.md:572`). An Instructor
   Account is Instructor in every Course Instance it belongs to; a Student Account is Student. So the
-  Course Instance ribbon shape is *derivable from Product Role* and never needs a membership lookup.
+  Course Instance ribbon shape is *derivable from User Role* and never needs a membership lookup.
 
 Together: **ribbon topology is a pure function of two synchronous inputs.** No network response can
 affect which slots exist, in any scope, for any role - not by convention, but because neither input
@@ -456,15 +456,15 @@ can arrive late.
 
 What this retires from the earlier design:
 
-- The `Checking` availability state is not needed for Product Role narrowing, since Product Role is
+- The `Checking` availability state is not needed for User Role narrowing, since User Role is
   synchronous. It stays in the model for any genuinely async slot fact.
 - The ordering rule is now in the contract, and in a stronger form than I proposed: universal slots
   first, role-narrowed slots as **one suffix**, and *"resolve availability for the complete
   role-narrowed suffix before rendering any of its controls, then render its Available slots together
   in their predefined order"*. Batching the whole suffix is better than my append-only phrasing -
-  it rules out a partially-filled suffix, not just reordering. Keep it: with Product Role synchronous
+  it rules out a partially-filled suffix, not just reordering. Keep it: with User Role synchronous
   it costs nothing today, and it protects the future Course Observer, Student Observer, and Grader
-  relationships, which are not derivable from Product Role.
+  relationships, which are not derivable from User Role.
 - The session membership index narrows in purpose. It no longer supplies role, only the Course
   Instance **title** for the Ribbon Context Row label. That is a label, not geometry, so it may
   resolve late without moving anything. Milestone 1's "current membership" definition still matters,
@@ -482,7 +482,7 @@ slots. The schemas:
 Labels are the canonical visible surface names from `docs/TERMINOLOGY_CONTRACT.md`, not the older
 `docs/UI_DESIGN_GUIDE.md` wording:
 
-**One Ribbon Schema per (Ribbon Scope, Product Role) pair** - the contract's term for the predefined
+**One Ribbon Schema per (Ribbon Scope, User Role) pair** - the contract's term for the predefined
 ordered set of Ribbon Slots and Ribbon Tasks. Same Application Shell, same three rows, same slot
 model, same geometry contract - completely distinct menus.
 
@@ -493,7 +493,7 @@ model, same geometry contract - completely distinct menus.
 | Assignment Attempt | - | Attempt | - |
 
 **Account and Profile destinations are Ribbon Context Controls**, in the upper corner of the Ribbon
-Context Row, for every Product Role. They are not Ribbon Slots. Their routes carry **No Selected
+Context Row, for every User Role. They are not Ribbon Slots. Their routes carry **No Selected
 Ribbon Tab**: the Ribbon Schema stays present with nothing selected, rather than a phantom or hidden
 tab.
 
@@ -505,11 +505,11 @@ Three problems disappear at once, which is the sign the model is right:
   "universal slots first" rule for last position in the row.
 - **The role-narrowed suffix mostly empties out.** Each role's schema already contains only its own
   slots, so there is little left to narrow. The suffix rule stays in force for the future Course
-  Observer, Student Observer, and Grader relationships, which are not derivable from Product Role.
+  Observer, Student Observer, and Grader relationships, which are not derivable from User Role.
 
 A wording consequence for the contract: "one stable structure for each Ribbon Scope" should read
-**one stable structure for each Ribbon Scope and Product Role**. Stability is preserved either way -
-Product Role is immutable, so a given Account still sees exactly one structure per scope for its
+**one stable structure for each Ribbon Scope and User Role**. Stability is preserved either way -
+User Role is immutable, so a given Account still sees exactly one structure per scope for its
 entire session - but the key is a pair, not a single value.
 
 Routes reached through a Ribbon Context Control - account security, co-instructor invitations,
@@ -544,7 +544,7 @@ permission (`src/pages/teaching_operations_page.tsx:66-68`,
 with a particular course. Distinct ribbons give it its proper home: an **Instructor Approvals** slot
 in the Sysadmin Product row. Moving the panel is part of milestone 20.
 
-Because Product Role is immutable, a given Account sees exactly one column for its whole session. The
+Because User Role is immutable, a given Account sees exactly one column for its whole session. The
 columns never mix, and no viewer ever watches slots appear or disappear.
 
 #### Which document owns what
@@ -556,7 +556,7 @@ decision above lives, and it means this plan waits on no further terminology edi
 | --- | --- |
 | What a thing is called - Ribbon, Ribbon Scope, Ribbon Slot, Ribbon Availability, Selected, Loading, Page Action, Content Layout | `docs/TERMINOLOGY_CONTRACT.md` |
 | Canonical visible names - Question Library, Blueprint Courses, Blueprint Updates, Course Setup, My Question Drafts, Starred, Watched | `docs/TERMINOLOGY_CONTRACT.md` |
-| Which slots exist, in what order, for which Product Role | `src/ribbon/ribbon_contract.ts`, documented in `docs/UI_DESIGN_GUIDE.md` |
+| Which slots exist, in what order, for which User Role | `src/ribbon/ribbon_contract.ts`, documented in `docs/UI_DESIGN_GUIDE.md` |
 | How the Ribbon behaves and looks - geometry, grouping, states, overflow | `docs/UI_DESIGN_GUIDE.md` |
 
 The terminology contract currently carries some structure that sits on the UI side of that line:
@@ -959,7 +959,7 @@ Layout rules:
    .app-shell { display: grid; grid-template-rows: var(--ple-ribbon-block-size) minmax(0, 1fr); }
    ```
 
-   No route, Product Role, loading state, error state, title length, theme, or page component may
+   No route, User Role, loading state, error state, title length, theme, or page component may
    alter that block size. Because the shell grid is defined in terms of the token, a page cannot
    change the content origin even by accident.
 4. The course title is a fixed-height, single-line, ellipsized label in the Ribbon Context Row. The page
@@ -982,7 +982,7 @@ Applied to the names above:
 | Deprecated wording | Canonical target | Where it lands here |
 | --- | --- | --- |
 | Run, Assignment Run, `RunReference` (ledger rows for `RunReference` and Assignment Run) | Assignment Attempt, Assignment Attempt Reference | `RibbonScope` uses `"assignmentAttempt"`; tab `assignmentAttemptTab`; scope key `{kind:"assignmentAttempt", attemptReference}`; query `resolveAssignmentAttempt` |
-| "global role", "user role" | **Product Role** (`TERMINOLOGY_CONTRACT.md`, Product Role and Course Membership Role) | `RibbonAuthority.productRoles` |
+| "global role", "user role" | **User Role** (`TERMINOLOGY_CONTRACT.md`, User Role and Course Membership Role) | `RibbonAuthority.userRoles` |
 | bare "course role" | **Course Membership Role** | `RibbonAuthority.courseMembershipRole` |
 | bare "Course" for a delivered course | **Course Instance** | `RibbonScope` uses `"courseInstance"`; prose says Course Instance |
 | Problem (ledger: "Problem \| PLE-authored assessment content \| Question") | **Question**, Question Version, Question Catalog Entry | No new identifier here uses "problem". The existing `problemDetail` route id, `problemRef` parameter, and `ProblemRouteReference` are pre-existing ledger rows, left to their own correction |
@@ -1045,7 +1045,7 @@ teaching, never to a Blueprint Course.
 
 Milestone 11 turns this from intention into a check: a script asserts that no identifier introduced
 by this workstream matches the ledger's "current wording" column, and that the plan's own new names
-(`assignmentAttempt`, `courseInstance`, `productRoles`, `courseMembershipRole`) appear in place of
+(`assignmentAttempt`, `courseInstance`, `userRoles`, `courseMembershipRole`) appear in place of
 their deprecated equivalents. Because the ledger is a live document that shrinks as corrections land,
 the script reads it at run time rather than hard-coding a word list.
 
@@ -1388,8 +1388,8 @@ Twenty-six small milestones, each independently completable with one automated g
     differing only in slot state; the function's signature takes no resource, and a test asserts it
     returns synchronously with the network fake configured to never resolve.
 9c. **Topology is a pure function of two synchronous inputs.** *Gate:* assert `ribbonSchemaFor` is
-    total over all nine (scope, Product Role) pairs; assert `deriveRibbonModel` returns the identical
-    slot list before and after releasing every deferred fixture, for each Product Role - the
+    total over all nine (scope, User Role) pairs; assert `deriveRibbonModel` returns the identical
+    slot list before and after releasing every deferred fixture, for each User Role - the
     machine-checkable form of "no network response can change which slots exist".
 10. **`buildRoutePath` and the parameter invariant.** *Gate:* the subset test - every catalog
     destination's declared parameters are provided by its declaring routes.

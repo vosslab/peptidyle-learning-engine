@@ -14,14 +14,14 @@ if (route === undefined)
   throw new Error("Course Assessments route is required by the Ribbon contract.");
 const params = { courseInstanceId: "CI7K3M2QAZ" } as const;
 const routeState = { route, params } satisfies RibbonRouteState;
-const viewerIdentity = { productRole: "instructor" } satisfies RibbonViewerIdentity;
+const viewerIdentity = { userRole: "instructor" } satisfies RibbonViewerIdentity;
 const contextLabels = {} satisfies RibbonContextLabels;
 
 // Positive calls ensure the negative cases below cannot pass due to a broken API.
 deriveRibbonModel(routeState, viewerIdentity, contextLabels);
 buildRoutePath("courseAssessments", params);
 
-const withResource = { productRole: "instructor" as const, scopeResource: { courseId: "1" } };
+const withResource = { userRole: "instructor" as const, scopeResource: { courseId: "1" } };
 // @ts-expect-error A resource cannot cross the viewer identity boundary through a variable.
 deriveRibbonModel(routeState, withResource, contextLabels);
 
@@ -45,7 +45,7 @@ const withCallback = {
 // @ts-expect-error A callback cannot cross the pure context label boundary.
 deriveRibbonModel(routeState, viewerIdentity, withCallback);
 
-const withSessionData = { productRole: "instructor" as const, sessionData: { token: "secret" } };
+const withSessionData = { userRole: "instructor" as const, sessionData: { token: "secret" } };
 // @ts-expect-error Session data cannot cross the viewer identity boundary through a variable.
 deriveRibbonModel(routeState, withSessionData, contextLabels);
 

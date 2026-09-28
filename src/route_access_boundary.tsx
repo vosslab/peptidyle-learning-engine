@@ -6,7 +6,7 @@ import { createMemo, onMount, Show, type Component, type JSX } from "solid-js";
 import { useSessionBootstrap } from "./auth/session_context";
 import { PageFrame } from "./components/page_frame";
 import {
-  productRoleMayAccessRoute,
+  userRoleMayAccessRoute,
   routeContractForPathname,
   type RouteContract,
 } from "./route_contract";
@@ -53,14 +53,14 @@ export function withRouteAccessBoundary(
       if (matchedRoute?.id !== route.id) {
         return false;
       }
-      if (route.requiredProductRoles.length === 0) {
+      if (route.requiredUserRoles.length === 0) {
         return true;
       }
       const state = session.state();
       if (state.kind !== "authenticated") {
         return false;
       }
-      return productRoleMayAccessRoute(route.id, state.session.account.productRole);
+      return userRoleMayAccessRoute(route.id, state.session.account.userRole);
     });
     return (
       <Show when={accessGranted()} fallback={<RouteAccessDenied route={route} />}>

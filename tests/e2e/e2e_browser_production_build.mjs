@@ -32,7 +32,7 @@ for (const fontUrl of browserFontUrlsFromStylesheet(`${browserStylesheet}\n${emb
 const environmentMarkers = [
   browserStylesheet.indexOf("--ple-surface:"),
   browserStylesheet.search(/@media\s*\(max-width:\s*48rem\)/u),
-  browserStylesheet.search(/\[data-product-role=["']?instructor["']?\]/u),
+  browserStylesheet.search(/\[data-user-role=["']?instructor["']?\]/u),
   browserStylesheet.search(/prefers-reduced-motion\s*:\s*reduce/u),
   browserStylesheet.indexOf("--ple-ribbon-top-block-size:"),
 ];

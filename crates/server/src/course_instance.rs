@@ -21,7 +21,7 @@ use learning_data_access::{
     StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceId, CourseInstanceRouteSummary, ProductRole};
+use question_model::{CourseInstanceId, CourseInstanceRouteSummary, UserRole};
 use serde::Serialize;
 
 use crate::{
@@ -271,7 +271,7 @@ async fn instructor_session_hash(
     state: &CourseInstanceRouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
-    required_session_hash(state, headers, |role| role == ProductRole::Instructor).await
+    required_session_hash(state, headers, |role| role == UserRole::Instructor).await
 }
 
 async fn course_creator_session_hash(
@@ -279,7 +279,7 @@ async fn course_creator_session_hash(
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
     required_session_hash(state, headers, |role| {
-        matches!(role, ProductRole::Instructor | ProductRole::Sysadmin)
+        matches!(role, UserRole::Instructor | UserRole::Sysadmin)
     })
     .await
 }
@@ -288,13 +288,13 @@ async fn sysadmin_session_hash(
     state: &CourseInstanceRouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
-    required_session_hash(state, headers, |role| role == ProductRole::Sysadmin).await
+    required_session_hash(state, headers, |role| role == UserRole::Sysadmin).await
 }
 
 async fn required_session_hash(
     state: &CourseInstanceRouteState,
     headers: &HeaderMap,
-    permitted: impl FnOnce(ProductRole) -> bool,
+    permitted: impl FnOnce(UserRole) -> bool,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
@@ -302,7 +302,7 @@ async fn required_session_hash(
     )
     .await
     {
-        Ok(session) if permitted(session.record.product_role) => Ok(session.session_hash),
+        Ok(session) if permitted(session.record.user_role) => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -321,7 +321,7 @@ async fn authenticated_session_hash(
     )
     .await
     {
-        // ASVS 8.2.2 and 8.3.1: Product Role is not Course Membership
+        // ASVS 8.2.2 and 8.3.1: User Role is not Course Membership
         // authority. The Store applies the exact active-membership check.
         Ok(session) => Ok(session.session_hash),
         Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

@@ -63,7 +63,7 @@ The authoritative exhaustive record is the
   code. This is not creation, randomness, collision-retry, or full authorization evidence, so the
   Human Guidance reference-ID behaviors remain open.
 
-- C207 has accepted independent PostgreSQL 17 actual-API receipts for its two deadline-cap rows.
+- C207 has accepted independent PostgreSQL actual-API receipts for its two deadline-cap rows.
   All three Assessment save APIs and release acquire the Course first, reject a Due date beyond the
   immutable six-month Active cutoff, and synchronize the current maximum Due date. An active
   Course uses that maximum, or its Active cutoff when no Due date remains, as its retention anchor;

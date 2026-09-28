@@ -61,11 +61,11 @@
   drag-and-drop surface, which remains the separate Human Guidance product question.
 - Completed C1's source-file split verification. Every tracked authored source passes the
   exclusive 1000-line limit; `src/style.css` is now 994 lines, and the shared role-color selectors
-  live in the separately loaded and production-copied `src/styles/product_role.css`. The isolated
+  live in the separately loaded and production-copied `src/styles/user_role.css`. The isolated
   production-style artifact check passed.
 - Completed C211's conservative Question-revision boundary. Metadata-only title and description
   changes stay on the current lineage; unchanged source is rejected before successor writes, while
-  changed source creates exactly one successor under concurrent publication. The PostgreSQL 17
+  changed source creates exactly one successor under concurrent publication. The PostgreSQL
   metadata/no-op/new-source/race probe is temporary evidence and does not invent behavior for the
   not-yet-persisted tags, subject, or topic fields.
 - Completed C35's shared Profile-control evidence: Student, Instructor, and Sysadmin now have
@@ -115,13 +115,13 @@
   implementation.
 - Corrected the A6 Student-data duplicate ownership pointer to its first Accounts-and-roles
   occurrence. The unverified status and finding remain unchanged.
-- Corrected the A3 Product Role identity evidence locator to the shared Ribbon identity plate.
+- Corrected the A3 User Role identity evidence locator to the shared Ribbon identity plate.
   Its verified status and behavior claim are unchanged.
 - Completed C31's Atkinson Hyperlegible Mono delivery: code and monospace elements use the
   locally bundled normal and italic family, and the production build copies and verifies its
   assets. The one-time computed-style proof was removed rather than promoted as a permanent test.
 - Corrected four A3 role-color checklist evidence locators after the shared CSS moved to
-  `src/styles/product_role.css`. The verified statuses and product behavior are unchanged.
+  `src/styles/user_role.css`. The verified statuses and product behavior are unchanged.
 - Completed C34's role-home route contract: Instructor, Student, and Sysadmin now have explicit
   home routes, and the selected Courses navigation targets the signed-in role's route. The stable
   role-route contract test passed. The screenshot manifest deliberately records all three new

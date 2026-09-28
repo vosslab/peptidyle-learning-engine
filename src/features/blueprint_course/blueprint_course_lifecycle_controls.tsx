@@ -4,7 +4,7 @@ import { A } from "@solidjs/router";
 import { Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import { productRoleHomePath } from "../../route_contract";
+import { userRoleHomePath } from "../../route_contract";
 import { blueprintLifecyclePresentation } from "./blueprint_course_model";
 
 export interface BlueprintCourseLifecycleControlsProps {
@@ -36,7 +36,7 @@ export function BlueprintCourseLifecycleControls(
           <A
             class="primary-link"
             // ASVS 1.2.2: Encode the Blueprint Course ID in its query-parameter context.
-            href={`${productRoleHomePath("instructor")}?blueprint=${encodeURIComponent(props.view.id)}#create-course-instance`}
+            href={`${userRoleHomePath("instructor")}?blueprint=${encodeURIComponent(props.view.id)}#create-course-instance`}
           >
             Create Course Instance from this Blueprint
           </A>

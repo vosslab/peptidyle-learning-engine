@@ -315,7 +315,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   moved into `docs/UI_DESIGN_GUIDE.md`; new `docs/DESIGN_DECISIONS.md` entries recording the
   settled tab set, the settled task rows, and the Assignment surface names; amendments to the
   existing `Product navigation exposes Questions through one library surface` and
-  `The Application Shell owns one Ribbon for every Product Role` entries.
+  `The Application Shell owns one Ribbon for every User Role` entries.
 - Also records the three domain decisions the notes exposed: time-zone ownership, Assignment state
   without revision history, and the Blueprint provenance column's real meaning.
 - Workstreams: WS-DOC.
@@ -663,7 +663,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   the Student-owned value.
 - Data boundary: the preference relation is private with forced RLS and no direct application-table
   access. This storage change does not rewrite stored deadline instants, which carry no zone.
-- Acceptance evidence: the disposable PostgreSQL 17 run applied the migration cleanly, the second
+- Acceptance evidence: the disposable PostgreSQL run applied the migration cleanly, the second
   invocation completed as a compatible no-op, and the connected oracle covered direct-table/RLS
   denial, self-only reads, every-Account defaults, and the roster lifecycle. The runner removed its
   exact container, volume, and network afterward.
@@ -768,7 +768,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 - Acceptance: focused Rust and browser tests cover date bounds, Account-zone resolution, DST
   refusal, stored-instant rendering, strict DTO shape, and Blueprint behavior. The exact final
   `./launchers/all_test.sh` run passed full Rust and Wasm checks, 414 Node tests, 6,273 pytest
-  tests, PostgreSQL 17 fresh/no-op/catalog/restricted probes, PostgreSQL-plus-MinIO Course
+  tests, PostgreSQL fresh/no-op/catalog/restricted probes, PostgreSQL-plus-MinIO Course
   Appearance acceptance, supported cleanup, and `git diff --check`. The extraction keeps the
   production assignment module within the source-size limit; the obsolete seven-column catalog
   assertion and six obsolete browser-fill steps were removed with the retired contract.
@@ -807,7 +807,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   return no-store `404`. Expected bootstrap, injected-failure, and refusal responses were
   classified separately from unexpected page or response failures.
 - Aggregate acceptance: the clean exact `./launchers/all_test.sh` run passed full Rust, Wasm,
-  strict Clippy, frontend (416 Node tests), 6,305 pytest tests, PostgreSQL 17 fresh/no-op/catalog/
+  strict Clippy, frontend (416 Node tests), 6,305 pytest tests, PostgreSQL fresh/no-op/catalog/
   restricted/persistence probes, PostgreSQL-plus-MinIO Course Appearance acceptance, and supported
   cleanup. The original plan and human guidance remained unchanged.
 - Next dependency-ordered milestone: M18 profile thumbnail is pending dispatch. The full plan
@@ -845,7 +845,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   time-zone draft all passed.
 - Acceptance: the Profile Thumbnail PostgreSQL-plus-MinIO saga passed beside the retained Course
   Banner saga. The exact final `./launchers/all_test.sh` run passed full Rust and Wasm checks,
-  strict Clippy, 417 Node tests, 6,318 pytest tests, PostgreSQL 17 fresh/no-op/catalog/restricted/
+  strict Clippy, 417 Node tests, 6,318 pytest tests, PostgreSQL fresh/no-op/catalog/restricted/
   persistence probes, both cross-store sagas, and supported cleanup. The final source-size repair
   moved the thumbnail CSS beside its component; format, type, and browser replay passed afterward.
 - Next dependency-ordered milestone: M4 Assignment settings defaults. M9 retains the final
@@ -982,7 +982,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   WeBWorK render, Instructor Accounts, support capability, invitation export, and Course-seed
   journeys also passed.
 - Patch N final aggregate receipt: `./launchers/all_test.sh` exited 0 with Rust/Wasm,
-  `check_codebase.sh` (including 432 Node tests), 6,436 pytest tests, PostgreSQL 17 fresh/no-op
+  `check_codebase.sh` (including 432 Node tests), 6,436 pytest tests, PostgreSQL fresh/no-op
   migration, authority, and persistence, and PostgreSQL-plus-MinIO Course Appearance and Profile
   Thumbnail sagas. Disposable cleanup completed; no containers or pods remained.
 - Depends on: every milestone whose surface it captures.
@@ -1357,7 +1357,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 - Touch points: `src/ribbon/app_ribbon.tsx`, `src/ribbon/app_ribbon.css`,
   `src/application_shell.tsx`.
 - Depends on: WP-RIB1 for the tab set.
-- Acceptance criteria: identity, product role, account label, the three tabs, and the account
+- Acceptance criteria: identity, user role, account label, the three tabs, and the account
   controls occupy one dense bar; the composition holds at 1280 by 800 and stays reachable at the
   tablet and narrow-phone profiles; focus order follows reading order; the shell keeps its skip
   link and `#main-content` focus transfer; content sits higher on the screen than the two-row
@@ -1743,7 +1743,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   membership drops its rows; migration evidence only if the chosen shape needs a migration.
 - Accepted receipt (2026-09-11): the reviewer found no scoped correctness, authorization, privacy,
   compatibility, or KISS defect. Migration `2026091028_assignments_due_soon.sql` and the
-  authenticated `GET /api/assignments/due-soon` path passed the PostgreSQL 17 fresh/no-op,
+  authenticated `GET /api/assignments/due-soon` path passed the PostgreSQL fresh/no-op,
   catalog, restricted-login, persistence, and cleanup acceptance lanes. The route returns the
   exact closed six-field item projection in `{ items, nextCursor: null, displayTimeZone }`; the
   Account display zone is self-only. Revoked Instructor membership removes rows. The owner chose

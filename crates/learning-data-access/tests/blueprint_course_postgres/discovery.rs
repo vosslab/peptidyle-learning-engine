@@ -160,7 +160,7 @@ async fn assert_tied_count_continuation(
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn discovery_pages_return_250_rows_and_one_blueprint_lookahead() {
     assert!(
         DiscoveryPageSize::new(251).is_err(),

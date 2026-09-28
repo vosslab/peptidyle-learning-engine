@@ -12,7 +12,7 @@ use question_model::{AssessmentId, AssessmentType, CourseInstanceId};
 use sqlx::Row;
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn access_reader_projects_one_authoritative_decision_and_effective_policy() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();

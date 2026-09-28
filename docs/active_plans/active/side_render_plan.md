@@ -132,8 +132,8 @@ Student Coursework case) and the `fullWidth` Instructor `GradebookPage` route na
 - `tests/playwright/record_list_contracts.mjs`, `tests/support/record_list_harness.tsx`, and
   `tests/playwright/helper_record_list_harness.mjs`: one compiled primitive API fixture for the
   durable RecordList contracts and CSS-host boundary.
-- `src/styles/browser_fonts.css`, `src/styles/product_role.css`, and `src/assets/fonts/`: production
-  font declarations/assets and product-role styles, imported through `src/browser_environment.ts`.
+- `src/styles/browser_fonts.css`, `src/styles/user_role.css`, and `src/assets/fonts/`: production
+  font declarations/assets and user-role styles, imported through `src/browser_environment.ts`.
 - `src/browser_environment.ts`, `src/main.tsx`, `src/index.html`, and `pipeline/build.mjs`: the shared
   browser environment source and emitted `main.css` ownership.
 - `src/pages/student_course_landing_page.tsx`: WP-E6 Student Coursework list composition.

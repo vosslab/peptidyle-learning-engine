@@ -71,7 +71,7 @@ complete vertical capability when it has an approved product workflow.
 
 The final database and application evidence establishes the intended boundaries:
 
-- A PostgreSQL 17 baseline gate installed the canonical base, replayed the
+- A PostgreSQL baseline gate installed the canonical base, replayed the
   administration path, verified the restricted application role, exercised the
   authoring source binding, and proved the populated Unrelease closure and lock
   race.
@@ -87,7 +87,7 @@ The final database and application evidence establishes the intended boundaries:
 - The authoring API, S3 object path, and browser journey proved ordinary Question
   publication; the WebWork worker path proved the grading handoff.
 - The ordinary backup restore followed by database migrate and application-role
-  verify passed on PostgreSQL 17.
+  verify passed on PostgreSQL.
 - Rust, TypeScript/Node, Python, and connected PostgreSQL gates passed under
   their owning commands. The retained suite protects durable behavior,
   authorization, evidence integrity, and lifecycle contracts rather than a

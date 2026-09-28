@@ -18,7 +18,7 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
-import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
 import { decodeStringEnum } from "../decoder";
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
@@ -77,7 +77,7 @@ export function decodeStudentAssessmentAttemptHistory(
       theme: decodeStringEnum(
         field(course, "theme", `${path}.course`),
         `${path}.course.theme`,
-        COURSE_THEME_VALUES,
+        THEME_VALUES,
       ),
     },
     assessment: {

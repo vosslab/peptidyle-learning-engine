@@ -4,8 +4,8 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
 
 ## Resolved authorization model
 
-- Every Account has one immutable Product Role: Student, Instructor, or Sysadmin.
-- A person needing multiple Product Roles uses separate Accounts.
+- Every Account has one immutable User Role: Student, Instructor, or Sysadmin.
+- A person needing multiple User Roles uses separate Accounts.
 - Every current Course co-Instructor has equal teaching and FERPA authority for that Course. The
   creator or first Instructor has no extra privilege, and every Course Instance has at least one
   assigned Instructor.
@@ -17,11 +17,11 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
   and an Instructor may reset Course login access and issue a new signup code without creating a new
   Student identity.
 - Instructor Account deactivation preserves authorship, Course relationships, and history;
-  reactivation restores the same Account and Product Role. No permanent Account-closure workflow is
+  reactivation restores the same Account and User Role. No permanent Account-closure workflow is
   currently defined.
 - Sysadmin has platform-administration capability but no ambient Course membership or FERPA access.
   Support access is deliberate, scoped to the task, and recorded.
-- Future Course Observer, Student Observer, and Grader are Course relationships rather than Product
+- Future Course Observer, Student Observer, and Grader are Course relationships rather than User
   Roles. Grader is not currently needed because Assessment grading is automatic.
 
 ## Blueprint authorization changes

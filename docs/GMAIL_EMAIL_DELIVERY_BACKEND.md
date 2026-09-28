@@ -16,7 +16,7 @@ suitable for continued production use while message volume, provider policy, rel
 deliverability remain acceptable.
 
 Gmail is an email transport provider only. Gmail does not own PLE Accounts, authentication
-decisions, Product Roles, Authenticated Sessions, enrollment, or authorization.
+decisions, User Roles, Authenticated Sessions, enrollment, or authorization.
 
 ## Goals
 
@@ -63,7 +63,7 @@ Email Delivery Backend
 
 The Gmail backend receives a completed delivery request containing the recipient, message kind,
 fixed subject, and bounded message body. It does not decide whether the recipient may authenticate,
-create or validate challenges, create sessions, determine Product Roles, inspect Course
+create or validate challenges, create sessions, determine User Roles, inspect Course
 Membership, or authorize Student Work.
 
 No Gmail-specific concept appears in the Account, authentication-challenge, or session model.
@@ -112,7 +112,7 @@ A typical Student sign-in is:
 8. The Student follows the link or enters the code in the requesting browser.
 9. PLE validates and consumes the challenge.
 10. PLE creates its own Authenticated Session.
-11. PLE derives authorization and Product Role from the PLE Account and exact product
+11. PLE derives authorization and User Role from the PLE Account and exact product
     relationships.
 
 Receiving a message at a university address proves control of that mailbox for the limited purpose
@@ -132,7 +132,7 @@ an Account, is inactive, is outside the permitted domain, or is currently rate-l
 ## Authentication-message content
 
 Authentication messages contain no Student name, Course name, roster ID, Account identifier,
-Product Role, grade, Assessment, or Student Work. A message contains only the installation name,
+User Role, grade, Assessment, or Student Work. A message contains only the installation name,
 authentication link or code, expiration information, and instructions to ignore an unrequested
 message.
 
@@ -228,7 +228,7 @@ cargo tools email-delivery send-test <address>
 ```
 
 The human running these commands is the deployment operator. That person may also have a PLE
-Sysadmin Account, but the Sysadmin Product Role alone grants no host or Gmail credential authority.
+Sysadmin Account, but the Sysadmin User Role alone grants no host or Gmail credential authority.
 
 ### Authorize and reauthorize
 
@@ -489,7 +489,7 @@ A future installation may use SMTP, Google Workspace, or another provider. Chang
 replaces backend configuration and credentials without changing:
 
 - PLE Account identity;
-- Product Roles;
+- User Roles;
 - institutional-domain rules;
 - authentication-challenge semantics;
 - Authenticated Sessions;
@@ -601,7 +601,7 @@ The Gmail backend is ready for an installation when:
 10. Gmail-specific implementation details remain behind the Email Delivery Backend.
 11. Gmail failure produces useful diagnostics without leaking credentials, addresses, or
     authentication challenges.
-12. Reauthorizing, disabling, or replacing Gmail does not alter PLE Accounts, Product Roles,
+12. Reauthorizing, disabling, or replacing Gmail does not alter PLE Accounts, User Roles,
     Authenticated Sessions, enrollment, or Student Work.
 13. Existing Authenticated Sessions and unrelated PLE capabilities remain available during a Gmail
     outage.

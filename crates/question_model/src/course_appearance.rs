@@ -9,9 +9,20 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// The closed set of reviewed Course Theme palettes.
+/// The two viewer-selected color forms available for every Theme.
+/// @tsgen-runtime-values
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DisplayMode {
+    /// The light form of the active Theme.
+    Light,
+    /// The dark form of the active Theme.
+    Dark,
+}
+
+/// The closed set of reviewed Theme palettes.
 ///
-/// Each value selects one complete visual palette for a Course Appearance.
+/// Each value selects one complete visual palette used by Course and personal appearance.
 /// Palette values are design-system data rather than database identities. The
 /// browser registry must exhaustively map every value and refuse an unknown
 /// value.
@@ -20,7 +31,7 @@ use uuid::Uuid;
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
 #[serde(rename_all = "kebab-case")]
-pub enum CourseTheme {
+pub enum Theme {
     /// Muted grey-purple and moss green.
     Tundra,
     /// Deep green with a warm gold accent.
@@ -54,7 +65,7 @@ pub enum CourseTheme {
     Beach,
 }
 
-impl CourseTheme {
+impl Theme {
     /// Every persisted and browser-visible theme, in authoring order.
     pub const ALL: [Self; 15] = [
         Self::Tundra,
@@ -96,13 +107,13 @@ impl CourseTheme {
     }
 }
 
-impl std::fmt::Display for CourseTheme {
+impl std::fmt::Display for Theme {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
     }
 }
 
-impl FromStr for CourseTheme {
+impl FromStr for Theme {
     type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -277,12 +288,12 @@ pub struct CourseBannerUpdate {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseAppearanceView {
     /// Reviewed theme selected for the complete course route scope.
-    pub theme: CourseTheme,
+    pub theme: Theme,
     /// Current course banner, or no banner frame at all.
     pub banner: Option<CourseBanner>,
 }
 
-/// Strict body for one independent Course Theme update.
+/// Strict body for one independent Course Theme update using a shared Theme.
 ///
 /// Course identity comes from the authenticated route; a theme write never
 /// restates or changes the separately stored Course Banner.
@@ -290,7 +301,7 @@ pub struct CourseAppearanceView {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseThemeUpdate {
     /// Complete desired theme.
-    pub theme: CourseTheme,
+    pub theme: Theme,
 }
 
 #[cfg(test)]
@@ -299,7 +310,7 @@ mod tests {
 
     #[test]
     fn themes_are_closed_stable_and_have_one_default() {
-        let wire_values = CourseTheme::ALL.map(|theme| theme.to_string());
+        let wire_values = Theme::ALL.map(|theme| theme.to_string());
         assert_eq!(
             wire_values,
             [
@@ -320,9 +331,9 @@ mod tests {
                 "beach",
             ]
         );
-        assert_eq!(CourseTheme::default(), CourseTheme::Grass);
-        assert!("woodland".parse::<CourseTheme>().is_err());
-        assert!(serde_json::from_str::<CourseTheme>(r#""unknown""#).is_err());
+        assert_eq!(Theme::default(), Theme::Grass);
+        assert!("woodland".parse::<Theme>().is_err());
+        assert!(serde_json::from_str::<Theme>(r#""unknown""#).is_err());
     }
 
     #[test]
@@ -338,7 +349,7 @@ mod tests {
     #[test]
     fn appearance_view_contains_only_safe_course_banner_data() {
         let appearance = CourseAppearanceView {
-            theme: CourseTheme::Ocean,
+            theme: Theme::Ocean,
             banner: Some(CourseBanner {
                 id: CourseBannerId::from_uuid(Uuid::from_u128(7)),
                 alternative_text: CourseBannerAlternativeText::Decorative,
@@ -400,7 +411,7 @@ mod tests {
     #[test]
     fn update_body_is_strict_and_route_bound() {
         let update = CourseThemeUpdate {
-            theme: CourseTheme::Forest,
+            theme: Theme::Forest,
         };
         let value = serde_json::to_value(update).expect("update should serialize");
         assert_eq!(value["theme"], "forest");

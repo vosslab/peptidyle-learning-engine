@@ -6,7 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use question_model::{AccountId, ProductRole, Timestamp};
+use question_model::{AccountId, UserRole, Timestamp};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 use zeroize::Zeroize;
@@ -317,7 +317,7 @@ impl SysadminTotpStore for PostgresSysadminTotpStore {
         let session = SessionId::generate()?;
         let mut transaction = self.begin().await?;
         let row = sqlx::query(
-            "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, product_role, \
+            "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, user_role, \
                     floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                     floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis \
              FROM ple_api.consume_sysadmin_totp_attestation_into_session($1, $2, $3, $4, decode($5, 'hex'), $6)",
@@ -359,8 +359,8 @@ fn decode_pending_row(
 
 fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
     let token_hash: String = row.try_get("session_hash").map_err(map_sqlx_error)?;
-    let product_role: String = row.try_get("product_role").map_err(map_sqlx_error)?;
-    if product_role != "sysadmin" {
+    let user_role: String = row.try_get("user_role").map_err(map_sqlx_error)?;
+    if user_role != "sysadmin" {
         return Err(StoreError::Unavailable(
             "Sysadmin TOTP ceremony returned a non-Sysadmin role".into(),
         ));
@@ -371,7 +371,7 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
             StoreError::Unavailable(format!("stored Sysadmin session hash is invalid: {error}"))
         })?,
         account: parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?,
-        product_role: ProductRole::Sysadmin,
+        user_role: UserRole::Sysadmin,
         created_at: Timestamp::from_unix_millis(
             row.try_get("created_at_millis").map_err(map_sqlx_error)?,
         ),

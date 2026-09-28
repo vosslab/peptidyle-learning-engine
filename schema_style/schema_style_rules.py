@@ -384,7 +384,8 @@ def rule_4_types(catalog: dict) -> list:
 #============================================
 def rule_2_constant_columns(catalog: dict) -> list:
 	"""
-	CHECK that admits exactly one literal.
+	CHECK that admits exactly one literal, except a typed role carrier that
+	participates in the standard composite Account role foreign key.
 
 	Args:
 		catalog: Catalog model.
@@ -400,9 +401,28 @@ def rule_2_constant_columns(catalog: dict) -> list:
 				continue
 			if not EQ_ONE_RE.match(check):
 				continue
+			if _is_account_role_carrier(table, column):
+				continue
 			findings.append(make_finding("rule_2_constant_columns", table, qualified + "." + column["name"], "CHECK admits exactly one literal",
 			))
 	return findings
+
+
+#============================================
+def _is_account_role_carrier(table: dict, column: dict) -> bool:
+	"""Return whether column is a typed role carrier in an Account role FK."""
+	if _column_type(column) != "ple_data.user_role":
+		return False
+	for foreign_key in table["foreign_keys"]:
+		if foreign_key["parent"] != "ple_private.account":
+			continue
+		if foreign_key["parent_columns"] != ["account_id", "user_role"]:
+			continue
+		if len(foreign_key["columns"]) != 2:
+			continue
+		if foreign_key["columns"][1] == column["name"]:
+			return True
+	return False
 
 
 #============================================

@@ -11,6 +11,12 @@ SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_private_owner;
 
+-- Account-owned Instructor appearance refers to the shared data-owned Theme
+-- vocabulary. The late constraint follows its cross-schema REFERENCES grant.
+ALTER TABLE ple_private.instructor_personal_theme
+    ADD CONSTRAINT instructor_personal_theme_theme_fkey
+    FOREIGN KEY (theme_id) REFERENCES ple_data.theme (theme_id);
+
 ALTER TABLE ple_private.draft_question_source_binding
     ADD CONSTRAINT draft_question_source_binding_object_record_exists
     FOREIGN KEY (source_object_record_id) REFERENCES ple_private.object_record(object_record_id);
@@ -110,4 +116,3 @@ ALTER TABLE ple_private.object_storage_check
         FOREIGN KEY (course_banner_storage_subject_id)
         REFERENCES ple_private.course_banner_storage_subject(
             course_banner_storage_subject_id);
-

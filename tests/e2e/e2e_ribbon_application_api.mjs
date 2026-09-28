@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 
 import {
-  PRODUCT_ROLE_FIXTURES,
+  USER_ROLE_FIXTURES,
   createCountingApplicationApi,
 } from "../support/ribbon_test_support.ts";
 import { createHttpApiClient } from "../../src/api/http_client.ts";
@@ -39,11 +39,11 @@ try {
 }
 const harness = createCountingApplicationApi(
   createApplicationApi,
-  PRODUCT_ROLE_FIXTURES.instructor,
+  USER_ROLE_FIXTURES.instructor,
 );
 const session = await harness.applicationApi.client.getSession();
 
-assert.equal(session.account.productRole, "instructor");
+assert.equal(session.account.userRole, "instructor");
 assert.equal(harness.countRequests("/api/auth/session"), 1);
 
 const identity = {

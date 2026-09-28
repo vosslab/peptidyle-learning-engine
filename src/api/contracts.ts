@@ -14,7 +14,7 @@ import type { AssessmentScoringState } from "../../generated/api/AssessmentScori
 import type { AssessmentStatus } from "../../generated/api/AssessmentStatus";
 import type { Capability } from "../../generated/api/Capability";
 import type { AccountId } from "../../generated/api/AccountId";
-import type { ProductRole } from "../../generated/api/ProductRole";
+import type { UserRole } from "../../generated/api/UserRole";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { InstructorAssessmentAuthoredContentLocal } from "../../generated/api/InstructorAssessmentAuthoredContentLocal";
 import type { InstructorAssessmentAvailabilityView } from "../../generated/api/InstructorAssessmentAvailabilityView";
@@ -141,7 +141,7 @@ export interface AuthenticatedSession {
   readonly authenticated: true;
   readonly account: {
     readonly id: AccountId;
-    readonly productRole: ProductRole;
+    readonly userRole: UserRole;
   };
 }
 

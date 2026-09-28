@@ -705,16 +705,16 @@ try {
   await fixtureCase
     .locator('[data-course-instance-id="CI7K3M2QAZ"]')
     .waitFor({ state: "attached" });
-  const fixtureThemeScope = fixtureCase.locator(".course-theme-scope");
+  const fixtureThemeScope = page.locator("html");
   assert.equal(
-    await fixtureThemeScope.getAttribute("data-course-theme"),
+    await fixtureThemeScope.getAttribute("data-theme"),
     "grass",
     "fixture begins from its route-supplied course appearance",
   );
   await fixtureCase.getByRole("button", { name: "Present Ocean course theme" }).click();
   await fixtureThemeScope.evaluate((scope) => {
-    if (scope.getAttribute("data-course-theme") !== "ocean") {
-      throw new Error("presentation setter did not update data-course-theme");
+    if (scope.getAttribute("data-theme") !== "ocean") {
+      throw new Error("presentation setter did not update data-theme");
     }
     if (getComputedStyle(scope).getPropertyValue("--ple-theme-canvas").trim() !== "#ddeff5") {
       throw new Error("presentation setter did not update the course theme variables");

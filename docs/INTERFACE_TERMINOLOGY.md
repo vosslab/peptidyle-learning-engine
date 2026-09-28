@@ -12,7 +12,7 @@ Route content renders inside that frame.
 
 **Ribbon** is the Application Shell-owned navigation surface. It persists while
 route content changes. A **Ribbon Schema** names the navigation vocabulary
-applicable to one **Ribbon Scope** and **Product Role** pair. A Ribbon Scope is
+applicable to one **Ribbon Scope** and **User Role** pair. A Ribbon Scope is
 the exact product context: **Product**, **Course Instance**, or **Assessment
 Attempt**.
 

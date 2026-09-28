@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintRevisionTuple, CourseInstanceId, CourseSummary, CourseTerm, CourseTheme,
-    QuestionPoolId,
+    AccountId, BlueprintRevisionTuple, CourseInstanceId, CourseSummary, CourseTerm, QuestionPoolId,
+    Theme,
 };
 use serde::{Deserialize, Serialize};
 
@@ -86,7 +86,7 @@ pub struct CourseInstanceSummary {
     /// Current initial Course Term snapshot.
     pub term: CourseTerm,
     /// Course-owned identity for a list row; this does not establish route scope.
-    pub theme: CourseTheme,
+    pub theme: Theme,
 }
 
 /// Closed stored activity state for a Course Instance.

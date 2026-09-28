@@ -6,6 +6,75 @@
 
 > September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
 
+## 2026-09-27
+
+### Behavior or Interface Changes
+
+- M1: Replaced the Course-only palette value with the shared closed `Theme` contract across
+  SQL, Rust, generated TypeScript, and the browser. The registry now supplies Canvas, Surface,
+  Secondary, Accent, and Highlight for each Light/Dark pair, and pure ownership and display-mode
+  resolution rules cover Course, Instructor, signed-out, explicit-preference, and browser-following
+  cases.
+- M2: Added `AppearanceOwner` as the one document-level appearance owner. It applies the resolved
+  Theme tokens, display-mode attribute, and `color-scheme` to `<html>`; Course Appearance preview
+  routes through that owner. A per-Account readiness latch keeps initial shell chrome mounted while
+  later route data resolves.
+- M3: Migrated shared shell, Ribbon, page, control, and content surfaces to the resolved Theme
+  tokens, with Dark values for user-role and status colors.
+- M4: Corrected the shared derivation and palette values. The all-30 contrast contract passes.
+  Independent visual review accepted the 16 Forest, Arctic, Magma, and Desert Light/Dark
+  workspace/editor pilot captures and the final 30-look Course-workspace corpus.
+- M5: Added nullable Account Display Mode Preference and Instructor Personal Theme persistence,
+  self-only API routes, Ribbon Light/Dark control, and Profile appearance controls. A role policy
+  repair allows the private procedure to validate and save a personal Theme. The embedded
+  appearance bridge now sends a validated prefixed JSON string, so legacy WeBWorK listeners receive
+  string data. The final 90-sample browser trace has 89 mounted samples, all Magma/Light for the
+  saved preference, with zero wrong mounted looks. Demo seed accounts receive varied
+  personal Themes only when created; stored accounts and the product default remain `grass`.
+  The runtime probe verifies browser following, explicit preference persistence and clearing,
+  account isolation, Theme ownership, preview restoration, and Ribbon DOM continuity.
+
+### Fixes and Maintenance
+
+- Completed the active User Role naming correction at the authenticated-session boundary. The
+  server response, browser contract and decoder, role-aware consumers, fixtures, and Live Demo
+  session expectations now use `userRole`; no compatibility alias was added.
+- Made PostgreSQL documentation and historical receipts version-neutral where the major version
+  is not part of the claim. The retained-volume guard still documents the selected image's major
+  version, and the PL/pgSQL diagnostic retains its PostgreSQL 17.11 package-specific experiment.
+- Repaired the Assessment Attempt context query's stale Course Theme projection discovered during a
+  fresh screenshot corpus run. Attempt creation had succeeded, but the following context read used
+  the pre-rename `course.theme_id` field and returned `503`. The rebuilt/reseeded connected Attempt
+  path and canonical 246-capture corpus verification subsequently passed.
+- The dedicated Instructor WeBWorK screenshot scenario completed all eight captures without browser
+  errors after the bridge repair, resolving the reported `e.data.startsWith is not a function` error.
+- Removed Theme-work implementation-fixture tests and mocked account-scope coverage that constrained
+  internal shape rather than a durable product contract. Browser-suite developer and Live Demo
+  gateway test files returned to their prior coverage.
+- Consolidated appearance persistence assertions into the existing connected Account oracle's one
+  seed, removing the separate database baseline invocation and duplicate disposable fixture setup.
+- Removed the one-time M4 palette-pilot screenshot workflow and its staging-only scenario branch
+  after preserving its accepted captures as historical evidence. The retained Theme test checks
+  readable contrast and visible focus/control boundaries rather than registry inventory or a
+  five-distinct-color implementation shape.
+- Corrected current design references to the document-level appearance owner, the five-color Theme
+  model, and the deferred increased-contrast styling decision.
+
+### Developer Tests and Notes
+
+- M6 authority documents now record the settled 15 Themes, 30 looks, shared five-color projection,
+  independent personal/Course Theme and display-mode model, and accepted palette review. Canonical
+  screenshot verification passed its 246-capture manifest, privacy, and published-artifact checks;
+  243 replay byte differences are informational. The complete-suite receipt and three connected
+  acceptance lanes are recorded in
+  [whole_interface_theme_progress.md](active_plans/reports/whole_interface_theme_progress.md).
+- The final `all_test.sh` receipt passed schema, Rust, WebAssembly, TypeScript, ESLint, Prettier, and
+  Node (`484/484`). Pytest reported 9,645 passed, eight baseline Markdown-link failures, and three
+  existing line warnings; it introduced no new failure. The connected Account persistence oracle
+  passed against a disposable PostgreSQL schema. Ordinary installation-data provision/replay,
+  including the Live Demo Course seed, and the Course Appearance PostgreSQL/MinIO coherence oracle
+  also passed as separate acceptance lanes.
+
 ## 2026-09-26
 
 ### Fixes and Maintenance
@@ -49,8 +118,8 @@
   dependency downloads push that heading beyond the normal log tail. The object-storage build
   explicitly names MinIO. All 47 focused supervisor and lifecycle checks passed; no image rebuild
   was needed for this display change.
-- Removed the schema installer's PostgreSQL-17-only gate, which blocked the newer image before
-  screenshot capture reached Playwright. The stack follows the official stable `postgres:latest` image.
+- Removed an obsolete PostgreSQL version check that blocked startup with the current stable image.
+  The stack uses the official stable `postgres:latest` image.
   Database launch errors now surface the redacted `psql` cause ahead of Compose provider output.
   The complete schema installed on PostgreSQL 18.6 as the restricted migrator role; 72 focused
   checks passed, and the installed Chromium headless shell captured a screenshot. The full Live Demo
@@ -764,7 +833,7 @@
   leak onto coarse-pointer tablets, compact breadcrumb behavior covers the 393px phone corpus,
   the Assessment Type history adapter parses its closed value once, and the Attempt context
   comments describe the UUID-bearing browser contract accurately.
-- M1 Shell contract: tier-one Ribbon destinations now follow Product Role, while signed-in shell
+- M1 Shell contract: tier-one Ribbon destinations now follow User Role, while signed-in shell
   rows retain stable height across route scope.
 - M2 Shell checks: the role-only tier-one and declared task-row topology are covered by focused
   contract checks.

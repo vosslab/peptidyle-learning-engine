@@ -60,28 +60,28 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
         .await
         .expect("private fixture role");
     let assigned_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("assigned Instructor Account");
     let co_instructor_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("co-Instructor Account");
     let target_instructor_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("target Instructor Account");
     let nonmember_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
@@ -89,7 +89,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
     .expect("nonmember Instructor Account");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
                  pg_catalog.transaction_timestamp() + interval '1 hour'), \
                 ($4, $5, 'instructor', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
@@ -160,7 +160,7 @@ async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
         .await
         .expect("Active-lifetime private fixture role");
     let lifetime_id: String = sqlx::query_scalar(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
@@ -168,7 +168,7 @@ async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
     .expect("Active-lifetime fixture Instructor Account");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         (session_id, account_id, user_role, token_hash, created_at, expires_at) \
          VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
                  pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
@@ -232,7 +232,7 @@ fn error_code(error: &sqlx::Error) -> Option<String> {
 /// current peer Instructor could lose the same membership authority. Repair the
 /// Course creation or membership procedure before accepting a release.
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn empty_course_has_no_initial_content_and_current_instructors_are_peers() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();
@@ -346,7 +346,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
 /// apparently teachable past its retention boundary; repair the SQL creation
 /// predicate and its table invariant before accepting a release.
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn course_creation_rejects_a_term_after_its_active_lifetime() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();

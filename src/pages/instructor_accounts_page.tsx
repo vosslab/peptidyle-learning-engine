@@ -46,7 +46,7 @@ export function InstructorAccountsPage(): JSX.Element {
   const session = useSessionBootstrap();
   const isSysadmin = createMemo(() => {
     const current = session.state();
-    return current.kind === "authenticated" && current.session.account.productRole === "sysadmin";
+    return current.kind === "authenticated" && current.session.account.userRole === "sysadmin";
   });
   const [accounts, { refetch, mutate }] = createResource<InstructorAccountList, boolean>(
     isSysadmin,

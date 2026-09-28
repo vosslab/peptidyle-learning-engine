@@ -62,7 +62,7 @@ try {
 
   assert.equal(await page.getByRole("button", { name: "Sign out", exact: true }).count(), 0);
   for (const role of ["student", "instructor", "sysadmin"]) {
-    await page.evaluate((productRole) => window.ribbonResponsive.setRoleHome(productRole), role);
+    await page.evaluate((userRole) => window.ribbonResponsive.setRoleHome(userRole), role);
     await flush(page);
     await profile.click();
     await menu.waitFor({ state: "visible" });

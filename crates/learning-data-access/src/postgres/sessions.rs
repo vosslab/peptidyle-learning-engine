@@ -1,7 +1,7 @@
 //! PostgreSQL authentication-session persistence through the dedicated auth role.
 
 use async_trait::async_trait;
-use question_model::{AccountId, ProductRole, Timestamp};
+use question_model::{AccountId, UserRole, Timestamp};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
@@ -56,7 +56,7 @@ impl SessionStore for PostgresSessionStore {
         let mut transaction = self.begin_session(token_hash).await?;
         let session_id = SessionId::generate()?;
         let row = sqlx::query(
-            "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, product_role, \
+            "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, user_role, \
                     floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                     floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis \
              FROM ple_api.create_authenticated_session(\
@@ -81,7 +81,7 @@ impl SessionStore for PostgresSessionStore {
     ) -> Result<Option<SessionRecord>, StoreError> {
         let mut transaction = self.begin_session(token_hash).await?;
         let row = sqlx::query(
-            "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, product_role, \
+            "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, user_role, \
                     floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                     floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis \
              FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
@@ -110,7 +110,7 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
     let token_hash: String = row.try_get("session_hash").map_err(map_sqlx_error)?;
     let session_id = row.try_get("session_id").map_err(map_sqlx_error)?;
     let account = parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?;
-    let product_role: String = row.try_get("product_role").map_err(map_sqlx_error)?;
+    let user_role: String = row.try_get("user_role").map_err(map_sqlx_error)?;
     let created_at_millis: i64 = row.try_get("created_at_millis").map_err(map_sqlx_error)?;
     let expires_at_millis: i64 = row.try_get("expires_at_millis").map_err(map_sqlx_error)?;
     let token_hash = SessionTokenHash::from_hex(token_hash.trim_end()).map_err(|error| {
@@ -120,19 +120,19 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
         id: SessionId::from_uuid(session_id),
         token_hash,
         account,
-        product_role: decode_product_role(&product_role)?,
+        user_role: decode_user_role(&user_role)?,
         created_at: Timestamp::from_unix_millis(created_at_millis),
         expires_at: Timestamp::from_unix_millis(expires_at_millis),
     })
 }
 
-fn decode_product_role(value: &str) -> Result<ProductRole, StoreError> {
+fn decode_user_role(value: &str) -> Result<UserRole, StoreError> {
     match value {
-        "student" => Ok(ProductRole::Student),
-        "instructor" => Ok(ProductRole::Instructor),
-        "sysadmin" => Ok(ProductRole::Sysadmin),
+        "student" => Ok(UserRole::Student),
+        "instructor" => Ok(UserRole::Instructor),
+        "sysadmin" => Ok(UserRole::Sysadmin),
         _ => Err(StoreError::Unavailable(
-            "stored Session Product Role is invalid".to_string(),
+            "stored Session User Role is invalid".to_string(),
         )),
     }
 }

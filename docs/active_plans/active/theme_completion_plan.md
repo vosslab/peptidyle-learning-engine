@@ -1,4 +1,9 @@
-# Plan: Complete dark halves of current Course Themes
+# Superseded plan: Complete dark halves of current Course Themes
+
+> Superseded on 2026-09-27 by
+> [whole_interface_theme_plan.md](../../archive/whole_interface_theme_plan.md). That plan owns the shared
+> 15-theme model, personal and Course Theme ownership, display-mode preference, document-wide
+> application, and complete acceptance ledger. This file remains historical context only.
 
 ## Context
 

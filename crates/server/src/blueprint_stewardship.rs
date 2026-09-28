@@ -20,7 +20,7 @@ use learning_data_access::{
     SessionTokenHash, StoreError,
     postgres::{PostgresBlueprintStewardshipStore, PostgresSessionStore},
 };
-use question_model::{BlueprintCourseId, ProductRole};
+use question_model::{BlueprintCourseId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -390,7 +390,7 @@ async fn instructor_session_hash(
     {
         // ASVS 8.2.1--8.3.1: role derives only from the server session; the
         // Store independently enforces an active vetted-Instructor predicate.
-        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
