@@ -27,7 +27,7 @@
   "captures": [
     {
       "id": "public_sign_in_laptop",
-      "path": "public/laptop/sign_in.png",
+      "path": "public/laptop/sign_in.webp",
       "role": "public",
       "routeId": "signIn",
       "area": "account",
@@ -45,7 +45,7 @@
     },
     {
       "id": "public_sign_in_phone",
-      "path": "public/phone/sign_in.png",
+      "path": "public/phone/sign_in.webp",
       "role": "public",
       "routeId": "signIn",
       "area": "account",
@@ -63,7 +63,7 @@
     },
     {
       "id": "public_session_renewal_laptop",
-      "path": "public/laptop/session_renewal.png",
+      "path": "public/laptop/session_renewal.webp",
       "role": "public",
       "routeId": "library",
       "area": "account",
@@ -81,7 +81,7 @@
     },
     {
       "id": "instructor_course_list",
-      "path": "instructor/courses-active-course_list.png",
+      "path": "instructor/courses-active-course_list.webp",
       "role": "instructor",
       "routeId": "instructorHome",
       "area": "courses",
@@ -99,7 +99,7 @@
     },
     {
       "id": "instructor_course_assignment_workspace",
-      "path": "instructor/courses-active-course_assignment_workspace.png",
+      "path": "instructor/courses-active-course_assignment_workspace.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -117,7 +117,7 @@
     },
     {
       "id": "instructor_inactive_courses_list",
-      "path": "instructor/courses-inactive-inactive_courses_list.png",
+      "path": "instructor/courses-inactive-inactive_courses_list.webp",
       "role": "instructor",
       "routeId": "instructorInactiveCourses",
       "area": "courses",
@@ -135,7 +135,7 @@
     },
     {
       "id": "instructor_course_roster_active",
-      "path": "instructor/courses-students-course_roster_active.png",
+      "path": "instructor/courses-students-course_roster_active.webp",
       "role": "instructor",
       "routeId": "courseRoster",
       "area": "courses",
@@ -153,7 +153,7 @@
     },
     {
       "id": "instructor_course_roster_pending_invitation",
-      "path": "instructor/courses-students-course_roster_pending_invitation.png",
+      "path": "instructor/courses-students-course_roster_pending_invitation.webp",
       "role": "instructor",
       "routeId": "courseRoster",
       "area": "courses",
@@ -171,7 +171,7 @@
     },
     {
       "id": "instructor_theme_sample_tundra_light",
-      "path": "instructor/theme_sample-tundra-light.png",
+      "path": "instructor/theme_sample-tundra-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -189,7 +189,7 @@
     },
     {
       "id": "instructor_theme_sample_tundra_dark",
-      "path": "instructor/theme_sample-tundra-dark.png",
+      "path": "instructor/theme_sample-tundra-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -207,7 +207,7 @@
     },
     {
       "id": "instructor_theme_sample_forest_light",
-      "path": "instructor/theme_sample-forest-light.png",
+      "path": "instructor/theme_sample-forest-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -225,7 +225,7 @@
     },
     {
       "id": "instructor_theme_sample_forest_dark",
-      "path": "instructor/theme_sample-forest-dark.png",
+      "path": "instructor/theme_sample-forest-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -243,7 +243,7 @@
     },
     {
       "id": "instructor_theme_sample_desert_light",
-      "path": "instructor/theme_sample-desert-light.png",
+      "path": "instructor/theme_sample-desert-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -261,7 +261,7 @@
     },
     {
       "id": "instructor_theme_sample_desert_dark",
-      "path": "instructor/theme_sample-desert-dark.png",
+      "path": "instructor/theme_sample-desert-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -279,7 +279,7 @@
     },
     {
       "id": "instructor_theme_sample_grass_light",
-      "path": "instructor/theme_sample-grass-light.png",
+      "path": "instructor/theme_sample-grass-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -297,7 +297,7 @@
     },
     {
       "id": "instructor_theme_sample_grass_dark",
-      "path": "instructor/theme_sample-grass-dark.png",
+      "path": "instructor/theme_sample-grass-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -315,7 +315,7 @@
     },
     {
       "id": "instructor_theme_sample_arctic_light",
-      "path": "instructor/theme_sample-arctic-light.png",
+      "path": "instructor/theme_sample-arctic-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -333,7 +333,7 @@
     },
     {
       "id": "instructor_theme_sample_arctic_dark",
-      "path": "instructor/theme_sample-arctic-dark.png",
+      "path": "instructor/theme_sample-arctic-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -351,7 +351,7 @@
     },
     {
       "id": "instructor_theme_sample_ocean_light",
-      "path": "instructor/theme_sample-ocean-light.png",
+      "path": "instructor/theme_sample-ocean-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -369,7 +369,7 @@
     },
     {
       "id": "instructor_theme_sample_ocean_dark",
-      "path": "instructor/theme_sample-ocean-dark.png",
+      "path": "instructor/theme_sample-ocean-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -387,7 +387,7 @@
     },
     {
       "id": "instructor_theme_sample_tropical_light",
-      "path": "instructor/theme_sample-tropical-light.png",
+      "path": "instructor/theme_sample-tropical-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -405,7 +405,7 @@
     },
     {
       "id": "instructor_theme_sample_tropical_dark",
-      "path": "instructor/theme_sample-tropical-dark.png",
+      "path": "instructor/theme_sample-tropical-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -423,7 +423,7 @@
     },
     {
       "id": "instructor_theme_sample_coral_reef_light",
-      "path": "instructor/theme_sample-coral-reef-light.png",
+      "path": "instructor/theme_sample-coral-reef-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -441,7 +441,7 @@
     },
     {
       "id": "instructor_theme_sample_coral_reef_dark",
-      "path": "instructor/theme_sample-coral-reef-dark.png",
+      "path": "instructor/theme_sample-coral-reef-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -459,7 +459,7 @@
     },
     {
       "id": "instructor_theme_sample_swamp_light",
-      "path": "instructor/theme_sample-swamp-light.png",
+      "path": "instructor/theme_sample-swamp-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -477,7 +477,7 @@
     },
     {
       "id": "instructor_theme_sample_swamp_dark",
-      "path": "instructor/theme_sample-swamp-dark.png",
+      "path": "instructor/theme_sample-swamp-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -495,7 +495,7 @@
     },
     {
       "id": "instructor_theme_sample_underground_light",
-      "path": "instructor/theme_sample-underground-light.png",
+      "path": "instructor/theme_sample-underground-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -513,7 +513,7 @@
     },
     {
       "id": "instructor_theme_sample_underground_dark",
-      "path": "instructor/theme_sample-underground-dark.png",
+      "path": "instructor/theme_sample-underground-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -531,7 +531,7 @@
     },
     {
       "id": "instructor_theme_sample_salt_marsh_light",
-      "path": "instructor/theme_sample-salt-marsh-light.png",
+      "path": "instructor/theme_sample-salt-marsh-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -549,7 +549,7 @@
     },
     {
       "id": "instructor_theme_sample_salt_marsh_dark",
-      "path": "instructor/theme_sample-salt-marsh-dark.png",
+      "path": "instructor/theme_sample-salt-marsh-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -567,7 +567,7 @@
     },
     {
       "id": "instructor_theme_sample_wetland_light",
-      "path": "instructor/theme_sample-wetland-light.png",
+      "path": "instructor/theme_sample-wetland-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -585,7 +585,7 @@
     },
     {
       "id": "instructor_theme_sample_wetland_dark",
-      "path": "instructor/theme_sample-wetland-dark.png",
+      "path": "instructor/theme_sample-wetland-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -603,7 +603,7 @@
     },
     {
       "id": "instructor_theme_sample_sea_floor_light",
-      "path": "instructor/theme_sample-sea-floor-light.png",
+      "path": "instructor/theme_sample-sea-floor-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -621,7 +621,7 @@
     },
     {
       "id": "instructor_theme_sample_sea_floor_dark",
-      "path": "instructor/theme_sample-sea-floor-dark.png",
+      "path": "instructor/theme_sample-sea-floor-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -639,7 +639,7 @@
     },
     {
       "id": "instructor_theme_sample_magma_light",
-      "path": "instructor/theme_sample-magma-light.png",
+      "path": "instructor/theme_sample-magma-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -657,7 +657,7 @@
     },
     {
       "id": "instructor_theme_sample_magma_dark",
-      "path": "instructor/theme_sample-magma-dark.png",
+      "path": "instructor/theme_sample-magma-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -675,7 +675,7 @@
     },
     {
       "id": "instructor_theme_sample_beach_light",
-      "path": "instructor/theme_sample-beach-light.png",
+      "path": "instructor/theme_sample-beach-light.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -693,7 +693,7 @@
     },
     {
       "id": "instructor_theme_sample_beach_dark",
-      "path": "instructor/theme_sample-beach-dark.png",
+      "path": "instructor/theme_sample-beach-dark.webp",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -711,7 +711,7 @@
     },
     {
       "id": "instructor_gradebook",
-      "path": "instructor/courses-gradebook-gradebook.png",
+      "path": "instructor/courses-gradebook-gradebook.webp",
       "role": "instructor",
       "routeId": "gradebook",
       "area": "grading",
@@ -729,7 +729,7 @@
     },
     {
       "id": "instructor_assignments_due_soon_empty",
-      "path": "instructor/product-assessments-due-assignments_due_soon_empty.png",
+      "path": "instructor/product-assessments-due-assignments_due_soon_empty.webp",
       "role": "instructor",
       "routeId": "assessmentsDueSoon",
       "area": "assignments",
@@ -747,7 +747,7 @@
     },
     {
       "id": "instructor_assignment_creation",
-      "path": "instructor/courses-assessments-assignment_creation.png",
+      "path": "instructor/courses-assessments-assignment_creation.webp",
       "role": "instructor",
       "routeId": "assessmentCreate",
       "area": "assignments",
@@ -765,7 +765,7 @@
     },
     {
       "id": "instructor_assignment_questions_draft",
-      "path": "instructor/courses-assessments-assignment_questions_draft.png",
+      "path": "instructor/courses-assessments-assignment_questions_draft.webp",
       "role": "instructor",
       "routeId": "assessmentWorkspaceQuestions",
       "area": "assignments",
@@ -783,7 +783,7 @@
     },
     {
       "id": "instructor_assignment_delivery_check",
-      "path": "instructor/courses-assessments-assignment_delivery_check.png",
+      "path": "instructor/courses-assessments-assignment_delivery_check.webp",
       "role": "instructor",
       "routeId": "assessmentWorkspaceStudentView",
       "area": "assignments",
@@ -801,7 +801,7 @@
     },
     {
       "id": "instructor_assignment_policies_released",
-      "path": "instructor/courses-assessments-assignment_policies_released.png",
+      "path": "instructor/courses-assessments-assignment_policies_released.webp",
       "role": "instructor",
       "routeId": "assessmentWorkspacePolicies",
       "area": "assignments",
@@ -819,7 +819,7 @@
     },
     {
       "id": "instructor_template_editor",
-      "path": "instructor/product-assessments-templates-template_editor.png",
+      "path": "instructor/product-assessments-templates-template_editor.webp",
       "role": "instructor",
       "routeId": "assessmentTemplates",
       "area": "assignments",
@@ -837,7 +837,7 @@
     },
     {
       "id": "instructor_library_default",
-      "path": "instructor/questions-search-library_default.png",
+      "path": "instructor/questions-search-library_default.webp",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -855,7 +855,7 @@
     },
     {
       "id": "instructor_library_filtered",
-      "path": "instructor/questions-search-library_filtered.png",
+      "path": "instructor/questions-search-library_filtered.webp",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -873,7 +873,7 @@
     },
     {
       "id": "instructor_published_question_detail",
-      "path": "instructor/questions-search-published_question_detail.png",
+      "path": "instructor/questions-search-published_question_detail.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -891,7 +891,7 @@
     },
     {
       "id": "instructor_library_browse",
-      "path": "instructor/questions-browse-library_browse.png",
+      "path": "instructor/questions-browse-library_browse.webp",
       "role": "instructor",
       "routeId": "libraryBrowse",
       "area": "question library",
@@ -909,7 +909,7 @@
     },
     {
       "id": "instructor_pool_creation_review",
-      "path": "instructor/questions-search-pool_creation_review.png",
+      "path": "instructor/questions-search-pool_creation_review.webp",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -927,7 +927,7 @@
     },
     {
       "id": "instructor_webwork_generated_example",
-      "path": "instructor/questions-search-webwork_generated_example.png",
+      "path": "instructor/questions-search-webwork_generated_example.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -945,7 +945,7 @@
     },
     {
       "id": "instructor_webwork_hla_genotype",
-      "path": "instructor/questions-search-webwork_hla_genotype.png",
+      "path": "instructor/questions-search-webwork_hla_genotype.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -963,7 +963,7 @@
     },
     {
       "id": "instructor_webwork_monohybrid_matching",
-      "path": "instructor/questions-search-webwork_monohybrid_matching.png",
+      "path": "instructor/questions-search-webwork_monohybrid_matching.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -981,7 +981,7 @@
     },
     {
       "id": "instructor_webwork_x_linked_counts",
-      "path": "instructor/questions-search-webwork_x_linked_counts.png",
+      "path": "instructor/questions-search-webwork_x_linked_counts.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -999,7 +999,7 @@
     },
     {
       "id": "instructor_webwork_dna_structure",
-      "path": "instructor/questions-search-webwork_dna_structure.png",
+      "path": "instructor/questions-search-webwork_dna_structure.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -1017,7 +1017,7 @@
     },
     {
       "id": "instructor_webwork_meiosis_prophase",
-      "path": "instructor/questions-search-webwork_meiosis_prophase.png",
+      "path": "instructor/questions-search-webwork_meiosis_prophase.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -1035,7 +1035,7 @@
     },
     {
       "id": "instructor_webwork_chi_square",
-      "path": "instructor/questions-search-webwork_chi_square.png",
+      "path": "instructor/questions-search-webwork_chi_square.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -1053,7 +1053,7 @@
     },
     {
       "id": "instructor_webwork_chromosome_shapes",
-      "path": "instructor/questions-search-webwork_chromosome_shapes.png",
+      "path": "instructor/questions-search-webwork_chromosome_shapes.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -1071,7 +1071,7 @@
     },
     {
       "id": "instructor_personal_theme_library_light",
-      "path": "instructor/theme-personal-library-light.png",
+      "path": "instructor/theme-personal-library-light.webp",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -1089,7 +1089,7 @@
     },
     {
       "id": "instructor_personal_theme_library_dark",
-      "path": "instructor/theme-personal-library-dark.png",
+      "path": "instructor/theme-personal-library-dark.webp",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -1107,7 +1107,7 @@
     },
     {
       "id": "instructor_personal_theme_question_dark",
-      "path": "instructor/theme-personal-question-detail-dark.png",
+      "path": "instructor/theme-personal-question-detail-dark.webp",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -1125,7 +1125,7 @@
     },
     {
       "id": "instructor_default",
-      "path": "instructor/default.png",
+      "path": "instructor/default.webp",
       "role": "instructor",
       "routeId": "profile",
       "area": "account",
@@ -1143,7 +1143,7 @@
     },
     {
       "id": "instructor_draft_list",
-      "path": "instructor/questions-drafts-draft_list.png",
+      "path": "instructor/questions-drafts-draft_list.webp",
       "role": "instructor",
       "routeId": "questionDrafts",
       "area": "question authoring",
@@ -1161,7 +1161,7 @@
     },
     {
       "id": "instructor_saved_editor",
-      "path": "instructor/questions-drafts-saved_editor.png",
+      "path": "instructor/questions-drafts-saved_editor.webp",
       "role": "instructor",
       "routeId": "questionDraftEditor",
       "area": "question authoring",
@@ -1179,7 +1179,7 @@
     },
     {
       "id": "instructor_publication_review",
-      "path": "instructor/questions-drafts-publication_review.png",
+      "path": "instructor/questions-drafts-publication_review.webp",
       "role": "instructor",
       "routeId": "questionDraftEditor",
       "area": "question authoring",
@@ -1197,7 +1197,7 @@
     },
     {
       "id": "instructor_blueprint_list",
-      "path": "instructor/courses-blueprint-blueprint_list.png",
+      "path": "instructor/courses-blueprint-blueprint_list.webp",
       "role": "instructor",
       "routeId": "blueprintCourses",
       "area": "blueprint courses",
@@ -1215,7 +1215,7 @@
     },
     {
       "id": "instructor_blueprint_detail",
-      "path": "instructor/courses-blueprint-blueprint_detail.png",
+      "path": "instructor/courses-blueprint-blueprint_detail.webp",
       "role": "instructor",
       "routeId": "blueprintCourseDetail",
       "area": "blueprint courses",
@@ -1233,7 +1233,7 @@
     },
     {
       "id": "instructor_blueprint_question_picker",
-      "path": "instructor/courses-blueprint-blueprint_question_picker.png",
+      "path": "instructor/courses-blueprint-blueprint_question_picker.webp",
       "role": "instructor",
       "routeId": "blueprintCourses",
       "area": "blueprint courses",
@@ -1251,7 +1251,7 @@
     },
     {
       "id": "instructor_filtered_results",
-      "path": "instructor/courses-search-filtered_results.png",
+      "path": "instructor/courses-search-filtered_results.webp",
       "role": "instructor",
       "routeId": "publicBlueprintSearch",
       "area": "blueprint courses",
@@ -1269,7 +1269,7 @@
     },
     {
       "id": "student_course_list_laptop",
-      "path": "student/laptop/course_list.png",
+      "path": "student/laptop/course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1287,7 +1287,7 @@
     },
     {
       "id": "student_course_list_tablet",
-      "path": "student/tablet/course_list.png",
+      "path": "student/tablet/course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1305,7 +1305,7 @@
     },
     {
       "id": "student_course_list_phone",
-      "path": "student/phone/course_list.png",
+      "path": "student/phone/course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1323,7 +1323,7 @@
     },
     {
       "id": "student_course_list_square",
-      "path": "student/square/course_list.png",
+      "path": "student/square/course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1341,7 +1341,7 @@
     },
     {
       "id": "student_course_landing_laptop",
-      "path": "student/laptop/course_landing.png",
+      "path": "student/laptop/course_landing.webp",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -1359,7 +1359,7 @@
     },
     {
       "id": "student_course_landing_tablet",
-      "path": "student/tablet/course_landing.png",
+      "path": "student/tablet/course_landing.webp",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -1377,7 +1377,7 @@
     },
     {
       "id": "student_course_landing_phone",
-      "path": "student/phone/course_landing.png",
+      "path": "student/phone/course_landing.webp",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -1395,7 +1395,7 @@
     },
     {
       "id": "student_course_landing_square",
-      "path": "student/square/course_landing.png",
+      "path": "student/square/course_landing.webp",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -1413,7 +1413,7 @@
     },
     {
       "id": "student_invitation_index_laptop",
-      "path": "student/laptop/invitation_index.png",
+      "path": "student/laptop/invitation_index.webp",
       "role": "student",
       "routeId": "studentCourseInvitations",
       "area": "courses",
@@ -1431,7 +1431,7 @@
     },
     {
       "id": "student_invitation_index_tablet",
-      "path": "student/tablet/invitation_index.png",
+      "path": "student/tablet/invitation_index.webp",
       "role": "student",
       "routeId": "studentCourseInvitations",
       "area": "courses",
@@ -1449,7 +1449,7 @@
     },
     {
       "id": "student_invitation_index_phone",
-      "path": "student/phone/invitation_index.png",
+      "path": "student/phone/invitation_index.webp",
       "role": "student",
       "routeId": "studentCourseInvitations",
       "area": "courses",
@@ -1467,7 +1467,7 @@
     },
     {
       "id": "student_invitation_index_square",
-      "path": "student/square/invitation_index.png",
+      "path": "student/square/invitation_index.webp",
       "role": "student",
       "routeId": "studentCourseInvitations",
       "area": "courses",
@@ -1485,7 +1485,7 @@
     },
     {
       "id": "student_invitation_detail_laptop",
-      "path": "student/laptop/invitation_detail.png",
+      "path": "student/laptop/invitation_detail.webp",
       "role": "student",
       "routeId": "studentCourseInvitation",
       "area": "courses",
@@ -1503,7 +1503,7 @@
     },
     {
       "id": "student_invitation_detail_tablet",
-      "path": "student/tablet/invitation_detail.png",
+      "path": "student/tablet/invitation_detail.webp",
       "role": "student",
       "routeId": "studentCourseInvitation",
       "area": "courses",
@@ -1521,7 +1521,7 @@
     },
     {
       "id": "student_invitation_detail_phone",
-      "path": "student/phone/invitation_detail.png",
+      "path": "student/phone/invitation_detail.webp",
       "role": "student",
       "routeId": "studentCourseInvitation",
       "area": "courses",
@@ -1539,7 +1539,7 @@
     },
     {
       "id": "student_invitation_detail_square",
-      "path": "student/square/invitation_detail.png",
+      "path": "student/square/invitation_detail.webp",
       "role": "student",
       "routeId": "studentCourseInvitation",
       "area": "courses",
@@ -1557,7 +1557,7 @@
     },
     {
       "id": "student_two_course_list_laptop",
-      "path": "student/laptop/two_course_list.png",
+      "path": "student/laptop/two_course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1575,7 +1575,7 @@
     },
     {
       "id": "student_two_course_list_tablet",
-      "path": "student/tablet/two_course_list.png",
+      "path": "student/tablet/two_course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1593,7 +1593,7 @@
     },
     {
       "id": "student_two_course_list_phone",
-      "path": "student/phone/two_course_list.png",
+      "path": "student/phone/two_course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1611,7 +1611,7 @@
     },
     {
       "id": "student_two_course_list_square",
-      "path": "student/square/two_course_list.png",
+      "path": "student/square/two_course_list.webp",
       "role": "student",
       "routeId": "studentCourses",
       "area": "courses",
@@ -1629,7 +1629,7 @@
     },
     {
       "id": "student_course_progress_laptop",
-      "path": "student/laptop/course_progress.png",
+      "path": "student/laptop/course_progress.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1647,7 +1647,7 @@
     },
     {
       "id": "student_course_progress_tablet",
-      "path": "student/tablet/course_progress.png",
+      "path": "student/tablet/course_progress.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1665,7 +1665,7 @@
     },
     {
       "id": "student_course_progress_phone",
-      "path": "student/phone/course_progress.png",
+      "path": "student/phone/course_progress.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1683,7 +1683,7 @@
     },
     {
       "id": "student_course_progress_square",
-      "path": "student/square/course_progress.png",
+      "path": "student/square/course_progress.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1701,7 +1701,7 @@
     },
     {
       "id": "student_course_progress_unreleased_laptop",
-      "path": "student/laptop/course_progress_unreleased.png",
+      "path": "student/laptop/course_progress_unreleased.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1719,7 +1719,7 @@
     },
     {
       "id": "student_course_progress_unreleased_tablet",
-      "path": "student/tablet/course_progress_unreleased.png",
+      "path": "student/tablet/course_progress_unreleased.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1737,7 +1737,7 @@
     },
     {
       "id": "student_course_progress_unreleased_phone",
-      "path": "student/phone/course_progress_unreleased.png",
+      "path": "student/phone/course_progress_unreleased.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1755,7 +1755,7 @@
     },
     {
       "id": "student_course_progress_unreleased_square",
-      "path": "student/square/course_progress_unreleased.png",
+      "path": "student/square/course_progress_unreleased.webp",
       "role": "student",
       "routeId": "studentCourseProgress",
       "area": "courses",
@@ -1773,7 +1773,7 @@
     },
     {
       "id": "student_scores_laptop",
-      "path": "student/laptop/grades-scores-scores.png",
+      "path": "student/laptop/grades-scores-scores.webp",
       "role": "student",
       "routeId": "studentScores",
       "area": "grades",
@@ -1791,7 +1791,7 @@
     },
     {
       "id": "student_scores_tablet",
-      "path": "student/tablet/grades-scores-scores.png",
+      "path": "student/tablet/grades-scores-scores.webp",
       "role": "student",
       "routeId": "studentScores",
       "area": "grades",
@@ -1809,7 +1809,7 @@
     },
     {
       "id": "student_scores_phone",
-      "path": "student/phone/grades-scores-scores.png",
+      "path": "student/phone/grades-scores-scores.webp",
       "role": "student",
       "routeId": "studentScores",
       "area": "grades",
@@ -1827,7 +1827,7 @@
     },
     {
       "id": "student_scores_square",
-      "path": "student/square/grades-scores-scores.png",
+      "path": "student/square/grades-scores-scores.webp",
       "role": "student",
       "routeId": "studentScores",
       "area": "grades",
@@ -1845,7 +1845,7 @@
     },
     {
       "id": "student_response_stats_laptop",
-      "path": "student/laptop/grades-stats-response_stats.png",
+      "path": "student/laptop/grades-stats-response_stats.webp",
       "role": "student",
       "routeId": "studentResponseStats",
       "area": "grades",
@@ -1863,7 +1863,7 @@
     },
     {
       "id": "student_response_stats_tablet",
-      "path": "student/tablet/grades-stats-response_stats.png",
+      "path": "student/tablet/grades-stats-response_stats.webp",
       "role": "student",
       "routeId": "studentResponseStats",
       "area": "grades",
@@ -1881,7 +1881,7 @@
     },
     {
       "id": "student_response_stats_phone",
-      "path": "student/phone/grades-stats-response_stats.png",
+      "path": "student/phone/grades-stats-response_stats.webp",
       "role": "student",
       "routeId": "studentResponseStats",
       "area": "grades",
@@ -1899,7 +1899,7 @@
     },
     {
       "id": "student_response_stats_square",
-      "path": "student/square/grades-stats-response_stats.png",
+      "path": "student/square/grades-stats-response_stats.webp",
       "role": "student",
       "routeId": "studentResponseStats",
       "area": "grades",
@@ -1917,7 +1917,7 @@
     },
     {
       "id": "student_course_attempt_history_laptop",
-      "path": "student/laptop/grades-history-course_attempt_history.png",
+      "path": "student/laptop/grades-history-course_attempt_history.webp",
       "role": "student",
       "routeId": "studentAttemptHistory",
       "area": "grades",
@@ -1935,7 +1935,7 @@
     },
     {
       "id": "student_course_attempt_history_tablet",
-      "path": "student/tablet/grades-history-course_attempt_history.png",
+      "path": "student/tablet/grades-history-course_attempt_history.webp",
       "role": "student",
       "routeId": "studentAttemptHistory",
       "area": "grades",
@@ -1953,7 +1953,7 @@
     },
     {
       "id": "student_course_attempt_history_phone",
-      "path": "student/phone/grades-history-course_attempt_history.png",
+      "path": "student/phone/grades-history-course_attempt_history.webp",
       "role": "student",
       "routeId": "studentAttemptHistory",
       "area": "grades",
@@ -1971,7 +1971,7 @@
     },
     {
       "id": "student_course_attempt_history_square",
-      "path": "student/square/grades-history-course_attempt_history.png",
+      "path": "student/square/grades-history-course_attempt_history.webp",
       "role": "student",
       "routeId": "studentAttemptHistory",
       "area": "grades",
@@ -1989,7 +1989,7 @@
     },
     {
       "id": "student_latest_feedback_laptop",
-      "path": "student/laptop/grades-feedback-latest_feedback.png",
+      "path": "student/laptop/grades-feedback-latest_feedback.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "grades",
@@ -2007,7 +2007,7 @@
     },
     {
       "id": "student_latest_feedback_tablet",
-      "path": "student/tablet/grades-feedback-latest_feedback.png",
+      "path": "student/tablet/grades-feedback-latest_feedback.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "grades",
@@ -2025,7 +2025,7 @@
     },
     {
       "id": "student_latest_feedback_phone",
-      "path": "student/phone/grades-feedback-latest_feedback.png",
+      "path": "student/phone/grades-feedback-latest_feedback.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "grades",
@@ -2043,7 +2043,7 @@
     },
     {
       "id": "student_latest_feedback_square",
-      "path": "student/square/grades-feedback-latest_feedback.png",
+      "path": "student/square/grades-feedback-latest_feedback.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "grades",
@@ -2061,7 +2061,7 @@
     },
     {
       "id": "student_course_due_soon_laptop",
-      "path": "student/laptop/coursework-due-course_due_soon.png",
+      "path": "student/laptop/coursework-due-course_due_soon.webp",
       "role": "student",
       "routeId": "studentDueSoon",
       "area": "coursework",
@@ -2079,7 +2079,7 @@
     },
     {
       "id": "student_course_due_soon_tablet",
-      "path": "student/tablet/coursework-due-course_due_soon.png",
+      "path": "student/tablet/coursework-due-course_due_soon.webp",
       "role": "student",
       "routeId": "studentDueSoon",
       "area": "coursework",
@@ -2097,7 +2097,7 @@
     },
     {
       "id": "student_course_due_soon_phone",
-      "path": "student/phone/coursework-due-course_due_soon.png",
+      "path": "student/phone/coursework-due-course_due_soon.webp",
       "role": "student",
       "routeId": "studentDueSoon",
       "area": "coursework",
@@ -2115,7 +2115,7 @@
     },
     {
       "id": "student_course_due_soon_square",
-      "path": "student/square/coursework-due-course_due_soon.png",
+      "path": "student/square/coursework-due-course_due_soon.webp",
       "role": "student",
       "routeId": "studentDueSoon",
       "area": "coursework",
@@ -2133,7 +2133,7 @@
     },
     {
       "id": "student_course_completed_laptop",
-      "path": "student/laptop/coursework-completed-course_completed.png",
+      "path": "student/laptop/coursework-completed-course_completed.webp",
       "role": "student",
       "routeId": "studentCompleted",
       "area": "coursework",
@@ -2151,7 +2151,7 @@
     },
     {
       "id": "student_course_completed_tablet",
-      "path": "student/tablet/coursework-completed-course_completed.png",
+      "path": "student/tablet/coursework-completed-course_completed.webp",
       "role": "student",
       "routeId": "studentCompleted",
       "area": "coursework",
@@ -2169,7 +2169,7 @@
     },
     {
       "id": "student_course_completed_phone",
-      "path": "student/phone/coursework-completed-course_completed.png",
+      "path": "student/phone/coursework-completed-course_completed.webp",
       "role": "student",
       "routeId": "studentCompleted",
       "area": "coursework",
@@ -2187,7 +2187,7 @@
     },
     {
       "id": "student_course_completed_square",
-      "path": "student/square/coursework-completed-course_completed.png",
+      "path": "student/square/coursework-completed-course_completed.webp",
       "role": "student",
       "routeId": "studentCompleted",
       "area": "coursework",
@@ -2205,7 +2205,7 @@
     },
     {
       "id": "student_not_started_laptop",
-      "path": "student/laptop/not_started.png",
+      "path": "student/laptop/not_started.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2223,7 +2223,7 @@
     },
     {
       "id": "student_not_started_tablet",
-      "path": "student/tablet/not_started.png",
+      "path": "student/tablet/not_started.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2241,7 +2241,7 @@
     },
     {
       "id": "student_not_started_phone",
-      "path": "student/phone/not_started.png",
+      "path": "student/phone/not_started.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2259,7 +2259,7 @@
     },
     {
       "id": "student_not_started_square",
-      "path": "student/square/not_started.png",
+      "path": "student/square/not_started.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2277,7 +2277,7 @@
     },
     {
       "id": "student_in_progress_laptop",
-      "path": "student/laptop/in_progress.png",
+      "path": "student/laptop/in_progress.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2295,7 +2295,7 @@
     },
     {
       "id": "student_in_progress_tablet",
-      "path": "student/tablet/in_progress.png",
+      "path": "student/tablet/in_progress.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2313,7 +2313,7 @@
     },
     {
       "id": "student_in_progress_phone",
-      "path": "student/phone/in_progress.png",
+      "path": "student/phone/in_progress.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2331,7 +2331,7 @@
     },
     {
       "id": "student_in_progress_square",
-      "path": "student/square/in_progress.png",
+      "path": "student/square/in_progress.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2349,7 +2349,7 @@
     },
     {
       "id": "student_completed_laptop",
-      "path": "student/laptop/completed.png",
+      "path": "student/laptop/completed.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2367,7 +2367,7 @@
     },
     {
       "id": "student_completed_tablet",
-      "path": "student/tablet/completed.png",
+      "path": "student/tablet/completed.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2385,7 +2385,7 @@
     },
     {
       "id": "student_completed_phone",
-      "path": "student/phone/completed.png",
+      "path": "student/phone/completed.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2403,7 +2403,7 @@
     },
     {
       "id": "student_completed_square",
-      "path": "student/square/completed.png",
+      "path": "student/square/completed.webp",
       "role": "student",
       "routeId": "studentHome",
       "area": "coursework",
@@ -2421,7 +2421,7 @@
     },
     {
       "id": "student_unanswered_laptop",
-      "path": "student/laptop/coursework-overview-unanswered.png",
+      "path": "student/laptop/coursework-overview-unanswered.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2439,7 +2439,7 @@
     },
     {
       "id": "student_unanswered_tablet",
-      "path": "student/tablet/coursework-overview-unanswered.png",
+      "path": "student/tablet/coursework-overview-unanswered.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2457,7 +2457,7 @@
     },
     {
       "id": "student_unanswered_phone",
-      "path": "student/phone/coursework-overview-unanswered.png",
+      "path": "student/phone/coursework-overview-unanswered.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2475,7 +2475,7 @@
     },
     {
       "id": "student_unanswered_square",
-      "path": "student/square/coursework-overview-unanswered.png",
+      "path": "student/square/coursework-overview-unanswered.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2493,7 +2493,7 @@
     },
     {
       "id": "student_overview_history_laptop",
-      "path": "student/laptop/coursework-overview-overview_history.png",
+      "path": "student/laptop/coursework-overview-overview_history.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2511,7 +2511,7 @@
     },
     {
       "id": "student_overview_history_tablet",
-      "path": "student/tablet/coursework-overview-overview_history.png",
+      "path": "student/tablet/coursework-overview-overview_history.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2529,7 +2529,7 @@
     },
     {
       "id": "student_overview_history_phone",
-      "path": "student/phone/coursework-overview-overview_history.png",
+      "path": "student/phone/coursework-overview-overview_history.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2547,7 +2547,7 @@
     },
     {
       "id": "student_overview_history_square",
-      "path": "student/square/coursework-overview-overview_history.png",
+      "path": "student/square/coursework-overview-overview_history.webp",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -2565,7 +2565,7 @@
     },
     {
       "id": "student_selected_history_laptop",
-      "path": "student/laptop/coursework-overview-selected_history.png",
+      "path": "student/laptop/coursework-overview-selected_history.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2583,7 +2583,7 @@
     },
     {
       "id": "student_selected_history_tablet",
-      "path": "student/tablet/coursework-overview-selected_history.png",
+      "path": "student/tablet/coursework-overview-selected_history.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2601,7 +2601,7 @@
     },
     {
       "id": "student_selected_history_phone",
-      "path": "student/phone/coursework-overview-selected_history.png",
+      "path": "student/phone/coursework-overview-selected_history.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2619,7 +2619,7 @@
     },
     {
       "id": "student_selected_history_square",
-      "path": "student/square/coursework-overview-selected_history.png",
+      "path": "student/square/coursework-overview-selected_history.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2637,7 +2637,7 @@
     },
     {
       "id": "student_response_selected_laptop",
-      "path": "student/laptop/coursework-active-response_selected.png",
+      "path": "student/laptop/coursework-active-response_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2655,7 +2655,7 @@
     },
     {
       "id": "student_response_selected_tablet",
-      "path": "student/tablet/coursework-active-response_selected.png",
+      "path": "student/tablet/coursework-active-response_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2673,7 +2673,7 @@
     },
     {
       "id": "student_response_selected_phone",
-      "path": "student/phone/coursework-active-response_selected.png",
+      "path": "student/phone/coursework-active-response_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2691,7 +2691,7 @@
     },
     {
       "id": "student_response_selected_square",
-      "path": "student/square/coursework-active-response_selected.png",
+      "path": "student/square/coursework-active-response_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2709,7 +2709,7 @@
     },
     {
       "id": "student_resume_selected_laptop",
-      "path": "student/laptop/coursework-active-resume_selected.png",
+      "path": "student/laptop/coursework-active-resume_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2727,7 +2727,7 @@
     },
     {
       "id": "student_resume_selected_tablet",
-      "path": "student/tablet/coursework-active-resume_selected.png",
+      "path": "student/tablet/coursework-active-resume_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2745,7 +2745,7 @@
     },
     {
       "id": "student_resume_selected_phone",
-      "path": "student/phone/coursework-active-resume_selected.png",
+      "path": "student/phone/coursework-active-resume_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2763,7 +2763,7 @@
     },
     {
       "id": "student_resume_selected_square",
-      "path": "student/square/coursework-active-resume_selected.png",
+      "path": "student/square/coursework-active-resume_selected.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
@@ -2781,7 +2781,7 @@
     },
     {
       "id": "student_submitted_laptop",
-      "path": "student/laptop/coursework-active-submitted.png",
+      "path": "student/laptop/coursework-active-submitted.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2799,7 +2799,7 @@
     },
     {
       "id": "student_submitted_tablet",
-      "path": "student/tablet/coursework-active-submitted.png",
+      "path": "student/tablet/coursework-active-submitted.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2817,7 +2817,7 @@
     },
     {
       "id": "student_submitted_phone",
-      "path": "student/phone/coursework-active-submitted.png",
+      "path": "student/phone/coursework-active-submitted.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2835,7 +2835,7 @@
     },
     {
       "id": "student_submitted_square",
-      "path": "student/square/coursework-active-submitted.png",
+      "path": "student/square/coursework-active-submitted.webp",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
@@ -2853,7 +2853,7 @@
     },
     {
       "id": "student_assessment_navigation_laptop",
-      "path": "student/laptop/coursework-active-assessment_navigation.png",
+      "path": "student/laptop/coursework-active-assessment_navigation.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2871,7 +2871,7 @@
     },
     {
       "id": "student_assessment_navigation_tablet",
-      "path": "student/tablet/coursework-active-assessment_navigation.png",
+      "path": "student/tablet/coursework-active-assessment_navigation.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2889,7 +2889,7 @@
     },
     {
       "id": "student_assessment_navigation_phone",
-      "path": "student/phone/coursework-active-assessment_navigation.png",
+      "path": "student/phone/coursework-active-assessment_navigation.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2907,7 +2907,7 @@
     },
     {
       "id": "student_assessment_navigation_square",
-      "path": "student/square/coursework-active-assessment_navigation.png",
+      "path": "student/square/coursework-active-assessment_navigation.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2925,7 +2925,7 @@
     },
     {
       "id": "student_question_unanswered_mc_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_mc.png",
+      "path": "student/laptop/coursework-active-q_unanswered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2943,7 +2943,7 @@
     },
     {
       "id": "student_question_answered_mc_laptop",
-      "path": "student/laptop/coursework-active-q_answered_mc.png",
+      "path": "student/laptop/coursework-active-q_answered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2961,7 +2961,7 @@
     },
     {
       "id": "student_question_unanswered_mc_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_mc.png",
+      "path": "student/tablet/coursework-active-q_unanswered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2979,7 +2979,7 @@
     },
     {
       "id": "student_question_answered_mc_tablet",
-      "path": "student/tablet/coursework-active-q_answered_mc.png",
+      "path": "student/tablet/coursework-active-q_answered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -2997,7 +2997,7 @@
     },
     {
       "id": "student_question_unanswered_mc_phone",
-      "path": "student/phone/coursework-active-q_unanswered_mc.png",
+      "path": "student/phone/coursework-active-q_unanswered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3015,7 +3015,7 @@
     },
     {
       "id": "student_question_answered_mc_phone",
-      "path": "student/phone/coursework-active-q_answered_mc.png",
+      "path": "student/phone/coursework-active-q_answered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3033,7 +3033,7 @@
     },
     {
       "id": "student_question_unanswered_mc_square",
-      "path": "student/square/coursework-active-q_unanswered_mc.png",
+      "path": "student/square/coursework-active-q_unanswered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3051,7 +3051,7 @@
     },
     {
       "id": "student_question_answered_mc_square",
-      "path": "student/square/coursework-active-q_answered_mc.png",
+      "path": "student/square/coursework-active-q_answered_mc.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3069,7 +3069,7 @@
     },
     {
       "id": "student_question_unanswered_ma_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_ma.png",
+      "path": "student/laptop/coursework-active-q_unanswered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3087,7 +3087,7 @@
     },
     {
       "id": "student_question_answered_ma_laptop",
-      "path": "student/laptop/coursework-active-q_answered_ma.png",
+      "path": "student/laptop/coursework-active-q_answered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3105,7 +3105,7 @@
     },
     {
       "id": "student_question_unanswered_ma_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_ma.png",
+      "path": "student/tablet/coursework-active-q_unanswered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3123,7 +3123,7 @@
     },
     {
       "id": "student_question_answered_ma_tablet",
-      "path": "student/tablet/coursework-active-q_answered_ma.png",
+      "path": "student/tablet/coursework-active-q_answered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3141,7 +3141,7 @@
     },
     {
       "id": "student_question_unanswered_ma_phone",
-      "path": "student/phone/coursework-active-q_unanswered_ma.png",
+      "path": "student/phone/coursework-active-q_unanswered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3159,7 +3159,7 @@
     },
     {
       "id": "student_question_answered_ma_phone",
-      "path": "student/phone/coursework-active-q_answered_ma.png",
+      "path": "student/phone/coursework-active-q_answered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3177,7 +3177,7 @@
     },
     {
       "id": "student_question_unanswered_ma_square",
-      "path": "student/square/coursework-active-q_unanswered_ma.png",
+      "path": "student/square/coursework-active-q_unanswered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3195,7 +3195,7 @@
     },
     {
       "id": "student_question_answered_ma_square",
-      "path": "student/square/coursework-active-q_answered_ma.png",
+      "path": "student/square/coursework-active-q_answered_ma.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3213,7 +3213,7 @@
     },
     {
       "id": "student_question_unanswered_fib_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_fib.png",
+      "path": "student/laptop/coursework-active-q_unanswered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3231,7 +3231,7 @@
     },
     {
       "id": "student_question_answered_fib_laptop",
-      "path": "student/laptop/coursework-active-q_answered_fib.png",
+      "path": "student/laptop/coursework-active-q_answered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3249,7 +3249,7 @@
     },
     {
       "id": "student_question_unanswered_fib_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_fib.png",
+      "path": "student/tablet/coursework-active-q_unanswered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3267,7 +3267,7 @@
     },
     {
       "id": "student_question_answered_fib_tablet",
-      "path": "student/tablet/coursework-active-q_answered_fib.png",
+      "path": "student/tablet/coursework-active-q_answered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3285,7 +3285,7 @@
     },
     {
       "id": "student_question_unanswered_fib_phone",
-      "path": "student/phone/coursework-active-q_unanswered_fib.png",
+      "path": "student/phone/coursework-active-q_unanswered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3303,7 +3303,7 @@
     },
     {
       "id": "student_question_answered_fib_phone",
-      "path": "student/phone/coursework-active-q_answered_fib.png",
+      "path": "student/phone/coursework-active-q_answered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3321,7 +3321,7 @@
     },
     {
       "id": "student_question_unanswered_fib_square",
-      "path": "student/square/coursework-active-q_unanswered_fib.png",
+      "path": "student/square/coursework-active-q_unanswered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3339,7 +3339,7 @@
     },
     {
       "id": "student_question_answered_fib_square",
-      "path": "student/square/coursework-active-q_answered_fib.png",
+      "path": "student/square/coursework-active-q_answered_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3357,7 +3357,7 @@
     },
     {
       "id": "student_question_unanswered_multi_fib_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_multi_fib.png",
+      "path": "student/laptop/coursework-active-q_unanswered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3375,7 +3375,7 @@
     },
     {
       "id": "student_question_answered_multi_fib_laptop",
-      "path": "student/laptop/coursework-active-q_answered_multi_fib.png",
+      "path": "student/laptop/coursework-active-q_answered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3393,7 +3393,7 @@
     },
     {
       "id": "student_question_unanswered_multi_fib_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_multi_fib.png",
+      "path": "student/tablet/coursework-active-q_unanswered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3411,7 +3411,7 @@
     },
     {
       "id": "student_question_answered_multi_fib_tablet",
-      "path": "student/tablet/coursework-active-q_answered_multi_fib.png",
+      "path": "student/tablet/coursework-active-q_answered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3429,7 +3429,7 @@
     },
     {
       "id": "student_question_unanswered_multi_fib_phone",
-      "path": "student/phone/coursework-active-q_unanswered_multi_fib.png",
+      "path": "student/phone/coursework-active-q_unanswered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3447,7 +3447,7 @@
     },
     {
       "id": "student_question_answered_multi_fib_phone",
-      "path": "student/phone/coursework-active-q_answered_multi_fib.png",
+      "path": "student/phone/coursework-active-q_answered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3465,7 +3465,7 @@
     },
     {
       "id": "student_question_unanswered_multi_fib_square",
-      "path": "student/square/coursework-active-q_unanswered_multi_fib.png",
+      "path": "student/square/coursework-active-q_unanswered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3483,7 +3483,7 @@
     },
     {
       "id": "student_question_answered_multi_fib_square",
-      "path": "student/square/coursework-active-q_answered_multi_fib.png",
+      "path": "student/square/coursework-active-q_answered_multi_fib.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3501,7 +3501,7 @@
     },
     {
       "id": "student_question_unanswered_num_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_num.png",
+      "path": "student/laptop/coursework-active-q_unanswered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3519,7 +3519,7 @@
     },
     {
       "id": "student_question_answered_num_laptop",
-      "path": "student/laptop/coursework-active-q_answered_num.png",
+      "path": "student/laptop/coursework-active-q_answered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3537,7 +3537,7 @@
     },
     {
       "id": "student_question_unanswered_num_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_num.png",
+      "path": "student/tablet/coursework-active-q_unanswered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3555,7 +3555,7 @@
     },
     {
       "id": "student_question_answered_num_tablet",
-      "path": "student/tablet/coursework-active-q_answered_num.png",
+      "path": "student/tablet/coursework-active-q_answered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3573,7 +3573,7 @@
     },
     {
       "id": "student_question_unanswered_num_phone",
-      "path": "student/phone/coursework-active-q_unanswered_num.png",
+      "path": "student/phone/coursework-active-q_unanswered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3591,7 +3591,7 @@
     },
     {
       "id": "student_question_answered_num_phone",
-      "path": "student/phone/coursework-active-q_answered_num.png",
+      "path": "student/phone/coursework-active-q_answered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3609,7 +3609,7 @@
     },
     {
       "id": "student_question_unanswered_num_square",
-      "path": "student/square/coursework-active-q_unanswered_num.png",
+      "path": "student/square/coursework-active-q_unanswered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3627,7 +3627,7 @@
     },
     {
       "id": "student_question_answered_num_square",
-      "path": "student/square/coursework-active-q_answered_num.png",
+      "path": "student/square/coursework-active-q_answered_num.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3645,7 +3645,7 @@
     },
     {
       "id": "student_question_unanswered_match_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_match.png",
+      "path": "student/laptop/coursework-active-q_unanswered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3663,7 +3663,7 @@
     },
     {
       "id": "student_question_answered_match_laptop",
-      "path": "student/laptop/coursework-active-q_answered_match.png",
+      "path": "student/laptop/coursework-active-q_answered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3681,7 +3681,7 @@
     },
     {
       "id": "student_question_unanswered_match_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_match.png",
+      "path": "student/tablet/coursework-active-q_unanswered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3699,7 +3699,7 @@
     },
     {
       "id": "student_question_answered_match_tablet",
-      "path": "student/tablet/coursework-active-q_answered_match.png",
+      "path": "student/tablet/coursework-active-q_answered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3717,7 +3717,7 @@
     },
     {
       "id": "student_question_unanswered_match_phone",
-      "path": "student/phone/coursework-active-q_unanswered_match.png",
+      "path": "student/phone/coursework-active-q_unanswered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3735,7 +3735,7 @@
     },
     {
       "id": "student_question_answered_match_phone",
-      "path": "student/phone/coursework-active-q_answered_match.png",
+      "path": "student/phone/coursework-active-q_answered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3753,7 +3753,7 @@
     },
     {
       "id": "student_question_unanswered_match_square",
-      "path": "student/square/coursework-active-q_unanswered_match.png",
+      "path": "student/square/coursework-active-q_unanswered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3771,7 +3771,7 @@
     },
     {
       "id": "student_question_answered_match_square",
-      "path": "student/square/coursework-active-q_answered_match.png",
+      "path": "student/square/coursework-active-q_answered_match.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3789,7 +3789,7 @@
     },
     {
       "id": "student_question_unanswered_order_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_order.png",
+      "path": "student/laptop/coursework-active-q_unanswered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3807,7 +3807,7 @@
     },
     {
       "id": "student_question_answered_order_laptop",
-      "path": "student/laptop/coursework-active-q_answered_order.png",
+      "path": "student/laptop/coursework-active-q_answered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3825,7 +3825,7 @@
     },
     {
       "id": "student_question_unanswered_order_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_order.png",
+      "path": "student/tablet/coursework-active-q_unanswered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3843,7 +3843,7 @@
     },
     {
       "id": "student_question_answered_order_tablet",
-      "path": "student/tablet/coursework-active-q_answered_order.png",
+      "path": "student/tablet/coursework-active-q_answered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3861,7 +3861,7 @@
     },
     {
       "id": "student_question_unanswered_order_phone",
-      "path": "student/phone/coursework-active-q_unanswered_order.png",
+      "path": "student/phone/coursework-active-q_unanswered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3879,7 +3879,7 @@
     },
     {
       "id": "student_question_answered_order_phone",
-      "path": "student/phone/coursework-active-q_answered_order.png",
+      "path": "student/phone/coursework-active-q_answered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3897,7 +3897,7 @@
     },
     {
       "id": "student_question_unanswered_order_square",
-      "path": "student/square/coursework-active-q_unanswered_order.png",
+      "path": "student/square/coursework-active-q_unanswered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3915,7 +3915,7 @@
     },
     {
       "id": "student_question_answered_order_square",
-      "path": "student/square/coursework-active-q_answered_order.png",
+      "path": "student/square/coursework-active-q_answered_order.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3933,7 +3933,7 @@
     },
     {
       "id": "student_question_unanswered_hotspot_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_hotspot.png",
+      "path": "student/laptop/coursework-active-q_unanswered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3951,7 +3951,7 @@
     },
     {
       "id": "student_question_answered_hotspot_laptop",
-      "path": "student/laptop/coursework-active-q_answered_hotspot.png",
+      "path": "student/laptop/coursework-active-q_answered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3969,7 +3969,7 @@
     },
     {
       "id": "student_question_unanswered_hotspot_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_hotspot.png",
+      "path": "student/tablet/coursework-active-q_unanswered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -3987,7 +3987,7 @@
     },
     {
       "id": "student_question_answered_hotspot_tablet",
-      "path": "student/tablet/coursework-active-q_answered_hotspot.png",
+      "path": "student/tablet/coursework-active-q_answered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4005,7 +4005,7 @@
     },
     {
       "id": "student_question_unanswered_hotspot_phone",
-      "path": "student/phone/coursework-active-q_unanswered_hotspot.png",
+      "path": "student/phone/coursework-active-q_unanswered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4023,7 +4023,7 @@
     },
     {
       "id": "student_question_answered_hotspot_phone",
-      "path": "student/phone/coursework-active-q_answered_hotspot.png",
+      "path": "student/phone/coursework-active-q_answered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4041,7 +4041,7 @@
     },
     {
       "id": "student_question_unanswered_hotspot_square",
-      "path": "student/square/coursework-active-q_unanswered_hotspot.png",
+      "path": "student/square/coursework-active-q_unanswered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4059,7 +4059,7 @@
     },
     {
       "id": "student_question_answered_hotspot_square",
-      "path": "student/square/coursework-active-q_answered_hotspot.png",
+      "path": "student/square/coursework-active-q_answered_hotspot.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4077,7 +4077,7 @@
     },
     {
       "id": "student_question_unanswered_webwork_laptop",
-      "path": "student/laptop/coursework-active-q_unanswered_webwork.png",
+      "path": "student/laptop/coursework-active-q_unanswered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4095,7 +4095,7 @@
     },
     {
       "id": "student_question_answered_webwork_laptop",
-      "path": "student/laptop/coursework-active-q_answered_webwork.png",
+      "path": "student/laptop/coursework-active-q_answered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4113,7 +4113,7 @@
     },
     {
       "id": "student_question_unanswered_webwork_tablet",
-      "path": "student/tablet/coursework-active-q_unanswered_webwork.png",
+      "path": "student/tablet/coursework-active-q_unanswered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4131,7 +4131,7 @@
     },
     {
       "id": "student_question_answered_webwork_tablet",
-      "path": "student/tablet/coursework-active-q_answered_webwork.png",
+      "path": "student/tablet/coursework-active-q_answered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4149,7 +4149,7 @@
     },
     {
       "id": "student_question_unanswered_webwork_phone",
-      "path": "student/phone/coursework-active-q_unanswered_webwork.png",
+      "path": "student/phone/coursework-active-q_unanswered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4167,7 +4167,7 @@
     },
     {
       "id": "student_question_answered_webwork_phone",
-      "path": "student/phone/coursework-active-q_answered_webwork.png",
+      "path": "student/phone/coursework-active-q_answered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4185,7 +4185,7 @@
     },
     {
       "id": "student_question_unanswered_webwork_square",
-      "path": "student/square/coursework-active-q_unanswered_webwork.png",
+      "path": "student/square/coursework-active-q_unanswered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4203,7 +4203,7 @@
     },
     {
       "id": "student_question_answered_webwork_square",
-      "path": "student/square/coursework-active-q_answered_webwork.png",
+      "path": "student/square/coursework-active-q_answered_webwork.webp",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -4221,7 +4221,7 @@
     },
     {
       "id": "student_denial_laptop",
-      "path": "student/laptop/denial.png",
+      "path": "student/laptop/denial.webp",
       "role": "student",
       "routeId": "library",
       "area": "authorization",
@@ -4239,7 +4239,7 @@
     },
     {
       "id": "student_denial_tablet",
-      "path": "student/tablet/denial.png",
+      "path": "student/tablet/denial.webp",
       "role": "student",
       "routeId": "library",
       "area": "authorization",
@@ -4257,7 +4257,7 @@
     },
     {
       "id": "student_denial_phone",
-      "path": "student/phone/denial.png",
+      "path": "student/phone/denial.webp",
       "role": "student",
       "routeId": "library",
       "area": "authorization",
@@ -4275,7 +4275,7 @@
     },
     {
       "id": "student_denial_square",
-      "path": "student/square/denial.png",
+      "path": "student/square/denial.webp",
       "role": "student",
       "routeId": "library",
       "area": "authorization",
@@ -4293,7 +4293,7 @@
     },
     {
       "id": "student_profile_laptop",
-      "path": "student/laptop/profile.png",
+      "path": "student/laptop/profile.webp",
       "role": "student",
       "routeId": "profile",
       "area": "account",
@@ -4311,7 +4311,7 @@
     },
     {
       "id": "student_profile_tablet",
-      "path": "student/tablet/profile.png",
+      "path": "student/tablet/profile.webp",
       "role": "student",
       "routeId": "profile",
       "area": "account",
@@ -4329,7 +4329,7 @@
     },
     {
       "id": "student_profile_phone",
-      "path": "student/phone/profile.png",
+      "path": "student/phone/profile.webp",
       "role": "student",
       "routeId": "profile",
       "area": "account",
@@ -4347,7 +4347,7 @@
     },
     {
       "id": "student_profile_square",
-      "path": "student/square/profile.png",
+      "path": "student/square/profile.webp",
       "role": "student",
       "routeId": "profile",
       "area": "account",
@@ -4365,7 +4365,7 @@
     },
     {
       "id": "sysadmin_course_list",
-      "path": "sysadmin/course_list.png",
+      "path": "sysadmin/course_list.webp",
       "role": "sysadmin",
       "routeId": "sysadminHome",
       "area": "system administration",
@@ -4383,7 +4383,7 @@
     },
     {
       "id": "sysadmin_accounts_initial",
-      "path": "sysadmin/accounts_initial.png",
+      "path": "sysadmin/accounts_initial.webp",
       "role": "sysadmin",
       "routeId": "instructorAccounts",
       "area": "accounts",
@@ -4401,7 +4401,7 @@
     },
     {
       "id": "sysadmin_account_created",
-      "path": "sysadmin/account_created.png",
+      "path": "sysadmin/account_created.webp",
       "role": "sysadmin",
       "routeId": "instructorAccounts",
       "area": "accounts",
@@ -4419,7 +4419,7 @@
     },
     {
       "id": "sysadmin_account_deactivated",
-      "path": "sysadmin/account_deactivated.png",
+      "path": "sysadmin/account_deactivated.webp",
       "role": "sysadmin",
       "routeId": "instructorAccounts",
       "area": "accounts",
@@ -4437,7 +4437,7 @@
     },
     {
       "id": "sysadmin_account_validation",
-      "path": "sysadmin/account_validation.png",
+      "path": "sysadmin/account_validation.webp",
       "role": "sysadmin",
       "routeId": "instructorAccounts",
       "area": "accounts",

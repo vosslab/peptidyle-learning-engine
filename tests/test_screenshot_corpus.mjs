@@ -16,7 +16,7 @@ import { SCREENSHOT_SCENARIOS } from "./playwright/screenshot_corpus/scenario_re
 import {
   createReceipt,
   inspectCorpus,
-  pngDimensions,
+  webpDimensions,
   receiptJson,
   renderAtlas,
   verifyPublishedArtifacts,
@@ -41,15 +41,17 @@ function oneCaptureManifest(manifest) {
   return { ...manifest, captures: [capture] };
 }
 
-function fixturePng(capture, salt) {
+function fixtureWebp(capture, salt) {
   const viewport = CANONICAL_VIEWPORTS[capture.viewport];
   const identity = Buffer.from(`${salt}:${capture.id}`, "utf8");
-  const bytes = Buffer.alloc(24 + identity.length);
-  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes);
-  bytes.write("IHDR", 12, "ascii");
-  bytes.writeUInt32BE(viewport.width, 16);
-  bytes.writeUInt32BE(viewport.height, 20);
-  identity.copy(bytes, 24);
+  const bytes = Buffer.alloc(30 + identity.length);
+  bytes.write("RIFF", 0, "ascii");
+  bytes.writeUInt32LE(bytes.length - 8, 4);
+  bytes.write("WEBPVP8X", 8, "ascii");
+  bytes.writeUInt32LE(10, 16);
+  bytes.writeUIntLE(viewport.width - 1, 24, 3);
+  bytes.writeUIntLE(viewport.height - 1, 27, 3);
+  identity.copy(bytes, 30);
   return bytes;
 }
 
@@ -58,7 +60,7 @@ async function writeFixtureCorpus(root, manifest, salt) {
   await Promise.all(
     manifest.captures.map(async (capture) => {
       await mkdir(path.dirname(path.join(root, capture.path)), { recursive: true });
-      await writeFile(path.join(root, capture.path), fixturePng(capture, salt));
+      await writeFile(path.join(root, capture.path), fixtureWebp(capture, salt));
     }),
   );
 }
@@ -100,7 +102,7 @@ test("manifest decoding rejects procedural fields and traversal", async () => {
   assert.throws(() => decodeManifest(procedural), /invalid fields/u);
 
   const traversal = structuredClone(source);
-  traversal["captures"][0]["path"] = "../escape.png";
+  traversal["captures"][0]["path"] = "../escape.webp";
   assert.throws(() => decodeManifest(traversal), /semantic filename/u);
 });
 
@@ -166,13 +168,12 @@ test("the screenshot matrix captures each role at its required viewport scope", 
   }
 });
 
-test("PNG dimensions derive from image bytes", () => {
-  const header = Buffer.alloc(24);
-  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(header);
-  header.write("IHDR", 12, "ascii");
-  header.writeUInt32BE(393, 16);
-  header.writeUInt32BE(852, 20);
-  assert.deepEqual(pngDimensions(header), { width: 393, height: 852 });
+test("WebP dimensions derive from image bytes", () => {
+  const capture = { id: "dimensions", viewport: "phone" };
+  const header = fixtureWebp(capture, "dimensions");
+  assert.deepEqual(webpDimensions(header), { width: 393, height: 852 });
+  assert.throws(() => webpDimensions(header.subarray(0, 24)), /WebP/u);
+  assert.throws(() => webpDimensions(Buffer.alloc(30)), /WebP/u);
 });
 
 test("publication closes every declared Sysadmin laptop capture", async () => {
@@ -207,7 +208,7 @@ test("publication closes every declared Sysadmin laptop capture", async () => {
   }
 });
 
-test("duplicate PNG bytes remain valid and retain their receipt hashes", async () => {
+test("duplicate WebP bytes remain valid and retain their receipt hashes", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-duplicate-bytes-"));
   try {
     const completeManifest = await loadManifest(manifestPath);
@@ -217,7 +218,7 @@ test("duplicate PNG bytes remain valid and retain their receipt hashes", async (
     assert.equal(captures.length, 2);
     const manifest = { ...completeManifest, captures };
     await writeFixtureCorpus(root, manifest, "duplicate-bytes");
-    const sharedBytes = fixturePng(captures[0], "identical-image");
+    const sharedBytes = fixtureWebp(captures[0], "identical-image");
     await Promise.all(
       captures.map((capture) => writeFile(path.join(root, capture.path), sharedBytes)),
     );
@@ -268,7 +269,7 @@ test("eight generated folder galleries link their manifest images and appear in 
   }
 });
 
-test("published verification rejects a receipt that no longer binds its PNG", async () => {
+test("published verification rejects a receipt that no longer binds its WebP", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-receipt-"));
   try {
     const screenshotRoot = path.join(root, "screenshots");

@@ -7,6 +7,8 @@ Operational steps for rebuilding the canonical screenshot corpus under
 
 ## Prerequisites
 
+- WebP command-line tools installed, with `cwebp` on PATH. Capture pipes PNG pixels
+  into `cwebp -preset text -q 90 -m 6` and writes only the resulting lossy WebP.
 - Podman machine running (`podman machine list` shows `Currently running`). See
   [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - Playwright browsers installed once: `./devel/setup_playwright.sh`. The capture wrapper
@@ -42,7 +44,7 @@ public-asset-publisher. PostgreSQL, MinIO, the renderer, and the gateway keep ru
 A **cold** run (no stack, or `--fresh`) starts the Live Demo through
 `./launchers/run_live_demo.sh --headless`, which already builds once, then captures.
 
-After capture the driver hashes only `.png` files under the four role folders. Changed
+After capture the driver hashes only `.webp` files under the four role folders. Changed
 images are listed (and copied under `test-results/screenshot-corpus/review/`); otherwise
 it prints `no visual change` and exits 0.
 
@@ -58,11 +60,11 @@ bundle. A cold start still takes on the order of ten to twenty minutes.
 ./devel/capture_screenshots.sh --verify
 ```
 
-Static checks first (manifest, registry, PNG set, receipt digest, dimensions, atlas, folder
+Static checks first (manifest, registry, WebP set, receipt digest, dimensions, atlas, folder
 galleries, and README links), then a clean stack replays the complete corpus with the same
 assertions. Replay images land under
 `test-results/screenshot-corpus/verify/` (gitignored). Byte differences against the tracked
-PNGs are reported for human review; they are not a pass/fail gate.
+WebPs are reported for human review; they are not a pass/fail gate.
 
 ## Watch a capture run
 
@@ -80,7 +82,7 @@ One hand-authored edit in one scenario file:
 1. In `tests/playwright/screenshot_corpus/scenarios_<role>.ts`, add (or delete) a
    `captures` declaration and the matching `runtime.captureCheckpoint(session, checkpoint)`
    call after the page has reached the state through visible navigation. Capture id and
-   path are `<role>_<checkpoint>` and `<role>/<checkpoint>.png`. The reached route is
+   path are `<role>_<checkpoint>` and `<role>/<checkpoint>.webp`. The reached route is
    observed, not declared.
 2. Rebuild with `./devel/capture_screenshots.sh`. Publish writes
    `docs/screenshots/current_capture_manifest.json`, the receipt, the atlas, and coverage
@@ -89,14 +91,14 @@ One hand-authored edit in one scenario file:
    generation fails closed on an uncovered unlisted surface.
 
 Capture IDs remain `<role>_<checkpoint>`. Screenshots reached through a Tier 1 and Tier 2
-Ribbon task use `<tier1>-<tier2-alias>-<details>.png`: Tier 1 comes from the Ribbon catalog,
+Ribbon task use `<tier1>-<tier2-alias>-<details>.webp`: Tier 1 comes from the Ribbon catalog,
 and the concise Tier 2 aliases are declared in `tests/playwright/screenshot_corpus/filenames.ts`.
 Direct, non-tiered screens keep their checkpoint filename. Course theme comparisons use the
-purpose-only `theme_sample-<theme>.png` pattern because those captures compare themes rather than
+purpose-only `theme_sample-<theme>.webp` pattern because those captures compare themes rather than
 Ribbon destinations.
 
 Removing a capture is the reverse: delete the declaration and call, then rebuild. The
-stale PNG is pruned on publish.
+stale WebP is pruned on publish.
 
 Viewports are fixed: laptop 1280x800, tablet 800x1280, phone 393x852, square 800x800. Add a
 non-laptop variant only when the responsive composition changes materially.

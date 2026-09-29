@@ -122,8 +122,8 @@ course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter re
 
 ### S02: Coursework actions communicate little about the next step
 
-- Evidence: [in_progress_laptop.png](../../screenshots/student/laptop/in_progress.png)
-  and [completed_laptop.png](../../screenshots/student/laptop/completed.png) both use
+- Evidence: [in_progress_laptop.png](../../screenshots/student/laptop/in_progress.webp)
+  and [completed_laptop.png](../../screenshots/student/laptop/completed.webp) both use
   "Open Regular Assignment" despite different completion states.
 - User need: recognize whether the next step continues work, reviews a result, or starts another
   permitted Attempt.
@@ -138,7 +138,7 @@ course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter re
 
 ### S03: active-work progress is expressed as grading progress
 
-- Evidence: [in_progress_laptop.png](../../screenshots/student/laptop/in_progress.png)
+- Evidence: [in_progress_laptop.png](../../screenshots/student/laptop/in_progress.webp)
   reports "0 of 4 questions graded" for in-progress Coursework.
 - User need: understand how much work is recorded during an active Attempt.
 - Acceptance: distinguish saved or answered progress from grading progress using Student language.
@@ -174,7 +174,7 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S05: settings dominate Coursework entries and overviews
 
-- Evidence: [completed_laptop.png](../../screenshots/student/laptop/completed.png)
+- Evidence: [completed_laptop.png](../../screenshots/student/laptop/completed.webp)
   repeats due-time and time-zone information in a tall access section;
   [unanswered_laptop.png](../../screenshots/student/laptop/unanswered.png)
   stacks short labels and indented values across most of the viewport.
@@ -198,7 +198,7 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S07: phone navigation loses readable context
 
-- Evidence: [not_started_phone.png](../../screenshots/student/phone/not_started.png)
+- Evidence: [not_started_phone.png](../../screenshots/student/phone/not_started.webp)
   clips product and navigation text;
   [submitted.png](../../screenshots/student/phone/submitted.png)
   reduces several breadcrumb levels to short fragments.
@@ -671,7 +671,7 @@ refresh follows.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
-- Priority: low; evidence: [default.png](../../screenshots/instructor/default.png).
+- Priority: low; evidence: [default.png](../../screenshots/instructor/default.webp).
 - Time zone is displayed as text, while named avatar cards with visible descriptions dominate the
   viewport. The capture establishes neither a time-zone editing action nor the current avatar
   selection; it cannot prove those capabilities absent elsewhere.

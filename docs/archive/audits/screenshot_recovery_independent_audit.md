@@ -214,8 +214,8 @@ Student root, so the repository Markdown-link gate fails.
   [SCREENSHOT_ATLAS.md](../../SCREENSHOT_ATLAS.md):143.
 - Impact: `tests/test_markdown_links.py` reports 307 passing files and one failure, preventing
   the documentation lane from establishing link integrity.
-- Smallest durable correction: point both links at `student/laptop/invitation_detail.png` and
-  `student/laptop/invitation_index.png`. This is a direct documentation repair; no new test is
+- Smallest durable correction: point both links at `student/laptop/invitation_detail.webp` and
+  `student/laptop/invitation_index.webp`. This is a direct documentation repair; no new test is
   needed because the existing repository-wide link check already protects it.
 
 ## Student coverage and residual risk

@@ -191,7 +191,7 @@ async function replay(
     ).length;
     console.log(
       "Live replay passed manifest closure, scenario privacy, and published-artifact integrity checks; " +
-        `${String(byteDifferenceCount)} replay PNG(s) differ byte-for-byte and remain available ` +
+        `${String(byteDifferenceCount)} replay WebP(s) differ byte-for-byte and remain available ` +
         "for human review in test-results/screenshot-corpus/verify/.",
     );
   } finally {

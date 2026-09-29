@@ -1,4 +1,4 @@
-// publication.ts - receipt, gallery, and PNG validation.
+// publication.ts - receipt, gallery, and WebP validation.
 
 import { createHash } from "node:crypto";
 import type { Dirent } from "node:fs";
@@ -12,9 +12,9 @@ import {
   type CaptureRecord,
   type ScreenshotRole,
 } from "./manifest";
+import { webpDimensions } from "./screenshot_image";
 import { verifyScreenshotGalleries, writeScreenshotGalleries } from "./screenshot_galleries";
 
-const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const ACTIVE_CORPUS_METADATA = [
   "current_capture_manifest.json",
   "current_capture_receipt.json",
@@ -44,21 +44,7 @@ export async function manifestDigest(manifestPath: string): Promise<string> {
   return sha256(await readFile(manifestPath));
 }
 
-export function pngDimensions(bytes: Uint8Array): {
-  readonly width: number;
-  readonly height: number;
-} {
-  const buffer = Buffer.from(bytes);
-  if (buffer.length < 24 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
-    throw new Error("artifact is not a complete PNG header");
-  }
-  const chunkType = buffer.subarray(12, 16).toString("ascii");
-  if (chunkType !== "IHDR") throw new Error("PNG does not begin with an IHDR chunk");
-  const width = buffer.readUInt32BE(16);
-  const height = buffer.readUInt32BE(20);
-  if (width === 0 || height === 0) throw new Error("PNG dimensions must be nonzero");
-  return { width, height };
-}
+export { webpDimensions } from "./screenshot_image";
 
 function rolePath(root: string, role: ScreenshotRole): string {
   const resolvedRoot = path.resolve(root);
@@ -68,7 +54,7 @@ function rolePath(root: string, role: ScreenshotRole): string {
   return target;
 }
 
-async function actualPngPaths(
+async function actualWebpPaths(
   root: string,
   allowedMetadata: ReadonlyArray<string>,
   requiredMetadata: ReadonlyArray<string> = allowedMetadata,
@@ -111,7 +97,7 @@ async function actualPngPaths(
         const viewportDirectory = path.join(directory, entry.name);
         const viewportEntries = await readdir(viewportDirectory, { withFileTypes: true });
         for (const viewportEntry of viewportEntries) {
-          if (!viewportEntry.isFile() || !viewportEntry.name.endsWith(".png")) {
+          if (!viewportEntry.isFile() || !viewportEntry.name.endsWith(".webp")) {
             throw new Error(
               `unmanaged screenshot viewport entry: ${role}/${entry.name}/${viewportEntry.name}`,
             );
@@ -120,7 +106,7 @@ async function actualPngPaths(
         }
         continue;
       }
-      if (!entry.isFile() || !entry.name.endsWith(".png")) {
+      if (!entry.isFile() || !entry.name.endsWith(".webp")) {
         throw new Error(`unmanaged screenshot role entry: ${role}/${entry.name}`);
       }
       paths.push(`${role}/${entry.name}`);
@@ -153,7 +139,7 @@ async function imageRecord(root: string, capture: CaptureRecord): Promise<Publis
     throw new Error("capture path escaped root");
   const [metadata, bytes] = await Promise.all([stat(target), readFile(target)]);
   if (!metadata.isFile()) throw new Error(`${capture.path} is not a regular file`);
-  const dimensions = pngDimensions(bytes);
+  const dimensions = webpDimensions(bytes);
   const viewport = CANONICAL_VIEWPORTS[capture.viewport];
   if (dimensions.width !== viewport.width || dimensions.height !== viewport.height) {
     throw new Error(
@@ -179,7 +165,7 @@ export async function inspectCorpus(
   const expected = manifest.captures.map((capture) => capture.path).sort();
   comparePathSet(
     expected,
-    await actualPngPaths(root, allowedMetadata, requiredMetadata),
+    await actualWebpPaths(root, allowedMetadata, requiredMetadata),
     "screenshot corpus",
   );
   const images = await Promise.all(manifest.captures.map((capture) => imageRecord(root, capture)));
@@ -349,7 +335,7 @@ export async function verifyPublishedArtifacts(options: {
   const receipt = decodeReceipt(JSON.parse(await readFile(options.receiptPath, "utf8")) as unknown);
   const expectedReceipt = createReceipt(options.manifestDigest, images);
   if (receiptJson(receipt) !== receiptJson(expectedReceipt)) {
-    throw new Error("current_capture_receipt.json does not bind the current manifest and PNGs");
+    throw new Error("current_capture_receipt.json does not bind the current manifest and WebPs");
   }
   const expectedAtlas = renderAtlas(options.manifest, "screenshots/");
   if ((await readFile(options.atlasPath, "utf8")) !== expectedAtlas) {
@@ -394,7 +380,11 @@ export async function finishPublishedCorpus(options: {
   readonly digest: string;
 }): Promise<void> {
   const expected = new Set(options.manifest.captures.map((capture) => capture.path));
-  for (const previous of await actualPngPaths(options.screenshotRoot, ACTIVE_CORPUS_METADATA, [])) {
+  for (const previous of await actualWebpPaths(
+    options.screenshotRoot,
+    ACTIVE_CORPUS_METADATA,
+    [],
+  )) {
     if (!expected.has(previous)) await rm(path.join(options.screenshotRoot, previous));
   }
   const images = await inspectCorpus(

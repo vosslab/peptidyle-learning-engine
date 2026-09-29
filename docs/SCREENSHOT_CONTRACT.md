@@ -52,6 +52,10 @@ and gallery presentation. They never contain selectors or executable steps.
 The TypeScript scenario registry is the one executable mapping from those
 scenario and checkpoint names to normal product workflows.
 
+Playwright captures lossless PNG pixels in memory and pipes them to `cwebp` using
+`-preset text -q 90 -m 6`. Published images are lossy WebP; the maximum encoding
+method spends more time seeking better compression. Capture writes no intermediate PNG file.
+
 The active tree is organized by role, with viewport subfolders where the
 manifest declares them. A successful rebuild removes screenshots not declared
 by the manifest. The generated
@@ -75,7 +79,7 @@ visible application actions. It must not add screenshot-only routes, mocked
 responses, or fabricated backend state.
 
 `./devel/capture_screenshots.sh --verify` first validates the manifest,
-registry, PNG set, receipt, dimensions, atlas, and folder galleries, then starts
+registry, WebP set, receipt, dimensions, atlas, and folder galleries, then starts
 a clean Live Demo and replays the complete corpus with the same assertions. It
 leaves replay artifacts under `test-results/screenshot-corpus/verify/` and
 proves that the published images were not modified. Byte differences are

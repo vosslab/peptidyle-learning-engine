@@ -22,7 +22,7 @@ import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.t
 function sampleCapture(overrides = {}) {
   return {
     id: "instructor_course_list",
-    path: "instructor/course_list.png",
+    path: "instructor/course_list.webp",
     role: "instructor",
     routeId: "instructorHome",
     area: "courses",
@@ -158,7 +158,7 @@ test("a student capture cannot use an instructor-only route", () => {
         [
           sampleCapture({
             id: "student_course_list",
-            path: "student/course_list.png",
+            path: "student/course_list.webp",
             role: "student",
             routeId: "instructorHome",
             scenario: "student_course_list",

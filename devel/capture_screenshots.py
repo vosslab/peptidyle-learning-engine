@@ -252,15 +252,15 @@ def apply_containers(decision: change_scope.Decision, root: pathlib.Path) -> Non
 		print_elapsed("containers", started)
 
 
-def png_hashes(root: pathlib.Path) -> dict[str, str]:
+def screenshot_hashes(root: pathlib.Path) -> dict[str, str]:
 	screenshot_root = root / "docs" / "screenshots"
 	hashes: dict[str, str] = {}
 	for role in ROLE_FOLDERS:
 		folder = screenshot_root / role
 		if not folder.is_dir():
 			continue
-		for path in sorted(folder.rglob("*.png")):
-			if path.suffix != ".png" or not path.is_file():
+		for path in sorted(folder.rglob("*.webp")):
+			if path.suffix != ".webp" or not path.is_file():
 				continue
 			digest = hashlib.sha256(path.read_bytes()).hexdigest()
 			hashes[path.relative_to(screenshot_root).as_posix()] = digest
@@ -361,6 +361,8 @@ def refresh_browser_certificate_trust(root: pathlib.Path, origin: str) -> None:
 
 def main() -> None:
 	args = parse_args(sys.argv[1:])
+	if shutil.which("cwebp") is None:
+		raise SystemExit("Screenshot capture requires the WebP command-line encoder cwebp on PATH.")
 	root = repo_root()
 	os.chdir(root)
 	# Keep build stages and diagnostics, without Cargo's per-crate progress lines.
@@ -418,9 +420,9 @@ def main() -> None:
 	entry = origin + "sign-in" if origin.endswith("/") else origin + "/sign-in"
 	refresh_browser_certificate_trust(root, origin)
 
-	before = png_hashes(root)
+	before = screenshot_hashes(root)
 	capture_corpus(root, entry, args)
-	after = png_hashes(root)
+	after = screenshot_hashes(root)
 	if not args.verify and not args.only:
 		changed = write_review_copies(root, before, after)
 		if len(changed) == 0:

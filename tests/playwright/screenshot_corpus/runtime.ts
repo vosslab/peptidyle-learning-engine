@@ -1,7 +1,7 @@
 // runtime.ts - shared browser and capture assertions for screenshot scenarios.
 
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
 import type { Browser, BrowserContext, Page } from "playwright";
 
@@ -9,6 +9,7 @@ import type { DisplayMode } from "../../../generated/api/DisplayMode";
 import { routeContractForPathname, type RouteId } from "../../../src/route_contract";
 import { TAB_CATALOG } from "../../../src/ribbon/ribbon_catalog";
 import { CANONICAL_VIEWPORTS, type CaptureRecord, type ViewportId } from "./manifest";
+import { captureScreenshotWebp } from "./screenshot_image";
 import { monitorCapturePrivacy, type PrivacyMonitor } from "./privacy_profiles";
 import type { CaptureDeclaration, ScenarioDefinition } from "./scenario_types";
 
@@ -43,7 +44,7 @@ export function captureIdentity(
     throw new Error(`Screenshot filename is not a safe lowercase slug: ${filename}`);
   }
   const pathPrefix = role === "student" || role === "public" ? `${role}/${viewport}` : role;
-  return { id: `${role}_${checkpoint}`, path: `${pathPrefix}/${filename}.png` };
+  return { id: `${role}_${checkpoint}`, path: `${pathPrefix}/${filename}.webp` };
 }
 
 export function requireEntryUrl(argument: string | undefined): URL {
@@ -235,11 +236,7 @@ export function createScenarioRuntime(options: {
     requireNoPageErrors(session);
     const target = captureTarget(options.outputRoot, captureRecord);
     await mkdir(path.dirname(target), { recursive: true });
-    await session.page.screenshot({
-      animations: "disabled",
-      caret: "hide",
-      path: target,
-    });
+    await writeFile(target, await captureScreenshotWebp(session.page));
     producedPaths.add(captureRecord.path);
     producedCaptures.push(captureRecord);
     console.log(`Captured ${target}`);

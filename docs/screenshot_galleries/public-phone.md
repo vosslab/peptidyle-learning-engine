@@ -4,7 +4,7 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 [Complete screenshot atlas](../SCREENSHOT_ATLAS.md)
 
-[![Screenshot preview of Seeded Live Demo sign-in on a phone](../screenshots/public/phone/sign_in.png)](../screenshots/public/phone/sign_in.png)
+[![Screenshot preview of Seeded Live Demo sign-in on a phone](../screenshots/public/phone/sign_in.webp)](../screenshots/public/phone/sign_in.webp)
 
 **Seeded Live Demo sign-in on a phone.** sign in - phone.
 

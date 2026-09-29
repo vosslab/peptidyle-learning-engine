@@ -64,10 +64,10 @@ and atlas, the rendered UI source, and the named product authorities. The
 current manifest contains 56 Student captures across 30 laptop, 22 phone, 3
 tablet, and 1 square captures. Representative evidence includes:
 
-- [Course list](../../screenshots/student/laptop/course_list.png) and
-  [phone Course list](../../screenshots/student/phone/course_list.png)
-- [Not started Coursework](../../screenshots/student/laptop/not_started.png) and
-  [phone Not started Coursework](../../screenshots/student/phone/not_started.png)
+- [Course list](../../screenshots/student/laptop/course_list.webp) and
+  [phone Course list](../../screenshots/student/phone/course_list.webp)
+- [Not started Coursework](../../screenshots/student/laptop/not_started.webp) and
+  [phone Not started Coursework](../../screenshots/student/phone/not_started.webp)
 - [Before you start](../../screenshots/student/laptop/overview_history.png)
 - [Unanswered Question](../../screenshots/student/laptop/question_unanswered_mc.png),
   [phone Unanswered Question](../../screenshots/student/phone/question_unanswered_mc.png),
