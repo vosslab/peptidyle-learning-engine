@@ -41,7 +41,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Quizzes and Exams do not use H5P because its runtime exposes answers and correctness to the
   Student browser.
 - public API for instructors to use AI to control their classes.
-- public API perhaps modeled after BrickLink OAuth https://www.bricklink.com/v3/api.page?page=auth
+- public API perhaps modeled after BrickLink OAuth `https://www.bricklink.com/v3/api.page?page=auth`
+- I am developing a rust version of qti-package-maker for importing content to Native JSON, see
+  `~/nsh/PROBLEMS/qti-package-maker-rs/`; so do not implement here;
+- decide what format we want to receive from the new qti-package-maker; since we are not publishing the Native
+  JSON, should we take BBQ text format `bbq_text_upload`, or something more parsable;
+- list of engines is here: `https://github.com/vosslab/qti-package-maker-rs/blob/main/docs/ENGINES.md`;
+- we could build a QTI v2.1 style JSON or human editable YAML format, or something closer to our Native JSON
+  format.
 
 ## Development principles
 
