@@ -98,6 +98,7 @@ DECLARE
     parent_revision ple_data.question_revision%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE;
     expected_address jsonb;
+    v_question_image_unchanged boolean;
     published_at timestamptz := clock_timestamp();
 BEGIN
     IF p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
@@ -168,20 +169,83 @@ BEGIN
      WHERE object_record_id = binding.source_object_record_id;
     -- A Question Source is the immutable, backend-owned package that carries
     -- content, answer, grading, backend interaction feedback, and asset
-    -- references. PLE-managed general feedback is separate immutable
-    -- Question Revision content. Title, description, and other search
-    -- metadata are lineage state in published_question_metadata, so they
-    -- cannot justify a successor Question Revision. The trusted publication
-    -- boundary compares exact authoritative content rather than trusting a
-    -- browser-side edit label.
+    -- references. Changing those bytes changes source_object_checksum.
+    -- PLE-managed general feedback, Hint, and Worked Solution text are
+    -- separate immutable Question Revision content. A native HOTSPOT Question
+    -- Image Asset is the draft-owned raster. A different asset, checksum, or
+    -- dimension differs from the parent question_image_publication. Both sides
+    -- absent stay equal. Title, description, and other search metadata are
+    -- lineage state in published_question_metadata, so they cannot justify a
+    -- successor Question Revision. The trusted publication boundary compares
+    -- exact authoritative content rather than trusting a browser-side edit label.
     -- ASVS 2.2.1-2.2.3 and 2.3.1: enforce the revision business rule after
-    -- locking the Draft and its immediate parent, before any successor facts.
+    -- locking the Draft, its image, and its immediate parent, before any
+    -- successor facts. ASVS 8.2.2: compare the draft-owned raster checksum.
+    PERFORM 1 FROM ple_private.draft_question_image AS draft_image
+     WHERE draft_image.draft_question_id = p_draft_question_uuid
+       AND draft_image.authoring_workspace_id = p_authoring_workspace_id
+     FOR UPDATE;
+    PERFORM 1 FROM ple_private.question_image_publication AS parent_image
+     WHERE parent_image.published_question_id = p_published_question_id
+       AND parent_image.revision_number = p_expected_parent_question_revision_number
+     FOR UPDATE;
+    v_question_image_unchanged := CASE
+        WHEN binding.backend IS DISTINCT FROM 'ple'::ple_data.question_backend
+          OR binding.question_type IS DISTINCT FROM 'hotspot'::ple_data.question_type THEN
+            p_hotspot_question_image IS NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM ple_private.question_image_publication AS parent_image
+                 WHERE parent_image.published_question_id = p_published_question_id
+                   AND parent_image.revision_number = p_expected_parent_question_revision_number)
+        WHEN p_hotspot_question_image IS NULL THEN
+            NOT EXISTS (
+                SELECT 1 FROM ple_private.question_image_publication AS parent_image
+                 WHERE parent_image.published_question_id = p_published_question_id
+                   AND parent_image.revision_number = p_expected_parent_question_revision_number)
+        WHEN jsonb_typeof(p_hotspot_question_image) IS DISTINCT FROM 'object'
+          OR COALESCE(p_hotspot_question_image->>'checksum', '') !~ '^[0-9a-f]{64}$'
+          OR COALESCE(p_hotspot_question_image->>'questionImageAssetId', '')
+             !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          OR COALESCE(p_hotspot_question_image->>'intrinsicWidth', '') !~ '^[1-9][0-9]{0,6}$'
+          OR COALESCE(p_hotspot_question_image->>'intrinsicHeight', '') !~ '^[1-9][0-9]{0,6}$' THEN
+            false
+        ELSE
+            EXISTS (
+                SELECT 1
+                  FROM ple_private.draft_question_image AS draft_image
+                  JOIN ple_private.object_record AS draft_image_record
+                    ON draft_image_record.object_record_id = draft_image.source_object_record_id
+                  JOIN ple_private.question_image_publication AS parent_image
+                    ON parent_image.published_question_id = p_published_question_id
+                   AND parent_image.revision_number = p_expected_parent_question_revision_number
+                   AND parent_image.question_image_asset_id = draft_image.question_image_asset_id
+                 WHERE draft_image.draft_question_id = p_draft_question_uuid
+                   AND draft_image.authoring_workspace_id = p_authoring_workspace_id
+                   AND draft_image.question_image_asset_id
+                       = (p_hotspot_question_image->>'questionImageAssetId')::uuid
+                   AND encode(draft_image_record.sha256, 'hex') = p_hotspot_question_image->>'checksum'
+                   AND encode(parent_image.source_object_checksum, 'hex')
+                       = p_hotspot_question_image->>'checksum'
+                   AND draft_image.intrinsic_width = (p_hotspot_question_image->>'intrinsicWidth')::integer
+                   AND draft_image.intrinsic_height = (p_hotspot_question_image->>'intrinsicHeight')::integer
+                   AND parent_image.intrinsic_width = draft_image.intrinsic_width
+                   AND parent_image.intrinsic_height = draft_image.intrinsic_height)
+            AND NOT EXISTS (
+                SELECT 1 FROM ple_private.question_image_publication AS parent_image
+                 WHERE parent_image.published_question_id = p_published_question_id
+                   AND parent_image.revision_number = p_expected_parent_question_revision_number
+                   AND parent_image.question_image_asset_id
+                       IS DISTINCT FROM (p_hotspot_question_image->>'questionImageAssetId')::uuid)
+    END;
     IF binding.backend = parent_binding.backend
        AND binding.question_format = parent_binding.question_format
        AND binding.question_type = parent_revision.question_type
        AND binding.webwork_pg_path IS NOT DISTINCT FROM parent_binding.webwork_pg_path
        AND binding.source_object_checksum = parent_binding.source_object_checksum
-       AND metadata.general_feedback IS NOT DISTINCT FROM parent_revision.general_feedback THEN
+       AND metadata.general_feedback IS NOT DISTINCT FROM parent_revision.general_feedback
+       AND metadata.hint IS NOT DISTINCT FROM parent_revision.hint
+       AND metadata.worked_solution IS NOT DISTINCT FROM parent_revision.worked_solution
+       AND v_question_image_unchanged THEN
         RAISE EXCEPTION USING ERRCODE = 'PQR01',
             MESSAGE = 'Question Revision Publication content does not differ from its parent Revision';
     END IF;
@@ -197,10 +261,10 @@ BEGIN
             MESSAGE = 'Question Revision Publication target must preserve the exact Draft Question Source bytes';
     END IF;
     INSERT INTO ple_data.question_revision(
-        published_question_id, revision_number, backend, question_type, general_feedback, published_at
+        published_question_id, revision_number, backend, question_type, general_feedback, hint, worked_solution, published_at
     ) VALUES (
         p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type,
-        metadata.general_feedback, published_at
+        metadata.general_feedback, metadata.hint, metadata.worked_solution, published_at
     );
     INSERT INTO ple_private.object_record(
         object_record_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at
@@ -462,10 +526,10 @@ BEGIN
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid, p_topic_uuid, p_subtopic_uuid,
         published_at, published_at);
     INSERT INTO ple_data.question_revision(
-        published_question_id, revision_number, backend, question_type, general_feedback, published_at
+        published_question_id, revision_number, backend, question_type, general_feedback, hint, worked_solution, published_at
     ) VALUES (
         p_published_question_id, 1, binding.backend, binding.question_type,
-        metadata.general_feedback, published_at
+        metadata.general_feedback, metadata.hint, metadata.worked_solution, published_at
     );
     INSERT INTO ple_private.object_record(
         object_record_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at

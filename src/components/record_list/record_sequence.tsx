@@ -6,7 +6,7 @@ import {
   type RecordCollectionState,
 } from "./record_collection_state";
 import { RecordSemanticContent, type RecordContent } from "./record_list";
-import { RecordMoveControls } from "./record_list_reorder";
+import { RecordMoveControls, nativeDragDestinationIndex } from "./record_list_reorder";
 
 type RecordSequenceSharedProps<Row> = {
   readonly rows: ReadonlyArray<Row>;
@@ -126,8 +126,15 @@ export function RecordSequence<Row>(props: RecordSequenceProps<Row>): JSX.Elemen
     event.preventDefault();
     const dragged = draggedRecord();
     setDraggedRecord(undefined);
-    if (dragged === undefined || rowIsDisabled(recordId)) return;
-    void requestMove(dragged.id, rowIndex(recordId));
+    if (dragged === undefined) return;
+    const destinationIndex = nativeDragDestinationIndex(
+      recordIds(),
+      dragged.id,
+      recordId,
+      rowIsDisabled,
+    );
+    if (destinationIndex === undefined) return;
+    void requestMove(dragged.id, destinationIndex);
   }
 
   return (

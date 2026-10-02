@@ -7,6 +7,7 @@ import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { Theme } from "../../generated/api/Theme";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
+import type { ClassStatistics } from "../../generated/api/ClassStatistics";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import { parseAssessmentAttemptId } from "../navigation/public_route";
 
@@ -19,6 +20,10 @@ export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback
   readonly response?: ReadonlyArray<QuestionContentBlock>;
   /** Permission to fetch the independently authorized correct-answer document. */
   readonly backendAnswerReview?: "available";
+  /** PLE-managed Hints released by the Hints disclosure timing. */
+  readonly hints?: ReadonlyArray<QuestionContentBlock>;
+  /** PLE-managed Worked Solution released by its own disclosure timing. */
+  readonly workedSolution?: ReadonlyArray<QuestionContentBlock>;
 }
 
 /** Derives the sole review route from existing public Attempt and position identities. */
@@ -53,6 +58,8 @@ export interface StudentAssessmentAttemptHistory {
     readonly pointsEarned: number;
     readonly pointsPossible: number;
   };
+  /** Course average released only when the cohort cannot identify a Student. */
+  readonly classStatistics?: Extract<ClassStatistics, { state: "available" }>;
   readonly questions: ReadonlyArray<StudentAssessmentAttemptHistoryQuestion>;
 }
 

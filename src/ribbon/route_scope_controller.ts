@@ -41,7 +41,7 @@ function scopeCacheKey(scope: RouteScopeKey, pathname: string): string | undefin
     case "assessmentAttempt":
       return (
         `${isAssessmentAttemptSummary(pathname) ? "attempt-summary" : "attempt-screen"}:` +
-        scope.assessmentAttemptId
+        `${scope.courseInstanceId}:${scope.assessmentAttemptId}`
       );
     case "product":
     case "invalid":
@@ -84,9 +84,10 @@ function withCourseAppearance(
 export function createRouteScopeController(
   pathname: Accessor<string> | string,
   queries: RouteScopeQueries,
+  historyState: Accessor<unknown> = () => undefined,
 ): RouteScopeController {
   const currentPathname = pathnameAccessor(pathname);
-  const identity = createMemo(() => routeScopeKey(currentPathname()));
+  const identity = createMemo(() => routeScopeKey(currentPathname(), historyState()));
   const [cacheVersion, setCacheVersion] = createSignal(0);
   const entries = new Map<string, ScopeDataEntry>();
   const assessmentAttemptScopes = new Map<
@@ -118,14 +119,20 @@ export function createRouteScopeController(
         break;
       case "assessmentAttempt":
         if (!isAssessmentAttemptSummary(pathnameForScope)) {
-          request = assessmentAttemptScope(scope.assessmentAttemptId).then(
-            (context) => ({ kind: "assessmentAttempt", context }) as const,
-          );
+          request = assessmentAttemptScope(scope.assessmentAttemptId).then((context) => {
+            if (scope.courseInstanceId !== context.course.id) {
+              throw new Error("Attempt Course does not match the public route.");
+            }
+            return { kind: "assessmentAttempt", context } as const;
+          });
           break;
         }
-        request = queries
-          .assessmentAttemptHistory(scope.assessmentAttemptId)
-          .then((history) => ({ kind: "assessmentAttemptHistory", history }) as const);
+        request = queries.assessmentAttemptHistory(scope.assessmentAttemptId).then((history) => {
+          if (scope.courseInstanceId !== history.course.id) {
+            throw new Error("Attempt Course does not match the public route.");
+          }
+          return { kind: "assessmentAttemptHistory", history } as const;
+        });
         break;
       case "product":
       case "invalid":

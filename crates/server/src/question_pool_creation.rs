@@ -3,7 +3,8 @@
 //! This route owns no Pool selection policy, backend behavior, Pool UI, or
 //! client-chosen identifier. It accepts deliberate Pool Title/Description,
 //! ordered exact Question Revision Tuples, and the Instructor's
-//! interchangeability attestation; classification remains database-derived.
+//! interchangeability attestation, and optional Library Object tags.
+//! Discipline and Subject remain database-derived from the member Questions.
 
 use std::sync::Arc;
 
@@ -21,8 +22,8 @@ use learning_data_access::{
     postgres::{PostgresQuestionPoolCreationStore, PostgresSessionStore},
 };
 use question_model::{
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, UserRole, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionRevisionNumber, UserRole,
 };
 use serde::{Deserialize, Serialize};
 
@@ -85,6 +86,8 @@ struct CreateQuestionPoolRequest {
     description: String,
     members: Vec<QuestionPoolMemberRequest>,
     interchangeability_attested: bool,
+    #[serde(default)]
+    tags: Vec<String>,
 }
 
 /// Answer-free confirmation of a created Question Pool.
@@ -141,6 +144,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
             question_pool_id,
             members: members.clone(),
             interchangeability_attested: true,
+            tags: request.tags.clone(),
         };
         if input.validate().is_err() {
             return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Question Pool is invalid");
@@ -193,9 +197,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

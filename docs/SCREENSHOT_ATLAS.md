@@ -30,7 +30,7 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Instructor Course Instances](screenshots/instructor/courses-active-course_list.webp)](screenshots/instructor/courses-active-course_list.webp)<br>Instructor Course Instances<br>course list - laptop<br>Featured | [![Screenshot preview of Course Assignment workspace](screenshots/instructor/courses-active-course_assignment_workspace.webp)](screenshots/instructor/courses-active-course_assignment_workspace.webp)<br>Course Assignment workspace<br>assignment workspace - laptop |  |
+| [![Screenshot preview of Instructor Course Instances](screenshots/instructor/courses-active-course_list.webp)](screenshots/instructor/courses-active-course_list.webp)<br>Instructor Course Instances<br>course list - laptop<br>Featured | [![Screenshot preview of Course Assessment workspace](screenshots/instructor/courses-active-course_assignment_workspace.webp)](screenshots/instructor/courses-active-course_assignment_workspace.webp)<br>Course Assessment workspace<br>Assessment workspace - laptop |  |
 
 #### Past Teaching Courses
 
@@ -67,26 +67,20 @@ human review.
 | --- | --- | --- |
 | [![Screenshot preview of Answer-free Gradebook](screenshots/instructor/courses-gradebook-gradebook.webp)](screenshots/instructor/courses-gradebook-gradebook.webp)<br>Answer-free Gradebook<br>mixed progress - laptop<br>Featured |  |  |
 
-### Assignments
+### Assessments
 
 #### Upcoming Deadlines
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Assignments Due Soon without current deadlines](screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)](screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)<br>Assignments Due Soon without current deadlines<br>no current deadlines - laptop |  |  |
+| [![Screenshot preview of Assessments Due Soon without current deadlines](screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)](screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)<br>Assessments Due Soon without current deadlines<br>no current deadlines - laptop |  |  |
 
-#### Assignment Release
-
-| | | |
-| --- | --- | --- |
-| [![Screenshot preview of Assignment creation](screenshots/instructor/courses-assessments-assignment_creation.webp)](screenshots/instructor/courses-assessments-assignment_creation.webp)<br>Assignment creation<br>creation - laptop | [![Screenshot preview of Draft Assignment Questions](screenshots/instructor/courses-assessments-assignment_questions_draft.webp)](screenshots/instructor/courses-assessments-assignment_questions_draft.webp)<br>Draft Assignment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assignment Preview](screenshots/instructor/courses-assessments-assignment_delivery_check.webp)](screenshots/instructor/courses-assessments-assignment_delivery_check.webp)<br>Answer-free Assignment Preview<br>answer-free preview - laptop |
-| [![Screenshot preview of Released Assignment Policies](screenshots/instructor/courses-assessments-assignment_policies_released.webp)](screenshots/instructor/courses-assessments-assignment_policies_released.webp)<br>Released Assignment Policies<br>released - laptop<br>Featured |  |  |
-
-#### Assessment Template Creation
+#### Assessment Release
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Editable Assessment Template](screenshots/instructor/product-assessments-templates-template_editor.webp)](screenshots/instructor/product-assessments-templates-template_editor.webp)<br>Editable Assessment Template<br>editable template - laptop |  |  |
+| [![Screenshot preview of Assessment creation](screenshots/instructor/courses-assessments-assignment_creation.webp)](screenshots/instructor/courses-assessments-assignment_creation.webp)<br>Assessment creation<br>creation - laptop | [![Screenshot preview of Draft Assessment Questions](screenshots/instructor/courses-assessments-assignment_questions_draft.webp)](screenshots/instructor/courses-assessments-assignment_questions_draft.webp)<br>Draft Assessment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assessment Preview](screenshots/instructor/courses-assessments-assignment_delivery_check.webp)](screenshots/instructor/courses-assessments-assignment_delivery_check.webp)<br>Answer-free Assessment Preview<br>answer-free preview - laptop |
+| [![Screenshot preview of Released Assessment Settings](screenshots/instructor/courses-assessments-assignment_policies_released.webp)](screenshots/instructor/courses-assessments-assignment_policies_released.webp)<br>Released Assessment Settings<br>released - laptop<br>Featured |  |  |
 
 ### Question Library
 
@@ -146,6 +140,14 @@ human review.
 | | | |
 | --- | --- | --- |
 | [![Screenshot preview of Search Public Blueprint Courses](screenshots/instructor/courses-search-filtered_results.webp)](screenshots/instructor/courses-search-filtered_results.webp)<br>Search Public Blueprint Courses<br>filtered results - laptop |  |  |
+
+### Assignments
+
+#### Assessment Template Creation
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Editable Assessment Template](screenshots/instructor/product-assessments-templates-template_editor.webp)](screenshots/instructor/product-assessments-templates-template_editor.webp)<br>Editable Assessment Template<br>editable template - laptop |  |  |
 
 ## Student
 
@@ -370,6 +372,8 @@ human review.
 | studentAttemptHistory | captured | student_course_attempt_history_laptop, student_course_attempt_history_tablet, student_course_attempt_history_phone, student_course_attempt_history_square |
 | instructorAccounts | captured | sysadmin_accounts_initial, sysadmin_account_created, sysadmin_account_deactivated, sysadmin_account_validation |
 | contentDisciplines | deferred | The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
+| sysadminCourseInspection | deferred | Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
+| sysadminCourseInspectionDetail | deferred | Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
 | courseAssessments | captured | instructor_course_assignment_workspace, instructor_theme_sample_tundra_light, instructor_theme_sample_tundra_dark, instructor_theme_sample_forest_light, instructor_theme_sample_forest_dark, instructor_theme_sample_desert_light, instructor_theme_sample_desert_dark, instructor_theme_sample_grass_light, instructor_theme_sample_grass_dark, instructor_theme_sample_arctic_light, instructor_theme_sample_arctic_dark, instructor_theme_sample_ocean_light, instructor_theme_sample_ocean_dark, instructor_theme_sample_tropical_light, instructor_theme_sample_tropical_dark, instructor_theme_sample_coral_reef_light, instructor_theme_sample_coral_reef_dark, instructor_theme_sample_swamp_light, instructor_theme_sample_swamp_dark, instructor_theme_sample_underground_light, instructor_theme_sample_underground_dark, instructor_theme_sample_salt_marsh_light, instructor_theme_sample_salt_marsh_dark, instructor_theme_sample_wetland_light, instructor_theme_sample_wetland_dark, instructor_theme_sample_sea_floor_light, instructor_theme_sample_sea_floor_dark, instructor_theme_sample_magma_light, instructor_theme_sample_magma_dark, instructor_theme_sample_beach_light, instructor_theme_sample_beach_dark |
 | assessmentOverview | captured | student_unanswered_laptop, student_unanswered_tablet, student_unanswered_phone, student_unanswered_square, student_overview_history_laptop, student_overview_history_tablet, student_overview_history_phone, student_overview_history_square |
 | assessmentAttempt | captured | student_response_selected_laptop, student_response_selected_tablet, student_response_selected_phone, student_response_selected_square, student_resume_selected_laptop, student_resume_selected_tablet, student_resume_selected_phone, student_resume_selected_square, student_assessment_navigation_laptop, student_assessment_navigation_tablet, student_assessment_navigation_phone, student_assessment_navigation_square, student_question_unanswered_mc_laptop, student_question_answered_mc_laptop, student_question_unanswered_mc_tablet, student_question_answered_mc_tablet, student_question_unanswered_mc_phone, student_question_answered_mc_phone, student_question_unanswered_mc_square, student_question_answered_mc_square, student_question_unanswered_ma_laptop, student_question_answered_ma_laptop, student_question_unanswered_ma_tablet, student_question_answered_ma_tablet, student_question_unanswered_ma_phone, student_question_answered_ma_phone, student_question_unanswered_ma_square, student_question_answered_ma_square, student_question_unanswered_fib_laptop, student_question_answered_fib_laptop, student_question_unanswered_fib_tablet, student_question_answered_fib_tablet, student_question_unanswered_fib_phone, student_question_answered_fib_phone, student_question_unanswered_fib_square, student_question_answered_fib_square, student_question_unanswered_multi_fib_laptop, student_question_answered_multi_fib_laptop, student_question_unanswered_multi_fib_tablet, student_question_answered_multi_fib_tablet, student_question_unanswered_multi_fib_phone, student_question_answered_multi_fib_phone, student_question_unanswered_multi_fib_square, student_question_answered_multi_fib_square, student_question_unanswered_num_laptop, student_question_answered_num_laptop, student_question_unanswered_num_tablet, student_question_answered_num_tablet, student_question_unanswered_num_phone, student_question_answered_num_phone, student_question_unanswered_num_square, student_question_answered_num_square, student_question_unanswered_match_laptop, student_question_answered_match_laptop, student_question_unanswered_match_tablet, student_question_answered_match_tablet, student_question_unanswered_match_phone, student_question_answered_match_phone, student_question_unanswered_match_square, student_question_answered_match_square, student_question_unanswered_order_laptop, student_question_answered_order_laptop, student_question_unanswered_order_tablet, student_question_answered_order_tablet, student_question_unanswered_order_phone, student_question_answered_order_phone, student_question_unanswered_order_square, student_question_answered_order_square, student_question_unanswered_hotspot_laptop, student_question_answered_hotspot_laptop, student_question_unanswered_hotspot_tablet, student_question_answered_hotspot_tablet, student_question_unanswered_hotspot_phone, student_question_answered_hotspot_phone, student_question_unanswered_hotspot_square, student_question_answered_hotspot_square, student_question_unanswered_webwork_laptop, student_question_answered_webwork_laptop, student_question_unanswered_webwork_tablet, student_question_answered_webwork_tablet, student_question_unanswered_webwork_phone, student_question_answered_webwork_phone, student_question_unanswered_webwork_square, student_question_answered_webwork_square |
@@ -378,6 +382,8 @@ human review.
 | libraryBrowse | captured | instructor_library_browse |
 | libraryWatchNotifications | deferred | The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
 | questionDetail | captured | instructor_published_question_detail, instructor_webwork_generated_example, instructor_webwork_hla_genotype, instructor_webwork_monohybrid_matching, instructor_webwork_x_linked_counts, instructor_webwork_dna_structure, instructor_webwork_meiosis_prophase, instructor_webwork_chi_square, instructor_webwork_chromosome_shapes, instructor_personal_theme_question_dark |
+| myQuestions | deferred | My Questions lists the Instructor's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
+| starredQuestions | deferred | Starred lists the Instructor's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
 | questionDrafts | captured | instructor_draft_list |
 | questionDraftEditor | captured | instructor_saved_editor, instructor_publication_review |
 | blueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker |
@@ -409,9 +415,9 @@ human review.
 | task:myActiveCourses | captured | instructor_course_list |
 | task:myInactiveCourses | captured | instructor_inactive_courses_list |
 | task:searchPublicBlueprintCourses | captured | instructor_filtered_results |
-| task:myQuestions | deferred | My Questions is a future Ribbon destination without a Product Route. |
+| task:myQuestions | deferred | My Questions is an Instructor route to the current Account's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
 | task:myDraftQuestions | captured | instructor_draft_list |
-| task:starred | deferred | Starred Questions is a future Ribbon destination without a Product Route. |
+| task:starred | deferred | Starred is an Instructor route to the current Account's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
 | task:watched | deferred | Watched is an Instructor route to the private Watch inbox; its rendered checkpoint awaits the next canonical Live Demo replay. |
 | task:searchQuestionLibrary | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
 | task:browseQuestionLibrary | captured | instructor_library_browse |

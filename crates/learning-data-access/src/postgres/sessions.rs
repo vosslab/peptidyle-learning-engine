@@ -1,7 +1,7 @@
 //! PostgreSQL authentication-session persistence through the dedicated auth role.
 
 use async_trait::async_trait;
-use question_model::{AccountId, UserRole, Timestamp};
+use question_model::{AccountId, Timestamp, UserRole};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 

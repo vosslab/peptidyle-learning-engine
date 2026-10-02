@@ -1,5 +1,6 @@
 use question_model::response::{QuestionResponseFormat, ResponseItemId, StudentResponse};
 use question_model::{GradingResult, QuestionImageAssetId, QuestionImageAssetTuple};
+use serde_json::json;
 use uuid::Uuid;
 
 use super::{PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonError};
@@ -33,6 +34,38 @@ fn source_compiles_private_evaluation_from_its_exact_content() {
         compiled.presentation().native_choice_order(),
         question_model::NativeChoiceOrder::Fixed
     );
+}
+
+#[test]
+fn exact_text_answers_fit_the_student_utf16_response_limit() {
+    let mut source: serde_json::Value =
+        serde_json::from_slice(SINGLE_CHOICE_SOURCE).expect("fixture parses");
+    source["response"] = json!({
+        "kind": "fillIn",
+        "answers": ["AB"],
+        "matchMode": "exact",
+        "maxLength": 1
+    });
+    let exact_too_long = serde_json::to_vec(&source).expect("source encodes");
+    assert!(PleQuestionJsonDocument::parse(&exact_too_long).is_err());
+
+    source["response"] = json!({
+        "kind": "fillIn",
+        "answers": ["\u{1F600}"],
+        "matchMode": "exact",
+        "maxLength": 1
+    });
+    let surrogate_pair = serde_json::to_vec(&source).expect("source encodes");
+    assert!(PleQuestionJsonDocument::parse(&surrogate_pair).is_err());
+
+    source["response"] = json!({
+        "kind": "fillIn",
+        "answers": ["long normalized answer"],
+        "matchMode": "normalized",
+        "maxLength": 3
+    });
+    let normalized = serde_json::to_vec(&source).expect("source encodes");
+    assert!(PleQuestionJsonDocument::parse(&normalized).is_ok());
 }
 
 #[test]
@@ -239,4 +272,115 @@ fn hotspot_publication_retargets_the_complete_question_image_asset_tuple() {
         panic!("retargeted source remains a hotspot question");
     };
     assert_eq!(question_image_asset_tuple, &replacement);
+}
+
+#[test]
+fn changing_source_answer_grading_or_question_image_changes_the_revision_source_checksum() {
+    let original = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
+    let original_checksum = original.canonical_sha256().expect("source checksum");
+    let mut source =
+        serde_json::from_slice::<serde_json::Value>(SINGLE_CHOICE_SOURCE).expect("json");
+    source["prompt"] = json!("Which color is favorite?");
+    let changed_source =
+        PleQuestionJsonDocument::parse(&serde_json::to_vec(&source).expect("source bytes"))
+            .expect("changed source parses");
+    assert_ne!(
+        changed_source
+            .canonical_sha256()
+            .expect("changed source checksum"),
+        original_checksum
+    );
+
+    let mut answer =
+        serde_json::from_slice::<serde_json::Value>(SINGLE_CHOICE_SOURCE).expect("json");
+    answer["response"]["correctChoice"] = json!("red");
+    let changed_answer =
+        PleQuestionJsonDocument::parse(&serde_json::to_vec(&answer).expect("answer bytes"))
+            .expect("changed answer parses");
+    assert_ne!(
+        changed_answer.canonical_sha256().expect("answer checksum"),
+        original_checksum
+    );
+
+    let numeric = json!({
+        "format": "pleQuestionJson",
+        "questionTitle": "Membrane thickness",
+        "questionDescription": "A numeric question.",
+        "prompt": "What is the thickness in nanometers?",
+        "language": "en",
+        "response": {
+            "kind": "numeric",
+            "answer": 7.5,
+            "tolerance": { "kind": "absolute", "epsilon": 0.1 }
+        }
+    });
+    let numeric_document =
+        PleQuestionJsonDocument::parse(&serde_json::to_vec(&numeric).expect("numeric bytes"))
+            .expect("numeric source parses");
+    let numeric_checksum = numeric_document
+        .canonical_sha256()
+        .expect("numeric checksum");
+    let mut grading = numeric;
+    grading["response"]["tolerance"]["epsilon"] = json!(0.2);
+    let changed_grading =
+        PleQuestionJsonDocument::parse(&serde_json::to_vec(&grading).expect("grading bytes"))
+            .expect("changed grading parses");
+    assert_ne!(
+        changed_grading
+            .canonical_sha256()
+            .expect("grading checksum"),
+        numeric_checksum
+    );
+
+    let hotspot = br#"{
+        "format": "pleQuestionJson",
+        "questionTitle": "Locate the active site",
+        "questionDescription": "A hotspot question.",
+        "prompt": "Select the active site.",
+        "response": {
+            "kind": "hotspot",
+            "surface": {
+                "questionImageAssetId": "00000000-0000-4000-8000-000000000001",
+                "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "description": "Protein structure"
+            },
+            "regions": [{
+                "id": "active-site",
+                "label": "Active site",
+                "x": 10, "y": 10, "width": 20, "height": 20
+            }],
+            "correctRegions": ["active-site"]
+        },
+        "language": "en"
+    }"#;
+    let hotspot_document = PleQuestionJsonDocument::parse(hotspot).expect("hotspot source parses");
+    let hotspot_checksum = hotspot_document
+        .canonical_sha256()
+        .expect("hotspot checksum");
+    let retargeted = hotspot_document
+        .with_hotspot_surface_image(QuestionImageAssetTuple {
+            question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(2)),
+            checksum: "b".repeat(64),
+        })
+        .expect("image asset retargets");
+    assert_ne!(
+        retargeted.canonical_sha256().expect("image checksum"),
+        hotspot_checksum
+    );
+}
+
+#[test]
+fn supported_author_javascript_libraries_are_explicitly_recorded_and_reviewable() {
+    let mut document: serde_json::Value =
+        serde_json::from_slice(SINGLE_CHOICE_SOURCE).expect("fixture");
+    document["authorScript"] = json!({
+        "source": "document.getElementById('author-content-root').textContent = 'rendered';",
+        "libraries": ["rdkit"],
+    });
+    document["externalResources"] = json!([
+        {"url": "https://example.edu/notes", "kind": "link"},
+        {"url": "https://cdn.example.org/diagram.svg", "kind": "image"},
+    ]);
+    let recorded = serde_json::to_vec(&document).expect("recorded source");
+    PleQuestionJsonDocument::parse(&recorded).expect("recorded rdkit source parses");
 }

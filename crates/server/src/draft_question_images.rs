@@ -16,7 +16,10 @@ use learning_data_access::{
 };
 use objects::{
     ObjectAddress, ObjectStore, PutObject, Sha256Checksum,
-    image_validation::{MAX_STILL_IMAGE_BYTES, verify_still_image},
+    image_validation::{
+        MAX_STILL_IMAGE_BYTES, PreparedQuestionImage, StillImageError, prepare_question_image,
+        verify_still_image,
+    },
 };
 use question_model::{ObjectId, QuestionImageAssetId, QuestionImageAssetTuple};
 use serde::Serialize;
@@ -69,16 +72,16 @@ pub(crate) async fn upload(
             "Draft Question changed before this upload",
         );
     }
-    let declared_media = match raster_media_type(headers) {
+    let declared_media = match accepted_question_image_media_type(headers) {
         Some(value) => value.to_string(),
         None => {
             return private_error(
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,
-                "PNG, JPEG, or WebP image media type is required",
+                "PNG, JPEG, WebP, or SVG image media type is required",
             );
         }
     };
-    // ASVS 5.2.1/5.2.2/5.2.6: limit bytes before buffering; decode bounded raster.
+    // ASVS 5.2.1/5.2.2/5.2.6 and 1.5.1: limit bytes, rewrite SVG, then store the raster.
     let bytes = match to_bytes(request.into_body(), MAX_STILL_IMAGE_BYTES).await {
         Ok(value) => value,
         Err(_) => {
@@ -88,16 +91,22 @@ pub(crate) async fn upload(
             );
         }
     };
-    let verified = match verify_still_image(&bytes) {
+    let prepared = match prepare_question_image(&declared_media, &bytes) {
         Ok(value) => value,
+        Err(StillImageError::UnsupportedSvgText) => {
+            return private_error(
+                StatusCode::BAD_REQUEST,
+                StillImageError::UnsupportedSvgText.user_message(),
+            );
+        }
         Err(_) => return private_error(StatusCode::BAD_REQUEST, "Draft Question image is invalid"),
     };
-    if verified.media_type.canonical_media_type() != declared_media {
-        return private_error(
-            StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            "Draft Question image media type does not match its bytes",
-        );
-    }
+    let verified = prepared.verified();
+    let media_type = verified.media_type.canonical_media_type().to_string();
+    let stored_bytes = match prepared {
+        PreparedQuestionImage::Original(original, _) => original.to_vec(),
+        PreparedQuestionImage::Rewritten(webp, _) => webp,
+    };
     let question_image_asset_id = QuestionImageAssetId::generate();
     // ASVS 5.3.2: random physical identity under a typed owner-derived address.
     let record = match state
@@ -109,8 +118,8 @@ pub(crate) async fn upload(
                 question_image_asset_id,
                 object_id: ObjectId::generate(),
             },
-            bytes: bytes.to_vec(),
-            media_type: declared_media,
+            bytes: stored_bytes,
+            media_type,
             created_at: now(),
         })
         .await
@@ -157,13 +166,17 @@ pub(crate) async fn upload(
     }
 }
 
-fn raster_media_type(headers: &HeaderMap) -> Option<&str> {
+fn accepted_question_image_media_type(headers: &HeaderMap) -> Option<&str> {
     let mut values = headers.get_all(CONTENT_TYPE).iter();
     let value = values.next()?.to_str().ok()?;
     if values.next().is_some() {
         return None;
     }
-    matches!(value, "image/png" | "image/jpeg" | "image/webp").then_some(value)
+    matches!(
+        value,
+        "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml"
+    )
+    .then_some(value)
 }
 
 pub(crate) async fn require_surface<S: DraftQuestionImageStore + ?Sized>(

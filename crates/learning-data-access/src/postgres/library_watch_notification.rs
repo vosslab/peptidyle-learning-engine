@@ -6,8 +6,8 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification,
-    LibraryWatchNotificationStore, LibraryWatchTargetKind, SessionTokenHash, StoreError,
+    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,
+    SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -88,6 +88,12 @@ fn watch_activity(
         ("revision", Some(revision_number), None, None) => Ok(LibraryWatchActivity::Revision {
             revision_number: positive_u64(revision_number, "Library Watch revision number")?,
         }),
+        // ASVS 5.1.1: a membership edit carries the Pool Edit Number and no fork or activity id.
+        ("members_changed", Some(edit_number), None, None) => {
+            Ok(LibraryWatchActivity::MembersChanged {
+                edit_number: positive_u64(edit_number, "Library Watch Pool Edit Number")?,
+            })
+        }
         ("fork", Some(source_revision_number), Some(forked_public_id), None) => {
             Ok(LibraryWatchActivity::Fork {
                 source_revision_number: positive_u64(
@@ -127,46 +133,38 @@ fn notification(row: &sqlx::postgres::PgRow) -> Result<LibraryWatchNotification,
             "Library Watch occurrence time".to_owned(),
         ));
     }
+    let target_kind = target_kind(row.try_get("target_kind").map_err(map_sqlx_error)?)?;
+    let activity = watch_activity(
+        row.try_get("event_kind").map_err(map_sqlx_error)?,
+        row.try_get("revision_number").map_err(map_sqlx_error)?,
+        row.try_get("forked_public_id").map_err(map_sqlx_error)?,
+        row.try_get("activity_id").map_err(map_sqlx_error)?,
+    )?;
+    // ASVS 5.1.1: membership edits belong to a Question Pool, never a Published Question.
+    require_pool_membership_target(target_kind, &activity)?;
     Ok(LibraryWatchNotification {
-        target_kind: target_kind(row.try_get("target_kind").map_err(map_sqlx_error)?)?,
+        target_kind,
         target_public_id: question_id(
             row.try_get("target_public_id").map_err(map_sqlx_error)?,
             "Library Watch target ID",
         )?,
-        activity: watch_activity(
-            row.try_get("event_kind").map_err(map_sqlx_error)?,
-            row.try_get("revision_number").map_err(map_sqlx_error)?,
-            row.try_get("forked_public_id").map_err(map_sqlx_error)?,
-            row.try_get("activity_id").map_err(map_sqlx_error)?,
-        )?,
+        activity,
         occurred_at: Timestamp::from_unix_millis(occurred_at_millis),
     })
 }
 
-#[async_trait]
-impl LibraryWatchNotificationStore for PostgresLibraryWatchNotificationStore {
-    async fn materialize_library_watch_notifications(&self, limit: u16) -> Result<u32, StoreError> {
-        if limit == 0 || limit > 500 {
-            return Err(StoreError::InvalidRecord(
-                "Library Watch notification limit is invalid".to_owned(),
-            ));
-        }
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_assessment_attempt_expiry_worker")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let count: i32 =
-            sqlx::query_scalar("SELECT ple_api.materialize_library_watch_notifications($1)")
-                .bind(i32::from(limit))
-                .fetch_one(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        u32::try_from(count).map_err(|_| {
-            StoreError::InvalidRecord("Library Watch notification count is invalid".to_owned())
-        })
+fn require_pool_membership_target(
+    target_kind: LibraryWatchTargetKind,
+    activity: &LibraryWatchActivity,
+) -> Result<(), StoreError> {
+    if matches!(activity, LibraryWatchActivity::MembersChanged { .. })
+        && target_kind != LibraryWatchTargetKind::QuestionPool
+    {
+        return Err(StoreError::InvalidRecord(
+            "Library Watch membership edit requires a Question Pool".to_owned(),
+        ));
     }
+    Ok(())
 }
 
 #[async_trait]
@@ -205,6 +203,24 @@ mod tests {
         assert_eq!(
             watch_activity("revision".to_owned(), Some(1), None, None),
             Ok(LibraryWatchActivity::Revision { revision_number: 1 })
+        );
+        assert_eq!(
+            watch_activity("members_changed".to_owned(), Some(2), None, None),
+            Ok(LibraryWatchActivity::MembersChanged { edit_number: 2 })
+        );
+        assert!(
+            require_pool_membership_target(
+                LibraryWatchTargetKind::QuestionPool,
+                &LibraryWatchActivity::MembersChanged { edit_number: 2 },
+            )
+            .is_ok()
+        );
+        assert!(
+            require_pool_membership_target(
+                LibraryWatchTargetKind::Question,
+                &LibraryWatchActivity::MembersChanged { edit_number: 2 },
+            )
+            .is_err()
         );
         assert_eq!(
             watch_activity(
@@ -264,6 +280,17 @@ mod tests {
             .is_err()
         );
         assert!(watch_activity("revision".to_owned(), Some(0), None, None).is_err());
+        assert!(watch_activity("members_changed".to_owned(), None, None, None).is_err());
+        assert!(
+            watch_activity(
+                "members_changed".to_owned(),
+                Some(2),
+                Some("1234-H567".to_owned()),
+                None,
+            )
+            .is_err()
+        );
+        assert!(watch_activity("members_changed".to_owned(), Some(0), None, None).is_err());
         assert!(watch_activity("unknown".to_owned(), None, None, None).is_err());
     }
 }

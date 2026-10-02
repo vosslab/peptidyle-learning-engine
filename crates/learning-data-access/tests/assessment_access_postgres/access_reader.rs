@@ -88,7 +88,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     );
     assert_eq!(
         access.decision.public_reason.as_deref(),
-        Some("This Assessment is not yet available.")
+        Some("This Coursework is not yet available.")
     );
     assert_eq!(access.question_count, 1);
     assert_eq!(access.assessment_type, AssessmentType::RegularAssignment);
@@ -597,9 +597,12 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
             .get_live_student_latest_feedback_attempt(token(0xe1))
             .await
             .expect("Student's latest released feedback Attempt"),
-        Some(question_model::AssessmentAttemptId::from_uuid(id(
-            PRACTICE_ATTEMPT_TWO
-        ))),
+        Some(learning_data_access::LiveStudentLatestFeedback {
+            assessment_attempt_id: question_model::AssessmentAttemptId::from_uuid(id(
+                PRACTICE_ATTEMPT_TWO,
+            )),
+            course_instance_id: course.clone(),
+        }),
     );
     assert_eq!(
         landing_store

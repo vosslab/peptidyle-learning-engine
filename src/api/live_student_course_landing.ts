@@ -46,7 +46,7 @@ export interface LiveStudentAssessmentLandingSummary {
 /** Self-only activity and disclosed score typed from the Rust browser contract. */
 export type StudentCourseProgressAssessment = StudentCourseProgressAssessmentContract;
 export type StudentCourseActiveAttempt = StudentCourseActiveAttemptContract;
-export type StudentLatestFeedback = StudentLatestFeedbackContract;
+export type StudentLatestFeedback = StudentLatestFeedbackContract | null;
 
 /** Point contribution for one Assessment; Bonus work may contribute n / 0. */
 export interface AssessmentGradeContribution {

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build and validate the Human Guidance implementation compliance checklist."""
+"""Build and validate the Human Guidance implementation compliance checklist.
+
+The active source parts are maintained in docs/archive/audits/hg_checklist_parts/;
+PARTS_DIRECTORY below is their canonical owner. The archive path describes their
+history, not immutability. Generated checklist entries organize evidence and review;
+Human Guidance remains guidance that requires owner judgment, not automatic product scope.
+"""
 
 # Standard Library
 import argparse
@@ -12,7 +18,7 @@ import re
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 HUMAN_GUIDANCE_PATH = REPO_ROOT / "docs/HUMAN_GUIDANCE.md"
 CHECKLIST_PATH = REPO_ROOT / "docs/active_plans/audits/human_guidance_implementation_checklist.md"
-PARTS_DIRECTORY = REPO_ROOT / "docs/active_plans/audits/hg_checklist_parts"
+PARTS_DIRECTORY = REPO_ROOT / "docs/archive/audits/hg_checklist_parts"
 PART_NAME_PATTERN = re.compile(r"[0-9]{2}_[a-z0-9_]+\.md\Z")
 HEADING_PATTERN = re.compile(r"^(#{1,6}) (.+)$")
 SOURCE_BULLET_PATTERN = re.compile(r"^(\s*)- (.+)$")
@@ -25,7 +31,7 @@ EVIDENCE_PATTERN = re.compile(r"^\s*- Evidence \((source|test|runtime)\): (.+)$"
 PART_MANIFEST: dict[str, tuple[str, ...]] = {
 	"01_development.md": ("Development principles",),
 	"02_accounts.md": ("Accounts and roles",),
-	"03_shell.md": ("General interface design", "Rounded rectangles preference", "Information density and layout", "Interaction design", "Role colors and themes", "Typography", "Ribbon and page layout", "User top bar interface", "Profile avatar interface", "Breadcrumbs interface"),
+	"03_shell.md": ("General interface design", "Rounded rectangles preference", "Information density and layout", "Interaction design", "Role badges", "Themes", "Typography", "Ribbon and page layout", "User top bar interface", "Profile avatar interface", "Breadcrumbs interface"),
 	"04_instructor_ui.md": ("Instructor interface",),
 	"05_student_sysadmin_ui.md": ("Student interface", "Sysadmin interface"),
 	"06_data.md": ("Data and history",),
@@ -34,7 +40,7 @@ PART_MANIFEST: dict[str, tuple[str, ...]] = {
 	"09_assessments.md": ("Assessment specifications",),
 }
 PART_ROOT_LEVELS: dict[str, tuple[int, ...]] = {
-	"01_development.md": (2,), "02_accounts.md": (2,), "03_shell.md": (3, 3, 3, 3, 3, 3, 3, 3, 3, 3),
+	"01_development.md": (2,), "02_accounts.md": (2,), "03_shell.md": (3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3),
 	"04_instructor_ui.md": (3,), "05_student_sysadmin_ui.md": (3, 3), "06_data.md": (2,),
 	"07_questions.md": (2,), "08_courses.md": (2,), "09_assessments.md": (2,),
 }

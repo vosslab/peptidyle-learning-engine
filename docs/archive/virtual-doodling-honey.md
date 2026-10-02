@@ -18,7 +18,7 @@ The authenticated shell stacks four horizontal bands before content:
 | Ribbon Tasks | `src/ribbon/app_ribbon.tsx:415-430` | 2.5rem | Reserved on every route, including routes that can never hold a task. |
 
 Band 1 duplicates band 2's job one row above it. Band 4 is often empty height.
-[docs/UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md)
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md)
 line 148 already places Account and Profile "in the upper corner of the Ribbon Context Row", so the
 standalone brand band has no owner.
 

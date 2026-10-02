@@ -25,9 +25,9 @@ current capture front door is `./devel/capture_screenshots.sh`.
 The audit inspected the current cross-layer diff: PostgreSQL schema functions and policies, Rust
 PostgreSQL adapters and tests, Live Demo seed and E2E scripts, screenshot scenarios and
 publication, captures, and documentation. It used
-[docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md),
-[docs/TERMINOLOGY_CONTRACT.md](../../TERMINOLOGY_CONTRACT.md),
-[docs/DATABASE_STYLE.md](../../DATABASE_STYLE.md), and the repository and test style guides.
+[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md),
+[TERMINOLOGY_CONTRACT.md](../../TERMINOLOGY_CONTRACT.md),
+[DATABASE_STYLE.md](../../DATABASE_STYLE.md), and the repository and test style guides.
 `git diff --check` passed. No audit-specific test, Live Demo, capture replay, or PL/pgSQL rerun
 was performed.
 
@@ -35,7 +35,7 @@ was performed.
 
 ### High: Published Question revisions retain ambiguous generic identity names
 
-[docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) distinguishes Draft Questions, Published
+[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) distinguishes Draft Questions, Published
 Questions, Question Revisions, Pools, and Question Image Assets, and requires distinct concepts
 to use distinct clear names. The current terminology contract still defines
 `QuestionRevisionTuple { questionId, revisionNumber }`, while a Question Revision is specifically
@@ -43,8 +43,8 @@ the immutable revision of a Published Question. The repair makes some SQL output
 `published_question_id`, but Rust, JSON, generated TypeScript, and the terminology contract retain
 the generic `QuestionId` and `QuestionRevisionTuple` names.
 
-- Evidence: [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md):93-101,148-159;
-  [docs/TERMINOLOGY_CONTRACT.md](../../TERMINOLOGY_CONTRACT.md):35-38,238-253,772-791; and
+- Evidence: [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md):93-101,148-159;
+  [TERMINOLOGY_CONTRACT.md](../../TERMINOLOGY_CONTRACT.md):35-38,238-253,772-791; and
   [assessment_attempt.rs](../../../crates/learning-data-access/src/postgres/assessment_attempt.rs):4-7.
 - Impact: boundary code must infer which class of Question owns an identity. The mixed SQL versus
   Rust/JSON vocabulary invites the same stale-column and wrong-tuple errors this repair batch had
@@ -63,7 +63,7 @@ changelog also says the unreachable branch was removed.
 
 - Evidence: [PLPGSQL_CHECK_DIAGNOSTIC.md](../../PLPGSQL_CHECK_DIAGNOSTIC.md):216-230;
   [course_membership.sql](../../../schemas/base_schema/50_functions/course_membership.sql):64-84;
-  and [docs/CHANGELOG.md](../../CHANGELOG.md):21-24.
+  and [CHANGELOG.md](../../CHANGELOG.md):21-24.
 - Impact: the stated first acceptance milestone cannot rely on the receipt to establish whether
   the final source is clean.
 - Smallest durable correction: run the documented disposable checker against the final source and
@@ -196,7 +196,7 @@ such as `instructor/question_drafts.png`, `instructor/assignment_release_draft.p
 `student/course_in_progress_laptop.png`. The current manifest and atlas use the renamed paths.
 
 - Evidence: [ui_density_and_layout_audit.md](ui_density_and_layout_audit.md):3-11,79-95,262-297;
-  [docs/SCREENSHOT_ATLAS.md](../../SCREENSHOT_ATLAS.md):180-191.
+  [SCREENSHOT_ATLAS.md](../../SCREENSHOT_ATLAS.md):180-191.
 - Impact: a document presented as current evidence has dead links and may drive UI decisions from
   unreviewable screenshots.
 - Smallest durable correction: mark the audit historical, or deliberately refresh its evidence and

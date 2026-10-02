@@ -54,6 +54,8 @@ export interface RouteContract {
     | "library"
     | "libraryBrowse"
     | "libraryWatchNotifications"
+    | "myQuestions"
+    | "starredQuestions"
     | "questionDetail"
     | "questionDrafts"
     | "questionDraftEditor"
@@ -76,6 +78,8 @@ export interface RouteContract {
     | "courseRoster"
     | "instructorAccounts"
     | "contentDisciplines"
+    | "sysadminCourseInspection"
+    | "sysadminCourseInspectionDetail"
     | "pendingCourseInvitations"
     | "studentCourseInvitations"
     | "studentCourseInvitation"
@@ -270,6 +274,21 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "product", tierOneArea: "disciplines" },
   },
   {
+    id: "sysadminCourseInspection",
+    path: "/sysadmin/courses",
+    surface: "Sysadmin installation Course find and inspection list",
+    // ASVS 8.3.1: browser route gating mirrors the server's Sysadmin-only policy.
+    requiredUserRoles: ["sysadmin"],
+    ribbon: { scope: "product", tierOneArea: "courses" },
+  },
+  {
+    id: "sysadminCourseInspectionDetail",
+    path: "/sysadmin/courses/:courseInstanceId",
+    surface: "Sysadmin installation Course inspection",
+    requiredUserRoles: ["sysadmin"],
+    ribbon: { scope: "product", tierOneArea: "courses" },
+  },
+  {
     id: "courseAssessments",
     path: "/courses/:courseInstanceId",
     surface: "Course Instance Teaching Team, roster, and Assessment delivery workspace",
@@ -290,7 +309,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentAttempt",
-    path: "/assessment-attempts/:assessmentAttemptId",
+    path: "/courses/:courseInstanceId/attempt",
     surface: "One-question-at-a-time attempt loop",
     requiredUserRoles: ["student"],
     ribbon: {
@@ -300,7 +319,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentAttemptSummary",
-    path: "/assessment-attempts/:assessmentAttemptId/summary",
+    path: "/courses/:courseInstanceId/review",
     surface: "Assessment Attempt results and feedback",
     requiredUserRoles: ["student"],
     ribbon: {
@@ -349,6 +368,28 @@ export const ROUTE_CONTRACT = [
       scope: "product",
       tierOneArea: "questions",
     },
+  },
+  {
+    id: "myQuestions",
+    path: "/authoring/questions",
+    surface: "Instructor Published Questions",
+    requiredUserRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tierOneArea: "questions",
+    },
+    pageLayout: "fullWidth",
+  },
+  {
+    id: "starredQuestions",
+    path: "/authoring/starred",
+    surface: "Instructor Starred Questions",
+    requiredUserRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tierOneArea: "questions",
+    },
+    pageLayout: "fullWidth",
   },
   {
     id: "questionDrafts",

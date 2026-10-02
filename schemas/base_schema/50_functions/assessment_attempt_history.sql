@@ -80,7 +80,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                    'submitted_response', policy.feedback_submitted_response,
                    'question_answer', policy.feedback_question_answer,
                    'question_answer_explanation', policy.feedback_question_answer_explanation,
-                   'class_statistics', policy.feedback_class_statistics
+                   'class_statistics', policy.feedback_class_statistics,
+                   'hints', policy.feedback_hints,
+                   'worked_solutions', policy.feedback_worked_solutions
                ) AS feedback_rule
           FROM ple_private.assessment_attempt AS assessment_attempt
           JOIN ple_data.assessment AS assessment
@@ -289,9 +291,9 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_student_latest_feedback_attempt()
-RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS TABLE (course_instance_id text, assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT feedback.assessment_attempt_id
+    SELECT course.course_instance_id, feedback.assessment_attempt_id
       FROM ple_data.course_membership AS membership
       JOIN ple_data.course_instance AS course
         ON course.course_instance_id = membership.course_instance_id
@@ -323,11 +325,13 @@ SET LOCAL ROLE ple_private_owner;
 -- response itself remains withheld by the copied disclosure policy.
 -- The selected Question Revision and source binding are immutable, so this
 -- reader never interprets a past Assessment Attempt through current Assessment content.
+-- ASVS 8.2.3: hint and worked_solution are the Revision's PLE-managed texts.
+-- They are selected for every backend and are not read from a WeBWorK document.
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
-    published_question_id text, revision_number integer, general_feedback text, source_object_record_id uuid, source_object_address jsonb,
+    published_question_id text, revision_number integer, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
@@ -361,6 +365,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            issued.published_question_id,
            issued.revision_number,
            revision.general_feedback,
+           revision.hint,
+           revision.worked_solution,
            binding.source_object_record_id,
            source_object.object_address,
            binding.source_object_checksum,
@@ -421,7 +427,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
-    published_question_id text, revision_number integer, general_feedback text, source_object_record_id uuid, source_object_address jsonb,
+    published_question_id text, revision_number integer, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
@@ -429,7 +435,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT "position" + 1, assessment_attempt_id, student_response, backend, question_attempt_id,
-           published_question_id, revision_number, general_feedback, source_object_record_id, source_object_address,
+           published_question_id, revision_number, general_feedback, hint, worked_solution, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path, question_seed,
            generated_parameter_sha256,
            presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions,
@@ -442,12 +448,219 @@ SET LOCAL ROLE ple_private_owner;
 
 
 
+-- Student Work is the collective of FERPA records one Student created in one
+-- Course Instance.  Each row keeps that record's own identity.  ASVS 8.2.1
+-- and 8.2.3: only the API owner may execute this reader.  ASVS 14.2.6: the
+-- rows are identities, not responses, names, or Account fields.
+CREATE FUNCTION ple_private.read_student_work_records(
+    p_student_record_id uuid
+) RETURNS TABLE (
+    record_kind text,
+    record_id uuid,
+    member_position integer,
+    presentation_response_item_id text,
+    question_image_asset_id uuid
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_audit, ple_private AS $$
+    SELECT 'assessment_attempt'::text,
+           attempt.assessment_attempt_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_pool_selection'::text,
+           selection.question_pool_selection_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.question_pool_selection AS selection
+        ON selection.course_instance_id = attempt.course_instance_id
+       AND selection.assessment_attempt_id = attempt.assessment_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_pool_selected_item'::text,
+           item.question_pool_selection_id,
+           item.member_position,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.question_pool_selection AS selection
+        ON selection.course_instance_id = attempt.course_instance_id
+       AND selection.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_pool_selected_item AS item
+        ON item.course_instance_id = selection.course_instance_id
+       AND item.question_pool_selection_id = selection.question_pool_selection_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'issued_question'::text,
+           issued.issued_question_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_attempt'::text,
+           question_attempt.question_attempt_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'assessment_attempt_saved_response'::text,
+           saved.question_attempt_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.assessment_attempt_saved_response AS saved
+        ON saved.course_instance_id = question_attempt.course_instance_id
+       AND saved.question_attempt_id = question_attempt.question_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'assessment_submission'::text,
+           submission.assessment_submission_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.assessment_submission AS submission
+        ON submission.course_instance_id = attempt.course_instance_id
+       AND submission.assessment_attempt_id = attempt.assessment_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_attempt_presentation_binding'::text,
+           binding.question_attempt_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.question_attempt_presentation_binding AS binding
+        ON binding.course_instance_id = question_attempt.course_instance_id
+       AND binding.question_attempt_id = question_attempt.question_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_attempt_response_item_binding'::text,
+           binding.question_attempt_id,
+           NULL::integer,
+           binding.presentation_response_item_id,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.question_attempt_response_item_binding AS binding
+        ON binding.course_instance_id = question_attempt.course_instance_id
+       AND binding.question_attempt_id = question_attempt.question_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_attempt_presentation_asset_binding'::text,
+           binding.question_attempt_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.question_attempt_presentation_asset_binding AS binding
+        ON binding.course_instance_id = question_attempt.course_instance_id
+       AND binding.question_attempt_id = question_attempt.question_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'question_attempt_presentation_image_rendition'::text,
+           rendition.question_attempt_id,
+           NULL::integer,
+           NULL::text,
+           rendition.question_image_asset_id
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.question_attempt_presentation_image_rendition AS rendition
+        ON rendition.course_instance_id = question_attempt.course_instance_id
+       AND rendition.question_attempt_id = question_attempt.question_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'grading_result'::text,
+           grading.grading_result_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.grading_result AS grading
+        ON grading.course_instance_id = question_attempt.course_instance_id
+       AND grading.question_attempt_id = question_attempt.question_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+    UNION ALL
+    SELECT 'automated_grading_receipt'::text,
+           receipt.automated_grading_receipt_id,
+           NULL::integer,
+           NULL::text,
+           NULL::uuid
+      FROM ple_private.assessment_attempt AS attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = attempt.course_instance_id
+       AND issued.assessment_attempt_id = attempt.assessment_attempt_id
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.grading_result AS grading
+        ON grading.course_instance_id = question_attempt.course_instance_id
+       AND grading.question_attempt_id = question_attempt.question_attempt_id
+      JOIN ple_audit.automated_grading_receipt AS receipt
+        ON receipt.course_instance_id = grading.course_instance_id
+       AND receipt.grading_result_id = grading.grading_result_id
+     WHERE attempt.student_record_id = p_student_record_id
+$$;
+
 -- Archived Course Student Work is deliberately absent from ordinary Student
 -- and Instructor projections, but C208's no-login retention capability may
 -- verify the still-retained Work immediately before its scheduled deletion.
 -- This is a protected pre-delete boundary, not a recovery interface, queue,
 -- or state machine.  ASVS 2.3.1 keeps it reachable only after archive and
--- before the one-way delete transition.
+-- before the one-way delete transition.  Attempt rows come from the Student
+-- Work collective, and this projection still returns only Attempt facts.
 CREATE FUNCTION ple_private.read_course_student_work_for_retention(
     p_student_record_id uuid
 ) RETURNS TABLE (
@@ -458,16 +671,23 @@ CREATE FUNCTION ple_private.read_course_student_work_for_retention(
     assessment_submitted_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
-    SELECT assessment_attempt.assessment_attempt_id,
-           assessment_attempt.student_record_id,
-           assessment_attempt.assessment_id,
-           assessment_attempt.started_at,
+    SELECT attempt.assessment_attempt_id,
+           attempt.student_record_id,
+           attempt.assessment_id,
+           attempt.started_at,
            submission.submitted_at
-      FROM ple_private.assessment_attempt AS assessment_attempt
+      FROM ple_private.read_student_work_records(p_student_record_id) AS work
+      JOIN ple_private.assessment_attempt AS attempt
+        ON work.record_kind = 'assessment_attempt'
+       AND work.record_id = attempt.assessment_attempt_id
+       AND work.member_position IS NULL
+       AND work.presentation_response_item_id IS NULL
+       AND work.question_image_asset_id IS NULL
       LEFT JOIN ple_private.assessment_submission AS submission
-        ON submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
-     WHERE assessment_attempt.student_record_id = p_student_record_id
-     ORDER BY assessment_attempt.assessment_attempt_id
+        ON submission.course_instance_id = attempt.course_instance_id
+       AND submission.assessment_attempt_id = attempt.assessment_attempt_id
+     WHERE attempt.student_record_id = p_student_record_id
+     ORDER BY attempt.assessment_attempt_id
 $$;
 
 SET LOCAL ROLE ple_api_owner;

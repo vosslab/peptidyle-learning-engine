@@ -26,7 +26,6 @@ CREATE TABLE ple_data.library_improvement_thread (
 );
 
 
-
 CREATE TABLE ple_data.library_improvement_post (
     post_id uuid PRIMARY KEY,
     library_improvement_thread_id uuid NOT NULL REFERENCES ple_data.library_improvement_thread(library_improvement_thread_id),
@@ -83,45 +82,6 @@ COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained tex
 COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
 
 
-
-COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
-
-COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
-
-COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
-
-
-COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
-
-COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
-
-COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
-
-
-
-COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
-
-COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
-
-COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
-
-
-
-
-COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
-
-COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
-
-COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
-
-
-
-COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
-
-COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
-
-COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
-
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON COLUMN ple_data.library_improvement_thread.resolved_by_account_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.library_improvement_thread.resolved_at IS 'NULL means this optional fact is absent.';
@@ -129,4 +89,3 @@ COMMENT ON COLUMN ple_data.library_improvement_post.updated_at IS 'NULL means th
 COMMENT ON COLUMN ple_data.library_impact_notice.affected_revision_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.library_impact_notice.cancelled_by_account_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.library_impact_notice.cancelled_at IS 'NULL means this optional fact is absent.';
-

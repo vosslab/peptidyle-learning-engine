@@ -22,6 +22,46 @@ type RecordListReorderContext = {
 const RecordListReorderContext = createContext<RecordListReorderContext>();
 const RecordListReorderProvider = RecordListReorderContext.Provider;
 
+/**
+ * Destination index for a native drag that lands on another position in the current order.
+ * A drop on the same position, an out-of-range position, or a disabled control does not move.
+ */
+export function nativeDragIndex(
+  sourceIndex: number,
+  destinationIndex: number,
+  count: number,
+  disabled: boolean,
+): number | undefined {
+  // ASVS 2.2.1: accept a drop only inside the current order and only when the control is enabled.
+  if (
+    disabled ||
+    sourceIndex < 0 ||
+    destinationIndex < 0 ||
+    sourceIndex >= count ||
+    destinationIndex >= count ||
+    sourceIndex === destinationIndex
+  )
+    return undefined;
+  return destinationIndex;
+}
+
+/**
+ * Destination index for a native drag that lands on another record in the current order.
+ * A drop on the same record, a missing record, or a disabled record does not move.
+ */
+export function nativeDragDestinationIndex(
+  recordIds: readonly string[],
+  draggedId: string,
+  dropId: string,
+  isDisabled: (recordId: string) => boolean,
+): number | undefined {
+  // ASVS 2.2.1: accept a drop only when both records are in the current order and enabled.
+  if (draggedId === dropId || isDisabled(draggedId) || isDisabled(dropId)) return undefined;
+  const sourceIndex = recordIds.indexOf(draggedId);
+  const destinationIndex = recordIds.indexOf(dropId);
+  return nativeDragIndex(sourceIndex, destinationIndex, recordIds.length, false);
+}
+
 /** Moves one record to an absolute destination index without changing the caller's state. */
 export function reorderedRecordListRows<Row>(
   rows: ReadonlyArray<Row>,
@@ -181,7 +221,14 @@ export function RecordListReorderControls(props: RecordListReorderControlsProps)
     const draggedRecord = reorderContext.draggedRecord();
     reorderContext.setDraggedRecord(undefined);
     if (draggedRecord === undefined) return;
-    moveRecord(draggedRecord.index, props.index(), draggedRecord.id, draggedRecord.label);
+    const destinationIndex = nativeDragIndex(
+      draggedRecord.index,
+      props.index(),
+      props.count(),
+      props.disabled,
+    );
+    if (destinationIndex === undefined) return;
+    moveRecord(draggedRecord.index, destinationIndex, draggedRecord.id, draggedRecord.label);
   }
 
   return (
@@ -436,8 +483,15 @@ export function ControlledRecordReorderProvider(
     event.preventDefault();
     const dragged = draggedRecord();
     setDraggedRecord(undefined);
-    if (dragged === undefined || recordIsDisabled(recordId)) return;
-    void requestMove(dragged.id, recordIndex(recordId));
+    if (dragged === undefined) return;
+    const destinationIndex = nativeDragDestinationIndex(
+      props.recordIds(),
+      dragged.id,
+      recordId,
+      recordIsDisabled,
+    );
+    if (destinationIndex === undefined) return;
+    void requestMove(dragged.id, destinationIndex);
   }
 
   const context: ControlledRecordReorderContext = {

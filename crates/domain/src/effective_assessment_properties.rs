@@ -10,7 +10,7 @@ use std::num::NonZeroU32;
 pub use question_model::StudentLateWorkStatus;
 use question_model::{
     AssessmentStatus, BaseAssessmentPolicy, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
-    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId, Timestamp,
+    StudentRecordId, Timestamp, is_valid_base_assessment_attempt_time_limit_seconds,
 };
 
 use crate::active_student_course_membership::{
@@ -278,7 +278,7 @@ pub fn validate_base_assessment_policy(
 ) -> Result<(), EffectivePolicyError> {
     if base
         .assessment_attempt_time_limit_seconds
-        .is_some_and(|limit| limit.get() > MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+        .is_some_and(|limit| !is_valid_base_assessment_attempt_time_limit_seconds(limit.get()))
     {
         return Err(
             EffectivePolicyError::BaseAssessmentAttemptAssessmentAttemptTimeLimitOutOfRange,

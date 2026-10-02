@@ -41,7 +41,7 @@ const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
   "user-graduate": "Assessment Student View",
   palette: "Appearance",
   "arrow-left": "Back to Assessments",
-  "arrows-spin": "Practice Question Assignment",
+  "arrows-spin": "Unit Review Assignment",
   "circle-question": "Quiz",
   "circle-user": "Profile",
   "file-signature": "Exam",

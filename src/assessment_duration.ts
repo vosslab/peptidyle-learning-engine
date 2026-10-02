@@ -14,20 +14,14 @@ export function assessmentDurationOverrideSecondsFromMinutesDraft(
     : undefined;
 }
 
-/** Hydrates the minute control only when stored seconds can be shown exactly. */
+/** Hydrates a validated whole-minute base override without dropping precision. */
 export function assessmentDurationOverrideMinutesDraft(seconds: number | null): string {
-  if (seconds === null || seconds % 60 !== 0) return "";
+  if (seconds === null) return "";
   return (seconds / 60).toString();
 }
 
-/** Explains invalid minute input or a legacy stored value without changing either value. */
-export function assessmentDurationOverrideMinutesError(
-  minutes: string,
-  legacySeconds: number | null,
-): string | undefined {
-  if (legacySeconds !== null) {
-    return `Stored duration ${assessmentDurationDisplay(legacySeconds)} cannot be shown as whole minutes. Enter 1 to ${ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} whole minutes or clear the override to replace it.`;
-  }
+/** Validates the instructor-facing whole-minute draft. */
+export function assessmentDurationOverrideMinutesError(minutes: string): string | undefined {
   return assessmentDurationOverrideSecondsFromMinutesDraft(minutes) === undefined
     ? `Enter a whole number from 1 to ${ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} minutes, or leave the override blank for the calculated default.`
     : undefined;
@@ -62,6 +56,21 @@ export function calculatedAssessmentDurationSeconds(questionCount: number): numb
   const minutes = calculatedAssessmentDurationMinutes(questionCount);
   return minutes === null ? null : minutes * 60;
 }
+
+/** Blank duration override keeps the calculated whole-minute default. */
+export const OPTIONAL_DURATION_OVERRIDE_GUIDANCE =
+  "Leave the override blank to use this calculated default.";
+
+/** Blank available date and time mean the Assessment has no opening time. */
+export const NO_OPENING_TIME_GUIDANCE =
+  "Leave the available date and time blank for no opening time.";
+
+/** Blank closing date and time mean the Assessment has no closing time. */
+export const NO_CLOSING_TIME_GUIDANCE =
+  "Leave the closing date and time blank for no closing time.";
+
+/** Blank Attempt limit means Weekly, Unit Review, and Bonus stay unlimited. */
+export const UNLIMITED_ATTEMPTS_GUIDANCE = "Leave blank for unlimited Attempts.";
 
 export function assessmentDurationDefaultDescription(questionCount: number): string {
   const minutes = calculatedAssessmentDurationMinutes(questionCount);

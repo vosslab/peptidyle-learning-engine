@@ -8,21 +8,21 @@ use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{COOKIE, ETAG, IF_MATCH},
     },
     response::{IntoResponse, Response},
-    routing::{get, put},
+    routing::{get, post, put},
 };
 use learning_data_access::{
-    CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
-    StoreError,
+    CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput, Cursor,
+    DiscoveryPageRequest, DiscoveryPageSize, SessionTokenHash, StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
 use question_model::{CourseInstanceId, CourseInstanceRouteSummary, UserRole};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::{AuthError, resolve_session},
@@ -70,6 +70,15 @@ pub fn course_instance_router(
         .route(
             "/api/course-instance-creation/instructors",
             get(list_course_creation_instructors),
+        )
+        .route("/api/sysadmin/courses", get(list_installation_courses))
+        .route(
+            "/api/sysadmin/courses/search",
+            post(search_installation_courses),
+        )
+        .route(
+            "/api/sysadmin/courses/{course_instance_id}",
+            get(load_installation_course),
         )
         .with_state(CourseInstanceRouteState { sessions, courses })
 }
@@ -265,6 +274,157 @@ async fn list_course_creation_instructors(
         ),
         Err(error) => store_error_response(error),
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InstallationCourseSearch {
+    query: String,
+    cursor: Option<String>,
+    #[serde(default)]
+    page_size: Option<u16>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InstallationCourseListQuery {
+    cursor: Option<String>,
+    page_size: Option<u16>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallationCourseListResponse {
+    courses: Vec<learning_data_access::InstallationCourseInspection>,
+    next_cursor: Option<String>,
+}
+
+async fn list_installation_courses(
+    State(state): State<CourseInstanceRouteState>,
+    headers: HeaderMap,
+    query: Result<Query<InstallationCourseListQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
+    let (cursor, page_size) = match query {
+        Ok(Query(query)) => (query.cursor, query.page_size.unwrap_or(50)),
+        Err(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "installation Course page is invalid",
+            );
+        }
+    };
+    // ASVS 14.2.1: the unfiltered page carries no search text in the URL.
+    installation_courses_response(&state, &headers, "", cursor, page_size).await
+}
+
+async fn search_installation_courses(
+    State(state): State<CourseInstanceRouteState>,
+    headers: HeaderMap,
+    Json(input): Json<InstallationCourseSearch>,
+) -> Response {
+    // ASVS 14.2.1: Instructor and Course search text stays in the request body.
+    installation_courses_response(
+        &state,
+        &headers,
+        &input.query,
+        input.cursor,
+        input.page_size.unwrap_or(50),
+    )
+    .await
+}
+
+async fn installation_courses_response(
+    state: &CourseInstanceRouteState,
+    headers: &HeaderMap,
+    query: &str,
+    cursor: Option<String>,
+    page_size: u16,
+) -> Response {
+    let session_hash = match sysadmin_session_hash(state, headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 2.2.1/2.2.2: bound the search before it reaches the store.
+    let query = match bounded_installation_query(query) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let size = match DiscoveryPageSize::new(page_size) {
+        Ok(size) => size,
+        Err(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "installation Course page size is invalid",
+            );
+        }
+    };
+    let page = match cursor {
+        Some(value) if value.len() <= 4096 => match Cursor::parse(value) {
+            Ok(cursor) => DiscoveryPageRequest::after(cursor, size),
+            Err(_) => {
+                return route_error(
+                    StatusCode::BAD_REQUEST,
+                    "installation Course cursor is invalid",
+                );
+            }
+        },
+        Some(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "installation Course cursor is invalid",
+            );
+        }
+        None => DiscoveryPageRequest::first(size),
+    };
+    match state
+        .courses
+        .list_installation_courses(session_hash, &query, page)
+        .await
+    {
+        Ok(page) => crate::auth::no_store(
+            Json(InstallationCourseListResponse {
+                courses: page.items,
+                next_cursor: page.next_cursor.map(|cursor| cursor.as_str().to_owned()),
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn load_installation_course(
+    State(state): State<CourseInstanceRouteState>,
+    headers: HeaderMap,
+    Path(course_instance_id): Path<String>,
+) -> Response {
+    // ASVS 2.2.1/8.2.2/16.5: an invalid public id is the same concealed 404 as a missing Course.
+    let course_instance_id = match CourseInstanceId::from_str(&course_instance_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let session_hash = match sysadmin_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .courses
+        .load_installation_course(session_hash, course_instance_id)
+        .await
+    {
+        Ok(course) => crate::auth::no_store(Json(course).into_response()),
+        Err(error) => store_error_response(error),
+    }
+}
+
+fn bounded_installation_query(value: &str) -> Result<String, Box<Response>> {
+    let query = value.trim();
+    if query.chars().count() > 200 || query.chars().any(char::is_control) {
+        return Err(Box::new(route_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Course Instance is invalid",
+        )));
+    }
+    Ok(query.to_string())
 }
 
 async fn instructor_session_hash(

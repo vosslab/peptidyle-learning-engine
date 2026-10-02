@@ -9,7 +9,7 @@
 
 ## Context
 
-[human-UI-review.md](../../human-UI-review.md) opens with the
+[human-UI-review.md](../archive/human-UI-review.md) opens with the
 main complaint: "every layout feels hacked together and custom, when it should use basic tools to
 build from," and asks for "a more fixed modular design that enforces these issues."
 
@@ -18,11 +18,11 @@ The problem is in the design, not in the styling. Four findings from reading the
 - The top Ribbon is keyed by route scope. Entering a Course replaces
   `Courses | Questions | Assessments` with `Assessments | Students | Gradebook | ...`. The bar
   changing on every page is what the current design asks for
-  ([src/ribbon/ribbon_schema.ts](../../src/ribbon/ribbon_schema.ts):43-75).
+  ([ribbon_schema.ts](../../src/ribbon/ribbon_schema.ts):43-75).
 - Shell height is conditional. The task row collapses when a route declares no tasks, and the
   breadcrumb row draws only when reserved, so the page content slides up and down as you navigate
-  ([src/ribbon/app_ribbon.css](../../src/ribbon/app_ribbon.css):62-68,
-  [src/application_shell.tsx](../../src/application_shell.tsx):207-213).
+  ([app_ribbon.css](../../src/ribbon/app_ribbon.css):62-68,
+  [application_shell.tsx](../../src/application_shell.tsx):207-213).
 - There is no shared list, row, table, or page component. About 45 list sites in ~40 files each
   write their own markup, empty state, loading state, and error state. Reorder is written six times
   with six shapes; one of the six works with a keyboard.
@@ -55,7 +55,7 @@ problem: the Ribbon schema, the route contract, and the shell's height rules.
 Trade-off this plan accepts: it spends effort on a route-contract change (adding `tierOneArea` to 39
 routes) that a CSS patch would have avoided. That cost is paid once. The patch would be paid on
 every future page. This follows "fix the design, not the symptom" and "long-term over short-term"
-from [docs/REPO_STYLE.md](../../docs/REPO_STYLE.md), and uses
+from [REPO_STYLE.md](../../docs/REPO_STYLE.md), and uses
 the pre-production state to change foundations directly.
 
 Rejected alternative: keep the scope-keyed Ribbon and add per-route overrides to force the same tabs
@@ -337,7 +337,7 @@ by their page; workflow-internal controls remain in task content.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/route_contract.ts](../../src/route_contract.ts).
+  [route_contract.ts](../../src/route_contract.ts).
 - Depends on: none.
 - Acceptance criteria: all 39 routes carry one of `courses`, `questions`, `productAssessments`,
   `coursework`, `grades`, `instructorAccounts`, `disciplines`, `account`. The value is the tab a
@@ -350,8 +350,8 @@ by their page; workflow-internal controls remain in task content.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/ribbon_schema.ts](../../src/ribbon/ribbon_schema.ts),
-  [src/ribbon/ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts):360-368.
+  [ribbon_schema.ts](../../src/ribbon/ribbon_schema.ts),
+  [ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts):360-368.
 - Depends on: WP-A1, because selection reads the new field.
 - Acceptance criteria: `SCHEMAS` is replaced by
   `PRODUCT_TIER_ONE: Record<UserRole, ReadonlyArray<RibbonSchemaSlot>>`; `ribbonSchemaFor` no
@@ -364,8 +364,8 @@ by their page; workflow-internal controls remain in task content.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/ribbon_catalog.ts](../../src/ribbon/ribbon_catalog.ts),
-  [src/route_contract.ts](../../src/route_contract.ts).
+  [ribbon_catalog.ts](../../src/ribbon/ribbon_catalog.ts),
+  [route_contract.ts](../../src/route_contract.ts).
 - Depends on: WP-A2.
 - Acceptance criteria: the role-and-Tier-1 schema defines fixed Tier 2 membership and order.
   Student Coursework has All Coursework, Due Soon, Completed, and Active Attempt; Student Grades
@@ -384,26 +384,26 @@ work package has no remaining implementation criteria.
 
 - Owner: `expert_coder`.
 - Touch points:
-  [src/ribbon/app_ribbon.css](../../src/ribbon/app_ribbon.css)
+  [app_ribbon.css](../../src/ribbon/app_ribbon.css)
   lines 5-9, 62-68, 590-594;
-  [src/application_shell.tsx](../../src/application_shell.tsx);
-  [src/ribbon/ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts).
+  [application_shell.tsx](../../src/application_shell.tsx);
+  [ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts).
 - Depends on: WP-A3.
 - Acceptance criteria: **every signed-in role reserves the tier-2 row.** Delete the
   `[data-ribbon-task-row="absent"]` rule, the `0rem` default, the `ribbonTaskRow` memo, and the
   `data-ribbon-task-row` attribute. Remove `breadcrumbPreludeReserved` and draw `BreadcrumbPrelude`
   for every route that has a Ribbon model. No policy constant is added, because there is no longer
   a conditional to name. Square the Ribbon and breadcrumb corners per
-  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):276.
+  [HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):276.
   Also strip the "Not available yet" text from `UnavailableRibbonChoice`
-  ([src/ribbon/app_ribbon.tsx](../../src/ribbon/app_ribbon.tsx):112-132),
+  ([app_ribbon.tsx](../../src/ribbon/app_ribbon.tsx):112-132),
   keeping the label, the disabled look, and the accessible description.
 - Why this shape: two questions were tangled together. _Does the row take space?_ and _does the row
   hold controls?_ Separating them removes the conditional layout state instead of parameterizing it.
   The answer to the first is always yes. The answer to the second is yes where the role and workflow
   have real controls. The role-and-Tier-1 schema supplies settled choices for Students, Instructors,
   and Sysadmins, whose Instructor destinations are listed in
-  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568.
+  [HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568.
 - Tier 2 choices stay in place while unavailable destinations use a disabled treatment.
 
 ### Work package: WP-B1 tab check
@@ -463,10 +463,10 @@ work package has no remaining implementation criteria.
   `status`, `actions`), `width`, `align`, `priority`, and a `content` function that may return
   structured markup rather than one value. The list owns `grid-template-columns` and each row is
   `display: grid; grid-template-columns: subgrid`, which is the fix for
-  [src/style.css](../../src/style.css):327 where each row is
+  [style.css](../../src/style.css):327 where each row is
   its own grid and columns line up only by luck. Rows are separated by a divider or a light
   alternating background, not a bordered card, per
-  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):293-295.
+  [HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):293-295.
   Spacing inside a region is one step tighter than between regions. `priority` decides what drops
   first on a narrow screen so identity and the main action survive. A region may supply an optional
   visible heading; the shared header row uses the same tracks and priority visibility as its records,
@@ -484,7 +484,7 @@ work package has no remaining implementation criteria.
 ### Work package: WP-C5 retire shared stylesheet rules
 
 - Owner: `expert_coder` in WS-CORE, the single owner of
-  [src/style.css](../../src/style.css).
+  [style.css](../../src/style.css).
 - Touch points: `src/style.css` only.
 - Depends on: M5 and M6, because a rule can only be removed once its last user is gone.
 - Acceptance criteria: remove the per-page widths `.assessment-attempt-page`, the `.question-card`
@@ -519,14 +519,14 @@ work package has no remaining implementation criteria.
   disabled rule, failure behavior, and announcement. Sites that match on all four use the shared
   control; sites that differ take only the array helper. Six copies do not by themselves prove one
   shape fits. The shared control reuses `reordered()` from
-  [src/features/blueprint_forks/blueprint_fork_apply_model.ts](../../src/features/blueprint_forks/blueprint_fork_apply_model.ts):33
+  [blueprint_fork_apply_model.ts](../../src/features/blueprint_forks/blueprint_fork_apply_model.ts):33
   and the accessible pattern from
-  [src/components/question_response_controls/ordering.tsx](../../src/components/question_response_controls/ordering.tsx):60-127
+  [ordering.tsx](../../src/components/question_response_controls/ordering.tsx):60-127
   -- focus returns to the moved row and a live region announces the move, the only one of the six
   that works with a keyboard. Drag uses the native `draggable` attribute and pointer events. Move
   buttons show an arrow next to the text.
 - Obvious follow-ons: record the comparison in
-  [docs/DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md)
+  [DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md)
   as the reason for the split, then delete the probe.
 
 ### Work package: WP-D3 windowing
@@ -540,7 +540,7 @@ work package has no remaining implementation criteria.
   states. The window helper keeps the visible range, overscan, scroll position, and spacer height.
   The windowed library page renders its records through exactly the same row code as an ordinary
   page, so turning windowing off needs no different row markup. The hand-written window in
-  [src/pages/library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx):139-177
+  [library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx):139-177
   is replaced by it, and only the library list turns it on.
 - Evidence or review, when useful: `node --import tsx tests/playwright/record_list_contracts.mjs`
   checks the durable windowing behavior: measured row heights select the visible records, a focused
@@ -554,13 +554,13 @@ work package has no remaining implementation criteria.
 
 | WP    | Page                                                                                                                                                   | Pattern proved                                                     |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| WP-E1 | [src/pages/question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx)                                                                         | Simple scan list, one variant                                      |
-| WP-E2 | [src/pages/gradebook_page.tsx](../../src/pages/gradebook_page.tsx)                                                                                     | Dense table, `fullWidth`, many columns                             |
-| WP-E3 | [src/pages/library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx)                                                                           | Two variants plus windowing                                        |
-| WP-E4 | [src/pages/assessment_workspace/assessment_workspace_questions_view.tsx](../../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx) | Reorder by keyboard and drag                                       |
-| WP-E5 | [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx)                                                                         | Dense rows, per-row actions, theme accent                          |
-| WP-E6 | [src/pages/student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)                                                           | Student list, phone layout keeps action next to identity           |
-| WP-E7 | [src/features/profile_avatar/provided_avatar_picker.tsx](../../src/features/profile_avatar/provided_avatar_picker.tsx)                                 | Same records, two genuinely different shapes: `gallery` and `list` |
+| WP-E1 | [question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx)                                                                         | Simple scan list, one variant                                      |
+| WP-E2 | [gradebook_page.tsx](../../src/pages/gradebook_page.tsx)                                                                                     | Dense table, `fullWidth`, many columns                             |
+| WP-E3 | [library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx)                                                                           | Two variants plus windowing                                        |
+| WP-E4 | [assessment_workspace_questions_view.tsx](../../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx) | Reorder by keyboard and drag                                       |
+| WP-E5 | [course_instance_page.tsx](../../src/pages/course_instance_page.tsx)                                                                         | Dense rows, per-row actions, theme accent                          |
+| WP-E6 | [student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)                                                           | Student list, phone layout keeps action next to identity           |
+| WP-E7 | [provided_avatar_picker.tsx](../../src/features/profile_avatar/provided_avatar_picker.tsx)                                 | Same records, two genuinely different shapes: `gallery` and `list` |
 
 - Why WP-E7 is worth a seventh lane: the other six all prove a denser or roomier row. The avatar
   picker proves that one set of records and one selection behavior can render as a grid of images or
@@ -571,11 +571,11 @@ work package has no remaining implementation criteria.
   The core is expected to change during this milestone -- finding its weak spots is the point -- but
   a core change is handed to WS-CORE and applied once, never edited in two lanes.
 - Acceptance criteria, specific rows: drop `assessmentId` from
-  [src/pages/gradebook_page.tsx](../../src/pages/gradebook_page.tsx):43-64;
+  [gradebook_page.tsx](../../src/pages/gradebook_page.tsx):43-64;
   drop the raw `Assessment {id}` line and the per-row time zone from
-  [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx):355-360;
+  [course_instance_page.tsx](../../src/pages/course_instance_page.tsx):355-360;
   in
-  [src/pages/question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx):221-261
+  [question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx):221-261
   show the title once, drop the `Private draft` badge the page already implies, shorten
   `Draft Question Edit Number 7` to `Edit 7`, and add a short content preview.
 - Evidence or review, when useful: `tests/_temp/row_height_probe.mjs` reports assessment row height,
@@ -592,7 +592,7 @@ work package has no remaining implementation criteria.
   because a page heading is the same few slots everywhere and needs no per-page judgment. The date
   sweep is also full: 16 call sites, mechanical, and it fixes a real bug -- the hardcoded UTC
   formatter at
-  [src/pages/course_instance_page.tsx](../../src/pages/course_instance_page.tsx):50-53.
+  [course_instance_page.tsx](../../src/pages/course_instance_page.tsx):50-53.
   Dates use the selected display zone; only Profile names that zone.
 - Obvious follow-ons: in each page's **own** stylesheet, move spacing onto the 7-step scale. These
   packages do not edit `src/style.css`; instead each reports the names of rules and tokens its pages
@@ -604,7 +604,7 @@ work package has no remaining implementation criteria.
 
 - Owner: `tester`.
 - Touch points:
-  [tests/playwright/screenshot_corpus/](../../tests/playwright/screenshot_corpus).
+  `screenshot_corpus`.
 - Depends on: M5, M6.
 - Acceptance criteria: every Student scenario publishes direct laptop, tablet, phone, and square
   captures. Instructor and Sysadmin scenarios publish direct laptop captures only. `covered_by`
@@ -638,14 +638,14 @@ work package has no remaining implementation criteria.
     converted-plus-remaining arithmetic. The last-user check found no users of
     `src/pages/instructor_data_tables.css`; the obsolete stylesheet was removed.
   - `docs/active_plans/active/student_task_surface_plan.md`: remove undo and restore
-    ([src/components/question_response_controls/common.tsx](../../src/components/question_response_controls/common.tsx):441-478
+    ([common.tsx](../../src/components/question_response_controls/common.tsx):441-478
     plus seven call sites and the `"restored"` state), flatten the five WeBWorK boxes to one, match
     the native question surface to it, add `...` and narrower buttons to question navigation, drop
     the word "Peptidyle" on phones, and measure the attempt vertical budget against the review's
     444px.
   - `docs/active_plans/active/ribbon_destination_completion_plan.md`: My Questions needs no backend
     work, since `QuestionSearchAuthorship::AuthoredByCurrentAccount` already exists at
-    [crates/question_model/src/question_search.rs](../../crates/question_model/src/question_search.rs):55-61;
+    [question_search.rs](../../crates/question_model/src/question_search.rs):55-61;
     Starred needs a `starred_by_current_account` filter, its predicate, and a grant, with an index
     only if `EXPLAIN` on seeded data shows one is needed.
   - `docs/active_plans/decisions/role_tier_two_navigation.md`: what belongs inside the student and
@@ -653,20 +653,20 @@ work package has no remaining implementation criteria.
     only; adding controls cannot move the page content.
   - `docs/active_plans/active/theme_completion_plan.md`: dark halves of the 15 biome palettes,
     already required by
-    [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):318-337.
+    [HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):318-337.
 
 ### Work package: WP-H2 record the decisions
 
 - Owner: `maintainer`.
 - Depends on: M5.
 - Acceptance criteria: the settled student tier-1 is recorded at
-  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):633,
+  [HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):633,
   and line 419 is reconciled with the annotation-free control;
-  [docs/DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md)
+  [DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md)
   gains entries for tier-1 by role, unconditional row heights for every role, the
   reserve-but-never-fabricate rule, the split between `RecordList` and windowing, and the scan-row
   content rule;
-  [docs/CODE_ARCHITECTURE.md](../../docs/CODE_ARCHITECTURE.md)
+  [CODE_ARCHITECTURE.md](../../docs/CODE_ARCHITECTURE.md)
   describes the UI composition layer.
 - Notes: the scan-row rule says a scan row carries identity, status that affects a decision, one
   value or date that affects a decision, and a main action, with ids and extra metadata moving to
@@ -679,9 +679,9 @@ work package has no remaining implementation criteria.
 - Owner: `maintainer`.
 - Depends on: WP-H1, WP-H2.
 - Acceptance criteria: each SUI-01 through SUI-08 finding in
-  [docs/active_plans/audits/student_ui_stability_and_density_audit_2026-09-21.md](audits/student_ui_stability_and_density_audit_2026-09-21.md)
+  [student_ui_stability_and_density_audit_2026-09-21.md](audits/student_ui_stability_and_density_audit_2026-09-21.md)
   maps to a milestone here or a named follow-up plan;
-  [docs/CHANGELOG.md](../../docs/CHANGELOG.md) is updated per
+  [CHANGELOG.md](../../docs/CHANGELOG.md) is updated per
   milestone; no probe remains in `tests/_temp/`.
 
 #### WP-H3 staging disposition
@@ -802,17 +802,17 @@ optional debugging.
 Failure semantics: a failing per-patch gate blocks that work package only. A failing integration
 gate blocks the milestone and every milestone that depends on it. When a permanent check fails after
 merge, compare the behavior against the contract written in
-[docs/DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md),
+[DESIGN_DECISIONS.md](../../docs/DESIGN_DECISIONS.md),
 then repair whichever is wrong -- the code or the check. Usually it is the code, and the change is
 reverted. Sometimes the check encoded the contract badly, which is likely during M5, where the
 component is deliberately learning from real consumers; then the check is corrected and the reason
 recorded. A check is a constraint that has to keep earning its place, not a fact.
 
 Fixtures already exist and are reused rather than rebuilt:
-[tests/playwright/ribbon_harness_server.mjs](../../tests/playwright/ribbon_harness_server.mjs),
+[ribbon_harness_server.mjs](../../tests/playwright/ribbon_harness_server.mjs),
 `tests/support/ribbon_shell_harness.tsx`, `ribbon_responsive_harness.tsx`, and the seeded Live Demo
 behind
-[devel/capture_screenshots.sh](../../devel/capture_screenshots.sh).
+[capture_screenshots.sh](../../devel/capture_screenshots.sh).
 Shell and route transitions are driven by the existing synthetic fixtures and headless browser
 checks. Screenshot publication saves artifacts for a fresh `image_evaluator` subagent; the manager
 resolves any findings against the documented contracts and records the result. Headed browsing
@@ -851,7 +851,7 @@ required when visible IDs or dates are generated at runtime.
 - Every signed-in role reserves the tier-2 row. Whether a row holds controls is a separate question
   from whether it takes space. The settled role-and-Tier-1 schema supplies choices for **Students**,
   **Instructors**, and **Sysadmins**. An **instructor** page missing the tier-2 controls that
-  [docs/HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568
+  [HUMAN_GUIDANCE.md](../../docs/HUMAN_GUIDANCE.md):430,490,568
   lists for it is a defect in that page, not a reason to reopen the design.
 
 ## Open questions and decisions needed

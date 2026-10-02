@@ -13,7 +13,7 @@ use learning_data_access::{
     postgres::{PostgresAssessmentStudentTimeAccommodationStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentId, CourseInstanceId, UserRole, SaveAssessmentStudentTimeAccommodationInput,
+    AssessmentId, CourseInstanceId, SaveAssessmentStudentTimeAccommodationInput, UserRole,
 };
 use std::sync::Arc;
 

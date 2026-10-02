@@ -41,7 +41,7 @@ standardization requirement.
 
 **P2: correct the public presentation contract.**
 
-[region_spec.ts](../../../src/components/record_list/region_spec.ts), lines 15-40, requires pages
+`region_spec.ts`, lines 15-40, requires pages
 to choose arbitrary CSS widths, alignment, responsive priority, and arbitrary JSX for every region.
 [record_list.tsx](../../../src/components/record_list/record_list.tsx), lines 23-45 and 83-104,
 turns those choices into tracks and wrappers. Region order and count are caller-defined; the type

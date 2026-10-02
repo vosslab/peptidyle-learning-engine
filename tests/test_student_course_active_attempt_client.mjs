@@ -61,20 +61,33 @@ test("Active Attempt decoder accepts an ID or explicit no-active state", () => {
   );
 });
 
-test("Latest Feedback decoder accepts only an Attempt ID or explicit empty state", () => {
-  assert.deepEqual(decodeStudentLatestFeedback({ assessmentAttemptId: ATTEMPT_ID }), {
-    assessmentAttemptId: ATTEMPT_ID,
-  });
-  assert.deepEqual(decodeStudentLatestFeedback({ assessmentAttemptId: null }), {
-    assessmentAttemptId: null,
-  });
+test("Latest Feedback decoder accepts only a paired navigation target or no target", () => {
+  assert.deepEqual(
+    decodeStudentLatestFeedback({
+      assessmentAttemptId: ATTEMPT_ID,
+      courseInstanceId: COURSE_INSTANCE_ID,
+    }),
+    {
+      assessmentAttemptId: ATTEMPT_ID,
+      courseInstanceId: COURSE_INSTANCE_ID,
+    },
+  );
+  assert.equal(decodeStudentLatestFeedback(null), null);
   assert.throws(
     () => decodeStudentLatestFeedback({ assessmentAttemptId: "not-an-attempt" }),
     /canonical Assessment Attempt UUID/u,
   );
   assert.throws(
-    () => decodeStudentLatestFeedback({ assessmentAttemptId: null, feedback: "hidden" }),
-    /field allowed by this response contract/u,
+    () => decodeStudentLatestFeedback({ assessmentAttemptId: ATTEMPT_ID }),
+    /courseInstanceId must be present/u,
+  );
+  assert.throws(
+    () =>
+      decodeStudentLatestFeedback({
+        assessmentAttemptId: ATTEMPT_ID,
+        courseInstanceId: "not-a-course",
+      }),
+    /Course Instance ID/u,
   );
 });
 
@@ -116,11 +129,14 @@ test("Active Attempt client rejects non-Course IDs before dispatch", () => {
 
 test("Latest Feedback client uses its authenticated no-store shortcut route", async () => {
   const { recordingFetch, requests } = createRecordingFetch(async () =>
-    response({ assessmentAttemptId: ATTEMPT_ID }),
+    response({ assessmentAttemptId: ATTEMPT_ID, courseInstanceId: COURSE_INSTANCE_ID }),
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  assert.deepEqual(await client.getStudentLatestFeedback(), { assessmentAttemptId: ATTEMPT_ID });
+  assert.deepEqual(await client.getStudentLatestFeedback(), {
+    assessmentAttemptId: ATTEMPT_ID,
+    courseInstanceId: COURSE_INSTANCE_ID,
+  });
   assert.equal(requests[0].url, "https://client.example.test/live/api/student/latest-feedback");
   assert.equal(requests[0].method, "GET");
   assert.equal(requests[0].cache, "no-store");

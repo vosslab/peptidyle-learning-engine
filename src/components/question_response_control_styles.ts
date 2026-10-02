@@ -43,6 +43,12 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .format-status, .question-response-control .field-help { margin: 0; }
   .question-response-control .format-status { min-height: 2.25rem; padding: 0.35rem 0.5rem; border-left: 3px solid var(--ple-accent); background: var(--ple-surface-soft); color: var(--ple-accent-strong); font-weight: 680; }
   .question-response-control .format-status.ready { border-color: var(--ple-success); background: color-mix(in srgb, var(--ple-success) 10%, var(--ple-surface)); color: var(--ple-success); }
+  .question-response-control .format-status.saved {
+    border-inline-start-width: 0.45rem;
+    background: color-mix(in srgb, var(--ple-accent) 16%, var(--ple-surface));
+    color: var(--ple-ink);
+    font-weight: 760;
+  }
   .question-response-control .format-status.error { border-color: var(--ple-danger); background: color-mix(in srgb, var(--ple-danger) 10%, var(--ple-surface)); color: var(--ple-danger); font-weight: 700; }
   .question-response-control .status-spinner { display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.35rem; border: 2px solid currentcolor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .question-response-control .response-actions, .question-response-control .imathas-question-backend-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }

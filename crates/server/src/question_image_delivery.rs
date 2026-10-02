@@ -20,8 +20,8 @@ use learning_data_access::{
 };
 use objects::ObjectAddress;
 use question_model::{
-    UserRole, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
-    QuestionRevisionNumber,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
+    QuestionRevisionNumber, UserRole,
 };
 use url::Url;
 use uuid::Uuid;

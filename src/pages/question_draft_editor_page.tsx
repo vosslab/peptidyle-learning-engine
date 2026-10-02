@@ -17,6 +17,7 @@ import { useApplicationApi } from "../api/application_api";
 import {
   PleQuestionGeneralFeedbackConflictError,
   createPleQuestionGeneralFeedbackClient,
+  optionalPleManagedSupportText,
   type PleQuestionGeneralFeedbackClient,
   type PleQuestionGeneralFeedbackRead,
 } from "../features/ple_question_json_authoring/question_general_feedback_client";
@@ -52,12 +53,19 @@ function GeneralFeedbackOnlyPage(props: {
   const [savedGeneralFeedback, setSavedGeneralFeedback] = createSignal(
     props.initial.generalFeedback,
   );
+  const [hint, setHint] = createSignal(props.initial.hint);
+  const [savedHint, setSavedHint] = createSignal(props.initial.hint);
+  const [workedSolution, setWorkedSolution] = createSignal(props.initial.workedSolution);
+  const [savedWorkedSolution, setSavedWorkedSolution] = createSignal(props.initial.workedSolution);
   const [draftQuestionEditNumber, setDraftQuestionEditNumber] = createSignal(
     props.initial.draftQuestionEditNumber,
   );
   const [saving, setSaving] = createSignal(false);
   const [status, setStatus] = createSignal<string | null>(null);
-  const dirty = (): boolean => generalFeedback() !== savedGeneralFeedback();
+  const dirty = (): boolean =>
+    generalFeedback() !== savedGeneralFeedback() ||
+    hint() !== savedHint() ||
+    workedSolution() !== savedWorkedSolution();
 
   async function reload(): Promise<void> {
     setSaving(true);
@@ -66,6 +74,10 @@ function GeneralFeedbackOnlyPage(props: {
       const newest = await props.client.load(props.draftQuestion);
       setGeneralFeedback(newest.generalFeedback);
       setSavedGeneralFeedback(newest.generalFeedback);
+      setHint(newest.hint);
+      setSavedHint(newest.hint);
+      setWorkedSolution(newest.workedSolution);
+      setSavedWorkedSolution(newest.workedSolution);
       setDraftQuestionEditNumber(newest.draftQuestionEditNumber);
       setStatus("Loaded the newest saved general feedback.");
     } catch (error: unknown) {
@@ -82,12 +94,16 @@ function GeneralFeedbackOnlyPage(props: {
     try {
       const saved = await props.client.save(
         props.draftQuestion,
-        generalFeedback(),
+        { generalFeedback: generalFeedback(), hint: hint(), workedSolution: workedSolution() },
         draftQuestionEditNumber(),
       );
       setSavedGeneralFeedback(generalFeedback());
+      setSavedHint(hint());
+      setSavedWorkedSolution(workedSolution());
       setDraftQuestionEditNumber(saved.draftQuestionEditNumber);
-      setStatus("General feedback saved. It remains separate from backend interaction feedback.");
+      setStatus(
+        "Hint, Question Feedback, and Worked Solution saved. They remain separate from the Question source.",
+      );
     } catch (error: unknown) {
       if (error instanceof PleQuestionGeneralFeedbackConflictError) {
         setStatus("A newer draft exists. Reload it before saving general feedback.");
@@ -103,17 +119,26 @@ function GeneralFeedbackOnlyPage(props: {
     <PageFrame
       routeSurface="questionDraftGeneralFeedback"
       eyebrow="Private instructor authoring"
-      title="General Feedback"
-      lede="This Draft's source is managed by its Question Backend and is not editable on this page. You can still maintain PLE-managed general feedback below."
+      title="Question support"
+      lede="This Draft's source is managed by its Question Backend and is not editable on this page. You can still maintain optional PLE-managed Hint, Question Feedback, and Worked Solution below."
     >
       <style>{PLE_QUESTION_JSON_EDITOR_STYLES}</style>
       <Show when={status()}>{(message) => <p role="status">{message()}</p>}</Show>
       <section class="editor-panel" aria-labelledby="general-feedback-heading">
-        <h2 id="general-feedback-heading">General Feedback</h2>
+        <h2 id="general-feedback-heading">PLE-managed support</h2>
         <p class="ple-question-json-authoring__help">
-          This plain authored text is separate from backend source and transient feedback generated
-          during a backend interaction.
+          These optional texts are stored with this Draft and copied onto the next Published
+          Question Revision. They are separate from backend source and from transient feedback
+          generated during a backend interaction.
         </p>
+        <label class="ple-question-json-authoring__field">
+          <span>Hint (optional)</span>
+          <textarea
+            value={hint() ?? ""}
+            disabled={saving()}
+            onInput={(event) => setHint(optionalPleManagedSupportText(event.currentTarget.value))}
+          />
+        </label>
         <label class="ple-question-json-authoring__field">
           <span>General Feedback (optional)</span>
           <textarea
@@ -121,14 +146,22 @@ function GeneralFeedbackOnlyPage(props: {
             disabled={saving()}
             aria-describedby="draft-general-feedback-help"
             onInput={(event) =>
-              setGeneralFeedback(
-                event.currentTarget.value.trim() === "" ? null : event.currentTarget.value,
-              )
+              setGeneralFeedback(optionalPleManagedSupportText(event.currentTarget.value))
             }
           />
           <span id="draft-general-feedback-help" class="ple-question-json-authoring__help">
             This text is not copied from or written into the Question Backend source.
           </span>
+        </label>
+        <label class="ple-question-json-authoring__field">
+          <span>Worked Solution (optional)</span>
+          <textarea
+            value={workedSolution() ?? ""}
+            disabled={saving()}
+            onInput={(event) =>
+              setWorkedSolution(optionalPleManagedSupportText(event.currentTarget.value))
+            }
+          />
         </label>
         <div class="editor-actions">
           <button
@@ -137,7 +170,7 @@ function GeneralFeedbackOnlyPage(props: {
             disabled={saving() || !dirty()}
             onClick={() => void save()}
           >
-            {saving() ? "Saving general feedback..." : "Save general feedback"}
+            {saving() ? "Saving support text..." : "Save support text"}
           </button>
           <button
             type="button"

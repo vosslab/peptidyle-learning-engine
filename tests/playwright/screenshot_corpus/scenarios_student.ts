@@ -338,7 +338,7 @@ async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void>
       await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
       await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
       const latestAttempt = session.page
-        .getByRole("link", { name: "Review Attempt", exact: true })
+        .getByRole("button", { name: "Review Attempt", exact: true })
         .first();
       await latestAttempt.waitFor();
       await captureCheckpoint(runtime, `overview_history_${viewport}`, session);
@@ -360,7 +360,7 @@ function attemptSurface(session: CaptureSession): Locator {
 
 function attemptQuestion(session: CaptureSession, name: string): Locator {
   return session.page
-    .getByRole("navigation", { name: "Assessment questions", exact: true })
+    .getByRole("navigation", { name: "Coursework questions", exact: true })
     .getByRole("button", { name, exact: true });
 }
 
@@ -516,7 +516,7 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
         .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
         .click();
       await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
-      const previousAttempt = session.page.getByRole("link", {
+      const previousAttempt = session.page.getByRole("button", {
         name: "Review Attempt",
         exact: true,
       });

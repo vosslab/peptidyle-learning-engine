@@ -117,6 +117,7 @@ pub(super) async fn read(
         },
         state,
         score: None,
+        class_statistics: None,
         questions,
     };
     let result = StudentAssessmentAttemptHistoryEvidence {
@@ -134,6 +135,9 @@ pub(super) async fn read(
             .map_err(map_sqlx_error)?,
         grading_is_current,
         grading_results,
+        // The history reader has no course-average aggregate. Disclosure
+        // therefore receives none and omits class statistics.
+        course_class_analysis: None,
     };
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(result)
@@ -189,6 +193,8 @@ fn decode_question(
         response: None,
         backend_answer_review: None,
         feedback: StudentFeedback::empty(),
+        hints: None,
+        worked_solution: None,
     })
 }
 

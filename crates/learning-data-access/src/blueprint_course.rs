@@ -78,6 +78,8 @@ pub struct BlueprintCourseListRequest {
     pub topic_uuid: Option<uuid::Uuid>,
     pub subtopic_uuid: Option<uuid::Uuid>,
     pub cross_discipline: bool,
+    /// Empty means no tag filter. A non-empty value is an exact tag label.
+    pub tag: String,
 }
 
 /// Sysadmin-only projection; promotion is lineage metadata, not Revision content.
@@ -510,6 +512,15 @@ impl StoredBlueprintAssessment {
     }
 }
 
+/// Current lineage titles an Instructor uses to recognize public IDs.
+///
+/// Unknown IDs are omitted. The maps do not belong in a saved Blueprint document.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RecognitionTitles {
+    pub questions: BTreeMap<PublishedQuestionId, String>,
+    pub pools: BTreeMap<QuestionPoolId, String>,
+}
+
 /// Store boundary for immutable Blueprint Revisions and lineage metadata.
 #[derive(Debug, Clone)]
 pub struct StoredBlueprintPoolMembers {
@@ -550,6 +561,13 @@ pub trait BlueprintCourseStore: Send + Sync {
         assessment: BlueprintAssessmentId,
         question_pool_id: QuestionPoolId,
     ) -> Result<StoredBlueprintPoolMembers, StoreError>;
+    /// Loads current Question and Pool titles for recognition. Missing lineages are omitted.
+    async fn load_recognition_titles(
+        &self,
+        session: SessionTokenHash,
+        question_ids: &[PublishedQuestionId],
+        pool_ids: &[QuestionPoolId],
+    ) -> Result<RecognitionTitles, StoreError>;
     async fn apply_blueprint_fork(
         &self,
         session: SessionTokenHash,

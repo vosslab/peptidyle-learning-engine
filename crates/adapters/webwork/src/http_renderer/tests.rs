@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use serde_json::{Map, Value, json};
 use std::sync::LazyLock;
 
@@ -435,5 +436,96 @@ async fn grade_forwards_ordered_pairs_once_with_trusted_fields() {
         assert_eq!(pairs.last(), Some(&"submitAnswers=1"));
         assert!(pairs.contains(&"outputFormat=ple_embed"));
         assert!(pairs.contains(&"problemSeed=7"));
+        assert!(pairs.contains(&"isInstructor=0"));
     }
+}
+
+#[tokio::test]
+/// WeBWorK owns PG/PGML rendering, controls, answer evaluation, partial credit, and feedback.
+async fn webwork_owns_pg_pgml_rendering_controls_evaluators_partial_credit_and_feedback() {
+    let pgml = b"BEGIN_PGML\nThe membrane is [_____]{\"cholesterol\"}.\nEND_PGML\n";
+    let document = "<form><input name=\"AnSwEr0001\"></form><p>Partial credit feedback</p>";
+    let response = envelope(document, 0.5).to_string();
+    let (base, task) =
+        start_http_fixture(http_response("200 OK", "application/json", &response)).await;
+    let renderer = HttpWebworkRenderer::new(
+        HttpWebworkRendererConfig::new(
+            &base,
+            Duration::from_secs(1),
+            16_384,
+            renderer_version(),
+            "https://ple.example/",
+        )
+        .expect("loopback deployment settings are valid"),
+    )
+    .expect("loopback renderer client builds");
+    let ordinary = request();
+    let rendered = renderer
+        .render(RenderRequest {
+            pg_source: pgml,
+            pg_path: ordinary.pg_path,
+            published_question_revision_tuple: ordinary.published_question_revision_tuple,
+            seed: ordinary.seed,
+        })
+        .await
+        .expect("renderer document");
+    assert_eq!(rendered.document, document.as_bytes());
+    assert!(rendered.lifecycle_state.as_deref().is_none());
+    let wire = task.await.expect("render fixture completes");
+    let body = wire
+        .split("\r\n\r\n")
+        .nth(1)
+        .expect("render request has form body");
+    let fields: Vec<(String, String)> = url::form_urlencoded::parse(body.as_bytes())
+        .into_owned()
+        .collect();
+    let encoded = base64::engine::general_purpose::STANDARD.encode(pgml);
+    assert!(fields.contains(&("problemSource".into(), encoded.clone())));
+    assert!(!fields.iter().any(|(name, _)| {
+        matches!(
+            name.as_str(),
+            "renderedHTML" | "feedback" | "controls" | "score"
+        )
+    }));
+
+    let (base, task) =
+        start_http_fixture(http_response("200 OK", "application/json", &response)).await;
+    let renderer = HttpWebworkRenderer::new(
+        HttpWebworkRendererConfig::new(
+            &base,
+            Duration::from_secs(1),
+            16_384,
+            renderer_version(),
+            "https://ple.example/",
+        )
+        .expect("loopback deployment settings are valid"),
+    )
+    .expect("loopback renderer client builds");
+    let outcome = renderer
+        .grade(GradeRequest {
+            pg_source: pgml,
+            pg_path: ordinary.pg_path,
+            published_question_revision_tuple: ordinary.published_question_revision_tuple,
+            seed: ordinary.seed,
+            response_payload: br#"[["AnSwEr0001","cholesterol"]]"#,
+            lifecycle_state: &question_model::BackendOwnedLifecycleState::none(),
+        })
+        .await
+        .expect("renderer score grades");
+    assert!(matches!(
+        outcome,
+        grading::QuestionGradingOutcome::Evaluated(result)
+            if !result.correct() && result.normalized_credit() == 0.5
+    ));
+    let wire = task.await.expect("grade fixture completes");
+    let body = wire
+        .split("\r\n\r\n")
+        .nth(1)
+        .expect("grade request has form body");
+    let fields: Vec<(String, String)> = url::form_urlencoded::parse(body.as_bytes())
+        .into_owned()
+        .collect();
+    assert!(fields.contains(&("problemSource".into(), encoded)));
+    assert!(fields.contains(&("AnSwEr0001".into(), "cholesterol".into())));
+    assert!(fields.contains(&("submitAnswers".into(), "1".into())));
 }

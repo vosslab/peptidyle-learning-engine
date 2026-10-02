@@ -17,9 +17,7 @@ export function studentProgressSummary(progress: StudentAssessmentProgress): str
       return "No score yet. Submit a response to record scored progress.";
     case "withheld":
       return `Score is currently unavailable. ${activity.completed_assessment_attempt_count} completed ${
-        activity.completed_assessment_attempt_count === 1
-          ? "Assessment Attempt"
-          : "Assessment Attempts"
+        activity.completed_assessment_attempt_count === 1 ? "Attempt" : "Attempts"
       } recorded.`;
     case "available": {
       const scores = [

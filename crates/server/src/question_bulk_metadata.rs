@@ -16,11 +16,10 @@ use axum::{
 };
 use learning_data_access::{
     BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
-    BulkPublishedQuestionMetadataSelection, BulkPublishedQuestionMetadataStore, SessionTokenHash,
-    StoreError,
-    postgres::{PostgresBulkPublishedQuestionMetadataStore, PostgresSessionStore},
+    BulkPublishedQuestionMetadataSelection, BulkPublishedQuestionMetadataStore, SessionStore,
+    SessionTokenHash, StoreError,
 };
-use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, UserRole, PublishedQuestionId};
+use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, PublishedQuestionId, UserRole};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -30,35 +29,25 @@ const MAX_BULK_QUESTION_METADATA_BYTES: usize = 256 * 1024;
 
 #[derive(Clone)]
 struct RouteState {
-    sessions: Arc<PostgresSessionStore>,
+    sessions: Arc<dyn SessionStore>,
     store: Arc<dyn BulkPublishedQuestionMetadataStore>,
 }
 
 /// Registers the sole browser command for atomic shared Question metadata edits.
 pub fn question_bulk_metadata_router(
-    sessions: Arc<PostgresSessionStore>,
-    store: PostgresBulkPublishedQuestionMetadataStore,
+    sessions: Arc<dyn SessionStore>,
+    store: Arc<dyn BulkPublishedQuestionMetadataStore>,
 ) -> Router {
     Router::new()
         .route("/api/questions/bulk-metadata", post(bulk_replace_metadata))
-        .with_state(RouteState {
-            sessions,
-            store: Arc::new(store),
-        })
+        .with_state(RouteState { sessions, store })
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct BulkMetadataRequest {
-    selection: Vec<BulkMetadataSelectionRequest>,
+    selection: Vec<Value>,
     patch: Value,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct BulkMetadataSelectionRequest {
-    question_id: String,
-    metadata_edit_number: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -140,14 +129,8 @@ fn decode_input(request: BulkMetadataRequest) -> Option<BulkPublishedQuestionMet
     }
     let selection = request
         .selection
-        .into_iter()
-        .map(|selected| {
-            let question_id = selected.question_id.parse::<PublishedQuestionId>().ok()?;
-            Some(BulkPublishedQuestionMetadataSelection {
-                question_id,
-                metadata_edit_number: selected.metadata_edit_number,
-            })
-        })
+        .iter()
+        .map(decode_selection_item)
         .collect::<Option<Vec<_>>>()?;
     let patch = decode_patch(request.patch)?;
     let input = BulkPublishedQuestionMetadataInput { selection, patch };
@@ -155,10 +138,45 @@ fn decode_input(request: BulkMetadataRequest) -> Option<BulkPublishedQuestionMet
     Some(input)
 }
 
+fn decode_selection_item(value: &Value) -> Option<BulkPublishedQuestionMetadataSelection> {
+    let fields = value.as_object()?;
+    // ASVS 1.5.2/2.2.1: Title and Description are optional per Question; null is not a clear.
+    if fields.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "questionId" | "metadataEditNumber" | "questionTitle" | "questionDescription"
+        )
+    }) {
+        return None;
+    }
+    let question_id = fields
+        .get("questionId")?
+        .as_str()?
+        .parse::<PublishedQuestionId>()
+        .ok()?;
+    let metadata_edit_number = fields.get("metadataEditNumber")?.as_u64()?;
+    Some(BulkPublishedQuestionMetadataSelection {
+        question_id,
+        metadata_edit_number,
+        question_title: optional_search_text(fields, "questionTitle")?,
+        question_description: optional_search_text(fields, "questionDescription")?,
+    })
+}
+
+fn optional_search_text(
+    fields: &serde_json::Map<String, Value>,
+    name: &str,
+) -> Option<Option<String>> {
+    match fields.get(name) {
+        None => Some(None),
+        Some(Value::String(value)) => Some(Some(value.clone())),
+        Some(_) => None,
+    }
+}
+
 fn decode_patch(value: Value) -> Option<BulkPublishedQuestionMetadataPatch> {
     let fields = value.as_object()?;
-    if fields.is_empty()
-        || fields.len() > 5
+    if fields.len() > 5
         || fields.keys().any(|key| {
             !matches!(
                 key.as_str(),
@@ -214,9 +232,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -275,4 +291,185 @@ fn concealed() -> Response {
 
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, Json(serde_json::json!({ "error": message }))).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use async_trait::async_trait;
+    use axum::body::{Body, to_bytes};
+    use axum::http::Request;
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use learning_data_access::{
+        BulkPublishedQuestionMetadataResult, SessionId, SessionRecord, SessionTokenHash,
+    };
+    use question_model::{AccountId, Timestamp};
+    use tower::ServiceExt;
+
+    use super::*;
+
+    struct RoleSession {
+        role: UserRole,
+    }
+
+    #[async_trait]
+    impl SessionStore for RoleSession {
+        async fn create_session(
+            &self,
+            _token_hash: SessionTokenHash,
+            _account: AccountId,
+            _lifetime: learning_data_access::SessionLifetime,
+        ) -> Result<SessionRecord, StoreError> {
+            unreachable!("bulk metadata does not create a session")
+        }
+
+        async fn resolve_session(
+            &self,
+            token_hash: SessionTokenHash,
+        ) -> Result<Option<SessionRecord>, StoreError> {
+            Ok(Some(SessionRecord {
+                id: SessionId::generate()?,
+                token_hash,
+                account: AccountId::from_debug_serial(2),
+                user_role: self.role,
+                created_at: Timestamp::from_unix_millis(0),
+                expires_at: Timestamp::from_unix_millis(60_000),
+            }))
+        }
+
+        async fn revoke_session(&self, _token_hash: SessionTokenHash) -> Result<(), StoreError> {
+            unreachable!("bulk metadata does not revoke a session")
+        }
+    }
+
+    struct RecordingStore {
+        calls: Mutex<Vec<Vec<String>>>,
+    }
+
+    #[async_trait]
+    impl BulkPublishedQuestionMetadataStore for RecordingStore {
+        async fn bulk_replace_published_question_metadata(
+            &self,
+            _session_token_hash: SessionTokenHash,
+            input: BulkPublishedQuestionMetadataInput,
+        ) -> Result<Vec<BulkPublishedQuestionMetadataResult>, StoreError> {
+            let ids = input
+                .selection
+                .iter()
+                .map(|item| item.question_id.to_string())
+                .collect::<Vec<_>>();
+            self.calls.lock().expect("bulk calls").push(ids);
+            Ok(input
+                .selection
+                .into_iter()
+                .map(|item| BulkPublishedQuestionMetadataResult {
+                    question_id: item.question_id,
+                    metadata_edit_number: item.metadata_edit_number + 1,
+                })
+                .collect())
+        }
+    }
+
+    fn question_id(index: usize) -> String {
+        PublishedQuestionId::from_random_identifier(format!("{index:07}"))
+            .expect("Question ID")
+            .to_string()
+    }
+
+    fn session_cookie() -> String {
+        format!("ple_session={}", URL_SAFE_NO_PAD.encode([7_u8; 32]))
+    }
+
+    fn command(selection: serde_json::Value) -> String {
+        serde_json::json!({
+            "selection": selection,
+            "patch": { "tags": ["review"] }
+        })
+        .to_string()
+    }
+
+    fn router(role: UserRole, store: Arc<RecordingStore>) -> Router {
+        question_bulk_metadata_router(Arc::new(RoleSession { role }), store)
+    }
+
+    async fn post(app: Router, body: String) -> axum::response::Response {
+        app.oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/questions/bulk-metadata")
+                .header("content-type", "application/json")
+                .header("cookie", session_cookie())
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn question_library_workflows_support_bulk_operations_for_many_questions() {
+        let first = question_id(1);
+        let second = question_id(2);
+        let store = Arc::new(RecordingStore {
+            calls: Mutex::new(Vec::new()),
+        });
+        let response = post(
+            router(UserRole::Instructor, Arc::clone(&store)),
+            command(serde_json::json!([
+                { "questionId": first, "metadataEditNumber": 4 },
+                { "questionId": second, "metadataEditNumber": 9 }
+            ])),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+        let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            payload["results"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|result| result["questionId"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec![first.as_str(), second.as_str()]
+        );
+        assert_eq!(
+            store.calls.lock().expect("bulk calls").as_slice(),
+            &[vec![first.clone(), second.clone()]]
+        );
+
+        // ASVS 8.2.1: a Student session cannot run the Instructor bulk command.
+        let denied = Arc::new(RecordingStore {
+            calls: Mutex::new(Vec::new()),
+        });
+        let response = post(
+            router(UserRole::Student, Arc::clone(&denied)),
+            command(serde_json::json!([
+                { "questionId": first, "metadataEditNumber": 4 }
+            ])),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert!(denied.calls.lock().expect("denied calls").is_empty());
+
+        let overflow = (0..=MAX_BULK_QUESTION_METADATA_ITEMS)
+            .map(|index| {
+                serde_json::json!({
+                    "questionId": question_id(index),
+                    "metadataEditNumber": 1
+                })
+            })
+            .collect::<Vec<_>>();
+        let before = store.calls.lock().expect("bulk calls").len();
+        let response = post(
+            router(UserRole::Instructor, Arc::clone(&store)),
+            command(serde_json::Value::Array(overflow)),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(store.calls.lock().expect("bulk calls").len(), before);
+        assert_eq!(MAX_BULK_QUESTION_METADATA_ITEMS, 1000);
+    }
 }

@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{AccountId, UserRole, Timestamp};
+use question_model::{AccountId, Timestamp, UserRole};
 use uuid::Uuid;
 
 use crate::StoreError;

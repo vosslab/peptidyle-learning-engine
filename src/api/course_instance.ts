@@ -63,6 +63,26 @@ export interface CourseCreationInstructor {
   readonly accountId: AccountId;
 }
 
+/** Student-data retention state shown as Course status, without enrollment counts. */
+export type CourseRetentionLifecycleState = "active" | "archived" | "deleted";
+
+/** Sysadmin inspection of one installation Course. */
+export interface InstallationCourseInspection {
+  readonly id: CourseInstanceId;
+  readonly shortName: string;
+  readonly longName: string;
+  readonly term: CourseTerm;
+  readonly lifecycleState: CourseInstanceLifecycleState;
+  readonly retentionLifecycleState: CourseRetentionLifecycleState;
+  readonly instructorDisplayNames: ReadonlyArray<string>;
+}
+
+/** One bounded installation Course page. */
+export interface InstallationCoursePage {
+  readonly courses: ReadonlyArray<InstallationCourseInspection>;
+  readonly nextCursor: string | null;
+}
+
 /** Creation receipt that does not imply creator Course access. */
 export interface CreatedCourseInstance {
   readonly courseInstance: CourseInstanceSummary;
@@ -100,4 +120,13 @@ export interface CourseInstanceClient {
     courseInstanceId: CourseInstanceId,
   ) => Promise<CourseInstanceRouteSummary>;
   readonly listCourseCreationInstructors: () => Promise<ReadonlyArray<CourseCreationInstructor>>;
+  /** Empty query reads the first installation page. A nonempty query is sent in the body. */
+  readonly listInstallationCourses: (
+    query: string,
+    cursor: string | null,
+    pageSize: 50 | 100 | 250,
+  ) => Promise<InstallationCoursePage>;
+  readonly loadInstallationCourse: (
+    courseInstanceId: CourseInstanceId,
+  ) => Promise<InstallationCourseInspection>;
 }

@@ -156,6 +156,7 @@ async fn matching_blueprint(
                     topic_uuid: None,
                     subtopic_uuid: None,
                     cross_discipline: false,
+                    tag: String::new(),
                 },
             )
             .await
@@ -241,9 +242,9 @@ fn ensure_source_entry_compatible(
     license: &QuestionLicense,
 ) -> Result<()> {
     ensure!(
-        entry.question_title == source.question_title
-            && entry.question_description == source.question_description
-            && entry.backend == QuestionBackend::Webwork
+        // ASVS 2.3.1: replay identity is the immutable published source
+        // provenance; Library title and description remain instructor-editable.
+        entry.backend == QuestionBackend::Webwork
             && entry.question_format == super::webwork_question_format(source.source_format)
             && entry.question_type
                 == super::parameterized_publication::question_type(source.question_type)

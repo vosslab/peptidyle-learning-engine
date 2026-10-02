@@ -262,8 +262,7 @@ where
             .await
         {
             Ok(Some(record)) => {
-                if record.user_role != UserRole::Sysadmin || record.account != pending.account
-                {
+                if record.user_role != UserRole::Sysadmin || record.account != pending.account {
                     return Err(TotpCompletionError::Unavailable);
                 }
                 return Ok(IssuedSession {

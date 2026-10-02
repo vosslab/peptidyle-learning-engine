@@ -72,8 +72,8 @@ our @ALPHABET = ('A' .. 'Z');
     'people with the <span style="color: #d40000; font-weight:700;">disorder</span> do NOT have enough of an enzyme called beta-hexosaminidase',
   ],
   'Angelman syndrome' => [
-    'caused by duplications of the UBE3A gene located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
-    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a extra piece (duplication) of a specific gene on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
+    'caused by loss of function of the maternal copy of the UBE3A gene on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that results when the maternal copy of UBE3A on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15 is not active in the brain',
   ],
   'Prader-Willi syndrome' => [
     'a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by a loss of function of specific genes on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',

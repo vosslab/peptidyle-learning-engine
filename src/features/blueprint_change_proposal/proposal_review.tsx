@@ -2,7 +2,18 @@ import { For, Show, createSignal, type JSX } from "solid-js";
 import type { BlueprintChangeProposalDetailView } from "../../../generated/api/BlueprintChangeProposalDetailView";
 import type { BlueprintChangeProposalDecisionView } from "../../../generated/api/BlueprintChangeProposalDecisionView";
 import type { BlueprintChangeProposalAcceptedView } from "../../../generated/api/BlueprintChangeProposalAcceptedView";
+import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintChangeProposalClient } from "../../api/blueprint_change_proposal";
+import type { RecognitionTitleMaps } from "../../api/recognition_titles";
+import {
+  canonicalCourseRecognitionIds,
+  comparisonRecognitionIds,
+  labeledPoolRecognition,
+  labeledQuestionRecognition,
+  mergeRecognitionIdSets,
+  recognizedIdList,
+} from "../recognition_label";
+import { recognitionTitlesResource } from "../recognition_titles_load";
 import { BlueprintCourseConflictError } from "../../api/http_client";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { AssessmentSnapshot, Settings } from "../blueprint_forks/blueprint_fork_review";
@@ -16,7 +27,8 @@ import type { Layout } from "../blueprint_forks/blueprint_fork_apply_model";
 import "./proposal.css";
 
 export function ProposalReview(props: {
-  readonly client: BlueprintChangeProposalClient;
+  readonly client: BlueprintChangeProposalClient &
+    Pick<BlueprintCourseClient, "loadRecognitionTitles">;
   readonly detail: BlueprintChangeProposalDetailView;
   readonly formatDateTime: (timestamp: number | Date) => string;
   readonly refresh: () => Promise<void>;
@@ -33,6 +45,18 @@ export function ProposalReview(props: {
   const inventory = (): BlueprintComparisonView => proposalInventory(props.detail.comparison);
   const accepted = (): BlueprintChangeProposalAcceptedView | null =>
     committed() ?? props.detail.accepted;
+  const recognition = recognitionTitlesResource(
+    () => props.client,
+    () => {
+      const committedCourse = accepted()?.resultingJson;
+      return mergeRecognitionIdSets(
+        comparisonRecognitionIds(inventory()),
+        committedCourse === undefined
+          ? { questionIds: [], poolIds: [] }
+          : canonicalCourseRecognitionIds(committedCourse),
+      );
+    },
+  );
   const canChoose = (): boolean =>
     props.detail.canAccept &&
     !props.detail.proposal.targetIsStale &&
@@ -98,7 +122,9 @@ export function ProposalReview(props: {
         <p role="status">{message()}</p>
       </Show>
       <Show when={accepted()}>
-        {(result) => <AcceptedResult value={result()} detail={props.detail} />}
+        {(result) => (
+          <AcceptedResult value={result()} detail={props.detail} titles={recognition.titles()} />
+        )}
       </Show>
       <Show when={!accepted() && props.detail.proposal.targetIsStale}>
         <p role="alert">
@@ -115,10 +141,32 @@ export function ProposalReview(props: {
         IDs do not match content automatically. Question bodies and answers are not exposed.
       </p>
       <p>
-        Shared Questions: {props.detail.comparison.sharedQuestionIds.join(", ") || "none"}. Source
-        only: {props.detail.comparison.sourceOnlyQuestionIds.join(", ") || "none"}. Target only:{" "}
-        {props.detail.comparison.targetOnlyQuestionIds.join(", ") || "none"}.
+        Shared Questions:{" "}
+        {recognizedIdList(
+          props.detail.comparison.sharedQuestionIds,
+          recognition.titles().questions,
+          "Question",
+          "Question ID",
+        )}
+        . Source only:{" "}
+        {recognizedIdList(
+          props.detail.comparison.sourceOnlyQuestionIds,
+          recognition.titles().questions,
+          "Question",
+          "Question ID",
+        )}
+        . Target only:{" "}
+        {recognizedIdList(
+          props.detail.comparison.targetOnlyQuestionIds,
+          recognition.titles().questions,
+          "Question",
+          "Question ID",
+        )}
+        .
       </p>
+      <Show when={recognition.status()}>
+        <p role="status">{recognition.status()}</p>
+      </Show>
       <div class="proposal-columns">
         <For each={["source", "target"] as const}>
           {(side) => {
@@ -156,6 +204,7 @@ export function ProposalReview(props: {
                             <AssessmentSnapshot
                               snapshot={assessment}
                               side={inventory()[side === "source" ? "left" : "right"]}
+                              titles={recognition.titles()}
                             />
                             <p>Related {side === "source" ? "target" : "source"} Assessments:</p>
                             <For
@@ -435,6 +484,7 @@ function DecisionSummary(props: {
 function AcceptedResult(props: {
   readonly value: BlueprintChangeProposalAcceptedView;
   readonly detail: BlueprintChangeProposalDetailView;
+  readonly titles: RecognitionTitleMaps;
 }): JSX.Element {
   function unitName(side: "source" | "target", unitId: string, module: boolean): string {
     const inventory = props.detail.comparison[side];
@@ -543,14 +593,35 @@ function AcceptedResult(props: {
                   <Settings value={assessment.defaults} />
                   <ol>
                     <For each={assessment.entries}>
-                      {(entry) => (
-                        <li>
-                          {entry.kind === "fixed"
-                            ? `Question ${entry.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
-                            : `Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per item`}
-                          <Settings value={entry} />
-                        </li>
-                      )}
+                      {(entry) => {
+                        const line =
+                          entry.kind === "fixed"
+                            ? labeledQuestionRecognition(
+                                props.titles.questions.get(
+                                  entry.published_question_revision_tuple.publishedQuestionId,
+                                ),
+                                entry.published_question_revision_tuple.publishedQuestionId,
+                                entry.published_question_revision_tuple.revisionNumber,
+                              )
+                            : labeledPoolRecognition(
+                                props.titles.pools.get(entry.question_pool_id),
+                                entry.question_pool_id,
+                                entry.question_pool_edit_number,
+                              );
+                        const rest =
+                          entry.kind === "fixed"
+                            ? `${entry.points_possible} points`
+                            : `select ${entry.selection_count}; ${entry.points_per_item} points per Question`;
+                        return (
+                          <li>
+                            <p>{line.title}</p>
+                            <p>
+                              {line.identifier}; {rest}.
+                            </p>
+                            <Settings value={entry} />
+                          </li>
+                        );
+                      }}
                     </For>
                   </ol>
                 </details>

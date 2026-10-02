@@ -2,6 +2,10 @@
 
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
+import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
+import type { QuestionImageAssetId } from "../../../generated/api/QuestionImageAssetId";
+import type { QuestionImageUrlResolver } from "../../components/question_renderer";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRow,
@@ -16,10 +20,14 @@ import { RecordPageControls } from "../../components/record_list/record_page_con
 import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { RecordSequence } from "../../components/record_list/record_sequence";
 import "./question_picker.css";
+import { QuestionPickerInspection } from "./question_picker_inspection";
 import {
   QuestionPickerSession,
+  inspectQuestionPickerRow,
+  questionPickerInspectionView,
   questionPickerSelection,
   toggleQuestionPickerSelection,
+  type QuestionPickerInspectionView,
   type QuestionPickerSelection,
   type QuestionPickerSelectionMode,
   type QuestionPickerSource,
@@ -42,7 +50,29 @@ export interface QuestionPickerProps {
   /** Optional destination-specific explanation of how picker selection proceeds. */
   readonly instructions?: string;
   readonly title?: string;
+  /** Loads answer-free Question Details. Absent callers keep selection without inspection. */
+  readonly loadQuestionInspection?: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => Promise<QuestionDetails>;
+  readonly questionRevisionPreviewDocumentUrl?: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => string;
+  readonly questionImageUrl?: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+    questionImageAssetId: QuestionImageAssetId,
+  ) => string;
 }
+
+type PickerInspection =
+  | { readonly kind: "closed" }
+  | { readonly kind: "loading"; readonly key: string }
+  | {
+      readonly kind: "ready";
+      readonly key: string;
+      readonly view: QuestionPickerInspectionView;
+      readonly previewDocumentUrl: string | null;
+    }
+  | { readonly kind: "error"; readonly key: string; readonly message: string };
 
 function sourceKey(source: QuestionPickerSource): string {
   if (source.kind === "retainedAssessment") {
@@ -58,7 +88,10 @@ function sourceFromKey(
   return sources.find((source) => sourceKey(source) === key);
 }
 
-function questionResultContent(row: QuestionLibraryBrowseRow): RecordContent {
+function questionResultContent(
+  row: QuestionLibraryBrowseRow,
+  onInspect: ((row: QuestionLibraryBrowseRow) => void) | undefined,
+): RecordContent {
   return {
     title: row.questionTitle,
     description: row.summary,
@@ -74,14 +107,24 @@ function questionResultContent(row: QuestionLibraryBrowseRow): RecordContent {
         value: String(row.publishedQuestionRevisionTuple.revisionNumber),
       },
     ],
-    actions: [],
+    actions:
+      onInspect === undefined
+        ? []
+        : [
+            {
+              id: "inspect",
+              kind: "command",
+              label: "Inspect",
+              onClick: () => onInspect(row),
+            },
+          ],
   };
 }
 
 function selectedQuestionContent(
   question: QuestionPickerSelection["questions"][number],
 ): RecordContent {
-  return questionResultContent(question.row);
+  return questionResultContent(question.row, undefined);
 }
 
 function selectedCopy(
@@ -135,6 +178,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
   const [selectionMessage, setSelectionMessage] = createSignal(
     selectedCopy(selection(), props.mode),
   );
+  const [inspection, setInspection] = createSignal<PickerInspection>({ kind: "closed" });
   const session = new QuestionPickerSession(props.repository, setState);
   let dialog!: HTMLDialogElement;
 
@@ -186,6 +230,59 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     if (next === undefined) return;
     setSource(next);
     void session.reset(next, query());
+  }
+
+  function inspectionImageUrl(view: QuestionPickerInspectionView): QuestionImageUrlResolver {
+    return (asset) =>
+      new URL(
+        props.questionImageUrl?.(view.publishedQuestionRevisionTuple, asset.questionImageAssetId) ??
+          "",
+        window.location.origin,
+      );
+  }
+
+  function inspectRow(row: QuestionLibraryBrowseRow): void {
+    const load = props.loadQuestionInspection;
+    if (load === undefined) return;
+    const request = inspectQuestionPickerRow(selection(), row);
+    const key = `${request.publishedQuestionRevisionTuple.publishedQuestionId}:${request.publishedQuestionRevisionTuple.revisionNumber}`;
+    setInspection({ kind: "loading", key });
+    void load(request.publishedQuestionRevisionTuple).then(
+      (details) => {
+        const view = questionPickerInspectionView(details);
+        const previewDocumentUrl =
+          view.backend === "webwork"
+            ? (props.questionRevisionPreviewDocumentUrl?.(view.publishedQuestionRevisionTuple) ??
+              null)
+            : null;
+        setInspection((current) =>
+          current.kind !== "closed" && current.key === key
+            ? { kind: "ready", key, view, previewDocumentUrl }
+            : current,
+        );
+      },
+      () => {
+        setInspection((current) =>
+          current.kind !== "closed" && current.key === key
+            ? {
+                kind: "error",
+                key,
+                message: "This Question could not be inspected. The Assessment is unchanged.",
+              }
+            : current,
+        );
+      },
+    );
+  }
+
+  function inspectionMessage(): string | undefined {
+    const current = inspection();
+    return current.kind === "error" ? current.message : undefined;
+  }
+
+  function readyInspection(): Extract<PickerInspection, { readonly kind: "ready" }> | undefined {
+    const current = inspection();
+    return current.kind === "ready" ? current : undefined;
   }
 
   function toggleRow(row: QuestionLibraryBrowseRow, checked: boolean): void {
@@ -399,11 +496,46 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </button>
         </section>
       </Show>
+      <Show when={inspection().kind === "loading"}>
+        <p class="question-picker-status" role="status">
+          Loading Question inspection...
+        </p>
+      </Show>
+      <Show when={inspectionMessage()}>
+        {(message) => (
+          <section class="route-error" role="alert">
+            <h3>Question inspection unavailable</h3>
+            <p>{message()}</p>
+            <button
+              class="quiet-action"
+              type="button"
+              onClick={() => setInspection({ kind: "closed" })}
+            >
+              Close inspection
+            </button>
+          </section>
+        )}
+      </Show>
+      <Show when={readyInspection()}>
+        {(ready) => (
+          <QuestionPickerInspection
+            view={ready().view}
+            previewDocumentUrl={ready().previewDocumentUrl}
+            questionImageUrl={inspectionImageUrl(ready().view)}
+            onClose={() => setInspection({ kind: "closed" })}
+          />
+        )}
+      </Show>
       <section class="question-picker-results" aria-label="Question results">
         <h3>Current results</h3>
         <RecordList
           rows={resultRows()}
-          content={questionResultContent}
+          content={(row) =>
+            questionResultContent(
+              row,
+              props.loadQuestionInspection === undefined ? undefined : inspectRow,
+            )
+          }
           selection={
             props.mode === "none"
               ? undefined

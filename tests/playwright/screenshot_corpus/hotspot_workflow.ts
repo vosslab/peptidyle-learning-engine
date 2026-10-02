@@ -13,12 +13,20 @@ async function navigateQuestion(
   action: () => Promise<unknown>,
 ): Promise<StudentAssessmentAttemptPresentation> {
   const route = new URL(page.url());
+  const historyState: unknown = await page.evaluate((): unknown => window.history.state);
   const attempt =
-    /^\/assessment-attempts\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/u.exec(
-      route.pathname,
-    )?.[1];
-  if (attempt === undefined)
-    throw new Error("Student navigation requires an Assessment Attempt route.");
+    typeof historyState === "object" &&
+    historyState !== null &&
+    "assessmentAttemptId" in historyState
+      ? historyState.assessmentAttemptId
+      : undefined;
+  if (
+    !route.pathname.endsWith("/attempt") ||
+    typeof attempt !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(attempt)
+  ) {
+    throw new Error("Student navigation requires a Course-scoped Attempt route selection.");
+  }
   const delivered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
@@ -88,7 +96,7 @@ async function waitForQuestionControl(page: Page, position: number): Promise<voi
 }
 
 async function waitForCurrentQuestionControl(page: Page): Promise<void> {
-  const navigation = page.getByRole("navigation", { name: "Assessment questions", exact: true });
+  const navigation = page.getByRole("navigation", { name: "Coursework questions", exact: true });
   const current = navigation.locator('button[aria-current="step"]');
   await current.waitFor();
   const label = await current.getAttribute("aria-label");
@@ -102,7 +110,7 @@ async function returnToQuestion(
   page: Page,
   position: number,
 ): Promise<StudentAssessmentAttemptPresentation> {
-  const navigation = page.getByRole("navigation", { name: "Assessment questions", exact: true });
+  const navigation = page.getByRole("navigation", { name: "Coursework questions", exact: true });
   // Progress/navigation appears before its initial presentation. Do not activate until it renders.
   await waitForCurrentQuestionControl(page);
   const first = navigation.getByRole("button", { name: /^Question 1:/u });
@@ -161,7 +169,7 @@ export async function authorHotspot(page: Page): Promise<void> {
 }
 
 export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard"): Promise<void> {
-  const navigation = page.getByRole("navigation", { name: "Assessment questions", exact: true });
+  const navigation = page.getByRole("navigation", { name: "Coursework questions", exact: true });
   let question = await returnToQuestion(page, 1);
   let position: number | undefined;
   for (let candidate = 1; candidate <= EXPECTED_QUESTION_COUNT; candidate += 1) {

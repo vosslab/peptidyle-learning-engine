@@ -21,16 +21,18 @@
   align-items: start;
 }
 
+/* Same flat groups as Question Library browse. A card here would be a second visual system. */
 .question-pool-create-review-grid > section,
 .question-pool-create-review-grid fieldset {
   display: grid;
   gap: 0.7rem;
   min-inline-size: 0;
   margin: 0;
-  padding: calc(var(--ple-panel-padding) - 0.2rem);
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-surface);
-  background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .question-pool-create-review-grid fieldset .assessment-editor-field {

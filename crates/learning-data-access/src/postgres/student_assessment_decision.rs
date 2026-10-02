@@ -90,10 +90,10 @@ fn late_work_rule(value: &str) -> Result<LateWorkRule, StoreError> {
 fn public_reason(decision: AssessmentStartDecision) -> Option<&'static str> {
     match decision {
         AssessmentStartDecision::MayStart => None,
-        AssessmentStartDecision::NotYetAvailable => Some("This Assessment is not yet available."),
-        AssessmentStartDecision::Closed => Some("This Assessment is closed for new work."),
+        AssessmentStartDecision::NotYetAvailable => Some("This Coursework is not yet available."),
+        AssessmentStartDecision::Closed => Some("This Coursework is closed for new work."),
         AssessmentStartDecision::AttemptLimitReached => {
-            Some("The allowed number of Assessment Attempts has been reached.")
+            Some("The allowed number of Attempts has been reached.")
         }
         AssessmentStartDecision::LateWorkRefused => {
             Some("New work is not available under the late-work policy.")

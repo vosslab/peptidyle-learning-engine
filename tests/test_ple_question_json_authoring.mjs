@@ -13,6 +13,7 @@ import {
   PleQuestionJsonConflictError,
   PleQuestionJsonProtocolError,
 } from "../src/features/ple_question_json_authoring/question_json_client.ts";
+import { createPleQuestionGeneralFeedbackClient } from "../src/features/ple_question_json_authoring/question_general_feedback_client.ts";
 import {
   pleQuestionJsonPublicPreview,
   serializePleQuestionJsonPublicPreview,
@@ -22,6 +23,7 @@ import {
   PleQuestionJsonStaleConflictError,
 } from "../src/features/ple_question_json_authoring/question_json_repository.ts";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
+import { RECORDED_EXTERNAL_JAVASCRIPT_DEPENDENCIES } from "../src/features/ple_question_json_authoring/recorded_javascript_dependencies.ts";
 import { setPleQuestionJsonHotspotImage } from "../src/features/ple_question_json_authoring/question_json_hotspot_model.ts";
 import { source } from "./ple_question_json_authoring_support.mjs";
 
@@ -76,6 +78,28 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
     result = malformed;
     await assert.rejects(client.uploadQuestionImage(draftQuestion, image, "3"));
   }
+});
+
+test("HOTSPOT content uses supported still images and SVG", async () => {
+  const image = new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8"></svg>`], {
+    type: "image/svg+xml",
+  });
+  const stored = {
+    ...uploadedImage,
+    mediaType: "image/webp",
+    intrinsicWidth: 12,
+    intrinsicHeight: 8,
+  };
+  const client = createPleQuestionJsonClient({
+    fetch: async (path, init) => {
+      assert.equal(path, "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/images");
+      assert.equal(init.method, "POST");
+      assert.equal(init.body, image);
+      assert.equal(init.headers["content-type"], "image/svg+xml");
+      return jsonResponse(stored, 201);
+    },
+  });
+  assert.deepEqual(await client.uploadQuestionImage(draftQuestion, image, "3"), stored);
 });
 
 test("image failures and canceled upload never replace the caller source; 412 source saves retain it for recovery", async () => {
@@ -266,7 +290,6 @@ test("external resource inventory stays closed, validated, and preserved through
   const externalResources = [
     { url: "https://example.org/question/reference?part=1", kind: "link" },
     { url: "https://cdn.example.org/diagram.svg", kind: "image" },
-    { url: "https://cdn.example.org/interaction.js", kind: "script" },
     { url: "https://cdn.example.org/question.css", kind: "stylesheet" },
     { url: "https://example.org/supporting-data", kind: "other" },
   ];
@@ -297,6 +320,18 @@ test("external resource inventory stays closed, validated, and preserved through
       externalResources: [externalResources[0], externalResources[0]],
     }),
   );
+});
+
+test("supported author JavaScript libraries are explicitly recorded and reviewable.", () => {
+  assert.deepEqual(RECORDED_EXTERNAL_JAVASCRIPT_DEPENDENCIES, ["rdkit"]);
+  const authored = decodePleQuestionJsonSource({
+    ...source(),
+    authorScript: {
+      source: "document.getElementById('author-content-root').textContent = 'rendered';",
+      libraries: ["rdkit"],
+    },
+  });
+  assert.deepEqual(authored.authorScript.libraries, ["rdkit"]);
 });
 
 test("author script metadata stays closed and preserved without becoming an execution path", () => {
@@ -501,6 +536,55 @@ test("client sends exact protected paths, headers, body, and ETags", async () =>
   assert.equal(requests[3].input, "/ple/api/questions/by-id/7K3M-79QP");
 });
 
+test("publication sends shared Question Library metadata and refuses a missing Discipline or Subject", async () => {
+  const authored = source();
+  assert.notEqual(authored.questionTitle.trim(), "");
+  assert.notEqual(authored.questionDescription.trim(), "");
+  assert.throws(() => decodePleQuestionJsonSource({ ...authored, questionTitle: " " }));
+  assert.throws(() => decodePleQuestionJsonSource({ ...authored, questionDescription: " " }));
+  const bodies = [];
+  const client = createPleQuestionJsonClient({
+    fetch: async (_input, init) => {
+      bodies.push(init.body);
+      if (init.method === "POST") return jsonResponse({ questionId: "7K3M-79QP" }, 201);
+      return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
+    },
+  });
+  const chain = {
+    disciplineUuid: publicationClassification.disciplineUuid,
+    subjectUuid: publicationClassification.subjectUuid,
+    topicUuid: "00000000-0000-4000-8000-000000000003",
+    subtopicUuid: "00000000-0000-4000-8000-000000000004",
+  };
+  await client.publish(
+    draftQuestion,
+    { authorship: { authors: [{ displayName: "Fixture Instructor" }] }, ...chain },
+    "1",
+  );
+  assert.deepEqual(JSON.parse(bodies[0]), { authors: ["Fixture Instructor"], ...chain });
+  for (const field of ["disciplineUuid", "subjectUuid"]) {
+    let fetched = false;
+    const refusing = createPleQuestionJsonClient({
+      fetch: async () => {
+        fetched = true;
+        throw new Error("missing classification must not reach fetch");
+      },
+    });
+    await assert.rejects(
+      refusing.publish(
+        draftQuestion,
+        {
+          authorship: { authors: [{ displayName: "Fixture Instructor" }] },
+          ...chain,
+          [field]: undefined,
+        },
+        "1",
+      ),
+    );
+    assert.equal(fetched, false);
+  }
+});
+
 test("publication rejects invalid reviewed Question Authorship before it can make a request", async () => {
   const client = createPleQuestionJsonClient({
     fetch: async () => {
@@ -516,6 +600,51 @@ test("publication rejects invalid reviewed Question Authorship before it can mak
       client.publish(draftQuestion, { authorship: { authors } }, "1"),
       PleQuestionJsonProtocolError,
     );
+  }
+});
+
+test("A Draft Question must pass Question Publication Validation before becoming a Published Question", async () => {
+  const requests = [];
+  const client = createPleQuestionJsonClient({
+    fetch: async (input, init) => {
+      requests.push({ input: String(input), method: init.method, body: init.body });
+      if (init.method === "POST") return jsonResponse({ questionId: "7K3M-79QP" }, 201);
+      return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
+    },
+  });
+  const published = await client.publish(draftQuestion, publicationRequest(), "1");
+  assert.deepEqual(published, publicationSummary());
+  assert.equal(requests[0].method, "POST");
+  assert.equal(requests[0].input, `/api/authoring/drafts/${draftQuestion}/publish`);
+  assert.equal(requests[0].input.endsWith("/publish-revision"), false);
+  assert.deepEqual(JSON.parse(requests[0].body), {
+    authors: ["Fixture Instructor"],
+    ...publicationClassification,
+  });
+  assert.equal(requests[1].input, "/api/questions/by-id/7K3M-79QP");
+
+  for (const request of [
+    { authorship: { authors: [] }, ...publicationClassification },
+    {
+      authorship: { authors: [{ displayName: "Fixture Instructor" }] },
+      ...publicationClassification,
+      disciplineUuid: undefined,
+    },
+    {
+      authorship: { authors: [{ displayName: "Fixture Instructor" }] },
+      ...publicationClassification,
+      subjectUuid: undefined,
+    },
+  ]) {
+    let fetched = false;
+    const refusing = createPleQuestionJsonClient({
+      fetch: async () => {
+        fetched = true;
+        throw new Error("incomplete Question Publication Validation must not reach fetch");
+      },
+    });
+    await assert.rejects(refusing.publish(draftQuestion, request, "1"));
+    assert.equal(fetched, false);
   }
 });
 
@@ -686,4 +815,62 @@ test("repository does not regress a Draft Question Edit Number when an older sav
   });
   assert.deepEqual(observedRevisions, ["1", "1"]);
   assert.equal(publishedRevision, "3");
+});
+
+test("published questions include optional PLE-managed hint question feedback and worked solution", async () => {
+  let savedBody;
+  const client = createPleQuestionGeneralFeedbackClient({
+    fetch: async (path, init) => {
+      assert.equal(path, "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/metadata");
+      if (init.method === "GET") {
+        return jsonResponse(
+          {
+            generalFeedback: "Keep the units.",
+            hint: "Count alleles.",
+            workedSolution: "Show the cross.",
+          },
+          200,
+          '"4"',
+        );
+      }
+      assert.equal(init.method, "PUT");
+      assert.equal(init.headers["if-match"], '"4"');
+      assert.equal(init.headers["content-type"], "application/json");
+      savedBody = JSON.parse(init.body);
+      return noContent('"5"');
+    },
+  });
+  assert.deepEqual(await client.load(draftQuestion), {
+    generalFeedback: "Keep the units.",
+    hint: "Count alleles.",
+    workedSolution: "Show the cross.",
+    draftQuestionEditNumber: "4",
+  });
+  assert.deepEqual(
+    await client.save(
+      draftQuestion,
+      { generalFeedback: "Keep the units.", hint: null, workedSolution: "Show the cross." },
+      "4",
+    ),
+    { draftQuestionEditNumber: "5" },
+  );
+  assert.deepEqual(savedBody, {
+    generalFeedback: "Keep the units.",
+    hint: null,
+    workedSolution: "Show the cross.",
+  });
+  const feedbackOnly = createPleQuestionGeneralFeedbackClient({
+    fetch: async () => jsonResponse({ generalFeedback: "Keep the units." }),
+  });
+  await assert.rejects(() => feedbackOnly.load(draftQuestion));
+  const extraField = createPleQuestionGeneralFeedbackClient({
+    fetch: async () =>
+      jsonResponse({
+        generalFeedback: null,
+        hint: null,
+        workedSolution: null,
+        source: "backend",
+      }),
+  });
+  await assert.rejects(() => extraField.load(draftQuestion));
 });

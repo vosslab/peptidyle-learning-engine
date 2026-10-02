@@ -721,9 +721,7 @@ async fn instructor_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     let cookie_header = joined_cookie_header(headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

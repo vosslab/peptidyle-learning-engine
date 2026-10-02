@@ -52,14 +52,20 @@ export function BlueprintStewardship(props: Props): JSX.Element {
   const [state, { refetch }] = createResource(
     () => props.blueprintCourseId,
     async (blueprintCourseId) => {
-      const [star, instructors, watch, events] = await Promise.all([
+      const [star, watch] = await Promise.all([
         props.client.getBlueprintStar(blueprintCourseId),
-        props.client.getBlueprintStarredInstructors(blueprintCourseId),
         props.client.getBlueprintWatch(blueprintCourseId),
-        props.client.getBlueprintWatchEvents(blueprintCourseId),
       ]);
-      return { star, instructors, watch, events };
+      return { star, watch };
     },
+  );
+  const [instructors, { refetch: refetchInstructors }] = createResource(
+    () => props.blueprintCourseId,
+    (blueprintCourseId) => props.client.getBlueprintStarredInstructors(blueprintCourseId),
+  );
+  const [events, { refetch: refetchEvents }] = createResource(
+    () => props.blueprintCourseId,
+    (blueprintCourseId) => props.client.getBlueprintWatchEvents(blueprintCourseId),
   );
 
   async function toggle(kind: "star" | "watch"): Promise<void> {
@@ -75,7 +81,7 @@ export function BlueprintStewardship(props: Props): JSX.Element {
           !current.star.viewerHasStarred,
         );
       else await props.client.setBlueprintWatch(props.blueprintCourseId, !current.watch.watching);
-      // Refetch exact names and self-only activity after a successful explicit action.
+      // Refresh the preference that owns the control before confirming the action.
       await refetch();
       setNotice(
         kind === "star"
@@ -93,11 +99,8 @@ export function BlueprintStewardship(props: Props): JSX.Element {
   async function reload(): Promise<void> {
     setFailed(false);
     setNotice("");
-    try {
-      await refetch();
-    } catch {
-      setFailed(true);
-    }
+    const results = await Promise.allSettled([refetch(), refetchInstructors(), refetchEvents()]);
+    if (results[0]?.status === "rejected") setFailed(true);
   }
 
   return (
@@ -116,7 +119,7 @@ export function BlueprintStewardship(props: Props): JSX.Element {
       <Show when={state.loading}>
         <p role="status">Loading Blueprint stewardship...</p>
       </Show>
-      <Show when={state.error === undefined && !failed() && state()}>
+      <Show when={state.error === undefined && state()}>
         {(current) => (
           <>
             <div class="blueprint-stewardship__actions">
@@ -154,8 +157,18 @@ export function BlueprintStewardship(props: Props): JSX.Element {
                   details: [],
                   actions: [],
                 })}
-                rows={current().instructors}
-                state={{ kind: "ready" }}
+                rows={instructors() ?? []}
+                state={
+                  instructors.error !== undefined
+                    ? {
+                        kind: "error",
+                        message: "Starred Instructor names could not be loaded.",
+                        retry: () => void refetchInstructors(),
+                      }
+                    : instructors.loading
+                      ? { kind: "loading" }
+                      : { kind: "ready" }
+                }
               />
             </details>
             <details>
@@ -166,8 +179,18 @@ export function BlueprintStewardship(props: Props): JSX.Element {
                 emptyState={{ title: "No Watch activity yet." }}
                 recordId={(event) => `${event.kind}-${event.occurredAt}`}
                 content={(event) => watchEventContent(props.formatDateTime, event)}
-                rows={current().events}
-                state={{ kind: "ready" }}
+                rows={events() ?? []}
+                state={
+                  events.error !== undefined
+                    ? {
+                        kind: "error",
+                        message: "Watch activity could not be loaded.",
+                        retry: () => void refetchEvents(),
+                      }
+                    : events.loading
+                      ? { kind: "loading" }
+                      : { kind: "ready" }
+                }
               />
             </details>
           </>

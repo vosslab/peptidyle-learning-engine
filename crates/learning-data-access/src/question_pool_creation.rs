@@ -25,6 +25,8 @@ pub struct CreateQuestionPoolInput {
     pub members: Vec<PublishedQuestionRevisionTuple>,
     /// The Instructor affirms that these Questions are interchangeable.
     pub interchangeability_attested: bool,
+    /// Library Object tags for this Pool. Empty is a valid list.
+    pub tags: Vec<String>,
 }
 
 impl CreateQuestionPoolInput {
@@ -54,6 +56,18 @@ impl CreateQuestionPoolInput {
             return Err(StoreError::InvalidRecord(
                 "Question Pool creation requires bounded nonempty members and interchangeability attestation"
                     .to_owned(),
+            ));
+        }
+        let mut distinct_tags = BTreeSet::new();
+        if self.tags.iter().any(|tag| {
+            let count = tag.chars().count();
+            !(1..=120).contains(&count)
+                || tag.as_str() != tag.trim_matches(' ')
+                || tag.chars().any(char::is_control)
+                || !distinct_tags.insert(tag.as_str())
+        }) {
+            return Err(StoreError::InvalidRecord(
+                "Question Pool tags must be distinct canonical Library Object labels".to_owned(),
             ));
         }
         let mut distinct = BTreeSet::new();

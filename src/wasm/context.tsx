@@ -60,6 +60,16 @@ export function WasmRuntimeProvider(props: WasmRuntimeProviderProps): JSX.Elemen
   );
 }
 
+/** Supplies an already installed facade. The browser entry uses WasmRuntimeProvider instead. */
+export function InstalledWasmFacadeProvider(props: {
+  readonly facade: WasmFacade;
+  readonly children: JSX.Element;
+}): JSX.Element {
+  return (
+    <WasmFacadeContext.Provider value={props.facade}>{props.children}</WasmFacadeContext.Provider>
+  );
+}
+
 /** Reads the app-owned key-free domain-tools facade. */
 export function useWasmFacade(): WasmFacade {
   const facade = useContext(WasmFacadeContext);

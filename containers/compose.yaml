@@ -370,6 +370,8 @@ services:
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
       PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set PLE_BROWSER_ORIGIN in the env file}
+      # The Live Demo writer sets 1. Empty keeps the exact configured origin.
+      PLE_ACCEPT_REQUEST_BROWSER_HOST: ${PLE_ACCEPT_REQUEST_BROWSER_HOST:-}
       # The controller selects the disposable plaintext topology. The server
       # uses this only for its local transport attestation path; its service
       # login and database authority remain unchanged.

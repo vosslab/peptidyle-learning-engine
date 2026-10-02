@@ -14,21 +14,22 @@ use learning_data_access::{
         PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
-        PostgresContentClassificationStore, PostgresCourseBannerStore,
-        PostgresCourseBlueprintPublicationStore, PostgresCourseGradebookStore,
-        PostgresCourseInstanceStore, PostgresCourseRetentionNotificationStore,
-        PostgresCourseRetentionStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
-        PostgresDraftQuestionImageStore, PostgresDraftQuestionSourceBindingStore,
-        PostgresInstructorAccountStore, PostgresInstructorStudentViewStore,
-        PostgresInvitationExportStore, PostgresLibraryDiscussionStore,
-        PostgresLibraryWatchNotificationStore, PostgresLiveAssessmentDeliveryStore,
-        PostgresLiveAssessmentStore, PostgresLiveStudentCourseLandingStore,
-        PostgresPublicAssetPublicationStore, PostgresQuestionForkStore,
-        PostgresQuestionImageDeliveryStore, PostgresQuestionLibraryStore,
-        PostgresQuestionPoolCreationStore, PostgresQuestionPoolLibraryStore,
-        PostgresQuestionPoolStewardshipStore, PostgresQuestionStarStore,
-        PostgresQuestionWatchStore, PostgresSessionStore, PostgresSupportCapabilityStore,
-        ProductionLoginProfile, local_development_pool, production_pool,
+        PostgresBulkQuestionPoolSearchMetadataStore, PostgresContentClassificationStore,
+        PostgresCourseBannerStore, PostgresCourseBlueprintPublicationStore,
+        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
+        PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
+        PostgresCourseRosterStore, PostgresCourseThemeStore, PostgresDraftQuestionImageStore,
+        PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
+        PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
+        PostgresLibraryDiscussionStore, PostgresLibraryWatchNotificationStore,
+        PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
+        PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
+        PostgresQuestionForkStore, PostgresQuestionImageDeliveryStore,
+        PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
+        PostgresQuestionPoolLibraryStore, PostgresQuestionPoolStewardshipStore,
+        PostgresQuestionPoolSupportStore, PostgresQuestionStarStore, PostgresQuestionWatchStore,
+        PostgresSessionStore, PostgresSupportCapabilityStore, ProductionLoginProfile,
+        local_development_pool, production_pool,
     },
 };
 use objects::s3::S3ObjectStore;
@@ -70,6 +71,9 @@ pub async fn production_router_from_env() -> Result<Router> {
     let sysadmin_totp = local_sysadmin_totp_store_from_env(pool.clone())?;
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
     let question_bulk_metadata = PostgresBulkPublishedQuestionMetadataStore::new(pool.clone());
+    let question_pool_search_metadata =
+        PostgresBulkQuestionPoolSearchMetadataStore::new(pool.clone());
+    let question_pool_support = PostgresQuestionPoolSupportStore::new(pool.clone());
     let content_classification = PostgresContentClassificationStore::new(pool.clone());
     let question_pool_creation = PostgresQuestionPoolCreationStore::new(pool.clone());
     let question_pool_library = PostgresQuestionPoolLibraryStore::new(pool.clone());
@@ -176,10 +180,20 @@ pub async fn production_router_from_env() -> Result<Router> {
         )
         .merge(
             crate::question_bulk_metadata::question_bulk_metadata_router(
-                Arc::clone(&sessions),
-                question_bulk_metadata,
+                Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
+                Arc::new(question_bulk_metadata),
             ),
         )
+        .merge(
+            crate::question_pool_bulk_metadata::question_pool_search_metadata_router(
+                Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
+                Arc::new(question_pool_search_metadata),
+            ),
+        )
+        .merge(crate::question_pool_support::question_pool_support_router(
+            Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
+            Arc::new(question_pool_support),
+        ))
         .merge(
             crate::question_pool_creation::question_pool_creation_router(
                 Arc::clone(&sessions),
@@ -250,6 +264,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::course_roster::course_roster_router(
             Arc::clone(&sessions),
             course_roster,
+            invitation_signup_url_from_env()?,
         ))
         .merge(crate::instructor_account::instructor_account_router(
             Arc::clone(&sessions),
@@ -481,9 +496,44 @@ pub async fn run_course_retention_process_from_env() -> Result<()> {
     crate::course_retention_worker::run_until_shutdown(
         PostgresCourseRetentionStore::new(executor),
         PostgresCourseRetentionNotificationStore::new(notifier),
-        crate::course_retention_notification_delivery::NotConfiguredCourseRetentionNotificationDelivery,
+        course_retention_notification_delivery_from_env()?,
     )
     .await
+}
+
+fn course_retention_notification_delivery_from_env()
+-> Result<crate::course_retention_notification_delivery::CourseRetentionNotificationDeliveryAdapter>
+{
+    let url = optional_env("PLE_COURSE_RETENTION_NOTIFICATION_SMTP_URL");
+    let from = optional_env("PLE_COURSE_RETENTION_NOTIFICATION_FROM");
+    match (url, from) {
+        (None, None) => {
+            tracing::info!(
+                event = "course_retention_notification_delivery",
+                adapter = "not_configured",
+            );
+            Ok(crate::course_retention_notification_delivery::CourseRetentionNotificationDeliveryAdapter::not_configured())
+        }
+        (Some(url), Some(from)) => {
+            tracing::info!(
+                event = "course_retention_notification_delivery",
+                adapter = "smtp",
+            );
+            crate::course_retention_notification_delivery::CourseRetentionNotificationDeliveryAdapter::smtp(
+                &url,
+                &from,
+            )
+            .map_err(anyhow::Error::msg)
+            .context("could not configure Course-retention notification delivery")
+        }
+        _ => bail!(
+            "Course-retention notification delivery requires both PLE_COURSE_RETENTION_NOTIFICATION_SMTP_URL and PLE_COURSE_RETENTION_NOTIFICATION_FROM"
+        ),
+    }
+}
+
+fn optional_env(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|value| !value.is_empty())
 }
 
 /// Runs the attested Assessment Attempt expiry worker.
@@ -508,10 +558,7 @@ pub async fn run_attempt_expiry_worker_from_env() -> Result<()> {
     let objects = question_library_object_store_from_env().await?;
     let webwork = webwork_adapter_from_env()?;
     crate::worker::run_until_shutdown(
-        crate::worker::WorkerStores {
-            expiry: PostgresAssessmentAttemptExpirySweepStore::new(pool.clone()),
-            watches: PostgresLibraryWatchNotificationStore::new(pool),
-        },
+        PostgresAssessmentAttemptExpirySweepStore::new(pool),
         objects,
         webwork,
     )
@@ -573,8 +620,19 @@ pub fn browser_authority_from_env() -> Result<String> {
 }
 
 fn production_browser_boundary_from_env() -> Result<ProductionBrowserBoundary> {
-    ProductionBrowserBoundary::new(Arc::from(required_env("PLE_BROWSER_ORIGIN")?))
-        .map_err(anyhow::Error::msg)
+    let boundary = ProductionBrowserBoundary::new(Arc::from(required_env("PLE_BROWSER_ORIGIN")?))
+        .map_err(anyhow::Error::msg)?;
+    // Absent or empty keeps the exact production origin. Compose interpolation
+    // supplies an empty value when the Live Demo writer does not set the flag.
+    // ASVS 13.1.1: only the explicit local-demo value 1 changes the boundary.
+    match std::env::var("PLE_ACCEPT_REQUEST_BROWSER_HOST") {
+        Err(std::env::VarError::NotPresent) => Ok(boundary),
+        Ok(value) if value.is_empty() => Ok(boundary),
+        Ok(value) if value == "1" => Ok(boundary.accepting_request_host()),
+        Ok(_) | Err(_) => {
+            bail!("PLE_ACCEPT_REQUEST_BROWSER_HOST must be 1 when set")
+        }
+    }
 }
 
 /// Returns the one deployment-owned, recipient-independent HTTPS signup URL.
@@ -617,7 +675,7 @@ mod tests {
     use learning_data_access::{
         SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
     };
-    use question_model::{AccountId, UserRole, Timestamp};
+    use question_model::{AccountId, Timestamp, UserRole};
     use std::{collections::BTreeMap, sync::Mutex};
     use tower::ServiceExt;
 

@@ -6,18 +6,19 @@ import { createResource, For, Show, type JSX } from "solid-js";
 import type { StudentCourseResponseStats } from "../api/student_course_response_stats";
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
+import {
+  assessmentAttemptPath,
+  assessmentAttemptRouteState,
+} from "../navigation/assessment_attempt_route";
+import { assessmentAttemptRouteId } from "../navigation/public_route";
 import { PageFrame } from "../components/page_frame";
 import { RecordDetailList } from "../components/record_list/record_detail_list";
 import type { RecordCollectionState } from "../components/record_list/record_collection_state";
+import { recognitionTitle } from "../features/recognition_label";
 import "./student_course_response_stats_page.css";
 
-function reviewPath(stats: StudentCourseResponseStats["questions"][number]): string {
-  const path = buildRoutePath("assessmentAttemptSummary", {
-    assessmentAttemptId: stats.relevantAssessmentAttemptId,
-  });
-  if (path === undefined) throw new Error("Response Stats requires a canonical Attempt ID.");
-  return path;
+function reviewPath(courseInstanceId: LiveStudentCourseLandingSummary["id"]): string {
+  return assessmentAttemptPath("review", courseInstanceId);
 }
 
 function durationLabel(stats: StudentCourseResponseStats["questions"][number]): string {
@@ -31,13 +32,17 @@ function durationLabel(stats: StudentCourseResponseStats["questions"][number]): 
 
 function ResponseStatsRecord(props: {
   readonly question: StudentCourseResponseStats["questions"][number];
+  readonly courseInstanceId: LiveStudentCourseLandingSummary["id"];
 }): JSX.Element {
   const question = (): StudentCourseResponseStats["questions"][number] => props.question;
   return (
     <div class="student-course-response-stats__row">
       <div class="student-course-response-stats__identity">
-        <h3>Question {question().publishedQuestionRevisionTuple.publishedQuestionId}</h3>
-        <p>Version {question().publishedQuestionRevisionTuple.revisionNumber}</p>
+        <h3>{recognitionTitle(question().questionTitle, "Question")}</h3>
+        <p>
+          Question ID {question().publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
+          {question().publishedQuestionRevisionTuple.revisionNumber}
+        </p>
       </div>
       <dl class="student-course-response-stats__counts">
         <div>
@@ -63,11 +68,17 @@ function ResponseStatsRecord(props: {
           </dd>
         </div>
         <div>
-          <dt>Approx. average time shown with a Question</dt>
+          <dt>Approximate time shown with the Question</dt>
           <dd>{durationLabel(question())}</dd>
         </div>
       </dl>
-      <A class="quiet-link student-course-response-stats__action" href={reviewPath(question())}>
+      <A
+        class="quiet-link student-course-response-stats__action"
+        href={reviewPath(props.courseInstanceId)}
+        state={assessmentAttemptRouteState(
+          assessmentAttemptRouteId(question().relevantAssessmentAttemptId),
+        )}
+      >
         Review an Attempt
       </A>
     </div>
@@ -108,7 +119,9 @@ function CourseResponseStats(props: {
         recordId={(question) =>
           `${question.publishedQuestionRevisionTuple.publishedQuestionId}:${question.publishedQuestionRevisionTuple.revisionNumber}`
         }
-        renderRecord={(question) => <ResponseStatsRecord question={question} />}
+        renderRecord={(question) => (
+          <ResponseStatsRecord question={question} courseInstanceId={props.course.id} />
+        )}
         rows={stats()?.questions ?? []}
         state={responseStatsListState(stats.loading, stats.error !== undefined)}
       />

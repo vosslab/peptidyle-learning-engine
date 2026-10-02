@@ -15,7 +15,8 @@ use crate::{
     LiveStudentCourseActiveAttempt, LiveStudentCourseAttemptHistoryEntry,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseLandingSummary, LiveStudentCourseProgressAssessment,
-    LiveStudentCourseResponseQuestionStats, Page, PageRequest, SessionTokenHash, StoreError,
+    LiveStudentCourseResponseQuestionStats, LiveStudentLatestFeedback, Page, PageRequest,
+    SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the active Student Course landing.
@@ -194,17 +195,25 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     async fn get_live_student_latest_feedback_attempt(
         &self,
         session_token_hash: SessionTokenHash,
-    ) -> Result<Option<AssessmentAttemptId>, StoreError> {
+    ) -> Result<Option<LiveStudentLatestFeedback>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
-        let attempt_id = sqlx::query_scalar::<_, uuid::Uuid>(
-            "SELECT assessment_attempt_id \
+        let target = sqlx::query_as::<_, (String, uuid::Uuid)>(
+            "SELECT course_instance_id, assessment_attempt_id \
              FROM ple_api.read_student_latest_feedback_attempt()",
         )
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(attempt_id.map(AssessmentAttemptId::from_uuid))
+        target
+            .map(|(course_instance_id, assessment_attempt_id)| {
+                Ok(LiveStudentLatestFeedback {
+                    assessment_attempt_id: AssessmentAttemptId::from_uuid(assessment_attempt_id),
+                    course_instance_id: CourseInstanceId::new(course_instance_id)
+                        .map_err(|_| invalid("Course Instance ID"))?,
+                })
+            })
+            .transpose()
     }
 
     async fn list_live_student_course_attempt_history(
@@ -252,10 +261,11 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentCourseResponseQuestionStats>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT published_question_id, revision_number, full_credit_attempt_count, \
-             partial_credit_attempt_count, incorrect_attempt_count, unanswered_attempt_count, \
-             disclosed_attempt_count, not_full_credit_count, average_display_duration_ms, \
-             display_duration_sample_count, relevant_assessment_attempt_id \
+            "SELECT published_question_id, revision_number, question_title, \
+             full_credit_attempt_count, partial_credit_attempt_count, incorrect_attempt_count, \
+             unanswered_attempt_count, disclosed_attempt_count, not_full_credit_count, \
+             average_display_duration_ms, display_duration_sample_count, \
+             relevant_assessment_attempt_id \
              FROM ple_api.list_live_student_course_response_stats($1)",
         )
         .bind(course_instance_id.as_string())
@@ -271,6 +281,21 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     }
 }
 
+fn response_stats_question_title(value: Option<String>) -> String {
+    let Some(title) = value else {
+        return String::new();
+    };
+    let trimmed = title.trim();
+    if trimmed.is_empty()
+        || trimmed.len() != title.len()
+        || title.chars().count() > 512
+        || title.chars().any(char::is_control)
+    {
+        return String::new();
+    }
+    title
+}
+
 fn decode_response_question_stats(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentCourseResponseQuestionStats, StoreError> {
@@ -280,6 +305,8 @@ fn decode_response_question_stats(
     let published_question_id = published_question_id
         .parse::<PublishedQuestionId>()
         .map_err(|_| invalid("Published Question ID"))?;
+    let question_title =
+        response_stats_question_title(row.try_get("question_title").map_err(map_sqlx_error)?);
     let revision_number = row
         .try_get::<i32, _>("revision_number")
         .map_err(map_sqlx_error)?;
@@ -321,6 +348,7 @@ fn decode_response_question_stats(
             published_question_id,
             revision_number,
         },
+        question_title,
         full_credit_attempt_count,
         partial_credit_attempt_count,
         incorrect_attempt_count,

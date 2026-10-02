@@ -24,6 +24,7 @@ fn discovery_request(
         topic_uuid: None,
         subtopic_uuid: None,
         cross_discipline: false,
+        tag: String::new(),
     }
 }
 

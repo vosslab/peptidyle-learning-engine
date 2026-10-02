@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Warm screenshot driver: rebuild only what changed, then capture the full corpus."""
 
-from __future__ import annotations
-
 import argparse
 import datetime
 import hashlib

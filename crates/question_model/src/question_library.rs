@@ -789,4 +789,33 @@ mod tests {
             "a lone Revision Number is not a Question Revision Tuple"
         );
     }
+
+    #[test]
+    fn question_and_pool_ids_generate_and_transmit_only_the_canonical_hyphenated_form() {
+        let question = PublishedQuestionId::from_random_identifier("ABCDEFG").expect("Question ID");
+        let pool = QuestionPoolId::from_random_identifier("ABCDEFG").expect("Pool ID");
+        assert_eq!(question.as_str(), "ABCD-XEFG");
+        assert_eq!(pool.as_str(), "ABCD-XEFG");
+        assert_eq!(question.to_string(), "ABCD-XEFG");
+        assert_eq!(
+            serde_json::to_string(&question).expect("Question ID serializes"),
+            "\"ABCD-XEFG\""
+        );
+        assert_eq!(
+            serde_json::to_string(&pool).expect("Pool ID serializes"),
+            "\"ABCD-XEFG\""
+        );
+        assert_eq!(
+            serde_json::from_str::<PublishedQuestionId>("\"ABCD-XEFG\"").expect("Question ID"),
+            question
+        );
+        assert_eq!(
+            serde_json::from_str::<QuestionPoolId>("\"ABCD-XEFG\"").expect("Pool ID"),
+            pool
+        );
+        assert!(PublishedQuestionId::from_str("ABCDXEFG").is_err());
+        assert!(QuestionPoolId::from_str("ABCDXEFG").is_err());
+        assert!(PublishedQuestionId::from_str("abcd-xefg").is_err());
+        assert!(QuestionPoolId::from_str("ABCD-XEFF").is_err());
+    }
 }

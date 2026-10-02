@@ -7,6 +7,7 @@ import {
   type RouteParamName,
   type RouteParams,
 } from "../navigation/route_params";
+import { assessmentAttemptRouteState } from "../navigation/assessment_attempt_route";
 import {
   parseAssessmentAttemptId,
   parseAssessmentId,
@@ -60,8 +61,10 @@ export interface RibbonRouteState {
   readonly params: Exclude<RouteParams, undefined>;
   /** Server-selected unsubmitted Attempt with a running clock across enrolled Courses, if any. */
   readonly activeAttemptId?: string;
+  readonly activeAttemptCourseInstanceId?: string;
   /** Server-selected latest Attempt review that currently exposes feedback. */
   readonly latestFeedbackAttemptId?: string;
+  readonly latestFeedbackCourseInstanceId?: string;
   /** Current enrolled Student Courses, in their stable Ribbon order. */
   readonly studentCourses?: ReadonlyArray<{
     readonly id: string;
@@ -92,9 +95,7 @@ export interface RibbonContextLabels {
 }
 
 /** Validated link state from the current route, kept separate from display labels. */
-export interface RibbonContextNavigation {
-  readonly blueprintSearchReturnToken?: string;
-}
+export type RibbonContextNavigation = Readonly<Record<string, never>>;
 
 /** The declared public route parameters are strings only; no resource is admitted here. */
 export type DeclaredRibbonRouteParams = Readonly<Partial<Record<RouteParamName, string>>>;
@@ -144,6 +145,7 @@ export interface RibbonControlModel<
   readonly availability: RibbonAvailability;
   readonly selected: boolean;
   readonly href?: string;
+  readonly state?: Readonly<{ assessmentAttemptId: string }>;
   readonly role: RibbonCatalogControl<Id>["role"];
   readonly priority: RibbonCatalogControl<Id>["priority"];
   readonly presentation: RibbonCatalogControl<Id>["presentation"];
@@ -298,6 +300,9 @@ function isRoundTripFor(route: RouteContract, pathname: string): boolean {
   if (matchedRoute?.id !== route.id) return false;
   const extracted = routeParams(route, pathname);
   if (extracted === undefined) return false;
+  if (route.ribbon.scope === "assessmentAttempt") {
+    return extracted.courseInstanceId !== undefined;
+  }
   return routeScopeKey(pathname).kind !== "invalid";
 }
 
@@ -359,12 +364,18 @@ function hrefFor(
     const attemptId = routeState.activeAttemptId;
     if (attemptId === undefined) return undefined;
     if (parseAssessmentAttemptId(attemptId) === null) return undefined;
-    return buildRoutePath(control.destination.routeId, { assessmentAttemptId: attemptId });
+    const courseInstanceId = routeState.activeAttemptCourseInstanceId;
+    return courseInstanceId === undefined
+      ? undefined
+      : buildRoutePath(control.destination.routeId, { courseInstanceId });
   }
   if (control.id === "studentLatestFeedback") {
     const attemptId = routeState.latestFeedbackAttemptId;
     if (attemptId === undefined || parseAssessmentAttemptId(attemptId) === null) return undefined;
-    return buildRoutePath(control.destination.routeId, { assessmentAttemptId: attemptId });
+    const courseInstanceId = routeState.latestFeedbackCourseInstanceId;
+    return courseInstanceId === undefined
+      ? undefined
+      : buildRoutePath(control.destination.routeId, { courseInstanceId });
   }
   if (control.id === "coursework" || control.id === "grades") {
     return buildRoutePath(control.destination.routeId, {});
@@ -429,6 +440,13 @@ function modelForControl<Id extends RibbonDestinationId>(
   const admitted = hasContextualTarget ? admission : "Unavailable";
   const href = hrefFor(control, routeState, admitted, userRole);
   const availability = href === undefined && admitted === "Available" ? "Unavailable" : admitted;
+  const attemptId =
+    control.id === "activeAttempt"
+      ? routeState.activeAttemptId
+      : control.id === "studentLatestFeedback"
+        ? routeState.latestFeedbackAttemptId
+        : undefined;
+  const parsedAttemptId = attemptId === undefined ? null : parseAssessmentAttemptId(attemptId);
   return Object.freeze({
     id: control.id,
     label: control.label,
@@ -440,6 +458,7 @@ function modelForControl<Id extends RibbonDestinationId>(
     availability,
     selected: selectedFor(control, routeState),
     ...(href === undefined ? {} : { href }),
+    ...(parsedAttemptId === null ? {} : { state: assessmentAttemptRouteState(parsedAttemptId) }),
     role: control.role,
     priority: control.priority,
     presentation: control.presentation,
@@ -545,7 +564,6 @@ function breadcrumbsFor(
   routeState: RibbonRouteState,
   userRole: UserRole,
   labels: RibbonContextLabels,
-  navigation: RibbonContextNavigation,
 ): ReadonlyArray<RibbonBreadcrumbModel> {
   if (routeState.route.id === "signIn") return Object.freeze([]);
   const homeHref = userRoleHomePath(userRole);
@@ -592,12 +610,7 @@ function breadcrumbsFor(
   const blueprintCourseLabel = labels.blueprintCourseTitle ?? "Blueprint Course";
 
   function publicBlueprintSearchBreadcrumbHref(): string {
-    const token = navigation.blueprintSearchReturnToken;
-    const validToken =
-      typeof token === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(token);
-    if (!validToken) return breadcrumbLink("publicBlueprintSearch") ?? homeHref;
-    return `/blueprint-courses/search/public?${new URLSearchParams({ blueprintReturn: token }).toString()}`;
+    return breadcrumbLink("publicBlueprintSearch") ?? homeHref;
   }
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
@@ -646,6 +659,18 @@ function breadcrumbsFor(
       return Object.freeze([home, breadcrumbCurrent("Instructor Accounts")]);
     case "contentDisciplines":
       return Object.freeze([home, breadcrumbCurrent("Disciplines")]);
+    case "sysadminCourseInspection":
+      return Object.freeze([home, breadcrumbCurrent("Courses")]);
+    case "sysadminCourseInspectionDetail": {
+      const coursesHref = breadcrumbLink("sysadminCourseInspection");
+      return coursesHref === undefined
+        ? Object.freeze([home, breadcrumbCurrent("Course")])
+        : Object.freeze([
+            home,
+            breadcrumbLinkItem("Courses", coursesHref),
+            breadcrumbCurrent("Course"),
+          ]);
+    }
     case "library":
       return Object.freeze([home, breadcrumbCurrent("Question Library")]);
     case "libraryBrowse":
@@ -659,6 +684,10 @@ function breadcrumbsFor(
             : "Watch notifications",
         ),
       ]);
+    case "myQuestions":
+      return Object.freeze([home, breadcrumbCurrent("My Questions")]);
+    case "starredQuestions":
+      return Object.freeze([home, breadcrumbCurrent("Starred")]);
     case "questionDrafts":
       return Object.freeze([home, breadcrumbCurrent("My Draft Questions")]);
     case "blueprintCourses":
@@ -772,7 +801,7 @@ function breadcrumbsFor(
         home,
         breadcrumbLinkItem("Courses", studentCourses ?? homeHref),
         courseBreadcrumbItem(studentCourse),
-        breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
+        breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Coursework", studentAssessment),
         breadcrumbCurrent("Attempt"),
       ]);
     case "assessmentAttemptSummary":
@@ -781,7 +810,7 @@ function breadcrumbsFor(
             home,
             breadcrumbLinkItem("Courses", studentCourses ?? homeHref),
             courseBreadcrumbItem(studentCourse),
-            breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
+            breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Coursework", studentAssessment),
             breadcrumbCurrent("Attempt history"),
           ])
         : Object.freeze([home, breadcrumbCurrent("Attempt history")]);
@@ -800,7 +829,7 @@ export function deriveRibbonModel<
   routeState: ExactRouteState<RouteState>,
   viewerIdentity: Exact<RibbonViewerIdentity, ViewerIdentity>,
   contextLabels: Exact<RibbonContextLabels, ContextLabels>,
-  navigation: RibbonContextNavigation = {},
+  _navigation: RibbonContextNavigation = {},
 ): RibbonModel {
   const schema = ribbonSchemaFor(viewerIdentity.userRole);
   const tabs = schema.map((slot) => {
@@ -810,12 +839,7 @@ export function deriveRibbonModel<
   });
   const taskAreas = taskAreasFor(routeState, viewerIdentity.userRole);
   const context = contextFor(viewerIdentity.userRole);
-  const breadcrumbs = breadcrumbsFor(
-    routeState,
-    viewerIdentity.userRole,
-    contextLabels,
-    navigation,
-  );
+  const breadcrumbs = breadcrumbsFor(routeState, viewerIdentity.userRole, contextLabels);
   return Object.freeze({
     scope: routeState.route.ribbon.scope,
     context,

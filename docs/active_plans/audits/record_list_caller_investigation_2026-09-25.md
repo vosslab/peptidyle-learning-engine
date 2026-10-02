@@ -187,8 +187,8 @@ Its scope and per-file navigation handoffs remain intact.
 - [question_library.rs](../../../crates/server/src/question_library.rs):408 authorizes an exact revision
   before creating its WeBWorK preview document. `preview_question_seed` at line 593 chooses a fresh
   random seed. Repeated previews are not currently a stable representative image.
-- Existing [native detail](../../screenshots/instructor/published_question_detail.png) and
-  [WeBWorK HLA detail](../../screenshots/instructor/webwork_hla_genotype.png) captures show that the
+- Existing `published_question_detail.png` and
+  `webwork_hla_genotype.png` captures show that the
   browser renders both paths. Shrinking a long text-heavy Question would provide a recognition cue,
   not a legible substitute for inspection. Keep title, description, exact reference and Open/Inspect.
 

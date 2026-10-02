@@ -323,8 +323,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "WebAssembly initialization failed";
 }
 
+declare const __PLE_WASM_ASSET_VERSION__: string | undefined;
+
 function wasmAssetUrl(fileName: "ple_bridge.js" | "ple_bridge_bg.wasm"): URL {
-  return new URL(`wasm/${fileName}`, `${window.location.origin}/`);
+  const version =
+    typeof __PLE_WASM_ASSET_VERSION__ === "string" ? `${__PLE_WASM_ASSET_VERSION__}/` : "";
+  return new URL(`wasm/${version}${fileName}`, `${window.location.origin}/`);
 }
 
 async function initializeWasmFacade(

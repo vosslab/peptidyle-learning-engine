@@ -38,6 +38,8 @@ import { createQuestionPoolStewardshipClient } from "./http_client/question_pool
 import { createAssessmentStudentViewClient } from "./http_client/assessment_student_view";
 import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 import { createQuestionBulkMetadataClient } from "./http_client/question_bulk_metadata";
+import { createQuestionPoolSearchMetadataClient } from "./http_client/question_pool_search_metadata";
+import { createQuestionPoolSupportClient } from "./http_client/question_pool_support";
 import {
   createContentClassificationClient,
   createContentDisciplineAdministrationClient,
@@ -96,6 +98,8 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createAssessmentStudentViewClient(fetchImplementation, basePath),
     createAssessmentTemplateClient(fetchImplementation, basePath),
     createQuestionBulkMetadataClient(fetchImplementation, basePath),
+    createQuestionPoolSearchMetadataClient(fetchImplementation, basePath),
+    createQuestionPoolSupportClient(fetchImplementation, basePath),
     createContentClassificationClient(fetchImplementation, basePath),
     createContentDisciplineAdministrationClient(fetchImplementation, basePath),
     createCourseStudentWorkRecoveryClient(fetchImplementation, basePath),

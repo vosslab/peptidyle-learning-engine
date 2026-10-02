@@ -10,6 +10,8 @@ import type {
   SaveLiveAssessmentInput,
 } from "../../api/assessment_release";
 
+export { assessmentPointValueDraft } from "../../assessment_point_value";
+
 export type QuestionEditDirtyEvent =
   "title" | "move" | "sort" | "remove" | "add" | "saveSucceeded" | "saveFailed";
 
@@ -39,13 +41,6 @@ export function questionSaveInput(
     activityRules: current.activityRules,
     studentFeedbackReleaseRule: current.studentFeedbackReleaseRule,
   };
-}
-
-/** Parses the exact bounded decimal grammar already enforced by the Assessment API. */
-export function assessmentPointValueDraft(value: string): AssessmentPointValue | undefined {
-  if (!/^[0-9]{1,10}(?:\.[0-9]{0,4})?$/u.test(value)) return undefined;
-  const whole = BigInt(value.split(".")[0] ?? "0");
-  return whole <= 1_000_000_000n ? value : undefined;
 }
 
 /** Replaces only fixed-Question point values while retaining every other Entry field and order. */

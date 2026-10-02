@@ -21,6 +21,7 @@ pub struct ImportAssessmentPoolForkInput {
     pub expected_assessment_edit_number: AssessmentEditNumber,
     pub fork_question_pool_id: QuestionPoolId,
     pub source_question_pool_id: QuestionPoolId,
+    pub expected_source_question_pool_edit_number: QuestionPoolEditNumber,
     pub authored_position: u32,
     pub selection_count: std::num::NonZeroU32,
     pub points_per_item: AssessmentPointValue,

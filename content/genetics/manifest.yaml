@@ -137,9 +137,8 @@ parameterized_sources:
     subject: Genetics
   topic_slug: topic03
   question_title: True/False Statements About English Palindromes
-  question_description: Students use blood typing agglutination tests, HLA genotyping, gel electrophoresis
-    band patterns, and DNA fingerprinting techniques to solve paternity disputes and forensic identification
-    problems.
+  question_description: Students identify English words and phrases that read the same forward and
+    backward and compare those properties with biological palindromes.
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic03/english_palindromes.pgml
@@ -155,8 +154,8 @@ parameterized_sources:
     subject: Genetics
   topic_slug: topic06
   question_title: True/False Statements About Mitosis and Meiosis
-  question_description: Students trace inheritance of X-linked genes through meiosis, predict progeny
-    outcomes from sex-linked crosses, and explain the chromosomal basis of inheritance.
+  question_description: Students distinguish mitosis from meiosis by comparing chromosome behavior,
+    cell divisions, and resulting daughter cells.
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic06/mitosis_and_meiosis.pgml
@@ -227,7 +226,7 @@ parameterized_sources:
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic01/genetic_disorders-matching.pgml
-  pg_sha256: ddefa0befbcfc7985e4b01bee50d2fa1306ba5189a6711c9fb2b6dbf86153196
+  pg_sha256: ffcffb661d7a6048808da4e455ac29c4410d047e2a4d56d111bccce6f5717217
   webwork_pg_path: genetics/topic01/genetic_disorders-matching.pgml
   canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic01/downloads/genetic_disorders-matching.pgml
   canonical_author_source_sha256: 29e6d8360174b16933f9da8a905cea2d3506a100028f574ae173583012b6392d
@@ -243,7 +242,7 @@ parameterized_sources:
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic01/genetic_disorders-which_one.pgml
-  pg_sha256: ff50258e78f6f6e5fcae384ac224bab4b2d3595eb1b233b37fc06953a1c496d2
+  pg_sha256: a6786715c55c9826260420ccb47c02458795bf38e85f4f004134aa5311f58675
   webwork_pg_path: genetics/topic01/genetic_disorders-which_one.pgml
   canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic01/downloads/genetic_disorders-which_one.pgml
   canonical_author_source_sha256: cc64c35b8ee071561929aff3bfdba95aa6f069788abfc7c7f21d10fc525bb535
@@ -574,7 +573,7 @@ parameterized_sources:
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic07/chi-square_terms-matching.pgml
-  pg_sha256: db7f4d6cb03a0dce7d793db574c0676d1d41f4e302afd8f734037c324b5e9b31
+  pg_sha256: 3430b8d1d2faf4988e36d70479edcd6998d591c18b9d33521a80abfa79a78026
   webwork_pg_path: genetics/topic07/chi-square_terms-matching.pgml
   canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic07/downloads/chi-square_terms-matching.pgml
   canonical_author_source_sha256: db7f4d6cb03a0dce7d793db574c0676d1d41f4e302afd8f734037c324b5e9b31
@@ -590,7 +589,7 @@ parameterized_sources:
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic07/chi-square_terms-which_one.pgml
-  pg_sha256: f29ad1b9ce786f1a2279e3d394c9f7195c2b4e714292a40f2a83091f80b97452
+  pg_sha256: bfa00d5e50611d811e17c1ffda3d2075ba95c484085cafccd16970e30ba1407e
   webwork_pg_path: genetics/topic07/chi-square_terms-which_one.pgml
   canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic07/downloads/chi-square_terms-which_one.pgml
   canonical_author_source_sha256: f29ad1b9ce786f1a2279e3d394c9f7195c2b4e714292a40f2a83091f80b97452

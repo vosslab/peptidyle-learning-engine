@@ -270,6 +270,8 @@ Columns:
 | feedback_question_answer | ple_data.feedback_release | NOT NULL |
 | feedback_question_answer_explanation | ple_data.feedback_release | NOT NULL |
 | feedback_class_statistics | ple_data.feedback_release | NOT NULL |
+| feedback_hints | ple_data.feedback_release | NOT NULL |
+| feedback_worked_solutions | ple_data.feedback_release | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -277,7 +279,7 @@ Constraints:
 - PRIMARY KEY (assessment_policy_snapshot_id)
 - CHECK assessment_title: `( assessment_title ~ '[^[:space:]]' AND char_length(assessment_title) <= 200 )`
 - CHECK assessment_instructions: `( assessment_instructions !~ E'\\x00' AND char_length(assessment_instructions) <= 50000 )`
-- CHECK assessment_attempt_time_limit_seconds: `( assessment_attempt_time_limit_seconds IS NULL OR assessment_attempt_time_limit_seconds BETWEEN 1 AND 43200 )`
+- CHECK assessment_attempt_time_limit_seconds: `( assessment_attempt_time_limit_seconds IS NULL OR ( assessment_attempt_time_limit_seconds BETWEEN 60 AND 43200 AND assessment_attempt_time_limit_seconds % 60 = 0 ) )`
 - CHECK assessment_attempt_limit: `( assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0 )`
 
 Foreign keys:
@@ -2215,6 +2217,36 @@ Indexes:
 - ple_data.content_subtopic_pkey UNIQUE (content_subtopic_id)
 - ple_data.content_subtopic_unique_0 UNIQUE (content_topic_id, content_subtopic_id)
 
+### ple_data.content_discipline_request
+
+- Role: event
+- Comment: role: event, Retained Instructor or Sysadmin request for a Discipline that is not yet in the vocabulary. A Sysadmin resolves it by creating or dismissing the name. HUMAN_GUIDANCE.md Course classification.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| content_discipline_request_id | uuid | NOT NULL |
+| requested_name | text | NOT NULL |
+| requested_by_account_id | ple_data.account_id | NOT NULL |
+| requested_at | timestamptz | NOT NULL |
+| resolved_at | timestamptz | NULL |
+
+Constraints:
+
+- PRIMARY KEY (content_discipline_request_id)
+- CHECK requested_name: `( char_length(requested_name) BETWEEN 1 AND 120 AND requested_name !~ '^[[:space:]]/[[:space:]]$' AND requested_name !~ '[[:cntrl:]]' )`
+
+Foreign keys:
+
+- (requested_by_account_id) -> ple_private.account (account_id)
+
+Indexes:
+
+- ple_data.content_discipline_request_pkey UNIQUE (content_discipline_request_id)
+- content_discipline_request_open_account_name_unique UNIQUE (requested_by_account_id, lower) WHERE resolved_at IS NULL
+- content_discipline_request_requested_by_account_id_fk_idx (requested_by_account_id)
+
 ## 20_tables/corrections.sql
 
 ### ple_data.forced_question_correction
@@ -3214,7 +3246,6 @@ Columns:
 | forked_public_id | text | NULL |
 | activity_id | uuid | NULL |
 | occurred_at | timestamptz | NOT NULL |
-| processed_at | timestamptz | NULL |
 
 Constraints:
 
@@ -3230,7 +3261,6 @@ Foreign keys:
 Indexes:
 
 - ple_data.library_watch_event_pkey UNIQUE (event_id)
-- library_watch_event_pending_idx (occurred_at, event_id) WHERE processed_at IS NULL
 
 ### ple_data.library_watch_event_recipient
 
@@ -3666,6 +3696,8 @@ Columns:
 | backend | ple_data.question_backend | NOT NULL |
 | question_type | ple_data.question_type | NOT NULL |
 | general_feedback | text | NULL |
+| hint | text | NULL |
+| worked_solution | text | NULL |
 | published_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -3673,6 +3705,8 @@ Constraints:
 - PRIMARY KEY (published_question_id, revision_number)
 - CHECK revision_number: `(revision_number > 0)`
 - CHECK general_feedback: `( general_feedback = btrim(general_feedback) AND char_length(general_feedback) BETWEEN 1 AND 4000 AND general_feedback !~ '[[:cntrl:]]' )`
+- CHECK hint: `( hint = btrim(hint) AND char_length(hint) BETWEEN 1 AND 4000 AND hint !~ '[[:cntrl:]]' )`
+- CHECK worked_solution: `( worked_solution = btrim(worked_solution) AND char_length(worked_solution) BETWEEN 1 AND 4000 AND worked_solution !~ '[[:cntrl:]]' )`
 
 Foreign keys:
 
@@ -4207,6 +4241,8 @@ Columns:
 | question_title | text | NOT NULL |
 | question_description | text | NOT NULL |
 | general_feedback | text | NULL |
+| hint | text | NULL |
+| worked_solution | text | NULL |
 | language | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -4217,6 +4253,8 @@ Constraints:
 - CHECK question_title: `( question_title = btrim(question_title) AND char_length(question_title) BETWEEN 1 AND 512 AND question_title !~ '[[:cntrl:]]' )`
 - CHECK question_description: `( question_description = btrim(question_description) AND char_length(question_description) BETWEEN 1 AND 4000 AND question_description !~ '[[:cntrl:]]' )`
 - CHECK general_feedback: `( general_feedback = btrim(general_feedback) AND char_length(general_feedback) BETWEEN 1 AND 4000 AND general_feedback !~ '[[:cntrl:]]' )`
+- CHECK hint: `( hint = btrim(hint) AND char_length(hint) BETWEEN 1 AND 4000 AND hint !~ '[[:cntrl:]]' )`
+- CHECK worked_solution: `( worked_solution = btrim(worked_solution) AND char_length(worked_solution) BETWEEN 1 AND 4000 AND worked_solution !~ '[[:cntrl:]]' )`
 - CHECK language: `(language = btrim(language) AND char_length(language) BETWEEN 2 AND 35)`
 - CHECK updated_at: `(updated_at >= created_at)`
 
@@ -4627,6 +4665,7 @@ Columns:
 | --- | --- | --- |
 | question_pool_id | ple_data.question_family_id | NOT NULL |
 | question_pool_edit_number | bigint | NOT NULL |
+| question_pool_metadata_edit_number | bigint | NOT NULL |
 | title | text | NOT NULL |
 | description | text | NOT NULL |
 | content_discipline_id | uuid | NOT NULL |
@@ -4634,6 +4673,9 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
+| hint | text | NULL |
+| general_feedback | text | NULL |
+| worked_solution | text | NULL |
 | interchangeability_attested_by_account_id | ple_data.account_id | NOT NULL |
 | interchangeability_attested_at | timestamptz | NOT NULL |
 | source_question_pool_id | ple_data.question_family_id | NULL |
@@ -4645,9 +4687,13 @@ Constraints:
 
 - PRIMARY KEY (question_pool_id)
 - CHECK question_pool_edit_number: `(question_pool_edit_number > 0)`
+- CHECK question_pool_metadata_edit_number: `(question_pool_metadata_edit_number > 0)`
 - CHECK title: `( title = btrim(title) AND char_length(title) BETWEEN 1 AND 512 AND title !~ '[[:cntrl:]]' )`
 - CHECK description: `( description = btrim(description) AND char_length(description) BETWEEN 1 AND 4000 AND description !~ '[[:cntrl:]]' )`
 - CHECK tags: `(ple_data.question_metadata_tags_are_valid(tags))`
+- CHECK hint: `( hint = btrim(hint) AND char_length(hint) BETWEEN 1 AND 4000 AND hint !~ '[[:cntrl:]]' )`
+- CHECK general_feedback: `( general_feedback = btrim(general_feedback) AND char_length(general_feedback) BETWEEN 1 AND 4000 AND general_feedback !~ '[[:cntrl:]]' )`
+- CHECK worked_solution: `( worked_solution = btrim(worked_solution) AND char_length(worked_solution) BETWEEN 1 AND 4000 AND worked_solution !~ '[[:cntrl:]]' )`
 
 Foreign keys:
 
@@ -4785,6 +4831,72 @@ Indexes:
 
 - ple_data.question_pool_bloom_pkey UNIQUE (question_pool_id)
 
+### ple_data.question_pool_authorship
+
+- Role: current state
+- Comment: role: current state, Optional Pool-owned authorship, replaced when the Pool credit changes. HUMAN_GUIDANCE.md Question Pool metadata.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| author_position | integer | NOT NULL |
+| author_display_name | text | NOT NULL |
+| author_account_id | ple_data.account_id | NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (question_pool_id, author_position)
+- UNIQUE (question_pool_id, author_display_name)
+- CHECK author_position: `(author_position BETWEEN 1 AND 16)`
+- CHECK author_display_name: `( author_display_name = btrim(author_display_name) AND char_length(author_display_name) BETWEEN 1 AND 120 AND author_display_name !~ '[[:cntrl:]]' )`
+
+Foreign keys:
+
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
+- (author_account_id) -> ple_private.account (account_id)
+
+Indexes:
+
+- ple_data.question_pool_authorship_pkey UNIQUE (question_pool_id, author_position)
+- ple_data.question_pool_authorship_unique_0 UNIQUE (question_pool_id, author_display_name)
+- question_pool_authorship_author_account_id_fk_idx (author_account_id)
+
+### ple_data.question_pool_provenance
+
+- Role: current state
+- Comment: role: current state, Optional Pool-owned license, attribution, and source information stored in one lifecycle row. HUMAN_GUIDANCE.md Question Pool metadata.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| attribution | text | NULL |
+| source_text | text | NULL |
+| source_url | text | NULL |
+| spdx_expression | ple_data.license_spdx | NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (question_pool_id)
+- CHECK attribution: `( attribution = btrim(attribution) AND char_length(attribution) BETWEEN 1 AND 4000 AND attribution !~ '[[:cntrl:]]' )`
+- CHECK source_text: `( source_text = btrim(source_text) AND char_length(source_text) BETWEEN 1 AND 4000 AND source_text !~ '[[:cntrl:]]' )`
+- CHECK source_url: `( source_url = btrim(source_url) AND char_length(source_url) BETWEEN 1 AND 2048 AND source_url !~ '[[:cntrl:]]' )`
+
+Foreign keys:
+
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
+
+Indexes:
+
+- ple_data.question_pool_provenance_pkey UNIQUE (question_pool_id)
+
 ## 20_tables/retention.sql
 
 ### ple_private.course_retention_notification
@@ -4853,6 +4965,12 @@ Columns:
 | correct_count | bigint | NOT NULL |
 | partial_count | bigint | NOT NULL |
 | incorrect_count | bigint | NOT NULL |
+| issued_contributor_floor | bigint | NOT NULL |
+| blank_contributor_floor | bigint | NOT NULL |
+| answered_contributor_floor | bigint | NOT NULL |
+| correct_contributor_floor | bigint | NOT NULL |
+| partial_contributor_floor | bigint | NOT NULL |
+| incorrect_contributor_floor | bigint | NOT NULL |
 | credit_sum | numeric | NOT NULL |
 | credit_sum_sq | numeric | NOT NULL |
 | created_on | date | NOT NULL |
@@ -4868,6 +4986,12 @@ Constraints:
 - CHECK correct_count: `(correct_count >= 0)`
 - CHECK partial_count: `(partial_count >= 0)`
 - CHECK incorrect_count: `(incorrect_count >= 0)`
+- CHECK issued_contributor_floor: `(issued_contributor_floor >= 0)`
+- CHECK blank_contributor_floor: `(blank_contributor_floor >= 0)`
+- CHECK answered_contributor_floor: `(answered_contributor_floor >= 0)`
+- CHECK correct_contributor_floor: `(correct_contributor_floor >= 0)`
+- CHECK partial_contributor_floor: `(partial_contributor_floor >= 0)`
+- CHECK incorrect_contributor_floor: `(incorrect_contributor_floor >= 0)`
 - CHECK credit_sum: `(credit_sum >= 0)`
 - CHECK credit_sum_sq: `(credit_sum_sq >= 0)`
 
@@ -4890,6 +5014,7 @@ Columns:
 | --- | --- | --- |
 | question_pool_id | ple_data.question_family_id | NOT NULL |
 | issued_count | bigint | NOT NULL |
+| issued_contributor_floor | bigint | NOT NULL |
 | created_on | date | NOT NULL |
 | updated_on | date | NOT NULL |
 
@@ -4897,6 +5022,7 @@ Constraints:
 
 - PRIMARY KEY (question_pool_id)
 - CHECK issued_count: `(issued_count >= 0)`
+- CHECK issued_contributor_floor: `(issued_contributor_floor >= 0)`
 
 Foreign keys:
 

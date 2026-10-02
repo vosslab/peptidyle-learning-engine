@@ -18,8 +18,6 @@ import { loadRouteScopeProviderHarness } from "../support/route_scope_provider_b
 import { createRouteScopeController } from "../../src/ribbon/route_scope_controller.ts";
 
 const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
-let createApplicationApi;
-let createHttpApiClient;
 let useRouteScopeData;
 let useRouteScopeIdentity;
 const history = {
@@ -37,10 +35,7 @@ globalThis.setInterval = function unrefRouterMaintenanceInterval(...arguments_) 
   return interval;
 };
 try {
-  ({ createApplicationApi } = await import("../../src/api/application_api.tsx"));
-  ({ createHttpApiClient } = await import("../../src/api/http_client.ts"));
-  ({ useRouteScopeData, useRouteScopeIdentity } =
-    await import("../../src/ribbon/route_scope_context.tsx"));
+  ({ useRouteScopeData, useRouteScopeIdentity } = await loadRouteScopeProviderHarness());
 } finally {
   globalThis.setInterval = nativeSetInterval;
 }
@@ -86,8 +81,11 @@ function mountedController(queries, initialPathname) {
   createRoot((disposeRoot) => {
     dispose = disposeRoot;
     const [pathname, setPathnameSignal] = createSignal(initialPathname);
+    const [historyState] = createSignal({
+      assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
+    });
     setPathname = setPathnameSignal;
-    controller = createRouteScopeController(pathname, queries);
+    controller = createRouteScopeController(pathname, queries, historyState);
     shellMounts += 1;
   });
   return {
@@ -103,6 +101,24 @@ function queryFunction(handler, key) {
     key,
     keyFor: (...arguments_) => `${key}:${arguments_.join(":")}`,
   });
+}
+
+function applicationApiFor(queries) {
+  return {
+    client: {},
+    queries: {
+      ...Object.fromEntries(
+        [
+          "questionSearch",
+          "questionDetails",
+          "assessment",
+          "assessmentSummary",
+          "resolveAssessmentAttempt",
+        ].map((name) => [name, queryFunction(() => Promise.resolve(undefined), name)]),
+      ),
+      ...queries,
+    },
+  };
 }
 
 test("scope hooks fail explicitly outside their provider", () => {
@@ -140,28 +156,21 @@ test(
   ].join(" "),
   async () => {
     const fixture = createDeferredQueries();
-    const base = createApplicationApi(
-      createHttpApiClient({ fetch: () => Promise.reject(new Error("unused")) }),
-    );
-    const applicationApi = {
-      ...base,
-      queries: {
-        ...base.queries,
-        resolveAssignmentAttempt: queryFunction(
-          fixture.queries.resolveAssignmentAttempt,
-          "test-resolve-attempt",
-        ),
-        courseScope: queryFunction(fixture.queries.courseScope, "test-course-scope"),
-        assessmentAttemptScope: queryFunction(
-          fixture.queries.assessmentAttemptScope,
-          "test-attempt-context",
-        ),
-        assessmentAttemptHistory: queryFunction(
-          fixture.queries.assessmentAttemptHistory,
-          "test-attempt-history",
-        ),
-      },
-    };
+    const applicationApi = applicationApiFor({
+      resolveAssignmentAttempt: queryFunction(
+        fixture.queries.resolveAssignmentAttempt,
+        "test-resolve-attempt",
+      ),
+      courseScope: queryFunction(fixture.queries.courseScope, "test-course-scope"),
+      assessmentAttemptScope: queryFunction(
+        fixture.queries.assessmentAttemptScope,
+        "test-attempt-context",
+      ),
+      assessmentAttemptHistory: queryFunction(
+        fixture.queries.assessmentAttemptHistory,
+        "test-attempt-history",
+      ),
+    });
     const { mountRouteScopeProviderHarness } = await loadRouteScopeProviderHarness();
     const app = mountRouteScopeProviderHarness(applicationApi, "/courses/CI7K3M2QAZ");
     await nextTurn();
@@ -187,11 +196,14 @@ test(
     fixture.courseViews.get("CI4W8QF9AD").resolve(courseRouteData("CI4W8QF9AD"));
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "course", course: courseOne });
-    app.navigate("/assessment-attempts/00000000-0000-0000-0000-000000000001");
+    app.navigate("/courses/CI7K3M2QAZ/attempt", {
+      assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
+    });
     await nextTurn();
     assert.deepEqual(app.latest(), {
       identity: {
         kind: "assessmentAttempt",
+        courseInstanceId: "CI7K3M2QAZ",
         assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
       },
       data: undefined,
@@ -212,28 +224,21 @@ test(
 
 test("route-scoped labels clear at session boundaries and reject stale A-B-A publications", async () => {
   const fixture = createDeferredQueries();
-  const base = createApplicationApi(
-    createHttpApiClient({ fetch: () => Promise.reject(new Error("unused")) }),
-  );
-  const applicationApi = {
-    ...base,
-    queries: {
-      ...base.queries,
-      resolveAssignmentAttempt: queryFunction(
-        fixture.queries.resolveAssignmentAttempt,
-        "test-resolve-attempt",
-      ),
-      courseScope: queryFunction(fixture.queries.courseScope, "test-course-scope"),
-      assessmentAttemptScope: queryFunction(
-        fixture.queries.assessmentAttemptScope,
-        "test-attempt-context",
-      ),
-      assessmentAttemptHistory: queryFunction(
-        fixture.queries.assessmentAttemptHistory,
-        "test-attempt-history",
-      ),
-    },
-  };
+  const applicationApi = applicationApiFor({
+    resolveAssignmentAttempt: queryFunction(
+      fixture.queries.resolveAssignmentAttempt,
+      "test-resolve-attempt",
+    ),
+    courseScope: queryFunction(fixture.queries.courseScope, "test-course-scope"),
+    assessmentAttemptScope: queryFunction(
+      fixture.queries.assessmentAttemptScope,
+      "test-attempt-context",
+    ),
+    assessmentAttemptHistory: queryFunction(
+      fixture.queries.assessmentAttemptHistory,
+      "test-attempt-history",
+    ),
+  });
   const { mountRouteScopeProviderHarness } = await loadRouteScopeProviderHarness();
   const app = mountRouteScopeProviderHarness(applicationApi, "/courses/CI7K3M2QAZ");
   await nextTurn();
@@ -265,16 +270,13 @@ test("route-scoped labels clear at session boundaries and reject stale A-B-A pub
 
 test("stable controller retains separate Attempt views", async () => {
   const fixture = createDeferredQueries();
-  const app = mountedController(
-    fixture.queries,
-    "/assessment-attempts/00000000-0000-0000-0000-000000000001",
-  );
+  const app = mountedController(fixture.queries, "/courses/CI7K3M2QAZ/attempt");
   assert.ok(fixture.attemptContexts.has("00000000-0000-0000-0000-000000000001"));
   const context = assignmentAttemptContext("CI7K3M2QAZ");
   fixture.attemptContexts.get("00000000-0000-0000-0000-000000000001").resolve(context);
   await nextTurn();
   assert.deepEqual(app.controller.data(), { kind: "assessmentAttempt", context });
-  app.navigate("/assessment-attempts/00000000-0000-0000-0000-000000000001/summary");
+  app.navigate("/courses/CI7K3M2QAZ/review");
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
   assert.ok(fixture.histories.has("00000000-0000-0000-0000-000000000001"));
@@ -298,7 +300,7 @@ test("active Student Attempt retry replaces only its rejected Attempt ID context
         return deferred.promise;
       },
     },
-    "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+    "/courses/CI7K3M2QAZ/attempt",
   );
   assert.equal(attempts.length, 1);
   attempts[0].reject(new Error("temporary context failure"));

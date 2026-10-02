@@ -29,7 +29,10 @@ test("Student Ribbon navigation preserves Course order and selects a reliable ac
             latestActivityAt: 2_000,
           };
     },
-    getStudentLatestFeedback: async () => ({ assessmentAttemptId: FEEDBACK_ATTEMPT_ID }),
+    getStudentLatestFeedback: async () => ({
+      assessmentAttemptId: FEEDBACK_ATTEMPT_ID,
+      courseInstanceId: BIOCHEMISTRY_ID,
+    }),
   };
 
   const navigation = await loadStudentRibbonNavigation(client);
@@ -38,7 +41,9 @@ test("Student Ribbon navigation preserves Course order and selects a reliable ac
     { id: BIOCHEMISTRY_ID, shortName: "Alpha" },
   ]);
   assert.equal(navigation.activeAttemptId, REVIEW_ATTEMPT_ID);
+  assert.equal(navigation.activeAttemptCourseInstanceId, REVIEW_COURSE_ID);
   assert.equal(navigation.latestFeedbackAttemptId, FEEDBACK_ATTEMPT_ID);
+  assert.equal(navigation.latestFeedbackCourseInstanceId, BIOCHEMISTRY_ID);
 });
 
 test("an unavailable Course lookup does not hide another Course's active Attempt", async () => {
@@ -55,7 +60,7 @@ test("an unavailable Course lookup does not hide another Course's active Attempt
         latestActivityAt: 2_000,
       };
     },
-    getStudentLatestFeedback: async () => ({ assessmentAttemptId: null }),
+    getStudentLatestFeedback: async () => null,
   };
 
   const navigation = await loadStudentRibbonNavigation(client);

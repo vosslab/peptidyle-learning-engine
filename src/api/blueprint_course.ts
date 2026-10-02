@@ -23,6 +23,7 @@ import type { CourseClassification } from "../../generated/api/CourseClassificat
 import type { CanonicalBlueprintCourse } from "../../generated/api/CanonicalBlueprintCourse";
 import type { BlueprintStewardshipClient } from "./blueprint_stewardship";
 import type { BlueprintRevisionNumber } from "../../generated/api/BlueprintRevisionNumber";
+import type { RecognitionTitleMaps } from "./recognition_titles";
 
 export type { BlueprintEditNumber, BlueprintRevisionNumber };
 export type BlueprintIdempotencyKey = string;
@@ -74,6 +75,11 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     assessmentId: BlueprintAssessmentId,
     poolId: PublishedQuestionId,
   ) => Promise<BlueprintPoolMembersView>;
+  /** Current lineage titles for the requested Question and Pool public IDs. */
+  readonly loadRecognitionTitles: (
+    questionIds: readonly string[],
+    poolIds: readonly string[],
+  ) => Promise<RecognitionTitleMaps>;
   readonly forkBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,
     revisionNumber: BlueprintRevisionNumber,
@@ -99,6 +105,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     promotedOnly?: boolean,
     classification?: BlueprintCourseClassificationSearch,
     sort?: BlueprintCourseListSort,
+    tag?: string,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,

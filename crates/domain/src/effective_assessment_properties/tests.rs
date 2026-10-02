@@ -74,6 +74,16 @@ fn active_student_course_membership_resolves_base_policy() {
     );
 }
 
+#[test]
+fn base_duration_validation_rejects_non_minute_values() {
+    let mut value = base();
+    value.assessment_attempt_time_limit_seconds = NonZeroU32::new(90);
+    assert_eq!(
+        validate_base_assessment_policy(value),
+        Err(EffectivePolicyError::BaseAssessmentAttemptAssessmentAttemptTimeLimitOutOfRange)
+    );
+}
+
 fn start_decision_at(now: i64, completed_attempt_count: u32) -> AssessmentStartDecision {
     let mut value = input();
     value.now = stamp(now);
@@ -118,6 +128,34 @@ fn assessment_start_decision_uses_exact_schedule_boundaries() {
 fn assessment_start_decision_checks_attempt_limit_before_late_work() {
     assert_eq!(
         start_decision_at(20_001, 2),
+        AssessmentStartDecision::AttemptLimitReached
+    );
+}
+
+fn start_decision_for(
+    attempt_limit: Option<NonZeroU32>,
+    prior_assessment_attempt_count: u32,
+) -> AssessmentStartDecision {
+    let mut value = input();
+    value.base.attempt_limit = attempt_limit;
+    value.prior_assessment_attempt_count = prior_assessment_attempt_count;
+    let AssessmentAccessDecision::Allowed { start_decision, .. } =
+        resolve_effective_policy(value).expect("repeat policy")
+    else {
+        panic!("an active Student should receive a start decision");
+    };
+    start_decision
+}
+
+#[test]
+fn student_may_repeat_while_the_saved_attempt_limit_allows_it() {
+    let another = AssessmentStartDecision::MayStart {
+        student_late_work_status: StudentLateWorkStatus::OnTime,
+    };
+    assert_eq!(start_decision_for(None, 7), another);
+    assert_eq!(start_decision_for(NonZeroU32::new(3), 2), another);
+    assert_eq!(
+        start_decision_for(NonZeroU32::new(3), 3),
         AssessmentStartDecision::AttemptLimitReached
     );
 }
@@ -219,5 +257,131 @@ fn hypothetical_student_view_scenario_can_apply_direct_modifiers() {
     assert_eq!(
         policy.attempt_limit.source,
         AssessmentPolicySource::HypotheticalStudentViewScenario
+    );
+}
+
+fn scheduled_default_policy() -> BaseAssessmentPolicy {
+    BaseAssessmentPolicy {
+        available_at: Some(stamp(10_000)),
+        due_at: Some(stamp(20_000)),
+        closes_at: Some(stamp(30_000)),
+        ..BaseAssessmentPolicy::default()
+    }
+}
+
+fn decide(
+    now: i64,
+    status: AssessmentStatus,
+    base: BaseAssessmentPolicy,
+) -> AssessmentAccessDecision {
+    let mut value = input();
+    value.now = stamp(now);
+    value.base = base;
+    value.assessment_status = assessment_status_gate(status);
+    resolve_effective_policy(value).expect("scheduled policy")
+}
+
+fn released_start(now: i64, base: BaseAssessmentPolicy) -> AssessmentStartDecision {
+    let AssessmentAccessDecision::Allowed { start_decision, .. } =
+        decide(now, AssessmentStatus::Released, base)
+    else {
+        panic!("released student should receive a start decision");
+    };
+    start_decision
+}
+
+fn availability(
+    now: i64,
+    status: AssessmentStatus,
+    base: BaseAssessmentPolicy,
+) -> question_model::InstructorAssessmentAvailabilityView {
+    let settings = question_model::AssessmentAuthoredContent {
+        instructions: question_model::AssessmentInstructions::default(),
+        base_policy: base,
+        activity_rules: question_model::AssessmentActivityRules::default(),
+    };
+    question_model::derive_instructor_assessment_availability(
+        &question_model::CourseTerm::from_parts("2026-01-01", "2026-12-31").expect("term"),
+        &question_model::AccountTimeZone::parse("UTC").expect("zone"),
+        status,
+        &settings,
+        stamp(now),
+    )
+    .expect("availability")
+}
+
+#[test]
+fn default_reject_policy_opens_released_work_until_the_due_date() {
+    assert_eq!(
+        BaseAssessmentPolicy::default().late_work_rule,
+        LateWorkRule::Reject
+    );
+    for assessment_type in question_model::AssessmentType::ALL {
+        assert_eq!(
+            question_model::AssessmentTemplateSettings::for_assessment_type(assessment_type)
+                .late_work_rule,
+            LateWorkRule::Reject
+        );
+    }
+
+    let policy = scheduled_default_policy();
+    assert_eq!(policy.late_work_rule, LateWorkRule::Reject);
+    assert_eq!(
+        decide(15_000, AssessmentStatus::Unreleased, policy),
+        AssessmentAccessDecision::Denied {
+            gate: PolicyGate::AssessmentStatus,
+            reason: GateDenial::AssessmentStatus(AssessmentStatusDenial::Unreleased),
+        }
+    );
+    assert_eq!(
+        availability(15_000, AssessmentStatus::Unreleased, policy),
+        question_model::InstructorAssessmentAvailabilityView::Unreleased
+    );
+    assert_eq!(
+        released_start(9_999, policy),
+        AssessmentStartDecision::NotYetAvailable
+    );
+    let AssessmentAccessDecision::Allowed {
+        policy: effective, ..
+    } = decide(15_000, AssessmentStatus::Released, policy)
+    else {
+        panic!("released student should receive the default policy");
+    };
+    assert_eq!(effective.late_work_rule.value, LateWorkRule::Reject);
+    assert_eq!(
+        released_start(15_000, policy),
+        AssessmentStartDecision::MayStart {
+            student_late_work_status: StudentLateWorkStatus::OnTime,
+        }
+    );
+    assert_eq!(
+        released_start(20_001, policy),
+        AssessmentStartDecision::LateWorkRefused
+    );
+    assert_eq!(
+        released_start(30_000, policy),
+        AssessmentStartDecision::Closed
+    );
+    assert_eq!(
+        availability(19_999, AssessmentStatus::Released, policy),
+        question_model::InstructorAssessmentAvailabilityView::Available
+    );
+    assert!(matches!(
+        availability(20_000, AssessmentStatus::Released, policy),
+        question_model::InstructorAssessmentAvailabilityView::Closed { closed_at: Some(_) }
+    ));
+
+    let mut accepting = policy;
+    accepting.late_work_rule = LateWorkRule::Accept;
+    accepting.closes_at = None;
+    assert_eq!(
+        released_start(20_001, accepting),
+        AssessmentStartDecision::MayStart {
+            student_late_work_status: StudentLateWorkStatus::AcceptedLate,
+        }
+    );
+    assert_eq!(
+        availability(20_000, AssessmentStatus::Released, accepting),
+        question_model::InstructorAssessmentAvailabilityView::Available
     );
 }

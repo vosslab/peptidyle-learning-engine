@@ -33,7 +33,7 @@ rebuild images, replace containers, or reseed the database: Caddy bind-mounts ho
 | Newer than its output                                                    | Build                                                                        | Containers                                   |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------------------------------- |
 | `src/`, `assets/` newer than `dist/index.html`                           | `node pipeline/build.mjs --skip-wasm`                                        | none                                         |
-| `crates/wasm/` newer than `dist/wasm/ple_bridge_bg.wasm`                 | `pipeline/build_wasm.sh --debug`, then `node pipeline/build.mjs --skip-wasm` | none                                         |
+| `crates/wasm/` newer than the `dist/index.html` build receipt            | `pipeline/build_wasm.sh --debug`, then `node pipeline/build.mjs --skip-wasm` | none                                         |
 | other `crates/`, `Cargo.toml`, `Cargo.lock` newer than the api image     | `./build.sh --debug`                                                         | `python3 local_stack.py rebuild-application` |
 | `schemas/`, `containers/`, `compose*.yaml` newer than the launch receipt | done by the restart                                                          | full stack restart                           |
 | nothing newer                                                            | none                                                                         | none                                         |

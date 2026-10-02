@@ -4,6 +4,13 @@ use super::*;
 
 const FIXTURE_ROWS: usize = 65;
 const FIXTURE_TITLE: &str = "P1 tied Question title";
+const NONMATCHING_TAG: &str = "decoy outside tag";
+
+fn nonmatching_question_id() -> String {
+    question_model::PublishedQuestionId::from_random_identifier("Q999999")
+        .expect("nonmatching Question ID")
+        .to_string()
+}
 
 fn request() -> QuestionLibrarySearchRequest {
     QuestionLibrarySearchRequest {
@@ -183,6 +190,120 @@ async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool) {
         .expect("Question Library fixture commit");
 }
 
+async fn insert_nonmatching_question_library_row(admin: &sqlx::postgres::PgPool) {
+    let question_id = nonmatching_question_id();
+    let object_id = id(0xd1ff);
+    let mut transaction = admin
+        .begin()
+        .await
+        .expect("nonmatching Question transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("nonmatching Question data owner");
+    sqlx::query(
+        "INSERT INTO ple_data.published_question (published_question_id, created_at) \
+         VALUES ($1, clock_timestamp())",
+    )
+    .bind(&question_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question lineage");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision \
+         (published_question_id, revision_number, backend, question_type, published_at) \
+         VALUES ($1, 1, 'ple', 'numeric', '2026-09-25 12:00:00+00'::timestamptz)",
+    )
+    .bind(&question_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question revision");
+    sqlx::query(
+        "INSERT INTO ple_data.published_question_metadata (\
+             published_question_id, question_title, question_description, language, tags, \
+             content_discipline_id, content_subject_id, created_at, updated_at\
+         ) VALUES ($1, 'Decoy outside Question title', 'Decoy outside description', 'en', \
+                  ARRAY[$2], $3, $4, statement_timestamp(), statement_timestamp())",
+    )
+    .bind(&question_id)
+    .bind(NONMATCHING_TAG)
+    .bind(id(0xcc01))
+    .bind(id(0xcc02))
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question metadata");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("nonmatching Question private owner");
+    sqlx::query(
+        "INSERT INTO ple_private.object_record (\
+             object_record_id, object_address, object_storage_area, object_data_class, \
+             sha256, size_bytes, media_type, created_at, updated_at\
+         ) VALUES ($1, jsonb_build_object(\
+                    'kind', 'questionSource', \
+                    'publishedQuestionRevisionTuple', jsonb_build_object(\
+                        'publishedQuestionId', $2::text, 'revisionNumber', 1), \
+                    'objectId', $1\
+                ), 'private-content', 'question-source', decode(repeat('c3', 32), 'hex'), \
+                1, 'application/json', statement_timestamp(), statement_timestamp())",
+    )
+    .bind(object_id)
+    .bind(&question_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question source record");
+    sqlx::query(
+        "INSERT INTO ple_private.question_revision_source_binding (\
+             published_question_id, revision_number, backend, question_format, \
+             source_object_record_id, source_object_checksum, created_at\
+         ) VALUES ($1, 1, 'ple', 'pleQuestionJson', $2, repeat('c3', 32), \
+                  '2026-09-25 12:00:00+00'::timestamptz)",
+    )
+    .bind(&question_id)
+    .bind(object_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question source binding");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("nonmatching Question data owner");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision_acceptance (\
+             published_question_id, revision_number, parent_revision_number, editor_account_id, \
+             accepted_by_account_id, accepted_at, reason_for_edit\
+         ) VALUES ($1, 1, NULL, $2, $2, '2026-09-25 12:00:00+00'::timestamptz, 'P1 fixture')",
+    )
+    .bind(&question_id)
+    .bind(instructor_account_id())
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question acceptance");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision_authorship (\
+             published_question_id, revision_number, author_position, author_display_name\
+         ) VALUES ($1, 1, 1, 'Decoy Outside Author')",
+    )
+    .bind(&question_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question authorship");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision_license \
+         (published_question_id, revision_number, spdx_expression) \
+         VALUES ($1, 1, 'CC0-1.0')",
+    )
+    .bind(&question_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question license");
+    transaction
+        .commit()
+        .await
+        .expect("nonmatching Question commit");
+}
+
 async fn add_facet_bounds(admin: &sqlx::postgres::PgPool) {
     let question_ids = fixture_question_ids();
     let subject_ids = (0..FIXTURE_ROWS)
@@ -266,6 +387,7 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
     super::blueprint_course_postgres_support::seed_if_needed(&admin).await;
     insert_question_library_rows(&admin).await;
+    insert_nonmatching_question_library_row(&admin).await;
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");
@@ -353,6 +475,52 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
         title_ids,
         expected_ids.iter().map(String::as_str).collect::<Vec<_>>(),
         "tied-title pages retain every Question exactly once in ID order"
+    );
+    let outsider = nonmatching_question_id();
+    assert!(
+        title_ids.iter().all(|question_id| *question_id != outsider),
+        "combined search filters exclude the nonmatching Question"
+    );
+    let tag_narrowed = store
+        .search_published_question_library_entries(
+            token(),
+            QuestionLibrarySearchRequest {
+                text_terms: Vec::new(),
+                author_names: Vec::new(),
+                tags: vec![NONMATCHING_TAG.to_owned()],
+                subjects: Vec::new(),
+                discipline_uuid: None,
+                subject_uuid: None,
+                question_types: Vec::new(),
+                question_licenses: Vec::new(),
+                authored_by_current_account: false,
+                ..request()
+            },
+        )
+        .await
+        .expect("tag filter");
+    assert_eq!(
+        tag_narrowed
+            .items
+            .iter()
+            .map(|item| {
+                item.published_question_revision_tuple
+                    .published_question_id
+                    .as_str()
+            })
+            .collect::<Vec<_>>(),
+        vec![outsider.as_str()],
+        "one tag returns the nonmatching Question and no fixture Question"
+    );
+    assert_eq!(
+        tag_narrowed
+            .facets
+            .tags
+            .iter()
+            .map(|facet| (facet.tag.as_str(), facet.count))
+            .collect::<Vec<_>>(),
+        vec![(NONMATCHING_TAG, 1)],
+        "the tag facet counts the narrowed Question"
     );
     assert!(second.next_position.is_none());
     let empty = store
@@ -481,6 +649,15 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
             })
         }),
         "excluded matching term removes every matching fixture row"
+    );
+    assert!(
+        excluded.items.iter().any(|item| {
+            item.published_question_revision_tuple
+                .published_question_id
+                .as_str()
+                == nonmatching_question_id()
+        }),
+        "excluding the matching term keeps the nonmatching Question"
     );
     let excluded_empty = store
         .search_published_question_library_entries(

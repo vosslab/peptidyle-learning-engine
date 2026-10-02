@@ -16,7 +16,6 @@ CREATE TABLE ple_data.student_record (
 );
 
 
-
 CREATE TABLE ple_data.course_membership (
     course_membership_id uuid PRIMARY KEY,
     course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
@@ -29,7 +28,6 @@ CREATE TABLE ple_data.course_membership (
         OR (role = 'instructor' AND student_record_id IS NULL)),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
-
 
 
 CREATE TABLE ple_data.course_membership_event (
@@ -62,7 +60,6 @@ CREATE TABLE ple_private.course_invitation (
 );
 
 
-
 CREATE TABLE ple_private.course_invitation_event (
     course_invitation_event_id uuid PRIMARY KEY,
     course_invitation_id uuid NOT NULL UNIQUE REFERENCES ple_private.course_invitation (course_invitation_id),
@@ -90,7 +87,6 @@ CREATE TABLE ple_private.course_roster_profile (
 );
 
 
-
 SET LOCAL ROLE ple_audit_owner;
 
 CREATE TABLE ple_audit.course_roster_event (
@@ -103,7 +99,6 @@ CREATE TABLE ple_audit.course_roster_event (
 );
 
 
-
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
@@ -128,290 +123,172 @@ SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 
-
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-
 
 
 SET LOCAL ROLE ple_audit_owner;
 
+SET LOCAL ROLE ple_audit_owner;
+
+
+SET LOCAL ROLE ple_audit_owner;
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.student_record IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_data.course_membership IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_data.course_membership_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_invitation IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
-COMMENT ON TABLE ple_private.course_invitation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
-
-COMMENT ON TABLE ple_private.course_roster_profile IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.course_roster_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course membership.';
 
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON COLUMN ple_data.course_membership.student_record_id IS 'NULL means this optional fact is absent.';
-

@@ -316,9 +316,7 @@ async fn instructor_session_hash(
     {
         // ASVS 8.2.1 and 8.3.1: User Role comes only from the server-side
         // session. Each Store call repeats active-Instructor owner authority.
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

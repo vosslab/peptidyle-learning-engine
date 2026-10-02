@@ -26,5 +26,9 @@ export const PLE_QUESTION_JSON_EDITOR_STYLES = `
 .ple-question-json-hotspot__image img { display:block; width:100%; height:auto; image-orientation:from-image; }
 .ple-question-json-hotspot__rectangle { position:absolute; box-sizing:border-box; border:2px solid white; outline:2px solid black; color:white; text-shadow:0 1px 2px black,1px 0 2px black; font-weight:800; pointer-events:none; }
 .ple-question-json-hotspot__coordinates { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr)); gap:.5rem; }
+/* The prompt column leads. The preview and library metadata sit beside it. */
+.ple-question-json-authoring .editor-grid { display:grid; grid-template-columns:minmax(0, 1.5fr) minmax(16rem, 0.9fr); gap:var(--ple-layout-gap, 1rem); align-items:start; }
+.ple-question-json-authoring .editor-panel, .ple-question-json-authoring .editor-preview { min-width:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; }
+@media (max-width: 60rem) { .ple-question-json-authoring .editor-grid { grid-template-columns:1fr; } }
 @media (max-width: 42rem) { .ple-question-json-authoring__grid { grid-template-columns:1fr; } .ple-question-json-authoring__choice-header { align-items:flex-start; } }
 `;

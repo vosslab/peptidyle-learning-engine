@@ -6,6 +6,10 @@ import type { PublishedQuestionSharedMetadata } from "../../generated/api/Publis
 import { ApiRequestError } from "../api/http_client/error";
 import type { ContentClassificationClient } from "../api/content_classification";
 import { decodeUuid } from "../api/decoder";
+import {
+  AuthoringClassificationLevel,
+  type VocabularyCreation,
+} from "./authoring_classification_level";
 import { ContentClassificationSelect } from "./content_classification_select";
 import { RecordDetailList } from "./record_list/record_detail_list";
 import type {
@@ -43,6 +47,7 @@ export interface QuestionBulkMetadataEditorProps {
   readonly client: QuestionBulkMetadataClient;
   readonly classificationClient: ContentClassificationClient;
   readonly initialMetadata: ReadonlyArray<PublishedQuestionSharedMetadata>;
+  readonly questionTitles: ReadonlyMap<string, string>;
   readonly onBusyChange: (busy: boolean) => void;
   readonly onCancel: () => void;
   readonly onSuccess: (results: ReadonlyArray<QuestionBulkMetadataUpdateResult>) => void;
@@ -207,6 +212,22 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
     return values.size === 1 ? (metadata()[0]?.[field] ?? null) : null;
   }
 
+  async function createLevel(
+    field: ClassificationField,
+    name: string,
+    parentUuid: string,
+  ): Promise<VocabularyCreation> {
+    if (field === "topicUuid") {
+      const item = await props.classificationClient.createTopic(name, parentUuid);
+      return { uuid: item.uuid, name: item.name, needsAcceptance: false };
+    }
+    if (field === "subtopicUuid") {
+      const item = await props.classificationClient.createSubtopic(name, parentUuid);
+      return { uuid: item.uuid, name: item.name, needsAcceptance: false };
+    }
+    return props.classificationClient.createSubject(name, parentUuid);
+  }
+
   function changeSelection(field: ClassificationField, uuid: string | null): void {
     const index = CLASSIFICATION_FIELDS.indexOf(field);
     const next = { ...selections(), [field]: uuid };
@@ -345,7 +366,8 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
             state={{ kind: "ready" }}
             renderRecord={(item) => (
               <div>
-                <h3>{item.questionId}</h3>
+                <h3>{props.questionTitles.get(item.questionId) ?? "Question"}</h3>
+                <p>Question ID {item.questionId}</p>
                 <p>Tags: {item.tags.length === 0 ? "No tags" : item.tags.join(", ")}</p>
                 <For each={CLASSIFICATION_FIELDS}>
                   {(field) => (
@@ -408,14 +430,41 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
                 disabled={busy() || state() === "refresh-error"}
                 onChange={(mode) => changeMode(field, mode)}
               >
-                <ContentClassificationSelect
-                  label={CLASSIFICATION_LABELS[field]}
-                  required
-                  value={selections()[field]}
-                  parentUuid={parent()}
-                  load={load}
-                  onChange={(uuid) => changeSelection(field, uuid)}
-                />
+                <Show
+                  when={field !== "disciplineUuid"}
+                  fallback={
+                    <ContentClassificationSelect
+                      label={CLASSIFICATION_LABELS[field]}
+                      required
+                      value={selections()[field]}
+                      parentUuid={parent()}
+                      load={load}
+                      onChange={(uuid) => changeSelection(field, uuid)}
+                    />
+                  }
+                >
+                  <AuthoringClassificationLevel
+                    label={CLASSIFICATION_LABELS[field]}
+                    required={field === "subjectUuid"}
+                    value={selections()[field]}
+                    parentUuid={parent() ?? null}
+                    disabled={busy() || state() === "refresh-error"}
+                    load={load}
+                    onChange={(uuid) => changeSelection(field, uuid)}
+                    createName={(vocabularyName, parentUuid) =>
+                      createLevel(field, vocabularyName, parentUuid)
+                    }
+                    acceptExisting={
+                      field === "subjectUuid"
+                        ? (
+                            uuid,
+                            parentUuid,
+                          ): ReturnType<ContentClassificationClient["acceptSubjectDiscipline"]> =>
+                            props.classificationClient.acceptSubjectDiscipline(uuid, parentUuid)
+                        : undefined
+                    }
+                  />
+                </Show>
                 <Show when={parent() === null}>
                   <p>
                     Choose a replacement parent first when current parent values are mixed or unset.

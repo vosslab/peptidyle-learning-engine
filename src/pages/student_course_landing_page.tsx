@@ -67,6 +67,7 @@ function assessmentContent(
     const dueAt = assessment.decision.dueAt;
     const formatDateTime = createDisplayDateTimeFormatter(assessment.decision.displayTimeZone);
     const details: Array<RecordFact> = [
+      { kind: "text", label: "Status:", value: display.stateLabel },
       { kind: "assessmentType", value: assessment.assessmentType },
       { kind: "text", label: "Access:", value: assessmentAccessLabel(assessment) },
       dueAt === null
@@ -106,7 +107,7 @@ function assessmentListState(loading: boolean): RecordListState {
   return { kind: "ready" };
 }
 
-function AssessmentList(props: {
+export function AssessmentList(props: {
   readonly course: LiveStudentCourseLandingSummary;
   readonly assessments: ReadonlyArray<LiveStudentAssessmentLandingSummary>;
   readonly loading: boolean;

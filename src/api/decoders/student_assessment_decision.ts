@@ -28,9 +28,9 @@ const LATE_WORK_RULES = [
 ] as const satisfies ReadonlyArray<LateWorkRule>;
 
 const PUBLIC_REASONS: Readonly<Record<Exclude<AssessmentStartDecision, "may_start">, string>> = {
-  not_yet_available: "This Assessment is not yet available.",
-  closed: "This Assessment is closed for new work.",
-  attempt_limit_reached: "The allowed number of Assessment Attempts has been reached.",
+  not_yet_available: "This Coursework is not yet available.",
+  closed: "This Coursework is closed for new work.",
+  attempt_limit_reached: "The allowed number of Attempts has been reached.",
   late_work_refused: "New work is not available under the late-work policy.",
 };
 

@@ -20,9 +20,9 @@ are in [ROADMAP.md](ROADMAP.md).
       static Questions, redundant Pools, and source copies.
 - [ ] Build public Blueprint Course search as one bounded projection, Store,
       Server, authorization, and browser workflow capability.
-- [ ] Build My Questions, Starred, and Watched as bounded
-      ownership or saved-state capabilities with their required read paths,
-      authorization, and browser workflows.
+- My Questions and Starred have Instructor routes, pages, and server-backed read paths;
+  Watched opens the private watch-notification inbox. Track any remaining runtime or capture
+  acceptance with its owning evidence plan instead of commissioning these routes as new work.
 - [ ] Build pilot grade export as a direct authorized CSV or TSV download of
       point-based Assessment scores. Do not add LMS synchronization, separate
       Question weights, Grade Categories, weighted categories, Course Grade

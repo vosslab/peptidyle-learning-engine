@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { createDefaultPleQuestionJsonSource } from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
 import {
+  addMultiFillBlankAnswer,
   addMultiFillBlank,
   removeMultiFillBlank,
   reorderMultiFillBlanks,
@@ -100,6 +101,19 @@ test("MULTI-FIB accepted answer edits enforce their blank-specific maximum", () 
   const refused = setMultiFillBlankAnswer(edited.source, "blank_b", 0, "chromosome 17");
   assert.equal(refused.changed, false);
   assert.match(refused.error ?? "", /Maximum length|1 to 8/);
+});
+
+test("MULTI-FIB answer suggestions terminate when maxLength is one", () => {
+  const initial = source({
+    kind: "multiFillIn",
+    blanks: [{ id: "blank_a", label: "Base", answers: ["A"], matchMode: "exact", maxLength: 1 }],
+  });
+  const added = addMultiFillBlankAnswer(initial, "blank_a");
+  assert.equal(added.changed, true);
+  assert.deepEqual(
+    added.source.response.kind === "multiFillIn" ? added.source.response.blanks[0]?.answers : [],
+    ["A", "B"],
+  );
 });
 
 test("MULTI-FIB generated IDs do not reuse a live stable blank ID", () => {

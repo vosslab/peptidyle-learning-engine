@@ -1,7 +1,5 @@
 """Decide screenshot-loop rebuild work from source timestamps against named outputs."""
 
-from __future__ import annotations
-
 import dataclasses
 import pathlib
 
@@ -40,7 +38,9 @@ SKIP_DIRECTORY_NAMES = frozenset(
 GENERATED_SCHEMA_FILE_NAMES = frozenset({"catalog_snapshot.json"})
 
 CLIENT_OUTPUT = pathlib.Path("dist/index.html")
-WASM_OUTPUT = pathlib.Path("dist/wasm/ple_bridge_bg.wasm")
+# index.html is atomically published after the complete client and WASM asset
+# generation, so its timestamp is the build receipt for both source groups.
+WASM_OUTPUT = CLIENT_OUTPUT
 
 
 @dataclasses.dataclass(frozen=True)

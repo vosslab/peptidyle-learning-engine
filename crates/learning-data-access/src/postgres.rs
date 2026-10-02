@@ -120,11 +120,15 @@ mod question_image_publication;
 #[cfg(feature = "postgres")]
 mod question_library;
 #[cfg(feature = "postgres")]
+mod question_pool_bulk_metadata;
+#[cfg(feature = "postgres")]
 mod question_pool_creation;
 #[cfg(feature = "postgres")]
 mod question_pool_library;
 #[cfg(feature = "postgres")]
 mod question_pool_stewardship;
+#[cfg(feature = "postgres")]
+mod question_pool_support;
 #[cfg(feature = "postgres")]
 pub use question_pool_stewardship::PostgresQuestionPoolStewardshipStore;
 #[cfg(feature = "postgres")]
@@ -228,9 +232,13 @@ pub use question_image_publication::PostgresPublicAssetPublicationStore;
 #[cfg(feature = "postgres")]
 pub use question_library::PostgresQuestionLibraryStore;
 #[cfg(feature = "postgres")]
+pub use question_pool_bulk_metadata::PostgresBulkQuestionPoolSearchMetadataStore;
+#[cfg(feature = "postgres")]
 pub use question_pool_creation::PostgresQuestionPoolCreationStore;
 #[cfg(feature = "postgres")]
 pub use question_pool_library::PostgresQuestionPoolLibraryStore;
+#[cfg(feature = "postgres")]
+pub use question_pool_support::PostgresQuestionPoolSupportStore;
 #[cfg(feature = "postgres")]
 pub use question_source::PostgresDraftQuestionSourceBindingStore;
 #[cfg(feature = "postgres")]

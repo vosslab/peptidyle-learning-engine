@@ -12,14 +12,18 @@ const repoRoot = process.cwd();
 
 execFileSync("npm", ["run", "build"], { cwd: repoRoot, stdio: "pipe" });
 const indexHtml = fs.readFileSync("dist/index.html", "utf8");
-const browserBundle = fs.readFileSync("dist/main.js", "utf8");
-const browserStylesheet = fs.readFileSync("dist/main.css", "utf8");
+const bundlePath = indexHtml.match(/src="\/(main\.[0-9a-f]{8}\.js)"/u)?.[1];
+const stylesheetPath = indexHtml.match(/href="\/(main\.[0-9a-f]{8}\.css)"/u)?.[1];
+assert.ok(bundlePath, "the production index references its fingerprinted browser bundle");
+assert.ok(stylesheetPath, "the production index references its fingerprinted stylesheet");
+const browserBundle = fs.readFileSync(`dist/${bundlePath}`, "utf8");
+const browserStylesheet = fs.readFileSync(`dist/${stylesheetPath}`, "utf8");
 const embedStylesheet = fs.readFileSync("dist/styles/ple_embed.css", "utf8");
 
 assert.match(
   indexHtml,
-  /<link rel="stylesheet" href="\/main\.css\?v=[0-9a-f]{8}"\s*\/>/u,
-  "the production build fingerprints the shared frontend environment stylesheet",
+  /<link rel="stylesheet" href="\/main\.[0-9a-f]{8}\.css"\s*\/>/u,
+  "the production build references the content-addressed shared frontend stylesheet",
 );
 assert.match(
   browserStylesheet,
@@ -47,7 +51,7 @@ assert.deepEqual(
 );
 assert.match(
   indexHtml,
-  /<script type="module" src="\/main\.js\?v=[0-9a-f]{8}"><\/script>/u,
+  /<script type="module" src="\/main\.[0-9a-f]{8}\.js"><\/script>/u,
   "the production module resolves from the gateway root",
 );
 assert.doesNotMatch(

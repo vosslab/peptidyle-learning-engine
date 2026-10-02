@@ -108,7 +108,7 @@ impl CourseRosterImportInput {
 /// their exact `.edu` domain suffix. The normalized `EmailDomain` prevents
 /// a lookalike suffix (for example, `university.edu.example`) from passing.
 fn is_institutional_student_email(email: &AuthenticationEmail) -> bool {
-    email.domain().as_str().ends_with(".edu")
+    email.require_institutional_student_domain().is_ok()
 }
 
 /// Browser-safe state of one course-scoped roster entry.
@@ -131,6 +131,19 @@ pub enum CourseRosterEntryState {
     InvitationPending,
     /// The Student Record and active Student Course Membership exist.
     ActiveStudent,
+}
+
+/// One fresh signup invitation for an existing Student Account.
+///
+/// The email is delivery input for the attended mailer. It is not a roster field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResetStudentSignupAccess {
+    /// Course-local roster identifier for the existing Student.
+    pub roster_id: String,
+    /// Delivery address of the existing Student Authentication Email.
+    pub email: String,
+    /// Course name placed on the signup message.
+    pub course_name: String,
 }
 
 /// Claim result intentionally omits every private Account and Student Record identifier.
@@ -173,11 +186,67 @@ pub trait CourseRosterStore: Send + Sync {
         course_instance_id: CourseInstanceId,
         roster_id: String,
     ) -> Result<(), StoreError>;
+
+    /// Ends current access, invalidates open signup invitations, and issues one new invitation.
+    async fn reset_student_signup_access(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+        roster_id: String,
+    ) -> Result<ResetStudentSignupAccess, StoreError>;
+
+    /// Reopens Course Membership on the existing Student Record.
+    async fn restore_student_course_access(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+        roster_id: String,
+    ) -> Result<(), StoreError>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::{CourseRosterImportEntry, CourseRosterImportInput};
+
+    #[test]
+    fn roster_import_uses_one_normalized_institutional_email_for_account_resolution() {
+        let first = CourseRosterImportInput {
+            entries: vec![CourseRosterImportEntry {
+                email: "Student@Biology.Roosevelt.EDU".to_string(),
+                roster_id: "bio301-student".to_string(),
+                roster_name: "Synthetic Student".to_string(),
+            }],
+        };
+        let second = CourseRosterImportInput {
+            entries: vec![
+                CourseRosterImportEntry {
+                    email: "student@biology.roosevelt.edu".to_string(),
+                    roster_id: "bio301-a".to_string(),
+                    roster_name: "Synthetic Student".to_string(),
+                },
+                CourseRosterImportEntry {
+                    email: "Student@Biology.Roosevelt.EDU".to_string(),
+                    roster_id: "bio301-b".to_string(),
+                    roster_name: "Same Student".to_string(),
+                },
+            ],
+        };
+
+        let resolved = first
+            .validated_entries()
+            .expect("institutional email is the account-resolution key");
+        assert_eq!(
+            resolved[0].normalized_email,
+            "student@biology.roosevelt.edu"
+        );
+        match second.validated_entries() {
+            Err(crate::StoreError::InvalidRecord(message)) => assert_eq!(
+                message,
+                "Course Roster Import repeats a Student Authentication Email"
+            ),
+            _ => panic!("one institutional email must resolve to one Account"),
+        }
+    }
 
     #[test]
     fn roster_import_accepts_institutional_student_identity() {

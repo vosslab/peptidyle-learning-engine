@@ -119,7 +119,7 @@ the default Live Demo and are not separate major pages.
 
 ## Canonical Command Behavior
 
-[devel/capture_screenshots.sh](../../devel/capture_screenshots.sh) remains the only operator entry
+[capture_screenshots.sh](../../devel/capture_screenshots.sh) remains the only operator entry
 point and filesystem-anchors itself without Git.
 
 - Default invocation:

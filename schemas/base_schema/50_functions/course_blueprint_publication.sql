@@ -196,7 +196,9 @@ AS $$
                 'submitted_response', policy.feedback_submitted_response,
                 'question_answer', policy.feedback_question_answer,
                 'question_answer_explanation', policy.feedback_question_answer_explanation,
-                'class_statistics', policy.feedback_class_statistics
+                'class_statistics', policy.feedback_class_statistics,
+                'hints', policy.feedback_hints,
+                'worked_solutions', policy.feedback_worked_solutions
             )
         )
     )

@@ -111,7 +111,12 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_avatar();
 -- C837's cross-Account projection is narrower than the self Avatar API: a
 -- Sysadmin may learn only a selected provided-avatar ID. Generic and private
 -- Profile-image choices both project as NULL, never as an image reference.
-CREATE FUNCTION ple_private.list_instructor_account_avatar_summaries()
+CREATE FUNCTION ple_private.list_instructor_account_avatar_summaries(
+    p_query text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_after_account_id text DEFAULT NULL,
+    p_limit integer DEFAULT NULL
+)
 RETURNS TABLE (
     account_id text,
     state text,
@@ -121,8 +126,36 @@ RETURNS TABLE (
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
+DECLARE
+    v_query text := NULLIF(btrim(p_query), '');
+    v_state text := NULLIF(btrim(p_state), '');
+    v_after text := NULLIF(btrim(p_after_account_id), '');
+    v_limit integer := p_limit;
 BEGIN
     PERFORM ple_private.require_current_sysadmin_account();
+    -- ASVS 2.2.1: state, cursor, and page size are allow-listed. A null limit
+    -- remains the complete filtered list for a single-account lookup.
+    IF v_query IS NOT NULL AND (
+        char_length(v_query) > 320 OR v_query ~ '[[:cntrl:]]'
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account search is invalid';
+    END IF;
+    IF v_state IS NOT NULL AND v_state NOT IN ('active', 'deactivated', 'closed') THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account list is invalid';
+    END IF;
+    IF v_after IS NOT NULL AND v_after !~ '^U[0-9A-HJKMNP-TV-Z]{8}$' THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account list is invalid';
+    END IF;
+    IF v_limit IS NOT NULL AND v_limit NOT IN (50, 100, 250) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account list is invalid';
+    END IF;
+    -- The match may use the authentication email or vetted display name.
+    -- Neither value is selected into this browser-safe summary. ASVS 8.2.3.
+    -- A page asks for one extra row so the caller can see that another page exists.
     RETURN QUERY
     SELECT summary.account_id,
            summary.state,
@@ -132,13 +165,35 @@ BEGIN
       CROSS JOIN LATERAL ple_private.instructor_account_summary(account.account_id) AS summary
       LEFT JOIN ple_private.account_avatar AS avatar ON avatar.account_id = account.account_id
      WHERE account.user_role = 'instructor'
-     ORDER BY summary.account_id;
+       AND (v_state IS NULL OR summary.state = v_state)
+       AND (v_after IS NULL OR summary.account_id > v_after)
+       AND (
+            v_query IS NULL
+            OR EXISTS (
+                SELECT 1 FROM ple_private.account_authentication_email AS email
+                 WHERE email.account_id = account.account_id
+                   AND email.normalized_email = lower(v_query)
+            )
+            OR strpos(
+                lower(COALESCE(
+                    ple_private.verified_instructor_display_name(account.account_id), ''
+                )),
+                lower(v_query)
+            ) > 0
+       )
+     ORDER BY summary.account_id
+     LIMIT (CASE WHEN v_limit IS NULL THEN NULL ELSE v_limit + 1 END);
 END
 $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.list_instructor_account_avatar_summaries()
+CREATE FUNCTION ple_api.list_instructor_account_avatar_summaries(
+    p_query text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_after_account_id text DEFAULT NULL,
+    p_limit integer DEFAULT NULL
+)
 RETURNS TABLE (
     account_id text,
     state text,
@@ -147,7 +202,9 @@ RETURNS TABLE (
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
-AS $$ SELECT * FROM ple_private.list_instructor_account_avatar_summaries() $$;
+AS $$ SELECT * FROM ple_private.list_instructor_account_avatar_summaries(
+    p_query, p_state, p_after_account_id, p_limit
+) $$;
 
 CREATE FUNCTION ple_api.current_account_avatar()
 RETURNS TABLE(avatar_kind text, provided_avatar_id text, profile_image_id uuid) LANGUAGE sql STABLE SECURITY DEFINER

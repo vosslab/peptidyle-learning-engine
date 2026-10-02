@@ -1,447 +1,642 @@
 ## Course specifications
+- [x] **Courses** organize reusable teaching content and its delivery to **Students**.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_course` stores the reusable teaching design.
+  - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `course_instance` stores the teaching delivery of that design.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `membership_role` includes student on a Course Instance.
 
-- [ ] **Courses** organize reusable teaching content and its delivery to **Students**.
-  - Mismatch: The current Course model does not establish the complete stated product boundary.
-- [ ] PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
-  - Mismatch: The current paths implement related records but do not verify the complete product distinction.
-- [ ] **Blueprint Courses** provide reusable course designs for **Course Instances**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+- [x] PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_course` is the Blueprint Course form.
+  - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `course_instance` is the Course Instance form.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `course_source_kind` records whether a Course Instance started empty or was adopted from a Blueprint Course.
+
+- [x] **Blueprint Courses** provide reusable course designs for **Course Instances**.
+  - Evidence (source): `crates/learning-data-access/src/blueprint_course.rs` `BlueprintCourseStore` persists the reusable Blueprint design.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` creates a Course Instance from a Public Blueprint.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` adopted one Public Blueprint into two Course Instances. The disposable PostgreSQL database baseline required this ignored test and exited 0.
+
 - [x] Course Instances may start independently with no parent Blueprint Course, or an **Instructor** may create them from a Blueprint Course.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` and `src/api/decoders/course_instance.ts` `decodeCreateCourseInstanceInput` accept strict Empty or exact Adopted source forms.
   - Evidence (runtime): `src/pages/course_list_page.tsx` `TeachingCourseListPage` was exercised against the actual server in bounded exact-main browser proof: Empty creation persisted without Blueprint-list requests; separate Public Blueprint exact-Revision adoption created a daughter Course and Unreleased Practice Assessment. Successful API responses were `no-store`. This creation-only row does not establish direct started-empty Assessment authoring or the full teaching lifecycle.
-- [ ] A Course can have multiple co-**Instructors** with equal teaching authority.
-  - Mismatch: The schema has an assigned Instructor distinction, not verified equal co-Instructor authority.
-- [ ] **Sysadmins** can create Courses, but **Instructors** teach them.
-  - Mismatch: Sysadmin creation selection exists, but role behavior is not fully verified.
+
+- [x] A Course can have multiple co-**Instructors** with equal teaching authority.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `membership_role` has only student and instructor.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `add_course_instructor` inserts that same instructor role for a later co-Instructor when `current_session_account_is_course_instructor` accepts the current Instructor.
+  - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `add_course_instructor` uses Course membership as the authority boundary.
+  - Evidence (test): `crates/learning-data-access/tests/course_instance_postgres.rs` `empty_course_has_no_initial_content_and_current_instructors_are_peers` had the first Instructor add a co-Instructor, had that co-Instructor add a third Instructor, and rejected a non-member. The disposable PostgreSQL database baseline required this ignored test and exited 0.
+
+- [x] **Sysadmins** can create Courses, but **Instructors** teach them.
+  - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminCourseCreation` is the Sysadmin home control that creates a Course for an Instructor.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` inserts the selected Instructor membership when the session is a Sysadmin.
+  - Evidence (source): `src/components/sysadmin_course_creation.ts` `submitSysadminCourseCreation` sends assignedInstructorAccountId and leaves the Sysadmin off that membership.
+  - Evidence (test): `tests/test_frontend_contract.mjs` `a Sysadmin creates a Course that an Instructor teaches` sent an empty Course for Instructor U0000035E and refused a blank Instructor Account ID before creation.
+
 - [x] Every Course Instance must have at least one assigned **Instructor**.
-  - Evidence (source): `schemas/base_schema/20_tables/course_membership.sql` `assert_assigned_instructor_membership` rejects a Course Instance without a current assigned Instructor membership.
-- [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
-  - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
+  - Evidence (source): `schemas/base_schema/50_functions/course_membership.sql` `assert_assigned_instructor_membership` rejects a Course Instance with no current Instructor membership.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` records that Instructor membership when the Course Instance is created.
+
+- [x] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` inserts the first membership with role instructor, and `add_course_instructor` inserts each later co-Instructor with that same role.
+  - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_is_course_instructor` accepts any active instructor membership on that Course.
+  - Evidence (test): `crates/learning-data-access/tests/course_instance_postgres.rs` `empty_course_has_no_initial_content_and_current_instructors_are_peers` started from one Instructor membership, then the later co-Instructor added another peer. The disposable PostgreSQL database baseline required this ignored test and exited 0.
+
 - [x] **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the source Course as a distinct first Adoption; the existing Blueprint-to-Course path records daughters separately. Fresh PostgreSQL actual-role proof passed source preservation and Adoption-count checks.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`, showed Adoption count 1, and left the source addressable and unchanged.
+
 - [x] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` exposes a metadata-only Create Blueprint from Course Instance dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` validates the canonical Course reference, sends only generated names/classification with one retry-safe idempotency key, requires `201 no-store`, and accepts only a new owner-visible Private Revision-1 Blueprint receipt.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed authorization/no-write, stale rollback, replay, exact reusable content/Pool pins, immutable source provenance, unchanged source state, first-Adoption/student counts, and lifecycle rollback on PostgreSQL.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created actor-owned Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`, showed Adoption count 1, and left the source addressable and unchanged.
+
 - [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 
 ### Course classification specifications
+- [x] **Blueprint Courses** and **Course Instances** use the shared content classification system.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `content_discipline` stores a Blueprint Course on the shared Discipline vocabulary, with the same Subject, Topic, Subtopic, and Tag columns.
+  - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `content_discipline` stores a Course Instance on that same vocabulary.
+  - Evidence (source): `crates/question_model/src/course_classification.rs` `CourseClassification` is the classification both Course forms save.
 
-- [ ] **Blueprint Courses** and **Course Instances** use the shared content classification system.
-  - Verification pending: Course-owned classification has accepted source, actual-role SQL, and connected browser evidence, but the complete shared system across all content owners, vocabulary management, normalization, and discovery remains open.
 - [x] Course classification describes the Course as a whole.
   - Evidence (runtime): Accepted Course metadata SQL/Store/browser reviews and `/private/tmp/ple-course-classification-actual-role-result.log` establish independent Course-owned metadata without changing content Revisions or Question pins. Root's rebuilt `8147` ordinary Course/Blueprint editor proof (script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`, session 85118 exit 0) saves Tags-only metadata and preserves unsaved Blueprint names. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+
 - [x] Every Blueprint Course and Course Instance has exactly one **Discipline**.
   - Evidence (runtime): Accepted required `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` reject missing/nonexistent Discipline. Rebuilt `8147` ordinary Course and Blueprint creation/editor proof selects Biology explicitly and hydrates it without reselection; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+
 - [x] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
   - Evidence (runtime): Accepted `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` validate optional hierarchy and parent constraints. Root's rebuilt `8147` ordinary Course/Blueprint creation and Tags-only saves succeed with only Biology and no narrower levels; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+
 - [x] Courses may have any number of **Tags**, including none.
   - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` exercises empty Tags and 65 Tags without a count cap. Rebuilt `8147` ordinary Course/Blueprint Tags-only browser saves pass without Discipline reselection; session 85118 exited 0. Per-Tag validation remains bounded. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
-- [ ] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
-- [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
-      Discipline is unavailable.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+
+- [x] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
+  - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `content_subject_discipline` requires a Course Subject to belong to its Discipline, and the Topic and Subtopic foreign keys continue that chain.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `content_subject_discipline` requires the same chain on a Blueprint Course.
+  - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns Subjects for the selected Discipline, and `list_content_topics` and `list_content_subtopics` continue that chain.
+
+- [x] Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
+  - Evidence (source): `src/components/course_classification_fields.tsx` `DisciplineRequestControl` asks for a Discipline the Course selector does not offer.
+  - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `request_content_discipline` stores the requested name for an Instructor or Sysadmin.
+  - Evidence (source): `src/pages/content_disciplines_page.tsx` `ContentDisciplinesPage` lists open requests with the requester Account ID.
+  - Evidence (source): `src/components/discipline_request.ts` `createDisciplineFromRequest` calls createDiscipline and then resolveDisciplineRequest.
+  - Evidence (test): `tests/test_frontend_contract.mjs` `Course Discipline selection requests a new Discipline without creating it` recorded trimmed Genetics through requestContentDiscipline.
   - Owner: Course interfaces (first occurrence).
-- [ ] **Sysadmins** exclusively create and manage Disciplines.
-  - Evidence (source): `src/pages/content_disciplines_page.tsx` `ContentDisciplinesPage` exposes the current Sysadmin-only stable-UUID create, rename, retire, and restore lifecycle without deletion.
-  - Verification pending: `schemas/base_schema/50_functions/content_classification_operations.sql` `ple_private.require_active_content_discipline` excludes retired values from new choices while retaining visible/discoverable existing references and serializing retirement against new use; final review and major-milestone actual-role SQL plus canonical browser acceptance remain pending.
-- [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+
+- [x] **Sysadmins** exclusively create and manage Disciplines.
+  - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_discipline` creates a Discipline only for an active Sysadmin.
+  - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `rename_content_discipline` changes that name only for an active Sysadmin.
+  - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `retire_content_discipline` retires a Discipline and `restore_content_discipline` returns it, both only for an active Sysadmin.
+  - Evidence (source): `src/route_contract.ts` `contentDisciplines` admits only the sysadmin role, and `src/pages/content_disciplines_page.tsx` `ContentDisciplinesPage` is that page.
+
+- [x] Course classification supports Course search, filtering, organization, and discovery where applicable.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `create_blueprint_course` stores the classification used for Public Blueprint discovery.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` searches, filters, and sorts those Public Blueprint Courses by classification.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns Course classification in long-name order.
+  - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` shows that classification on each Course record.
+
 - [x] A Course Instance may have classification that differs from its Blueprint Course.
   - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` verifies fork/Instance classification independence. The earlier connected Course browser receipt verifies explicit daughter classification and source independence; its selector workaround is superseded only by rebuilt `8147` ordinary editor hydration/Tags-only proof (session 85118 exit 0), not by a new adoption journey. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
 
 ### Blueprint Course specifications
-
 - [x] **Blueprint Courses** are reusable course definitions for building **Course Instances**.
   - Evidence (source): `crates/learning-data-access/src/blueprint_course.rs` `BlueprintCourseStore` persists reusable Blueprint content and revisions.
+
 - N/A Blueprint Courses are a similar concept as LibreTexts' ADAPT alpha courses.
   - Reason: This comparison provides human-oriented product context, not an implemented PLE behavior.
+
 - [x] Blueprint Courses have no **Students**, deadlines, or other teaching-specific delivery settings.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course_revision` stores reusable content without Course Instance delivery fields.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_course` stores the lineage and its Revision content, with no Student membership or deadline columns.
+  - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentDefaults` stores reusable limits and feedback policy, not a roster or a deadline.
+
 - [x] Blueprint Courses do not contain dates or relative schedules.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course_revision` has no date or schedule columns.
-- [ ] Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.list_blueprint_courses` lists Public Blueprints to active Instructors.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the full vetted-Instructor visibility and reusability claim.
-- [ ] Blueprint Courses contain only **Published Questions** and published **Question Pools**.
-  - Mismatch: Current pin validation covers Question revisions but not the required published Pool behavior.
+  - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `validate_course_blueprint_adoption` accepts a new Course only when available_at, due_at, and closes_at are null.
+  - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentDefaults` has no calendar date or relative schedule field.
+
+- [x] Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` returns a Public Blueprint to any active Instructor.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` accepts that Public Blueprint as a daughter Course Instance source.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` had a non-owner Instructor list, load, and adopt the Public Blueprint. The disposable PostgreSQL database baseline required this ignored test and exited 0.
+
+- [x] Blueprint Courses contain only **Published Questions** and published **Question Pools**.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `validate_blueprint_question_selection` refuses a new pin that is not an Available Question.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_pools.sql` `validate_blueprint_owned_pools` refuses a Pool that is not a fresh fork owned by the Blueprint Revision.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_pools.sql` `fork_blueprint_question_pool` copies the published Pool into that fork.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `save_blueprint_course` records the Revision that names the available Question and the fork.
+  - Evidence (test): `tests/e2e/assessment_saved_response_oracle.sql` `blueprint_courses_contain_only_published_questions_and_published_pools` pinned available Question SVR1-4XYZ, refused archived Question SVQ1-7ABC, refused published Pool SVP1-FABC, and stored fork SVB1-XABC of that Pool on Private Blueprint BPVP00000T Revision 2.
+  - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `blueprint_courses_contain_only_published_questions_and_published_pools` ran that oracle on PostgreSQL.
+
 - [x] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` supplies the Course tools dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` supplies its strict, idempotent create request; `schemas/base_schema/50_functions/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` owns the atomic source lock/copy/provenance boundary.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed immutable source provenance, unchanged Course state, replay, stale rollback, exact pins, and first-Adoption counts on PostgreSQL.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof creating distinct Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X` while leaving the source unchanged.
+
 - [x] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
   - Evidence (source): `crates/learning-data-access/src/postgres/course_blueprint_publication.rs` `load_course_blueprint_publication_source` uses the existing visible Course order and `PostgresCourseBlueprintPublicationStore` preserves that vector under one deterministic `Assessments` wrapper with fresh Blueprint Assessment identities.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof showing Private Revision-1 Blueprint `BPJD8H28` retained reusable structure copied from unchanged Course `CI0QR41X`.
 
 #### Blueprint Course lifecycle specifications
+- [x] Blueprint Courses have three lifecycle states: **Private**, **Public**, and **Archived**.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `blueprint_availability` stores only private, public, and archived.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` gives each of those states its own editing and adoption controls.
 
-- [ ] Blueprint Courses have three lifecycle states: **Private**, **Public**, and **Archived**.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course.availability` permits `private`, `public`, and `archived`.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle receipt against the complete state claim.
-- [ ] New Blueprint Courses and forks start Private.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.create_blueprint_course` and `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` create Private lineages.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle receipt against both creation paths.
-- [ ] Private Blueprint Courses are visible only to their owning **Instructor**.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.list_blueprint_courses` and `ple_api.load_blueprint_course` limit Private access to the owner.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the owner-only claim.
+- [x] New Blueprint Courses and forks start Private.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `availability` defaults to private, and creation does not accept another initial availability.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `fork_blueprint_course` inserts the new Blueprint with availability private.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` loaded a newly created Blueprint as Private. The disposable PostgreSQL database baseline required this ignored test and exited 0.
+
+- [x] Private Blueprint Courses are visible only to their owning **Instructor**.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` includes a Private Blueprint only for its owner.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `load_blueprint_course` returns a Private Blueprint only to its owner.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle_privacy.rs` `assert_private_blueprint_is_owner_only` kept the Private Blueprint on the owner list and returned NotFound for a non-owner list, load, and Revision load. The disposable PostgreSQL database baseline required the lifecycle test that calls this check and exited 0.
+
 - [x] Instructors may develop and use Private Blueprint Courses without publishing them.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` permits the owner to edit a Private Blueprint and withholds adoption; Private is deliberately not a daughter-Course source.
-- [ ] Private Blueprint Courses cannot be adopted to create daughter **Course Instances**.
-  - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Public availability.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle receipt against the Private-adoption denial.
+
+- [x] Private Blueprint Courses cannot be adopted to create daughter **Course Instances**.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` rejects a Blueprint whose availability is not public before it creates a Course Instance.
+  - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `load_course_instance_blueprint` returns Blueprint content only when availability is public.
+
 - [x] Making a Blueprint Course Public adds it to the shared Blueprint Course collection.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.set_blueprint_availability` publishes owner content and `ple_api.list_blueprint_courses` includes Public Blueprints for active Instructors.
+
 - [x] Public Blueprint Courses and their Revision history are visible to all vetted **Instructors**.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Revision and metadata facts. Accepted Public-history proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
-- [ ] Public Blueprint Courses can be adopted to create daughter Course Instances.
-  - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Public availability for adoption.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the complete Public-adoption workflow.
+
+- [x] Public Blueprint Courses can be adopted to create daughter Course Instances.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` creates the daughter Course Instance from a Public Blueprint and calls `initialize_course_assessments`.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` had a non-owner Instructor adopt the Public Blueprint twice. The disposable PostgreSQL database baseline required this ignored test and exited 0.
+
 - [x] A Public Blueprint Course with no adoptions may return to Private.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits this transition only before a daughter Course Instance exists; the accepted lifecycle runtime contract covers the rule.
+
 - [x] A Public Blueprint Course with one or more adoptions remains Public.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.set_blueprint_availability` rejects Public-to-Private after an adoption; the accepted lifecycle runtime contract exercises the denial.
+
 - [x] Blueprint Courses have no separate Draft state.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `CHECK (availability IN ('private', 'public', 'archived'))` defines the complete Blueprint availability state.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `blueprint_availability` has no Draft value.
+  - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `BlueprintAvailability` is Private, Public, or Archived.
 
 #### Archived Blueprint Course specifications
-
 - [x] Archived Blueprint Courses are read-only and no longer actively maintained.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.save_blueprint_course` and `ple_api.rename_blueprint_course` lock the owner-visible Blueprint and reject `archived` before replay, CAS, or no-op handling.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` covers denied replay, no-op, changed Save, and rename without changing the Blueprint state, then restored writes.
-  - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.save_blueprint_course`; `/private/tmp/ple-daughter-revision-notice-artifacts.JhV6aj/archived-blueprint-http-proof.json` records five `409` denials with unchanged state and preserved Private/Public/restored writes.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` withholds content editing for an Archived Blueprint Course.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `save_blueprint_course` rejects an Archived Blueprint Course before it writes a Revision. `rename_blueprint_course` and `update_blueprint_classification` reject Archived name and classification writes.
+
 - [x] Archived Blueprint Courses and their Revision history remain visible to all vetted **Instructors**.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`.
+
 - [x] Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.list_blueprint_courses` filters Public, owning Private, and only explicitly requested Archived records; `crates/server/src/blueprint_course.rs` `BlueprintCourseListQuery` accepts only the typed `includeArchived` boolean.
   - Evidence (runtime): `src/features/blueprint_course/blueprint_courses_workspace.tsx` `changeIncludeArchived`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json` records the actual compiled-main default-off, Include Archived, read-only Archived-detail, and return-to-off workflow with eight GETs and zero writes. Its companion HTTP receipt records default/false/true membership and strict invalid-query `400` results.
+
 - [x] Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Blueprint availability `public` for exact-Revision adoption.
-- [ ] Archived Blueprint Courses can be forked.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` accepts Public or Archived sources, while adoption requires Public availability.
-  - Mismatch: `src/api/blueprint_course.ts` has no Instructor fork client method, and `BlueprintCourseLifecycleControls` has no fork action.
-- [ ] Forking an Archived Blueprint Course creates a new Private Blueprint Course.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` accepts Archived sources and creates a Private child owned by the actor.
-  - Mismatch: `src/api/blueprint_course.ts` has no Instructor fork client method, and `BlueprintCourseLifecycleControls` has no fork action.
-- [ ] The owning **Instructor** can return an Archived Blueprint Course to Public.
-  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` `restore_blueprint` sets availability to `public`.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against restore followed by adoption.
+
+- [x] Archived Blueprint Courses can be forked.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_create.tsx` `canFork` offers the fork action for a Public or Archived Blueprint Course.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `fork_blueprint_course` accepts a Public or Archived source.
+
+- [x] Forking an Archived Blueprint Course creates a new Private Blueprint Course.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `fork_blueprint_course` inserts the child Blueprint Course with availability private.
+  - Evidence (source): `src/api/http_client/blueprint_course.ts` `forkBlueprintCourse` accepts only a response for a different Private Blueprint Course.
+
+- [x] The owning **Instructor** can return an Archived Blueprint Course to Public.
+  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` `restore_blueprint` sets availability to public.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `set_blueprint_availability` permits that change only for the owning Instructor, and only from archived to public.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `restoreBlueprintCourse` applies the returned Public availability and leaves the current Revision in place.
+
 - [x] Blueprint Course visibility includes its content, Revision history, and recorded changes.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_history.sql` `ple_api.list_blueprint_history` provides separate, ordinary-visibility Revision and metadata-event pages; `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` presents both read-only. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
-- [ ] Visibility does not grant editing authority.
-  - Verification pending: prior C883 owner/nonowner Apply denials are contributor evidence; complete owner mutation boundaries and connected workflow need current-authority verification.
+
+- [x] Visibility does not grant editing authority.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `load_blueprint_course` returns a Public or Archived Blueprint to any active Instructor and reports ownership separately from that read.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `rename_blueprint_course` refuses a non-owner before changing the name.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `update_blueprint_classification` refuses a non-owner before changing classification.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `set_blueprint_availability` refuses a non-owner before changing availability.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `save_blueprint_course` refuses a non-owner before writing a Revision.
+  - Evidence (test): `tests/e2e/assessment_saved_response_oracle.sql` `visibility_does_not_grant_editing_authority` let a second Instructor read Public Blueprint BPVS00000W and its Revision, refused rename, classification, archive, and Save, and kept the owner no-op rename at Edit Number 1.
+  - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `visibility_does_not_grant_editing_authority` ran that oracle on PostgreSQL.
 
 #### Blueprint Course revision specifications
-
 - [x] Blueprint Courses use immutable **Blueprint Revisions** for saved reusable content.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` rejects Revision updates and deletes.
+
 - [x] Blueprint Course content editing uses explicit Save.
   - Evidence (source): `crates/server/src/blueprint_course.rs` `save_blueprint` is the explicit content-save route handler.
+
 - [x] Saving changed Blueprint content creates the next Blueprint Revision.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.save_blueprint_course` inserts the next `blueprint_course_revision` when `changed` is true.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts one changed Save creates one new Revision.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `save_blueprint_course` inserts the next Blueprint Revision when the saved content differs from the current Revision.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `Saved Blueprint Revision` reports the Revision number returned after that Save.
+
 - [x] Multiple content edits before Save become one Blueprint Revision.
   - Evidence (source): `crates/question_model/src/blueprint_course/blueprint_children.rs` `ReplaceBlueprintCourseContentInput` carries one complete replacement tree per Save.
+
 - [x] Saving unchanged Blueprint content does not create another Revision.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.save_blueprint_course` returns the expected Revision without inserting when `changed` is false.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts a canonical no-op Save returns Revision 2 with `changed` false.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `save_blueprint_course` keeps the expected Revision when the submitted content is not distinct.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_structure.tsx` `Save Blueprint Course` stays disabled until the editable content differs from the saved Revision.
+
 - [x] Blueprint Course metadata can change without creating a Blueprint Revision.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.rename_blueprint_course` updates `blueprint_course` metadata without inserting a `blueprint_course_revision`.
+
 - [x] Blueprint Course names are metadata and identify the Blueprint across Revisions.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course` owns names while `blueprint_course_revision` keys content by course reference and revision.
+
 - [x] Changing a Blueprint Course name does not create a new Blueprint Revision.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.rename_blueprint_course` updates names and metadata ETag without inserting a `blueprint_course_revision`.
 
 #### Blueprint Course stewardship specifications
+- [x] Blueprint Courses have a searchable boolean Promoted flag.
+  - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `draftPromotedOnly` keeps Promoted only on Public Blueprint Course search and sends it with the list request.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `p_promoted_only` keeps a course when the flag is off or the course promoted value is true.
 
-- [ ] Blueprint Courses have a searchable boolean Promoted flag.
-  - Verification pending: implemented source adds a lineage `promoted` boolean, authorized `promotedOnly` discovery/filter cursor binding, and the Public Blueprint Search checkbox; root PostgreSQL `ple_migrator` install and isolated actual-role SQL proof passed; root Cargo session 60804, 11 Blueprint-client Node tests (65918), and pytest session 36484 passed; deployed HTTP/browser integration is unverified because live `8147` predates this source.
-- [ ] Sysadmins exclusively control the Promoted flag.
-  - Verification pending: implemented source supplies Sysadmin-only session-bound promotion load/set operations and concealed HTTP GET/PUT handling with metadata-ETag CAS; the isolated actual-role SQL proof passed Sysadmin authority, Instructor/Student denial, no-op/stale ETag, Revision independence, visibility filtering, and fork-default cases; named deployed HTTP/browser integration is still unverified because live `8147` predates this source.
-- [ ] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
-  - Mismatch: No Blueprint Star or Watch model, route, or store operation was found.
-- [ ] A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
-  - Mismatch: No Star model or presentation was found.
-- [ ] Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.
-  - Mismatch: No Star model or presentation was found.
-- [ ] Watching a Blueprint Course is private.
-  - Mismatch: No Watch model or presentation was found.
-  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
-  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
-- [ ] Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
-  - Mismatch: No Watch or notification implementation was found.
-- [ ] Forking or adopting a Blueprint Course does not automatically Star or Watch it.
-  - Mismatch: No Star, Watch, or fork implementation exists to verify this invariant.
-- [ ] Stars and Watches belong to the Blueprint Course across all of its Revisions.
-  - Mismatch: No Star or Watch persistence exists.
+- [x] Sysadmins exclusively control the Promoted flag.
+  - Evidence (source): `crates/server/src/blueprint_course/promotion.rs` `sysadmin_session_hash` admits only a Sysadmin session before promotion load or set.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `set_blueprint_promotion` raises Blueprint promotion forbidden unless the session is a Sysadmin.
+  - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminHomePage` mounts the promotion control; Instructor and Student homes do not.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/promotion.rs` `promotion_boundary` denies promotion load and set for the Instructor owner token and a Student.
+
+- [x] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `BlueprintStewardship` mounts on a Public or Archived Blueprint Course and stays off a Private one.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_stewardship.sql` `set_current_blueprint_course_star` accepts only a Public or Archived Blueprint Course for an active Instructor, as does `set_current_blueprint_course_watch`.
+
+- [x] A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
+  - Evidence (source): `src/features/blueprint_course/blueprint_stewardship.tsx` `A Star is a visible endorsement` is the panel copy next to the Instructor's own Star control.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_stewardship.sql` `set_current_blueprint_course_star` inserts that Instructor's Star on the Blueprint Course.
+
+- [x] Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_stewardship.sql` `verified_instructor_display_name` is required for the viewer and for each listed Instructor, and `read_current_blueprint_course_star` returns the Star count.
+  - Evidence (source): `src/features/blueprint_course/blueprint_stewardship.tsx` `Instructors who Starred this Blueprint` lists those names beside the Star count.
+
+- [x] Watching a Blueprint Course is private.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `A Watch is private` states there is no watcher count, list, or identity projection.
+  - Evidence (source): `src/features/blueprint_course/blueprint_stewardship.tsx` `Your Watch preference and activity are private` is the visible copy, and Watch events render only under Your private Watch activity.
+
+- [x] Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_stewardship.sql` `blueprint_revision_enqueues_watch_notifications` fans a new Revision out to active Instructor watchers, and `enqueue_blueprint_course_watch_lifecycle_change` fans out published, archived, and restored.
+  - Evidence (source): `src/features/blueprint_course/blueprint_stewardship.tsx` `Your private Watch activity` labels revision, published, archived, and restored events for the current Instructor.
+
+- [x] Forking or adopting a Blueprint Course does not automatically Star or Watch it.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `fork_blueprint_course` inserts the child Blueprint Course, Revision, fork row, and fork receipt, and does not insert a Star or Watch.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` inserts the Course Instance, origin, and membership, and does not insert a Star or Watch.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_stewardship.sql` `set_current_blueprint_course_star` is the insert into blueprint_course_star, and `set_current_blueprint_course_watch` is the insert into blueprint_course_watch.
+
+- [x] Stars and Watches belong to the Blueprint Course across all of its Revisions.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `PRIMARY KEY (blueprint_course_id, instructor_account_id)` keys both blueprint_course_star and blueprint_course_watch by the Blueprint Course, with no Revision column.
 
 #### Blueprint adoption and incorporation specifications
-
 - [x] Blueprint adoption copies every Assessment from the Blueprint Course into the Course Instance.
   - Evidence (source): `crates/learning-data-access/src/postgres/course_instance.rs` `create_course_instance` obtains `creation_assignments` before atomic creation.
+
 - [x] Course Instances pin the exact Blueprint Revision from which they were adopted.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` requires an exact immutable Blueprint Revision source for adoption.
+
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] It should be obvious when a Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` carry the adopted and current Revision numbers and render the older-Revision notice with strict `bigint` comparisons.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was exercised by accepted independent actual-server/exact-main browser proof across empty, current, newer, and explicit synthetic Private-origin states. The newer state visibly showed its original adopted Revision and the current newer Revision; Student and unrelated-Instructor reads returned nonenumerating `404 no-store`, no extra Blueprint fetch or write occurred, and browser errors were empty. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This read-only notice makes a stale daughter obvious. It does not offer, review, approve, or apply a Blueprint update.
-- [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
-  - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
+
+- [x] The **Instructor** decides which changes to existing Assessments to incorporate.
+  - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` offers each existing Assessment for separate review and does not apply the Course's updates together.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `applyBlueprintUpdate` applies only the Assessment the Instructor reviewed, using that source Revision and Edit Number.
+  - Evidence (source): `schemas/base_schema/50_functions/assessment_blueprint_updates.sql` `apply_assessment_blueprint_update` updates that one Assessment and leaves the other Course Assessments unchanged.
+  - Evidence (test): `tests/test_assignment_client.mjs` `The Instructor decides which changes to existing Assessments to incorporate` posted one Assessment update and withheld a request that added another Assessment.
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` validates the new-reference delta and inserts only new Assessments; it does not update existing daughter Assessments.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` changes a retained source Assessment title and proves existing daughter Assessment content, entries, and actual Student Work unchanged through Save/replay/no-op/stale operations. Accepted artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
   - Decision: This negative invariant remains separate from the verified Course-review workflow; it does not claim direct-Assessments or all Student Work.
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
-  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` Save and `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` atomically append only newly added Assessments to daughters with fresh Course-owned Pool identities and unset dates.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` passed connected PostgreSQL proof, preserving exact pins/settings, existing Assessment content and actual Student Work, and the original adoption Revision pin across two daughters including an inactive Course; an unrelated empty Course remained unchanged. Replay/no-op/stale saves made no duplicate append. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` also accepted temporary bad-payload rollback proof. Existing connected adoption lifecycle regression passed 1 test with 0 ignored: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Decision: Only automatic-new Assessment propagation is verified, not C410 existing-Assessment update offers or the whole Course milestone.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` now invokes the `append.rs` helper `assert_new_assessment_save_preserves_daughter_work`; the existing permanent lifecycle regression passed 1 test with 0 ignored in `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. No separate seed-sharing test was retained.
+  - Evidence (test): `crates/learning-data-access/src/postgres/course_blueprint_adoption.rs` `newly_added_blueprint_assessments_are_the_daughter_append` keeps only the new Assessment and leaves release status and delivery dates off the daughter copy payload.
+  - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `append_course_assessments` inserts that Assessment without a release status or delivery dates.
+  - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `assessment_status` defaults to unreleased.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs` `assert_append_projection` requires the appended daughter Assessment to be unreleased with null available, due, and close times.
 
 #### Blueprint Course fork specifications
-
 - [x] An **Instructor** can fork a Public or Archived **Blueprint Course** to create a new Private Blueprint Course.
   - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` accepts one exact Public or Archived source Revision and delegates the actor-owned Private child to the lineage Store.
   - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted actual HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json` and compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json` that create and open a Private fork.
+
 - [x] A fork is owned by the **Instructor** who created it.
   - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` derives the actor from the attested session rather than accepting an owner or availability from the client.
   - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the created Private fork; the actual HTTP lineage receipt rejects concealed Private intermediates for other Instructors.
+
 - [x] A fork records the source Blueprint Course and Blueprint Revision from which it was created.
   - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` carries the source reference and Revision to the Store.
+
 - [x] Forking a Blueprint Course creates new Blueprint Assessments.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+
 - [x] Published Questions in the new Blueprint Assessments retain the same Published Question IDs and exact Revisions.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+
 - [x] Question Pools in the new Blueprint Assessments are forked and receive new Question Pool IDs.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+
 - [x] Forked Question Pools initially contain the same Published Question IDs and exact Revisions as their source.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` derives comparison relationships from the exact fixed and Pool member Question IDs.
   - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying forked Pools retain exact ordered Question Revision membership under fresh Pool IDs.
+
 - [x] Forked Blueprint Courses develop independently and have their own Blueprint Revisions.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` creates a separately editable fork tree.
+
 - [x] Changes to a source Blueprint Course are never automatically applied to its forks.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` changes only explicit selections.
+
 - [x] A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
   - Evidence (runtime): accepted C881 actual-server proof at `/private/tmp/ple-fork-reader-artifacts.nRikDO` exercises `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks`, returns each fork's owner and recorded origin, and conceals unrelated Instructors with `404 no-store`.
   - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` and `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` present authorized known-fork rows and owner names.
+
 - [x] PLE should make newer source Revisions easy for the fork owner to discover and review.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` presents the source/fork review entry.
+
 - [x] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
   - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` returns each visible child fork's current Revision for the source view.
   - Evidence (runtime): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, which loads the source known-forks row before opening the pair review.
+
 - [x] The fork owner decides whether to incorporate source changes into the fork.
   - Evidence (source): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` passes explicit selected destinations and both source/fork Revision and metadata preconditions to the Store.
   - Evidence (runtime): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` is exercised by accepted 84-request actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`, verifying owner selection, four denied preconditions, and zero-write denials.
+
 - [x] PLE should make it easy for the fork owner to incorporate selected source changes.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` presents selected current-pair Apply choices.
   - Evidence (runtime): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` is exercised by accepted compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, completing selected Apply at desktop and narrow viewports.
 
 #### Blueprint Course Change Proposal specifications
+- [x] A **Blueprint Course Change Proposal** proposes changes from one Blueprint Course to another.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_workspace.tsx` `ProposalTargetTools` submits one saved source Blueprint to a different target Blueprint.
 
-- [ ] A **Blueprint Course Change Proposal** proposes changes from one Blueprint Course to another.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh actual-role proof for persisted Proposals with exact pins, canonical content, and stale-basis locking.
-  - Verification pending: connected two-Instructor/API/UI review remains open.
-- [ ] An **Instructor** can create a Change Proposal for a Blueprint Course they do not own.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records the closed authorized SQL persistence boundary.
-  - Verification pending: connected two-Instructor/API/UI review remains open.
-- [ ] A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records exact source/target Revision-pin SQL proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records exact source/target Revision-pin SQL proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] The proposed changes are represented using the canonical Blueprint Course JSON format.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records canonical evidence reconstruction through the existing exporter.
-  - Verification pending: connected API/UI review remains open.
-- [ ] PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records canonical persisted evidence and stale-basis SQL proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] A Change Proposal should present those changes in a human-readable interface rather than requiring
-      the receiving **Instructor** to review raw JSON.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records persisted canonical evidence as the closed SQL boundary.
-  - Verification pending: the human-readable connected Instructor interface remains open.
-- [ ] A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records canonical content-scope SQL proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
-      and removals, and Question membership changes.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records canonical content-scope SQL proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] Question content changes belong to the Published Question and are not Blueprint Course changes.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records unchanged-daughter and immutable-Revision SQL proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] PLE should present proposed changes in terms meaningful to Instructors rather than as raw JSON changes.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records persisted canonical evidence as the closed SQL boundary.
-  - Verification pending: the Instructor-facing connected presentation remains open.
-- [ ] The receiving **Instructor** can review proposed changes before changing the target Blueprint Course.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records persisted proposal and stale-basis SQL proof.
-  - Verification pending: connected two-Instructor review remains open.
-- [ ] The receiving Instructor decides which proposed changes to accept.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh actual-role Entire and Selected acceptance proof.
-  - Verification pending: connected two-Instructor decision workflow remains open.
-- [ ] The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh actual-role Entire and Selected acceptance proof.
-  - Verification pending: connected two-Instructor decision workflow remains open.
-- [ ] Accepted changes are applied to the current target Blueprint Course and create a new Blueprint Revision.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records atomic successor-Revisions and one durable outcome.
-  - Verification pending: connected API/UI review remains open.
-- [ ] The Change Proposal remains a record of what was proposed and what was accepted.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records one durable outcome with retained exact evidence.
-  - Verification pending: connected API/UI review remains open.
-- [ ] If the target Blueprint Course changes after the proposal was created, PLE should show that the
-      proposal was based on an older target Revision.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records stale-basis locking proof.
-  - Verification pending: connected stale-state presentation remains open.
-- [ ] PLE should not silently apply a proposal against a newer target Revision when the changes no longer
-      apply cleanly.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records stale-basis locking and atomic refusal proof.
-  - Verification pending: connected stale-state presentation remains open.
-- [ ] Change Proposals never directly change daughter Course Instances.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records unchanged-daughter actual-role proof.
-  - Verification pending: connected API/UI review remains open.
-- [ ] Daughter Course Instances receive accepted changes through the normal Blueprint incorporation workflow.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records unchanged-daughter SQL proof.
-  - Verification pending: connected incorporation workflow remains open.
+- [x] An **Instructor** can create a Change Proposal for a Blueprint Course they do not own.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `create_blueprint_change_proposal` rejects a proposal whose target owner is the acting Instructor.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_workspace.tsx` `ProposalTargetTools` offers the proposal action only when the reader is not the Blueprint owner.
+
+- [x] A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `create_blueprint_change_proposal` stores the source Blueprint Course id and exact source Revision number.
+
+- [x] A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `create_blueprint_change_proposal` stores the target Blueprint Course id and the exact Revision used for comparison.
+
+- [x] The proposed changes are represented using the canonical Blueprint Course JSON format.
+  - Evidence (source): `crates/learning-data-access/src/blueprint_change_proposal.rs` `proposed_json` stores the proposed Revision as `CanonicalBlueprintCourse`.
+
+- [x] PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
+  - Evidence (source): `crates/server/src/blueprint_course/change_proposal_view.rs` `compare_blueprint_courses` compares the pinned source and target Revisions.
+
+- [x] A Change Proposal should present those changes in a human-readable interface rather than requiring
+  the receiving **Instructor** to review raw JSON.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` shows Question identifiers, Revision numbers, titles, and point values.
+
+- [x] A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
+  - Evidence (source): `crates/question_model/src/blueprint_course/canonical_exchange.rs` `export` projects names, classification, modules, and complete Assessment content.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` offers entire acceptance of that complete structure.
+
+- [x] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
+  and removals, and Question membership changes.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintSelectionEditor` offers source names, complete Assessment content, a new Assessment copy, and removal from the destination.
+
+- [x] Question content changes belong to the Published Question and are not Blueprint Course changes.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares Question identifiers and does not read Question bodies or answers.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` states that Question bodies and answers are not exposed.
+
+- [x] PLE should present proposed changes in terms meaningful to Instructors rather than as raw JSON changes.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` names the shared Question, the source-only Question, and the Assessment type in Instructor language.
+
+- [x] The receiving **Instructor** can review proposed changes before changing the target Blueprint Course.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_workspace.tsx` `ChangeProposalDetailLivePage` loads the frozen proposal for review before acceptance.
+
+- [x] The receiving Instructor decides which proposed changes to accept.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` lets the receiving owner choose selected changes or the entire proposal before acceptance.
+
+- [x] The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `finalize_blueprint_change_proposal_acceptance` accepts an entire decision or a selected decision.
+
+- [x] Accepted changes are applied to the current target Blueprint Course and create a new Blueprint Revision.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `finalize_blueprint_change_proposal_acceptance` requires the accepted result to be the next target Revision.
+
+- [x] The Change Proposal remains a record of what was proposed and what was accepted.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `reject_blueprint_proposal_evidence_change` keeps proposal evidence immutable.
+
+- [x] If the target Blueprint Course changes after the proposal was created, PLE should show that the
+  proposal was based on an older target Revision.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` states that the frozen proposal used an older target basis.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `read_blueprint_change_proposal` marks the proposal stale when the target head no longer matches the pinned Revision.
+
+- [x] PLE should not silently apply a proposal against a newer target Revision when the changes no longer
+  apply cleanly.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `lock_blueprint_change_proposal_acceptance` refuses acceptance when the target Revision or edit number moved.
+
+- [x] Change Proposals never directly change daughter Course Instances.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `finalize_blueprint_change_proposal_acceptance` saves the target Blueprint without the ordinary auto-daughter overload.
+
+- [x] Daughter Course Instances receive accepted changes through the normal Blueprint incorporation workflow.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CourseBlueprintUpdateReviewList` offers a newer Blueprint Revision to the daughter Course.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `applyBlueprintUpdate` applies the reviewed Blueprint Revision to the daughter Assessment.
+  - Evidence (source): `schemas/base_schema/50_functions/assessment_blueprint_updates.sql` `apply_assessment_blueprint_update` keeps the Assessment's existing available, due, and close times.
 
 #### Blueprint Course comparison specifications
-
 - [x] Any **Instructor** can compare related Blueprint Courses in the same fork lineage when both are visible to that Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` authorizes an arbitrary related visible current pair before it is projected.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering visible sibling and transitive pairs in both orientations while concealing Private intermediates and denying unrelated pairs.
+
 - [x] Fork comparison normally compares the newest Revision of the source Blueprint Course with the newest Revision of the fork.
   - Evidence (runtime): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` is exercised by accepted current-pair HTTP evidence, returning current source and fork names, ETags, and Revisions.
   - Evidence (source): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` requires the current source and fork Revision Tuples.
+
 - [x] Older Revisions remain available through Blueprint history but are not the normal comparison workflow.
   - Evidence (runtime): `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` inspects exact older Revisions separately from current-head comparison. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
+
 - [x] Blueprint Course differences are calculated from canonical JSON when the Instructor requests the comparison.
   - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` requests C880's canonical comparison projection on demand rather than persisting comparison state.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares canonical Blueprint snapshots.
   - Evidence (runtime): C882's actual HTTP receipt exercises `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` as a real GET-only `no-store` review with zero `ple_data` mutations.
+
 - [x] Shared Published Question IDs provide durable relationships between Published Questions across Blueprint Course forks.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` derives relationships from shared Question IDs only.
   - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, verifying Rev2-versus-Rev1 shared Question-ID relationships.
+
 - [x] Blueprint Course comparison does not require Blueprint Assessment identity or history across forks.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` retains only side-local references while relationships carry shared Question IDs.
   - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies source and fork Assessment IDs are disjoint before comparison and Apply.
-- [ ] Comparison should show shared, added, removed, and changed Assessments, Published Questions, and Question Pools.
-  - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/50_functions/question_pools.sql` `question_pool` and `question_pool_pin` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+
+- [x] Comparison should show shared, added, removed, and changed Assessments, Published Questions, and Question Pools.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `assessmentComparison` classifies a related Assessment as shared when its canonical fields match and as changed when they differ, and classifies a side-only Assessment as added or removed.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `publishedQuestionComparison` classifies Question IDs as shared, added, or removed, and a shared ID with a different Revision pin as changed.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `questionPoolComparison` classifies Question Pool IDs as shared, added, or removed, and the same Pool ID with different canonical entry content as changed.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_comparison_membership.tsx` `ComparisonMembershipSummary` shows those shared, added, removed, and changed rows on the Blueprint comparison.
+  - Evidence (test): `tests/test_blueprint_course_model.mjs` `comparison shows shared, added, removed, and changed Assessments, Published Questions, and Question Pools` rendered Stable lab as shared, Added quiz as added, Removed quiz as removed, and Shared quiz as changed. It rendered CHANGED-Q and STABLE-Q as shared Published Questions, ADDED-Q as added, REMOVED-Q as removed, and CHANGED-Q as a changed Revision pin. It rendered STABLE-POOL as shared, ADDED-POOL as added, REMOVED-POOL as removed, and CHANGED-POOL as changed. No Live Demo stack was started.
+
 - [x] Comparison should remain useful when Assessment names, order, or structure have changed.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` uses shared Question IDs instead of Assessment names, positions, or cross-Blueprint Assessment identity.
   - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering renamed, reordered, and split canonical content.
+
 - [x] Comparison visibility follows Blueprint Course visibility rather than fork ownership.
   - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` uses ordinary Blueprint visibility for read-only direct-source review.
   - Evidence (runtime): C881/C882 accepted `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` ordinary-visibility direct-source review at `/private/tmp/ple-fork-reader-artifacts.nRikDO` and `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` permits visible Public/Archived sides and conceals unauthorized Private sides; ownership restricts Apply, not comparison.
 
 #### Blueprint Course JSON specifications
-
 - [x] Blueprint Courses have a canonical JSON representation for comparison, import, export, and exchange.
   - Evidence (source): `crates/question_model/src/blueprint_course/canonical_exchange.rs` `CanonicalBlueprintCourse` defines the strict authority-free projection used by comparison and the authorized server export/import routes; the Instructor UI exposes download and validated import over those routes.
+
 - [x] Canonical Blueprint JSON must contain enough information to fully recreate a Blueprint Course.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` exported a seeded Blueprint, imported it as a distinct actor-owned Private root at Revision 1, and deeply compared the imported re-export with the original canonical object.
+
 - [x] Importing exported Blueprint JSON should reproduce the same Blueprint Course content and structure.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` preserved ordered modules, Assessments, entries, exact reusable references, and metadata while the source Blueprint remained unchanged.
+
 - [x] Blueprint JSON contains Blueprint metadata and an ordered list of Blueprint Assessments.
   - Evidence (source): `crates/question_model/src/blueprint_course/canonical_exchange.rs` `CanonicalBlueprintCourse` contains strict metadata and ordered module/Assessment/entry arrays; focused domain and client contracts reject unknown or malformed shapes.
+
 - [x] Blueprint Assessments contain only reusable teaching settings.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `ple_data.blueprint_content_is_closed` allowlists reusable Assessment content and defaults without Course delivery dates or release state.
-- [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
-  - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
+
+- [x] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
+  - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentEntryInput` stores each Fixed Published Question or Question Pool in vector order.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `validate_blueprint_question_selection` rejects a new pin unless that Published Question is available.
+  - Evidence (source): `src/features/question_pool_picker/question_pool_picker.tsx` `QuestionPoolPicker` selects one published Question Pool and previews its membership.
+  - Owner: 08_courses.md / Blueprint Course JSON specifications (first occurrence; identical requirement and status).
+
 - [x] Blueprint Assessments have no deadlines, release dates, Student data, or other Course Instance settings.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course_revision` and its children have no Student or delivery-date fields.
-- [ ] Blueprint Revisions can be compared through their canonical JSON representations.
-  - Mismatch: No canonical JSON comparison surface was found.
-- [ ] Blueprint Course Change Proposals use canonical JSON to identify changes between Blueprint Revisions.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records canonical evidence reconstruction and exact Revision-pin actual-role proof.
-  - Verification pending: connected Instructor comparison and review remain open.
+  - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentContentInput` stores the type, title, instructions, ordered entries, and reusable defaults, and denies unknown fields.
+  - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_revision_assessment` records the Assessment identity and position only.
+
+- [x] Blueprint Revisions can be compared through their canonical JSON representations.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares two saved Revision contents and records each Assessment in its canonical form.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `assessmentDifferenceLabels` reports which canonical fields differ.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintForkReview` shows the latest saved Revision on each side.
+
+- [x] Blueprint Course Change Proposals use canonical JSON to identify changes between Blueprint Revisions.
+  - Evidence (source): `crates/learning-data-access/src/blueprint_change_proposal.rs` `proposed_json` stores the source Revision as canonical JSON, and `target_comparison_json` stores the pinned target Revision in the same form.
+  - Evidence (source): `crates/server/src/blueprint_course/change_proposal_view.rs` `compare_blueprint_courses` identifies shared and one-sided Questions between those pinned Revisions and records each Assessment in canonical form.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_workspace.tsx` `ChangeProposalDetailLivePage` loads that frozen record for review.
+  - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` shows the frozen Revisions and the shared, source-only, and target-only Questions without raw JSON.
+
 - N/A Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.
   - Reason: This explicitly optional future capability does not require implemented behavior.
+
 - [x] Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` proves authorized export/import/re-export semantic equality with fresh Blueprint, module, Assessment, and Pool identities while relational persistence remains authoritative.
 
 ### Course Instance specifications
-
 #### Course Instance creation specifications
-
 - [x] An **Instructor** can create a Course Instance from a Public Blueprint Course.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires a Public Blueprint at the selected exact Revision; `src/pages/course_list_page.tsx` `TeachingCourseListPage` exposes the Adopted source only after public Blueprint discovery.
   - Evidence (runtime): `src/pages/course_list_page.tsx` `TeachingCourseListPage` was exercised in private actual-HTTP and exact-main browser proof: an Instructor created and published a Blueprint through its API, selected its exact Public Revision, created a daughter Course Instance, and read its Unreleased Practice Assessment with finite Attempt limit and dates unset. This does not establish Pool copying or release/delivery workflows.
+
 - [x] **Instructors** can also create a new empty Course Instance without a parent Blueprint Course.
   - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` defaults to Empty, activates Blueprint discovery only for Adopted, and sends the strict `source: { kind: "empty" }` wire through `src/api/http_client/course_instance.ts`.
   - Evidence (runtime): `src/pages/course_list_page.tsx` `TeachingCourseListPage` was exercised in a bounded authenticated actual-main browser and HTTP proof: an Instructor created an Empty Course Instance, then the resulting row and persisted Course read were observed, with zero Blueprint-list requests and `no-store` responses. Student creation denial was exercised at the HTTP boundary.
-- [ ] Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
-  - Mismatch: This audit has not found the complete Course Instance delivery model in A8 paths.
-- [ ] Course Instances contain only **Published Questions** and published **Question Pools**.
-  - Mismatch: Current adoption validates Question pins but not required published Pool behavior.
+
+- [x] Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
+  - Evidence (source): `schemas/base_schema/20_tables/course_membership.sql` `course_membership` stores a Student on a Course Instance when the membership role is student.
+  - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `assessment_policy_snapshot` stores available_at, due_at, and closes_at for a Course Assessment.
+  - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `assessment_status` stores the Assessment release state on the Course Instance Assessment.
+  - Evidence (test): `tests/test_live_assignment_release_validation.mjs` `Course Instance delivery keeps Students, deadlines, release, and attempt settings` decoded a released Assessment with those deadlines and an attempt limit, and read an active Student from the Course roster.
+
+- [x] Course Instances contain only **Published Questions** and published **Question Pools**.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` creates an original published Pool only from available Published Questions, and refuses an archived Question.
+  - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `replace_assessment_entries` refuses a new pin that is not an Available Question and refuses a Pool that is not already the Assessment's immutable fork.
+  - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork_for_ids` stores a fork of the published Pool on the Course Assessment. The Assessment stores that fork, not the published Pool id.
+  - Evidence (test): `tests/e2e/assessment_saved_response_oracle.sql` `course_instance_contains_only_published_questions_and_published_pools` pinned available Question SVR1-4XYZ, refused archived Question SVQ1-7ABC, refused attaching published Pool SVP1-FABC, and stored fork SVF1-8ABC of that Pool on unreleased Assessment ASVR0002E.
+  - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `course_instance_contains_only_published_questions_and_published_pools` ran that oracle on PostgreSQL.
+
 - [x] Course Instances are visible only to their co-**Instructors** and enrolled **Students**.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `resolve_course_navigation` permits only an active Course Member.
-- [ ] Active Courses are current teaching Course Instances.
-  - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` constrains the stored lifecycle to `active` or `inactive`; `schemas/base_schema/50_functions/course_operations.sql` `ple_api.list_course_instances` projects it; strict API decoding, `course_list_page.tsx`, and `/instructor` project only Active Course Instances.
-  - Verification pending: A real restricted-role Active-to-Inactive transition and canonical browser proof remain required. Source-backed lists do not establish the connected teaching lifecycle.
-- [ ] Inactive Courses are past Course Instances and retain Course metadata, including after
-      FERPA-sensitive Student data is removed.
-  - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` records the one-way `mark_inactive` state transition, while `course_operations.sql` continues to project Course metadata; strict API decoding, `course_list_page.tsx`, and `/instructor/courses/inactive` project only Inactive Course Instances.
-  - Verification pending: A real restricted-role transition and canonical browser proof of retained metadata after independent Student-data deletion remain required. This row stays unchecked.
+
+- [x] Active Courses are current teaching Course Instances.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns the Instructor's Course and its lifecycle state.
+  - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` marks that Course Inactive at its Active cutoff.
+  - Evidence (source): `src/pages/course_list_page.tsx` `coursesForMode` shows a Course only in the list for its lifecycle state.
+  - Evidence (test): `crates/learning-data-access/tests/course_instance_postgres.rs` `inactive_course_keeps_metadata_after_student_data_deletion` listed PAST-1 as active for its Instructor, then the retention executor marked it inactive at the Active cutoff.
+
+- [x] Inactive Courses are past Course Instances and retain Course metadata, including after
+  FERPA-sensitive Student data is removed.
+  - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records` removes the Course's Student records and Student memberships and leaves the Course row.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns that Course's name after the deletion.
+  - Evidence (test): `crates/learning-data-access/tests/course_instance_postgres.rs` `inactive_course_keeps_metadata_after_student_data_deletion` archived and deleted the Student record, left zero Student records and zero Student memberships, kept short name PAST-1, long name Past teaching Course, the term, the discipline, and one Instructor membership, and listed the Inactive Course.
+
 - [x] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` offers the compact metadata-only Course tools action; its strict client retains source-Course identity and no delivery fields; `schemas/base_schema/50_functions/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the immutable source without changing the Course.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed source preservation, first-Adoption counts, exact pins/Pool fork, replay, and stale rollback on PostgreSQL.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created actor-owned Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`; the source remained addressable and unchanged.
+
 - [x] A new academic term uses a new Course Instance. Rollover is not a separate product model.
   - Evidence (source): `crates/question_model/src/course_term.rs` `CourseTerm` is input to each `CreateCourseInstanceInput`; no rollover model was found.
 
 #### Blueprint adoption and daughter Course Instances
-
 - [x] **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` calls C419 and explains that the unchanged source becomes the first Adoption.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` observed the immutable source relationship and Adoption count without creating a daughter relationship.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof displaying Course `CI0QR41X` as Private Revision-1 Blueprint `BPJD8H28`'s first Adoption.
+
 - [x] Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
-  - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation, and `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` from those Course Instances.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts the adopted Blueprint summary has `total_adoptions` equal to 1.
+  - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores the source Blueprint on the new Course Instance.
+  - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `total_adoptions` counts each Course Instance that records that Blueprint.
+
 - [x] Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` states the first-Adoption result and opens only the new Blueprint receipt after C419 accepts creation.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` observed the recorded source, `total_adoptions = 1`, distinct-student count, and denied Public-to-Private rollback.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof displaying Adoption count 1 for actor-owned Private Revision-1 Blueprint `BPJD8H28`, created from Course `CI0QR41X`.
+
 - [x] A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
+
 - [x] A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` includes `blueprint_course` and `blueprint_revision`.
+
 - [x] A daughter Course Instance receives every Assessment from the selected Blueprint Revision.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` constructs the Course Assessments from selected Blueprint content.
-- [ ] Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
-  - Mismatch: Current adoption evidence does not verify published Pool copying.
+
+- [x] Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_fork` copies the source Pool members into the Course fork.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs` `assert_adoption_projection` checks those Question pins and Pool member copies.
+
 - [x] Course Instance Assessments created from Blueprint Assessments start unreleased with dates unset.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` initializes adopted Assessments as unreleased with delivery dates unset.
+
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
   - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
   - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` use the authorized parent origin and exact adopted/current Revision projection for the same visible notice.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was covered by independently accepted actual-server/exact-main proof across empty, current, newer, and explicit synthetic Private-origin states; the visually inspected newer capture showed both Revision values and the stale notice. It preserved the original adoption pin, Assessment, and entries; its Work tables were empty, so this proof makes no populated-Student-Work claim. Unauthorized Student and unrelated-Instructor reads returned `404 no-store`. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This duplicate course-view indication does not implement the separate Blueprint update offer, review, approval, or apply workflow.
-- [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
-  - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
+
+- [x] The **Instructor** decides which changes to existing Assessments to incorporate.
+  - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` offers each existing Assessment for separate review and does not apply the Course's updates together.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `applyBlueprintUpdate` applies only the Assessment the Instructor reviewed, using that source Revision and Edit Number.
+  - Evidence (source): `schemas/base_schema/50_functions/assessment_blueprint_updates.sql` `apply_assessment_blueprint_update` updates that one Assessment and leaves the other Course Assessments unchanged.
+  - Evidence (test): `tests/test_assignment_client.mjs` `The Instructor decides which changes to existing Assessments to incorporate` posted one Assessment update and withheld a request that added another Assessment.
   - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+
 - [x] Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
-  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` Save and `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` atomically append only newly added Assessments to daughters with fresh Course-owned Pool identities and unset dates.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` passed connected PostgreSQL proof, preserving exact pins/settings, existing Assessment content and actual Student Work, and the original adoption Revision pin across two daughters including an inactive Course; an unrelated empty Course remained unchanged. Replay/no-op/stale saves made no duplicate append. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` also accepted temporary bad-payload rollback proof. Existing connected adoption lifecycle regression passed 1 test with 0 ignored: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Decision: Only automatic-new Assessment propagation is verified, not C410 existing-Assessment update offers or the whole Course milestone.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` now invokes the `append.rs` helper `assert_new_assessment_save_preserves_daughter_work`; the existing permanent lifecycle regression passed 1 test with 0 ignored in `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. No separate seed-sharing test was retained.
-  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
+  - Evidence (test): `crates/learning-data-access/src/postgres/course_blueprint_adoption.rs` `newly_added_blueprint_assessments_are_the_daughter_append` keeps only the new Assessment and leaves release status and delivery dates off the daughter copy payload.
+  - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `append_course_assessments` inserts that Assessment without a release status or delivery dates.
+  - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `assessment_status` defaults to unreleased.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs` `assert_append_projection` requires the appended daughter Assessment to be unreleased with null available, due, and close times.
+  - Owner: earlier Human Guidance occurrence of this bullet.
+
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` validates the new-reference delta and inserts only new Assessments; it does not update existing daughter Assessments.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` changes a retained source Assessment title and proves existing daughter Assessment content, entries, and actual Student Work unchanged through Save/replay/no-op/stale operations. Accepted artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
@@ -449,18 +644,27 @@
   - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
 
 ### Course short and long name specifications
-
 - [x] Blueprint Courses and Course Instances each have their own short name and long name.
   - Evidence (source): `crates/question_model/src/blueprint_course/blueprint_children.rs` `CreateBlueprintCourseInput` and `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` each own both names.
+
 - [x] Short names are entered or chosen deliberately by **Instructors**.
   - Evidence (source): `crates/question_model/src/blueprint_course/blueprint_children.rs` `pub short_name: String` is a submitted validated field.
-- [ ] Short names are for compact navigation and should stay under about 16 characters when practical.
-  - Mismatch: Current name validation permits up to 200 or 500 characters without the stated compact guidance.
+
+- [x] Short names are for compact navigation and should stay under about 16 characters when practical.
+  - Evidence (source): `src/pages/course_list_page.tsx` `For compact navigation; about 16 characters when practical.` is the Course Instance creation guidance.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_create_dialog.tsx` `blueprint-course-create-short-name-help` is the Blueprint creation guidance.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_structure.tsx` `blueprint-course-detail-short-name-help` is the Blueprint name editing guidance.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CompactShortNameField` is the Create Blueprint from Course Instance guidance and keeps maxlength 200.
+  - Evidence (test): `tests/test_frontend_contract.mjs` `the Blueprint short name field states the compact-navigation guidance` rendered that sentence and kept a longer name.
+
 - [x] Long names are descriptive names used for headings, breadcrumbs, and Course listings.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `pub long_name: String` is documented as the heading and breadcrumb name.
+
 - N/A A Blueprint Course might be `Biochemistry` / `Upper-Level Introductory Biochemistry`.
   - Reason: This is an illustrative name example, not an implementation requirement.
+
 - N/A A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)`.
   - Reason: This is an illustrative name example, not an implementation requirement.
+
 - [x] Course Instance names are properties of the Course Instance and are not derived from Blueprint Course names.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` requires independently supplied `short_name` and `long_name`.

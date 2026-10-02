@@ -464,12 +464,17 @@ BEGIN
 END
 $$;
 
+DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
+    boolean, boolean, boolean, text, text, bigint, text, text, integer,
+    uuid, uuid, uuid, uuid, boolean
+);
+
 CREATE FUNCTION ple_api.list_blueprint_courses(
     p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
     p_sort text, p_after_count bigint, p_after_long_name text, p_after_blueprint_course_id text,
     p_limit integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
-    p_subtopic_uuid uuid, p_cross_discipline boolean
+    p_subtopic_uuid uuid, p_cross_discipline boolean, p_tag text
 )
 RETURNS TABLE (
     blueprint_course_id text, short_name text, long_name text, availability text,
@@ -490,6 +495,11 @@ BEGIN
        OR (p_sort <> 'name' AND
            ((p_after_count IS NULL) <> (p_after_long_name IS NULL)))
        OR (p_after_count IS NOT NULL AND p_after_count < 0) THEN
+        RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
+    END IF;
+    -- ASVS 2.2.1: an exact tag is optional, bounded, and never a name pattern.
+    IF p_tag IS NULL OR p_tag <> btrim(p_tag) OR length(p_tag) > 120
+       OR p_tag ~ '[[:cntrl:]]' THEN
         RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
     END IF;
     -- ASVS 2.2.2/8.3.1: validate identity and actual parents through authenticated reads.
@@ -558,6 +568,8 @@ BEGIN
        AND (p_subject_uuid IS NULL OR course.content_subject_id = p_subject_uuid)
        AND (p_topic_uuid IS NULL OR course.content_topic_id = p_topic_uuid)
        AND (p_subtopic_uuid IS NULL OR course.content_subtopic_id = p_subtopic_uuid)
+       -- Exact tag membership stays outside the Discipline hierarchy.
+       AND (p_tag = '' OR p_tag = ANY(course.tags))
        -- ASVS 1.2.4: parameters remain literal text, including LIKE metacharacters.
        AND (p_query = '' OR course.short_name ILIKE
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'

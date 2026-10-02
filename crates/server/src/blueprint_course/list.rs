@@ -40,9 +40,13 @@ pub(super) struct ListQuery {
     cross_discipline: bool,
     #[serde(default)]
     sort: BlueprintCourseListSort,
+    #[serde(default)]
+    tag: String,
 }
 
-#[derive(Serialize, Deserialize)]
+const BLUEPRINT_LIST_CURSOR_VERSION: u8 = 5;
+
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ListCursor {
     version: u8,
@@ -58,6 +62,7 @@ struct ListCursor {
     subtopic_uuid: Option<Uuid>,
     cross_discipline: bool,
     sort: BlueprintCourseListSort,
+    tag: String,
 }
 
 #[derive(Serialize)]
@@ -92,6 +97,7 @@ pub(super) async fn list_blueprints(
         request.subtopic_uuid,
         request.cross_discipline,
         request.sort,
+        request.tag.clone(),
     );
     match state
         .blueprints
@@ -106,7 +112,7 @@ pub(super) async fn list_blueprints(
                         Err(_) => return unavailable(),
                     };
                     let cursor = ListCursor {
-                        version: 4,
+                        version: BLUEPRINT_LIST_CURSOR_VERSION,
                         query: binding.0,
                         include_archived: binding.1,
                         public_only: binding.2,
@@ -119,6 +125,7 @@ pub(super) async fn list_blueprints(
                         subtopic_uuid: binding.8,
                         cross_discipline: binding.9,
                         sort: binding.10,
+                        tag: binding.11,
                     };
                     match serde_json::to_vec(&cursor) {
                         Ok(bytes) => Some(URL_SAFE_NO_PAD.encode(bytes)),
@@ -141,8 +148,11 @@ pub(super) async fn list_blueprints(
 
 fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
     // ASVS 2.2.1/2/3: trusted bounds and cursor binding to the full normalized request.
+    let tag = query.tag.trim_matches(' ').to_owned();
     if query.query.chars().count() > 256
         || query.query.chars().any(char::is_control)
+        || tag.chars().count() > 120
+        || tag.chars().any(char::is_control)
         || (query.public_only && query.include_archived)
         || (query.subject_uuid.is_some() && query.discipline_uuid.is_none())
         || (query.topic_uuid.is_some() && query.subject_uuid.is_none())
@@ -164,7 +174,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
             }
             let cursor: ListCursor =
                 serde_json::from_slice(&URL_SAFE_NO_PAD.decode(token).ok()?).ok()?;
-            if cursor.version != 4
+            if cursor.version != BLUEPRINT_LIST_CURSOR_VERSION
                 || cursor.query != normalized
                 || cursor.include_archived != query.include_archived
                 || cursor.public_only != query.public_only
@@ -176,6 +186,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
                 || cursor.subtopic_uuid != query.subtopic_uuid
                 || cursor.cross_discipline != query.cross_discipline
                 || cursor.sort != query.sort
+                || cursor.tag != tag
                 || !valid_cursor_position(&cursor.after, query.sort)
             {
                 return None;
@@ -196,6 +207,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         topic_uuid: query.topic_uuid,
         subtopic_uuid: query.subtopic_uuid,
         cross_discipline: query.cross_discipline,
+        tag,
     })
 }
 
@@ -270,7 +282,7 @@ mod tests {
     fn classification_continuation_binds_every_filter_and_rejects_old_version() {
         let id = |value| Some(Uuid::from_u128(value));
         let cursor = ListCursor {
-            version: 4,
+            version: BLUEPRINT_LIST_CURSOR_VERSION,
             query: "enzyme".to_owned(),
             include_archived: false,
             public_only: true,
@@ -286,6 +298,7 @@ mod tests {
             subtopic_uuid: id(4),
             cross_discipline: true,
             sort: BlueprintCourseListSort::Name,
+            tag: String::new(),
         };
         let mut value = serde_json::to_value(&cursor).expect("cursor value");
         value.as_object_mut().expect("object").remove("version");
@@ -327,7 +340,7 @@ mod tests {
         };
         let token = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&ListCursor {
-                version: 4,
+                version: BLUEPRINT_LIST_CURSOR_VERSION,
                 query: String::new(),
                 include_archived: false,
                 public_only: true,
@@ -340,6 +353,7 @@ mod tests {
                 subtopic_uuid: None,
                 cross_discipline: false,
                 sort: BlueprintCourseListSort::Name,
+                tag: String::new(),
             })
             .expect("cursor"),
         );
@@ -356,6 +370,7 @@ mod tests {
             subtopic_uuid: None,
             cross_discipline: false,
             sort: BlueprintCourseListSort::Name,
+            tag: String::new(),
         };
         assert!(list_request(query(true)).is_some());
         assert!(list_request(query(false)).is_none());
@@ -369,7 +384,7 @@ mod tests {
     #[test]
     fn continuation_cannot_change_sort_or_cursor_position_kind() {
         let cursor = ListCursor {
-            version: 4,
+            version: BLUEPRINT_LIST_CURSOR_VERSION,
             query: String::new(),
             include_archived: false,
             public_only: false,
@@ -386,6 +401,7 @@ mod tests {
             subtopic_uuid: None,
             cross_discipline: false,
             sort: BlueprintCourseListSort::Adoptions,
+            tag: String::new(),
         };
         let token = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("cursor"));
         let query = |sort| ListQuery {
@@ -401,6 +417,7 @@ mod tests {
             subtopic_uuid: None,
             cross_discipline: false,
             sort,
+            tag: String::new(),
         };
         assert!(list_request(query(BlueprintCourseListSort::Adoptions)).is_some());
         assert!(list_request(query(BlueprintCourseListSort::Students)).is_none());
@@ -431,5 +448,83 @@ mod tests {
         let public_name =
             serde_json::from_str::<ListQuery>(r#"{"publicOnly":true}"#).expect("typed query");
         assert!(list_request(public_name).is_some());
+    }
+
+    #[test]
+    fn public_search_tag_binds_the_request_and_rejects_a_different_tag() {
+        let trimmed = serde_json::from_str::<ListQuery>(r#"{"publicOnly":true,"tag":" review "}"#)
+            .expect("typed tag");
+        assert_eq!(
+            list_request(trimmed)
+                .expect("surrounding spaces are not part of the tag")
+                .tag,
+            "review"
+        );
+        let blank = serde_json::from_str::<ListQuery>(r#"{"publicOnly":true,"tag":"   "}"#)
+            .expect("blank tag");
+        assert_eq!(
+            list_request(blank).expect("spaces alone clear the tag").tag,
+            ""
+        );
+        let overlong = "t".repeat(121);
+        let rejected = serde_json::from_str::<ListQuery>(&format!(
+            r#"{{"publicOnly":true,"tag":"{overlong}"}}"#
+        ))
+        .expect("transport accepts the text");
+        assert!(list_request(rejected).is_none());
+        let control =
+            serde_json::from_str::<ListQuery>(r#"{"publicOnly":true,"tag":"review\u0000"}"#)
+                .expect("transport accepts the text");
+        assert!(list_request(control).is_none());
+
+        let cursor = ListCursor {
+            version: BLUEPRINT_LIST_CURSOR_VERSION,
+            query: String::new(),
+            include_archived: false,
+            public_only: true,
+            promoted_only: false,
+            page_size: 50,
+            after: BlueprintCourseListCursorPosition::Name {
+                long_name: "Blueprint".to_owned(),
+                blueprint_course_id: "BPABCDEFGJ".parse().expect("Blueprint Course ID"),
+            },
+            discipline_uuid: None,
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            cross_discipline: false,
+            sort: BlueprintCourseListSort::Name,
+            tag: "review".to_owned(),
+        };
+        let query = |token: String, tag: String| ListQuery {
+            include_archived: false,
+            public_only: true,
+            promoted_only: false,
+            query: String::new(),
+            cursor: Some(token),
+            page_size: None,
+            discipline_uuid: None,
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            cross_discipline: false,
+            sort: BlueprintCourseListSort::Name,
+            tag,
+        };
+        let token = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("cursor"));
+        assert_eq!(
+            list_request(query(token, " review ".to_owned()))
+                .expect("the same tag continues")
+                .tag,
+            "review"
+        );
+        let mut other = cursor.clone();
+        other.tag = "other".to_owned();
+        let other_token = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&other).expect("other cursor"));
+        assert!(list_request(query(other_token, "review".to_owned())).is_none());
+        let mut old = cursor;
+        old.version = 4;
+        let old_token = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&old).expect("version 4 cursor"));
+        assert!(list_request(query(old_token, "review".to_owned())).is_none());
     }
 }

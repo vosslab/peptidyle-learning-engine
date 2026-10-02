@@ -24,7 +24,6 @@ CREATE TABLE ple_data.course_banner (
 );
 
 
-
 CREATE TABLE ple_data.course_banner_rendition (
     course_instance_id ple_data.course_instance_id NOT NULL,
     course_banner_id uuid NOT NULL,
@@ -100,7 +99,6 @@ CREATE TABLE ple_private.course_banner_storage_subject (
 );
 
 
-
 CREATE TABLE ple_private.course_banner_work (
     course_banner_work_id uuid PRIMARY KEY,
     course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
@@ -136,7 +134,6 @@ CREATE TABLE ple_private.course_banner_prepared_presentation (
 );
 
 
-
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
@@ -161,80 +158,35 @@ COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means thi
 COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 
-
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.course_banner IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
-COMMENT ON TABLE ple_data.course_banner_rendition IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_data.course_banner_delivery IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
-COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
-COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
-
-COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.course_banner IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
-COMMENT ON TABLE ple_data.course_banner_rendition IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_data.course_banner_delivery IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
-COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
-COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
-
-COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.course_banner IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
-COMMENT ON TABLE ple_data.course_banner_rendition IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_data.course_banner_delivery IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
-COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-
-COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
-COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
-COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
-COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
-
-COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.course_banner_upload.promoted_at IS 'NULL means this optional fact is absent.';
@@ -243,6 +195,4 @@ COMMENT ON COLUMN ple_private.course_banner_storage_subject.course_banner_id IS 
 COMMENT ON COLUMN ple_private.course_banner_work.course_banner_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.course_banner_work.course_banner_storage_subject_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.course_banner_work.object_delivery_id IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.course_banner_prepared_presentation.alternative_text IS 'NULL means this optional fact is absent.';
-

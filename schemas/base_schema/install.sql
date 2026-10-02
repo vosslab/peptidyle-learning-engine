@@ -43,6 +43,8 @@
 \ir 50_functions/content_classification_operations.sql
 \ir 50_functions/question_lineages.sql
 \ir 50_functions/question_pools.sql
+\ir 50_functions/question_pool_search_metadata.sql
+\ir 50_functions/question_pool_support.sql
 \ir 50_functions/question_stewardship.sql
 \ir 50_functions/question_pool_stewardship.sql
 \ir 50_functions/library_discussion_operations.sql
@@ -68,12 +70,15 @@
 \ir 50_functions/course_roster.sql
 \ir 50_functions/support_repair_capability.sql
 \ir 50_functions/course_operations.sql
+\ir 50_functions/sysadmin_course_inspection.sql
+\ir 50_functions/course_roster_access.sql
 \ir 50_functions/course_media.sql
 \ir 50_functions/profile_media.sql
 \ir 50_functions/assessment_policy_snapshot.sql
 \ir 50_functions/assessment_entry_snapshot.sql
 \ir 50_functions/assessments.sql
 \ir 50_functions/question_library_operations.sql
+\ir 50_functions/recognition_titles.sql
 \ir 50_functions/question_bloom.sql
 \ir 50_functions/assessment_creation.sql
 \ir 50_functions/assessment_deadline_sync.sql

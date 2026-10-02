@@ -13,6 +13,7 @@ import {
   type CourseInstanceRouteId,
 } from "./public_route";
 import { routeContractForPathname, type RibbonScope, type RouteContract } from "../route_contract";
+import { assessmentAttemptRouteStateFromHistory } from "./assessment_attempt_route";
 
 export type DeclaredRouteScope = RibbonScope;
 
@@ -40,6 +41,7 @@ export type RouteScopeKey =
     }
   | {
       readonly kind: "assessmentAttempt";
+      readonly courseInstanceId: CourseInstanceRouteId;
       readonly assessmentAttemptId: AssessmentAttemptRouteId;
     }
   | {
@@ -76,10 +78,12 @@ function declaredRouteFor(route: RouteContract, pathname: string): RouteContract
   return matchedRoute;
 }
 
-/**
- * Extracts raw declared parameters only after the current route matcher accepts this declared row.
- */
-export function routeParams(route: RouteContract, pathname: string): RouteParams {
+/** Extracts accepted path parameters and a valid hidden Attempt selection, when the route uses one. */
+export function routeParams(
+  route: RouteContract,
+  pathname: string,
+  historyState?: unknown,
+): RouteParams {
   const declaredRoute = declaredRouteFor(route, pathname);
   if (declaredRoute === undefined) return undefined;
 
@@ -92,6 +96,10 @@ export function routeParams(route: RouteContract, pathname: string): RouteParams
     const value = pathnameSegments[index];
     if (!isRouteParamName(name) || value === undefined) return undefined;
     values[name] = value;
+  }
+  if (route.id === "assessmentAttempt" || route.id === "assessmentAttemptSummary") {
+    const selection = assessmentAttemptRouteStateFromHistory(historyState);
+    if (selection !== undefined) values.assessmentAttemptId = selection.assessmentAttemptId;
   }
   return Object.freeze(values);
 }
@@ -108,15 +116,15 @@ function invalidScope(scope: DeclaredRouteScope | undefined): RouteScopeKey {
 }
 
 /**
- * Produces only URL-syntax scope identity. User Role and service authorization
- * remain enforced by the route access boundary and backend policy.
+ * Produces public path scope and validated history selection identity. User Role
+ * and service authorization remain enforced by the route boundary and backend policy.
  */
-export function routeScopeKey(pathname: string): RouteScopeKey {
+export function routeScopeKey(pathname: string, historyState?: unknown): RouteScopeKey {
   const route = routeContractForPathname(pathname);
   if (route === undefined) return invalidScope(undefined);
 
   const scope = route.ribbon.scope;
-  const params = routeParams(route, pathname);
+  const params = routeParams(route, pathname, historyState);
   if (params === undefined || !allParamsAreValid(params)) return invalidScope(scope);
 
   if (scope === "product") return { kind: "product" };
@@ -128,9 +136,22 @@ export function routeScopeKey(pathname: string): RouteScopeKey {
     return { kind: "courseInstance", courseInstanceId: parsedCourseInstanceId };
   }
 
+  if (route.id === "assessmentAttempt" || route.id === "assessmentAttemptSummary") {
+    const courseInstanceId = params.courseInstanceId;
+    const parsedCourseInstanceId =
+      courseInstanceId === undefined ? null : parseCourseInstanceId(courseInstanceId);
+    const selection = assessmentAttemptRouteStateFromHistory(historyState);
+    if (parsedCourseInstanceId === null || selection === undefined) return invalidScope(scope);
+    return {
+      kind: "assessmentAttempt",
+      courseInstanceId: parsedCourseInstanceId,
+      assessmentAttemptId: selection.assessmentAttemptId,
+    };
+  }
+
   const assessmentAttemptId = params.assessmentAttemptId;
   const parsedAssessmentAttemptId =
     assessmentAttemptId === undefined ? null : parseAssessmentAttemptId(assessmentAttemptId);
   if (parsedAssessmentAttemptId === null) return invalidScope(scope);
-  return { kind: "assessmentAttempt", assessmentAttemptId: parsedAssessmentAttemptId };
+  return invalidScope(scope);
 }

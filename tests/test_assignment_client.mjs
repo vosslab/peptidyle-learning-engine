@@ -43,6 +43,8 @@ function savedPolicyWorkspace() {
       question_answer: "after_submit",
       question_answer_explanation: "after_submit",
       class_statistics: "never",
+      hints: "never",
+      worked_solutions: "never",
     },
     displayTimeZone: "America/Chicago",
     entries: [],
@@ -70,6 +72,8 @@ function baseAssessmentPolicy() {
       question_answer: "after_submit",
       question_answer_explanation: "after_submit",
       class_statistics: "never",
+      hints: "never",
+      worked_solutions: "never",
     },
   };
 }
@@ -197,6 +201,49 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
     ),
     LiveAssessmentWorkspaceConflictError,
   );
+});
+
+test("The Instructor decides which changes to existing Assessments to incorporate", async () => {
+  const course = "CI7K3M2QAZ";
+  const chosen = "A8H4N6PA6";
+  const leftAlone = "A9D2RX5AF";
+  const input = {
+    expectedSourceBlueprintRevisionTuple: {
+      blueprintCourseId: "BP7K3M2QXH",
+      revisionNumber: "2",
+    },
+    expectedAssessmentEditNumber: "4",
+  };
+  const { recordingFetch, requests } = createRecordingFetch(
+    async () =>
+      new Response(JSON.stringify(savedPolicyWorkspace()), {
+        headers: { "cache-control": "no-store", "content-type": "application/json", etag: '"4"' },
+      }),
+  );
+  const applied = await createHttpApiClient({
+    fetch: recordingFetch,
+  }).applyAssessmentBlueprintUpdate(course, chosen, input);
+  assert.equal(applied.workspace.id, chosen);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, "POST");
+  const path = new URL(requests[0].url).pathname;
+  assert.equal(path, `/api/course-instances/${course}/assessments/${chosen}/blueprint-update`);
+  assert.equal(path.includes(leftAlone), false);
+  assert.deepEqual(JSON.parse(await requests[0].text()), input);
+
+  let fetched = false;
+  await assert.rejects(
+    createHttpApiClient({
+      fetch: async () => {
+        fetched = true;
+        throw new Error("a course-wide incorporation list must not reach fetch");
+      },
+    }).applyAssessmentBlueprintUpdate(course, chosen, {
+      ...input,
+      assessmentIds: [chosen, leftAlone],
+    }),
+  );
+  assert.equal(fetched, false);
 });
 
 test("Student Assessment detail accepts only its viewer-owned display zone", () => {

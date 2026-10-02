@@ -24,11 +24,13 @@ REVOKE ALL ON FUNCTION ple_data.reject_question_stewardship_change(),
     ple_data.validate_question_ownership_event(), ple_data.validate_question_publication(),
     ple_data.set_current_question_star(text, boolean),
     ple_data.read_current_question_star(text),
+    ple_data.list_current_starred_questions(bigint, text, integer),
     ple_data.set_current_question_watch(text, boolean),
     ple_data.read_current_question_watch(text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_data.set_current_question_star(text, boolean),
     ple_data.read_current_question_star(text),
+    ple_data.list_current_starred_questions(bigint, text, integer),
     ple_data.set_current_question_watch(text, boolean),
     ple_data.read_current_question_watch(text) TO ple_api_owner;
 
@@ -36,11 +38,12 @@ SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.set_current_question_star(text, boolean),
     ple_api.read_current_question_star(text),
+    ple_api.list_current_starred_questions(bigint, text, integer),
     ple_api.set_current_question_watch(text, boolean),
     ple_api.read_current_question_watch(text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.set_current_question_star(text, boolean),
     ple_api.read_current_question_star(text),
+    ple_api.list_current_starred_questions(bigint, text, integer),
     ple_api.set_current_question_watch(text, boolean),
     ple_api.read_current_question_watch(text) TO ple_app;
-

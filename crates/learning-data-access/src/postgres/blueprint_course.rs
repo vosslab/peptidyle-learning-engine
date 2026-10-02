@@ -19,13 +19,14 @@ use super::Pool;
 use super::connection::{map_sqlx_error, parse_account_id};
 use crate::blueprint_course::StoredBlueprintRevision;
 use crate::{
-    BlueprintCourseStore, CourseInstancePoolIdIssuer, SessionTokenHash, StoreError,
-    StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
+    BlueprintCourseStore, CourseInstancePoolIdIssuer, RecognitionTitles, SessionTokenHash,
+    StoreError, StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
 };
 
 mod classification;
 mod decode;
 mod promotion;
+mod recognition;
 mod search;
 
 use decode::*;
@@ -99,18 +100,7 @@ impl PostgresBlueprintCourseStore {
         daughters: Vec<sqlx::postgres::PgRow>,
         bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError> {
-        let prior_sources: BTreeSet<_> = prior
-            .modules
-            .iter()
-            .flat_map(|module| &module.assessments)
-            .map(|assessment| assessment.blueprint_assessment_id)
-            .collect();
-        let mut additions = content.clone();
-        for module in &mut additions.modules {
-            module
-                .assessments
-                .retain(|assessment| !prior_sources.contains(&assessment.blueprint_assessment_id));
-        }
+        let additions = super::course_blueprint_adoption::newly_added_assessments(prior, content);
         let mut materialized_daughters = Vec::with_capacity(daughters.len());
         for daughter in daughters {
             let course_instance_id: String = daughter
@@ -261,6 +251,15 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             question_pool_edit_number,
             members,
         })
+    }
+    async fn load_recognition_titles(
+        &self,
+        session: SessionTokenHash,
+        question_ids: &[question_model::PublishedQuestionId],
+        pool_ids: &[QuestionPoolId],
+    ) -> Result<RecognitionTitles, StoreError> {
+        self.load_recognition_titles_rows(session, question_ids, pool_ids)
+            .await
     }
     async fn apply_blueprint_fork(
         &self,

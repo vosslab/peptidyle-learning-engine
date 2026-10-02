@@ -39,8 +39,6 @@ CREATE TABLE ple_data.content_subject (
 );
 
 
-
-
 -- Authenticated Subject creation maintains an initial association atomically;
 -- association addition and replacement serialize on the Subject row. This
 -- relation enforces real, nonduplicate associations independently of commands.
@@ -79,6 +77,25 @@ CREATE TABLE ple_data.content_subtopic (
 );
 
 
+-- An open request asks a Sysadmin to add a Discipline. It does not create one.
+-- ASVS 2.2.1/14.2.6: the name uses the Discipline bound, and the requester is
+-- an Account ID rather than an email or display name. NULL resolved_at means
+-- the request is still open.
+CREATE TABLE ple_data.content_discipline_request (
+    content_discipline_request_id uuid PRIMARY KEY,
+    requested_name text NOT NULL CHECK (
+        char_length(requested_name) BETWEEN 1 AND 120
+        AND requested_name !~ '^[[:space:]]|[[:space:]]$'
+        AND requested_name !~ '[[:cntrl:]]'
+    ),
+    requested_by_account_id ple_data.account_id NOT NULL
+        REFERENCES ple_private.account(account_id),
+    requested_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    resolved_at timestamptz,
+    CHECK (resolved_at IS NULL OR resolved_at >= requested_at)
+);
+
+
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.content_discipline IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
 
@@ -90,15 +107,6 @@ COMMENT ON TABLE ple_data.content_topic IS 'role: vocabulary, deleted by none; v
 
 COMMENT ON TABLE ple_data.content_subtopic IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
 
+COMMENT ON TABLE ple_data.content_discipline_request IS 'role: event, Retained Instructor or Sysadmin request for a Discipline that is not yet in the vocabulary. A Sysadmin resolves it by creating or dismissing the name. HUMAN_GUIDANCE.md Course classification.';
 
-
-COMMENT ON TABLE ple_data.content_discipline IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
-
-COMMENT ON TABLE ple_data.content_subject IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
-
-COMMENT ON TABLE ple_data.content_subject_discipline IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
-
-COMMENT ON TABLE ple_data.content_topic IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
-
-COMMENT ON TABLE ple_data.content_subtopic IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
-
+COMMENT ON COLUMN ple_data.content_discipline_request.resolved_at IS 'NULL means this optional fact is absent.';

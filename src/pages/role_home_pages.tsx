@@ -9,6 +9,7 @@ import { CourseListPage } from "./course_list_page";
 import { StudentAllCourseworkPage } from "./student_course_landing_page";
 import { useApplicationApi } from "../api/application_api";
 import { BlueprintPromotion } from "../features/blueprint_course/blueprint_promotion";
+import { SysadminCourseCreation } from "../components/sysadmin_course_creation_form";
 import { PageFrame } from "../components/page_frame";
 
 /** Resolves the persistent Peptidyle home link to the signed-in role's dashboard. */
@@ -85,9 +86,17 @@ export function SysadminHomePage(): JSX.Element {
       headingId="sysadmin-home-heading"
       eyebrow="System administration"
       title="System administration"
-      lede="Open the account or scoped course-support operation you need."
+      lede="Create a Course for an Instructor to teach, find Courses across the installation, or open an account or scoped course-support operation."
     >
+      <SysadminCourseCreation />
       <nav class="card-grid" aria-label="System administration tools">
+        <article class="course-card">
+          <h2>Courses</h2>
+          <p>Find and inspect Courses across the installation.</p>
+          <A class="primary-link" href="/sysadmin/courses">
+            Find Courses
+          </A>
+        </article>
         <article class="course-card">
           <h2>Disciplines</h2>
           <p>Manage the stable shared content-classification vocabulary.</p>

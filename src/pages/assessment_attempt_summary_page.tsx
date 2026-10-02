@@ -1,6 +1,6 @@
 // assessment_attempt_summary_page.tsx - bounded, server-projected Assessment Attempt history.
 
-import { A } from "@solidjs/router";
+import { A, useParams } from "@solidjs/router";
 import { Show, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
@@ -12,6 +12,7 @@ import { ContentBlockList } from "../components/student_feedback_panel";
 import { PageFrame } from "../components/page_frame";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
+import { parseCourseInstanceId } from "../navigation/public_route";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
 import {
   useRetryRouteScope,
@@ -41,7 +42,7 @@ function ReleasedBlocks(props: {
   );
 }
 
-function AssessmentAttemptHistoryContent(props: {
+export function AssessmentAttemptHistoryContent(props: {
   readonly history: StudentAssessmentAttemptHistory;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
@@ -147,6 +148,22 @@ function AssessmentAttemptHistoryContent(props: {
                 )}
               />
               <ReleasedBlocks
+                title="Hints"
+                blocks={question.hints}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
+              />
+              <ReleasedBlocks
+                title="Worked Solution"
+                blocks={question.workedSolution}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
+              />
+              <ReleasedBlocks
                 title="General feedback"
                 blocks={question.generalFeedback}
                 publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
@@ -202,6 +219,9 @@ function AssessmentAttemptHistoryContent(props: {
 
 /** Owns deferred scope resolution so summary state never captures an initial missing route. */
 export function AssessmentAttemptSummaryPage(): JSX.Element {
+  const params = useParams();
+  const courseInstanceId = (): ReturnType<typeof parseCourseInstanceId> =>
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const routeData = useRouteScopeData();
   const loadState = useRouteScopeLoadState();
   const retry = useRetryRouteScope();
@@ -223,9 +243,23 @@ export function AssessmentAttemptSummaryPage(): JSX.Element {
           <Show
             when={loadState() === "rejected"}
             fallback={
-              <p class="loading-state" role="status">
-                Loading your recorded work...
-              </p>
+              <Show
+                when={loadState() !== "unavailable"}
+                fallback={
+                  <>
+                    <p>No Attempt is selected. Open the Course to choose an Assessment.</p>
+                    <Show when={courseInstanceId()}>
+                      {(course) => (
+                        <A href={`/student/courses/${course()}`}>Return to this Course</A>
+                      )}
+                    </Show>
+                  </>
+                }
+              >
+                <p class="loading-state" role="status">
+                  Loading your recorded work...
+                </p>
+              </Show>
             }
           >
             <p class="inline-error" role="alert">

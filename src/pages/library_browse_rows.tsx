@@ -243,11 +243,18 @@ export function LibraryBrowseRows(props: ParentProps<LibraryBrowseRowsProps>): J
             ariaLabel="Published questions"
             emptyState={{
               title: "No published questions match these filters",
-              message: "Try a shorter search or choose a broader topic.",
+              message:
+                "The Question Library is the shared collection of Published Questions. Try a shorter search or choose a broader topic.",
             }}
           />
         </div>
-        <Show when={props.browseState().kind === "empty" && DRAFT_QUESTIONS_PATH}>
+        <Show
+          when={
+            props.browseState().kind === "empty" && props.mayMutateLibrary
+              ? DRAFT_QUESTIONS_PATH
+              : undefined
+          }
+        >
           {(path) => (
             <A class="primary-action" href={path()}>
               Create a Draft Question

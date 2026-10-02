@@ -7,9 +7,9 @@ use sqlx::{Postgres, Row, Transaction};
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
-    DeactivateInstructorAccountInput, InstructorAccountList, InstructorAccountState,
-    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionId,
-    ProvidedAvatarId, SessionTokenHash, StoreError,
+    DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountList,
+    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
+    InstructorIdentityVettingDecisionId, ProvidedAvatarId, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the deliberate Sysadmin-only Instructor Accounts surface.
@@ -76,21 +76,43 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     async fn list_instructor_accounts(
         &self,
         token: SessionTokenHash,
+        browse: InstructorAccountBrowse,
     ) -> Result<InstructorAccountList, StoreError> {
+        let query = normalize_find_query(browse.query.as_deref())?;
+        let page_size = normalize_page_size(browse.page_size)?;
+        let state = browse.state.map(state_name);
+        let after_account_id = browse.after_account_id.map(|id| id.as_string());
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
             "SELECT account_id, state, provided_avatar_id, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
-             FROM ple_api.list_instructor_account_avatar_summaries()",
+             FROM ple_api.list_instructor_account_avatar_summaries($1, $2, $3, $4)",
         )
+        .bind(query)
+        .bind(state)
+        .bind(after_account_id)
+        .bind(page_size)
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let records = rows
+        let mut records = rows
             .iter()
             .map(decode_summary)
             .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = match page_size {
+            Some(limit) => {
+                let limit =
+                    usize::try_from(limit).map_err(|_| invalid("Instructor Account list"))?;
+                if records.len() > limit {
+                    records.truncate(limit);
+                    records.last().map(|account| account.id.clone())
+                } else {
+                    None
+                }
+            }
+            None => None,
+        };
         // ASVS 8.2.2 and 8.3.1: this function derives the display preference
         // from the installed session rather than accepting a target Account ID.
         let display_time_zone =
@@ -110,6 +132,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         Ok(InstructorAccountList {
             accounts: records,
             display_time_zone,
+            next_cursor,
         })
     }
 
@@ -200,6 +223,35 @@ async fn summary_for_account(
     .await
     .map_err(map_sqlx_error)?;
     row.as_ref().map(decode_summary).transpose()
+}
+
+fn state_name(state: InstructorAccountState) -> &'static str {
+    match state {
+        InstructorAccountState::Active => "active",
+        InstructorAccountState::Deactivated => "deactivated",
+        InstructorAccountState::Closed => "closed",
+    }
+}
+
+fn normalize_page_size(page_size: Option<i32>) -> Result<Option<i32>, StoreError> {
+    match page_size {
+        None | Some(50 | 100 | 250) => Ok(page_size),
+        Some(_) => Err(invalid("Instructor Account list")),
+    }
+}
+
+fn normalize_find_query(query: Option<&str>) -> Result<Option<String>, StoreError> {
+    let Some(query) = query else {
+        return Ok(None);
+    };
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if trimmed.chars().count() > 320 || trimmed.chars().any(char::is_control) {
+        return Err(invalid("Instructor Account search"));
+    }
+    Ok(Some(trimmed.to_string()))
 }
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummary, StoreError> {

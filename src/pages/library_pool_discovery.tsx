@@ -1,6 +1,7 @@
 // Distinct Pool discovery with its own continuation and retained inspection state.
 
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { QuestionPoolLibrarySummary } from "../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolBloomFacets } from "../../generated/api/QuestionPoolBloomFacets";
 import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
@@ -26,7 +27,15 @@ import {
   type LibraryClassificationFilter,
 } from "../api/library_classification_filter";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
+import {
+  QuestionPoolSearchMetadataEditor,
+  type QuestionPoolSearchMetadataTarget,
+} from "../components/question_pool_search_metadata_editor";
+import type { QuestionPoolSearchMetadataClient } from "../api/question_pool_search_metadata";
+import type { QuestionPoolSupportClient } from "../api/question_pool_support";
+import { QuestionPoolSupportEditor } from "../components/question_pool_support_editor";
 import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
+import { QuestionPoolStarControl } from "../components/question_pool_star_control";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
 import { RecordSequence } from "../components/record_list/record_sequence";
 import {
@@ -83,12 +92,27 @@ function poolMemberContent(member: QuestionPoolMemberView): RecordContent {
   };
 }
 
+function poolSearchTarget(pool: QuestionPoolLibrarySummary): QuestionPoolSearchMetadataTarget {
+  return {
+    questionPoolId: pool.questionPoolId,
+    questionPoolMetadataEditNumber: pool.questionPoolMetadataEditNumber,
+    title: pool.metadata.title,
+    disciplineName: pool.metadata.disciplineName,
+    subjectUuid: pool.metadata.subjectUuid,
+    topicUuid: pool.metadata.topicUuid,
+    subtopicUuid: pool.metadata.subtopicUuid,
+    tags: pool.metadata.tags,
+  };
+}
+
 export function LibraryPoolDiscovery(props: {
   readonly client: QuestionPoolLibraryClient &
     LibraryDiscussionClient &
-    BloomClassificationCorrectionClient;
+    BloomClassificationCorrectionClient &
+    QuestionPoolSearchMetadataClient &
+    QuestionPoolSupportClient;
   readonly classificationClient: ContentClassificationClient;
-  /** Sysadmins inspect Pools read-only and never load private Watch state. */
+  /** Sysadmins inspect Pools read-only and never load Instructor Star or private Watch state. */
   readonly mayWatchPools: boolean;
   /** Every active vetted Instructor may correct; Sysadmin inspection remains read-only. */
   readonly mayCorrectBloom: boolean;
@@ -112,6 +136,10 @@ export function LibraryPoolDiscovery(props: {
     questionPoolLibraryFilter(EMPTY_LIBRARY_CLASSIFICATION_FILTER),
   );
   const [inspecting, setInspecting] = createSignal<PoolInspectionTarget | null>(null);
+  const [selectedPools, setSelectedPools] = createSignal<
+    ReadonlyMap<string, QuestionPoolSearchMetadataTarget>
+  >(new Map());
+  const [selectionNotice, setSelectionNotice] = createSignal<string | null>(null);
   const [detail, setDetail] = createSignal<QuestionPoolView | null>(null);
   const [detailError, setDetailError] = createSignal(false);
   let listGeneration = 0;
@@ -141,6 +169,8 @@ export function LibraryPoolDiscovery(props: {
       setPreviousCursors([]);
       setNextCursor(null);
       setBloomFacets(null);
+      setSelectedPools(new Map());
+      setSelectionNotice(null);
     }
     try {
       const page = await props.client.listQuestionPools(
@@ -150,6 +180,17 @@ export function LibraryPoolDiscovery(props: {
       );
       if (generation !== listGeneration) return;
       setItems(page.items);
+      setSelectedPools((current) => {
+        if (current.size === 0) return current;
+        const next = new Map(current);
+        let changed = false;
+        for (const pool of page.items) {
+          if (!next.has(pool.questionPoolId)) continue;
+          next.set(pool.questionPoolId, poolSearchTarget(pool));
+          changed = true;
+        }
+        return changed ? next : current;
+      });
       setPageCursor(requestedCursor);
       setPreviousCursors(requestedPrevious);
       setNextCursor(page.nextCursor);
@@ -161,6 +202,43 @@ export function LibraryPoolDiscovery(props: {
     } finally {
       if (generation === listGeneration) setLoading(false);
     }
+  }
+
+  function updatePoolSelection(pool: QuestionPoolLibrarySummary, checked: boolean): void {
+    const id = pool.questionPoolId;
+    if (
+      checked &&
+      !selectedPools().has(id) &&
+      selectedPools().size >= MAX_BULK_QUESTION_METADATA_ITEMS
+    ) {
+      setSelectionNotice(
+        `You can select at most ${MAX_BULK_QUESTION_METADATA_ITEMS} Pools at once.`,
+      );
+      return;
+    }
+    setSelectedPools((current) => {
+      const next = new Map(current);
+      if (checked) next.set(id, poolSearchTarget(pool));
+      else next.delete(id);
+      return next;
+    });
+    setSelectionNotice(null);
+  }
+
+  function selectLoadedPools(): void {
+    const loaded = items();
+    const next = new Map(selectedPools());
+    for (const pool of loaded) {
+      if (next.size >= MAX_BULK_QUESTION_METADATA_ITEMS && !next.has(pool.questionPoolId)) break;
+      next.set(pool.questionPoolId, poolSearchTarget(pool));
+    }
+    setSelectedPools(next);
+    setSelectionNotice(`Selected ${next.size} Pools.`);
+  }
+
+  function clearPoolSelection(): void {
+    setSelectedPools(new Map());
+    setSelectionNotice("Selection cleared.");
   }
 
   function loadFirstPage(nextPageSize: RecordPageSize = pageSize()): void {
@@ -502,11 +580,69 @@ export function LibraryPoolDiscovery(props: {
         <Show when={!loading() && !error() && items().length === 0}>
           <p>No published Pools match these filters. Change or clear the Pool filters.</p>
         </Show>
+        <Show when={props.mayCorrectBloom && (items().length > 0 || selectedPools().size > 0)}>
+          <section class="question-library-bulk-toolbar" aria-label="Bulk Pool actions">
+            <p aria-live="polite">
+              <strong>{selectedPools().size} selected</strong> from {items().length} Pools on this
+              page
+            </p>
+            <div>
+              <button
+                type="button"
+                class="quiet-action"
+                disabled={loading() || items().length === 0}
+                onClick={selectLoadedPools}
+              >
+                Select loaded Pools
+              </button>
+              <button
+                type="button"
+                class="quiet-action"
+                disabled={selectedPools().size === 0}
+                onClick={clearPoolSelection}
+              >
+                Clear Pool selection
+              </button>
+            </div>
+            <p class="question-library-bulk-help">
+              Select loaded Pools affects only this page. Each update is limited to{" "}
+              {MAX_BULK_QUESTION_METADATA_ITEMS} Library objects. Discipline and Subject stay the
+              values established by the first member.
+            </p>
+            <Show when={selectionNotice()}>
+              <p role="status">{selectionNotice()}</p>
+            </Show>
+          </section>
+        </Show>
+        <Show when={props.mayCorrectBloom && selectedPools().size > 0}>
+          <QuestionPoolSearchMetadataEditor
+            client={props.client}
+            classificationClient={props.classificationClient}
+            targets={[...selectedPools().values()]}
+            disabled={loading()}
+            onSuccess={() => {
+              setSelectedPools(new Map());
+              void readPage(pageCursor(), previousCursors()).then(() => {
+                if (!error())
+                  setSelectionNotice("Shared search fields updated. Selection cleared.");
+              });
+            }}
+          />
+        </Show>
         <div class="question-library-results" aria-busy={loading()}>
           <RecordList
             rows={items()}
             content={poolContent}
             recordId={(pool) => pool.questionPoolId}
+            selection={
+              props.mayCorrectBloom
+                ? {
+                    kind: "checkbox",
+                    selectedIds: () => new Set(selectedPools().keys()),
+                    onChange: updatePoolSelection,
+                  }
+                : undefined
+            }
             state={{ kind: "ready" }}
             ariaLabel="Pool results"
             emptyState={{ title: "No published Pools match these filters." }}
@@ -566,6 +702,12 @@ export function LibraryPoolDiscovery(props: {
                     Members: {value().members.length}
                   </p>
                   <p>Tags: {value().metadata.tags.join(", ") || "None"}</p>
+                  <Show when={props.mayCorrectBloom}>
+                    <QuestionPoolSupportEditor
+                      client={props.client}
+                      questionPoolId={value().questionPoolId}
+                    />
+                  </Show>
                   <Show when={props.mayCorrectBloom && value().bloom}>
                     {(bloom) => (
                       <BloomClassificationEditor
@@ -595,6 +737,7 @@ export function LibraryPoolDiscovery(props: {
                     )}
                   </Show>
                   <Show when={props.mayWatchPools}>
+                    <QuestionPoolStarControl poolId={value().questionPoolId} />
                     <QuestionPoolWatchControl poolId={value().questionPoolId} />
                   </Show>
                   <h3>Exact Question Revisions</h3>

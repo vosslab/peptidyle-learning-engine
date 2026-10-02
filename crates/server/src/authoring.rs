@@ -138,10 +138,44 @@ struct CreatedDraftResponse {
     draft_question_edit_number: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DraftGeneralFeedbackResponse {
+    general_feedback: Option<String>,
+    hint: Option<String>,
+    worked_solution: Option<String>,
+}
+
+/// A missing key stays `None`. A present JSON null becomes `Some(None)` so a
+/// clear is distinct from "leave the stored text unchanged". ASVS 2.2.1.
+fn present_optional_text<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Some(Option::<String>::deserialize(deserializer)?))
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DraftGeneralFeedbackRequest {
     general_feedback: Option<String>,
+    #[serde(default, deserialize_with = "present_optional_text")]
+    hint: Option<Option<String>>,
+    #[serde(default, deserialize_with = "present_optional_text")]
+    worked_solution: Option<Option<String>>,
+}
+
+/// Omitted Hint and Worked Solution leave the stored texts unchanged.
+/// Both keys together replace them. One key alone is rejected. ASVS 2.2.1, 8.2.3.
+fn authored_support_replacement(
+    hint: Option<Option<String>>,
+    worked_solution: Option<Option<String>>,
+) -> Result<(Option<String>, Option<String>, bool), ()> {
+    match (hint, worked_solution) {
+        (None, None) => Ok((None, None, false)),
+        (Some(hint), Some(worked_solution)) => Ok((hint, worked_solution, true)),
+        _ => Err(()),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -478,8 +512,10 @@ async fn load_general_feedback(
         Ok(draft) => match etag(draft.edit_number) {
             Ok(etag) => {
                 let mut response = crate::auth::no_store(
-                    Json(DraftGeneralFeedbackRequest {
+                    Json(DraftGeneralFeedbackResponse {
                         general_feedback: draft.general_feedback,
+                        hint: draft.hint,
+                        worked_solution: draft.worked_solution,
                     })
                     .into_response(),
                 );
@@ -513,6 +549,18 @@ async fn save_general_feedback(
         Ok(value) => value,
         Err(response) => return *response,
     };
+    // ASVS 2.2.1: general feedback alone must not clear Hint or Worked Solution.
+    // ASVS 8.2.3: these texts are authored fields, not backend source.
+    let (hint, worked_solution, replace_support) =
+        match authored_support_replacement(request.hint, request.worked_solution) {
+            Ok(replacement) => replacement,
+            Err(()) => {
+                return private_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "Hint and Worked Solution must be saved together",
+                );
+            }
+        };
     match state
         .drafts
         .save_authoring_draft_general_feedback(
@@ -521,6 +569,9 @@ async fn save_general_feedback(
                 draft_question_uuid,
                 expected_edit_number,
                 general_feedback: request.general_feedback,
+                hint,
+                worked_solution,
+                replace_support,
             },
         )
         .await
@@ -802,6 +853,50 @@ mod tests {
         );
         assert!(
             existing_parent_published_question_revision_tuple("0000-X000".to_string(), 1).is_err()
+        );
+    }
+
+    #[test]
+    fn published_questions_include_optional_hint_feedback_and_worked_solution() {
+        let feedback_only: DraftGeneralFeedbackRequest =
+            serde_json::from_str(r#"{"generalFeedback":"Keep the units."}"#).expect("feedback");
+        let (hint, worked_solution, replace_support) =
+            authored_support_replacement(feedback_only.hint, feedback_only.worked_solution)
+                .expect("omitted support leaves the stored texts");
+        assert!(hint.is_none());
+        assert!(worked_solution.is_none());
+        assert!(!replace_support);
+
+        let support: DraftGeneralFeedbackRequest = serde_json::from_str(
+            r#"{"generalFeedback":"Keep the units.","hint":"Count alleles.","workedSolution":"Show the cross."}"#,
+        )
+        .expect("support");
+        let (hint, worked_solution, replace_support) =
+            authored_support_replacement(support.hint, support.worked_solution)
+                .expect("both support keys replace the stored texts");
+        assert_eq!(hint.as_deref(), Some("Count alleles."));
+        assert_eq!(worked_solution.as_deref(), Some("Show the cross."));
+        assert!(replace_support);
+
+        let cleared: DraftGeneralFeedbackRequest =
+            serde_json::from_str(r#"{"generalFeedback":null,"hint":null,"workedSolution":null}"#)
+                .expect("clear");
+        let (hint, worked_solution, replace_support) =
+            authored_support_replacement(cleared.hint, cleared.worked_solution)
+                .expect("present nulls clear both texts");
+        assert!(hint.is_none());
+        assert!(worked_solution.is_none());
+        assert!(replace_support);
+
+        let one_key: DraftGeneralFeedbackRequest =
+            serde_json::from_str(r#"{"generalFeedback":null,"hint":"Count alleles."}"#)
+                .expect("one key");
+        assert!(authored_support_replacement(one_key.hint, one_key.worked_solution).is_err());
+        assert!(
+            serde_json::from_str::<DraftGeneralFeedbackRequest>(
+                r#"{"generalFeedback":null,"hint":null,"workedSolution":null,"source":"backend"}"#
+            )
+            .is_err()
         );
     }
 }

@@ -118,13 +118,15 @@ async fn resolved_ple_question<O: ObjectStore>(
     let compiled = document.compile().map_err(|_| ())?;
     let presentation = compiled.presentation();
     let mut metadata = presentation.metadata().clone();
-    if metadata.question_title != entry.question_title
-        || metadata.question_description != entry.question_description
-        || metadata.question_license.as_ref() != Some(&entry.question_license)
+    // ASVS 8.2.3: title and description are already fields of this authorized library row.
+    // The immutable source keeps its own copy. A metadata edit does not create a Revision.
+    if metadata.question_license.as_ref() != Some(&entry.question_license)
         || presentation.question_type() != entry.question_type
     {
         return Err(());
     }
+    metadata.question_title = entry.question_title.clone();
+    metadata.question_description = entry.question_description.clone();
     metadata.tags = entry.shared_metadata.tags.clone();
     metadata.question_license = Some(entry.question_license.clone());
     Ok(ResolvedQuestionLibraryEntry {

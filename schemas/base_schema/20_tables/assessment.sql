@@ -18,7 +18,10 @@ CREATE TABLE ple_data.assessment_policy_snapshot (
     closes_at timestamptz,
     assessment_attempt_time_limit_seconds integer CHECK (
         assessment_attempt_time_limit_seconds IS NULL
-        OR assessment_attempt_time_limit_seconds BETWEEN 1 AND 43200
+        OR (
+            assessment_attempt_time_limit_seconds BETWEEN 60 AND 43200
+            AND assessment_attempt_time_limit_seconds % 60 = 0
+        )
     ),
     assessment_attempt_limit integer CHECK (
         assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0
@@ -32,6 +35,8 @@ CREATE TABLE ple_data.assessment_policy_snapshot (
     feedback_question_answer ple_data.feedback_release NOT NULL,
     feedback_question_answer_explanation ple_data.feedback_release NOT NULL,
     feedback_class_statistics ple_data.feedback_release NOT NULL,
+    feedback_hints ple_data.feedback_release NOT NULL,
+    feedback_worked_solutions ple_data.feedback_release NOT NULL,
     created_at timestamptz NOT NULL,
     CHECK (
         (available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
@@ -206,7 +211,7 @@ COMMENT ON TABLE ple_data.assessment_question_pool_fork IS 'role: current state,
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.available_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.due_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.closes_at IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_time_limit_seconds IS 'Optional base Attempt duration override in seconds; non-NULL values represent 1 to 720 whole minutes. NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_course_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_revision_number IS 'NULL means this optional fact is absent.';
@@ -217,5 +222,3 @@ COMMENT ON COLUMN ple_data.assessment_entry.assessment_entry_pool_id IS 'NULL me
 COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_limit IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
-
-

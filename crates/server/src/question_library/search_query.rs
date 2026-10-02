@@ -53,3 +53,68 @@ impl QuestionTextQuery {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use learning_data_access::QuestionLibraryTextField;
+
+    use super::QuestionTextQuery;
+
+    /// Human Guidance field examples, plus Question Type and author.
+    const FIELD_QUERY: &str = concat!(
+        r#"discipline:biology subject:genetics topic:"chromosomal inheritance" "#,
+        r#"tags:review subtopic:"x-linked recessive crosses" "#,
+        r#"type:"multiple choice" author:Ada"#,
+    );
+
+    fn prefix(field: QuestionLibraryTextField) -> &'static str {
+        match field {
+            QuestionLibraryTextField::Any => "any",
+            QuestionLibraryTextField::Discipline => "discipline",
+            QuestionLibraryTextField::Subject => "subject",
+            QuestionLibraryTextField::Topic => "topic",
+            QuestionLibraryTextField::Subtopic => "subtopic",
+            QuestionLibraryTextField::Tags => "tags",
+            QuestionLibraryTextField::QuestionType => "type",
+            QuestionLibraryTextField::Author => "author",
+        }
+    }
+
+    #[test]
+    fn pubmed_style_fields_round_trip_through_the_store_terms() {
+        let (question_id, terms) = QuestionTextQuery::parse(Some(FIELD_QUERY)).into_store_terms();
+        assert!(question_id.is_none());
+        let rendered = terms
+            .iter()
+            .map(|term| {
+                assert!(!term.excluded);
+                assert!(!term.value.is_empty());
+                assert_ne!(term.field, QuestionLibraryTextField::Any);
+                let value = if term.value.contains(char::is_whitespace) {
+                    format!("\"{}\"", term.value)
+                } else {
+                    term.value.clone()
+                };
+                format!("{}:{value}", prefix(term.field))
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(rendered, FIELD_QUERY);
+    }
+
+    #[test]
+    fn exact_canonical_question_id_is_the_library_search_identity() {
+        let canonical = "ABCD-XEFG";
+        let (question_id, terms) = QuestionTextQuery::parse(Some(canonical)).into_store_terms();
+        assert_eq!(
+            question_id.expect("exact Question ID").to_string(),
+            canonical
+        );
+        assert!(terms.is_empty());
+
+        let (rejected, _) = QuestionTextQuery::parse(Some("ABCD-AEFG")).into_store_terms();
+        assert!(rejected.is_none());
+        let (lowercase, _) = QuestionTextQuery::parse(Some("abcd-xefg")).into_store_terms();
+        assert!(lowercase.is_none());
+    }
+}

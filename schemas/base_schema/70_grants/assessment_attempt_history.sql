@@ -46,6 +46,12 @@ GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history_respon
 
 SET LOCAL ROLE ple_private_owner;
 
+REVOKE ALL ON FUNCTION ple_private.read_student_work_records(uuid)
+    FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_private.read_student_work_records(uuid)
+    TO ple_api_owner;
+
 REVOKE ALL ON FUNCTION ple_private.read_course_student_work_for_retention(uuid)
     FROM PUBLIC;
 

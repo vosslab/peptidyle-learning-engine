@@ -25,8 +25,8 @@ permission to contradict a higher-ranked item.
 
 | Rank | Authority                                                  | Use in this blueprint                                              |
 | ---- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| 1    | [docs/HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md)             | Product intent, teaching philosophy, privacy, and role boundaries. |
-| 2    | [docs/TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md) | Canonical records, relationships, lifecycle names, and vocabulary. |
+| 1    | [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md)             | Product intent, teaching philosophy, privacy, and role boundaries. |
+| 2    | [TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md) | Canonical records, relationships, lifecycle names, and vocabulary. |
 | 3    | Current subsystem contracts and inherited baselines        | Current capability, security, Ribbon, and export boundaries.       |
 | 4    | Current implementation and evidence                        | Present capability inventory and executable evidence.              |
 | 5    | Historical commit forensics                                | Lost-capability discovery only.                                    |
@@ -45,10 +45,10 @@ authorities.
 
 | Code | Baseline                                                                                                                                                                                                           | Required rule                                                                                                         | Rejected restoration pattern                                                             |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| L    | [docs/TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md)                                                                                                                                                         | Use current PLE terms across schema, API, code, browser copy, tests, and documentation.                               | Institution, tenant, Base Course, workspace-era, or registration-era names.              |
-| S    | [docs/AUTHORIZATION_CONTRACTS.md](../AUTHORIZATION_CONTRACTS.md) and [connection_contract.rs](../../crates/learning-data-access/src/postgres/connection_contract.rs)                                               | Resolve Authenticated Session, authorize the exact durable relationship, then validate and commit in one transaction. | Ambient access, schema-owner bypass, broad worker access, or browser-only authorization. |
-| R    | [src/application_shell.tsx](../../src/application_shell.tsx), [src/ribbon/ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts), and [docs/ux/RIBBON_DESTINATION_LEDGER.md](../ux/RIBBON_DESTINATION_LEDGER.md) | Fit a restored route inside the current shell and enable a Ribbon destination only after its task works end to end.   | Pre-Ribbon chrome, disconnected pages, or enabled destinations without tasks.            |
-| E    | [launchers/send_invitations.py](../../launchers/send_invitations.py) and the Instructor export boundary                                                                                                            | Keep email delivery outside the browser. The browser offers only protected export for the local dry-run mailer.       | Browser send, direct legacy send code, or PII and invitation tokens in URLs or logs.     |
+| L    | [TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md)                                                                                                                                                         | Use current PLE terms across schema, API, code, browser copy, tests, and documentation.                               | Institution, tenant, Base Course, workspace-era, or registration-era names.              |
+| S    | [AUTHORIZATION_CONTRACTS.md](../AUTHORIZATION_CONTRACTS.md) and [connection_contract.rs](../../crates/learning-data-access/src/postgres/connection_contract.rs)                                               | Resolve Authenticated Session, authorize the exact durable relationship, then validate and commit in one transaction. | Ambient access, schema-owner bypass, broad worker access, or browser-only authorization. |
+| R    | [application_shell.tsx](../../src/application_shell.tsx), [ribbon_contract.ts](../../src/ribbon/ribbon_contract.ts), and [RIBBON_DESTINATION_LEDGER.md](../ux/RIBBON_DESTINATION_LEDGER.md) | Fit a restored route inside the current shell and enable a Ribbon destination only after its task works end to end.   | Pre-Ribbon chrome, disconnected pages, or enabled destinations without tasks.            |
+| E    | [send_invitations.py](../../launchers/send_invitations.py) and the Instructor export boundary                                                                                                            | Keep email delivery outside the browser. The browser offers only protected export for the local dry-run mailer.       | Browser send, direct legacy send code, or PII and invitation tokens in URLs or logs.     |
 
 ## Demo completion contract
 
@@ -132,7 +132,7 @@ them when no accepted environment retains data. The correction includes migratio
 source, schema documentation, Store contract, fixtures, and clean-database
 acceptance.
 
-The current [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) also
+The current [DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) also
 states that accepted migrations are immutable. M3 first records whether the
 target migration has reached an accepted data-bearing environment. If it has,
 M3 uses the current migration-allocation rule. If it has not, M3 corrects the
@@ -1385,9 +1385,9 @@ Obvious follow-ons: archive this blueprint after evidence ledger completion.
 ## Documentation close-out
 
 M21 changes durable documents only when executable behavior and evidence change
-their current boundary. It updates [docs/LIVE_DEMO_SPEC.md](../LIVE_DEMO_SPEC.md),
-[docs/CONTRACTS.md](../CONTRACTS.md), and
-[docs/TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) together with
+their current boundary. It updates [LIVE_DEMO_SPEC.md](../LIVE_DEMO_SPEC.md),
+[CONTRACTS.md](../CONTRACTS.md), and
+[TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) together with
 relevant operation contracts. It preserves historical records as historical
 evidence and does not rewrite them into current claims.
 

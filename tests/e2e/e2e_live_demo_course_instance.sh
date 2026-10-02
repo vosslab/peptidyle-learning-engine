@@ -151,7 +151,7 @@ assignment = {
   "assessment_type": "regular_assignment",
   "title": "Course Instance source assignment",
   "instructions": "Use the published Question in reusable course structure.",
-  "entries": [{"kind":"fixed","published_question":published_question,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":2},"question_attempt_time_limit":{"kind":"unlimited"}}],
+  "entries": [{"kind":"fixed","published_question_revision_tuple":published_question,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":2},"question_attempt_time_limit":{"kind":"unlimited"}}],
   "defaults": {"assessment_attempt_time_limit_seconds":None,"assessment_attempt_limit":2,"late_work_rule":"accept","activity_rules":{"questionVariationRule":"newVariation","assessmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
 }
 print(json.dumps({"classification":classification,"short_name":"M8 source","long_name":"M8 exact Blueprint source","modules":[{"label":"M8 module","assessments":[assignment]}]}, separators=(",",":")))
@@ -179,7 +179,7 @@ entry = content.get("entries", [None])[0]
 question_revision = entry.get("question", {}).get("question_revision") if isinstance(entry, dict) else None
 if not isinstance(question_revision, dict) or set(question_revision) != {"publishedQuestionId", "revisionNumber"}:
     raise SystemExit("Blueprint Revision 1 did not return its reusable Question")
-replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_id":blueprint_module_id},"label":module.get("label"),"assessments":[{"choice":{"kind":"retained","blueprint_assessment_id":blueprint_assessment_id},"content":{"assessment_type":content.get("assessment_type"),"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","published_question":question_revision,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults")}}]}]}
+replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_id":blueprint_module_id},"label":module.get("label"),"assessments":[{"choice":{"kind":"retained","blueprint_assessment_id":blueprint_assessment_id},"content":{"assessment_type":content.get("assessment_type"),"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","published_question_revision_tuple":question_revision,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults")}}]}]}
 print(json.dumps(replacement, separators=(",",":")))
 ' "$1"
 }
@@ -383,7 +383,7 @@ assert_database_evidence() {
 }
 
 prove_authority() {
-	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one <retired-term-replace-me> private_adoption published replacement saved revision_two candidates assigned classification course_created course_instance_id second_course_created second_course_instance_id course_list course_view stale_created newer_created newer_course_instance_id
+	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one blueprint_edit_number private_adoption published replacement saved revision_two candidates assigned classification course_created course_instance_id second_course_created second_course_instance_id course_list course_view stale_created newer_created newer_course_instance_id
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -401,14 +401,14 @@ prove_authority() {
 		echo "Instructor could not create the exact Blueprint source (HTTP $(response_status "$created"): $(response_body "$created"))" >&2
 		exit 1
 	fi
-read -r blueprint revision_one <retired-term-replace-me> < <(python3 -c '
+read -r blueprint revision_one blueprint_edit_number < <(python3 -c '
 import json, sys
-value=json.loads(sys.argv[1]); blueprint_course_id=value.get("id"); revision=value.get("current_revision_tuple"); <retired-term-replace-me>=value.get("blueprint_edit_number")
+value=json.loads(sys.argv[1]); blueprint_course_id=value.get("id"); revision=value.get("current_revision_tuple"); blueprint_edit_number=value.get("blueprint_edit_number")
 if (not isinstance(blueprint_course_id,str) or not blueprint_course_id
     or revision != {"blueprintCourseId": blueprint_course_id, "revisionNumber": "1"}
-    or not isinstance(<retired-term-replace-me>, str) or not <retired-term-replace-me>):
+    or not isinstance(blueprint_edit_number, str) or not blueprint_edit_number):
     raise SystemExit("Blueprint creation did not return available exact Revision 1")
-print(blueprint_course_id, revision["revisionNumber"], <retired-term-replace-me>)
+print(blueprint_course_id, revision["revisionNumber"], blueprint_edit_number)
 ' "$(response_body "$created")")
 	candidates="$(request '/api/course-instance-creation/instructors' "$sysadmin_cookie")"
 	if [ "$(response_status "$candidates")" != "200" ]; then
@@ -421,7 +421,7 @@ import json, sys
 items=json.loads(sys.argv[1]).get("items")
 if not isinstance(items,list) or not items or any(not isinstance(item,dict) for item in items):
     raise SystemExit("Assigned Instructor selection is empty or malformed")
-account_ids=[item.get("id") for item in items]
+account_ids=[item.get("accountId") for item in items]
 if any(not isinstance(account_id,str) or not account_id for account_id in account_ids):
     raise SystemExit("Assigned Instructor selection lacks a canonical Account ID")
 if len(set(account_ids)) != len(account_ids):
@@ -436,7 +436,7 @@ print(sys.argv[2])
 		echo "Non-owner Sysadmin Private Blueprint refusal differed (HTTP $(response_status "$private_adoption"): $(response_body "$private_adoption"))" >&2
 		exit 1
 	fi
-	published="$(request "/api/course-blueprints/$blueprint/publish" "$instructor_cookie" POST '' "\"$<retired-term-replace-me>\"")"
+	published="$(request "/api/course-blueprints/$blueprint/publish" "$instructor_cookie" POST '' "\"$blueprint_edit_number\"")"
 	if [ "$(response_status "$published")" != "200" ]; then
 		echo "Instructor could not publish the Blueprint source for Course Instance adoption" >&2
 		exit 1

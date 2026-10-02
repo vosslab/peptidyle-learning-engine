@@ -115,17 +115,21 @@ test("Student score copy distinguishes no activity, withheld, and available null
   };
   const withheld = {
     ...noActivity,
-    assessment_progress: { ...noActivity.assessment_progress, total_question_attempts: 1 },
+    assessment_progress: {
+      ...noActivity.assessment_progress,
+      completed_assessment_attempt_count: 1,
+      total_question_attempts: 1,
+    },
     student_assessment_grade: {
       ...noActivity.student_assessment_grade,
       score_state: "withheld",
     },
   };
   assert.match(studentProgressSummary(decodeStudentAssessmentProgress(noActivity)), /No score yet/);
-  assert.match(
-    studentProgressSummary(decodeStudentAssessmentProgress(withheld)),
-    /Score is currently unavailable/,
-  );
+  const withheldSummary = studentProgressSummary(decodeStudentAssessmentProgress(withheld));
+  assert.match(withheldSummary, /Score is currently unavailable/);
+  assert.match(withheldSummary, /completed Attempt recorded/);
+  assert.equal(withheldSummary.includes("Assessment"), false);
   assert.equal(studentScoreValue(null), "No score yet");
   assert.match(studentProgressSummary(decodeStudentAssessmentProgress(available)), /75%/);
   assert.match(

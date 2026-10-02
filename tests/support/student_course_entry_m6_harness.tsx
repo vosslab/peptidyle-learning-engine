@@ -65,7 +65,7 @@ const ASSESSMENT_DECISION = {
 const UPCOMING_DECISION = {
   ...ASSESSMENT_DECISION,
   startDecision: "not_yet_available",
-  publicReason: "This Assessment is not yet available.",
+  publicReason: "This Coursework is not yet available.",
 } as const;
 const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   id: "A9D2RX5AF",
@@ -136,7 +136,14 @@ function HarnessRoot(props: { readonly children?: JSX.Element }): JSX.Element {
 
 function LocationProbe(): JSX.Element {
   const location = useLocation();
-  return <output data-m6-location hidden>{`${location.pathname}${location.search}`}</output>;
+  return (
+    <>
+      <output data-m6-location hidden>{`${location.pathname}${location.search}`}</output>
+      <output data-m6-history-state hidden>
+        {JSON.stringify(location.state ?? null)}
+      </output>
+    </>
+  );
 }
 
 export interface StudentCourseEntryM6Harness {
@@ -287,11 +294,11 @@ export function mountStudentCourseEntryM6Harness(
             component={AssessmentOverviewPage}
           />
           <Route
-            path="/assessment-attempts/:attemptRef"
+            path="/courses/:courseInstanceId/attempt"
             component={() => <p>Active Attempt destination</p>}
           />
           <Route
-            path="/assessment-attempts/:attemptRef/summary"
+            path="/courses/:courseInstanceId/review"
             component={() => <p>Attempt summary destination</p>}
           />
         </MemoryRouter>

@@ -5,8 +5,9 @@
   min-block-size: min(7rem, 100%);
   overflow: auto;
   overscroll-behavior: contain;
-  background: color-mix(in srgb, var(--ple-card-surface) 78%, transparent);
-  box-shadow: var(--ple-shadow);
+  /* The rows are the records. A shadowed fill would float them as a separate card. */
+  background: transparent;
+  box-shadow: none;
 }
 .library-browse-record-list__window:focus-visible {
   outline: 2px solid var(--ple-focus);

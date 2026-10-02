@@ -46,7 +46,7 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: var(--ple-layout-gap);
   padding: var(--ple-panel-padding);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-page-background) 62%, var(--ple-card-surface));
 }
 
@@ -75,11 +75,21 @@
 }
 
 .question-picker-results,
-.question-picker-tray {
+.question-picker-tray,
+.question-picker-inspection {
   margin-top: var(--ple-section-gap);
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
+}
+
+.question-picker-inspection h3 {
+  margin-block: 0.15rem;
+}
+
+.question-picker-inspection-frame {
+  width: 100%;
+  border: 1px solid var(--ple-border);
 }
 
 .question-picker-footer {

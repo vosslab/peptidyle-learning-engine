@@ -4,19 +4,19 @@ use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, State, rejection::JsonRejection},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use learning_data_access::{
     CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
-    DeactivateInstructorAccountInput, InstructorAccountStore, InstructorIdentityVettingDecisionId,
-    SessionTokenHash, StoreError,
+    DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountState,
+    InstructorAccountStore, InstructorIdentityVettingDecisionId, SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
 use question_model::{AccountId, UserRole};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -35,6 +35,10 @@ pub fn instructor_account_router(
         .route(
             "/api/instructor-accounts",
             get(list_instructor_accounts).post(create_instructor_account),
+        )
+        .route(
+            "/api/instructor-accounts/find",
+            post(find_instructor_accounts),
         )
         .route(
             "/api/instructor-identity-vetting-decisions",
@@ -59,9 +63,69 @@ async fn list_instructor_accounts(
         Ok(token) => token,
         Err(response) => return *response,
     };
-    match state.accounts.list_instructor_accounts(token).await {
+    match state
+        .accounts
+        .list_instructor_accounts(
+            token,
+            InstructorAccountBrowse {
+                query: None,
+                state: None,
+                after_account_id: None,
+                page_size: None,
+            },
+        )
+        .await
+    {
         // ASVS 8.2.3: rows expose only closed Account state plus a nullable
         // static provided-avatar ID; the display zone is viewer-owned context.
+        Ok(accounts) => crate::auth::no_store(Json(accounts).into_response()),
+        Err(error) => store_error_response(error),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct FindInstructorAccountsRequest {
+    query: String,
+    state: Option<InstructorAccountState>,
+    page_size: i32,
+    after_account_id: Option<AccountId>,
+}
+
+async fn find_instructor_accounts(
+    State(state): State<InstructorAccountRouteState>,
+    headers: HeaderMap,
+    payload: Result<Json<FindInstructorAccountsRequest>, JsonRejection>,
+) -> Response {
+    let Json(request) = match payload {
+        Ok(value) => value,
+        Err(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Instructor Account search is invalid",
+            );
+        }
+    };
+    let token = match sysadmin_session_hash(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    // ASVS 2.2.1, 7.1.1, and 8.2.3: state, page size, and cursor stay in the
+    // body with the query. The response keeps the closed Account summary.
+    // Neither the authentication email nor the vetted display name is written back.
+    match state
+        .accounts
+        .list_instructor_accounts(
+            token,
+            InstructorAccountBrowse {
+                query: Some(request.query),
+                state: request.state,
+                after_account_id: request.after_account_id,
+                page_size: Some(request.page_size),
+            },
+        )
+        .await
+    {
         Ok(accounts) => crate::auth::no_store(Json(accounts).into_response()),
         Err(error) => store_error_response(error),
     }
@@ -179,9 +243,7 @@ async fn sysadmin_session_hash(
     {
         // ASVS 8.2.1: route filtering is only an early boundary; the Store's
         // database procedures repeat the active Sysadmin authorization.
-        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

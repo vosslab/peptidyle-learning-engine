@@ -7,6 +7,16 @@ import type {
 } from "../api/content_classification";
 import { ContentClassificationSelect } from "../components/content_classification_select";
 
+export function blueprintClassificationDescription(
+  value: BlueprintCourseClassificationSearch,
+  labels: ReadonlyMap<string, string>,
+): string {
+  const names = [value.disciplineUuid, value.subjectUuid, value.topicUuid, value.subtopicUuid]
+    .filter((uuid): uuid is string => uuid !== null)
+    .map((uuid) => labels.get(uuid) ?? "Name unavailable");
+  return names.join(" / ") + (value.crossDiscipline ? " (Subject across Disciplines)" : "");
+}
+
 export function emptyBlueprintClassificationSearch(): BlueprintCourseClassificationSearch {
   return {
     disciplineUuid: null,
@@ -32,12 +42,7 @@ export function BlueprintSearchClassification(props: {
     return items;
   }
   function change(value: BlueprintCourseClassificationSearch): void {
-    const names = [value.disciplineUuid, value.subjectUuid, value.topicUuid, value.subtopicUuid]
-      .filter((uuid): uuid is string => uuid !== null)
-      .map((uuid) => labels.get(uuid) ?? uuid);
-    const description =
-      names.join(" / ") + (value.crossDiscipline ? " (Subject across Disciplines)" : "");
-    props.onChange(value, description);
+    props.onChange(value, blueprintClassificationDescription(value, labels));
   }
   return (
     <fieldset

@@ -1,5 +1,7 @@
 ## 2026-09-21
 
+> September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
+
 ### Behavior or Interface Changes
 
 - Rewrote `README.md` as an instructor landing page: a plain-prose About paragraph, a status

@@ -29,7 +29,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                'feedback_submitted_response', policy.feedback_submitted_response,
                'feedback_question_answer', policy.feedback_question_answer,
                'feedback_question_answer_explanation', policy.feedback_question_answer_explanation,
-               'feedback_class_statistics', policy.feedback_class_statistics
+               'feedback_class_statistics', policy.feedback_class_statistics,
+               'feedback_hints', policy.feedback_hints,
+               'feedback_worked_solutions', policy.feedback_worked_solutions
            ),
            CASE WHEN submitted.assessment_submission_id IS NOT NULL THEN
                jsonb_build_object('submitted_at', submitted.submitted_at,

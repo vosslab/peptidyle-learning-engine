@@ -32,7 +32,7 @@
   min-width: 0;
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-card-surface);
 }
 
@@ -46,6 +46,7 @@
 
 .blueprint-course-create-dialog {
   width: min(calc(100% - 2rem), 48rem);
+  border-radius: var(--ple-radius-inset);
   max-height: calc(100dvh - 2rem);
   margin: auto;
   overflow: auto;
@@ -151,7 +152,7 @@
 .blueprint-course-save-actions {
   padding: 0.8rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 92%, var(--ple-page-background));
 }
 
@@ -256,7 +257,7 @@
   gap: var(--ple-layout-gap);
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-card-surface);
 }
 
@@ -335,6 +336,32 @@
   display: grid;
   gap: 0.65rem;
   min-width: 0;
+}
+
+.blueprint-course-archive-danger-zone {
+  display: grid;
+  max-width: 72ch;
+  gap: var(--ple-space-3, 0.75rem);
+  margin-block: var(--ple-space-5, 1.25rem);
+  padding: var(--ple-panel-padding, 0.85rem);
+  border-inline-start: 0.35rem solid var(--ple-danger);
+  border-radius: var(--ple-radius-surface, 0.35rem);
+  background: color-mix(in srgb, var(--ple-danger) 9%, var(--ple-card-surface));
+}
+
+.blueprint-course-archive-danger-zone h2,
+.blueprint-course-archive-danger-zone p {
+  margin: 0;
+}
+
+.blueprint-course-archive-danger-zone input {
+  width: min(100%, 48rem);
+}
+
+.blueprint-course-archive-confirm {
+  border-color: var(--ple-danger);
+  background: var(--ple-danger);
+  color: var(--ple-on-danger);
 }
 
 .blueprint-public-search > h2,

@@ -3,14 +3,17 @@
 //! The notifier Store owns recipient selection, receipt identity, and lease
 //! enforcement.  This module deliberately accepts only its already-verified
 //! destination and a fixed, redacted sign-in notice.  It has no Account,
-//! Course, invitation, session, object, renderer, or provider configuration
-//! surface.
+//! Course, invitation, session, object, or renderer surface.  The caller
+//! supplies a provider connection; this module does not read the environment.
 
 use async_trait::async_trait;
 use learning_data_access::{
     ClaimedCourseRetentionNotification, CourseRetentionNotificationFailure,
     CourseRetentionNotificationStore, StoreError, VerifiedCourseRetentionNotificationDestination,
 };
+use lettre::message::Mailbox;
+use lettre::message::header::{ContentType, HeaderName, HeaderValue};
+use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use question_model::Timestamp;
 use uuid::Uuid;
 
@@ -69,6 +72,113 @@ impl CourseRetentionNotificationDelivery for NotConfiguredCourseRetentionNotific
         _notice: RetentionNotificationSignInNotice,
     ) -> Result<(), CourseRetentionNotificationFailure> {
         Err(CourseRetentionNotificationFailure::NotConfigured)
+    }
+}
+
+/// SMTP submission for one already-claimed redacted notice.
+///
+/// The message body is the fixed sign-in sentence.  The receipt's idempotency
+/// key is forwarded unchanged and no Course or Account identity is added.
+pub struct SmtpCourseRetentionNotificationDelivery {
+    transport: AsyncSmtpTransport<Tokio1Executor>,
+    from: Mailbox,
+}
+
+impl SmtpCourseRetentionNotificationDelivery {
+    /// Builds a provider from a caller-supplied connection URL and from address.
+    pub fn from_provider(connection_url: &str, from: &str) -> Result<Self, String> {
+        let from = from
+            .parse::<Mailbox>()
+            .map_err(|_| "Course-retention notification from address is invalid".to_string())?;
+        let transport = AsyncSmtpTransport::<Tokio1Executor>::from_url(connection_url)
+            .map_err(|_| "Course-retention notification SMTP URL is invalid".to_string())?
+            .build();
+        Ok(Self { transport, from })
+    }
+}
+
+#[async_trait]
+impl CourseRetentionNotificationDelivery for SmtpCourseRetentionNotificationDelivery {
+    async fn submit(
+        &self,
+        destination: &VerifiedCourseRetentionNotificationDestination,
+        provider_idempotency_key: Uuid,
+        notice: RetentionNotificationSignInNotice,
+    ) -> Result<(), CourseRetentionNotificationFailure> {
+        let recipient = destination
+            .as_str()
+            .parse::<Mailbox>()
+            .map_err(|_| CourseRetentionNotificationFailure::ProviderRejected)?;
+        let message = Message::builder()
+            .from(self.from.clone())
+            .to(recipient)
+            .subject(RETENTION_NOTIFICATION_SIGN_IN_NOTICE)
+            .header(ContentType::TEXT_PLAIN)
+            .raw_header(HeaderValue::new(
+                HeaderName::new_from_ascii_str("X-Ple-Retention-Idempotency-Key"),
+                provider_idempotency_key.to_string(),
+            ))
+            .body(notice.as_str().to_owned())
+            .map_err(|_| CourseRetentionNotificationFailure::ProviderRejected)?;
+        self.transport.send(message).await.map_err(smtp_failure)?;
+        tracing::info!(
+            event = "course_retention_notification_submitted",
+            idempotency_key = %provider_idempotency_key,
+        );
+        Ok(())
+    }
+}
+
+fn smtp_failure(error: lettre::transport::smtp::Error) -> CourseRetentionNotificationFailure {
+    if error.is_permanent() {
+        CourseRetentionNotificationFailure::ProviderRejected
+    } else {
+        CourseRetentionNotificationFailure::ProviderTransient
+    }
+}
+
+/// The process-selected adapter.  Absent provider settings stay `NotConfigured`.
+pub enum CourseRetentionNotificationDeliveryAdapter {
+    /// No provider is configured.  Submission records a non-send.
+    NotConfigured(NotConfiguredCourseRetentionNotificationDelivery),
+    /// A caller-supplied SMTP provider.
+    Smtp(SmtpCourseRetentionNotificationDelivery),
+}
+
+impl CourseRetentionNotificationDeliveryAdapter {
+    /// Uses the disabled adapter.
+    pub fn not_configured() -> Self {
+        Self::NotConfigured(NotConfiguredCourseRetentionNotificationDelivery)
+    }
+
+    /// Uses SMTP for the supplied provider connection and from address.
+    pub fn smtp(connection_url: &str, from: &str) -> Result<Self, String> {
+        Ok(Self::Smtp(
+            SmtpCourseRetentionNotificationDelivery::from_provider(connection_url, from)?,
+        ))
+    }
+}
+
+#[async_trait]
+impl CourseRetentionNotificationDelivery for CourseRetentionNotificationDeliveryAdapter {
+    async fn submit(
+        &self,
+        destination: &VerifiedCourseRetentionNotificationDestination,
+        provider_idempotency_key: Uuid,
+        notice: RetentionNotificationSignInNotice,
+    ) -> Result<(), CourseRetentionNotificationFailure> {
+        match self {
+            Self::NotConfigured(delivery) => {
+                delivery
+                    .submit(destination, provider_idempotency_key, notice)
+                    .await
+            }
+            Self::Smtp(delivery) => {
+                delivery
+                    .submit(destination, provider_idempotency_key, notice)
+                    .await
+            }
+        }
     }
 }
 

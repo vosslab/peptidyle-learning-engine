@@ -31,6 +31,14 @@ SET LOCAL ROLE ple_data_owner;
 CREATE UNIQUE INDEX content_discipline_global_name_unique
     ON ple_data.content_discipline (lower(name));
 
+-- One open request per Account and normalized Discipline name.
+CREATE UNIQUE INDEX content_discipline_request_open_account_name_unique
+    ON ple_data.content_discipline_request (requested_by_account_id, lower(requested_name))
+    WHERE resolved_at IS NULL;
+
+CREATE INDEX content_discipline_request_requested_by_account_id_fk_idx
+    ON ple_data.content_discipline_request (requested_by_account_id);
+
 
 
 -- One global Subject identity: preserve display case, reject case-only duplicates.
@@ -60,9 +68,6 @@ CREATE INDEX library_improvement_post_thread_idx
 
 CREATE INDEX library_impact_notice_object_idx
     ON ple_data.library_impact_notice(object_kind, public_object_id, created_at DESC, impact_notice_id);
-
-CREATE INDEX library_watch_event_pending_idx
-    ON ple_data.library_watch_event(occurred_at, event_id) WHERE processed_at IS NULL;
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -465,6 +470,9 @@ CREATE INDEX question_pool_member_published_question_id_c92544b6_fk_idx
 
 CREATE INDEX question_pool_member_statistics_published_question_id_fk_idx
     ON ple_data.question_pool_member_statistics (published_question_id);
+
+CREATE INDEX question_pool_authorship_author_account_id_fk_idx
+    ON ple_data.question_pool_authorship (author_account_id);
 
 CREATE INDEX question_pool_star_instructor_account_id_fk_idx
     ON ple_data.question_pool_star (instructor_account_id);

@@ -35,8 +35,7 @@ export type PleQuestionJsonOutcomeFeedback = {
   readonly incorrect: string | null;
 };
 
-export type PleQuestionJsonExternalResourceKind =
-  "link" | "image" | "script" | "stylesheet" | "other";
+export type PleQuestionJsonExternalResourceKind = "link" | "image" | "stylesheet" | "other";
 
 /** Author-declared inventory metadata; recording an entry does not fetch or permit it. */
 export type PleQuestionJsonExternalResource = {

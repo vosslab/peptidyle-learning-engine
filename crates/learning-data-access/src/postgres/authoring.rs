@@ -209,14 +209,19 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        sqlx::query("SELECT * FROM ple_api.save_authoring_draft_general_feedback($1, $2, $3)")
-            .bind(input.draft_question_uuid.as_uuid())
-            .bind(input.expected_edit_number.as_postgres_bigint())
-            .bind(&input.general_feedback)
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?
-            .ok_or(StoreError::NotFound)?;
+        sqlx::query(
+            "SELECT * FROM ple_api.save_authoring_draft_general_feedback($1, $2, $3, $4, $5, $6)",
+        )
+        .bind(input.draft_question_uuid.as_uuid())
+        .bind(input.expected_edit_number.as_postgres_bigint())
+        .bind(&input.general_feedback)
+        .bind(&input.hint)
+        .bind(&input.worked_solution)
+        .bind(input.replace_support)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         self.load_authoring_draft(session_token_hash, input.draft_question_uuid)
             .await
@@ -278,6 +283,8 @@ fn decode_draft(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraft, StoreErro
             .try_get("question_description")
             .map_err(map_sqlx_error)?,
         general_feedback: row.try_get("general_feedback").map_err(map_sqlx_error)?,
+        hint: row.try_get("hint").map_err(map_sqlx_error)?,
+        worked_solution: row.try_get("worked_solution").map_err(map_sqlx_error)?,
         question_type: question_type_from_wire(
             &row.try_get::<String, _>("question_type")
                 .map_err(map_sqlx_error)?,

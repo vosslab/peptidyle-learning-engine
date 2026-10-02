@@ -101,7 +101,8 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
              snapshot.assessment_question_order_rule, snapshot.feedback_score, \
              snapshot.feedback_per_item_correctness, snapshot.feedback_submitted_response, \
              snapshot.feedback_question_answer, snapshot.feedback_question_answer_explanation, \
-             snapshot.feedback_class_statistics, assessment.assessment_type) \
+             snapshot.feedback_class_statistics, assessment.assessment_type, \
+             snapshot.feedback_hints, snapshot.feedback_worked_solutions) \
          FROM ple_data.assessment_policy_snapshot AS snapshot \
         WHERE snapshot.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id \
           AND assessment.course_instance_id = ANY($1)",

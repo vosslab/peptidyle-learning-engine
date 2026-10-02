@@ -110,7 +110,7 @@ function ErrorState(props: {
       <h2>{props.unavailable ? "Student View unavailable" : "Student View could not load"}</h2>
       <p>
         {props.unavailable
-          ? "This Assessment is not available through your current Course access."
+          ? "This Coursework is not available through your current Course access."
           : "The current answer-free preview could not be loaded."}
       </p>
       <Show when={!props.unavailable}>
@@ -129,7 +129,7 @@ function DeliveryPolicy(props: {
   const formatDateTime = createDisplayDateTimeFormatter(props.manifest.displayTimeZone);
   return (
     <div class="student-view-assessment-summary">
-      <p class="eyebrow">Assessment overview</p>
+      <p class="eyebrow">Coursework</p>
       <Show when={props.manifest.instructions.length > 0}>
         <section aria-labelledby="student-view-instructions">
           <h2 id="student-view-instructions">Instructions</h2>

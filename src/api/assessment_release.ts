@@ -98,6 +98,7 @@ export interface SaveLiveAssessmentInlineInput {
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
   readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+  readonly questionTitle: string;
   readonly description: string;
   readonly bloom: BloomClassificationView | null;
 }

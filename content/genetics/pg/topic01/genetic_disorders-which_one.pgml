@@ -257,7 +257,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => 'Tay-Sachs disease',
   },
   {
-    'item_name' => '<strong>caused by duplications of the UBE3A gene located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
+    'item_name' => '<strong>caused by loss of function of the maternal copy of the UBE3A gene on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
     'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
     'singular_item' => 'description',
     'choices' => [
@@ -269,7 +269,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => 'Angelman syndrome',
   },
   {
-    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a extra piece (duplication) of a specific gene on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that results when the maternal copy of UBE3A on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15 is not active in the brain</strong>',
     'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
     'singular_item' => 'description',
     'choices' => [

@@ -29,6 +29,8 @@ function template(assessmentType, attemptLimit) {
         question_answer: "never",
         question_answer_explanation: "never",
         class_statistics: "never",
+        hints: "never",
+        worked_solutions: "never",
       },
     },
   };
@@ -54,32 +56,21 @@ test("regular Template unlimited Attempts remain unlimited without completion ga
   assert.equal(settings?.attemptLimit, null);
 });
 
-test("Template duration uses whole minutes without rounding or silently clearing legacy seconds", () => {
+test("Template duration saves exact whole minutes and rejects fractional-minute drafts", () => {
   const exact = template("regular_assignment", null);
   exact.settings.assessmentAttemptTimeLimitSeconds = 5_400;
   const exactDraft = assessmentTemplateDraft(exact);
   assert.equal(exactDraft.timeLimit, "90");
-  assert.equal(exactDraft.legacyTimeLimitSeconds, null);
   assert.equal(
     assessmentTemplateSettings(exactDraft).settings?.assessmentAttemptTimeLimitSeconds,
     5_400,
   );
 
-  const legacy = template("regular_assignment", null);
-  legacy.settings.assessmentAttemptTimeLimitSeconds = 90;
-  const legacyDraft = assessmentTemplateDraft(legacy);
-  assert.equal(legacyDraft.timeLimit, "");
-  assert.equal(legacyDraft.legacyTimeLimitSeconds, 90);
-  const legacyError = assessmentTemplateSettings(legacyDraft).error ?? "";
-  assert.match(legacyError, /stored duration/u);
-  assert.match(legacyError, /whole minutes/u);
-
-  const replacement = assessmentTemplateSettings({
-    ...legacyDraft,
-    timeLimit: "2",
-    legacyTimeLimitSeconds: null,
-  });
-  assert.equal(replacement.settings?.assessmentAttemptTimeLimitSeconds, 120);
+  assert.equal(
+    assessmentTemplateSettings({ ...exactDraft, timeLimit: "2" }).settings
+      ?.assessmentAttemptTimeLimitSeconds,
+    120,
+  );
   assert.match(
     assessmentTemplateSettings({ ...exactDraft, timeLimit: "1.5" }).error ?? "",
     /whole number/u,

@@ -12,8 +12,8 @@ use uuid::Uuid;
 
 use crate::{
     AssessmentActivityRules, AssessmentInstructions, AssessmentType, BaseAssessmentPolicy,
-    LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
-    MAX_ASSESSMENT_TITLE_UNICODE_SCALARS, StudentFeedbackReleaseRule,
+    LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_TITLE_UNICODE_SCALARS,
+    StudentFeedbackReleaseRule, is_valid_base_assessment_attempt_time_limit_seconds,
 };
 
 /// Largest accepted Assessment Template Name, measured in Unicode scalars.
@@ -250,10 +250,15 @@ fn deserialize_assessment_attempt_time_limit_seconds<'de, D>(
 where
     D: serde::Deserializer<'de>,
 {
-    deserialize_optional_bounded_non_zero_u32(
-        deserializer,
-        MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
-    )
+    Option::<NonZeroU32>::deserialize(deserializer).and_then(|value| match value {
+        None => Ok(None),
+        Some(limit) if is_valid_base_assessment_attempt_time_limit_seconds(limit.get()) => {
+            Ok(Some(limit))
+        }
+        Some(_) => Err(serde::de::Error::custom(
+            "assessment attempt time limit must be a whole number of minutes within the supported range",
+        )),
+    })
 }
 
 fn deserialize_attempt_limit<'de, D>(deserializer: D) -> Result<Option<NonZeroU32>, D::Error>
@@ -393,6 +398,15 @@ mod tests {
             settings.validate_for_assessment_type(AssessmentType::RegularAssignment),
             Ok(())
         );
+    }
+
+    #[test]
+    fn template_settings_reject_non_minute_duration_overrides() {
+        let settings =
+            AssessmentTemplateSettings::for_assessment_type(AssessmentType::RegularAssignment);
+        let mut wire = serde_json::to_value(settings).expect("settings serialize");
+        wire["assessmentAttemptTimeLimitSeconds"] = serde_json::json!(90);
+        assert!(serde_json::from_value::<AssessmentTemplateSettings>(wire).is_err());
     }
 
     #[test]

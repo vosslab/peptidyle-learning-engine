@@ -250,7 +250,7 @@ export function MatchingResponse(
                           ?.focus();
                       }}
                     >
-                      Clear
+                      Clear response
                     </button>
                   </div>
                 </div>

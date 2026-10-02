@@ -29,6 +29,28 @@ pub enum StoreError {
     Unavailable(String),
 }
 
+impl StoreError {
+    /// Names a failure for an ordinary diagnostic.
+    ///
+    /// The name carries no record text, identity, response, or answer.
+    pub fn diagnostic_kind(&self) -> &'static str {
+        match self {
+            Self::NotFound => "not_found",
+            Self::AlreadyExists => "already_exists",
+            Self::OwnershipMismatch => "ownership_mismatch",
+            Self::Conflict => "conflict",
+            Self::LifecycleConflict => "lifecycle_conflict",
+            Self::RetryableTransaction => "retryable_transaction",
+            Self::LeaseLost => "lease_lost",
+            Self::Forbidden => "forbidden",
+            Self::InvalidRecord(_) => "invalid_record",
+            Self::AssessmentActivity(_) => "activity",
+            Self::TimedOut => "timed_out",
+            Self::Unavailable(_) => "unavailable",
+        }
+    }
+}
+
 impl std::fmt::Display for StoreError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

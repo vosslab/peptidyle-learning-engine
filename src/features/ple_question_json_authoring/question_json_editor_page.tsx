@@ -180,6 +180,14 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const [savedGeneralFeedback, setSavedGeneralFeedback] = createSignal<string | null>(
     props.initialGeneralFeedback.generalFeedback,
   );
+  const [hint, setHint] = createSignal<string | null>(props.initialGeneralFeedback.hint);
+  const [savedHint, setSavedHint] = createSignal<string | null>(props.initialGeneralFeedback.hint);
+  const [workedSolution, setWorkedSolution] = createSignal<string | null>(
+    props.initialGeneralFeedback.workedSolution,
+  );
+  const [savedWorkedSolution, setSavedWorkedSolution] = createSignal<string | null>(
+    props.initialGeneralFeedback.workedSolution,
+  );
   const [generalFeedbackEditNumber, setGeneralFeedbackEditNumber] = createSignal(
     props.initialGeneralFeedback.draftQuestionEditNumber,
   );
@@ -277,7 +285,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       !hasUnsavedGeneralFeedback()
     );
   };
-  const hasUnsavedGeneralFeedback = (): boolean => generalFeedback() !== savedGeneralFeedback();
+  const hasUnsavedGeneralFeedback = (): boolean =>
+    generalFeedback() !== savedGeneralFeedback() ||
+    hint() !== savedHint() ||
+    workedSolution() !== savedWorkedSolution();
   const sourceHasUnsavedChanges = (): boolean => {
     const current = state();
     return current.kind === "ready" && current.status === "dirty";
@@ -433,6 +444,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       setLatestDraftQuestionEditNumber(newest.draftQuestionEditNumber);
       setGeneralFeedback(newestGeneralFeedback.generalFeedback);
       setSavedGeneralFeedback(newestGeneralFeedback.generalFeedback);
+      setHint(newestGeneralFeedback.hint);
+      setSavedHint(newestGeneralFeedback.hint);
+      setWorkedSolution(newestGeneralFeedback.workedSolution);
+      setSavedWorkedSolution(newestGeneralFeedback.workedSolution);
       setGeneralFeedbackEditNumber(newestGeneralFeedback.draftQuestionEditNumber);
       setReview(null);
       setShowInstructorCheck(false);
@@ -474,17 +489,21 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     try {
       const result = await props.generalFeedbackClient.save(
         props.draftQuestion,
-        generalFeedback(),
+        { generalFeedback: generalFeedback(), hint: hint(), workedSolution: workedSolution() },
         generalFeedbackEditNumber(),
       );
       setSavedGeneralFeedback(generalFeedback());
+      setSavedHint(hint());
+      setSavedWorkedSolution(workedSolution());
       setGeneralFeedbackEditNumber(result.draftQuestionEditNumber);
       setLatestDraftQuestionEditNumber(result.draftQuestionEditNumber);
       props.repository.synchronizeDraftQuestionEditNumber(
         props.draftQuestion,
         result.draftQuestionEditNumber,
       );
-      setStatus("General feedback saved. It remains separate from backend interaction feedback.");
+      setStatus(
+        "Hint, Question Feedback, and Worked Solution saved. They remain separate from the Question source.",
+      );
     } catch (error: unknown) {
       if (error instanceof PleQuestionGeneralFeedbackConflictError) {
         const localSource = source();
@@ -662,6 +681,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           numericAnswerLiteral={numericAnswerLiteral}
           hotspotPending={hotspotPending}
           generalFeedback={generalFeedback}
+          hint={hint}
+          workedSolution={workedSolution}
           generalFeedbackSaving={generalFeedbackSaving}
           showInstructorCheck={showInstructorCheck}
           review={review}
@@ -690,6 +711,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           onHotspotLiteralValidityChange={setHotspotLiteralsValid}
           onUpload={uploadQuestionImage}
           onGeneralFeedbackChange={setGeneralFeedback}
+          onHintChange={setHint}
+          onWorkedSolutionChange={setWorkedSolution}
           onSaveGeneralFeedback={() => void saveGeneralFeedback()}
           onSave={() => void save()}
           onInspectInstructorAnswer={inspectInstructorAnswer}

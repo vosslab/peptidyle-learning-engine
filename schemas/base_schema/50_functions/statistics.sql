@@ -9,7 +9,13 @@ CREATE FUNCTION ple_data.increment_question_revision_statistics(
     p_published_question_id text,
     p_revision_number integer,
     p_normalized_credit numeric,
-    p_observed_on date
+    p_observed_on date,
+    p_issued_floor bigint,
+    p_blank_floor bigint,
+    p_answered_floor bigint,
+    p_correct_floor bigint,
+    p_partial_floor bigint,
+    p_incorrect_floor bigint
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -28,6 +34,8 @@ BEGIN
        )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_observed_on IS NULL
+       OR p_issued_floor < 0 OR p_blank_floor < 0 OR p_answered_floor < 0
+       OR p_correct_floor < 0 OR p_partial_floor < 0 OR p_incorrect_floor < 0
        OR (p_normalized_credit IS NOT NULL
            AND (p_normalized_credit < 0 OR p_normalized_credit > 1)) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -54,11 +62,16 @@ BEGIN
         published_question_id, revision_number,
         issued_count, blank_count, answered_count,
         correct_count, partial_count, incorrect_count,
+        issued_contributor_floor, blank_contributor_floor, answered_contributor_floor,
+        correct_contributor_floor, partial_contributor_floor, incorrect_contributor_floor,
         credit_sum, credit_sum_sq, updated_on
     ) VALUES (
         p_published_question_id, p_revision_number,
         1, blank_delta, answered_delta,
         correct_delta, partial_delta, incorrect_delta,
+        least(p_issued_floor, 1), least(p_blank_floor, blank_delta),
+        least(p_answered_floor, answered_delta), least(p_correct_floor, correct_delta),
+        least(p_partial_floor, partial_delta), least(p_incorrect_floor, incorrect_delta),
         credit_delta, credit_delta * credit_delta, p_observed_on
     )
     ON CONFLICT (published_question_id, revision_number) DO UPDATE
@@ -68,6 +81,18 @@ BEGIN
             correct_count = retained.correct_count + EXCLUDED.correct_count,
             partial_count = retained.partial_count + EXCLUDED.partial_count,
             incorrect_count = retained.incorrect_count + EXCLUDED.incorrect_count,
+            issued_contributor_floor = greatest(retained.issued_contributor_floor,
+                least(p_issued_floor, retained.issued_count + 1)),
+            blank_contributor_floor = greatest(retained.blank_contributor_floor,
+                least(p_blank_floor, retained.blank_count + EXCLUDED.blank_count)),
+            answered_contributor_floor = greatest(retained.answered_contributor_floor,
+                least(p_answered_floor, retained.answered_count + EXCLUDED.answered_count)),
+            correct_contributor_floor = greatest(retained.correct_contributor_floor,
+                least(p_correct_floor, retained.correct_count + EXCLUDED.correct_count)),
+            partial_contributor_floor = greatest(retained.partial_contributor_floor,
+                least(p_partial_floor, retained.partial_count + EXCLUDED.partial_count)),
+            incorrect_contributor_floor = greatest(retained.incorrect_contributor_floor,
+                least(p_incorrect_floor, retained.incorrect_count + EXCLUDED.incorrect_count)),
             credit_sum = retained.credit_sum + EXCLUDED.credit_sum,
             credit_sum_sq = retained.credit_sum_sq + EXCLUDED.credit_sum_sq,
             updated_on = greatest(retained.updated_on, EXCLUDED.updated_on);
@@ -77,23 +102,26 @@ $$;
 CREATE FUNCTION ple_data.increment_question_pool_issue_statistics(
     p_question_pool_id text,
     p_published_question_id text,
-    p_observed_on date
+    p_observed_on date,
+    p_issued_contributor_floor bigint
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF p_question_pool_id IS NULL
        OR p_published_question_id IS NULL
-       OR p_observed_on IS NULL THEN
+       OR p_observed_on IS NULL OR p_issued_contributor_floor < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool Statistics increment is invalid';
     END IF;
 
     INSERT INTO ple_data.question_pool_statistics AS retained (
-        question_pool_id, issued_count, updated_on
-    ) VALUES (p_question_pool_id, 1, p_observed_on)
+        question_pool_id, issued_count, issued_contributor_floor, updated_on
+    ) VALUES (p_question_pool_id, 1, least(p_issued_contributor_floor, 1), p_observed_on)
     ON CONFLICT (question_pool_id) DO UPDATE
         SET issued_count = retained.issued_count + 1,
+            issued_contributor_floor = greatest(retained.issued_contributor_floor,
+                least(p_issued_contributor_floor, retained.issued_count + 1)),
             updated_on = greatest(retained.updated_on, EXCLUDED.updated_on);
 
     INSERT INTO ple_data.question_pool_member_statistics AS retained (
@@ -126,6 +154,27 @@ CREATE TRIGGER question_pool_member_statistics_follow_member
 AFTER DELETE ON ple_data.question_pool_member
 FOR EACH ROW EXECUTE FUNCTION ple_data.drop_question_pool_member_statistics_when_unselected();
 
+-- Resolve Student Record identities only long enough to count distinct
+-- Accounts. The only returned values are six anonymous cohort counts.
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.count_statistics_contributors(
+    p_student_record_ids uuid[], p_cohorts text[]
+) RETURNS TABLE (
+    issued_floor bigint, blank_floor bigint, answered_floor bigint,
+    correct_floor bigint, partial_floor bigint, incorrect_floor bigint
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT count(DISTINCT student.student_account_id),
+           count(DISTINCT student.student_account_id) FILTER (WHERE observation.cohort = 'blank'),
+           count(DISTINCT student.student_account_id) FILTER (WHERE observation.cohort IN ('answered', 'correct', 'partial', 'incorrect')),
+           count(DISTINCT student.student_account_id) FILTER (WHERE observation.cohort = 'correct'),
+           count(DISTINCT student.student_account_id) FILTER (WHERE observation.cohort = 'partial'),
+           count(DISTINCT student.student_account_id) FILTER (WHERE observation.cohort = 'incorrect')
+      FROM unnest(p_student_record_ids, p_cohorts) AS observation(student_record_id, cohort)
+      JOIN ple_data.student_record AS student
+        ON student.student_record_id = observation.student_record_id
+     WHERE observation.cohort IN ('issued', 'blank', 'answered', 'correct', 'partial', 'incorrect')
+$$;
 SET LOCAL ROLE ple_private_owner;
 
 -- One Issued Question contributes at most once, at its Assessment Submission.
@@ -143,6 +192,9 @@ DECLARE
     v_pool_id text;
     v_credit numeric;
     v_inserted boolean := false;
+    v_student_record_ids uuid[];
+    v_cohorts text[];
+    v_floors record;
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_issued_question_id IS NULL
@@ -207,11 +259,58 @@ BEGIN
             MESSAGE = 'Question Statistics Observation requires a grading result for a saved response';
     END IF;
 
+    SELECT array_agg(attempt.student_record_id),
+           array_agg(CASE
+               WHEN saved.question_attempt_id IS NULL THEN 'blank'
+               WHEN result.normalized_credit = 1 THEN 'correct'
+               WHEN result.normalized_credit > 0 THEN 'partial'
+               WHEN result.normalized_credit = 0 THEN 'incorrect'
+               ELSE 'answered'
+           END)
+      INTO v_student_record_ids, v_cohorts
+      FROM ple_private.question_statistics_observation_receipt AS receipt
+      JOIN ple_private.issued_question AS issued
+        ON issued.course_instance_id = receipt.course_instance_id
+       AND issued.issued_question_id = receipt.issued_question_id
+      JOIN ple_private.assessment_attempt AS attempt
+        ON attempt.course_instance_id = issued.course_instance_id
+       AND attempt.assessment_attempt_id = issued.assessment_attempt_id
+      LEFT JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.course_instance_id = issued.course_instance_id
+       AND question_attempt.issued_question_id = issued.issued_question_id
+      LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+        ON saved.course_instance_id = question_attempt.course_instance_id
+       AND saved.question_attempt_id = question_attempt.question_attempt_id
+      LEFT JOIN ple_private.grading_result AS result
+        ON result.course_instance_id = question_attempt.course_instance_id
+       AND result.question_attempt_id = question_attempt.question_attempt_id
+     WHERE receipt.published_question_id = v_question_id
+       AND receipt.revision_number = v_revision_number;
+    SELECT * INTO v_floors
+      FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts);
     PERFORM ple_data.increment_question_revision_statistics(
-        v_question_id, v_revision_number, v_credit, p_observed_at::date);
+        v_question_id, v_revision_number, v_credit, p_observed_at::date,
+        v_floors.issued_floor, v_floors.blank_floor, v_floors.answered_floor,
+        v_floors.correct_floor, v_floors.partial_floor, v_floors.incorrect_floor);
+
     IF v_pool_id IS NOT NULL THEN
+        SELECT array_agg(attempt.student_record_id), array_agg('issued'::text)
+          INTO v_student_record_ids, v_cohorts
+          FROM ple_private.question_statistics_observation_receipt AS receipt
+          JOIN ple_private.issued_question AS issued
+            ON issued.course_instance_id = receipt.course_instance_id
+           AND issued.issued_question_id = receipt.issued_question_id
+          JOIN ple_private.question_pool_selection AS pool
+            ON pool.course_instance_id = issued.course_instance_id
+           AND pool.question_pool_selection_id = issued.question_pool_selection_id
+          JOIN ple_private.assessment_attempt AS attempt
+            ON attempt.course_instance_id = issued.course_instance_id
+           AND attempt.assessment_attempt_id = issued.assessment_attempt_id
+         WHERE pool.question_pool_id = v_pool_id;
+        SELECT count_statistics.issued_floor INTO v_floors
+          FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts) AS count_statistics;
         PERFORM ple_data.increment_question_pool_issue_statistics(
-            v_pool_id, v_question_id, p_observed_at::date);
+            v_pool_id, v_question_id, p_observed_at::date, v_floors.issued_floor);
     END IF;
 END
 $$;
@@ -230,6 +329,12 @@ CREATE FUNCTION ple_data.question_usage_statistics_rollups(
     correct_count bigint,
     partial_count bigint,
     incorrect_count bigint,
+    issued_contributor_floor bigint,
+    blank_contributor_floor bigint,
+    answered_contributor_floor bigint,
+    correct_contributor_floor bigint,
+    partial_contributor_floor bigint,
+    incorrect_contributor_floor bigint,
     credit_sum numeric,
     credit_sum_sq numeric
 ) LANGUAGE sql STABLE
@@ -241,6 +346,12 @@ SET search_path = pg_catalog, ple_data AS $$
            COALESCE(SUM(stats.correct_count), 0),
            COALESCE(SUM(stats.partial_count), 0),
            COALESCE(SUM(stats.incorrect_count), 0),
+           COALESCE(MAX(stats.issued_contributor_floor), 0),
+           COALESCE(MAX(stats.blank_contributor_floor), 0),
+           COALESCE(MAX(stats.answered_contributor_floor), 0),
+           COALESCE(MAX(stats.correct_contributor_floor), 0),
+           COALESCE(MAX(stats.partial_contributor_floor), 0),
+           COALESCE(MAX(stats.incorrect_contributor_floor), 0),
            COALESCE(SUM(stats.credit_sum), 0),
            COALESCE(SUM(stats.credit_sum_sq), 0)
       FROM unnest(p_published_question_ids) AS requested(published_question_id)
@@ -261,6 +372,12 @@ CREATE FUNCTION ple_data.question_revision_usage_statistics(
     correct_count bigint,
     partial_count bigint,
     incorrect_count bigint,
+    issued_contributor_floor bigint,
+    blank_contributor_floor bigint,
+    answered_contributor_floor bigint,
+    correct_contributor_floor bigint,
+    partial_contributor_floor bigint,
+    incorrect_contributor_floor bigint,
     credit_sum numeric,
     credit_sum_sq numeric
 ) LANGUAGE sql STABLE
@@ -272,6 +389,12 @@ SET search_path = pg_catalog, ple_data AS $$
            COALESCE(stats.correct_count, 0),
            COALESCE(stats.partial_count, 0),
            COALESCE(stats.incorrect_count, 0),
+           COALESCE(stats.issued_contributor_floor, 0),
+           COALESCE(stats.blank_contributor_floor, 0),
+           COALESCE(stats.answered_contributor_floor, 0),
+           COALESCE(stats.correct_contributor_floor, 0),
+           COALESCE(stats.partial_contributor_floor, 0),
+           COALESCE(stats.incorrect_contributor_floor, 0),
            COALESCE(stats.credit_sum, 0),
            COALESCE(stats.credit_sum_sq, 0)
       FROM ple_data.question_revision AS revision
@@ -289,12 +412,19 @@ CREATE FUNCTION ple_data.question_pool_usage_statistics(
     p_question_pool_id text
 ) RETURNS TABLE (
     pool_issued_count bigint,
+    pool_issued_contributor_floor bigint,
     issued_count bigint,
     blank_count bigint,
     answered_count bigint,
     correct_count bigint,
     partial_count bigint,
     incorrect_count bigint,
+    issued_contributor_floor bigint,
+    blank_contributor_floor bigint,
+    answered_contributor_floor bigint,
+    correct_contributor_floor bigint,
+    partial_contributor_floor bigint,
+    incorrect_contributor_floor bigint,
     credit_sum numeric,
     credit_sum_sq numeric
 ) LANGUAGE sql STABLE
@@ -304,12 +434,21 @@ SET search_path = pg_catalog, ple_data AS $$
                  FROM ple_data.question_pool_statistics AS pool_stats
                 WHERE pool_stats.question_pool_id = p_question_pool_id
            ), 0),
+           COALESCE((SELECT pool_stats.issued_contributor_floor
+                 FROM ple_data.question_pool_statistics AS pool_stats
+                WHERE pool_stats.question_pool_id = p_question_pool_id), 0),
            COALESCE(SUM(stats.issued_count), 0),
            COALESCE(SUM(stats.blank_count), 0),
            COALESCE(SUM(stats.answered_count), 0),
            COALESCE(SUM(stats.correct_count), 0),
            COALESCE(SUM(stats.partial_count), 0),
            COALESCE(SUM(stats.incorrect_count), 0),
+           COALESCE(MAX(stats.issued_contributor_floor), 0),
+           COALESCE(MAX(stats.blank_contributor_floor), 0),
+           COALESCE(MAX(stats.answered_contributor_floor), 0),
+           COALESCE(MAX(stats.correct_contributor_floor), 0),
+           COALESCE(MAX(stats.partial_contributor_floor), 0),
+           COALESCE(MAX(stats.incorrect_contributor_floor), 0),
            COALESCE(SUM(stats.credit_sum), 0),
            COALESCE(SUM(stats.credit_sum_sq), 0)
       FROM ple_data.question_pool_member AS member
@@ -330,6 +469,12 @@ CREATE FUNCTION ple_api.read_question_library_usage_statistics(
     correct_count bigint,
     partial_count bigint,
     incorrect_count bigint,
+    issued_contributor_floor bigint,
+    blank_contributor_floor bigint,
+    answered_contributor_floor bigint,
+    correct_contributor_floor bigint,
+    partial_contributor_floor bigint,
+    incorrect_contributor_floor bigint,
     credit_sum numeric,
     credit_sum_sq numeric
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -359,6 +504,12 @@ CREATE FUNCTION ple_api.read_question_library_revision_usage_statistics(
     correct_count bigint,
     partial_count bigint,
     incorrect_count bigint,
+    issued_contributor_floor bigint,
+    blank_contributor_floor bigint,
+    answered_contributor_floor bigint,
+    correct_contributor_floor bigint,
+    partial_contributor_floor bigint,
+    incorrect_contributor_floor bigint,
     credit_sum numeric,
     credit_sum_sq numeric
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -382,12 +533,19 @@ CREATE FUNCTION ple_api.read_question_pool_library_usage_statistics(
     p_question_pool_id text
 ) RETURNS TABLE (
     pool_issued_count bigint,
+    pool_issued_contributor_floor bigint,
     issued_count bigint,
     blank_count bigint,
     answered_count bigint,
     correct_count bigint,
     partial_count bigint,
     incorrect_count bigint,
+    issued_contributor_floor bigint,
+    blank_contributor_floor bigint,
+    answered_contributor_floor bigint,
+    correct_contributor_floor bigint,
+    partial_contributor_floor bigint,
+    incorrect_contributor_floor bigint,
     credit_sum numeric,
     credit_sum_sq numeric
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER

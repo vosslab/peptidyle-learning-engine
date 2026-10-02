@@ -126,6 +126,7 @@ function decodeQuestionPoolLibrarySummary(
   requireOnlyFields(record, path, [
     "questionPoolId",
     "questionPoolEditNumber",
+    "questionPoolMetadataEditNumber",
     "metadata",
     "memberCount",
     "bloom",
@@ -139,6 +140,10 @@ function decodeQuestionPoolLibrarySummary(
     questionPoolEditNumber: decodePositiveInteger(
       field(record, "questionPoolEditNumber", path),
       `${path}.questionPoolEditNumber`,
+    ),
+    questionPoolMetadataEditNumber: decodePositiveInteger(
+      field(record, "questionPoolMetadataEditNumber", path),
+      `${path}.questionPoolMetadataEditNumber`,
     ),
     memberCount: decodePositiveInteger(field(record, "memberCount", path), `${path}.memberCount`),
     bloom: decodeNullable(

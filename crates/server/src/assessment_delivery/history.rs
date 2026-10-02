@@ -15,14 +15,15 @@ use domain::{
     },
     student_feedback_release::{
         evaluate_allowed_student_feedback_release, gate_quiz_exam_answers_for_current_cohort,
-        project_student_feedback, score_current_student_feedback_release,
+        project_disclosed_support, project_student_feedback,
+        score_current_student_feedback_release,
     },
 };
 use learning_data_access::{
-    LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, StoreError,
-    StudentAssessmentAttemptHistory, StudentAssessmentAttemptHistoryEvidence,
+    LiveAssessmentAttemptScore, StoreError, StudentAssessmentAttemptHistory,
+    StudentAssessmentAttemptHistoryEvidence,
 };
-use question_model::{AssessmentAttemptId, QuestionFeedback, StudentFeedback};
+use question_model::{AssessmentAttemptId, ClassStatistics, QuestionFeedback, StudentFeedback};
 use question_model::{AssessmentScoringState, LateWorkRule, Timestamp};
 
 use super::{
@@ -74,6 +75,10 @@ fn project_history(
 ) -> StudentAssessmentAttemptHistory {
     let decision = history_decision(evidence);
     let mut history = evidence.history.clone();
+    // ASVS 14.2.6 and 8.2.3: a course average is absent unless this policy
+    // releases it and the cohort cannot identify one Student.
+    history.class_statistics =
+        disclose_course_class_statistics(decision.class_statistics, evidence.course_class_analysis);
     if !evidence.grading_is_current {
         return history;
     }
@@ -149,6 +154,8 @@ async fn project_released_content(
             position,
             response,
             general_feedback,
+            hint,
+            worked_solution,
             presentation_evidence,
             presentation_source,
         } = source;
@@ -176,37 +183,85 @@ async fn project_released_content(
             question.backend_answer_review =
                 Some(learning_data_access::BackendAnswerReviewAvailability::Available);
         }
-        // General feedback is exact PLE-authored Revision metadata. It is
-        // shown when provided and has no separate delayed-release policy.
-        question.feedback.general_feedback = general_feedback
-            .map(|markdown| vec![question_model::QuestionContentBlock::Text { markdown }]);
+        // ASVS 8.2.3: Question Feedback follows its own rule, not answer disclosure.
+        question.feedback.general_feedback = released_general_feedback(general_feedback);
         if decision.submitted_response
             && let Ok(presentation) =
                 reproduce_selected_issued_presentation(presentation_evidence.clone())
         {
             project_response(question, response.clone(), &presentation);
         }
-        if let Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Ple {
-            source: ple_source,
-            ..
-        }) = presentation_source
-        {
-            let Ok(resolved) = resolve_source(&state.objects, &ple_source).await else {
-                continue;
-            };
+        let mut native_hint = None;
+        let ple_resolved = match presentation_source.as_ref() {
+            Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Ple {
+                source: ple_source,
+                ..
+            }) => match resolve_source(&state.objects, ple_source).await {
+                Ok(resolved) => {
+                    native_hint = resolved
+                        .question_hint()
+                        .map(|question_hint| question_hint.content().to_vec());
+                    Some(resolved)
+                }
+                Err(_) => None,
+            },
+            _ => None,
+        };
+        // ASVS 8.2.3: Hints and Worked Solutions follow their own timings.
+        // ASVS 14.2.6: the WeBWorK document is not copied into these fields.
+        let support =
+            disclosed_revision_support(decision, hint, worked_solution, native_hint.as_deref());
+        question.hints = support.hints;
+        question.worked_solution = support.worked_solutions;
+        if let Some(resolved) = ple_resolved {
             let teaching = adapter_ple::PleQuestionBackend::new()
                 .project_recorded_question_json_teaching_content(
                     &resolved,
                     response.as_ref(),
                     recorded_result,
                 );
-            let Ok(teaching) = teaching else {
-                continue;
-            };
-            project_teaching_feedback(question, decision, recorded_result, teaching);
+            if let Ok(teaching) = teaching {
+                project_teaching_feedback(question, decision, recorded_result, teaching);
+            }
         }
     }
     Ok(())
+}
+
+/// Shows PLE-managed Question Feedback when the Revision provides it.
+///
+/// Assessment correct-answer disclosure does not apply. Absent feedback stays
+/// absent rather than becoming an empty block.
+fn released_general_feedback(
+    general_feedback: Option<String>,
+) -> Option<Vec<question_model::QuestionContentBlock>> {
+    general_feedback.map(|markdown| vec![question_model::QuestionContentBlock::Text { markdown }])
+}
+
+/// Projects PLE-managed Hint and Worked Solution text stored on the Question
+/// Revision. A native Question Hint is used only when the Revision Hint is
+/// absent. WeBWorK source text is not a parameter and is never substituted.
+///
+/// ASVS 8.2.3: each field appears only when its own timing allows it.
+/// ASVS 14.2.6: withheld text is omitted rather than copied from another source.
+fn disclosed_revision_support(
+    decision: domain::student_feedback_release::StudentFeedbackReleaseDecision,
+    revision_hint: Option<String>,
+    revision_worked_solution: Option<String>,
+    native_hint: Option<&[question_model::QuestionContentBlock]>,
+) -> domain::student_feedback_release::DisclosedSupportContent {
+    let hint_blocks = match revision_hint {
+        Some(markdown) => Some(support_text_blocks(&markdown)),
+        None => native_hint.map(|blocks| blocks.to_vec()),
+    };
+    let worked_blocks = revision_worked_solution.as_deref().map(support_text_blocks);
+    project_disclosed_support(decision, hint_blocks.as_deref(), worked_blocks.as_deref())
+}
+
+fn support_text_blocks(markdown: &str) -> Vec<question_model::QuestionContentBlock> {
+    vec![question_model::QuestionContentBlock::Text {
+        markdown: markdown.to_owned(),
+    }]
 }
 
 fn project_teaching_feedback(
@@ -256,6 +311,31 @@ fn project_response(
     question.response = Some(response);
 }
 
+/// Omits course-specific analysis when a Student could be inferred from it.
+///
+/// ASVS 14.2.6: the response keeps the minimum sensitive aggregate. ASVS 8.2.3:
+/// a small cohort, a missing report, incomplete scoring, and a policy that has
+/// not released class statistics are all an absent field. An unavailable
+/// object is never returned.
+fn disclose_course_class_statistics(
+    policy_releases_class_statistics: bool,
+    analysis: Option<learning_data_access::CourseClassAnalysis>,
+) -> Option<ClassStatistics> {
+    if !policy_releases_class_statistics {
+        return None;
+    }
+    let analysis = analysis?;
+    match ClassStatistics::from_current_analysis(
+        analysis.completed_student_cohort_size,
+        analysis.incomplete_scoring,
+        analysis.recent_rescoring,
+        analysis.assessment_average_score,
+    ) {
+        available @ ClassStatistics::Available { .. } => Some(available),
+        ClassStatistics::Unavailable => None,
+    }
+}
+
 fn history_policy(
     due_at: Option<Timestamp>,
     closes_at: Option<Timestamp>,
@@ -281,13 +361,14 @@ fn base<T>(value: T) -> EffectiveAssessmentPolicyValue<T> {
 mod tests {
     use super::*;
     use learning_data_access::{
-        LiveAssessmentPreviousAttemptState, StudentAssessmentAttemptHistoryAssessment,
-        StudentAssessmentAttemptHistoryCourse, StudentAssessmentAttemptHistoryQuestion,
+        CourseClassAnalysis, LiveAssessmentPreviousAttemptState,
+        StudentAssessmentAttemptHistoryAssessment, StudentAssessmentAttemptHistoryCourse,
+        StudentAssessmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssessmentId, AssessmentType, CourseInstanceId, GradingResult, PublishedQuestionId,
-        PublishedQuestionRevisionTuple, QuestionRevisionNumber, StudentFeedback,
-        StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Theme,
+        AssessmentId, AssessmentType, CourseInstanceId, DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE,
+        GradingResult, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+        StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Theme,
     };
 
     fn evidence() -> StudentAssessmentAttemptHistoryEvidence {
@@ -308,6 +389,7 @@ mod tests {
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,
                 score: None,
+                class_statistics: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
                     published_question_revision_tuple: PublishedQuestionRevisionTuple {
@@ -322,6 +404,8 @@ mod tests {
                     response: None,
                     backend_answer_review: None,
                     feedback: StudentFeedback::empty(),
+                    hints: None,
+                    worked_solution: None,
                 }],
             },
             assessment_type: AssessmentType::RegularAssignment,
@@ -337,7 +421,26 @@ mod tests {
                 points_earned: 0.0,
                 points_possible: 2.0,
             })],
+            course_class_analysis: None,
         }
+    }
+
+    fn analysis(cohort: u32, average: Option<f64>) -> CourseClassAnalysis {
+        CourseClassAnalysis {
+            completed_student_cohort_size: cohort,
+            incomplete_scoring: false,
+            recent_rescoring: false,
+            assessment_average_score: average,
+        }
+    }
+
+    fn class_statistics_field(
+        evidence: &StudentAssessmentAttemptHistoryEvidence,
+    ) -> Option<serde_json::Value> {
+        serde_json::to_value(project_history(evidence))
+            .expect("history serializes")
+            .get("classStatistics")
+            .cloned()
     }
 
     #[test]
@@ -421,5 +524,341 @@ mod tests {
             Some(learning_data_access::BackendAnswerReviewAvailability::Available);
         let wire = serde_json::to_value(history).unwrap();
         assert_eq!(wire["questions"][0]["backendAnswerReview"], "available");
+    }
+
+    #[test]
+    fn course_class_statistics_stay_omitted_when_a_student_could_be_inferred() {
+        let safe_cohort = DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE;
+        let mut released = evidence();
+        released.feedback_rule.class_statistics = StudentFeedbackReleaseTiming::AfterSubmit;
+        released.course_class_analysis = Some(analysis(1, Some(0.8)));
+        assert!(class_statistics_field(&released).is_none());
+
+        released.course_class_analysis = Some(analysis(safe_cohort - 1, Some(0.8)));
+        assert!(class_statistics_field(&released).is_none());
+
+        released.course_class_analysis = Some(analysis(0, Some(0.0)));
+        assert!(class_statistics_field(&released).is_none());
+
+        released.course_class_analysis = None;
+        assert!(class_statistics_field(&released).is_none());
+
+        let mut incomplete = analysis(safe_cohort, Some(0.8));
+        incomplete.incomplete_scoring = true;
+        released.course_class_analysis = Some(incomplete);
+        assert!(class_statistics_field(&released).is_none());
+
+        let mut rescoring = analysis(safe_cohort, Some(0.8));
+        rescoring.recent_rescoring = true;
+        released.course_class_analysis = Some(rescoring);
+        assert!(class_statistics_field(&released).is_none());
+
+        released.course_class_analysis = Some(analysis(safe_cohort, Some(1.1)));
+        assert!(class_statistics_field(&released).is_none());
+
+        released.feedback_rule.class_statistics = StudentFeedbackReleaseTiming::Never;
+        released.course_class_analysis = Some(analysis(safe_cohort, Some(0.8)));
+        assert!(class_statistics_field(&released).is_none());
+
+        released.feedback_rule.class_statistics = StudentFeedbackReleaseTiming::AfterSubmit;
+        assert_eq!(
+            class_statistics_field(&released).expect("safe cohort"),
+            serde_json::json!({
+                "state": "available",
+                "completed_student_cohort_size": safe_cohort,
+                "assessment_average_score": 0.8
+            })
+        );
+    }
+
+    #[test]
+    fn question_feedback_is_shown_when_its_disclosure_rules_allow_it() {
+        let mut question = evidence().history.questions.remove(0);
+        question.feedback.general_feedback =
+            released_general_feedback(Some("Keep the units.".to_owned()));
+        let withheld = domain::student_feedback_release::StudentFeedbackReleaseDecision {
+            score: false,
+            per_item_correctness: false,
+            submitted_response: false,
+            question_answer: false,
+            question_answer_explanation: false,
+            class_statistics: false,
+            hints: false,
+            worked_solutions: false,
+        };
+        let answer =
+            question_model::QuestionAnswer::new(vec![question_model::QuestionContentBlock::Text {
+                markdown: "The hidden answer".to_owned(),
+            }])
+            .expect("one answer block");
+        project_teaching_feedback(
+            &mut question,
+            withheld,
+            Some(GradingResult {
+                correct: false,
+                points_earned: 0.0,
+                points_possible: 1.0,
+            }),
+            adapter_ple::question_json::PleQuestionJsonRecordedTeachingContent {
+                question_feedback: Some(question_model::QuestionFeedback {
+                    choice_feedback: Some(vec![question_model::QuestionContentBlock::Text {
+                        markdown: "Backend choice note".to_owned(),
+                    }]),
+                    correct_feedback: None,
+                    incorrect_feedback: None,
+                }),
+                question_answer: Some(answer),
+                question_answer_explanation: None,
+            },
+        );
+
+        assert_eq!(
+            question.feedback.general_feedback,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Keep the units.".to_owned(),
+            }])
+        );
+        assert!(question.feedback.question_answer.is_none());
+        assert!(question.feedback.choice_feedback.is_some());
+        assert!(released_general_feedback(None).is_none());
+    }
+
+    #[test]
+    fn webwork_questions_keep_ple_managed_hints_and_worked_solutions() {
+        let webwork_source = "BEGIN_HINT\nThe WeBWorK hint stays in the PG document.\nEND_HINT\nBEGIN_SOLUTION\nThe WeBWorK solution stays in the PG document.\nEND_SOLUTION\n";
+        let released = domain::student_feedback_release::StudentFeedbackReleaseDecision {
+            score: false,
+            per_item_correctness: false,
+            submitted_response: false,
+            question_answer: false,
+            question_answer_explanation: false,
+            class_statistics: false,
+            hints: true,
+            worked_solutions: true,
+        };
+        let native_hint = vec![question_model::QuestionContentBlock::Text {
+            markdown: "Native document hint.".to_owned(),
+        }];
+        let support = disclosed_revision_support(
+            released,
+            Some("PLE-managed membrane hint.".to_owned()),
+            Some("PLE-managed membrane worked solution.".to_owned()),
+            Some(&native_hint),
+        );
+        assert_eq!(
+            support.hints,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "PLE-managed membrane hint.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            support.worked_solutions,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "PLE-managed membrane worked solution.".to_owned(),
+            }])
+        );
+        let rendered = format!("{support:?}");
+        assert!(!rendered.contains(webwork_source));
+        assert!(!rendered.contains("BEGIN_HINT"));
+        assert!(!rendered.contains("BEGIN_SOLUTION"));
+        assert!(!rendered.contains("Native document hint."));
+
+        let hidden = disclosed_revision_support(
+            domain::student_feedback_release::StudentFeedbackReleaseDecision {
+                hints: false,
+                worked_solutions: false,
+                ..released
+            },
+            Some("PLE-managed membrane hint.".to_owned()),
+            Some("PLE-managed membrane worked solution.".to_owned()),
+            Some(&native_hint),
+        );
+        assert!(hidden.hints.is_none());
+        assert!(hidden.worked_solutions.is_none());
+
+        let native_only = disclosed_revision_support(released, None, None, Some(&native_hint));
+        assert_eq!(native_only.hints, Some(native_hint));
+        assert!(native_only.worked_solutions.is_none());
+    }
+
+    #[test]
+    fn ple_managed_support_stays_separate_from_backend_interaction_feedback() {
+        let mut question = evidence().history.questions.remove(0);
+        let released = domain::student_feedback_release::StudentFeedbackReleaseDecision {
+            score: false,
+            per_item_correctness: false,
+            submitted_response: false,
+            question_answer: false,
+            question_answer_explanation: false,
+            class_statistics: false,
+            hints: true,
+            worked_solutions: true,
+        };
+        question.feedback.general_feedback =
+            released_general_feedback(Some("Keep the units.".to_owned()));
+        let support = disclosed_revision_support(
+            released,
+            Some("PLE-managed membrane hint.".to_owned()),
+            Some("PLE-managed membrane worked solution.".to_owned()),
+            None,
+        );
+        question.hints = support.hints;
+        question.worked_solution = support.worked_solutions;
+        project_teaching_feedback(
+            &mut question,
+            released,
+            Some(GradingResult {
+                correct: false,
+                points_earned: 0.0,
+                points_possible: 1.0,
+            }),
+            adapter_ple::question_json::PleQuestionJsonRecordedTeachingContent {
+                question_feedback: Some(question_model::QuestionFeedback {
+                    choice_feedback: Some(vec![question_model::QuestionContentBlock::Text {
+                        markdown: "Backend interaction choice note.".to_owned(),
+                    }]),
+                    correct_feedback: Some(vec![question_model::QuestionContentBlock::Text {
+                        markdown: "Backend interaction correct note.".to_owned(),
+                    }]),
+                    incorrect_feedback: Some(vec![question_model::QuestionContentBlock::Text {
+                        markdown: "Backend interaction incorrect note.".to_owned(),
+                    }]),
+                }),
+                question_answer: None,
+                question_answer_explanation: None,
+            },
+        );
+
+        assert_eq!(
+            question.feedback.general_feedback,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Keep the units.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.hints,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "PLE-managed membrane hint.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.worked_solution,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "PLE-managed membrane worked solution.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.feedback.choice_feedback,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Backend interaction choice note.".to_owned(),
+            }])
+        );
+        let ple_fields = format!(
+            "{:?} {:?} {:?}",
+            question.feedback.general_feedback, question.hints, question.worked_solution
+        );
+        assert!(!ple_fields.contains("Backend interaction"));
+        let interaction = format!(
+            "{:?} {:?} {:?}",
+            question.feedback.choice_feedback,
+            question.feedback.correct_feedback,
+            question.feedback.incorrect_feedback
+        );
+        assert!(!interaction.contains("Keep the units."));
+        assert!(!interaction.contains("PLE-managed membrane hint."));
+        assert!(!interaction.contains("PLE-managed membrane worked solution."));
+    }
+
+    #[test]
+    fn ple_managed_support_stays_separate_from_backend_generated_content() {
+        let mut question = evidence().history.questions.remove(0);
+        let released = domain::student_feedback_release::StudentFeedbackReleaseDecision {
+            score: false,
+            per_item_correctness: false,
+            submitted_response: false,
+            question_answer: true,
+            question_answer_explanation: true,
+            class_statistics: false,
+            hints: true,
+            worked_solutions: true,
+        };
+        question.feedback.general_feedback =
+            released_general_feedback(Some("Keep the units.".to_owned()));
+        let support = disclosed_revision_support(
+            released,
+            Some("PLE-managed membrane hint.".to_owned()),
+            Some("PLE-managed membrane worked solution.".to_owned()),
+            None,
+        );
+        question.hints = support.hints;
+        question.worked_solution = support.worked_solutions;
+        let answer =
+            question_model::QuestionAnswer::new(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Backend generated answer content.".to_owned(),
+            }])
+            .expect("backend answer");
+        let explanation = question_model::QuestionAnswerExplanation::new(vec![
+            question_model::QuestionContentBlock::Text {
+                markdown: "Backend generated explanation content.".to_owned(),
+            },
+        ])
+        .expect("backend explanation");
+        project_teaching_feedback(
+            &mut question,
+            released,
+            Some(GradingResult {
+                correct: true,
+                points_earned: 1.0,
+                points_possible: 1.0,
+            }),
+            adapter_ple::question_json::PleQuestionJsonRecordedTeachingContent {
+                question_feedback: None,
+                question_answer: Some(answer),
+                question_answer_explanation: Some(explanation),
+            },
+        );
+
+        assert_eq!(
+            question.feedback.general_feedback,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Keep the units.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.hints,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "PLE-managed membrane hint.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.worked_solution,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "PLE-managed membrane worked solution.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.feedback.question_answer,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Backend generated answer content.".to_owned(),
+            }])
+        );
+        assert_eq!(
+            question.feedback.question_answer_explanation,
+            Some(vec![question_model::QuestionContentBlock::Text {
+                markdown: "Backend generated explanation content.".to_owned(),
+            }])
+        );
+        let ple_fields = format!(
+            "{:?} {:?} {:?}",
+            question.feedback.general_feedback, question.hints, question.worked_solution
+        );
+        assert!(!ple_fields.contains("Backend generated"));
+        let backend_content = format!(
+            "{:?} {:?}",
+            question.feedback.question_answer, question.feedback.question_answer_explanation
+        );
+        assert!(!backend_content.contains("Keep the units."));
+        assert!(!backend_content.contains("PLE-managed membrane hint."));
+        assert!(!backend_content.contains("PLE-managed membrane worked solution."));
     }
 }

@@ -55,6 +55,14 @@ pub struct StudentFeedbackReleaseRule {
     pub question_answer_explanation: StudentFeedbackReleaseTiming,
     /// When the Student may see anonymous class statistics.
     pub class_statistics: StudentFeedbackReleaseTiming,
+    /// When the Student may see PLE-managed Hints.
+    ///
+    /// ASVS 8.2.3: this timing is independent of Question Answer disclosure.
+    pub hints: StudentFeedbackReleaseTiming,
+    /// When the Student may see PLE-managed Worked Solutions.
+    ///
+    /// ASVS 8.2.3: this timing is independent of Hints and of Question Answer disclosure.
+    pub worked_solutions: StudentFeedbackReleaseTiming,
 }
 
 impl Default for StudentFeedbackReleaseRule {
@@ -99,6 +107,11 @@ impl StudentFeedbackReleaseRule {
                 | AssessmentType::BonusAssignment => StudentFeedbackReleaseTiming::Never,
             },
             class_statistics: StudentFeedbackReleaseTiming::Never,
+            // Human Guidance assigns these their own settings and does not name
+            // a more permissive default, so both stay hidden until an Instructor
+            // chooses a timing.
+            hints: StudentFeedbackReleaseTiming::Never,
+            worked_solutions: StudentFeedbackReleaseTiming::Never,
         }
     }
 }
@@ -262,6 +275,8 @@ mod tests {
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,
+            hints: StudentFeedbackReleaseTiming::DuringAttempt,
+            worked_solutions: StudentFeedbackReleaseTiming::AfterSubmit,
         };
 
         let json = serde_json::to_string(&rule).expect("serialization should succeed");
@@ -290,6 +305,8 @@ mod tests {
             StudentFeedbackReleaseTiming::Never
         );
         assert_eq!(rule.class_statistics, StudentFeedbackReleaseTiming::Never);
+        assert_eq!(rule.hints, StudentFeedbackReleaseTiming::Never);
+        assert_eq!(rule.worked_solutions, StudentFeedbackReleaseTiming::Never);
     }
 
     #[test]

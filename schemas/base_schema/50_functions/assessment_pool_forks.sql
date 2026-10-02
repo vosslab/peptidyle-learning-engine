@@ -13,6 +13,7 @@ CREATE FUNCTION ple_data.import_assessment_question_pool_fork(
     p_expected_assessment_edit_number bigint,
     p_fork_question_pool_id text,
     p_source_question_pool_id text,
+    p_expected_source_question_pool_edit_number bigint,
     p_authored_position integer,
     p_selection_count integer,
     p_points_per_item numeric,
@@ -28,11 +29,14 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE forked record;
+DECLARE source_question_pool_edit_number bigint;
 BEGIN
     IF p_assessment_id IS NULL OR p_assessment_entry_id IS NULL
        OR p_expected_assessment_edit_number IS NULL
        OR p_expected_assessment_edit_number <= 0
        OR p_expected_assessment_edit_number >= 9223372036854775807
+       OR p_expected_source_question_pool_edit_number IS NULL
+       OR p_expected_source_question_pool_edit_number <= 0
        OR p_authored_position < 0 OR p_selection_count <= 0 OR p_points_per_item < 0
        OR p_selected_question_order NOT IN ('question_pool_order', 'random_order')
        OR p_scoring_rule NOT IN ('normal', 'full_credit', 'extra_credit', 'excluded') THEN
@@ -46,6 +50,17 @@ BEGIN
     END IF;
     IF assessment_row.assessment_edit_number <> p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Question Pool import is stale';
+    END IF;
+    -- ASVS V2.3.3/V15.4.2: membership writers update this Pool row. Hold its
+    -- share lock while checking the inspected edit number and copying members
+    -- so a same-count replacement cannot pass as the inspected source.
+    SELECT source_pool.question_pool_edit_number INTO source_question_pool_edit_number
+      FROM ple_data.question_pool AS source_pool
+     WHERE source_pool.question_pool_id = p_source_question_pool_id
+     FOR SHARE;
+    IF FOUND AND source_question_pool_edit_number <> p_expected_source_question_pool_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Assessment Question Pool source membership is stale';
     END IF;
     SELECT * INTO forked FROM ple_data.fork_question_pool(
         p_fork_question_pool_id, p_source_question_pool_id
@@ -193,7 +208,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.import_assessment_question_pool_fork(
-    text, uuid, bigint, text, text, integer, integer, numeric, text, text
+    text, uuid, bigint, text, text, bigint, integer, integer, numeric, text, text
 ) RETURNS TABLE (
     assessment_entry_id uuid,
     question_pool_id text,
@@ -203,7 +218,7 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork(
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.import_assessment_question_pool_fork(
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
     )
 $$;
 
@@ -217,6 +232,7 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_ids(
     p_expected_assessment_edit_number bigint,
     p_fork_question_pool_id text,
     p_source_question_pool_id text,
+    p_expected_source_question_pool_edit_number bigint,
     p_authored_position integer,
     p_selection_count integer,
     p_points_per_item numeric,
@@ -244,6 +260,7 @@ BEGIN
     RETURN QUERY SELECT * FROM ple_data.import_assessment_question_pool_fork(
         assessment_id_value, p_assessment_entry_id, p_expected_assessment_edit_number,
         p_fork_question_pool_id, p_source_question_pool_id,
+        p_expected_source_question_pool_edit_number,
         p_authored_position, p_selection_count, p_points_per_item, p_selected_question_order, p_scoring_rule
     );
 END

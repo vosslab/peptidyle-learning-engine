@@ -364,9 +364,9 @@ fn existing_publication(
         return Ok(None);
     };
     ensure!(
-        entry.question_title == context.title
-            && entry.question_description == context.description
-            && entry.backend == QuestionBackend::Webwork
+        // ASVS 2.3.1: replay identity is the immutable published source
+        // provenance; Library title and description remain instructor-editable.
+        entry.backend == QuestionBackend::Webwork
             && entry.question_format == webwork_question_format(source.source_format)
             && entry.question_type == context.question_type
             && entry.source_media_type == "text/x-wework-pg"

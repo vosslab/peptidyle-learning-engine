@@ -123,11 +123,20 @@ pub struct LiveStudentCourseActiveAttempt {
     pub latest_activity_at: Timestamp,
 }
 
+/// One current Student-owned Latest Feedback navigation target.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiveStudentLatestFeedback {
+    pub assessment_attempt_id: AssessmentAttemptId,
+    pub course_instance_id: CourseInstanceId,
+}
+
 /// One exact immutable Published Question Revision's disclosed self-only outcomes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentCourseResponseQuestionStats {
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    /// Current lineage title. Empty when that title is absent.
+    pub question_title: String,
     pub full_credit_attempt_count: u64,
     pub partial_credit_attempt_count: u64,
     pub incorrect_attempt_count: u64,
@@ -188,7 +197,7 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
     async fn get_live_student_latest_feedback_attempt(
         &self,
         session_token_hash: SessionTokenHash,
-    ) -> Result<Option<AssessmentAttemptId>, StoreError>;
+    ) -> Result<Option<LiveStudentLatestFeedback>, StoreError>;
 
     /// Lists the authenticated Student's Course Attempts by bounded keyset pages.
     async fn list_live_student_course_attempt_history(

@@ -16,8 +16,10 @@ import {
 } from "../../src/ribbon/route_scope_context";
 import type { RibbonContextLabels } from "../../src/ribbon/ribbon_contract";
 
+export { useRouteScopeData, useRouteScopeIdentity };
+
 export interface RouteScopeProviderHarness {
-  readonly navigate: (pathname: string) => void;
+  readonly navigate: (pathname: string, historyState?: unknown) => void;
   readonly advanceSession: () => void;
   readonly capturePublication: () => RouteScopePublication;
   readonly publishLabels: (publication: RouteScopePublication, labels: RibbonContextLabels) => void;
@@ -35,6 +37,7 @@ export function mountRouteScopeProviderHarness(
 ): RouteScopeProviderHarness {
   let dispose: () => void = () => undefined;
   let setPathname: (pathname: string) => void = () => undefined;
+  let setHistoryState: (state: unknown) => void = () => undefined;
   let advanceSession: () => void = () => undefined;
   let capturePublication: () => RouteScopePublication = () => {
     throw new Error("Route scope provider harness is not mounted.");
@@ -50,8 +53,10 @@ export function mountRouteScopeProviderHarness(
   createRoot((disposeRoot) => {
     dispose = disposeRoot;
     const [pathname, setPathnameSignal] = createSignal(initialPathname);
+    const [historyState, setHistoryStateSignal] = createSignal<unknown>();
     const [sessionGeneration, setSessionGeneration] = createSignal(0);
     setPathname = setPathnameSignal;
+    setHistoryState = setHistoryStateSignal;
     advanceSession = (): void => {
       setSessionGeneration((generation) => generation + 1);
     };
@@ -79,6 +84,7 @@ export function mountRouteScopeProviderHarness(
       get children() {
         return createComponent(RouteScopeProvider, {
           pathname,
+          historyState,
           sessionBoundary: sessionGeneration,
           get children() {
             return createComponent(Consumer, {});
@@ -89,7 +95,10 @@ export function mountRouteScopeProviderHarness(
     mounts += 1;
   });
   return {
-    navigate: setPathname,
+    navigate: (pathname: string, historyStateValue?: unknown): void => {
+      setHistoryState(historyStateValue);
+      setPathname(pathname);
+    },
     advanceSession,
     capturePublication,
     publishLabels,

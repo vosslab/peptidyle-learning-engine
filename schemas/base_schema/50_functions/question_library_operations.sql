@@ -176,7 +176,11 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     IF p_limit NOT BETWEEN 1 AND 251
        OR p_sort NOT IN ('title_ascending', 'published_newest')
-       OR jsonb_typeof(COALESCE(p_text_terms, '[]'::jsonb)) <> 'array' THEN
+       OR jsonb_typeof(COALESCE(p_text_terms, '[]'::jsonb)) <> 'array'
+       OR (p_subject_id IS NOT NULL AND p_discipline_id IS NULL)
+       OR (p_topic_id IS NOT NULL AND p_subject_id IS NULL)
+       OR (p_subtopic_id IS NOT NULL AND p_topic_id IS NULL)
+       OR (p_cross_discipline AND (p_discipline_id IS NULL OR p_subject_id IS NULL)) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Library discovery request is invalid';
     END IF;
     RETURN QUERY

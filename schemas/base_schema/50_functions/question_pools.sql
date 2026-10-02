@@ -21,6 +21,9 @@ CREATE FUNCTION ple_data.validate_question_pool_lineage_update()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
+    -- Discipline and Subject stay the values established by the first member.
+    -- Topic, Subtopic, Tags, and PLE-managed support may change only when the
+    -- member-list Edit Number stays put.
     IF NEW.question_pool_id <> OLD.question_pool_id
        OR NEW.source_question_pool_id IS DISTINCT FROM OLD.source_question_pool_id
        OR NEW.created_at <> OLD.created_at
@@ -28,13 +31,37 @@ BEGIN
        OR NEW.title IS DISTINCT FROM OLD.title
        OR NEW.description IS DISTINCT FROM OLD.description
        OR NEW.content_discipline_id IS DISTINCT FROM OLD.content_discipline_id
-       OR NEW.content_subject_id IS DISTINCT FROM OLD.content_subject_id
-       OR NEW.content_topic_id IS DISTINCT FROM OLD.content_topic_id
-       OR NEW.content_subtopic_id IS DISTINCT FROM OLD.content_subtopic_id
-       OR NEW.tags IS DISTINCT FROM OLD.tags
-       OR NEW.question_pool_edit_number <> OLD.question_pool_edit_number + 1 THEN
+       OR NEW.content_subject_id IS DISTINCT FROM OLD.content_subject_id THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'Question Pool identity is immutable and member-list save must advance Edit Number once';
+            MESSAGE = 'Question Pool identity and established Discipline and Subject are immutable';
+    END IF;
+    IF NEW.question_pool_edit_number <> OLD.question_pool_edit_number THEN
+        IF NEW.question_pool_edit_number <> OLD.question_pool_edit_number + 1
+           OR NEW.question_pool_metadata_edit_number <> OLD.question_pool_metadata_edit_number
+           OR NEW.content_topic_id IS DISTINCT FROM OLD.content_topic_id
+           OR NEW.content_subtopic_id IS DISTINCT FROM OLD.content_subtopic_id
+           OR NEW.tags IS DISTINCT FROM OLD.tags
+           OR NEW.hint IS DISTINCT FROM OLD.hint
+           OR NEW.general_feedback IS DISTINCT FROM OLD.general_feedback
+           OR NEW.worked_solution IS DISTINCT FROM OLD.worked_solution THEN
+            RAISE EXCEPTION USING ERRCODE = '55000',
+                MESSAGE = 'Question Pool member-list save must advance Edit Number once without changing search metadata or PLE-managed support';
+        END IF;
+    END IF;
+    IF (NEW.content_topic_id IS DISTINCT FROM OLD.content_topic_id
+        OR NEW.content_subtopic_id IS DISTINCT FROM OLD.content_subtopic_id
+        OR NEW.tags IS DISTINCT FROM OLD.tags
+        OR NEW.hint IS DISTINCT FROM OLD.hint
+        OR NEW.general_feedback IS DISTINCT FROM OLD.general_feedback
+        OR NEW.worked_solution IS DISTINCT FROM OLD.worked_solution)
+       AND NEW.question_pool_metadata_edit_number <> OLD.question_pool_metadata_edit_number + 1 THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Question Pool metadata replacement must advance its metadata Edit Number once';
+    END IF;
+    IF NEW.question_pool_metadata_edit_number <> OLD.question_pool_metadata_edit_number
+       AND NEW.question_pool_metadata_edit_number <> OLD.question_pool_metadata_edit_number + 1 THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Question Pool metadata Edit Number must advance once';
     END IF;
     RETURN NEW;
 END
@@ -104,7 +131,8 @@ EXECUTE FUNCTION ple_data.validate_question_pool_members();
 CREATE FUNCTION ple_data.create_question_pool(
     p_question_pool_id text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_title text, p_description text
+    p_interchangeability_attested boolean, p_title text, p_description text,
+    p_tags text[] DEFAULT ARRAY[]::text[]
 ) RETURNS TABLE (
     question_pool_id text, question_pool_edit_number bigint
 )
@@ -129,6 +157,10 @@ BEGIN
        OR char_length(p_description) NOT BETWEEN 1 AND 4000 OR p_description ~ '[[:cntrl:]]' THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool creation requires a canonical ID, nonempty ordered members, and interchangeability attestation';
+    END IF;
+    IF NOT ple_data.question_metadata_tags_are_valid(p_tags) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool tags are not valid Library Object tags';
     END IF;
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -180,9 +212,10 @@ BEGIN
     INSERT INTO ple_data.question_pool(
         question_pool_id, question_pool_edit_number, created_at,
         interchangeability_attested_by_account_id, interchangeability_attested_at,
-        title, description, content_discipline_id, content_subject_id
+        title, description, content_discipline_id, content_subject_id, tags
     ) VALUES (p_question_pool_id, 1, created_at, actor_id, created_at,
-        p_title, p_description, first_metadata.content_discipline_id, first_metadata.content_subject_id);
+        p_title, p_description, first_metadata.content_discipline_id, first_metadata.content_subject_id,
+        p_tags);
     INSERT INTO ple_data.question_pool_member(
         question_pool_id, member_position, published_question_id, question_revision_number,
         created_at, updated_at
@@ -342,7 +375,8 @@ BEGIN
         question_pool_id, question_pool_edit_number,
         source_question_pool_id, created_at,
         interchangeability_attested_by_account_id, interchangeability_attested_at,
-        title, description, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        title, description, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags,
+        hint, general_feedback, worked_solution
     ) VALUES (
         p_question_pool_id, 1,
         p_source_question_pool_id, v_created_at,
@@ -350,7 +384,8 @@ BEGIN
         source_metadata.interchangeability_attested_at,
         source_metadata.title, source_metadata.description, source_metadata.content_discipline_id,
         source_metadata.content_subject_id, source_metadata.content_topic_id, source_metadata.content_subtopic_id,
-        source_metadata.tags
+        source_metadata.tags,
+        source_metadata.hint, source_metadata.general_feedback, source_metadata.worked_solution
     );
     INSERT INTO ple_data.question_pool_member(
         question_pool_id, member_position, published_question_id, question_revision_number,
@@ -415,6 +450,171 @@ BEGIN
 END
 $$;
 
+-- Pool credit belongs to the Pool. It does not copy or rewrite member
+-- Question authorship, license, citation, or the fork's source Pool ID.
+CREATE FUNCTION ple_data.save_question_pool_provenance(
+    p_question_pool_id text,
+    p_expected_question_pool_metadata_edit_number bigint,
+    p_author_display_names text[],
+    p_attribution text,
+    p_license text,
+    p_source_text text,
+    p_source_url text
+) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+DECLARE
+    recorded_at timestamptz := pg_catalog.clock_timestamp();
+    current_question_pool_metadata_edit_number bigint;
+    next_question_pool_metadata_edit_number bigint;
+BEGIN
+    IF p_question_pool_id IS NULL
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Active Instructor authority is required for Question Pool provenance';
+    END IF;
+    SELECT question_pool_metadata_edit_number INTO current_question_pool_metadata_edit_number
+      FROM ple_data.question_pool
+     WHERE question_pool_id = p_question_pool_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '23503',
+            MESSAGE = 'Question Pool does not exist';
+    END IF;
+    IF p_expected_question_pool_metadata_edit_number IS NULL OR p_expected_question_pool_metadata_edit_number < 1 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool metadata Edit Number is invalid';
+    END IF;
+    IF current_question_pool_metadata_edit_number <> p_expected_question_pool_metadata_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Question Pool metadata Edit Number is stale';
+    END IF;
+    -- ASVS 2.2.1 and 2.2.3: validate each supplied fact and preserve the
+    -- independent optional fields while rejecting malformed combinations.
+    IF p_author_display_names IS NOT NULL AND cardinality(p_author_display_names) > 0 THEN
+        IF cardinality(p_author_display_names) > 16
+           OR EXISTS (
+                SELECT 1 FROM unnest(p_author_display_names) AS author(author_display_name)
+                 WHERE author.author_display_name IS NULL
+                    OR author.author_display_name <> btrim(author.author_display_name)
+                    OR char_length(author.author_display_name) NOT BETWEEN 1 AND 120
+                    OR author.author_display_name ~ '[[:cntrl:]]'
+           )
+           OR cardinality(p_author_display_names) <> (
+                SELECT count(DISTINCT author.author_display_name)
+                  FROM unnest(p_author_display_names) AS author(author_display_name)
+           ) THEN
+            RAISE EXCEPTION USING ERRCODE = '22023',
+                MESSAGE = 'Question Pool authorship must be an ordered list of distinct display names';
+        END IF;
+    END IF;
+    IF p_attribution IS NOT NULL AND (
+           p_attribution <> btrim(p_attribution)
+           OR char_length(p_attribution) NOT BETWEEN 1 AND 4000
+           OR p_attribution ~ '[[:cntrl:]]'
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool attribution is invalid';
+    END IF;
+    IF p_license IS NOT NULL AND p_license NOT IN ('CC-BY-4.0', 'CC-BY-SA-4.0', 'CC0-1.0') THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool license is not a supported SPDX expression';
+    END IF;
+    IF p_source_text IS NOT NULL AND (
+           p_source_text <> btrim(p_source_text)
+           OR char_length(p_source_text) NOT BETWEEN 1 AND 4000
+           OR p_source_text ~ '[[:cntrl:]]'
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool source text is invalid';
+    END IF;
+    IF p_source_url IS NOT NULL AND (
+           p_source_url <> btrim(p_source_url)
+           OR char_length(p_source_url) NOT BETWEEN 1 AND 2048
+           OR p_source_url ~ '[[:cntrl:]]'
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool source URL is invalid';
+    END IF;
+    DELETE FROM ple_data.question_pool_authorship
+     WHERE question_pool_id = p_question_pool_id;
+    IF p_author_display_names IS NOT NULL AND cardinality(p_author_display_names) > 0 THEN
+        INSERT INTO ple_data.question_pool_authorship (
+            question_pool_id, author_position, author_display_name, created_at, updated_at
+        )
+        SELECT p_question_pool_id, author.ordinality::integer, author.author_display_name,
+               recorded_at, recorded_at
+          FROM unnest(p_author_display_names) WITH ORDINALITY
+               AS author(author_display_name, ordinality);
+    END IF;
+    IF p_license IS NULL AND p_attribution IS NULL
+       AND p_source_text IS NULL AND p_source_url IS NULL THEN
+        DELETE FROM ple_data.question_pool_provenance
+         WHERE question_pool_id = p_question_pool_id;
+    ELSE
+        INSERT INTO ple_data.question_pool_provenance (
+            question_pool_id, attribution, spdx_expression, source_text, source_url,
+            created_at, updated_at
+        ) VALUES (
+            p_question_pool_id, p_attribution, p_license::ple_data.license_spdx,
+            p_source_text, p_source_url, recorded_at, recorded_at
+        )
+        ON CONFLICT (question_pool_id) DO UPDATE
+           SET attribution = EXCLUDED.attribution,
+               spdx_expression = EXCLUDED.spdx_expression,
+               source_text = EXCLUDED.source_text,
+               source_url = EXCLUDED.source_url,
+               updated_at = recorded_at;
+    END IF;
+    UPDATE ple_data.question_pool
+       SET question_pool_metadata_edit_number = question_pool_metadata_edit_number + 1,
+           updated_on = CURRENT_DATE
+     WHERE question_pool_id = p_question_pool_id
+     RETURNING question_pool_metadata_edit_number INTO next_question_pool_metadata_edit_number;
+    RETURN next_question_pool_metadata_edit_number;
+END
+$$;
+
+CREATE FUNCTION ple_data.read_question_pool_provenance(
+    p_question_pool_id text
+) RETURNS TABLE (
+    question_pool_metadata_edit_number bigint,
+    author_display_names text[],
+    attribution text,
+    license text,
+    source_text text,
+    source_url text
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    IF p_question_pool_id IS NULL
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Active Instructor authority is required for Question Pool provenance';
+    END IF;
+    PERFORM 1 FROM ple_data.question_pool
+     WHERE question_pool_id = p_question_pool_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '23503',
+            MESSAGE = 'Question Pool does not exist';
+    END IF;
+    RETURN QUERY
+    SELECT pool.question_pool_metadata_edit_number,
+           coalesce(
+               (SELECT array_agg(author.author_display_name ORDER BY author.author_position)
+                  FROM ple_data.question_pool_authorship AS author
+                 WHERE author.question_pool_id = p_question_pool_id),
+               ARRAY[]::text[]
+           ),
+           provenance.attribution,
+           provenance.spdx_expression::text,
+           provenance.source_text,
+           provenance.source_url
+      FROM ple_data.question_pool AS pool
+      LEFT JOIN ple_data.question_pool_provenance AS provenance
+        ON provenance.question_pool_id = p_question_pool_id
+     WHERE pool.question_pool_id = p_question_pool_id;
+END
+$$;
+
 SET LOCAL ROLE ple_api_owner;
 
 -- The application receives only this session-bound capability. The data-owner
@@ -423,14 +623,15 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.create_question_pool(
     p_question_pool_id text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_title text, p_description text
+    p_interchangeability_attested boolean, p_title text, p_description text,
+    p_tags text[] DEFAULT ARRAY[]::text[]
 ) RETURNS TABLE (
     question_pool_id text, question_pool_edit_number bigint
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.create_question_pool(
         p_question_pool_id, p_member_question_ids,
-        p_member_revision_numbers, p_interchangeability_attested, p_title, p_description)
+        p_member_revision_numbers, p_interchangeability_attested, p_title, p_description, p_tags)
 $$;
 
 SET LOCAL ROLE ple_data_owner;
@@ -509,6 +710,7 @@ CREATE FUNCTION ple_api.list_published_question_pools(
 RETURNS TABLE (
     question_pool_id text,
     question_pool_edit_number bigint,
+    question_pool_metadata_edit_number bigint,
     member_count integer,
     title text, description text, content_discipline_id uuid, discipline_name text,
     discipline_is_retired boolean, content_subject_id uuid,
@@ -543,6 +745,7 @@ BEGIN
     WITH filtered AS MATERIALIZED (
         SELECT pool.question_pool_id::text,
                pool.question_pool_edit_number,
+               pool.question_pool_metadata_edit_number,
                (SELECT count(*)::integer FROM ple_data.question_pool_member AS member
                  WHERE member.question_pool_id = pool.question_pool_id) AS member_count,
                pool.title, pool.description, pool.content_discipline_id, discipline.name AS discipline_name,
@@ -628,7 +831,8 @@ BEGIN
                ]::bigint[] AS knowledge_counts
           FROM filtered AS matched
     )
-    SELECT page.question_pool_id, page.question_pool_edit_number, page.member_count,
+    SELECT page.question_pool_id, page.question_pool_edit_number, page.question_pool_metadata_edit_number,
+           page.member_count,
            page.title, page.description, page.content_discipline_id, page.discipline_name,
            page.discipline_is_retired, page.content_subject_id, page.content_topic_id,
            page.content_subtopic_id, page.tags, page.bloom_cognitive_process,
@@ -677,4 +881,31 @@ BEGIN
        AND pool.question_pool_id = p_question_pool_id
      ORDER BY member.member_position;
 END
+$$;
+
+CREATE FUNCTION ple_api.save_question_pool_provenance(
+    p_question_pool_id text,
+    p_expected_question_pool_metadata_edit_number bigint,
+    p_author_display_names text[],
+    p_attribution text,
+    p_license text,
+    p_source_text text,
+    p_source_url text
+) RETURNS bigint LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT ple_data.save_question_pool_provenance($1, $2, $3, $4, $5, $6, $7)
+$$;
+
+CREATE FUNCTION ple_api.read_question_pool_provenance(
+    p_question_pool_id text
+) RETURNS TABLE (
+    question_pool_metadata_edit_number bigint,
+    author_display_names text[],
+    attribution text,
+    license text,
+    source_text text,
+    source_url text
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT * FROM ple_data.read_question_pool_provenance($1)
 $$;

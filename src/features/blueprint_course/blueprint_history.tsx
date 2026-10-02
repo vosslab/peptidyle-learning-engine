@@ -17,6 +17,9 @@ import {
 } from "../../components/record_list/record_outline_list";
 import { RecordSequence } from "../../components/record_list/record_sequence";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
+import type { RecognitionTitleMaps } from "../../api/recognition_titles";
+import { labeledPoolRecognition, labeledQuestionRecognition } from "../recognition_label";
+import { recognitionTitlesResource } from "../recognition_titles_load";
 
 interface HistoryProps {
   readonly client: BlueprintCourseClient;
@@ -68,26 +71,48 @@ function historyEntryId(entry: BlueprintHistoryEntryView): string {
     : `metadata-${entry.recordedAt}`;
 }
 
-function historicalEntryContent(entry: BlueprintAssessmentEntryView): RecordContent {
-  const title =
-    entry.kind === "fixed"
-      ? `Fixed Question ${entry.question.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.question.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
-      : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`;
+function historicalEntryContent(
+  entry: BlueprintAssessmentEntryView,
+  titles: RecognitionTitleMaps,
+): RecordContent {
   const timeLimit =
     entry.question_attempt_time_limit.kind === "limited"
       ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
       : "unlimited";
-  const selectedQuestionOrder =
-    entry.kind === "pool"
-      ? `; selected Question order ${entry.selection_rule.selectedQuestionOrder}`
-      : "";
-
+  const scoring = `Scoring ${entry.scoring_rule}; Question Attempt limit ${entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit ${timeLimit}`;
+  if (entry.kind === "fixed") {
+    const tuple = entry.question.published_question_revision_tuple;
+    const line = labeledQuestionRecognition(
+      titles.questions.get(tuple.publishedQuestionId),
+      tuple.publishedQuestionId,
+      tuple.revisionNumber,
+    );
+    return {
+      title: line.title,
+      details: [
+        { kind: "text", label: "Question ID", value: tuple.publishedQuestionId },
+        { kind: "text", label: "Revision", value: String(tuple.revisionNumber) },
+        { kind: "text", label: "Points", value: String(entry.points_possible) },
+        { kind: "text", value: scoring },
+      ],
+      actions: [],
+    };
+  }
+  const line = labeledPoolRecognition(
+    titles.pools.get(entry.question_pool_id),
+    entry.question_pool_id,
+    entry.question_pool_edit_number,
+  );
   return {
-    title,
+    title: line.title,
     details: [
+      { kind: "text", label: "Question Pool ID", value: entry.question_pool_id },
+      { kind: "text", label: "Edit", value: String(entry.question_pool_edit_number) },
+      { kind: "text", label: "Questions selected", value: String(entry.selection_count) },
+      { kind: "text", label: "Points per Question", value: String(entry.points_per_item) },
       {
         kind: "text",
-        value: `Scoring ${entry.scoring_rule}; Question Attempt limit ${entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit ${timeLimit}${selectedQuestionOrder}`,
+        value: `${scoring}; selected Question order ${entry.selection_rule.selectedQuestionOrder}`,
       },
     ],
     actions: [],
@@ -216,7 +241,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
               )}
             </Show>
             <Show when={revision()} keyed>
-              {(saved) => <RevisionContent revision={saved} />}
+              {(saved) => <RevisionContent client={props.client} revision={saved} />}
             </Show>
           </section>
         )}
@@ -344,9 +369,29 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
   );
 }
 
-function RevisionContent(props: { readonly revision: BlueprintRevisionView }): JSX.Element {
+function RevisionContent(props: {
+  readonly client: BlueprintCourseClient;
+  readonly revision: BlueprintRevisionView;
+}): JSX.Element {
   const [selectedAssessment, setSelectedAssessment] =
     createSignal<BlueprintAssessmentContentView>();
+  const recognition = recognitionTitlesResource(
+    () => props.client,
+    () => {
+      const content = selectedAssessment();
+      if (content === undefined) return { questionIds: [], poolIds: [] };
+      const questionIds: string[] = [];
+      const poolIds: string[] = [];
+      for (const entry of content.entries) {
+        if (entry.kind === "fixed") {
+          questionIds.push(entry.question.published_question_revision_tuple.publishedQuestionId);
+        } else {
+          poolIds.push(entry.question_pool_id);
+        }
+      }
+      return { questionIds, poolIds };
+    },
+  );
   return (
     <>
       <Show
@@ -410,9 +455,12 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
             {/* ASVS 1.2.1: authored instructions remain escaped plain text, never HTML. */}
             <p style={{ "white-space": "pre-wrap" }}>{content().instructions}</p>
             <h5>Question entries</h5>
+            <Show when={recognition.status()}>
+              <p role="status">{recognition.status()}</p>
+            </Show>
             <RecordSequence
               rows={content().entries}
-              content={historicalEntryContent}
+              content={(entry) => historicalEntryContent(entry, recognition.titles())}
               recordId={historicalEntryId}
               state={{ kind: "ready" }}
               ariaLabel="Historical Question and Pool entries"

@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     AssessmentAuthoredContent, AssessmentInstructions, AssessmentStatus, BaseAssessmentPolicy,
-    LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    is_valid_base_assessment_attempt_time_limit_seconds,
 };
 use crate::{AccountTimeZone, AssessmentActivityRules, CourseTerm, Timestamp};
 
@@ -215,7 +216,7 @@ impl InstructorAssessmentAuthoredContentLocal {
         late_work_rule: LateWorkRule,
     ) -> Result<Self, AssessmentAuthoredContentLocalError> {
         if assessment_attempt_time_limit_seconds
-            .is_some_and(|limit| limit.get() > MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+            .is_some_and(|limit| !is_valid_base_assessment_attempt_time_limit_seconds(limit.get()))
         {
             return Err(AssessmentAuthoredContentLocalError::AssessmentAttemptTimeLimitOutOfRange);
         }
@@ -296,7 +297,7 @@ impl InstructorAssessmentAuthoredContentLocal {
     fn validate(&self) -> Result<(), AssessmentAuthoredContentLocalError> {
         if self
             .assessment_attempt_time_limit_seconds
-            .is_some_and(|limit| limit.get() > MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+            .is_some_and(|limit| !is_valid_base_assessment_attempt_time_limit_seconds(limit.get()))
         {
             return Err(AssessmentAuthoredContentLocalError::AssessmentAttemptTimeLimitOutOfRange);
         }

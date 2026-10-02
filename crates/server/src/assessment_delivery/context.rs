@@ -8,7 +8,6 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse, Response},
 };
-use learning_data_access::LiveAssessmentDeliveryStore;
 use question_model::{
     AccountTimeZone, AssessmentAttemptId, AssessmentId, CourseInstanceId, Timestamp,
 };
@@ -41,9 +40,8 @@ pub(super) async fn student_context(
         ),
         Err(value) => {
             tracing::error!(
-                assessment_attempt = %assessment_attempt,
-                error = %value,
-                "Student Assessment Attempt context store read failed"
+                event = "student_attempt_context_unavailable",
+                error_kind = value.diagnostic_kind(),
             );
             store_error(value)
         }

@@ -111,7 +111,7 @@ pub(crate) async fn bulk_question_statistics(
         .map_err(store_error_response)?;
     Ok(rows
         .into_iter()
-        .map(|(question_id, totals)| (question_id, totals.into_available(None, None)))
+        .map(|(question_id, totals)| (question_id, totals.into_shared_statistics(None, None)))
         .collect())
 }
 
@@ -138,7 +138,7 @@ pub(super) async fn question_detail_statistics(
         .load_question_revision_usage_statistics(session_hash, question_id)
         .await
         .map_err(store_error_response)?;
-    Ok(totals.into_available(Some(revisions), None))
+    Ok(totals.into_shared_statistics(Some(revisions), None))
 }
 
 pub(crate) fn evidence_for(

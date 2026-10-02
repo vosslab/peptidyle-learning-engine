@@ -31,6 +31,15 @@ test("Library Watch inbox returns every discriminated event shape privately", as
             occurredAt: 1_750_000_000_000,
           },
           {
+            targetKind: "questionPool",
+            targetPublicId: questionId,
+            eventKind: "membersChanged",
+            revisionNumber: 5,
+            forkedPublicId: null,
+            activityId: null,
+            occurredAt: 1_750_000_000_004,
+          },
+          {
             targetKind: "question",
             targetPublicId: questionId,
             eventKind: "fork",
@@ -57,6 +66,24 @@ test("Library Watch inbox returns every discriminated event shape privately", as
             activityId: "00000000-0000-4000-8000-000000000002",
             occurredAt: 1_750_000_000_003,
           },
+          {
+            targetKind: "question",
+            targetPublicId: questionId,
+            eventKind: "improvementThread",
+            revisionNumber: 6,
+            forkedPublicId: null,
+            activityId: "00000000-0000-4000-8000-000000000011",
+            occurredAt: 1_750_000_000_005,
+          },
+          {
+            targetKind: "question",
+            targetPublicId: questionId,
+            eventKind: "impactNotice",
+            revisionNumber: 2,
+            forkedPublicId: null,
+            activityId: "00000000-0000-4000-8000-000000000012",
+            occurredAt: 1_750_000_000_006,
+          },
         ],
       });
     },
@@ -73,6 +100,15 @@ test("Library Watch inbox returns every discriminated event shape privately", as
       forkedPublicId: null,
       activityId: null,
       occurredAt: 1_750_000_000_000,
+    },
+    {
+      targetKind: "questionPool",
+      targetPublicId: questionId,
+      eventKind: "membersChanged",
+      revisionNumber: 5,
+      forkedPublicId: null,
+      activityId: null,
+      occurredAt: 1_750_000_000_004,
     },
     {
       targetKind: "question",
@@ -101,7 +137,31 @@ test("Library Watch inbox returns every discriminated event shape privately", as
       activityId: "00000000-0000-4000-8000-000000000002",
       occurredAt: 1_750_000_000_003,
     },
+    {
+      targetKind: "question",
+      targetPublicId: questionId,
+      eventKind: "improvementThread",
+      revisionNumber: 6,
+      forkedPublicId: null,
+      activityId: "00000000-0000-4000-8000-000000000011",
+      occurredAt: 1_750_000_000_005,
+    },
+    {
+      targetKind: "question",
+      targetPublicId: questionId,
+      eventKind: "impactNotice",
+      revisionNumber: 2,
+      forkedPublicId: null,
+      activityId: "00000000-0000-4000-8000-000000000012",
+      occurredAt: 1_750_000_000_006,
+    },
   ]);
+  assert.deepEqual(
+    notifications
+      .filter((notification) => notification.targetKind === "question")
+      .map((notification) => notification.eventKind),
+    ["revision", "fork", "improvementThread", "impactNotice"],
+  );
   assert.equal(new URL(requests[0].url).pathname, "/api/library/watch-notifications");
   assert.equal(new URL(requests[0].url).searchParams.get("limit"), "25");
 });
@@ -221,6 +281,28 @@ test("Library Watch inbox rejects cross-kind evidence and recipient facts", () =
       decodeLibraryWatchNotifications(
         invalidNotification((notification) => {
           notification.eventKind = "unrecognized";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "membersChanged";
+          notification.revisionNumber = 5;
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.targetKind = "questionPool";
+          notification.eventKind = "membersChanged";
+          notification.revisionNumber = 5;
+          notification.forkedPublicId = questionId;
         }),
       ),
     DecodeError,

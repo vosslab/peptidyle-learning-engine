@@ -6,6 +6,10 @@ import { Show, createEffect, createResource, createSignal, type JSX } from "soli
 import "./course_roster_page.css";
 
 import { parseRosterImportRows } from "./roster_import_template";
+import {
+  RosterConfirmationDialog,
+  type PendingRosterConfirmation,
+} from "./roster_confirmation_dialog";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
 import { RecordTable, type RecordTableColumn } from "../components/record_list/record_table";
@@ -33,6 +37,7 @@ export function CourseRosterPage(): JSX.Element {
   const [message, setMessage] = createSignal<RosterFeedback>();
   const [toolMessage, setToolMessage] = createSignal<RosterFeedback>();
   const [busy, setBusy] = createSignal(false);
+  const [pendingRemoval, setPendingRemoval] = createSignal<PendingRosterConfirmation | null>(null);
   let rosterTools: HTMLDetailsElement | undefined;
   let rosterImport: HTMLTextAreaElement | undefined;
 
@@ -42,6 +47,7 @@ export function CourseRosterPage(): JSX.Element {
     setImportText("");
     setMessage(undefined);
     setToolMessage(undefined);
+    setPendingRemoval(null);
   });
 
   async function importRoster(event: SubmitEvent): Promise<void> {
@@ -130,6 +136,16 @@ export function CourseRosterPage(): JSX.Element {
     }
   }
 
+  function askRemoval(entry: CourseRosterEntry, trigger: HTMLButtonElement): void {
+    if (busy()) return;
+    setPendingRemoval({
+      rosterId: entry.rosterId,
+      displayName: entry.rosterName,
+      state: entry.state,
+      trigger,
+    });
+  }
+
   function startRosterImport(): void {
     if (rosterTools !== undefined) rosterTools.open = true;
     requestAnimationFrame(() => rosterImport?.focus());
@@ -165,7 +181,7 @@ export function CourseRosterPage(): JSX.Element {
           class="quiet-action"
           type="button"
           disabled={busy()}
-          onClick={() => void revoke(entry.rosterId)}
+          onClick={(event) => askRemoval(entry, event.currentTarget)}
         >
           Remove course access
         </button>
@@ -291,6 +307,24 @@ export function CourseRosterPage(): JSX.Element {
       <p>
         <A href="/">Return to Course Instances</A>
       </p>
+      <Show when={pendingRemoval()}>
+        {(confirmation) => (
+          <RosterConfirmationDialog
+            confirmation={confirmation()}
+            onCancel={() => {
+              const trigger = confirmation().trigger;
+              setPendingRemoval(null);
+              trigger.focus();
+            }}
+            onConfirm={async () => {
+              const current = confirmation();
+              setPendingRemoval(null);
+              await revoke(current.rosterId);
+              current.trigger.focus();
+            }}
+          />
+        )}
+      </Show>
     </PageFrame>
   );
 }

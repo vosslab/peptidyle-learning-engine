@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use grading::AnswerKey;
-use question_model::answer::ResponseSelectionRule;
+use question_model::answer::{ResponseSelectionRule, TextResponseMatchRule};
 use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, ResponseItemId, TextEntrySlot,
@@ -295,6 +295,7 @@ pub(super) fn validate_choice_question(
 
 pub(super) fn validate_answers(
     answers: &[String],
+    match_mode: TextResponseMatchRule,
     max_length: u32,
 ) -> Result<(), PleQuestionJsonError> {
     if answers.is_empty() || max_length == 0 || max_length > MAX_TEXT_RESPONSE_CHARS {
@@ -303,6 +304,12 @@ pub(super) fn validate_answers(
     let mut unique = HashSet::new();
     for answer in answers {
         validate_bounded_text("accepted answer", answer, MAX_FEEDBACK_CHARS)?;
+        // ASVS 2.2.3: exact stored answers must fit within the Student response limit.
+        if match_mode == TextResponseMatchRule::Exact
+            && answer.encode_utf16().count() > max_length as usize
+        {
+            return invalid("exact accepted answers must fit within maxLength");
+        }
         if !unique.insert(answer) {
             return invalid("accepted answers must be unique");
         }
@@ -321,7 +328,7 @@ pub(super) fn validate_blanks(blanks: &[PleQuestionJsonBlank]) -> Result<(), Ple
             return invalid("blank identifiers must be unique");
         }
         validate_markdown("blank label", &blank.label, MAX_CHOICE_TEXT_CHARS)?;
-        validate_answers(&blank.answers, blank.max_length)?;
+        validate_answers(&blank.answers, blank.match_mode.into(), blank.max_length)?;
     }
     Ok(())
 }

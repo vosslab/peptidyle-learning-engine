@@ -1,5 +1,6 @@
-//! Course-owned Student Record, Assessment Attempt, Issued Question, and
-//! Question Attempt records.
+//! Student Work, the collective of FERPA-sensitive records one Student created
+//! in one Course Instance. Assessment Attempts, Question Pool selections,
+//! Issued Questions, and Question Attempts keep their own identities.
 //!
 //! Completion of one Assessment Attempt does not end a Student Record. A
 //! Student can begin another Assessment Attempt when its explicit continuation

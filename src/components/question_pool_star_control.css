@@ -1,0 +1,46 @@
+/* Compact Star count and vetted-name list for one inspected Published Question Pool. */
+
+.library-pool-star-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-space-2);
+  margin-block: var(--ple-space-3);
+}
+
+.library-pool-star-control p,
+.library-pool-star-control h2 {
+  margin: 0;
+}
+
+.library-pool-star-control > section {
+  flex-basis: 100%;
+}
+
+.library-pool-star-control h2 {
+  font-size: 1rem;
+}
+
+.library-pool-star-control button {
+  border-color: var(--ple-border);
+  background: var(--ple-card-surface);
+  color: var(--ple-ink);
+  font-weight: 700;
+}
+
+.library-pool-star-control button.selected {
+  border-color: var(--ple-highlight);
+  background: var(--ple-highlight);
+  box-shadow: inset 0 0 0 1px var(--ple-highlight);
+  color: var(--ple-on-highlight);
+}
+
+.library-pool-star-control button:focus-visible {
+  outline: 0.2rem solid var(--ple-focus);
+  outline-offset: 0.2rem;
+}
+
+.library-pool-star-control button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}

@@ -4,6 +4,16 @@ import type { AccountId } from "../../generated/api/AccountId";
 
 export type InstructorAccountState = "active" | "deactivated" | "closed";
 
+export type InstructorAccountPageSize = 50 | 100 | 250;
+
+/** One server page of the Sysadmin Instructor Account list. */
+export interface InstructorAccountBrowse {
+  readonly query: string;
+  readonly state: InstructorAccountState | null;
+  readonly pageSize: InstructorAccountPageSize;
+  readonly afterAccountId: AccountId | null;
+}
+
 /** The only Instructor Account fields available to the browser. */
 export interface InstructorAccountSummary {
   readonly id: AccountId;
@@ -17,6 +27,8 @@ export interface InstructorAccountSummary {
 export interface InstructorAccountList {
   readonly accounts: ReadonlyArray<InstructorAccountSummary>;
   readonly displayTimeZone: string;
+  /** Last Account ID on this page when another page exists. */
+  readonly nextCursor: AccountId | null;
 }
 
 /** Sysadmin-only fact recorded before a separate Instructor Account creation. */
@@ -43,6 +55,9 @@ export interface DeactivateInstructorAccountInput {
 /** Same-origin, Sysadmin-only Instructor Account lifecycle boundary. */
 export interface InstructorAccountClient {
   readonly listInstructorAccounts: () => Promise<InstructorAccountList>;
+  readonly findInstructorAccounts: (
+    browse: InstructorAccountBrowse,
+  ) => Promise<InstructorAccountList>;
   readonly completeInstructorIdentityVetting: (
     input: CompleteInstructorIdentityVettingInput,
   ) => Promise<InstructorIdentityVettingReceipt>;

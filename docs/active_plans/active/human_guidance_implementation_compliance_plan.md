@@ -1,5 +1,11 @@
 # Plan: Human Guidance implementation compliance
 
+This plan organizes evidence for Human Guidance contracts that require owner judgment. A guidance
+bullet or checklist row does not by itself commission a product feature: first establish the
+settled behavior and whether it applies, then identify the existing implementation owner and the
+evidence needed to assess it. Distinguish source implementation from connected or browser
+acceptance, and keep unrelated workflows outside this plan.
+
 ## Execution priority
 
 Complete the SQL lock and the highest-impact visible UI gates first:
@@ -2278,12 +2284,11 @@ canonical routes directly.
 
 **Acyclic dependencies.** `DD-A9-01+C870->C500; DD-A9-01+C857+C870->C501; {C500,C501}->T-A9-1->T-A9-2->T-A9-3->T-A9-4->T-A9-5->T-A9-6; T-A9-1->C502; T-A9-6->{C503,C506,C517}; C503->{C504,C505,C7}; A2+A4->{C504,C507,C515}; C64+C503->C505; A8+T-A9-1+C503->C513; C506->{C507,C508,C509,C510,C511,C512,C514}; C514->C515->C516; C517->{C518,C523}; C503+A7+A8+C518->C519; A2+C517+C519->C520; C520+A4->C521; A2+A5->C522; C522+A7+C528->C526; C508+C522->C527; C506+C508+A5+A7->C524; C528+C524->C529; A7->{C528,C530,C532}; C522->C532; C503+C532->C533; A6+C533->C534; A5-C78+A5-L48->C531; C536 source/review complete; C536+A2+A4+security owner->actual-role and browser acceptance.`
 
-C536 remains open only for its named actual-role and canonical-browser acceptance. Close this range
-only when all 104 owners verify, every
-temporary path is removed or has its documented six-question retention decision, and
-`source source_me.sh && python3 devel/human_guidance_checklist.py --gate 09_assessments.md`
-exits zero. Then run the existing Browser Suite's applicable serial lane; do not start, stop,
-replace, or clean that shared suite.
+C536 remains open for its named actual-role and canonical-browser acceptance. A checklist gate
+checks the generated evidence for that owner; it does not establish every product behavior in the
+section or create work for all 104 owners. Remove temporary paths when their evidence decision is
+complete, and run the existing Browser Suite's applicable serial lane only for workflows whose
+acceptance requires it.
 
 ## Milestone R1: Regenerate derived evidence
 
@@ -2318,16 +2323,12 @@ R1 remains the final freshness-verification gate after all later corrections.
 
 ## Milestone R2: Re-audit the checklist
 
-Nine fresh subagents repeat A1-A9 against the corrected system; the manager repeats the per-part
-gate, spot-check, and splice. Any newly exposed `[ ]` item goes through Milestone G and a new
-correction milestone before R3. Gate: every product-behavior bullet is `[x]` except the complete
-Student Ribbon task layout and complete Sysadmin Ribbon task layout, which are the only permitted
-`[ ]` bullets and carry `Reason: HG: no locked-in design`; every non-implementation bullet is
-audited N/A with a valid reason
-(including the permitted inherited reason for `How to use this guidance`). A product decision that
-blocks conformance must be resolved before R3 rather than accepted as a final exception. Bullets
-with a recorded `Decision:` reach `[x]` through that implementation. The fresh reports are
-refreshed from the re-audited checklist (Milestone B, second run).
+Nine fresh reviews reassess A1-A9 against the corrected system; the manager repeats the per-part
+gate, spot-check, and splice. Record each applicable settled behavior's implementation and its
+separate acceptance evidence. An unresolved product decision stays open only where it blocks a
+settled contract; general guidance and non-applicable bullets retain their reasoned disposition.
+Checklist status is evidence organization and is not a product-completion target. Refresh reports
+from the reviewed checklist (Milestone B, second run).
 
 ## Milestone R3: Final verification and cleanup
 
@@ -2352,10 +2353,9 @@ refreshed from the re-audited checklist (Milestone B, second run).
   and existing SQL oracles.
 - Reviewer subagents provide review. Planner-reviewer disagreement is settled by the stricter
   reading of HG; when HG is silent, the decision rules above apply.
-- Closeout is deterministic: HG-settled bullets reach `[x]`; the only `[ ]` left at R3 are the
-  complete Student and Sysadmin Ribbon task layouts, each carrying
-  `Reason: HG: no locked-in design`. Every conformance-blocking product decision is resolved,
-  recorded, implemented, and verified before R3.
+- Closeout reports the settled implementation and acceptance evidence for the bounded work in
+  scope. Keep unresolved decisions and missing runtime evidence explicit; checklist counts alone
+  do not establish product completion.
 
 ## Scope boundary
 

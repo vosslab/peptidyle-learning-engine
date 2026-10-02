@@ -25,12 +25,24 @@ if [ "$#" -eq 0 ]; then
 		tests/playwright/record_sort_control_contracts.mjs \
 		tests/playwright/record_page_controls_contracts.mjs \
 		tests/playwright/provided_avatar_picker_presentation.mjs \
-		tests/playwright/fast_ui_route_composition.mjs \
 		tests/playwright/ribbon_shell_contract.mjs \
+		tests/playwright/ribbon_profile_menu_contract.mjs \
 		tests/playwright/student_course_entry_m6_evidence.mjs \
 		tests/playwright/assessments_due_soon_contracts.mjs \
 		tests/playwright/course_instance_assessment_refresh.mjs; do
 		node --import tsx "$check"
+	done
+	for check in \
+		tests/playwright/test_assessment_attempt_delivery.mjs \
+		tests/playwright/test_assessment_student_time.mjs \
+		tests/playwright/test_course_instance_delivery.mjs \
+		tests/playwright/test_bloom_classification_workflow.mjs \
+		tests/playwright/test_region_sizing.mjs \
+		tests/playwright/test_teaching_task_pages.mjs \
+		tests/playwright/test_student_assessment_presentation.mjs \
+		tests/playwright/test_course_entry_banner.mjs \
+		tests/playwright/test_question_pool_task_isolation.mjs; do
+		node --import tsx --test "$check"
 	done
 	exit 0
 fi

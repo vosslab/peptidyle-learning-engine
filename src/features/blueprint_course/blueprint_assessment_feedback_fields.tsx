@@ -22,6 +22,12 @@ const FEEDBACK_FIELDS = [
     "Class statistics",
     "Default: Never. Choose a later timing only when sharing class statistics is appropriate.",
   ],
+  ["hints", "Hints", "Default: Never. This timing is separate from correct-answer disclosure."],
+  [
+    "worked_solutions",
+    "Worked Solutions",
+    "Default: Never. This timing is separate from Hints and from correct-answer disclosure.",
+  ],
 ] as const satisfies ReadonlyArray<readonly [keyof StudentFeedbackReleaseRule, string, string]>;
 
 const FEEDBACK_TIMINGS = [
@@ -38,7 +44,7 @@ export interface BlueprintAssessmentFeedbackFieldsProps {
   readonly onChange: (content: BlueprintAssessmentContentInput, message: string) => void;
 }
 
-/** Keeps all six disclosure fields independent and uses the existing local draft owner. */
+/** Keeps every disclosure field independent and uses the existing local draft owner. */
 export function BlueprintAssessmentFeedbackFields(
   props: BlueprintAssessmentFeedbackFieldsProps,
 ): JSX.Element {

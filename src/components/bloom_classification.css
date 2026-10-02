@@ -2,7 +2,7 @@
   margin-block: var(--ple-space-4);
   padding: var(--ple-space-4);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
 }
 
 .bloom-classification-editor h2 {

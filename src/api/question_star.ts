@@ -20,6 +20,18 @@ export interface QuestionStarProjection {
   readonly starredInstructors: ReadonlyArray<QuestionStarredInstructor>;
 }
 
+/** One Published Question in the signed-in Instructor's personal Star collection. */
+export interface StarredQuestionSummary {
+  readonly questionId: PublishedQuestionId;
+  readonly questionTitle: string;
+}
+
+/** The signed-in Instructor's Starred Questions, newest first. */
+export interface StarredQuestionPage {
+  readonly items: ReadonlyArray<StarredQuestionSummary>;
+  readonly nextCursor: string | null;
+}
+
 /** Active-Instructor self-service Star boundary for one Published Question. */
 export interface QuestionStarClient {
   readonly getQuestionStar: (questionId: PublishedQuestionId) => Promise<QuestionStarProjection>;
@@ -27,4 +39,8 @@ export interface QuestionStarClient {
     questionId: PublishedQuestionId,
     starred: boolean,
   ) => Promise<QuestionStarProjection>;
+  readonly listStarredQuestions: (
+    cursor: string | null,
+    pageSize: 50 | 100 | 250,
+  ) => Promise<StarredQuestionPage>;
 }

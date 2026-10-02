@@ -1,5 +1,9 @@
 // question_picker_model.ts - reusable, answer-free Question Picker contracts.
 
+import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
+import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
+import type { QuestionResponsePreview } from "../../../generated/api/QuestionResponsePreview";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
@@ -50,6 +54,47 @@ export type QuestionPickerSelectionMode = "none" | "one" | "many";
 export interface QuestionPickerSelectedQuestion {
   readonly questionId: string;
   readonly row: QuestionLibraryBrowseRow;
+}
+
+/** Answer-free Question Details kept for inspection before an Assessment add. */
+export interface QuestionPickerInspectionView {
+  readonly questionTitle: string;
+  readonly questionId: string;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+  readonly backend: QuestionDetails["summary"]["backend"];
+  readonly prompt: QuestionDetailsPromptView;
+  readonly responsePreview: QuestionResponsePreview | null;
+}
+
+/**
+ * Opens inspection of one result without selecting, removing, or reordering it.
+ * The returned selection is the selection the caller already had.
+ */
+export function inspectQuestionPickerRow(
+  selection: QuestionPickerSelection,
+  row: QuestionLibraryBrowseRow,
+): {
+  readonly selection: QuestionPickerSelection;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+} {
+  return {
+    selection,
+    publishedQuestionRevisionTuple: row.publishedQuestionRevisionTuple,
+  };
+}
+
+/** Keeps the answer-free Question Details fields an Instructor can inspect. */
+export function questionPickerInspectionView(
+  details: QuestionDetails,
+): QuestionPickerInspectionView {
+  return {
+    questionTitle: details.summary.metadata.questionTitle,
+    questionId: details.summary.questionId,
+    publishedQuestionRevisionTuple: details.summary.publishedQuestionRevisionTuple,
+    backend: details.summary.backend,
+    prompt: details.prompt,
+    responsePreview: details.responsePreview,
+  };
 }
 
 /** The one public completion value consumed by Library and assessment parents. */

@@ -8,7 +8,7 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{AccountId, UserRole, Timestamp};
+use question_model::{AccountId, Timestamp, UserRole};
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -124,6 +124,35 @@ pub struct AuthenticatedAccount {
     pub account: AccountId,
     /// Immutable User Role stored with that Account.
     pub user_role: UserRole,
+}
+
+/// The only login methods Human Guidance allows for a Student or Instructor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasswordlessLoginMethod {
+    /// One-use email code for an existing Account.
+    EmailCode,
+    /// Registered WebAuthn passkey for an existing Account.
+    Passkey,
+}
+
+/// Accepts a Student or Instructor primary result from an email code or passkey.
+///
+/// A Sysadmin primary result stays on the TOTP path. There is no password method.
+pub fn passwordless_primary_account(
+    account: AccountId,
+    user_role: UserRole,
+    method: PasswordlessLoginMethod,
+) -> Option<AuthenticatedAccount> {
+    match (user_role, method) {
+        (
+            UserRole::Student | UserRole::Instructor,
+            PasswordlessLoginMethod::EmailCode | PasswordlessLoginMethod::Passkey,
+        ) => Some(AuthenticatedAccount { account, user_role }),
+        (
+            UserRole::Sysadmin,
+            PasswordlessLoginMethod::EmailCode | PasswordlessLoginMethod::Passkey,
+        ) => None,
+    }
 }
 
 /// Durable identity for one registered passkey.
@@ -285,6 +314,37 @@ impl SysadminTotpCounter {
     /// atomic persistence transition.
     pub fn as_i64(self) -> i64 {
         self.0
+    }
+}
+
+#[cfg(test)]
+mod passwordless_login_tests {
+    use question_model::{AccountId, UserRole};
+
+    use super::{PasswordlessLoginMethod, passwordless_primary_account};
+
+    #[test]
+    fn student_and_instructor_login_accepts_only_email_code_or_passkey() {
+        let account = AccountId::new("U00000009").expect("canonical account id");
+        for user_role in [UserRole::Student, UserRole::Instructor] {
+            for method in [
+                PasswordlessLoginMethod::EmailCode,
+                PasswordlessLoginMethod::Passkey,
+            ] {
+                let primary = passwordless_primary_account(account.clone(), user_role, method)
+                    .expect("passwordless primary");
+                assert_eq!(primary.account, account);
+                assert_eq!(primary.user_role, user_role);
+            }
+        }
+        assert!(
+            passwordless_primary_account(
+                account,
+                UserRole::Sysadmin,
+                PasswordlessLoginMethod::Passkey,
+            )
+            .is_none()
+        );
     }
 }
 

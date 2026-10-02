@@ -8,6 +8,8 @@ import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type { RouteScopeProviderHarness } from "./route_scope_provider_harness";
 
 interface RouteScopeProviderHarnessModule {
+  readonly useRouteScopeData: () => unknown;
+  readonly useRouteScopeIdentity: () => unknown;
   readonly mountRouteScopeProviderHarness: (
     applicationApi: ApplicationApi<OrdinaryBrowserApiClient>,
     initialPathname: string,
@@ -21,7 +23,11 @@ function isRouteScopeProviderHarnessModule(
     typeof value === "object" &&
     value !== null &&
     "mountRouteScopeProviderHarness" in value &&
-    typeof value.mountRouteScopeProviderHarness === "function"
+    typeof value.mountRouteScopeProviderHarness === "function" &&
+    "useRouteScopeData" in value &&
+    typeof value.useRouteScopeData === "function" &&
+    "useRouteScopeIdentity" in value &&
+    typeof value.useRouteScopeIdentity === "function"
   );
 }
 

@@ -11,7 +11,8 @@ use axum::{
 };
 use learning_data_access::{
     ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
-    ContentDisciplineAdministrationStore, SessionTokenHash, StoreError,
+    ContentDisciplineAdministrationStore, ContentDisciplineRequest, ContentDisciplineRequestStore,
+    SessionTokenHash, StoreError,
     postgres::{PostgresContentClassificationStore, PostgresSessionStore},
 };
 use question_model::UserRole;
@@ -25,6 +26,7 @@ struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     selections: Arc<dyn ContentClassificationStore>,
     disciplines: Arc<dyn ContentDisciplineAdministrationStore>,
+    requests: Arc<dyn ContentDisciplineRequestStore>,
 }
 
 pub fn content_classification_router(
@@ -52,13 +54,39 @@ pub fn content_classification_router(
             "/api/content-classification/disciplines/{discipline_uuid}/restore",
             post(restore_discipline),
         )
-        .route("/api/content-classification/subjects", get(subjects))
-        .route("/api/content-classification/topics", get(topics))
-        .route("/api/content-classification/subtopics", get(subtopics))
+        .route(
+            "/api/content-classification/discipline-requests",
+            get(list_discipline_requests).post(request_discipline),
+        )
+        .route(
+            "/api/content-classification/discipline-requests/{request_uuid}/resolve",
+            post(resolve_discipline_request),
+        )
+        .route(
+            "/api/content-classification/discipline-requests/{request_uuid}/fulfill",
+            post(fulfill_discipline_request),
+        )
+        .route(
+            "/api/content-classification/subjects",
+            get(subjects).post(create_subject),
+        )
+        .route(
+            "/api/content-classification/subjects/{subject_uuid}/disciplines",
+            post(accept_subject_discipline),
+        )
+        .route(
+            "/api/content-classification/topics",
+            get(topics).post(create_topic),
+        )
+        .route(
+            "/api/content-classification/subtopics",
+            get(subtopics).post(create_subtopic),
+        )
         .with_state(RouteState {
             sessions,
             selections: Arc::new(store.clone()),
-            disciplines: Arc::new(store),
+            disciplines: Arc::new(store.clone()),
+            requests: Arc::new(store),
         })
 }
 
@@ -78,6 +106,29 @@ struct TopicQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SubtopicQuery {
+    topic_uuid: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SubjectCreationInput {
+    name: String,
+    discipline_uuid: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SubjectAcceptanceInput {
+    discipline_uuid: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TopicCreationInput {
+    name: String,
+    subject_uuid: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SubtopicCreationInput {
+    name: String,
     topic_uuid: String,
 }
 
@@ -137,6 +188,94 @@ async fn create_discipline(
     };
     discipline_response(
         state.disciplines.create_discipline(token, input.name).await,
+        StatusCode::CREATED,
+    )
+}
+
+async fn request_discipline(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Json(input): Json<DisciplineNameInput>,
+) -> Response {
+    // ASVS 8.3.1: the browser role check is not the authority. SQL rechecks the actor.
+    let token = match reader_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    request_response(
+        state.requests.request_discipline(token, input.name).await,
+        StatusCode::CREATED,
+    )
+}
+
+async fn list_discipline_requests(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    query: Result<Query<EmptyQuery>, QueryRejection>,
+) -> Response {
+    let token = match sysadmin_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    if query.is_err() {
+        return invalid();
+    }
+    match state.requests.list_open_discipline_requests(token).await {
+        Ok(items) => {
+            let requests = items.into_iter().map(request_json).collect::<Vec<_>>();
+            crate::auth::no_store(Json(serde_json::json!({ "requests": requests })).into_response())
+        }
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
+            concealed()
+        }
+        Err(_) => unavailable(),
+    }
+}
+
+async fn resolve_discipline_request(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(request_uuid): Path<String>,
+) -> Response {
+    let Some(request_uuid) = canonical_uuid(&request_uuid) else {
+        return concealed();
+    };
+    let token = match sysadmin_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    match state
+        .requests
+        .resolve_discipline_request(token, request_uuid)
+        .await
+    {
+        Ok(()) => crate::auth::no_store(StatusCode::NO_CONTENT.into_response()),
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
+            concealed()
+        }
+        Err(StoreError::InvalidRecord(_)) => invalid(),
+        Err(_) => unavailable(),
+    }
+}
+
+async fn fulfill_discipline_request(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(request_uuid): Path<String>,
+) -> Response {
+    // ASVS 2.2.2: fulfillment is available only through the trusted Sysadmin service boundary.
+    let Some(request_uuid) = canonical_uuid(&request_uuid) else {
+        return concealed();
+    };
+    let token = match sysadmin_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    discipline_response(
+        state
+            .requests
+            .fulfill_discipline_request(token, request_uuid)
+            .await,
         StatusCode::CREATED,
     )
 }
@@ -266,6 +405,112 @@ async fn subtopics(
     )
 }
 
+async fn create_subject(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Json(input): Json<SubjectCreationInput>,
+) -> Response {
+    let Some(discipline_uuid) = canonical_uuid(&input.discipline_uuid) else {
+        return invalid();
+    };
+    let token = match reader_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    match state
+        .selections
+        .create_subject(token, input.name, discipline_uuid)
+        .await
+    {
+        Ok(creation) => {
+            let status = if creation.needs_acceptance {
+                StatusCode::OK
+            } else {
+                StatusCode::CREATED
+            };
+            crate::auth::no_store(
+                (
+                    status,
+                    Json(serde_json::json!({
+                        "uuid": creation.uuid.to_string(),
+                        "name": creation.name,
+                        "needsAcceptance": creation.needs_acceptance,
+                    })),
+                )
+                    .into_response(),
+            )
+        }
+        Err(error) => vocabulary_error(error),
+    }
+}
+
+async fn accept_subject_discipline(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(subject_uuid): Path<String>,
+    Json(input): Json<SubjectAcceptanceInput>,
+) -> Response {
+    let Some(subject_uuid) = canonical_uuid(&subject_uuid) else {
+        return concealed();
+    };
+    let Some(discipline_uuid) = canonical_uuid(&input.discipline_uuid) else {
+        return invalid();
+    };
+    let token = match reader_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    item_mutation_response(
+        state
+            .selections
+            .accept_subject_discipline(token, subject_uuid, discipline_uuid)
+            .await,
+        StatusCode::OK,
+    )
+}
+
+async fn create_topic(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Json(input): Json<TopicCreationInput>,
+) -> Response {
+    let Some(subject_uuid) = canonical_uuid(&input.subject_uuid) else {
+        return invalid();
+    };
+    let token = match reader_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    item_mutation_response(
+        state
+            .selections
+            .create_topic(token, input.name, subject_uuid)
+            .await,
+        StatusCode::CREATED,
+    )
+}
+
+async fn create_subtopic(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Json(input): Json<SubtopicCreationInput>,
+) -> Response {
+    let Some(topic_uuid) = canonical_uuid(&input.topic_uuid) else {
+        return invalid();
+    };
+    let token = match reader_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    item_mutation_response(
+        state
+            .selections
+            .create_subtopic(token, input.name, topic_uuid)
+            .await,
+        StatusCode::CREATED,
+    )
+}
+
 fn canonical_uuid(value: &str) -> Option<Uuid> {
     // ASVS 2.2.1: accept only canonical lowercase-hyphenated UUID inputs.
     let uuid = Uuid::parse_str(value).ok()?;
@@ -308,9 +553,7 @@ async fn sysadmin_token(
         .collect::<Option<Vec<_>>>()
         .map(|values| values.join("; "));
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
-        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
     }
@@ -365,6 +608,25 @@ fn discipline_response(
         Err(_) => unavailable(),
     }
 }
+fn item_mutation_response(
+    result: Result<ContentClassificationItem, StoreError>,
+    status: StatusCode,
+) -> Response {
+    match result {
+        Ok(item) => crate::auth::no_store((status, Json(item_json(item, false))).into_response()),
+        Err(error) => vocabulary_error(error),
+    }
+}
+
+fn vocabulary_error(store_error: StoreError) -> Response {
+    match store_error {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
+        StoreError::AlreadyExists => error(StatusCode::CONFLICT, "Content vocabulary conflicts"),
+        StoreError::InvalidRecord(_) => invalid(),
+        _ => unavailable(),
+    }
+}
+
 fn item_json(item: ContentClassificationItem, is_retired: bool) -> serde_json::Value {
     serde_json::json!({
         "uuid": item.uuid.to_string(),
@@ -378,6 +640,30 @@ fn discipline_json(item: ContentDiscipline) -> serde_json::Value {
         "name": item.name,
         "isRetired": item.is_retired,
     })
+}
+fn request_json(item: ContentDisciplineRequest) -> serde_json::Value {
+    // ASVS 8.2.3/14.2.6: Account ID only. No email, display name, or other account fields.
+    serde_json::json!({
+        "uuid": item.uuid.to_string(),
+        "requestedName": item.requested_name,
+        "requestedByAccountId": item.requested_by_account_id.to_string(),
+    })
+}
+fn request_response(
+    result: Result<ContentDisciplineRequest, StoreError>,
+    status: StatusCode,
+) -> Response {
+    match result {
+        Ok(item) => crate::auth::no_store((status, Json(request_json(item))).into_response()),
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
+            concealed()
+        }
+        Err(StoreError::AlreadyExists) => {
+            error(StatusCode::CONFLICT, "Content Discipline request conflicts")
+        }
+        Err(StoreError::InvalidRecord(_)) => invalid(),
+        Err(_) => unavailable(),
+    }
 }
 fn invalid() -> Response {
     error(

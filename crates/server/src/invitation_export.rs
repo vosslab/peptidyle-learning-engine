@@ -86,9 +86,7 @@ async fn instructor(
     )
     .await
     {
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(error(
             StatusCode::SERVICE_UNAVAILABLE,

@@ -394,7 +394,8 @@ DECLARE
         'question_variation_rule',
         'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_answer',
-        'feedback_question_answer_explanation', 'feedback_class_statistics'
+        'feedback_question_answer_explanation', 'feedback_class_statistics',
+        'feedback_hints', 'feedback_worked_solutions'
     ];
 BEGIN
     IF p_course_instance_id IS NULL
@@ -443,7 +444,8 @@ BEGIN
         candidate.assessment_question_order_rule, candidate.feedback_score,
         candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
-        candidate.feedback_class_statistics, current_assessment.assessment_type
+        candidate.feedback_class_statistics, current_assessment.assessment_type,
+        candidate.feedback_hints, candidate.feedback_worked_solutions
     );
     values_changed := snapshot_id IS DISTINCT FROM current_assessment.assessment_policy_snapshot_id;
     entries_changed := ple_data.replace_assessment_entries(current_assessment.assessment_id, p_entries);
@@ -534,7 +536,8 @@ BEGIN
             current_snapshot.feedback_submitted_response,
             current_snapshot.feedback_question_answer,
             current_snapshot.feedback_question_answer_explanation,
-            current_snapshot.feedback_class_statistics, assessment_row.assessment_type
+            current_snapshot.feedback_class_statistics, assessment_row.assessment_type,
+            current_snapshot.feedback_hints, current_snapshot.feedback_worked_solutions
         );
         UPDATE ple_data.assessment AS updated SET
             assessment_policy_snapshot_id = snapshot_id,
@@ -590,7 +593,8 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
         'question_variation_rule',
         'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response',
-        'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics'];
+        'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics',
+        'feedback_hints', 'feedback_worked_solutions'];
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_assessment_id IS NULL
@@ -633,7 +637,8 @@ BEGIN
         candidate.assessment_question_order_rule, candidate.feedback_score,
         candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
-        candidate.feedback_class_statistics, current_assessment.assessment_type
+        candidate.feedback_class_statistics, current_assessment.assessment_type,
+        candidate.feedback_hints, candidate.feedback_worked_solutions
     );
     values_changed := snapshot_id IS DISTINCT FROM current_assessment.assessment_policy_snapshot_id;
     IF values_changed THEN

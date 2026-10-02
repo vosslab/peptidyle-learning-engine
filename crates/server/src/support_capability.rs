@@ -126,9 +126,7 @@ async fn sysadmin_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.user_role == UserRole::Sysadmin => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Sysadmin => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -148,9 +146,7 @@ async fn instructor_session_hash(
     .await
     {
         // ASVS 8.2.1: the procedure repeats current direct membership atomically.
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

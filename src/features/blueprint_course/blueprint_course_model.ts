@@ -9,11 +9,13 @@ import type { BlueprintAssessmentContentInput } from "../../../generated/api/Blu
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
+import type { AssessmentEntryScoringRule } from "../../../generated/api/AssessmentEntryScoringRule";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionPickerSelection } from "../question_picker";
+import { assessmentPointValueDraft } from "../../assessment_point_value";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
 export const MAX_REUSABLE_TITLE_LENGTH = 200;
@@ -102,6 +104,8 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
       question_answer_explanation:
         assessmentType === "quiz" || assessmentType === "exam" ? "after_submit" : "never",
       class_statistics: "never",
+      hints: "never",
+      worked_solutions: "never",
     },
   };
 }
@@ -246,6 +250,42 @@ export function updateReusableText(
   change: Partial<Pick<BlueprintAssessmentContentInput, "title" | "instructions">>,
 ): BlueprintAssessmentContentInput {
   return { ...content, ...change };
+}
+
+const ENTRY_SCORING_RULES = ["normal", "fullCredit", "extraCredit", "excluded"] as const;
+
+function entryScoringRule(value: string): AssessmentEntryScoringRule | undefined {
+  return ENTRY_SCORING_RULES.find((rule) => rule === value);
+}
+
+/** Updates one entry's points and scoring rule, and leaves the content unchanged when either value is not canonical. */
+export function updateReusableEntryScoring(
+  content: BlueprintAssessmentContentInput,
+  index: number,
+  change: { readonly points?: string; readonly scoringRule?: string },
+): BlueprintAssessmentContentInput {
+  const entry = content.entries[index];
+  if (entry === undefined) return content;
+  if (change.points !== undefined && assessmentPointValueDraft(change.points) === undefined)
+    return content;
+  const scoringRule =
+    change.scoringRule === undefined ? undefined : entryScoringRule(change.scoringRule);
+  if (change.scoringRule !== undefined && scoringRule === undefined) return content;
+  const entries = [...content.entries];
+  if (entry.kind === "fixed") {
+    entries[index] = {
+      ...entry,
+      points_possible: change.points ?? entry.points_possible,
+      scoring_rule: scoringRule ?? entry.scoring_rule,
+    };
+  } else {
+    entries[index] = {
+      ...entry,
+      points_per_item: change.points ?? entry.points_per_item,
+      scoring_rule: scoringRule ?? entry.scoring_rule,
+    };
+  }
+  return { ...content, entries };
 }
 
 /** Guides local authoring before the server performs authoritative validation. */

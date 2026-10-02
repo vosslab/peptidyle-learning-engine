@@ -47,79 +47,10 @@ CREATE TABLE ple_audit.support_repair_capability_event (
 
 
 SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.support_repair_capability IS 'role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.support_repair_capability IS 'role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-
-
-SET LOCAL ROLE ple_audit_owner;
-
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.support_repair_capability IS 'role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.support_repair_capability IS 'role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-
-
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.support_repair_capability IS 'role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.support_repair_capability IS 'role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
-
-SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.support_repair_capability.revoked_at IS 'NULL means this optional fact is absent.';
-

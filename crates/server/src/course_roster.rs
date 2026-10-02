@@ -10,7 +10,8 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    CourseRosterImportInput, CourseRosterStore, SessionTokenHash, StoreError,
+    CourseRosterImportInput, CourseRosterStore, InvitationMailerExport, InvitationMailerRecipient,
+    SessionTokenHash, StoreError,
     postgres::{PostgresCourseRosterStore, PostgresSessionStore},
 };
 use question_model::{CourseInstanceId, UserRole};
@@ -21,12 +22,14 @@ use crate::auth::{AuthError, resolve_session};
 struct CourseRosterRouteState {
     sessions: Arc<PostgresSessionStore>,
     roster: PostgresCourseRosterStore,
+    signup_url: Arc<str>,
 }
 
 /// Registers current direct-Instructor roster operations and Student invitation claim.
 pub fn course_roster_router(
     sessions: Arc<PostgresSessionStore>,
     roster: PostgresCourseRosterStore,
+    signup_url: Arc<str>,
 ) -> Router {
     Router::new()
         .route(
@@ -38,10 +41,22 @@ pub fn course_roster_router(
             post(claim_course_invitation),
         )
         .route(
+            "/api/course-instances/{course_instance_id}/roster/{roster_id}/signup-reset",
+            post(reset_student_signup_access),
+        )
+        .route(
+            "/api/course-instances/{course_instance_id}/roster/{roster_id}/restore",
+            post(restore_student_course_access),
+        )
+        .route(
             "/api/course-instances/{course_instance_id}/roster/{roster_id}/revoke",
             post(revoke_course_roster_entry),
         )
-        .with_state(CourseRosterRouteState { sessions, roster })
+        .with_state(CourseRosterRouteState {
+            sessions,
+            roster,
+            signup_url,
+        })
         // Fifty rows of bounded Unicode names plus emails/IDs and JSON escaping.
         .layer(DefaultBodyLimit::max(256 * 1024))
 }
@@ -56,8 +71,7 @@ async fn list_course_roster(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await
-        {
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await {
             Ok(value) => value,
             Err(response) => return *response,
         };
@@ -78,8 +92,7 @@ async fn import_course_roster(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await
-        {
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await {
             Ok(value) => value,
             Err(response) => return *response,
         };
@@ -117,6 +130,62 @@ async fn claim_course_invitation(
     }
 }
 
+async fn reset_student_signup_access(
+    State(state): State<CourseRosterRouteState>,
+    headers: HeaderMap,
+    Path((raw_course_instance_id, roster_id)): Path<(String, String)>,
+) -> Response {
+    let course = match course_instance_id(&raw_course_instance_id) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let session_hash =
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await {
+            Ok(value) => value,
+            Err(response) => return *response,
+        };
+    match state
+        .roster
+        .reset_student_signup_access(session_hash, course, roster_id)
+        .await
+    {
+        Ok(reset) => signup_download(InvitationMailerExport {
+            course_name: reset.course_name,
+            students: vec![InvitationMailerRecipient {
+                email: reset.email,
+                signup_url: state.signup_url.to_string(),
+                display_name: None,
+                roster_id: reset.roster_id,
+            }],
+        }),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn restore_student_course_access(
+    State(state): State<CourseRosterRouteState>,
+    headers: HeaderMap,
+    Path((raw_course_instance_id, roster_id)): Path<(String, String)>,
+) -> Response {
+    let course = match course_instance_id(&raw_course_instance_id) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let session_hash =
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await {
+            Ok(value) => value,
+            Err(response) => return *response,
+        };
+    match state
+        .roster
+        .restore_student_course_access(session_hash, course, roster_id)
+        .await
+    {
+        Ok(()) => crate::auth::no_store(StatusCode::NO_CONTENT.into_response()),
+        Err(error) => store_error_response(error),
+    }
+}
+
 async fn revoke_course_roster_entry(
     State(state): State<CourseRosterRouteState>,
     headers: HeaderMap,
@@ -127,8 +196,7 @@ async fn revoke_course_roster_entry(
         Err(response) => return *response,
     };
     let session_hash =
-        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await
-        {
+        match required_session_hash(&state, &headers, |role| role == UserRole::Instructor).await {
             Ok(value) => value,
             Err(response) => return *response,
         };
@@ -140,6 +208,15 @@ async fn revoke_course_roster_entry(
         Ok(()) => crate::auth::no_store(StatusCode::NO_CONTENT.into_response()),
         Err(error) => store_error_response(error),
     }
+}
+
+fn signup_download(export: InvitationMailerExport) -> Response {
+    let mut response = crate::auth::no_store(Json(export).into_response());
+    response.headers_mut().insert(
+        "content-disposition",
+        axum::http::HeaderValue::from_static("attachment; filename=ple-signup-reset.json"),
+    );
+    response
 }
 
 fn course_instance_id(value: &str) -> Result<CourseInstanceId, Box<Response>> {
@@ -203,4 +280,31 @@ fn concealed() -> Response {
 
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signup_reset_mailer_document_carries_one_fresh_code() {
+        let export = InvitationMailerExport {
+            course_name: "Biology 301".to_string(),
+            students: vec![InvitationMailerRecipient {
+                email: "student@biology.roosevelt.edu".to_string(),
+                signup_url: "https://live-demo.example/signup".to_string(),
+                display_name: None,
+                roster_id: "bio301-student".to_string(),
+            }],
+        };
+        let response = signup_download(export);
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("content-disposition")
+                .map(|value| value.as_bytes()),
+            Some(b"attachment; filename=ple-signup-reset.json".as_slice())
+        );
+    }
 }

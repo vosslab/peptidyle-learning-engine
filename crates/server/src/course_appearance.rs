@@ -27,7 +27,7 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    CourseAppearanceView, CourseInstanceId, CourseThemeUpdate, UserRole, Timestamp,
+    CourseAppearanceView, CourseInstanceId, CourseThemeUpdate, Timestamp, UserRole,
 };
 
 use crate::auth::{AuthError, resolve_session};
@@ -266,9 +266,7 @@ pub(super) async fn instructor_session_hash(
         // ASVS 4.1.1: User Role is a fast route gate.  The Store still
         // invokes current_session_account_is_course_instructor for the exact
         // Course Membership authorization boundary.
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

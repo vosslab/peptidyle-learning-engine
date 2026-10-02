@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
-    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, GradingResult,
-    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId, QuestionImageAssetId,
-    StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
-    Theme, Timestamp,
+    AssessmentAttemptId, AssessmentId, AssessmentType, ClassStatistics, CourseInstanceId,
+    GradingResult, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId,
+    QuestionImageAssetId, StudentAssessmentAttemptProgress, StudentFeedback,
+    StudentFeedbackReleaseRule, StudentResponse, Theme, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,23 @@ pub struct StudentAssessmentAttemptHistory {
     pub state: LiveAssessmentPreviousAttemptState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<LiveAssessmentAttemptScore>,
+    /// Course-local class average. Absent unless the feedback policy releases
+    /// it and the completed cohort cannot identify a Student.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class_statistics: Option<ClassStatistics>,
     pub questions: Vec<StudentAssessmentAttemptHistoryQuestion>,
+}
+
+/// Current course-local class analysis from an authorized reader.
+///
+/// This value stays off the history JSON. The delivery projection decides
+/// whether any aggregate may be disclosed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CourseClassAnalysis {
+    pub completed_student_cohort_size: u32,
+    pub incomplete_scoring: bool,
+    pub recent_rescoring: bool,
+    pub assessment_average_score: Option<f64>,
 }
 
 /// Public Course identity for a selected owned history record.
@@ -122,6 +138,12 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
     /// server applies each release gate before this browser-safe projection.
     #[serde(flatten)]
     pub feedback: StudentFeedback,
+    /// PLE-managed Hints released by the Hints disclosure timing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hints: Option<Vec<question_model::QuestionContentBlock>>,
+    /// PLE-managed Worked Solution released by its own disclosure timing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worked_solution: Option<Vec<question_model::QuestionContentBlock>>,
 }
 
 /// Closed availability marker; it conveys no answer data or renderer location.
@@ -152,6 +174,8 @@ pub struct StudentAssessmentAttemptHistoryEvidence {
     pub grading_is_current: bool,
     /// One result per ordered public position, retained below the HTTP seam.
     pub grading_results: Vec<Option<GradingResult>>,
+    /// Absent when the authorized reader has no current course aggregate.
+    pub course_class_analysis: Option<CourseClassAnalysis>,
 }
 
 /// Private completed-response evidence for one issued position.
@@ -168,6 +192,12 @@ pub struct StudentAssessmentAttemptHistoryResponseSource {
     /// Deliberately authored PLE-managed feedback for the exact issued
     /// Question Revision. It is not backend source or interaction feedback.
     pub general_feedback: Option<String>,
+    /// Optional PLE-managed Hint stored on that same Question Revision.
+    /// ASVS 8.2.3: this is not WeBWorK source text.
+    pub hint: Option<String>,
+    /// Optional PLE-managed Worked Solution stored on that same Question Revision.
+    /// ASVS 8.2.3: this is not WeBWorK source text.
+    pub worked_solution: Option<String>,
     /// Complete immutable answer-free descriptor and its binding.  Submitted
     /// responses are interpreted from this retained evidence, independently of
     /// the source object or renderer remaining available.

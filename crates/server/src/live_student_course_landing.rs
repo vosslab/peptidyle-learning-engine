@@ -32,7 +32,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
-    UserRole, Timestamp,
+    Timestamp, UserRole,
 };
 use serde::{Deserialize, Serialize};
 
@@ -358,10 +358,11 @@ async fn read_latest_feedback(State(state): State<RouteState>, headers: HeaderMa
         .get_live_student_latest_feedback_attempt(session_hash)
         .await
     {
-        Ok(assessment_attempt_id) => crate::auth::no_store(
-            Json(StudentLatestFeedback {
-                assessment_attempt_id,
-            })
+        Ok(target) => crate::auth::no_store(
+            Json(target.map(|target| StudentLatestFeedback {
+                assessment_attempt_id: target.assessment_attempt_id,
+                course_instance_id: target.course_instance_id,
+            }))
             .into_response(),
         ),
         Err(error) => store_error_response(error),
@@ -464,6 +465,7 @@ fn response_question_stats(
 ) -> StudentCourseResponseQuestionStats {
     StudentCourseResponseQuestionStats {
         published_question_revision_tuple: stats.published_question_revision_tuple,
+        question_title: stats.question_title,
         full_credit_attempt_count: stats.full_credit_attempt_count,
         partial_credit_attempt_count: stats.partial_credit_attempt_count,
         incorrect_attempt_count: stats.incorrect_attempt_count,

@@ -40,13 +40,13 @@ GRANT INSERT ON ple_audit.object_storage_check_event, ple_audit.object_cleanup_r
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL PRIVILEGES ON FUNCTION ple_private.list_instructor_account_avatar_summaries() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_private.list_instructor_account_avatar_summaries(text, text, text, integer) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.list_instructor_account_avatar_summaries() TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.list_instructor_account_avatar_summaries(text, text, text, integer) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.list_instructor_account_avatar_summaries(), ple_api.current_account_avatar(), ple_api.select_provided_account_avatar(text), ple_api.prepare_account_profile_image(uuid, uuid, bytea, bigint), ple_api.complete_account_profile_image_put(uuid), ple_api.require_account_profile_image_repair(uuid), ple_api.prepare_account_profile_image_deletion(uuid), ple_api.complete_account_profile_image_deletion(uuid), ple_api.require_account_profile_image_deletion_repair(uuid), ple_api.record_account_profile_image_cleanup_check(uuid, boolean, bytea), ple_api.finalize_account_profile_image(uuid), ple_api.resolve_current_account_profile_image(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.list_instructor_account_avatar_summaries(text, text, text, integer), ple_api.current_account_avatar(), ple_api.select_provided_account_avatar(text), ple_api.prepare_account_profile_image(uuid, uuid, bytea, bigint), ple_api.complete_account_profile_image_put(uuid), ple_api.require_account_profile_image_repair(uuid), ple_api.prepare_account_profile_image_deletion(uuid), ple_api.complete_account_profile_image_deletion(uuid), ple_api.require_account_profile_image_deletion_repair(uuid), ple_api.record_account_profile_image_cleanup_check(uuid, boolean, bytea), ple_api.finalize_account_profile_image(uuid), ple_api.resolve_current_account_profile_image(uuid) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.list_instructor_account_avatar_summaries(), ple_api.current_account_avatar(), ple_api.select_provided_account_avatar(text), ple_api.prepare_account_profile_image(uuid, uuid, bytea, bigint), ple_api.complete_account_profile_image_put(uuid), ple_api.require_account_profile_image_repair(uuid), ple_api.prepare_account_profile_image_deletion(uuid), ple_api.complete_account_profile_image_deletion(uuid), ple_api.require_account_profile_image_deletion_repair(uuid), ple_api.record_account_profile_image_cleanup_check(uuid, boolean, bytea), ple_api.finalize_account_profile_image(uuid), ple_api.resolve_current_account_profile_image(uuid) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.list_instructor_account_avatar_summaries(text, text, text, integer), ple_api.current_account_avatar(), ple_api.select_provided_account_avatar(text), ple_api.prepare_account_profile_image(uuid, uuid, bytea, bigint), ple_api.complete_account_profile_image_put(uuid), ple_api.require_account_profile_image_repair(uuid), ple_api.prepare_account_profile_image_deletion(uuid), ple_api.complete_account_profile_image_deletion(uuid), ple_api.require_account_profile_image_deletion_repair(uuid), ple_api.record_account_profile_image_cleanup_check(uuid, boolean, bytea), ple_api.finalize_account_profile_image(uuid), ple_api.resolve_current_account_profile_image(uuid) TO ple_app;
 

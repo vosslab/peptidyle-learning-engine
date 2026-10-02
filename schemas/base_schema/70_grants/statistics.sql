@@ -10,10 +10,12 @@ GRANT SELECT ON TABLE ple_data.question_revision_statistics,
     ple_data.question_pool_statistics,
     ple_data.question_pool_member_statistics TO ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_data.increment_question_revision_statistics(text, integer, numeric, date)
+REVOKE ALL ON FUNCTION ple_data.increment_question_revision_statistics(
+    text, integer, numeric, date, bigint, bigint, bigint, bigint, bigint, bigint
+)
     FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.increment_question_pool_issue_statistics(text, text, date)
+REVOKE ALL ON FUNCTION ple_data.increment_question_pool_issue_statistics(text, text, date, bigint)
     FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_data.drop_question_pool_member_statistics_when_unselected()
@@ -36,10 +38,12 @@ REVOKE ALL ON FUNCTION ple_private.capture_issued_question_statistics_observatio
 
 SET LOCAL ROLE ple_data_owner;
 
-GRANT EXECUTE ON FUNCTION ple_data.increment_question_revision_statistics(text, integer, numeric, date)
+GRANT EXECUTE ON FUNCTION ple_data.increment_question_revision_statistics(
+    text, integer, numeric, date, bigint, bigint, bigint, bigint, bigint, bigint
+)
     TO ple_private_owner;
 
-GRANT EXECUTE ON FUNCTION ple_data.increment_question_pool_issue_statistics(text, text, date)
+GRANT EXECUTE ON FUNCTION ple_data.increment_question_pool_issue_statistics(text, text, date, bigint)
     TO ple_private_owner;
 
 REVOKE ALL ON FUNCTION ple_data.question_usage_statistics_rollups(text[]) FROM PUBLIC;
@@ -51,6 +55,11 @@ GRANT EXECUTE ON FUNCTION ple_data.question_revision_usage_statistics(text) TO p
 GRANT EXECUTE ON FUNCTION ple_data.question_pool_usage_statistics(text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
+
+REVOKE ALL ON FUNCTION ple_api.count_statistics_contributors(uuid[], text[])
+    FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.count_statistics_contributors(uuid[], text[])
+    TO ple_private_owner;
 
 REVOKE ALL ON FUNCTION ple_api.read_question_library_usage_statistics(text[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.read_question_library_revision_usage_statistics(text)

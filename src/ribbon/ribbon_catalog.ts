@@ -38,8 +38,6 @@ export type FutureRibbonDestinationId =
   | "myActiveCourses"
   | "myInactiveCourses"
   | "searchPublicBlueprintCourses"
-  | "myQuestions"
-  | "starredQuestions"
   | "watchedQuestions"
   | "teachingOperations"
   | "gradeSettings";
@@ -263,7 +261,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "myQuestions",
     label: "My Questions",
-    destination: { kind: "future", futureId: "myQuestions" },
+    destination: { kind: "route", routeId: "myQuestions" },
     requiredParams: [],
     area: "instructorQuestions",
     role: "primary",
@@ -285,7 +283,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "starred",
     label: "Starred",
-    destination: { kind: "future", futureId: "starredQuestions" },
+    destination: { kind: "route", routeId: "starredQuestions" },
     requiredParams: [],
     area: "instructorQuestions",
     role: "supporting",
@@ -451,7 +449,7 @@ export const RIBBON_TASK_CATALOG = [
     id: "activeAttempt",
     label: "Active Attempt",
     destination: { kind: "route", routeId: "assessmentAttempt" },
-    requiredParams: ["assessmentAttemptId"],
+    requiredParams: ["courseInstanceId"],
     area: "studentCoursework",
     role: "supporting",
     priority: "normal",
@@ -495,7 +493,7 @@ export const RIBBON_TASK_CATALOG = [
     id: "studentLatestFeedback",
     label: "Latest Feedback",
     destination: { kind: "route", routeId: "assessmentAttemptSummary" },
-    requiredParams: ["assessmentAttemptId"],
+    requiredParams: ["courseInstanceId"],
     area: "studentGrades",
     role: "supporting",
     priority: "normal",

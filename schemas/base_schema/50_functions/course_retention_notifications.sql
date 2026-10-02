@@ -86,7 +86,7 @@ BEGIN
                SELECT 1
                  FROM ple_data.course_retention_due_actions(p_evaluated_at) AS due
                 WHERE due.course_instance_id = receipt.course_instance_id
-                  AND due.due_action::ple_data.retention_action_kind = receipt.action_kind
+                  AND due.due_action = receipt.action_kind::text
                   AND due.due_at = receipt.due_at
            )
            AND EXISTS (

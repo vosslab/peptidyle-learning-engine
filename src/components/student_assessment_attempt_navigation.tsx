@@ -106,7 +106,7 @@ export function StudentAssessmentAttemptNavigation(
         navigation = element;
       }}
       class="student-assessment-question-navigation"
-      aria-label="Assessment questions"
+      aria-label="Coursework questions"
     >
       <Show
         when={props.positions.length > 0}

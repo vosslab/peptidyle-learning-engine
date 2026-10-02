@@ -19,6 +19,13 @@ export type LibraryWatchNotification =
       readonly activityId: null;
     })
   | (LibraryWatchNotificationBase & {
+      readonly eventKind: "membersChanged";
+      /** The Question Pool Edit Number after the member-list save. */
+      readonly revisionNumber: number;
+      readonly forkedPublicId: null;
+      readonly activityId: null;
+    })
+  | (LibraryWatchNotificationBase & {
       readonly eventKind: "fork";
       readonly revisionNumber: number;
       readonly forkedPublicId: PublishedQuestionId;

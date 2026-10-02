@@ -14,6 +14,7 @@ import { OrderingResponse } from "./ordering";
 import { ShortTextResponse } from "./short_text";
 import {
   ResponseControlModeProvider,
+  ResponsePersistenceProvider,
   type QuestionResponseControlProps,
   type QuestionResponseControlBaseProps,
 } from "./common";
@@ -171,8 +172,13 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
 export function QuestionResponseControl(props: QuestionResponseControlProps): JSX.Element {
   return (
     <ResponseControlModeProvider mode={props.mode ?? "save"}>
-      <style>{QUESTION_RESPONSE_CONTROL_STYLES}</style>
-      <QuestionResponseControlBody {...props} />
+      <ResponsePersistenceProvider
+        notice={props.persistenceNotice}
+        detail={props.persistenceDetail}
+      >
+        <style>{QUESTION_RESPONSE_CONTROL_STYLES}</style>
+        <QuestionResponseControlBody {...props} />
+      </ResponsePersistenceProvider>
     </ResponseControlModeProvider>
   );
 }

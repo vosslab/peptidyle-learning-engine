@@ -1,6 +1,7 @@
 //! Strict source shapes for all supported PLE Question JSON Question Types.
 
 mod author_script;
+mod recorded_javascript;
 #[path = "source_compile.rs"]
 mod source_compile;
 
@@ -68,10 +69,8 @@ pub(super) struct PleQuestionJsonDocumentBody {
 
 /// One remote resource declared by a native Question author.
 ///
-/// The closed kind set makes links, images, scripts, stylesheets, and
-/// miscellaneous resources reviewable without making a new execution or
-/// upload surface. Later browser-policy steps decide which recorded entries
-/// may load and how they are served.
+/// The closed kind set records links, images, stylesheets, and miscellaneous
+/// resources without making a remote script execution surface.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PleQuestionJsonExternalResource {
@@ -83,7 +82,6 @@ struct PleQuestionJsonExternalResource {
 enum PleQuestionJsonExternalResourceKind {
     Link,
     Image,
-    Script,
     Stylesheet,
     Other,
 }
@@ -354,9 +352,9 @@ impl PleQuestionJsonDocumentBody {
             } => validate_choice_question(choices, correct_choices, false),
             PleQuestionJsonResponse::FillIn {
                 answers,
+                match_mode,
                 max_length,
-                ..
-            } => validate_answers(answers, *max_length),
+            } => validate_answers(answers, (*match_mode).into(), *max_length),
             PleQuestionJsonResponse::MultiFillIn { blanks } => validate_blanks(blanks),
             PleQuestionJsonResponse::Numeric {
                 answer,

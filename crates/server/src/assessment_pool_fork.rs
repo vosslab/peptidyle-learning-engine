@@ -19,9 +19,9 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
-    AssessmentPointValue, CourseInstanceId, UserRole, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
-    QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber,
+    AssessmentPointValue, CourseInstanceId, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectedQuestionOrder,
+    QuestionRevisionNumber, UserRole,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -76,6 +76,7 @@ pub(crate) fn assessment_pool_fork_router_with_store(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ImportForkRequest {
     source_question_pool_id: String,
+    expected_source_question_pool_edit_number: QuestionPoolEditNumber,
     authored_position: u32,
     selection_count: NonZeroU32,
     points_per_item: AssessmentPointValue,
@@ -152,6 +153,8 @@ async fn import_fork(
             expected_assessment_edit_number,
             fork_question_pool_id,
             source_question_pool_id: source_question_pool_id.clone(),
+            expected_source_question_pool_edit_number: request
+                .expected_source_question_pool_edit_number,
             authored_position: request.authored_position,
             selection_count: request.selection_count,
             points_per_item: request.points_per_item,

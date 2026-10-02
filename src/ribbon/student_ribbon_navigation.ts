@@ -6,11 +6,14 @@ import type { OrdinaryBrowserApiClient } from "../api/client";
 export interface StudentRibbonNavigation {
   readonly studentCourses: ReadonlyArray<Pick<LiveStudentCourseLandingSummary, "id" | "shortName">>;
   readonly activeAttemptId?: string;
+  readonly activeAttemptCourseInstanceId?: string;
   readonly latestFeedbackAttemptId?: string;
+  readonly latestFeedbackCourseInstanceId?: string;
 }
 
 interface ActiveAttemptCandidate {
   readonly id: string;
+  readonly courseInstanceId: string;
   readonly startedAt: number;
   readonly latestActivityAt: number;
 }
@@ -22,28 +25,34 @@ export async function loadStudentRibbonNavigation(
   const courses = await client.listLiveStudentCourses();
   const [activeAttempts, latestFeedbackResult] = await Promise.all([
     Promise.allSettled(
-      courses.map((course) => client.getStudentCourseActiveAttempt(course.id)),
+      courses.map(async (course) => ({
+        courseInstanceId: course.id,
+        attempt: await client.getStudentCourseActiveAttempt(course.id),
+      })),
     ).then((results) =>
       results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
     ),
     client.getStudentLatestFeedback().catch(() => undefined),
   ]);
-  const candidates = activeAttempts.flatMap((attempt): Array<ActiveAttemptCandidate> => {
-    if (
-      attempt.assessmentAttemptId === null ||
-      attempt.startedAt === null ||
-      attempt.latestActivityAt === null
-    ) {
-      return [];
-    }
-    return [
-      {
-        id: attempt.assessmentAttemptId,
-        startedAt: attempt.startedAt,
-        latestActivityAt: attempt.latestActivityAt,
-      },
-    ];
-  });
+  const candidates = activeAttempts.flatMap(
+    ({ attempt, courseInstanceId }): Array<ActiveAttemptCandidate> => {
+      if (
+        attempt.assessmentAttemptId === null ||
+        attempt.startedAt === null ||
+        attempt.latestActivityAt === null
+      ) {
+        return [];
+      }
+      return [
+        {
+          id: attempt.assessmentAttemptId,
+          courseInstanceId,
+          startedAt: attempt.startedAt,
+          latestActivityAt: attempt.latestActivityAt,
+        },
+      ];
+    },
+  );
   candidates.sort(
     (left, right) =>
       right.latestActivityAt - left.latestActivityAt ||
@@ -52,9 +61,17 @@ export async function loadStudentRibbonNavigation(
   );
   return {
     studentCourses: courses.map(({ id, shortName }) => ({ id, shortName })),
-    ...(candidates[0] === undefined ? {} : { activeAttemptId: candidates[0].id }),
-    ...(latestFeedbackResult === undefined || latestFeedbackResult.assessmentAttemptId === null
+    ...(candidates[0] === undefined
       ? {}
-      : { latestFeedbackAttemptId: latestFeedbackResult.assessmentAttemptId }),
+      : {
+          activeAttemptId: candidates[0].id,
+          activeAttemptCourseInstanceId: candidates[0].courseInstanceId,
+        }),
+    ...(latestFeedbackResult === null || latestFeedbackResult === undefined
+      ? {}
+      : {
+          latestFeedbackAttemptId: latestFeedbackResult.assessmentAttemptId,
+          latestFeedbackCourseInstanceId: latestFeedbackResult.courseInstanceId,
+        }),
   };
 }

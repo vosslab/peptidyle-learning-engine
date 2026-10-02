@@ -27,6 +27,7 @@ import {
 import { dispatchProfileAvatarChanged } from "../features/profile_avatar/ribbon_account_avatar";
 import { profileRoleMayManageImage } from "../features/profile_avatar/profile_avatar_role";
 import { StaffAvatarSettings } from "../features/profile_avatar/staff_avatar_settings";
+import { ProfileAccountId } from "./profile_account_id";
 
 /**
  * The common Profile destination identifies the signed-in Account and owns
@@ -139,6 +140,9 @@ export function ProfilePage(): JSX.Element {
       title="Your profile"
       lede="This page shows settings for the Account you are signed in to."
     >
+      <Show when={authenticatedAccountId()} keyed>
+        {(accountId) => <ProfileAccountId accountId={accountId} />}
+      </Show>
       <section aria-labelledby="profile-time-zone-heading">
         <h2 id="profile-time-zone-heading">Time zone</h2>
         <Switch>

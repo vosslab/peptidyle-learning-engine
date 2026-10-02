@@ -125,7 +125,7 @@ short-reference concepts are implementation drift pending audit or removal, not 
 
 ### A1-02
 
-- HG bullet: "Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details."
+- HG bullet: "Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](../../NAMING_CONVENTIONS.md) for details."
 - Current evidence and mismatch: `tests/test_test_naming_conventions.py` checks test names only;
   no repository-wide source naming audit establishes the stated rule.
 - Owning source area: repository development-conformance tooling in `devel/`.
@@ -185,7 +185,7 @@ short-reference concepts are implementation drift pending audit or removal, not 
 
 ### A1-07
 
-- HG bullet: "The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md)."
+- HG bullet: "The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md)."
 - Current evidence and mismatch: priority is a human project-management decision and cannot be
   verified as running-system behavior.
 - Owning source area: Human Guidance audit classification.

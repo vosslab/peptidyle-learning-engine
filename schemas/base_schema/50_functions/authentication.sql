@@ -13,6 +13,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Authentication Email requires a Student or Instructor Account';
     END IF;
+    IF v_role = 'student'
+       AND NEW.normalized_email !~ '^[^@[:space:]]+@([a-z0-9-]+\.)+edu$' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Student Authentication Email must be institutional';
+    END IF;
     IF TG_OP = 'UPDATE' AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR v_role <> 'instructor') THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Student Authentication Email is immutable';
@@ -147,6 +152,7 @@ AS $$
         RETURNING target_account_id
     ) SELECT account.account_id, account.user_role FROM consumed
       JOIN ple_private.account AS account ON account.account_id = consumed.target_account_id
+       AND account.user_role IN ('student', 'instructor')
 $$;
 
 CREATE FUNCTION ple_private.consume_passkey_authentication(
@@ -169,6 +175,7 @@ AS $$
           AND pg_catalog.octet_length(p_credential_id_hash) = 32 RETURNING account_id
     ) SELECT account.account_id, account.user_role FROM used
       JOIN ple_private.account AS account ON account.account_id = used.account_id
+       AND account.user_role IN ('student', 'instructor')
 $$;
 
 CREATE FUNCTION ple_private.provision_sysadmin_totp_credential(

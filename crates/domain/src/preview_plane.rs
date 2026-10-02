@@ -561,6 +561,8 @@ mod tests {
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,
+            hints: StudentFeedbackReleaseTiming::Never,
+            worked_solutions: StudentFeedbackReleaseTiming::Never,
         };
         let flags = |score_shown, question_answer_shown| PreviewDisclosureFlags {
             score_shown,

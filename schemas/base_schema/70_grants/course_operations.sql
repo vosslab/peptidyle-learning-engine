@@ -23,7 +23,9 @@ REVOKE ALL ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course_th
     ple_api.load_invitation_export_course(text),
     ple_api.import_course_roster(text, text[], text[], text[], text[]),
     ple_api.claim_course_invitation(uuid, uuid, uuid, text),
-    ple_api.revoke_course_roster_entry(uuid, text, text) FROM PUBLIC;
+    ple_api.revoke_course_roster_entry(uuid, text, text),
+    ple_api.reset_student_signup_access(text, text),
+    ple_api.restore_student_course_access(uuid, text, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course_theme(text, text),
     ple_api.resolve_course_navigation(text), ple_api.read_course_summary(text),
@@ -38,4 +40,11 @@ GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course
     ple_api.load_invitation_export_course(text),
     ple_api.import_course_roster(text, text[], text[], text[], text[]),
     ple_api.claim_course_invitation(uuid, uuid, uuid, text),
-    ple_api.revoke_course_roster_entry(uuid, text, text) TO ple_app;
+    ple_api.revoke_course_roster_entry(uuid, text, text),
+    ple_api.reset_student_signup_access(text, text),
+    ple_api.restore_student_course_access(uuid, text, text) TO ple_app;
+
+REVOKE ALL ON FUNCTION ple_api.list_installation_courses(text, text, text, integer),
+    ple_api.load_installation_course(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.list_installation_courses(text, text, text, integer),
+    ple_api.load_installation_course(text) TO ple_app;

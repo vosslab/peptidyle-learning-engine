@@ -18,6 +18,7 @@ const listResponse = {
     },
   ],
   displayTimeZone: "America/New_York",
+  nextCursor: null,
 };
 
 test("Sysadmin list carries only the viewer display zone outside closed target summaries", () => {

@@ -103,6 +103,10 @@ mod tests {
                 Vec::new()
             })
         }
+
+        fn unused_creation(&self) -> StoreError {
+            StoreError::Unavailable("vocabulary creation is not used by this contract".into())
+        }
     }
 
     #[async_trait::async_trait]
@@ -138,6 +142,38 @@ mod tests {
             parent: Uuid,
         ) -> Result<Vec<learning_data_access::ContentClassificationItem>, StoreError> {
             self.items(3, parent, 4)
+        }
+        async fn create_subject(
+            &self,
+            _: SessionTokenHash,
+            _: String,
+            _: Uuid,
+        ) -> Result<learning_data_access::ContentSubjectCreation, StoreError> {
+            Err(self.unused_creation())
+        }
+        async fn accept_subject_discipline(
+            &self,
+            _: SessionTokenHash,
+            _: Uuid,
+            _: Uuid,
+        ) -> Result<learning_data_access::ContentClassificationItem, StoreError> {
+            Err(self.unused_creation())
+        }
+        async fn create_topic(
+            &self,
+            _: SessionTokenHash,
+            _: String,
+            _: Uuid,
+        ) -> Result<learning_data_access::ContentClassificationItem, StoreError> {
+            Err(self.unused_creation())
+        }
+        async fn create_subtopic(
+            &self,
+            _: SessionTokenHash,
+            _: String,
+            _: Uuid,
+        ) -> Result<learning_data_access::ContentClassificationItem, StoreError> {
+            Err(self.unused_creation())
         }
     }
 

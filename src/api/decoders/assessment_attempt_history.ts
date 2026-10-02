@@ -1,5 +1,6 @@
 // Strict decoder for the selected Student Assessment Attempt history route.
 
+import type { ClassStatistics } from "../../../generated/api/ClassStatistics";
 import type { StudentAssessmentAttemptHistory } from "../assessment_attempt_history";
 import {
   DecodeError,
@@ -24,6 +25,7 @@ import { decodeStringEnum } from "../decoder";
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { decodeQuestionContentBlock } from "./question_response_format";
 import { decodeStudentFeedback } from "./question_delivery";
+import { decodeClassStatistics } from "./assessment_attempt";
 
 function state(value: unknown, path: string): "submitted" | "closed" {
   const decoded = decodeString(value, path);
@@ -45,6 +47,7 @@ export function decodeStudentAssessmentAttemptHistory(
     "assessment",
     "state",
     "score",
+    "classStatistics",
     "questions",
   ]);
   const assessmentAttemptValue = field(record, "assessmentAttemptId", path);
@@ -58,6 +61,10 @@ export function decodeStudentAssessmentAttemptHistory(
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
   requireOnlyFields(course, `${path}.course`, ["id", "shortName", "longName", "theme"]);
   const score = optionalNestedScore(record.score, `${path}.score`);
+  const classStatistics = disclosedClassStatistics(
+    record.classStatistics,
+    `${path}.classStatistics`,
+  );
   const decoded = {
     assessmentAttemptId,
     attemptNumber: decodePositiveInteger(
@@ -97,6 +104,7 @@ export function decodeStudentAssessmentAttemptHistory(
     },
     state: state(field(record, "state", path), `${path}.state`),
     ...(score === undefined ? {} : { score }),
+    ...(classStatistics === undefined ? {} : { classStatistics }),
     questions: decodeArray(
       field(record, "questions", path),
       `${path}.questions`,
@@ -117,6 +125,8 @@ export function decodeStudentAssessmentAttemptHistory(
           "generalFeedback",
           "questionAnswer",
           "questionAnswerExplanation",
+          "hints",
+          "workedSolution",
         ]);
         optionalScore(item, questionPath);
         const feedback = decodeStudentFeedback(
@@ -163,6 +173,22 @@ export function decodeStudentAssessmentAttemptHistory(
             `${questionPath}.responseState`,
           ),
           ...feedback,
+          ...(item.hints === undefined
+            ? {}
+            : {
+                hints: decodeArray(item.hints, `${questionPath}.hints`, (block, blockPath) =>
+                  decodeQuestionContentBlock(block, blockPath, true),
+                ),
+              }),
+          ...(item.workedSolution === undefined
+            ? {}
+            : {
+                workedSolution: decodeArray(
+                  item.workedSolution,
+                  `${questionPath}.workedSolution`,
+                  (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
+                ),
+              }),
           ...(backendAnswerReview === undefined ? {} : { backendAnswerReview }),
           ...(response === undefined
             ? {}
@@ -176,6 +202,18 @@ export function decodeStudentAssessmentAttemptHistory(
     ),
   };
   return decoded;
+}
+
+function disclosedClassStatistics(
+  value: unknown,
+  path: string,
+): Extract<ClassStatistics, { state: "available" }> | undefined {
+  if (value === undefined) return undefined;
+  const classStatistics = decodeClassStatistics(value, path);
+  if (classStatistics.state !== "available") {
+    throw new DecodeError(path, "an omitted course class average");
+  }
+  return classStatistics;
 }
 
 function optionalNestedScore(

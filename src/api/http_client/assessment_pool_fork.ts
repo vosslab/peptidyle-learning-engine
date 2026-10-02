@@ -116,6 +116,12 @@ function importBody(input: ImportAssessmentQuestionPoolForkInput): object {
   if (sourceQuestionPoolId === null || sourceQuestionPoolId !== input.sourceQuestionPoolId) {
     throw new ApiProtocolError("Question Pool ID must be canonical");
   }
+  if (
+    !Number.isSafeInteger(input.expectedSourceQuestionPoolEditNumber) ||
+    input.expectedSourceQuestionPoolEditNumber < 1
+  ) {
+    throw new ApiProtocolError("Expected source Question Pool Edit Number must be positive");
+  }
   if (!Number.isSafeInteger(input.authoredPosition) || input.authoredPosition < 0) {
     throw new ApiProtocolError("Assessment Pool authored position must be nonnegative");
   }

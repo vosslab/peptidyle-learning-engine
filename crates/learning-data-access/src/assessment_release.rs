@@ -219,6 +219,8 @@ impl SaveLiveAssessmentInput {
 pub struct AuthoredAssessmentQuestion {
     /// Exact Question Revision retained by this current Assessment entry.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    /// Current lineage title an Instructor uses to recognize this Question.
+    pub question_title: String,
     /// Answer-free Question description for Instructor review and Assessment Preview.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the retained pin, when assigned.

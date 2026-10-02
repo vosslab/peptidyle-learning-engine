@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { build } from "esbuild";
+import { solidPlugin } from "esbuild-plugin-solid";
+
 import { decodeLiveAssessmentAccess } from "../src/api/decoders/assessment_attempt_issuance.ts";
 import {
   decodeStudentAssessmentAttemptContext,
@@ -11,12 +14,157 @@ import {
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 
+async function loadAuthorContentFrameRenderer() {
+  const result = await build({
+    bundle: true,
+    stdin: {
+      contents: `
+        import { createComponent } from "solid-js";
+        import { renderToString } from "solid-js/web";
+        import { AuthorContentFrame } from "./src/components/author_content_frame.tsx";
+        import { ApplicationApiProvider } from "./src/api/application_api.tsx";
+        export function renderAuthorContentFrame(applicationApi, assessmentAttemptId, position) {
+          return renderToString(() =>
+            createComponent(ApplicationApiProvider, {
+              applicationApi,
+              get children() {
+                return createComponent(AuthorContentFrame, {
+                  assessmentAttemptId,
+                  position,
+                });
+              },
+            }),
+          );
+        }
+      `,
+      resolveDir: new URL("..", import.meta.url).pathname,
+      sourcefile: "author_content_frame_ssr.js",
+      loader: "js",
+    },
+    format: "esm",
+    outfile: "author_content_frame_ssr.js",
+    platform: "node",
+    plugins: [
+      {
+        name: "css-stub",
+        setup(pluginBuild) {
+          pluginBuild.onResolve({ filter: /\.css$/ }, (args) => ({
+            path: args.path,
+            namespace: "css-stub",
+          }));
+          pluginBuild.onLoad({ filter: /.*/, namespace: "css-stub" }, () => ({
+            contents: "export default {};",
+            loader: "js",
+          }));
+        },
+      },
+      solidPlugin({ solid: { generate: "ssr", hydratable: false } }),
+    ],
+    write: false,
+  });
+  const javascript = result.outputFiles.find((output) => output.path.endsWith(".js"));
+  if (javascript === undefined) {
+    throw new Error("Author content frame SSR bundle is missing JavaScript.");
+  }
+  const encoded = Buffer.from(javascript.contents).toString("base64");
+  const module = await import(`data:text/javascript;base64,${encoded}`);
+  if (typeof module.renderAuthorContentFrame !== "function") {
+    throw new Error("Author content frame SSR bundle has no renderer.");
+  }
+  return module.renderAuthorContentFrame;
+}
+
 function noStoreJson(value, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
     headers: { "cache-control": "no-store", "content-type": "application/json" },
   });
 }
+
+test("Author-supplied JavaScript is isolated from PLE application state, credentials, and privileged browser context", async () => {
+  const renderAuthorContentFrame = await loadAuthorContentFrameRenderer();
+  const credential = "ple-session-credential";
+  const client = createHttpApiClient({
+    basePath: "",
+    fetch: () => assert.fail("the author frame must not fetch application state"),
+  });
+  const html = renderAuthorContentFrame(
+    { client, credential },
+    "00000000-0000-0000-0000-00000000000c",
+    2,
+  );
+  assert.match(html, /sandbox="allow-scripts"/);
+  assert.equal(html.includes("allow-same-origin"), false);
+  assert.equal(html.includes("allow-forms"), false);
+  assert.equal(html.includes("allow-popups"), false);
+  assert.match(html, /referrerpolicy="no-referrer"/);
+  assert.match(html, / referrerpolicy="no-referrer" allow>/);
+  assert.match(
+    html,
+    /src="\/api\/assessment-attempts\/00000000-0000-0000-0000-00000000000c\/questions\/2\/author-content-document"/,
+  );
+  assert.equal(html.includes(credential), false);
+  assert.equal(html.includes("localStorage"), false);
+  assert.equal(html.includes("document.cookie"), false);
+});
+
+test("Author-supplied JavaScript is limited to client-side rendering and interaction", async () => {
+  const renderAuthorContentFrame = await loadAuthorContentFrameRenderer();
+  const client = createHttpApiClient({
+    basePath: "",
+    fetch: () => assert.fail("the author frame must not call an application API"),
+  });
+  const html = renderAuthorContentFrame(
+    { client, credential: "ple-session-credential" },
+    "00000000-0000-0000-0000-00000000000c",
+    2,
+  );
+  const sandbox = html.match(/sandbox="([^"]*)"/);
+  assert.equal(sandbox?.[1], "allow-scripts");
+  for (const token of [
+    "allow-same-origin",
+    "allow-forms",
+    "allow-popups",
+    "allow-top-navigation",
+    "allow-downloads",
+    "allow-modals",
+  ]) {
+    assert.equal(html.includes(token), false, token);
+  }
+  assert.match(html, / referrerpolicy="no-referrer" allow>/);
+});
+
+test("Author-supplied JavaScript operates independently of PLE application APIs and privileged state", async () => {
+  const renderAuthorContentFrame = await loadAuthorContentFrameRenderer();
+  const credential = "ple-session-credential";
+  const client = new Proxy(
+    {
+      studentAuthorContentDocumentUrl(assessmentAttemptId, position) {
+        return `/api/assessment-attempts/${assessmentAttemptId}/questions/${position}/author-content-document`;
+      },
+    },
+    {
+      get(target, property, receiver) {
+        if (property === "studentAuthorContentDocumentUrl" || typeof property === "symbol") {
+          return Reflect.get(target, property, receiver);
+        }
+        assert.fail(`the author frame read application API ${String(property)}`);
+      },
+    },
+  );
+  const html = renderAuthorContentFrame(
+    { client, credential },
+    "00000000-0000-0000-0000-00000000000c",
+    2,
+  );
+  assert.match(
+    html,
+    /src="\/api\/assessment-attempts\/00000000-0000-0000-0000-00000000000c\/questions\/2\/author-content-document"/,
+  );
+  assert.equal(html.includes(credential), false);
+  assert.equal(html.includes("questionSearch"), false);
+  assert.equal(html.includes("assessmentAttemptScope"), false);
+});
 
 test("author-content document URLs select only canonical Attempts and positive positions", () => {
   const client = createHttpApiClient({
@@ -145,7 +293,7 @@ test("Assessment Access carries only its authorized answer-free facts and Attemp
     decision: {
       ...startable.decision,
       startDecision: "closed",
-      publicReason: "This Assessment is closed for new work.",
+      publicReason: "This Coursework is closed for new work.",
     },
     questionCount: 0,
     pointsPossible: 0,

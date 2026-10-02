@@ -63,5 +63,10 @@ pub(super) fn feedback_rules(
             row.try_get("feedback_class_statistics")
                 .map_err(map_sqlx_error)?,
         )?,
+        hints: feedback_timing(row.try_get("feedback_hints").map_err(map_sqlx_error)?)?,
+        worked_solutions: feedback_timing(
+            row.try_get("feedback_worked_solutions")
+                .map_err(map_sqlx_error)?,
+        )?,
     })
 }

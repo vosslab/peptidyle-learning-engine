@@ -74,6 +74,8 @@ import type { QuestionForkClient } from "./question_fork";
 import type { AssessmentStudentViewClient } from "./assessment_student_view";
 import type { AssessmentTemplateClient } from "./assessment_template";
 import type { QuestionBulkMetadataClient } from "./question_bulk_metadata";
+import type { QuestionPoolSearchMetadataClient } from "./question_pool_search_metadata";
+import type { QuestionPoolSupportClient } from "./question_pool_support";
 import type {
   ContentClassificationClient,
   ContentDisciplineAdministrationClient,
@@ -115,6 +117,8 @@ export interface ApiClient
     AssessmentStudentViewClient,
     AssessmentTemplateClient,
     QuestionBulkMetadataClient,
+    QuestionPoolSearchMetadataClient,
+    QuestionPoolSupportClient,
     ContentClassificationClient,
     ContentDisciplineAdministrationClient,
     CourseStudentWorkRecoveryClient {

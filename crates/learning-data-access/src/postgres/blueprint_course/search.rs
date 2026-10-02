@@ -25,6 +25,7 @@ impl PostgresBlueprintCourseStore {
             .transpose()?;
         if request.query.chars().count() > 256
             || request.query.chars().any(char::is_control)
+            || !acceptable_blueprint_tag(&request.tag)
             || (request.public_only && request.include_archived)
             || after
                 .as_ref()
@@ -37,7 +38,7 @@ impl PostgresBlueprintCourseStore {
             .await?;
         // ASVS 1.2.4: bind literal names, visibility, public keys and bounded limit.
         let rows =
-            sqlx::query("SELECT * FROM ple_api.list_blueprint_courses($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
+            sqlx::query("SELECT * FROM ple_api.list_blueprint_courses($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)")
                 .bind(request.include_archived)
                 .bind(request.public_only)
                 .bind(request.promoted_only)
@@ -52,6 +53,7 @@ impl PostgresBlueprintCourseStore {
                 .bind(request.topic_uuid)
                 .bind(request.subtopic_uuid)
                 .bind(request.cross_discipline)
+                .bind(&request.tag)
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -75,6 +77,10 @@ impl PostgresBlueprintCourseStore {
             next_cursor,
         })
     }
+}
+
+fn acceptable_blueprint_tag(tag: &str) -> bool {
+    tag.chars().count() <= 120 && !tag.chars().any(char::is_control) && tag == tag.trim_matches(' ')
 }
 
 fn valid_cursor(key: &BlueprintCourseListCursorPosition, sort: BlueprintCourseListSort) -> bool {

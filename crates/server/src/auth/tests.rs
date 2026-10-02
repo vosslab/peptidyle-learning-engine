@@ -8,9 +8,10 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use learning_data_access::{
-    SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
+    PasswordlessLoginMethod, SessionId, SessionLifetime, SessionRecord, SessionStore,
+    SessionTokenHash, StoreError,
 };
-use question_model::{AccountId, UserRole, Timestamp};
+use question_model::{AccountId, Timestamp, UserRole};
 use tower::ServiceExt;
 
 fn account() -> AccountId {
@@ -106,6 +107,42 @@ async fn session_issuer_returns_the_user_role_derived_by_the_session_store() {
     .expect("session should issue");
 
     assert_eq!(issued.record.user_role, UserRole::Instructor);
+}
+
+#[tokio::test]
+async fn passwordless_login_issues_student_and_instructor_sessions_only() {
+    let store = MemorySessionStore::default();
+    let student = issue_passwordless_login(
+        &store,
+        account(),
+        UserRole::Student,
+        PasswordlessLoginMethod::EmailCode,
+        config(CookieTransport::FirstPartyHttps),
+    )
+    .await
+    .expect("student login");
+    assert!(student.is_some());
+    let instructor = issue_passwordless_login(
+        &store,
+        account(),
+        UserRole::Instructor,
+        PasswordlessLoginMethod::Passkey,
+        config(CookieTransport::FirstPartyHttps),
+    )
+    .await
+    .expect("instructor login");
+    assert!(instructor.is_some());
+    let sysadmin = issue_passwordless_login(
+        &store,
+        account(),
+        UserRole::Sysadmin,
+        PasswordlessLoginMethod::EmailCode,
+        config(CookieTransport::FirstPartyHttps),
+    )
+    .await
+    .expect("sysadmin refusal");
+    assert!(sysadmin.is_none());
+    assert_eq!(store.0.lock().expect("test store lock").len(), 2);
 }
 
 fn config(transport: CookieTransport) -> SessionConfig {
@@ -287,6 +324,128 @@ async fn production_boundary_requires_exact_host_and_origin_for_cookie_mutations
         .await
         .expect("wrong-host response");
     assert_eq!(wrong_host.status(), StatusCode::MISDIRECTED_REQUEST);
+}
+
+fn request_host_boundary_test_router() -> Router {
+    Router::new()
+        .route(
+            "/write",
+            post(
+                |origin: Option<axum::Extension<AcceptedBrowserOrigin>>,
+                 headers: HeaderMap| async move {
+                    let accepted = origin
+                        .map(|axum::Extension(AcceptedBrowserOrigin(value))| value.to_string())
+                        .unwrap_or_default();
+                    let cookie = headers
+                        .get(COOKIE)
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or("no-cookie");
+                    format!("{accepted} {cookie}")
+                },
+            ),
+        )
+        .layer(middleware::from_fn_with_state(
+            ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu"))
+                .expect("fixture origin")
+                .accepting_request_host(),
+            production_cookie_boundary,
+        ))
+}
+
+async fn posted_boundary(
+    app: Router,
+    host: &'static str,
+    origin: &'static str,
+) -> axum::response::Response {
+    app.oneshot(
+        Request::builder()
+            .method("POST")
+            .uri("/write")
+            .header("host", host)
+            .header("origin", origin)
+            .header(COOKIE, "__Host-ple_session=trusted")
+            .body(Body::empty())
+            .expect("boundary request"),
+    )
+    .await
+    .expect("boundary response")
+}
+
+#[tokio::test]
+async fn live_demo_request_host_accepts_lan_and_tailscale_origins() {
+    let app = request_host_boundary_test_router();
+    let accepted = [
+        (
+            "100.64.1.2:8443",
+            "https://100.64.1.2:8443",
+            "https://100.64.1.2:8443 ple_session=trusted",
+        ),
+        (
+            "studio.tailnet.ts.net:8443",
+            "https://studio.tailnet.ts.net:8443",
+            "https://studio.tailnet.ts.net:8443 ple_session=trusted",
+        ),
+        (
+            "Studio.Tailnet.ts.net:8443",
+            "https://Studio.Tailnet.ts.net:8443",
+            "https://studio.tailnet.ts.net:8443 ple_session=trusted",
+        ),
+        (
+            "localhost:8443",
+            "https://localhost:8443",
+            "https://localhost:8443 ple_session=trusted",
+        ),
+        (
+            "[fd7a:115c:a1e0::12]:8443",
+            "https://[fd7a:115c:a1e0::12]:8443",
+            "https://[fd7a:115c:a1e0::12]:8443 ple_session=trusted",
+        ),
+    ];
+    for (host, origin, body) in accepted {
+        let response = posted_boundary(app.clone(), host, origin).await;
+        assert_eq!(response.status(), StatusCode::OK, "{host}");
+        assert_eq!(
+            to_bytes(response.into_body(), 1024).await.expect("body"),
+            body,
+            "{host}"
+        );
+    }
+
+    let cross_origin = posted_boundary(
+        app.clone(),
+        "studio.tailnet.ts.net:8443",
+        "https://localhost:8443",
+    )
+    .await;
+    assert_eq!(cross_origin.status(), StatusCode::FORBIDDEN);
+    assert_eq!(cross_origin.headers()[CACHE_CONTROL], "no-store");
+
+    for host in [
+        "not a host",
+        "user@100.64.1.2:8443",
+        "100.64.1.2:0",
+        "100.64.1.2:8443/admin",
+    ] {
+        let response = posted_boundary(app.clone(), host, "https://localhost:8443").await;
+        assert_eq!(response.status(), StatusCode::MISDIRECTED_REQUEST, "{host}");
+        assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+    }
+
+    let exact_lan_host = posted_boundary(
+        production_boundary_test_router(),
+        "100.64.1.2:8443",
+        "https://learn.example.edu",
+    )
+    .await;
+    assert_eq!(exact_lan_host.status(), StatusCode::MISDIRECTED_REQUEST);
+
+    let exact_lan_pair = posted_boundary(
+        production_boundary_test_router(),
+        "100.64.1.2:8443",
+        "https://100.64.1.2:8443",
+    )
+    .await;
+    assert_eq!(exact_lan_pair.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]

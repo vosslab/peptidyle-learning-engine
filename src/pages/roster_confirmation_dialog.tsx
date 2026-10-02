@@ -2,18 +2,12 @@
 
 import type { JSX } from "solid-js";
 
-export type PendingRosterConfirmation =
-  | {
-      readonly kind: "cancelInvitation";
-      readonly invitationId: string;
-      readonly trigger: HTMLButtonElement;
-    }
-  | {
-      readonly kind: "revokeMember";
-      readonly memberId: string;
-      readonly displayName: string;
-      readonly trigger: HTMLButtonElement;
-    };
+export type PendingRosterConfirmation = {
+  readonly rosterId: string;
+  readonly displayName: string;
+  readonly state: "invitationPending" | "activeStudent";
+  readonly trigger: HTMLButtonElement;
+};
 
 interface RosterConfirmationDialogProps {
   readonly confirmation: PendingRosterConfirmation;
@@ -22,14 +16,15 @@ interface RosterConfirmationDialogProps {
 }
 
 function confirmationCopy(confirmation: PendingRosterConfirmation): string {
-  if (confirmation.kind === "cancelInvitation") {
-    return "The Student can no longer claim this pending invitation. You can create a new invitation later.";
+  const student = `${confirmation.displayName} (${confirmation.rosterId})`;
+  if (confirmation.state === "invitationPending") {
+    return `Cancel the Course invitation for ${student}. That Student can no longer claim it. You can create a new invitation later.`;
   }
-  return `${confirmation.displayName} immediately loses course access. Existing education records remain under retention.`;
+  return `${student} immediately loses course access. Existing education records remain under retention.`;
 }
 
 export function RosterConfirmationDialog(props: RosterConfirmationDialogProps): JSX.Element {
-  const isInvitation = (): boolean => props.confirmation.kind === "cancelInvitation";
+  const isInvitation = (): boolean => props.confirmation.state === "invitationPending";
 
   return (
     <dialog
@@ -43,7 +38,9 @@ export function RosterConfirmationDialog(props: RosterConfirmationDialogProps): 
       }}
     >
       <h2 id="roster-confirmation-heading">
-        {isInvitation() ? "Cancel this invitation?" : "Revoke this student's course access?"}
+        {isInvitation()
+          ? `Cancel the invitation for ${props.confirmation.displayName}?`
+          : `Remove course access for ${props.confirmation.displayName}?`}
       </h2>
       <p id="roster-confirmation-copy">{confirmationCopy(props.confirmation)}</p>
       <div class="action-row">

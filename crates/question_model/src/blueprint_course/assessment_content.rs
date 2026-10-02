@@ -9,10 +9,10 @@ use super::{BlueprintCourseValidationError, validate_blueprint_course_title};
 use crate::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
-    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_ORDERED_ENTRIES,
-    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectionRule, QuestionSearchResult,
-    StudentFeedbackReleaseRule,
+    MAX_ASSESSMENT_ORDERED_ENTRIES, PublishedQuestionRevisionTuple, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectionRule,
+    QuestionSearchResult, StudentFeedbackReleaseRule,
+    is_valid_base_assessment_attempt_time_limit_seconds,
 };
 
 /// Blueprint Assessment policy defaults copied into a future teaching course.
@@ -38,7 +38,7 @@ impl BlueprintAssessmentDefaults {
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         if self
             .assessment_attempt_time_limit_seconds
-            .is_some_and(|limit| limit.get() > MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+            .is_some_and(|limit| !is_valid_base_assessment_attempt_time_limit_seconds(limit.get()))
         {
             return Err(BlueprintCourseValidationError::AssessmentAttemptTimeLimitOutOfRange);
         }

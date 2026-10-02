@@ -131,7 +131,7 @@ async function verifyQuestionDurationLifecycle(page: Page): Promise<void> {
   await page.waitForTimeout(250);
   const transitionCheckpoint = nextDurationCheckpoint(page, 1);
   await page
-    .getByRole("navigation", { name: "Assessment questions", exact: true })
+    .getByRole("navigation", { name: "Coursework questions", exact: true })
     .getByRole("button", { name: "Question 2: Not answered", exact: true })
     .click();
   const transitionReceipt = (await (await transitionCheckpoint).json()) as {
@@ -162,7 +162,7 @@ async function verifyQuestionDurationLifecycle(page: Page): Promise<void> {
 
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
   await page
-    .getByRole("navigation", { name: "Assessment questions", exact: true })
+    .getByRole("navigation", { name: "Coursework questions", exact: true })
     .getByRole("button", { name: /^Question 1: Not answered/u })
     .click();
   await page.getByText("Question 1 of 4", { exact: true }).waitFor();
@@ -316,17 +316,19 @@ async function captureAttemptHistoryAndFeedback(
     await openCourseAttemptHistory(page);
     const latestFeedbackResponse = await latestFeedbackResponsePromise;
     const latestFeedback = (await latestFeedbackResponse.json()) as {
-      readonly assessmentAttemptId?: string | null;
-    };
+      readonly assessmentAttemptId?: string;
+      readonly courseInstanceId?: string;
+    } | null;
     if (
       latestFeedbackResponse.status() !== 200 ||
-      latestFeedback.assessmentAttemptId === null ||
-      latestFeedback.assessmentAttemptId === undefined
+      latestFeedback === null ||
+      latestFeedback.assessmentAttemptId === undefined ||
+      latestFeedback.courseInstanceId === undefined
     ) {
       throw new Error(
         `Expected a released latest-feedback Attempt after Course History showed 40 released scores; ` +
           `API returned ${latestFeedbackResponse.status()} with Attempt ` +
-          `${latestFeedback.assessmentAttemptId ?? "none"}.`,
+          `${latestFeedback?.assessmentAttemptId ?? "none"}.`,
       );
     }
     submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
@@ -344,10 +346,25 @@ async function captureAttemptHistoryAndFeedback(
     const latestFeedbackHref = await latestFeedbackLink.getAttribute("href");
     if (latestFeedbackHref === null) throw new Error("Latest Feedback did not provide a target.");
     const expectedLatestFeedbackPath = new URL(latestFeedbackHref, page.url()).pathname;
-    if (!expectedLatestFeedbackPath.includes(latestFeedback.assessmentAttemptId)) {
-      throw new Error("Latest Feedback target did not match the authorized Attempt from the API.");
+    if (
+      !expectedLatestFeedbackPath.startsWith("/courses/") ||
+      !expectedLatestFeedbackPath.endsWith("/review")
+    ) {
+      throw new Error("Latest Feedback target did not use the public Course review route.");
     }
     await latestFeedbackLink.click();
+    const historyState: unknown = await page.evaluate((): unknown => window.history.state);
+    const selectedAttemptId =
+      typeof historyState === "object" &&
+      historyState !== null &&
+      "assessmentAttemptId" in historyState
+        ? historyState.assessmentAttemptId
+        : undefined;
+    if (selectedAttemptId !== latestFeedback.assessmentAttemptId) {
+      throw new Error(
+        "Latest Feedback history state did not match the authorized Attempt from the API.",
+      );
+    }
     await page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
     await page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
     if (new URL(page.url()).pathname !== expectedLatestFeedbackPath) {

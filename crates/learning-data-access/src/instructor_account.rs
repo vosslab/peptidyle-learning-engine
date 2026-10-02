@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{ProvidedAvatarId, SessionTokenHash, StoreError};
 
 /// The current lifecycle state of an Instructor Account.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum InstructorAccountState {
     /// The Instructor Account can authenticate and use its established authority.
@@ -43,6 +43,21 @@ pub struct InstructorAccountList {
     pub accounts: Vec<InstructorAccountSummary>,
     /// Exact self-owned IANA zone for the authenticated Sysadmin viewer.
     pub display_time_zone: AccountTimeZone,
+    /// Account ID of the last row when another row exists past this page.
+    pub next_cursor: Option<AccountId>,
+}
+
+/// Sysadmin list constraints. A page size scans one server page; None returns the filtered list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstructorAccountBrowse {
+    /// Name or email. Empty and missing both list without a name match.
+    pub query: Option<String>,
+    /// One Account State, or every state when absent.
+    pub state: Option<InstructorAccountState>,
+    /// Return rows after this Account ID. The first page has no cursor.
+    pub after_account_id: Option<AccountId>,
+    /// 50, 100, or 250. None is the complete filtered list.
+    pub page_size: Option<i32>,
 }
 
 /// Normalized email supplied only to Create Instructor Account.
@@ -157,9 +172,15 @@ pub trait InstructorAccountStore: Send + Sync {
     ) -> Result<InstructorIdentityVettingDecisionId, StoreError>;
 
     /// Lists browser-safe rows with only the authenticated Sysadmin's display zone.
+    ///
+    /// A non-empty query matches an Instructor authentication email exactly or a
+    /// vetted display name by case-insensitive substring. State keeps one Account
+    /// State. Page size 50, 100, or 250 returns at most that many rows after the
+    /// previous Account ID. The returned rows still omit the email and the name.
     async fn list_instructor_accounts(
         &self,
         session_token_hash: SessionTokenHash,
+        browse: InstructorAccountBrowse,
     ) -> Result<InstructorAccountList, StoreError>;
 
     /// Creates one Active Instructor Account using the established atomic procedure.
@@ -183,4 +204,39 @@ pub trait InstructorAccountStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         account_id: AccountId,
     ) -> Result<InstructorAccountSummary, StoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CreateInstructorAccountInput, InstructorIdentityVettingDecisionId};
+
+    #[test]
+    fn create_instructor_account_requires_a_completed_vetting_decision() {
+        let missing = serde_json::from_str::<CreateInstructorAccountInput>(
+            r#"{"normalizedEmail":"ada@university.edu"}"#,
+        );
+        assert!(
+            missing.is_err(),
+            "creation without a vetting decision must fail"
+        );
+
+        let decision = "11111111-1111-4111-8111-111111111111";
+        let input: CreateInstructorAccountInput = serde_json::from_str(&format!(
+            r#"{{"normalizedEmail":"ada@university.edu","vettingDecisionId":"{decision}"}}"#
+        ))
+        .expect("vetted creation input");
+        input.validate().expect("normalized email is acceptable");
+        assert_eq!(
+            input.vetting_decision_id,
+            InstructorIdentityVettingDecisionId::from_uuid(
+                uuid::Uuid::parse_str(decision).expect("decision id")
+            )
+        );
+
+        let unnormalized: CreateInstructorAccountInput = serde_json::from_str(&format!(
+            r#"{{"normalizedEmail":"Ada@University.EDU","vettingDecisionId":"{decision}"}}"#
+        ))
+        .expect("field shape is valid");
+        assert!(unnormalized.validate().is_err());
+    }
 }

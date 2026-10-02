@@ -426,7 +426,7 @@ function decodeAssessmentAttemptPolicySources(
   };
 }
 
-function decodeClassStatistics(value: unknown, path: string): ClassStatistics {
+export function decodeClassStatistics(value: unknown, path: string): ClassStatistics {
   const record = decodeRecord(value, path);
   const statisticsState = decodeStringEnum(field(record, "state", path), `${path}.state`, [
     "unavailable",

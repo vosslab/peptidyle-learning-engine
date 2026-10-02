@@ -45,6 +45,7 @@ $$;
 -- for its lineage-level stewardship facts.
 -- ASVS 8.2.1 and 8.3.1: both viewer role and each disclosed endorser's active
 -- Instructor status are derived in PostgreSQL, never from browser claims.
+-- star_count counts the same vetted display names the name list returns.
 CREATE FUNCTION ple_data.read_current_question_pool_star(
     p_question_pool_id text
 ) RETURNS TABLE (

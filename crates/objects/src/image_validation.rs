@@ -1,9 +1,9 @@
 //! One authoritative hostile-input boundary for instructional raster images.
 //!
-//! An image's name and declared media type are untrusted.  This module accepts
-//! only complete, single-container PNG, JPEG, and WebP files; rejects animation
-//! and container trailing data; measures dimensions before allocating; and
-//! performs a bounded full decode before callers create an immutable object.
+//! An image's name and declared media type are untrusted. This module accepts
+//! complete, single-container PNG, JPEG, and WebP files. SVG is accepted only
+//! by rewriting it into a WebP still image. Animation, container trailing data,
+//! and pixel floods are rejected before callers create an immutable object.
 
 use std::io::Cursor;
 
@@ -15,6 +15,7 @@ use image::metadata::Orientation;
 use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat, ImageReader, Limits};
 
 mod profile_image;
+mod svg_question_image;
 pub use profile_image::{ProfileImageCrop, normalized_profile_image_webp};
 
 /// Maximum accepted original still-image byte length at every ingest path.
@@ -73,6 +74,9 @@ pub enum StillImageError {
     /// A valid container was followed by unowned bytes, so it could be a
     /// polyglot or an ambiguity between parsers.
     Polyglot,
+    /// SVG text would disappear: the converter has no fonts, so accepting the
+    /// file would store a picture without its labels.
+    UnsupportedSvgText,
     Malformed,
 }
 
@@ -193,6 +197,9 @@ impl StillImageError {
             }
             Self::ProfileImageTooSmall => "upload an image at least 128 pixels wide and tall",
             Self::Polyglot | Self::Malformed => "upload a complete, readable image file",
+            Self::UnsupportedSvgText => {
+                "remove text from the SVG, or upload a PNG, JPEG, or WebP image"
+            }
         }
     }
 
@@ -212,8 +219,65 @@ impl StillImageError {
                 "Profile image dimensions must each be at least 128 pixels"
             }
             Self::Polyglot => "image has bytes after its declared container",
+            Self::UnsupportedSvgText => {
+                "SVG text is not stored because the image converter cannot keep those labels"
+            }
             Self::Malformed => "image is incomplete or malformed",
         }
+    }
+}
+
+/// Bytes retained for one Question image after the upload boundary.
+#[derive(Debug, PartialEq, Eq)]
+pub enum PreparedQuestionImage<'a> {
+    /// PNG, JPEG, or WebP bytes that already match the declared type.
+    Original(&'a [u8], VerifiedStillImage),
+    /// SVG upload input rewritten into a WebP still image.
+    Rewritten(Vec<u8>, VerifiedStillImage),
+}
+
+impl PreparedQuestionImage<'_> {
+    /// Stored bytes. SVG input is never included.
+    #[must_use]
+    pub fn bytes(&self) -> &[u8] {
+        match self {
+            Self::Original(bytes, _) => bytes,
+            Self::Rewritten(bytes, _) => bytes,
+        }
+    }
+
+    /// Facts measured from the stored raster.
+    #[must_use]
+    pub fn verified(&self) -> VerifiedStillImage {
+        match self {
+            Self::Original(_, verified) | Self::Rewritten(_, verified) => *verified,
+        }
+    }
+}
+
+/// Accepts one Question image upload and retains only a verified raster.
+// ASVS 2.2.1 and 5.2.2: allow PNG, JPEG, WebP, and SVG, then rewrite SVG.
+pub fn prepare_question_image<'a>(
+    declared_media_type: &str,
+    bytes: &'a [u8],
+) -> Result<PreparedQuestionImage<'a>, StillImageError> {
+    match declared_media_type {
+        "image/svg+xml" => {
+            let webp = svg_question_image::rasterize_svg_question_image(bytes)?;
+            let verified = verify_still_image(&webp)?;
+            if verified.media_type != StillImageMediaType::WebP {
+                return Err(StillImageError::Malformed);
+            }
+            Ok(PreparedQuestionImage::Rewritten(webp, verified))
+        }
+        "image/png" | "image/jpeg" | "image/webp" => {
+            let verified = verify_still_image(bytes)?;
+            if verified.media_type.canonical_media_type() != declared_media_type {
+                return Err(StillImageError::UnsupportedMediaType);
+            }
+            Ok(PreparedQuestionImage::Original(bytes, verified))
+        }
+        _ => Err(StillImageError::UnsupportedMediaType),
     }
 }
 
@@ -554,6 +618,50 @@ mod tests {
             verify_course_banner_still_image(&png()),
             Err(StillImageError::WrongCourseBannerAspectRatio)
         );
+    }
+
+    #[test]
+    fn course_banner_accepts_a_higher_resolution_five_to_one_source() {
+        let (delivery_width, delivery_height) =
+            question_model::CourseBannerRendition::Banner.dimensions();
+        let source_width = delivery_width.saturating_mul(2);
+        let source_height = delivery_height.saturating_mul(2);
+        let mut image = RgbImage::from_pixel(source_width, source_height, Rgb([12, 34, 56]));
+        for y in 0..image.height() {
+            image.put_pixel(0, y, Rgb([255, 0, 0]));
+            image.put_pixel(image.width() - 1, y, Rgb([0, 0, 255]));
+        }
+        let mut bytes = Vec::new();
+        PngEncoder::new(&mut bytes)
+            .write_image(
+                image.as_raw(),
+                image.width(),
+                image.height(),
+                ExtendedColorType::Rgb8,
+            )
+            .expect("higher-resolution 5:1 PNG encodes");
+        let verified = verify_course_banner_still_image(&bytes)
+            .expect("a larger exact 5:1 Course Banner is a valid upload");
+        assert_eq!(
+            (verified.width, verified.height),
+            (source_width, source_height)
+        );
+        assert!(verified.width > delivery_width);
+        assert!(verified.height > delivery_height);
+        let rendition = normalized_course_banner_webp(&bytes, delivery_width, delivery_height)
+            .expect("promotion scales the larger source to the delivery rendition");
+        let delivered = verify_still_image(&rendition).expect("delivery rendition decodes");
+        assert_eq!(
+            (delivered.width, delivered.height),
+            (delivery_width, delivery_height)
+        );
+        let rendered = image::load_from_memory(&rendition)
+            .expect("WebP rendition decodes")
+            .to_rgb8();
+        let left_edge = rendered.get_pixel(0, delivery_height / 2);
+        assert!(left_edge[0] > left_edge[1] && left_edge[0] > left_edge[2]);
+        let right_edge = rendered.get_pixel(delivery_width - 1, delivery_height / 2);
+        assert!(right_edge[2] > right_edge[0] && right_edge[2] > right_edge[1]);
     }
 
     #[test]

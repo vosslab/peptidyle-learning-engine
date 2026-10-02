@@ -14,7 +14,6 @@ CREATE TABLE ple_data.published_question (
 );
 
 
-
 CREATE TABLE ple_data.question_revision (
     published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
@@ -27,6 +26,20 @@ CREATE TABLE ple_data.question_revision (
         general_feedback = btrim(general_feedback)
         AND char_length(general_feedback) BETWEEN 1 AND 4000
         AND general_feedback !~ '[[:cntrl:]]'
+    ),
+    -- ASVS 2.2.1 and 2.2.2: optional PLE-managed Hint text. NULL is absent.
+    -- This column is not WeBWorK source text and is not backend feedback.
+    hint text CHECK (
+        hint = btrim(hint)
+        AND char_length(hint) BETWEEN 1 AND 4000
+        AND hint !~ '[[:cntrl:]]'
+    ),
+    -- ASVS 2.2.1 and 2.2.2: optional PLE-managed Worked Solution text.
+    -- NULL is absent. This column is not WeBWorK source text.
+    worked_solution text CHECK (
+        worked_solution = btrim(worked_solution)
+        AND char_length(worked_solution) BETWEEN 1 AND 4000
+        AND worked_solution !~ '[[:cntrl:]]'
     ),
     published_at timestamptz NOT NULL,
     PRIMARY KEY (published_question_id, revision_number)
@@ -160,7 +173,6 @@ CREATE TABLE ple_data.question_revision_license (
 );
 
 
-
 CREATE TABLE ple_data.question_revision_citation (
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
@@ -200,7 +212,6 @@ CREATE TABLE ple_data.question_fork_source (
 );
 
 
-
 -- A Star is a present, public-in-principle endorsement of a Published
 -- Question lineage.  It intentionally has no revision key: the endorsement
 -- belongs to the Question across its immutable Revisions.  C370 owns the
@@ -213,8 +224,6 @@ CREATE TABLE ple_data.question_star (
     PRIMARY KEY (published_question_id, instructor_account_id),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
-
-
 
 
 -- A Watch is a private subscription to a Published Question lineage.  It has
@@ -292,163 +301,57 @@ SET LOCAL ROLE ple_private_owner;
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
 
 
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
-COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON COLUMN ple_data.question_revision.general_feedback IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision.hint IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision.worked_solution IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.published_question_metadata.content_topic_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.published_question_metadata.content_subtopic_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_availability_event.reason IS 'NULL means this optional fact is absent.';
@@ -456,4 +359,3 @@ COMMENT ON COLUMN ple_data.question_revision_acceptance.parent_revision_number I
 COMMENT ON COLUMN ple_data.question_revision_authorship.author_account_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_revision_citation.citation_url IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_revision_citation.citation_text IS 'NULL means this optional fact is absent.';
-

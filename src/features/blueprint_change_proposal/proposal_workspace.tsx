@@ -17,7 +17,7 @@ import { useApplicationApi } from "../../api/application_api";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { PageFrame } from "../../components/page_frame";
 import { RecordList, type RecordContent } from "../../components/record_list/record_list";
-import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
+import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
 import { ProposalReview } from "./proposal_review";
 
 type Client = BlueprintCourseClient & BlueprintChangeProposalClient;
@@ -364,8 +364,8 @@ export function ProposalTargetTools(props: {
 
 export function MyChangeProposalsLivePage(): JSX.Element {
   const api = useApplicationApi();
-  const displayTimeZone = browserDisplayTimeZone();
-  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
+  const formatInAccountZone = useSelectedDisplayDateTimeFormatter();
+  const formatDateTime = (timestamp: number | Date): string => formatInAccountZone()(timestamp);
   return (
     <PageFrame
       title="My Change Proposals"
@@ -380,8 +380,8 @@ export function MyChangeProposalsLivePage(): JSX.Element {
 export function ChangeProposalDetailLivePage(): JSX.Element {
   const api = useApplicationApi(),
     params = useParams();
-  const displayTimeZone = browserDisplayTimeZone();
-  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
+  const formatInAccountZone = useSelectedDisplayDateTimeFormatter();
+  const formatDateTime = (timestamp: number | Date): string => formatInAccountZone()(timestamp);
   const [detail, { refetch }] = createResource(
     () => params["proposalId"] ?? "",
     (id) => api.client.getBlueprintChangeProposal(id),

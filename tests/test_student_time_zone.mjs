@@ -78,3 +78,58 @@ test("Account Settings rejects unsupported zones and client-supplied identity", 
   );
   await assert.rejects(client.updateAccountSettings({ timeZone: " America/Chicago" }), DecodeError);
 });
+
+test("selected display zone formats the Account zone and omits its name", async () => {
+  const { createComponent, createRoot } = await import("solid-js");
+  const { AppearanceContext } = await import("../src/appearance/appearance_context.ts");
+  const { useSelectedDisplayDateTimeFormatter } = await import("../src/selected_display_zone.ts");
+  const instant = Date.parse("2026-01-15T18:30:00Z");
+
+  function readZone(timeZone, settingsState = timeZone === undefined ? "loading" : "ready") {
+    let formatted = "unset";
+    createRoot((dispose) => {
+      function Probe() {
+        const formatDateTime = useSelectedDisplayDateTimeFormatter();
+        formatted = formatDateTime()(instant);
+        return null;
+      }
+      function appearance(zone) {
+        return {
+          appearance: () => ({ theme: "grass", mode: "light", tokens: {} }),
+          initialAppearanceReady: () => true,
+          settings: () =>
+            zone === undefined
+              ? undefined
+              : { timeZone: zone, displayModePreference: null, personalTheme: null },
+          settingsState: () => settingsState,
+          busy: () => false,
+          error: () => undefined,
+          updateTimeZone: async () => {},
+          updateDisplayModePreference: async () => {},
+          updatePersonalTheme: async () => {},
+          presentCourseTheme: () => {},
+        };
+      }
+      createComponent(AppearanceContext.Provider, {
+        value: appearance(timeZone),
+        get children() {
+          return createComponent(Probe, {});
+        },
+      });
+      dispose();
+    });
+    return formatted;
+  }
+
+  const eastern = readZone("America/New_York");
+  const pacific = readZone("America/Los_Angeles");
+  assert.equal(eastern, "Jan 15, 2026, 1:30 PM");
+  assert.equal(pacific, "Jan 15, 2026, 10:30 AM");
+  assert.equal(eastern.includes("America/New_York"), false);
+  assert.equal(pacific.includes("America/Los_Angeles"), false);
+  assert.equal(readZone(undefined), "");
+  const unavailable = readZone(undefined, "error");
+  assert.equal(unavailable, "Time unavailable");
+  assert.equal(unavailable.includes("1970"), false);
+  assert.equal(unavailable.includes("America/"), false);
+});

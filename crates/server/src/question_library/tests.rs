@@ -380,6 +380,8 @@ impl QuestionLibraryStore for PageOnlyLibrary {
         self.search_calls.fetch_add(1, Ordering::SeqCst);
         assert_eq!(request.page_size, DEFAULT_PAGE_SIZE);
         assert!(request.after.is_none());
+        assert!(!request.authored_by_current_account);
+        assert!(!request.used_in_current_account_courses);
         Ok(QuestionLibrarySearchPage {
             items: vec![self.page.clone()],
             next_position: Some(self.continuation.clone()),
@@ -642,4 +644,49 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
     let reads = objects.reads.lock().expect("reads").clone();
     assert_eq!(reads, vec![page_address]);
     assert!(!reads.contains(&off_page_address));
+}
+
+#[tokio::test]
+async fn native_library_read_uses_current_title_and_description_without_a_new_revision() {
+    let objects = RecordingObjects {
+        inner: MemoryObjectStore::default(),
+        reads: Mutex::new(Vec::new()),
+    };
+    let (mut entry, _) = stored_library_entry(&objects, "0000002").await;
+    entry.question_title = "Library title after metadata edit".to_string();
+    entry.question_description = "Library description after metadata edit.".to_string();
+
+    let resolved = answer_free_question_library_entry(&objects, entry.clone())
+        .await
+        .expect("current library title and description stay readable");
+    assert_eq!(
+        resolved.summary.metadata.question_title,
+        "Library title after metadata edit"
+    );
+    assert_eq!(
+        resolved.summary.metadata.question_description,
+        "Library description after metadata edit."
+    );
+    assert_eq!(
+        resolved.prompt,
+        vec![question_model::QuestionContentBlock::Text {
+            markdown: "What is my favorite color?".to_string(),
+        }]
+    );
+
+    let mut wrong_license = entry.clone();
+    wrong_license.question_license = QuestionLicense::CcBy4_0;
+    assert!(
+        answer_free_question_library_entry(&objects, wrong_license)
+            .await
+            .is_err()
+    );
+
+    let mut wrong_type = entry;
+    wrong_type.question_type = QuestionType::Numeric;
+    assert!(
+        answer_free_question_library_entry(&objects, wrong_type)
+            .await
+            .is_err()
+    );
 }

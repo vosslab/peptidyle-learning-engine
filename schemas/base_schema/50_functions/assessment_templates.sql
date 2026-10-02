@@ -43,7 +43,9 @@ BEGIN
         END IF;
         integer_text := p_settings ->> 'assessmentAttemptTimeLimitSeconds';
         IF integer_text !~ '^[1-9][0-9]*$'
-           OR integer_text::numeric > 2147483647 THEN
+           OR integer_text::numeric < 60
+           OR integer_text::numeric > 43200
+           OR integer_text::numeric % 60 <> 0 THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'Assessment Template settings are invalid';
         END IF;
@@ -85,9 +87,9 @@ BEGIN
     IF jsonb_typeof(feedback_rules) <> 'object'
        OR ARRAY(SELECT key FROM jsonb_object_keys(feedback_rules) AS key ORDER BY key)
             <> ARRAY[
-                'class_statistics', 'per_item_correctness', 'question_answer',
+                'class_statistics', 'hints', 'per_item_correctness', 'question_answer',
                 'question_answer_explanation', 'score',
-                'submitted_response'
+                'submitted_response', 'worked_solutions'
             ]::text[]
        OR EXISTS (
             SELECT 1
@@ -153,7 +155,9 @@ BEGIN
                    'question_answer', policy.feedback_question_answer,
                    'question_answer_explanation',
                         policy.feedback_question_answer_explanation,
-                   'class_statistics', policy.feedback_class_statistics
+                   'class_statistics', policy.feedback_class_statistics,
+                   'hints', policy.feedback_hints,
+                   'worked_solutions', policy.feedback_worked_solutions
                )
            ),
            template.assessment_template_edit_number
@@ -238,7 +242,9 @@ BEGIN
         (feedback_rules ->> 'question_answer')::ple_data.feedback_release,
         (feedback_rules ->> 'question_answer_explanation')::ple_data.feedback_release,
         (feedback_rules ->> 'class_statistics')::ple_data.feedback_release,
-        p_assessment_type::ple_data.assessment_type
+        p_assessment_type::ple_data.assessment_type,
+        (feedback_rules ->> 'hints')::ple_data.feedback_release,
+        (feedback_rules ->> 'worked_solutions')::ple_data.feedback_release
     );
 
     INSERT INTO ple_private.assessment_template (
@@ -318,7 +324,9 @@ BEGIN
         (feedback_rules ->> 'question_answer')::ple_data.feedback_release,
         (feedback_rules ->> 'question_answer_explanation')::ple_data.feedback_release,
         (feedback_rules ->> 'class_statistics')::ple_data.feedback_release,
-        p_assessment_type::ple_data.assessment_type
+        p_assessment_type::ple_data.assessment_type,
+        (feedback_rules ->> 'hints')::ple_data.feedback_release,
+        (feedback_rules ->> 'worked_solutions')::ple_data.feedback_release
     );
 
     UPDATE ple_private.assessment_template AS template

@@ -25,6 +25,12 @@ SET LOCAL ROLE ple_private_owner;
 GRANT SELECT, INSERT, UPDATE ON ple_private.course_retention_notification
     TO ple_course_retention_notification_owner;
 
+-- The lease CHECK runs as the inserting role. Receipt inserts run as the
+-- notification owner; Course banner work and Profile image work run as the API owner.
+GRANT EXECUTE ON FUNCTION
+    ple_private.work_lease_pair_is_valid(uuid, timestamptz, timestamptz)
+    TO ple_course_retention_notification_owner, ple_api_owner;
+
 GRANT SELECT ON ple_private.account, ple_private.account_state_event,
     ple_private.account_authentication_email TO ple_course_retention_notification_owner;
 

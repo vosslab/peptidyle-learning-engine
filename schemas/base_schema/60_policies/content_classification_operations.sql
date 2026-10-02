@@ -5,6 +5,9 @@ SET LOCAL ROLE ple_data_owner;
 CREATE POLICY content_discipline_private_command_access ON ple_data.content_discipline
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
+CREATE POLICY content_discipline_request_private_command_access ON ple_data.content_discipline_request
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+
 CREATE POLICY content_subject_private_command_access ON ple_data.content_subject
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 

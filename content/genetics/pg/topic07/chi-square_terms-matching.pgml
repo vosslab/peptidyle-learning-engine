@@ -28,7 +28,7 @@ our @ALPHABET = ('A' .. 'Z');
 %match_data = (
   'critical value' => [
     'found in a table for a given degrees of freedom and <span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
-    'the boundary of how extreme a test statistic we need to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+    'the chi-square test statistic cutoff above which we reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> at the chosen significance level',
     'the cutoff used to compare against the observed <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
   ],
   'chi-square (&chi;&sup2;) test statistic' => [
@@ -38,27 +38,27 @@ our @ALPHABET = ('A' .. 'Z');
     'a measure of the discrepancy between the observed and expected data sets',
   ],
   'level of significance, &alpha;' => [
-    'the statistical cutoff of the result for the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> to be <span style="color: #4d8426; font-weight:700;">supported</span> or not',
-    'a constant probability that provides a cutoff for falsification of the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
-    'the fixed probability for whether or NOT the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be <span style="color: #4d8426; font-weight:700;">supported</span>',
-    'a fixed probability cutoff whether the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be or cannot be <span style="color: #4d8426; font-weight:700;">supported</span>',
+    'the probability cutoff chosen in advance for deciding when to reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+    'the maximum probability of a Type I error accepted for this test',
+    'the chosen threshold for deciding whether the p-value is small enough to reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+    'a fixed probability cutoff used with the p-value to decide whether to reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
     'standard cutoff probability used to determine statistic significance',
     'biologists use a probability of 0.05 (5%) for this value',
   ],
   'p-value' => [
-    'the probability of getting a result that is either the same or more extreme than the actual observations',
+    'assuming the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> is true, the probability of getting results at least as extreme as those observed',
     'if this value is small, then there is stronger evidence to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
     'the smaller this number, the bigger the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
     'a small value suggests the observed data are NOT consistent with the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
   ],
   'null hypothesis, H<sub>0</sub>' => [
     'we attempt to find evidence against this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
-    'we want to <span style="color: #eb1601; font-weight:700;">faill to support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
+    'we look for evidence against this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
     'this hypothesis makes it easier to calculate the expected values',
   ],
   'alternative hypothesis, H<sub>a</sub>' => [
     'we are attempting to <span style="color: #4d8426; font-weight:700;">support</span>this hypothesis indirectly by using the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
-    'if the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> cannot be <span style="color: #4d8426; font-weight:700;">supported</span> , then this opposing hypothesis is <span style="color: #4d8426; font-weight:700;">supported</span>',
+    'if the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> is rejected, the results provide evidence for this opposing hypothesis',
     'this hypothesis represents a deviation or bias from the expected pattern',
     'for this hypothesis, the expected values are often impossible to calculate',
     'we aim to <span style="color: #4d8426; font-weight:700;">support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
@@ -223,4 +223,3 @@ The correct answers are: [$answer_list].
 END_PGML_SOLUTION
 
 ENDDOCUMENT();
-

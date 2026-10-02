@@ -17,7 +17,15 @@
 //     },
 //   ];
 
+import globals from "globals";
+
 export default [
+  {
+    // Node tests mount shipped UI through page.evaluate. Those callbacks run
+    // in the browser, so document, window, and getComputedStyle are real.
+    files: ["tests/test_*.mjs"],
+    languageOptions: { globals: { ...globals.browser } },
+  },
   {
     // The Rust workspace is not TypeScript source. Nothing under crates/ is
     // part of the browser client, and typed linting fails on any .ts found

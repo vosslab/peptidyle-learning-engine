@@ -4,12 +4,24 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
+use question_model::AccountId;
 
 /// One vocabulary identity, display name, and reversible lifecycle state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentClassificationItem {
     pub uuid: Uuid,
     pub name: String,
+}
+
+/// Result of asking to create a Subject inside one Discipline.
+///
+/// An existing global name is offered for explicit acceptance and is not
+/// associated by the create call.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentSubjectCreation {
+    pub uuid: Uuid,
+    pub name: String,
+    pub needs_acceptance: bool,
 }
 
 /// One Discipline identity and its reversible lifecycle state.
@@ -20,7 +32,18 @@ pub struct ContentDiscipline {
     pub is_retired: bool,
 }
 
-/// Authorized immediate-child reads; SQL owns actor and association policy.
+/// One open request for a Discipline the vocabulary does not yet offer.
+///
+/// The requester is an Account ID. This record does not include an email or a display name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentDisciplineRequest {
+    pub uuid: Uuid,
+    pub requested_name: String,
+    pub requested_by_account_id: AccountId,
+}
+
+/// Authorized immediate-child reads and Instructor vocabulary creation.
+/// SQL owns actor and association policy.
 #[async_trait]
 pub trait ContentClassificationStore: Send + Sync {
     async fn list_disciplines(
@@ -42,6 +65,32 @@ pub trait ContentClassificationStore: Send + Sync {
         token: SessionTokenHash,
         topic_uuid: Uuid,
     ) -> Result<Vec<ContentClassificationItem>, StoreError>;
+    /// Creates a Subject in the Discipline, or offers an existing global name.
+    async fn create_subject(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+        discipline_uuid: Uuid,
+    ) -> Result<ContentSubjectCreation, StoreError>;
+    /// Associates an offered Subject with the selected Discipline.
+    async fn accept_subject_discipline(
+        &self,
+        token: SessionTokenHash,
+        subject_uuid: Uuid,
+        discipline_uuid: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError>;
+    async fn create_topic(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+        subject_uuid: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError>;
+    async fn create_subtopic(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+        topic_uuid: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError>;
 }
 
 /// All-status Discipline discovery for filters and existing-ID resolution.
@@ -81,5 +130,33 @@ pub trait ContentDisciplineAdministrationStore: ContentDisciplineDiscoveryStore 
         &self,
         token: SessionTokenHash,
         discipline_uuid: Uuid,
+    ) -> Result<ContentDiscipline, StoreError>;
+}
+
+/// Course Discipline requests. Creating the Discipline stays on the Sysadmin lifecycle.
+#[async_trait]
+pub trait ContentDisciplineRequestStore: Send + Sync {
+    /// Records a bounded name request for the signed-in Instructor or Sysadmin.
+    async fn request_discipline(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+    ) -> Result<ContentDisciplineRequest, StoreError>;
+    /// Lists open requests for a Sysadmin. Each row carries the requester Account ID only.
+    async fn list_open_discipline_requests(
+        &self,
+        token: SessionTokenHash,
+    ) -> Result<Vec<ContentDisciplineRequest>, StoreError>;
+    /// Marks one open request resolved. It does not create a Discipline.
+    async fn resolve_discipline_request(
+        &self,
+        token: SessionTokenHash,
+        request_uuid: Uuid,
+    ) -> Result<(), StoreError>;
+    /// Creates the requested Discipline and resolves the request in one database transaction.
+    async fn fulfill_discipline_request(
+        &self,
+        token: SessionTokenHash,
+        request_uuid: Uuid,
     ) -> Result<ContentDiscipline, StoreError>;
 }

@@ -78,7 +78,10 @@ where
             Err(error) => {
                 // A notifier/database failure cannot delay a stored lifecycle
                 // transition. The receipt remains the sole retry authority.
-                tracing::warn!(event = "course_retention_notification_attempt_failed", error = %error);
+                tracing::warn!(
+                    event = "course_retention_notification_attempt_failed",
+                    error_kind = error.diagnostic_kind(),
+                );
                 break;
             }
             Ok(false) => break,
@@ -111,7 +114,7 @@ where
                 event = "course_retention_transition_failed",
                 course_id = %action.course_instance_id,
                 action = ?action.action,
-                error = %error,
+                error_kind = error.diagnostic_kind(),
             );
         }
     }
@@ -143,4 +146,126 @@ async fn shutdown_signal() -> Result<()> {
     #[cfg(not(unix))]
     tokio::signal::ctrl_c().await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use async_trait::async_trait;
+    use learning_data_access::{
+        ClaimedCourseRetentionNotification, CourseRetentionDueAction, CourseRetentionDueActionKind,
+        CourseRetentionNotificationFailure, CourseRetentionNotificationStore, CourseRetentionStore,
+        StoreError,
+    };
+    use question_model::{CourseInstanceId, Timestamp};
+    use uuid::Uuid;
+
+    use super::run_iteration;
+    use crate::course_retention_notification_delivery::NotConfiguredCourseRetentionNotificationDelivery;
+
+    struct RecordingRetention {
+        course: CourseInstanceId,
+        deleted: Mutex<Vec<CourseInstanceId>>,
+    }
+
+    #[async_trait]
+    impl CourseRetentionStore for RecordingRetention {
+        async fn list_due_course_retention_actions(
+            &self,
+            _: Timestamp,
+        ) -> Result<Vec<CourseRetentionDueAction>, StoreError> {
+            Ok(vec![CourseRetentionDueAction {
+                course_instance_id: self.course.clone(),
+                action: CourseRetentionDueActionKind::Delete,
+                due_at: Timestamp::from_unix_millis(1),
+                archive_marked_at: Some(Timestamp::from_unix_millis(1)),
+            }])
+        }
+
+        async fn mark_course_instance_inactive(
+            &self,
+            _: CourseInstanceId,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            panic!("Course deletion must not mark the Course inactive")
+        }
+
+        async fn archive_course_student_records(
+            &self,
+            _: CourseInstanceId,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            panic!("Course deletion must not archive from the delete action")
+        }
+
+        async fn delete_course_student_records(
+            &self,
+            course_instance_id: CourseInstanceId,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            self.deleted
+                .lock()
+                .expect("deletion record")
+                .push(course_instance_id);
+            Ok(true)
+        }
+    }
+
+    struct QuietNotifications;
+
+    #[async_trait]
+    impl CourseRetentionNotificationStore for QuietNotifications {
+        async fn claim_due_notification(
+            &self,
+            _: Timestamp,
+            _: u16,
+        ) -> Result<Option<ClaimedCourseRetentionNotification>, StoreError> {
+            Ok(None)
+        }
+
+        async fn record_provider_acceptance(
+            &self,
+            _: Uuid,
+            _: Uuid,
+            _: Uuid,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            Ok(false)
+        }
+
+        async fn fail_before_acceptance(
+            &self,
+            _: Uuid,
+            _: Uuid,
+            _: Timestamp,
+            _: CourseRetentionNotificationFailure,
+        ) -> Result<bool, StoreError> {
+            Ok(false)
+        }
+    }
+
+    #[tokio::test]
+    async fn course_retention_delete_follows_the_course_not_the_account() {
+        let course = CourseInstanceId::from_debug_serial(4);
+        let retention = RecordingRetention {
+            course: course.clone(),
+            deleted: Mutex::new(Vec::new()),
+        };
+        run_iteration(
+            &retention,
+            &QuietNotifications,
+            &NotConfiguredCourseRetentionNotificationDelivery,
+        )
+        .await
+        .expect("one stored delete action completes");
+        assert_eq!(
+            retention
+                .deleted
+                .lock()
+                .expect("deletion record")
+                .as_slice(),
+            &[course]
+        );
+    }
 }

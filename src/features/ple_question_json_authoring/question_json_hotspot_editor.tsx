@@ -77,13 +77,13 @@ export function PleQuestionJsonHotspotEditor(props: {
         <span>{response() === null ? "Upload image" : "Replace image"}</span>
         <input
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
           disabled={props.disabled || uploading()}
           onChange={(event) => void chooseImage(event.currentTarget)}
         />
         <span class="ple-question-json-authoring__help">
-          PNG, JPEG, or WebP; maximum 8 MiB. SVG is not yet supported. Save the draft after
-          uploading.
+          PNG, JPEG, WebP, or SVG; maximum 8 MiB. SVG is stored as a still WebP image. Save the
+          draft after uploading.
         </span>
       </label>
       <Show when={uploading()}>

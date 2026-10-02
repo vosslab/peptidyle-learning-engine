@@ -21,7 +21,7 @@ if (port === undefined || !/^[0-9]+$/u.test(port)) {
 const origin = "https://localhost:" + port;
 const courseLongName = "Biochemistry 301: Proteins and Peptides";
 const assessmentTitle = "Chapter 1 Pilot Practice";
-const assessmentTypeLabel = "Regular Assignment";
+const assessmentTypeLabel = "Weekly Assignment";
 
 async function discoverAssessmentId(page) {
   const href = await instructorAssessmentRow(page)
@@ -96,7 +96,7 @@ async function expectAttempt(page) {
   const attempt = page.locator('[data-route-surface="assessmentAttempt"]');
   await expect(attempt).toBeVisible();
   await expect(attempt.getByRole("heading", { level: 1, name: assessmentTitle })).toBeVisible();
-  const navigation = attempt.getByRole("navigation", { name: "Assessment questions", exact: true });
+  const navigation = attempt.getByRole("navigation", { name: "Coursework questions", exact: true });
   await expect(navigation.getByRole("list").getByRole("button")).toHaveCount(4);
   await expect(navigation.locator('[aria-current="step"]')).toHaveCount(1);
   await expect(attempt.locator("article.question-card")).toHaveCount(1);

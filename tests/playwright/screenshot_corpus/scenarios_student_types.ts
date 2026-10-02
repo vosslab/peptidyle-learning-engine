@@ -27,7 +27,7 @@ import {
 
 const SCENARIO = "student_question_types";
 const ASSESSMENT_TITLE = "Cell biology response practice";
-const PRACTICE_LABEL = "Practice Question Assignment";
+const PRACTICE_LABEL = "Unit Review Assignment";
 const EXPECTED_QUESTION_COUNT = 9;
 
 type ExampleSlug =
@@ -397,7 +397,7 @@ async function readQuestion(
 /** Follows the visible Student Course action without guessing from intermediate route timing. */
 async function openOrResumePracticeAssignment(page: Page, card: Locator): Promise<void> {
   const action = card.getByRole("link", {
-    name: /^(Open|Resume) Practice Question Assignment$/u,
+    name: /^(Open|Resume) Unit Review Assignment$/u,
   });
   const open = card.getByRole("link", { name: `Open ${PRACTICE_LABEL}`, exact: true });
   const resume = card.getByRole("link", { name: `Resume ${PRACTICE_LABEL}`, exact: true });
@@ -535,7 +535,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       const card = assignmentCard(page, ASSESSMENT_TITLE);
       let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
       const navigation = page.getByRole("navigation", {
-        name: "Assessment questions",
+        name: "Coursework questions",
         exact: true,
       });
       const covered = new Set<ExampleSlug>();
@@ -591,7 +591,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       const card = assignmentCard(page, ASSESSMENT_TITLE);
       let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
       const navigation = page.getByRole("navigation", {
-        name: "Assessment questions",
+        name: "Coursework questions",
         exact: true,
       });
       const covered = new Set<ExampleSlug>();

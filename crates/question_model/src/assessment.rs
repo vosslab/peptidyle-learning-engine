@@ -367,6 +367,16 @@ pub struct AssessmentAuthoredContent {
 /// Maximum Instructor-authored Assessment duration override: twelve hours.
 pub const MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 43_200;
 
+/// Base Assessment overrides use whole minutes; accommodation results retain second precision.
+pub const ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS_PER_MINUTE: u32 = 60;
+
+/// ASVS 2.2.1-2.2.2: whether a base override matches trusted whole-minute bounds.
+pub const fn is_valid_base_assessment_attempt_time_limit_seconds(seconds: u32) -> bool {
+    seconds > 0
+        && seconds <= MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS
+        && seconds.is_multiple_of(ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS_PER_MINUTE)
+}
+
 /// Largest attempt limit representable by PostgreSQL `INTEGER`.
 pub const MAX_ASSESSMENT_ATTEMPT_LIMIT: u32 = 2_147_483_647;
 
@@ -474,6 +484,47 @@ impl std::fmt::Display for QuestionPoolEditNumber {
     }
 }
 
+/// Positive sequential token for replaceable current Question Pool metadata.
+///
+/// This is independent of `QuestionPoolEditNumber`, which identifies membership.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "u64", into = "u64")]
+pub struct QuestionPoolMetadataEditNumber(NonZeroU64);
+
+impl QuestionPoolMetadataEditNumber {
+    /// Creates a positive Pool metadata Edit Number.
+    pub fn new(value: u64) -> Result<Self, &'static str> {
+        NonZeroU64::new(value)
+            .map(Self)
+            .ok_or("Question Pool metadata Edit Number must be positive")
+    }
+
+    /// Returns the stored positive integer.
+    pub const fn get(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl TryFrom<u64> for QuestionPoolMetadataEditNumber {
+    type Error = &'static str;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<QuestionPoolMetadataEditNumber> for u64 {
+    fn from(value: QuestionPoolMetadataEditNumber) -> Self {
+        value.get()
+    }
+}
+
+impl std::fmt::Display for QuestionPoolMetadataEditNumber {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.get())
+    }
+}
+
 /// A Question Pool Assessment Entry; issued Questions snapshot the selected result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -549,6 +600,15 @@ mod tests {
         assert_eq!(MAX_ASSESSMENT_ORDERED_ENTRIES, 1_024);
         assert_eq!(MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, 1_024);
         assert_eq!(MAX_ASSESSMENT_QUESTION_POOL_ITEMS, 8_192);
+    }
+
+    #[test]
+    fn base_assessment_duration_requires_whole_minutes() {
+        assert!(is_valid_base_assessment_attempt_time_limit_seconds(60));
+        assert!(is_valid_base_assessment_attempt_time_limit_seconds(43_200));
+        assert!(!is_valid_base_assessment_attempt_time_limit_seconds(1));
+        assert!(!is_valid_base_assessment_attempt_time_limit_seconds(90));
+        assert!(!is_valid_base_assessment_attempt_time_limit_seconds(43_201));
     }
 
     #[test]

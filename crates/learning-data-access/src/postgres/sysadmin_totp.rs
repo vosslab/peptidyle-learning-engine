@@ -6,7 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use question_model::{AccountId, UserRole, Timestamp};
+use question_model::{AccountId, Timestamp, UserRole};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 use zeroize::Zeroize;

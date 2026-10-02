@@ -42,7 +42,11 @@ try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Assume the role of Student Mary Okafor" }).click();
   await page.waitForURL(`${origin}/student`);
-  await page.goto(`${origin}/assessment-attempts/${attempt}`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("link", { name: "Active Attempt", exact: true }).click();
+  await page.waitForURL(/\/courses\/[^/]+\/attempt$/u);
+  const selectedAttempt = await page.evaluate(() => window.history.state?.assessmentAttemptId);
+  if (selectedAttempt !== attempt)
+    throw new Error("Active Attempt navigation selected a different Attempt.");
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
   const frame = page.frameLocator('iframe[title="Question document"]');
   await makeOneOrdinaryEdit(frame);

@@ -8,9 +8,9 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Instructor Course Instances.** course list - laptop.
 
-[![Screenshot preview of Course Assignment workspace](../screenshots/instructor/courses-active-course_assignment_workspace.webp)](../screenshots/instructor/courses-active-course_assignment_workspace.webp)
+[![Screenshot preview of Course Assessment workspace](../screenshots/instructor/courses-active-course_assignment_workspace.webp)](../screenshots/instructor/courses-active-course_assignment_workspace.webp)
 
-**Course Assignment workspace.** assignment workspace - laptop.
+**Course Assessment workspace.** Assessment workspace - laptop.
 
 [![Screenshot preview of Inactive Courses list](../screenshots/instructor/courses-inactive-inactive_courses_list.webp)](../screenshots/instructor/courses-inactive-inactive_courses_list.webp)
 
@@ -148,29 +148,25 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Answer-free Gradebook.** mixed progress - laptop.
 
-[![Screenshot preview of Assignments Due Soon without current deadlines](../screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)](../screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)
+[![Screenshot preview of Assessments Due Soon without current deadlines](../screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)](../screenshots/instructor/product-assessments-due-assignments_due_soon_empty.webp)
 
-**Assignments Due Soon without current deadlines.** no current deadlines - laptop.
+**Assessments Due Soon without current deadlines.** no current deadlines - laptop.
 
-[![Screenshot preview of Assignment creation](../screenshots/instructor/courses-assessments-assignment_creation.webp)](../screenshots/instructor/courses-assessments-assignment_creation.webp)
+[![Screenshot preview of Assessment creation](../screenshots/instructor/courses-assessments-assignment_creation.webp)](../screenshots/instructor/courses-assessments-assignment_creation.webp)
 
-**Assignment creation.** creation - laptop.
+**Assessment creation.** creation - laptop.
 
-[![Screenshot preview of Draft Assignment Questions](../screenshots/instructor/courses-assessments-assignment_questions_draft.webp)](../screenshots/instructor/courses-assessments-assignment_questions_draft.webp)
+[![Screenshot preview of Draft Assessment Questions](../screenshots/instructor/courses-assessments-assignment_questions_draft.webp)](../screenshots/instructor/courses-assessments-assignment_questions_draft.webp)
 
-**Draft Assignment Questions.** draft - laptop.
+**Draft Assessment Questions.** draft - laptop.
 
-[![Screenshot preview of Answer-free Assignment Preview](../screenshots/instructor/courses-assessments-assignment_delivery_check.webp)](../screenshots/instructor/courses-assessments-assignment_delivery_check.webp)
+[![Screenshot preview of Answer-free Assessment Preview](../screenshots/instructor/courses-assessments-assignment_delivery_check.webp)](../screenshots/instructor/courses-assessments-assignment_delivery_check.webp)
 
-**Answer-free Assignment Preview.** answer-free preview - laptop.
+**Answer-free Assessment Preview.** answer-free preview - laptop.
 
-[![Screenshot preview of Released Assignment Policies](../screenshots/instructor/courses-assessments-assignment_policies_released.webp)](../screenshots/instructor/courses-assessments-assignment_policies_released.webp)
+[![Screenshot preview of Released Assessment Settings](../screenshots/instructor/courses-assessments-assignment_policies_released.webp)](../screenshots/instructor/courses-assessments-assignment_policies_released.webp)
 
-**Released Assignment Policies.** released - laptop.
-
-[![Screenshot preview of Editable Assessment Template](../screenshots/instructor/product-assessments-templates-template_editor.webp)](../screenshots/instructor/product-assessments-templates-template_editor.webp)
-
-**Editable Assessment Template.** editable template - laptop.
+**Released Assessment Settings.** released - laptop.
 
 [![Screenshot preview of Question Library](../screenshots/instructor/questions-search-library_default.webp)](../screenshots/instructor/questions-search-library_default.webp)
 
@@ -267,4 +263,8 @@ Generated from the current screenshot manifest. Images link to their full-size f
 [![Screenshot preview of Search Public Blueprint Courses](../screenshots/instructor/courses-search-filtered_results.webp)](../screenshots/instructor/courses-search-filtered_results.webp)
 
 **Search Public Blueprint Courses.** filtered results - laptop.
+
+[![Screenshot preview of Editable Assessment Template](../screenshots/instructor/product-assessments-templates-template_editor.webp)](../screenshots/instructor/product-assessments-templates-template_editor.webp)
+
+**Editable Assessment Template.** editable template - laptop.
 

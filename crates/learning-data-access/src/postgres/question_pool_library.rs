@@ -7,9 +7,9 @@ use question_model::{
     AssessmentEntryId, AssessmentId, BloomClassificationEditNumber, BloomClassificationView,
     BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
-    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionRevisionNumber,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionUsageTotals,
+    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolMetadataEditNumber,
+    QuestionRevisionNumber, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionUsageTotals,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -232,11 +232,13 @@ impl PostgresQuestionPoolLibraryStore {
         &self,
         session_token_hash: SessionTokenHash,
         question_pool_id: &QuestionPoolId,
-    ) -> Result<(u64, QuestionUsageTotals), StoreError> {
+    ) -> Result<(u64, u64, QuestionUsageTotals), StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query(
-            "SELECT pool_issued_count, issued_count, blank_count, answered_count, \
-                    correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq \
+            "SELECT pool_issued_count, pool_issued_contributor_floor, issued_count, blank_count, answered_count, \
+                    correct_count, partial_count, incorrect_count, issued_contributor_floor, \
+                    blank_contributor_floor, answered_contributor_floor, correct_contributor_floor, \
+                    partial_contributor_floor, incorrect_contributor_floor, credit_sum, credit_sum_sq \
              FROM ple_api.read_question_pool_library_usage_statistics($1)",
         )
         .bind(question_pool_id.as_str())
@@ -249,15 +251,21 @@ impl PostgresQuestionPoolLibraryStore {
                 .map_err(map_sqlx_error)?,
         )
         .map_err(|_| invalid("Question Pool issued count"))?;
+        let pool_issued_contributor_floor = u64::try_from(
+            row.try_get::<i64, _>("pool_issued_contributor_floor")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Question Pool contributor floor"))?;
         let totals = super::question_library::decode_usage_totals(&row)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok((pool_issued_count, totals))
+        Ok((pool_issued_count, pool_issued_contributor_floor, totals))
     }
 }
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySummary, StoreError> {
     let question_pool_id = decode_pool_id(row, "question_pool_id")?;
     let edit_number = decode_pool_edit_number(row)?;
+    let question_pool_metadata_edit_number = decode_pool_metadata_edit_number(row)?;
     let member_count = u32::try_from(
         row.try_get::<i32, _>("member_count")
             .map_err(map_sqlx_error)?,
@@ -269,6 +277,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySumm
         metadata: decode_metadata(row)?,
         question_pool_id,
         question_pool_edit_number: edit_number,
+        question_pool_metadata_edit_number,
         member_count,
         bloom: decode_bloom(row)?,
     })
@@ -488,6 +497,19 @@ fn decode_pool_edit_number(
         .map_err(|_| invalid("Question Pool Edit Number"))?,
     )
     .map_err(|_| invalid("Question Pool Edit Number"))
+}
+
+fn decode_pool_metadata_edit_number(
+    row: &sqlx::postgres::PgRow,
+) -> Result<QuestionPoolMetadataEditNumber, StoreError> {
+    QuestionPoolMetadataEditNumber::new(
+        u64::try_from(
+            row.try_get::<i64, _>("question_pool_metadata_edit_number")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Question Pool metadata Edit Number"))?,
+    )
+    .map_err(|_| invalid("Question Pool metadata Edit Number"))
 }
 
 fn invalid(field: &str) -> StoreError {

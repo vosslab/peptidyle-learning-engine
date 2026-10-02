@@ -6,40 +6,6 @@ SET LOCAL ROLE ple_data_owner;
 
 
 
--- ASVS 2.3.3/15.4.2: PostgreSQL atomically claims, fans out, and completes
--- each event. SKIP LOCKED prevents competing worker iterations from overlap.
-CREATE FUNCTION ple_api.materialize_library_watch_notifications(p_limit integer)
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE materialized integer;
-BEGIN
-    IF p_limit NOT BETWEEN 1 AND 500 THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Library Watch notification limit is invalid';
-    END IF;
-    WITH candidate AS (
-        SELECT event_id
-          FROM ple_data.library_watch_event
-         WHERE processed_at IS NULL
-         ORDER BY occurred_at, event_id
-         FOR UPDATE SKIP LOCKED LIMIT p_limit
-    ), recipients AS (
-        SELECT snapshot.library_watch_event_id, snapshot.recipient_account_id
-          FROM candidate
-          JOIN ple_data.library_watch_event_recipient AS snapshot
-            ON snapshot.library_watch_event_id = candidate.event_id
-    ), completed AS (
-        UPDATE ple_data.library_watch_event AS event
-           SET processed_at = pg_catalog.clock_timestamp()
-          FROM candidate WHERE event.event_id = candidate.event_id
-    )
-    SELECT count(*) INTO materialized FROM recipients;
-    RETURN materialized;
-END
-$$;
-
-
-
 -- ASVS 8.2.1/8.3.1: this private snapshot derives recipients only from the
 -- current active Instructor Watch relationship in the source transaction.
 CREATE FUNCTION ple_data.snapshot_library_watch_event_recipients()
@@ -244,4 +210,3 @@ RETURNS TABLE(
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.read_current_library_watch_notifications($1)
 $$;
-

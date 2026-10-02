@@ -104,14 +104,14 @@
       "routeId": "courseAssessments",
       "area": "courses",
       "workflow": "seeded teaching course",
-      "state": "assignment workspace",
+      "state": "Assessment workspace",
       "scenario": "instructor_seeded",
       "checkpoint": "course_assignment_workspace",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 5,
-        "caption": "Course Assignment workspace",
+        "caption": "Course Assessment workspace",
         "featured": false
       }
     },
@@ -732,7 +732,7 @@
       "path": "instructor/product-assessments-due-assignments_due_soon_empty.webp",
       "role": "instructor",
       "routeId": "assessmentsDueSoon",
-      "area": "assignments",
+      "area": "assessments",
       "workflow": "upcoming deadlines",
       "state": "no current deadlines",
       "scenario": "instructor_seeded",
@@ -741,7 +741,7 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 40,
-        "caption": "Assignments Due Soon without current deadlines",
+        "caption": "Assessments Due Soon without current deadlines",
         "featured": false
       }
     },
@@ -750,8 +750,8 @@
       "path": "instructor/courses-assessments-assignment_creation.webp",
       "role": "instructor",
       "routeId": "assessmentCreate",
-      "area": "assignments",
-      "workflow": "assignment release",
+      "area": "assessments",
+      "workflow": "Assessment release",
       "state": "creation",
       "scenario": "instructor_assignment",
       "checkpoint": "assignment_creation",
@@ -759,7 +759,7 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 41,
-        "caption": "Assignment creation",
+        "caption": "Assessment creation",
         "featured": false
       }
     },
@@ -768,8 +768,8 @@
       "path": "instructor/courses-assessments-assignment_questions_draft.webp",
       "role": "instructor",
       "routeId": "assessmentWorkspaceQuestions",
-      "area": "assignments",
-      "workflow": "assignment release",
+      "area": "assessments",
+      "workflow": "Assessment release",
       "state": "draft",
       "scenario": "instructor_assignment",
       "checkpoint": "assignment_questions_draft",
@@ -777,7 +777,7 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 42,
-        "caption": "Draft Assignment Questions",
+        "caption": "Draft Assessment Questions",
         "featured": false
       }
     },
@@ -786,8 +786,8 @@
       "path": "instructor/courses-assessments-assignment_delivery_check.webp",
       "role": "instructor",
       "routeId": "assessmentWorkspaceStudentView",
-      "area": "assignments",
-      "workflow": "assignment release",
+      "area": "assessments",
+      "workflow": "Assessment release",
       "state": "answer-free preview",
       "scenario": "instructor_assignment",
       "checkpoint": "assignment_delivery_check",
@@ -795,7 +795,7 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 43,
-        "caption": "Answer-free Assignment Preview",
+        "caption": "Answer-free Assessment Preview",
         "featured": false
       }
     },
@@ -804,8 +804,8 @@
       "path": "instructor/courses-assessments-assignment_policies_released.webp",
       "role": "instructor",
       "routeId": "assessmentWorkspacePolicies",
-      "area": "assignments",
-      "workflow": "assignment release",
+      "area": "assessments",
+      "workflow": "Assessment release",
       "state": "released",
       "scenario": "instructor_assignment",
       "checkpoint": "assignment_policies_released",
@@ -813,26 +813,8 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": {
         "order": 44,
-        "caption": "Released Assignment Policies",
+        "caption": "Released Assessment Settings",
         "featured": true
-      }
-    },
-    {
-      "id": "instructor_template_editor",
-      "path": "instructor/product-assessments-templates-template_editor.webp",
-      "role": "instructor",
-      "routeId": "assessmentTemplates",
-      "area": "assignments",
-      "workflow": "assessment template creation",
-      "state": "editable template",
-      "scenario": "instructor_templates",
-      "checkpoint": "template_editor",
-      "viewport": "laptop",
-      "privacyProfile": "instructor_answer_free",
-      "gallery": {
-        "order": 45,
-        "caption": "Editable Assessment Template",
-        "featured": false
       }
     },
     {
@@ -848,7 +830,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 46,
+        "order": 45,
         "caption": "Question Library",
         "featured": true
       }
@@ -866,7 +848,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 47,
+        "order": 46,
         "caption": "Filtered Question Library",
         "featured": false
       }
@@ -884,7 +866,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 48,
+        "order": 47,
         "caption": "Published Question detail",
         "featured": false
       }
@@ -902,7 +884,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 49,
+        "order": 48,
         "caption": "Browse Question Library",
         "featured": false
       }
@@ -920,7 +902,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 50,
+        "order": 49,
         "caption": "Question Pool creation review",
         "featured": false
       }
@@ -938,7 +920,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 51,
+        "order": 50,
         "caption": "Answer-free WeBWorK generated example",
         "featured": false
       }
@@ -956,7 +938,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 52,
+        "order": 51,
         "caption": "HLA offspring genotype generated example",
         "featured": false
       }
@@ -974,7 +956,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 53,
+        "order": 52,
         "caption": "Monohybrid genotype matching generated example",
         "featured": false
       }
@@ -992,7 +974,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 54,
+        "order": 53,
         "caption": "X-linked offspring count table generated example",
         "featured": false
       }
@@ -1010,7 +992,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 55,
+        "order": 54,
         "caption": "True/False Statements About DNA Structure generated example",
         "featured": false
       }
@@ -1028,7 +1010,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 56,
+        "order": 55,
         "caption": "Matching Meiosis Prophase I Stages to Descriptions generated example",
         "featured": false
       }
@@ -1046,7 +1028,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 57,
+        "order": 56,
         "caption": "True/False Statements About Chi-Square Tests generated example",
         "featured": false
       }
@@ -1064,7 +1046,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 58,
+        "order": 57,
         "caption": "Matching Chromosome Shapes to Descriptions generated example",
         "featured": false
       }
@@ -1082,7 +1064,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 59,
+        "order": 58,
         "caption": "Instructor personal Magma Theme on a filtered Question Library in Light mode",
         "featured": false
       }
@@ -1100,7 +1082,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 60,
+        "order": 59,
         "caption": "Instructor personal Magma Theme on a filtered Question Library in Dark mode",
         "featured": false
       }
@@ -1118,7 +1100,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 61,
+        "order": 60,
         "caption": "Published Question detail using the Instructor personal Magma Theme in Dark mode",
         "featured": false
       }
@@ -1136,7 +1118,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 62,
+        "order": 61,
         "caption": "Instructor Profile",
         "featured": false
       }
@@ -1154,7 +1136,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 63,
+        "order": 62,
         "caption": "Private Question drafts",
         "featured": false
       }
@@ -1172,7 +1154,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 64,
+        "order": 63,
         "caption": "Saved private Question editor",
         "featured": false
       }
@@ -1190,7 +1172,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 65,
+        "order": 64,
         "caption": "Question publication review",
         "featured": false
       }
@@ -1208,7 +1190,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 66,
+        "order": 65,
         "caption": "Blueprint Courses",
         "featured": false
       }
@@ -1226,7 +1208,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 67,
+        "order": 66,
         "caption": "Blueprint Course detail",
         "featured": false
       }
@@ -1244,7 +1226,7 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 68,
+        "order": 67,
         "caption": "Blueprint Question picker",
         "featured": false
       }
@@ -1262,8 +1244,26 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
-        "order": 69,
+        "order": 68,
         "caption": "Search Public Blueprint Courses",
+        "featured": false
+      }
+    },
+    {
+      "id": "instructor_template_editor",
+      "path": "instructor/product-assessments-templates-template_editor.webp",
+      "role": "instructor",
+      "routeId": "assessmentTemplates",
+      "area": "assignments",
+      "workflow": "assessment template creation",
+      "state": "editable template",
+      "scenario": "instructor_templates",
+      "checkpoint": "template_editor",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": {
+        "order": 69,
+        "caption": "Editable Assessment Template",
         "featured": false
       }
     },
@@ -4658,6 +4658,16 @@
         "reason": "The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
       },
       {
+        "routeId": "sysadminCourseInspection",
+        "status": "deferred",
+        "reason": "Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+      },
+      {
+        "routeId": "sysadminCourseInspectionDetail",
+        "status": "deferred",
+        "reason": "Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+      },
+      {
         "routeId": "courseAssessments",
         "status": "captured",
         "captureIds": [
@@ -4859,6 +4869,16 @@
           "instructor_webwork_chromosome_shapes",
           "instructor_personal_theme_question_dark"
         ]
+      },
+      {
+        "routeId": "myQuestions",
+        "status": "deferred",
+        "reason": "My Questions lists the Instructor's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
+      },
+      {
+        "routeId": "starredQuestions",
+        "status": "deferred",
+        "reason": "Starred lists the Instructor's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
       },
       {
         "routeId": "questionDrafts",
@@ -5069,7 +5089,7 @@
       {
         "id": "task:myQuestions",
         "status": "deferred",
-        "reason": "My Questions is a future Ribbon destination without a Product Route."
+        "reason": "My Questions is an Instructor route to the current Account's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
       },
       {
         "id": "task:myDraftQuestions",
@@ -5081,7 +5101,7 @@
       {
         "id": "task:starred",
         "status": "deferred",
-        "reason": "Starred Questions is a future Ribbon destination without a Product Route."
+        "reason": "Starred is an Instructor route to the current Account's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
       },
       {
         "id": "task:watched",

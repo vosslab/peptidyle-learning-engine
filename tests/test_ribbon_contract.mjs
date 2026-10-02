@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 
-import { buildRoutePath, deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
+import { profileRoleMayManageImage } from "../src/features/profile_avatar/profile_avatar_role.ts";
+import {
+  buildRoutePath,
+  deriveRibbonModel,
+  ribbonModelAvailabilityMayAccessRoute,
+} from "../src/ribbon/ribbon_contract.ts";
 import { routeParams } from "../src/navigation/route_params.ts";
 import {
   userRoleMayAccessRoute,
@@ -49,7 +55,11 @@ function routeStateFor(routeId) {
   assert.ok(route, `route ${routeId} must exist`);
   const pathname = buildRoutePath(route.id, paramsForRoute(route));
   assert.ok(pathname, `route ${route.id} must build`);
-  const declaredParams = routeParams(route, pathname);
+  const historyState =
+    route.id === "assessmentAttempt" || route.id === "assessmentAttemptSummary"
+      ? { assessmentAttemptId: PARAMETER_VALUES.assessmentAttemptId }
+      : undefined;
+  const declaredParams = routeParams(route, pathname, historyState);
   assert.ok(declaredParams, `route ${route.id} must extract`);
   return { route, params: { ...declaredParams } };
 }
@@ -389,6 +399,22 @@ test("Student Coursework keeps its collective Tier 1 label without an Attempt-on
     "Unavailable",
     "the fixed shortcut stays disabled when no resumable Attempt is reported",
   );
+  const unlabeledAttempt = controlsFor("assessmentAttempt", "student").model;
+  const studentLabels = [
+    ...unlabeledAttempt.tabs.map((tab) => tab.label),
+    ...unlabeledAttempt.taskAreas.flatMap((area) => area.controls.map((control) => control.label)),
+    ...unlabeledAttempt.breadcrumbs.map((item) => item.label),
+  ];
+  assert.equal(
+    studentLabels.some((label) => label.includes("Assessment")),
+    false,
+    "Student Ribbon labels use Coursework language",
+  );
+  assert.equal(
+    unlabeledAttempt.breadcrumbs.some((item) => item.label === "Coursework"),
+    true,
+    "a Student Attempt breadcrumb falls back to Coursework",
+  );
 });
 
 test("global Student Tier 2 destinations stay available without Course context", () => {
@@ -410,13 +436,19 @@ test("global Student Tier 2 destinations stay available without Course context",
   );
 });
 
-test("Active Attempt links directly to the server-selected resumable Attempt", () => {
+test("Student Attempt shortcuts use each server-selected Attempt and Course pair", () => {
   const routeState = routeStateFor("studentHome");
   const attemptId = PARAMETER_VALUES.assessmentAttemptId;
+  const activeCourseInstanceId = "CI7K3M2QAZ";
+  const feedbackCourseInstanceId = "CI6F2R8TA0";
   const model = deriveRibbonModel(
     {
       ...routeState,
+      params: { ...routeState.params, courseInstanceId: PARAMETER_VALUES.courseInstanceId },
       activeAttemptId: attemptId,
+      activeAttemptCourseInstanceId: activeCourseInstanceId,
+      latestFeedbackAttemptId: attemptId,
+      latestFeedbackCourseInstanceId: feedbackCourseInstanceId,
     },
     { userRole: "student" },
     LABELS,
@@ -428,8 +460,29 @@ test("Active Attempt links directly to the server-selected resumable Attempt", (
   assert.equal(activeAttempt.availability, "Available");
   assert.equal(
     activeAttempt.href,
-    buildRoutePath("assessmentAttempt", { assessmentAttemptId: attemptId }),
+    buildRoutePath("assessmentAttempt", { courseInstanceId: activeCourseInstanceId }),
   );
+  assert.deepEqual(activeAttempt.state, { assessmentAttemptId: attemptId });
+  const latestFeedbackModel = deriveRibbonModel(
+    {
+      ...routeStateFor("studentAttemptHistory"),
+      params: { courseInstanceId: PARAMETER_VALUES.courseInstanceId },
+      latestFeedbackAttemptId: attemptId,
+      latestFeedbackCourseInstanceId: feedbackCourseInstanceId,
+    },
+    { userRole: "student" },
+    LABELS,
+  );
+  const latestFeedback = latestFeedbackModel.taskAreas
+    .flatMap((area) => area.controls)
+    .find((control) => control.id === "studentLatestFeedback");
+  assert.ok(latestFeedback);
+  assert.equal(latestFeedback.availability, "Available");
+  assert.equal(
+    latestFeedback.href,
+    buildRoutePath("assessmentAttemptSummary", { courseInstanceId: feedbackCourseInstanceId }),
+  );
+  assert.deepEqual(latestFeedback.state, { assessmentAttemptId: attemptId });
 });
 
 test("relationship admission may check without moving schema-owned positions", () => {
@@ -558,16 +611,14 @@ test("loaded Blueprint access selects its actual collection parent", () => {
     blueprintCourseTitle: "Public Molecular Biology Blueprint",
     blueprintBreadcrumbParent: "publicBlueprintSearch",
   };
-  const model = deriveRibbonModel(routeState, { userRole: "instructor" }, publicLabels, {
-    blueprintSearchReturnToken: "8f5e7d01-b6c7-4c14-8a0b-4bfef6390d6d",
-  });
+  const model = deriveRibbonModel(routeState, { userRole: "instructor" }, publicLabels);
   assert.deepEqual(
     model.breadcrumbs.map(({ label, href, current }) => ({ label, href, current })),
     [
       { label: "Home", href: "/instructor", current: false },
       {
         label: "Search Public Blueprint Courses",
-        href: "/blueprint-courses/search/public?blueprintReturn=8f5e7d01-b6c7-4c14-8a0b-4bfef6390d6d",
+        href: "/blueprint-courses/search/public",
         current: false,
       },
       {
@@ -577,7 +628,7 @@ test("loaded Blueprint access selects its actual collection parent", () => {
       },
     ],
   );
-  for (const navigation of [{}, { blueprintSearchReturnToken: "not-a-token" }]) {
+  for (const navigation of [{}]) {
     const directModel = deriveRibbonModel(
       routeState,
       { userRole: "instructor" },
@@ -682,7 +733,11 @@ test("deferred scope labels retain a linked human-readable current breadcrumb", 
       expectedLabels.map((_, index) => index === expectedLabels.length - 1),
       routeId,
     );
-    assert.equal(model.breadcrumbs.at(-1).href, buildRoutePath(routeId, state.params), routeId);
+    const breadcrumbParams =
+      routeId === "assessmentAttempt"
+        ? { courseInstanceId: state.params.courseInstanceId }
+        : state.params;
+    assert.equal(model.breadcrumbs.at(-1).href, buildRoutePath(routeId, breadcrumbParams), routeId);
     assert.equal(
       model.breadcrumbs.some(({ label }) => label.includes(PARAMETER_VALUES.assessmentAttemptRef)),
       false,
@@ -693,13 +748,13 @@ test("deferred scope labels retain a linked human-readable current breadcrumb", 
 
 test("deferred assessment-attempt summary retains only its linked current breadcrumb", () => {
   const state = routeStateFor("assessmentAttemptSummary");
-  assert.deepEqual(Object.keys(state.params), ["assessmentAttemptId"]);
+  assert.deepEqual(Object.keys(state.params), ["courseInstanceId", "assessmentAttemptId"]);
   const model = deriveRibbonModel(state, { userRole: "student" }, LABELS);
   assert.deepEqual(model.breadcrumbs, [
     { label: "Home", href: "/student", current: false },
     {
       label: "Attempt history",
-      href: "/assessment-attempts/00000000-0000-0000-0000-000000000001/summary",
+      href: "/courses/CI7K3M2QAZ/review",
       current: true,
     },
   ]);
@@ -707,6 +762,127 @@ test("deferred assessment-attempt summary retains only its linked current breadc
     model.breadcrumbs.some(({ label }) => label.includes(PARAMETER_VALUES.assessmentAttemptRef)),
     false,
   );
+});
+
+const STUDENT_PAGE_COMPONENTS = {
+  assessmentAttempt: ["AssessmentAttemptPage", "src/pages/assessment_attempt_page.tsx"],
+  assessmentAttemptSummary: [
+    "AssessmentAttemptSummaryPage",
+    "src/pages/assessment_attempt_summary_page.tsx",
+  ],
+  assessmentOverview: ["AssessmentOverviewPage", "src/pages/assessment_overview_page.tsx"],
+  studentAttemptHistory: [
+    "StudentAttemptHistoryPage",
+    "src/pages/student_course_attempt_history_page.tsx",
+  ],
+  studentCompleted: ["StudentCompletedPage", "src/pages/student_course_landing_page.tsx"],
+  studentCourseInvitation: [
+    "StudentCourseInvitationPage",
+    "src/pages/student_course_invitation_page.tsx",
+  ],
+  studentCourseInvitations: [
+    "StudentCourseInvitationsPage",
+    "src/pages/student_course_invitations_page.tsx",
+  ],
+  studentCourseLanding: ["StudentCourseLandingPage", "src/pages/student_course_landing_page.tsx"],
+  studentCourseProgress: [
+    "StudentCourseProgressPage",
+    "src/pages/student_course_progress_page.tsx",
+  ],
+  studentCourses: ["StudentCoursesPage", "src/pages/student_courses_page.tsx"],
+  studentDueSoon: ["StudentDueSoonPage", "src/pages/student_course_landing_page.tsx"],
+  studentHome: ["StudentHomePage", "src/pages/role_home_pages.tsx"],
+  studentResponseStats: [
+    "StudentResponseStatsPage",
+    "src/pages/student_course_response_stats_page.tsx",
+  ],
+  studentScores: ["StudentScoresPage", "src/pages/student_course_grades_page.tsx"],
+};
+
+test("Student navigation and pages should contain only Student interfaces and capabilities.", () => {
+  const repositoryRoot = new URL("../", import.meta.url);
+  const routesSource = readFileSync(new URL("src/routes.ts", repositoryRoot), "utf8");
+  const boundarySource = readFileSync(
+    new URL("src/route_access_boundary.tsx", repositoryRoot),
+    "utf8",
+  );
+  assert.match(
+    boundarySource,
+    /return userRoleMayAccessRoute\(route\.id, state\.session\.account\.userRole\)/,
+  );
+  assert.match(boundarySource, /This page is not available to this account/);
+  assert.match(routesSource, /withRouteAccessBoundary\(route, routeComponents\[route\.id\]\)/);
+  const studentRoutes = ROUTE_CONTRACT.filter(
+    (route) => route.requiredUserRoles.length === 1 && route.requiredUserRoles[0] === "student",
+  );
+  assert.deepEqual(
+    studentRoutes.map((route) => route.id).sort(),
+    Object.keys(STUDENT_PAGE_COMPONENTS).sort(),
+  );
+  const instructorCapability =
+    /Unrelease|Create Question Pool|Instructor Accounts|type="file"|Gradebook|Question Library|Deactivate Instructor/u;
+  for (const route of studentRoutes) {
+    assert.equal(userRoleMayAccessRoute(route.id, "student"), true, route.id);
+    assert.equal(userRoleMayAccessRoute(route.id, "instructor"), false, route.id);
+    assert.equal(userRoleMayAccessRoute(route.id, "sysadmin"), false, route.id);
+    const [componentName, componentPath] = STUDENT_PAGE_COMPONENTS[route.id];
+    assert.match(routesSource, new RegExp(`^  ${route.id}: ${componentName},$`, "m"), route.id);
+    const importPath = componentPath.replace(/^src\//, "./").replace(/\.tsx$/, "");
+    assert.match(
+      routesSource,
+      new RegExp(`\\b${componentName}\\b[\\s\\S]*?${importPath.replaceAll(".", "\\.")}`),
+      route.id,
+    );
+    const pageSource = readFileSync(new URL(componentPath, repositoryRoot), "utf8");
+    if (componentName === "StudentHomePage") {
+      assert.match(
+        pageSource,
+        /export function StudentHomePage\(\): JSX\.Element \{\s*return <StudentAllCourseworkPage \/>;\s*\}/,
+      );
+    } else {
+      assert.equal(instructorCapability.test(pageSource), false, componentPath);
+    }
+    const state = routeStateFor(route.id);
+    const model = deriveRibbonModel(
+      {
+        ...state,
+        params: {
+          ...state.params,
+          courseInstanceId: PARAMETER_VALUES.courseInstanceId,
+          assessmentId: PARAMETER_VALUES.assessmentId,
+        },
+        studentCourses: [{ id: PARAMETER_VALUES.courseInstanceId, shortName: "BCHM 355" }],
+        activeAttemptId: PARAMETER_VALUES.assessmentAttemptId,
+        latestFeedbackAttemptId: PARAMETER_VALUES.assessmentAttemptId,
+      },
+      { userRole: "student" },
+      { assessmentAttemptTitle: "Weekly enzyme kinetics", courseShortName: "BCHM 355" },
+    );
+    const controls = [...model.tabs, ...model.taskAreas.flatMap((area) => area.controls)];
+    for (const control of controls) {
+      assert.equal(ribbonModelAvailabilityMayAccessRoute(control, "student"), true, control.id);
+      assert.equal(control.label.includes("Question Library"), false, control.id);
+      assert.equal(control.label.includes("Instructor Accounts"), false, control.id);
+      assert.equal(control.label.includes("Gradebook"), false, control.id);
+    }
+    const hrefs = [
+      ...controls.map((control) => control.href),
+      ...model.breadcrumbs.map((item) => item.href),
+      ...model.context.accountControls.map((control) => control.href),
+    ].filter((href) => href !== undefined);
+    for (const href of hrefs) {
+      const destination = routeContractForPathname(href);
+      assert.ok(destination, `${route.id} ${href}`);
+      const studentOnly =
+        destination.requiredUserRoles.length === 1 &&
+        destination.requiredUserRoles[0] === "student";
+      assert.equal(studentOnly || destination.id === "profile", true, `${route.id} ${href}`);
+    }
+  }
+  assert.equal(profileRoleMayManageImage("student"), false);
+  assert.equal(userRoleMayAccessRoute("library", "student"), false);
+  assert.equal(userRoleMayAccessRoute("instructorAccounts", "student"), false);
+  assert.equal(userRoleMayAccessRoute("gradebook", "student"), false);
 });
 
 test("Course breadcrumbs preserve the authored long name", () => {

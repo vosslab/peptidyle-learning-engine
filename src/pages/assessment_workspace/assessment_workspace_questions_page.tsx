@@ -28,6 +28,7 @@ import {
   removeAssessmentEntry,
   sortAssessmentEntriesByBloom,
 } from "./assessment_workspace_questions_model";
+import { resolveQuestionIdBatch, type QuestionIdPin } from "./assessment_question_id_batch";
 import { AssessmentWorkspaceQuestionsView } from "./assessment_workspace_questions_view";
 
 const MAX_ASSIGNMENT_ENTRIES = 1024;
@@ -47,7 +48,11 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [pickedFacts, setPickedFacts] = createSignal<
     ReadonlyMap<
       string,
-      { readonly description: string; readonly bloom: BloomClassificationView | null }
+      {
+        readonly questionTitle: string;
+        readonly description: string;
+        readonly bloom: BloomClassificationView | null;
+      }
     >
   >(new Map());
   const [poolImport, setPoolImport] = createSignal<QuestionPoolPickerSelection>();
@@ -82,6 +87,17 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     for (const question of workspace.assessment().workspace.questions)
       known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.description);
     for (const [key, fact] of pickedFacts()) known.set(key, fact.description);
+    return known;
+  });
+  const questionTitles = createMemo(() => {
+    const known = new Map<string, string>();
+    for (const question of workspace.assessment().workspace.questions) {
+      known.set(
+        questionRevisionKey(question.publishedQuestionRevisionTuple),
+        question.questionTitle,
+      );
+    }
+    for (const [key, fact] of pickedFacts()) known.set(key, fact.questionTitle);
     return known;
   });
   const fixedBlooms = createMemo(() => {
@@ -181,6 +197,17 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     );
   }
 
+  function questionTitle(publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple): string {
+    return questionTitles().get(questionRevisionKey(publishedQuestionRevisionTuple)) ?? "Question";
+  }
+
+  function poolTitle(questionPoolId: string): string {
+    for (const fork of poolForks().values()) {
+      if (fork.questionPoolId === questionPoolId) return fork.metadata.title;
+    }
+    return "Question Pool";
+  }
+
   function move(index: number, offset: -1 | 1): void {
     if (needsReload()) {
       setMessage("Reload the latest Assessment before changing its entry order.");
@@ -225,17 +252,57 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Entry removed. Save Questions when ready.");
   }
 
-  function rememberPickedQuestions(selection: QuestionPickerSelection): void {
+  function listedIds(ids: ReadonlyArray<string>): string {
+    const shown = ids.slice(0, 8).join(", ");
+    return ids.length > 8 ? `${shown}, and ${ids.length - 8} more` : shown;
+  }
+
+  function addQuestionPins(pins: ReadonlyArray<QuestionIdPin>): number | "already" | "capacity" {
+    const candidates = pins.filter(
+      (pin) =>
+        !entries().some(
+          (entry) =>
+            entry.kind === "fixedQuestion" &&
+            questionRevisionKey(entry.publishedQuestionRevisionTuple) ===
+              questionRevisionKey(pin.publishedQuestionRevisionTuple),
+        ),
+    );
+    if (candidates.length === 0) return "already";
+    if (candidates.length > remainingQuestionCapacity()) return "capacity";
     setPickedFacts((current) => {
       const next = new Map(current);
-      for (const question of selection.questions) {
-        next.set(questionRevisionKey(question.row.publishedQuestionRevisionTuple), {
-          description: question.row.summary,
-          bloom: question.row.bloom,
+      for (const pin of candidates) {
+        next.set(questionRevisionKey(pin.publishedQuestionRevisionTuple), {
+          questionTitle: pin.questionTitle,
+          description: pin.description,
+          bloom: pin.bloom,
         });
       }
       return next;
     });
+    setEntries((current) => {
+      let next = current;
+      for (const pin of candidates) {
+        next = appendAvailableFixedQuestion(next, pin.publishedQuestionRevisionTuple, entryId());
+      }
+      return next;
+    });
+    setDirty((current) => nextQuestionEditDirty(current, "add"));
+    return candidates.length;
+  }
+
+  function describeAddedQuestions(added: number, withheld: ReadonlyArray<string>): void {
+    if (withheld.length === 0) {
+      setMessage(
+        added === 1
+          ? "Available published Question added with its exact revision pin. Save Questions when ready."
+          : `${added} published Questions added with their exact Revision pins. Save Questions when ready.`,
+      );
+      return;
+    }
+    setMessage(
+      `Added ${added} published ${added === 1 ? "Question" : "Questions"}. These Question IDs were not available: ${listedIds(withheld)}. Save Questions when ready.`,
+    );
   }
 
   function addPublishedQuestions(selection: QuestionPickerSelection): void {
@@ -244,49 +311,98 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       setMessage("Reload the latest Assessment before adding an entry.");
       return;
     }
-    const candidates = selection.questions.filter(
-      (question) =>
-        !entries().some(
-          (entry) =>
-            entry.kind === "fixedQuestion" &&
-            questionRevisionKey(entry.publishedQuestionRevisionTuple) ===
-              questionRevisionKey(question.row.publishedQuestionRevisionTuple),
-        ),
+    const added = addQuestionPins(
+      selection.questions.map((question) => ({
+        questionId: question.questionId,
+        publishedQuestionRevisionTuple: question.row.publishedQuestionRevisionTuple,
+        questionTitle: question.row.questionTitle,
+        description: question.row.summary,
+        bloom: question.row.bloom,
+      })),
     );
-    if (candidates.length === 0) {
+    if (added === "already") {
       setMessage(
         "Those published Questions are already on this Assessment. No Questions were added.",
       );
       return;
     }
-    if (candidates.length > remainingQuestionCapacity()) {
+    if (added === "capacity") {
       setMessage(
         "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
       );
       return;
     }
-    rememberPickedQuestions({
-      ...selection,
-      questions: candidates,
-      questionIds: candidates.map((question) => question.questionId),
-    });
-    setEntries((current) => {
-      let next = current;
-      for (const candidate of candidates) {
-        next = appendAvailableFixedQuestion(
-          next,
-          candidate.row.publishedQuestionRevisionTuple,
-          entryId(),
-        );
+    describeAddedQuestions(added, []);
+  }
+
+  async function addQuestionsById(value: string): Promise<boolean> {
+    if (busy()) return false;
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before adding an entry.");
+      return false;
+    }
+    setBusy(true);
+    try {
+      const batch = await resolveQuestionIdBatch(
+        value,
+        remainingQuestionCapacity(),
+        async (questionId) => {
+          try {
+            const summary = await applicationApi.client.resolveQuestion(questionId);
+            if (summary.availability.availability !== "available") return "unavailable";
+            return {
+              questionId: summary.questionId,
+              publishedQuestionRevisionTuple: summary.publishedQuestionRevisionTuple,
+              questionTitle: summary.metadata.questionTitle,
+              description: summary.metadata.questionDescription,
+              bloom: summary.bloom,
+            };
+          } catch (error: unknown) {
+            if (error instanceof ApiRequestError && error.status === 404) return "missing";
+            throw error;
+          }
+        },
+      );
+      if (batch.kind === "empty") {
+        setMessage("Enter one or more Question IDs.");
+        return false;
       }
-      return next;
-    });
-    setDirty((current) => nextQuestionEditDirty(current, "add"));
-    setMessage(
-      candidates.length === 1
-        ? "Available published Question added with its exact revision pin. Save Questions when ready."
-        : `${candidates.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
-    );
+      if (batch.kind === "invalid") {
+        setMessage(
+          `These Question IDs are not canonical: ${listedIds(batch.invalidTokens)}. No Questions were added.`,
+        );
+        return false;
+      }
+      if (batch.kind === "overCapacity") {
+        setMessage(
+          "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
+        );
+        return false;
+      }
+      const withheld = [...batch.missing, ...batch.unavailable];
+      const added = addQuestionPins(batch.pins);
+      if (added === "capacity") {
+        setMessage(
+          "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
+        );
+        return false;
+      }
+      if (added === "already") {
+        setMessage(
+          withheld.length === 0
+            ? "Those published Questions are already on this Assessment. No Questions were added."
+            : `No Questions were added. These Question IDs were not available: ${listedIds(withheld)}.`,
+        );
+        return false;
+      }
+      describeAddedQuestions(added, withheld);
+      return true;
+    } catch {
+      setMessage("Question IDs were not added. Try again.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function save(): Promise<boolean> {
@@ -495,7 +611,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setPoolImport(selection);
     setPoolSelectionCount("1");
     setMessage(
-      `Question Pool ${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}, is ready to import. Existing Assessment Entries remain here.`,
+      `${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}) is ready to import. Existing Assessment Entries remain here.`,
     );
   }
 
@@ -512,6 +628,12 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       setMessage("Choose a Question Pool and a selection count no greater than its member count.");
       return;
     }
+    if (selectionCount > remainingQuestionCapacity()) {
+      setMessage(
+        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Question Pool was imported.",
+      );
+      return;
+    }
     setBusy(true);
     try {
       await applicationApi.client.importAssessmentQuestionPoolFork(
@@ -519,6 +641,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.assessmentId,
         {
           sourceQuestionPoolId: source.questionPoolId,
+          expectedSourceQuestionPoolEditNumber: source.questionPoolEditNumber,
           authoredPosition: entries().length,
           selectionCount,
           pointsPerItem: poolPointsPerItem(),
@@ -534,7 +657,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       setNeedsReload(conflict);
       setMessage(
         conflict
-          ? "This Assessment changed elsewhere. Reload latest Assessment before importing a Question Pool."
+          ? "The Assessment or selected Question Pool changed. Reload the Assessment and choose the Pool again before importing."
           : "Question Pool import was not saved. Try again.",
       );
     } finally {
@@ -562,6 +685,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     bloomSortUnavailableReason,
     sortByBloomClassification,
     description,
+    questionTitle,
+    poolTitle,
     entryBlooms,
     move,
     remove,
@@ -569,11 +694,18 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     poolForkLoadFailed,
     pickerRepository,
     pickerSources,
+    loadQuestionInspection: (publishedQuestionRevisionTuple) =>
+      applicationApi.client.getQuestionRevision(publishedQuestionRevisionTuple),
+    questionRevisionPreviewDocumentUrl: (publishedQuestionRevisionTuple) =>
+      applicationApi.client.questionRevisionPreviewDocumentUrl(publishedQuestionRevisionTuple),
+    questionImageUrl: (publishedQuestionRevisionTuple, questionImageAssetId) =>
+      applicationApi.client.questionImageUrl(publishedQuestionRevisionTuple, questionImageAssetId),
     questionPoolClient: applicationApi.client,
     updatePoolSelectionCount,
     replacePoolMembers,
     remainingQuestionCapacity,
     addPublishedQuestions,
+    addQuestionsById,
     poolImport,
     choosePool,
     poolSelectionCount,

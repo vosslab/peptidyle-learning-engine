@@ -1,6 +1,6 @@
 // blueprint_assessment_content_editor.tsx - task-focused editing for one Blueprint Assessment.
 
-import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import {
   ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
   assessmentDurationDefaultDescription,
@@ -10,6 +10,7 @@ import {
 } from "../../assessment_duration";
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
+import { assessmentPointValueDraft } from "../../assessment_point_value";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { createQuestionPoolLibraryClient } from "../../api/http_client/question_pool_library";
@@ -23,6 +24,7 @@ import {
   appendPickedPool,
   removeReusableEntry,
   updateReusableDefaults,
+  updateReusableEntryScoring,
   updateReusablePoolSelectionCount,
   updateReusableText,
 } from "./blueprint_course_model";
@@ -35,6 +37,12 @@ import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedba
 import { RecordSequence } from "../../components/record_list/record_sequence";
 import type { RecordContent } from "../../components/record_list/record_list";
 import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
+import type { RecognitionTitleMaps } from "../../api/recognition_titles";
+import { recognitionTitlesResource } from "../recognition_titles_load";
+import {
+  blueprintAssessmentEntryContent,
+  blueprintAssessmentEntryLabel,
+} from "./blueprint_assessment_entry_content";
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
@@ -53,49 +61,6 @@ function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
-function entrySummary(entry: BlueprintAssessmentContentInput["entries"][number]): string {
-  if (entry.kind === "fixed") {
-    const revision = entry.published_question_revision_tuple;
-    return `Fixed Question ${revision.publishedQuestionId}, Revision ${revision.revisionNumber}`;
-  }
-  return `Question Pool ${entry.pool.question_pool_id}, Edit ${entry.pool.question_pool_edit_number}`;
-}
-
-function entryContent(
-  entry: BlueprintAssessmentContentInput["entries"][number],
-  remove: (() => void) | undefined,
-): RecordContent {
-  if (entry.kind === "fixed") {
-    return {
-      title: entrySummary(entry),
-      details: [
-        { kind: "text", label: "Points possible", value: entry.points_possible },
-        { kind: "text", label: "Scoring", value: entry.scoring_rule },
-      ],
-      actions:
-        remove === undefined
-          ? []
-          : [{ id: "remove-entry", kind: "command", label: "Remove", onClick: remove }],
-    };
-  }
-  return {
-    title: entrySummary(entry),
-    details: [
-      {
-        kind: "text",
-        label: "Draw each Assessment Attempt",
-        value: String(entry.selection_count),
-      },
-      { kind: "text", label: "Points per Question", value: entry.points_per_item },
-      { kind: "text", label: "Scoring", value: entry.scoring_rule },
-    ],
-    actions:
-      remove === undefined
-        ? []
-        : [{ id: "remove-entry", kind: "command", label: "Remove", onClick: remove }],
-  };
-}
-
 function lateWorkRuleFromValue(
   value: string,
 ): BlueprintAssessmentContentInput["defaults"]["late_work_rule"] | undefined {
@@ -111,12 +76,12 @@ export function BlueprintAssessmentContentEditor(
   const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
   const [memberPoolEntryId, setMemberPoolEntryId] = createSignal<string>();
   const [invalidMembers, setInvalidMembers] = createSignal(false);
+  const [pointDrafts, setPointDrafts] = createSignal<Readonly<Record<string, string>>>({});
   const [timeLimit, setTimeLimit] = createSignal(
     assessmentDurationOverrideMinutesDraft(
       props.content.defaults.assessment_attempt_time_limit_seconds,
     ),
   );
-  const [legacyTimeLimitSeconds, setLegacyTimeLimitSeconds] = createSignal<number | null>(null);
   // Draft entries can repeat the same published identity, so list keys stay UI-local and travel with moves.
   type EntryInput = BlueprintAssessmentContentInput["entries"][number];
   type EntryRecord = { readonly entry: EntryInput; readonly index: number; readonly id: string };
@@ -130,21 +95,40 @@ export function BlueprintAssessmentContentEditor(
   const entryRecords = createMemo<ReadonlyArray<EntryRecord>>(() => {
     const entries = props.content.entries;
     if (entries !== trackedEntries) {
-      trackedEntries = entries;
       entryIdentities = entries.map(() => newEntryIdentity());
+      trackedEntries = entries;
     }
     return entries.map((entry, index) => ({ entry, index, id: entryIdentities[index]! }));
   });
   const questionPoolClient = props.questionPoolClient ?? createQuestionPoolLibraryClient();
   let fixedPickerTrigger: HTMLButtonElement | undefined;
   let poolPickerTrigger: HTMLButtonElement | undefined;
-  let editor!: HTMLElement;
+  let editor: HTMLElement | undefined;
   onCleanup(() => props.onInvalidDraftChange?.(false));
+
+  function notifyInvalidDraft(): void {
+    if (editor === undefined) return;
+    props.onInvalidDraftChange?.(
+      invalidMembers() ||
+        Object.keys(pointDrafts()).length > 0 ||
+        editor.querySelector("input:invalid:not([data-point-entry-id])") !== null,
+    );
+  }
+
+  createEffect(() => {
+    const liveIds = new Set(entryRecords().map((record) => record.id));
+    setPointDrafts((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([identity]) => liveIds.has(identity)),
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+    notifyInvalidDraft();
+  });
 
   createEffect(() => {
     const seconds = props.content.defaults.assessment_attempt_time_limit_seconds;
     setTimeLimit(assessmentDurationOverrideMinutesDraft(seconds));
-    setLegacyTimeLimitSeconds(seconds !== null && seconds % 60 !== 0 ? seconds : null);
   });
 
   function changeEntries(
@@ -154,7 +138,16 @@ export function BlueprintAssessmentContentEditor(
   ): void {
     trackedEntries = content.entries;
     entryIdentities = nextIdentities;
+    const liveIds = new Set(nextIdentities);
+    setPointDrafts((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([identity]) => liveIds.has(identity)),
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
     props.onChange(content, message);
+    notifyInvalidDraft();
+    queueMicrotask(notifyInvalidDraft);
   }
 
   function appendEntries(content: BlueprintAssessmentContentInput, message: string): void {
@@ -163,6 +156,34 @@ export function BlueprintAssessmentContentEditor(
       ...entryIdentities,
       ...Array.from({ length: additionalCount }, newEntryIdentity),
     ]);
+  }
+
+  function changeScoring(
+    record: EntryRecord,
+    change: { readonly points?: string; readonly scoringRule?: string },
+  ): void {
+    const updated = updateReusableEntryScoring(props.content, record.index, change);
+    if (updated === props.content) return;
+    changeEntries(updated, "Entry scoring updated. Save the Blueprint Course to keep this change.");
+  }
+
+  function changePoints(record: EntryRecord, input: HTMLInputElement): void {
+    const value = input.value;
+    const parsed = assessmentPointValueDraft(value);
+    if (parsed === undefined) {
+      setPointDrafts((current) => ({ ...current, [record.id]: value }));
+      input.setCustomValidity(
+        "Enter a point value from 0 to 1,000,000,000.9999 with at most four decimal places.",
+      );
+      return;
+    }
+    input.setCustomValidity("");
+    setPointDrafts((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    changeScoring(record, { points: value });
   }
 
   function removeEntry(record: EntryRecord): void {
@@ -216,9 +237,8 @@ export function BlueprintAssessmentContentEditor(
   function changeDuration(input: HTMLInputElement): void {
     const minutes = input.value;
     const seconds = assessmentDurationOverrideSecondsFromMinutesDraft(minutes);
-    const error = assessmentDurationOverrideMinutesError(minutes, null);
+    const error = assessmentDurationOverrideMinutesError(minutes);
     setTimeLimit(minutes);
-    setLegacyTimeLimitSeconds(null);
     input.setCustomValidity(error ?? "");
     if (seconds === undefined) {
       props.onChange(props.content, error ?? "Enter a whole number of minutes.");
@@ -233,7 +253,31 @@ export function BlueprintAssessmentContentEditor(
     );
   }
 
+  const recognitionRequest = createMemo(() => {
+    const questionIds = new Set<string>();
+    const poolIds = new Set<string>();
+    for (const entry of props.content.entries) {
+      if (entry.kind === "fixed") {
+        questionIds.add(entry.published_question_revision_tuple.publishedQuestionId);
+      } else {
+        poolIds.add(entry.pool.question_pool_id);
+      }
+    }
+    return { questionIds: [...questionIds], poolIds: [...poolIds] };
+  });
+  const recognition = recognitionTitlesResource(() => props.blueprintClient, recognitionRequest);
+
+  function rememberTitles(incoming: RecognitionTitleMaps): void {
+    recognition.remember(incoming);
+  }
+
   function confirmFixedQuestions(selection: Parameters<typeof appendPickedFixedEntries>[1]): void {
+    rememberTitles({
+      questions: new Map(
+        selection.questions.map((question) => [question.questionId, question.row.questionTitle]),
+      ),
+      pools: new Map(),
+    });
     const next = appendPickedFixedEntries(props.content, selection);
     setFixedPickerOpen(false);
     appendEntries(
@@ -243,10 +287,14 @@ export function BlueprintAssessmentContentEditor(
   }
 
   function confirmQuestionPool(selection: QuestionPoolPickerSelection): void {
+    rememberTitles({
+      questions: new Map(),
+      pools: new Map([[selection.questionPoolId, selection.title]]),
+    });
     setPoolPickerOpen(false);
     appendEntries(
       appendPickedPool(props.content, selection.questionPoolId, selection.questionPoolEditNumber),
-      `Added Question Pool ${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}, with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
+      `Added ${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}), with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
     );
   }
 
@@ -257,11 +305,7 @@ export function BlueprintAssessmentContentEditor(
       }}
       class="blueprint-course-content-editor"
       aria-label="Blueprint Assessment content"
-      onInput={() =>
-        props.onInvalidDraftChange?.(
-          invalidMembers() || editor.querySelector("input:invalid") !== null,
-        )
-      }
+      onInput={notifyInvalidDraft}
     >
       <div
         class="blueprint-course-inline-actions"
@@ -322,6 +366,9 @@ export function BlueprintAssessmentContentEditor(
           <div>
             <h3 id="blueprint-course-question-heading">Blueprint Assessment Questions</h3>
             <p>Fixed questions and pools stay in the order shown here.</p>
+            <Show when={recognition.status()}>
+              <p role="status">{recognition.status()}</p>
+            </Show>
           </div>
           <Show when={props.editable}>
             <div class="blueprint-course-inline-actions">
@@ -358,8 +405,9 @@ export function BlueprintAssessmentContentEditor(
           <RecordSequence
             rows={entryRecords()}
             content={(record): RecordContent =>
-              entryContent(
+              blueprintAssessmentEntryContent(
                 record.entry,
+                recognition.titles(),
                 props.editable ? (): void => removeEntry(record) : undefined,
               )
             }
@@ -442,7 +490,8 @@ export function BlueprintAssessmentContentEditor(
                   records.map((record) => record.id),
                 );
               },
-              recordLabel: (record) => entrySummary(record.entry),
+              recordLabel: (record) =>
+                blueprintAssessmentEntryLabel(record.entry, recognition.titles()),
               isDisabled: () => !props.editable,
             }}
             state={{ kind: "ready" }}
@@ -477,15 +526,14 @@ export function BlueprintAssessmentContentEditor(
                       blueprintCourseId={props.blueprintCourseId!}
                       assessmentId={props.retainedAssessmentId!}
                       client={props.blueprintClient!}
+                      initialTitles={recognition.titles()}
                       editable={props.editable}
                       pickerRepository={props.pickerRepository}
                       pickerSources={props.pickerSources}
                       onClose={() => setMemberPoolEntryId(undefined)}
                       onInvalidDraftChange={(invalid) => {
                         setInvalidMembers(invalid);
-                        props.onInvalidDraftChange?.(
-                          invalid || editor.querySelector("input:invalid") !== null,
-                        );
+                        notifyInvalidDraft();
                       }}
                       onChange={(pool, message) => {
                         const records = entryRecords();
@@ -547,13 +595,9 @@ export function BlueprintAssessmentContentEditor(
               step="1"
               inputmode="numeric"
               value={timeLimit()}
-              aria-invalid={
-                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) !==
-                undefined
-              }
+              aria-invalid={assessmentDurationOverrideMinutesError(timeLimit()) !== undefined}
               aria-describedby={
-                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) ===
-                undefined
+                assessmentDurationOverrideMinutesError(timeLimit()) === undefined
                   ? undefined
                   : "blueprint-assessment-duration-override-error"
               }
@@ -570,9 +614,7 @@ export function BlueprintAssessmentContentEditor(
               minutes from 1 to {ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} for a specific
               override.
             </small>
-            <Show
-              when={assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds())}
-            >
+            <Show when={assessmentDurationOverrideMinutesError(timeLimit())}>
               {(error) => (
                 <small id="blueprint-assessment-duration-override-error" role="alert">
                   {error()}
@@ -621,6 +663,63 @@ export function BlueprintAssessmentContentEditor(
             </select>
           </label>
         </div>
+      </fieldset>
+
+      <fieldset disabled={!props.editable} hidden={editingTask() !== "properties"}>
+        <legend>Scoring</legend>
+        <Show
+          when={entryRecords().length > 0}
+          fallback={
+            <p class="blueprint-course-field-help">
+              Add a Question before setting its points and scoring.
+            </p>
+          }
+        >
+          <For each={entryRecords()}>
+            {(record) => (
+              <fieldset>
+                <legend>{blueprintAssessmentEntryLabel(record.entry, recognition.titles())}</legend>
+                <label>
+                  {record.entry.kind === "fixed" ? "Points possible" : "Points per Question"}
+                  <input
+                    type="text"
+                    data-point-entry-id={record.id}
+                    inputMode="decimal"
+                    autocomplete="off"
+                    value={
+                      pointDrafts()[record.id] ??
+                      (record.entry.kind === "fixed"
+                        ? record.entry.points_possible
+                        : record.entry.points_per_item)
+                    }
+                    aria-invalid={pointDrafts()[record.id] !== undefined}
+                    onInput={(event) => changePoints(record, event.currentTarget)}
+                  />
+                  <Show when={pointDrafts()[record.id] !== undefined}>
+                    <small role="alert">
+                      Enter a point value from 0 to 1,000,000,000.9999 with at most four decimal
+                      places.
+                    </small>
+                  </Show>
+                </label>
+                <label>
+                  Scoring
+                  <select
+                    value={record.entry.scoring_rule}
+                    onChange={(event) =>
+                      changeScoring(record, { scoringRule: event.currentTarget.value })
+                    }
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="fullCredit">Full credit</option>
+                    <option value="extraCredit">Extra credit</option>
+                    <option value="excluded">Excluded</option>
+                  </select>
+                </label>
+              </fieldset>
+            )}
+          </For>
+        </Show>
       </fieldset>
 
       <div hidden={editingTask() !== "properties"}>

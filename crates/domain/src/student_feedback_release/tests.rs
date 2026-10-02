@@ -9,7 +9,7 @@ use question_model::{
 
 use super::{
     StudentFeedbackReleaseDecision, evaluate_student_feedback_release,
-    gate_quiz_exam_answers_for_current_cohort, project_student_feedback,
+    gate_quiz_exam_answers_for_current_cohort, project_disclosed_support, project_student_feedback,
     project_student_response_inspection_feedback, score_current_student_feedback_release,
 };
 use crate::effective_assessment_properties::{
@@ -30,6 +30,8 @@ fn quiz_and_exam_answers_wait_for_every_current_student() {
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: true,
+        hints: true,
+        worked_solutions: true,
     };
 
     for assessment_type in [AssessmentType::Quiz, AssessmentType::Exam] {
@@ -56,6 +58,8 @@ fn ordinary_assessment_answer_release_does_not_use_the_cohort_gate() {
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
+        hints: false,
+        worked_solutions: false,
     };
 
     for assessment_type in [
@@ -78,6 +82,8 @@ fn rule() -> StudentFeedbackReleaseRule {
         question_answer: StudentFeedbackReleaseTiming::AfterClose,
         question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
         class_statistics: StudentFeedbackReleaseTiming::AfterDue,
+        hints: StudentFeedbackReleaseTiming::Never,
+        worked_solutions: StudentFeedbackReleaseTiming::Never,
     }
 }
 
@@ -123,6 +129,8 @@ fn independent_fields_follow_their_own_timings() {
             question_answer: false,
             question_answer_explanation: false,
             class_statistics: false,
+            hints: false,
+            worked_solutions: false,
         }
     );
 }
@@ -269,6 +277,8 @@ fn feedback_projection_allowlists_each_released_field() {
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
+        hints: false,
+        worked_solutions: false,
     };
     let answer = question_answer();
     let explanation = question_answer_explanation();
@@ -298,6 +308,8 @@ fn withheld_question_answer_is_absent_while_provided_feedback_is_shown() {
         question_answer: false,
         question_answer_explanation: false,
         class_statistics: false,
+        hints: false,
+        worked_solutions: false,
     };
     let answer = question_answer();
     let explanation = question_answer_explanation();
@@ -329,6 +341,8 @@ fn independently_derived_answer_explanation_releases_without_an_answer_wrapper()
         question_answer: false,
         question_answer_explanation: true,
         class_statistics: false,
+        hints: false,
+        worked_solutions: false,
     };
     let explanation = question_answer_explanation();
 
@@ -359,6 +373,8 @@ fn student_response_inspection_projects_only_permitted_correctness_and_score() {
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
+        hints: false,
+        worked_solutions: false,
     };
     for status in [
         AssessmentScoringState::Current,
@@ -387,9 +403,102 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
         question_answer: false,
         question_answer_explanation: false,
         class_statistics: false,
+        hints: false,
+        worked_solutions: false,
     };
     let stale =
         score_current_student_feedback_release(decision, AssessmentScoringState::Recalculating);
     assert!(!stale.score);
     assert!(!stale.per_item_correctness);
+}
+
+#[test]
+fn weekly_and_bonus_keep_the_correct_answer_hidden_after_submission() {
+    for assessment_type in [
+        AssessmentType::RegularAssignment,
+        AssessmentType::BonusAssignment,
+    ] {
+        let rule = StudentFeedbackReleaseRule::for_assessment_type(assessment_type);
+        assert_eq!(rule.question_answer, StudentFeedbackReleaseTiming::Never);
+        let decision = evaluate_student_feedback_release(
+            rule,
+            &allowed(Some(stamp(20)), Some(stamp(30))),
+            stamp(40),
+            Some(stamp(10)),
+        )
+        .expect("allowed Student has a disclosure decision");
+        assert!(decision.per_item_correctness);
+        assert!(decision.submitted_response);
+        assert!(!decision.question_answer);
+        let disclosed = project_student_feedback(
+            decision,
+            Some(result()),
+            &question_feedback(),
+            Some(&question_answer()),
+            Some(&question_answer_explanation()),
+        )
+        .expect("submitted feedback");
+        assert_eq!(disclosed.correctness, Some(true));
+        assert!(disclosed.question_answer.is_none());
+    }
+}
+
+#[test]
+fn hints_and_worked_solutions_use_their_own_disclosure_settings() {
+    let mut release_rule = rule();
+    release_rule.hints = StudentFeedbackReleaseTiming::DuringAttempt;
+    release_rule.worked_solutions = StudentFeedbackReleaseTiming::Never;
+    release_rule.question_answer = StudentFeedbackReleaseTiming::AfterSubmit;
+    let during_attempt = evaluate_student_feedback_release(
+        release_rule,
+        &allowed(Some(stamp(20)), Some(stamp(30))),
+        stamp(10),
+        None,
+    )
+    .expect("allowed Student has a disclosure decision");
+    assert!(during_attempt.hints);
+    assert!(!during_attempt.worked_solutions);
+    assert!(!during_attempt.question_answer);
+
+    release_rule.hints = StudentFeedbackReleaseTiming::Never;
+    release_rule.worked_solutions = StudentFeedbackReleaseTiming::AfterSubmit;
+    let after_submit = evaluate_student_feedback_release(
+        release_rule,
+        &allowed(Some(stamp(20)), Some(stamp(30))),
+        stamp(10),
+        Some(stamp(9)),
+    )
+    .expect("allowed Student has a disclosure decision");
+    assert!(!after_submit.hints);
+    assert!(after_submit.worked_solutions);
+    assert!(after_submit.question_answer);
+
+    let hint = vec![QuestionContentBlock::Text {
+        markdown: "Count the carbons.".to_owned(),
+    }];
+    let worked_solution = vec![QuestionContentBlock::Text {
+        markdown: "The carbonyl carbon is electrophilic.".to_owned(),
+    }];
+    let shown = project_disclosed_support(during_attempt, Some(&hint), Some(&worked_solution));
+    assert_eq!(shown.hints, Some(hint.clone()));
+    assert!(shown.worked_solutions.is_none());
+    let solution_only =
+        project_disclosed_support(after_submit, Some(&hint), Some(&worked_solution));
+    assert!(solution_only.hints.is_none());
+    assert_eq!(solution_only.worked_solutions, Some(worked_solution));
+
+    let answer = project_student_feedback(
+        during_attempt,
+        None,
+        &QuestionFeedback::default(),
+        Some(&question_answer()),
+        None,
+    );
+    assert!(answer.is_none() || answer.expect("feedback").question_answer.is_none());
+
+    let waiting =
+        gate_quiz_exam_answers_for_current_cohort(after_submit, AssessmentType::Quiz, false);
+    assert!(waiting.worked_solutions);
+    assert!(!waiting.hints);
+    assert!(!waiting.question_answer);
 }

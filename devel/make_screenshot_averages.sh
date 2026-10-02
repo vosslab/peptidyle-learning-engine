@@ -7,23 +7,25 @@ output="${ple_root}/test-results/screenshot-averages"
 mkdir -p "${output}"
 find "${output}" -maxdepth 1 -type f -name '*-avg*.png' -delete
 
-for folder in $(find "${base}" -type d)
+shopt -s nullglob
+while IFS= read -r -d '' folder
 do
-  count=$(find "${folder}" -maxdepth 1 -type f -name '*.png' | wc -l | tr -d ' ')
+  images=("${folder}"/*.png)
+  count=${#images[@]}
 
   (( count == 0 )) && continue
 
   rel="${folder#${base}/}"
-  name="$(echo "${rel}" | gsed 's|/|-|g')"
+  name="${rel//\//-}"
 
   outimg="${output}/${name}-avg.png"
   cropimg="${output}/${name}-avg-crop.png"
 
   echo "averaging ${count} images -> ${outimg}"
 
-  magick "${folder}"/*.png -evaluate-sequence mean "${outimg}" &&
+  magick "${images[@]}" -evaluate-sequence mean "${outimg}" &&
     magick "${outimg}" -crop 0x120+0+0 +repage "${cropimg}"
-done
+done < <(find "${base}" -type d -print0)
 
 echo ""
 find "${output}" -maxdepth 1 -type f -name '*-avg*.png' -print | sort

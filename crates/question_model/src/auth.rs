@@ -36,12 +36,9 @@ mod tests {
 
     #[test]
     fn roles_use_lower_camel_wire_names() {
-        let encoded = serde_json::to_string(&[
-            UserRole::Student,
-            UserRole::Instructor,
-            UserRole::Sysadmin,
-        ])
-        .expect("roles should serialize");
+        let encoded =
+            serde_json::to_string(&[UserRole::Student, UserRole::Instructor, UserRole::Sysadmin])
+                .expect("roles should serialize");
 
         assert_eq!(encoded, "[\"student\",\"instructor\",\"sysadmin\"]");
     }

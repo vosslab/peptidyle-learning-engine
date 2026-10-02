@@ -55,6 +55,20 @@ test("Student Due Soon uses the server instant and a half-open rolling seven-day
   assert.equal(isInStudentDueSoonWindow(null, now), false);
 });
 
+test("Coursework status labels distinguish upcoming, available, completed, and missed work", () => {
+  const cases = [
+    ["not_yet_available", null, false, "upcoming", "Upcoming"],
+    ["may_start", null, false, "available", "Available"],
+    ["closed", "completed", false, "completed", "Completed"],
+    ["closed", null, false, "missed", "Missed"],
+  ];
+  for (const [decision, completion, canResume, expectedState, expectedLabel] of cases) {
+    const display = studentCourseworkDisplay(decision, completion, canResume);
+    assert.equal(display.state, expectedState, decision);
+    assert.equal(display.stateLabel, expectedLabel, decision);
+  }
+});
+
 test("Completed membership means at least one submitted Attempt", () => {
   for (const [count, expected] of [
     [0, false],

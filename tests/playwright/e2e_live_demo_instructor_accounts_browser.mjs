@@ -56,6 +56,10 @@ try {
   }
   await created.locator(`#deactivate-reason-${accountId}`).fill("Live demo access review");
   await created.getByRole("button", { name: "Deactivate Instructor Account" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Deactivate Instructor Account" })
+    .click();
   await created.getByText("State: Deactivated").waitFor();
   await created.getByRole("button", { name: "Reactivate Instructor Account" }).click();
   await created.getByText("State: Active").waitFor();

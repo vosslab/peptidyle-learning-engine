@@ -484,8 +484,8 @@ try {
     "a malformed Course Instance ID keeps the declared data-free Course Instance Ribbon",
   );
 
-  await page.evaluate(() => window.ribbonShell.currentNavigate("/assessment-attempts/R-0"));
-  await waitForPath(page, "current-production", "/assessment-attempts/R-0");
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2QAZ/attempt"));
+  await waitForPath(page, "current-production", "/courses/CI7K3M2QAZ/attempt");
   await assertOneStableRibbon(page, "current-production", currentRibbon);
   assert.deepEqual(
     await currentRibbon.evaluate((ribbon) => ({
@@ -502,7 +502,7 @@ try {
       tierOneControlIds: ["courses", "questions", "productAssessments"],
       taskControls: [],
     },
-    "a malformed Assessment Attempt ID keeps the declared data-free Attempt Ribbon",
+    "an Attempt route without history selection keeps the declared data-free Ribbon",
   );
 
   await page.evaluate(() =>
@@ -521,7 +521,7 @@ try {
     "/library",
     "/blueprint-courses",
     "/courses/CI4W8QF9AD",
-    "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+    "/courses/CI7K3M2QAZ/attempt",
     "/courses/CI7K3M2QAZ",
   ]) {
     await page.evaluate(
@@ -670,7 +670,7 @@ try {
       selected: "Courses",
     },
     {
-      pathname: "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+      pathname: "/courses/CI7K3M2QAZ/attempt",
       scope: "assessmentAttempt",
       selected: "Coursework",
     },

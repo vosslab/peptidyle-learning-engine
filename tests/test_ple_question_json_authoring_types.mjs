@@ -270,3 +270,19 @@ test("remaining source Question Types reject invalid private contracts", () => {
     }),
   );
 });
+
+test("exact text answers fit the UTF-16 Student response limit", () => {
+  const exact = (answer, maxLength) => ({
+    ...source(),
+    response: { kind: "fillIn", answers: [answer], matchMode: "exact", maxLength },
+  });
+  assert.throws(() => decodePleQuestionJsonSource(exact("AB", 1)));
+  assert.throws(() => decodePleQuestionJsonSource(exact("😀", 1)));
+  assert.equal(decodePleQuestionJsonSource(exact("😀", 2)).response.answers[0], "😀");
+
+  const normalized = decodePleQuestionJsonSource({
+    ...source(),
+    response: { kind: "fillIn", answers: ["ATP synthase"], matchMode: "normalized", maxLength: 3 },
+  });
+  assert.equal(normalized.response.answers[0], "ATP synthase");
+});

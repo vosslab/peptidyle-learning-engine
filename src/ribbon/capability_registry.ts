@@ -452,9 +452,16 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   myQuestions: {
-    kind: "unbacked",
-    reason: "My Questions has no declared route state or registered production handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::myQuestions"],
+    kind: "backed",
+    clientMethod: "ApiClient.searchQuestionLibrary",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_library.rs::question_library_router",
+    },
+    evidence: [
+      "crates/server/src/question_library.rs::question_library_router",
+      "src/pages/my_questions_page.tsx::MyQuestionsPage",
+    ],
   },
   myDraftQuestions: {
     kind: "backed",
@@ -469,9 +476,16 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   starred: {
-    kind: "unbacked",
-    reason: "Starred has no declared route, page, client method, or registered handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::starred"],
+    kind: "backed",
+    clientMethod: "ApiClient.listStarredQuestions",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_stewardship.rs::question_stewardship_router",
+    },
+    evidence: [
+      "crates/server/src/question_stewardship.rs::question_stewardship_router",
+      "src/pages/starred_questions_page.tsx::StarredQuestionsPage",
+    ],
   },
   watched: {
     kind: "backed",

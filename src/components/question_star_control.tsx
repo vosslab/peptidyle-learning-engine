@@ -50,15 +50,20 @@ export function QuestionStarControl(props: QuestionStarControlProps): JSX.Elemen
     (questionId) => applicationApi.client.getQuestionStar(questionId),
   );
   const [saving, setSaving] = createSignal(false);
+  const [error, setError] = createSignal(false);
 
   async function toggleStar(): Promise<void> {
     const current = star();
     if (current === undefined || saving()) return;
     setSaving(true);
+    setError(false);
     try {
       mutate(
         await applicationApi.client.setQuestionStar(props.questionId, !current.viewerHasStarred),
       );
+    } catch {
+      // ASVS 16.5.1: show a generic failure without exposing request details.
+      setError(true);
     } finally {
       setSaving(false);
     }
@@ -78,6 +83,9 @@ export function QuestionStarControl(props: QuestionStarControlProps): JSX.Elemen
           >
             {projection().viewerHasStarred ? "Unstar question" : "Star question"}
           </button>
+          <Show when={error()}>
+            <p role="alert">Your Star preference could not be saved. Try again.</p>
+          </Show>
           <p aria-live="polite">
             {projection().starCount}{" "}
             {projection().starCount === 1 ? "Instructor has" : "Instructors have"} starred this

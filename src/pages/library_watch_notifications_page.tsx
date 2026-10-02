@@ -5,7 +5,7 @@ import { Show, createResource, type JSX } from "solid-js";
 
 import type { LibraryWatchNotification } from "../api/library_watch_notification";
 import { useApplicationApi } from "../api/application_api";
-import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../format_datetime";
+import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import { PageFrame } from "../components/page_frame";
 import {
   RecordList,
@@ -17,6 +17,8 @@ function eventLabel(value: LibraryWatchNotification): string {
   switch (value.eventKind) {
     case "revision":
       return "New Revision";
+    case "membersChanged":
+      return "Membership edit";
     case "fork":
       return "New public fork";
     case "improvementThread":
@@ -30,24 +32,22 @@ function targetLabel(value: LibraryWatchNotification): string {
   return value.targetKind === "question" ? "Published Question" : "Question Pool";
 }
 
-function activityHref(value: LibraryWatchNotification): string | null {
-  if (value.activityId === null) return null;
-  const activity = encodeURIComponent(value.activityId);
+function targetHref(value: LibraryWatchNotification): string {
   if (value.targetKind === "question") {
-    return `/library/${encodeURIComponent(value.targetPublicId)}#library-activity-${activity}`;
+    return `/library/${encodeURIComponent(value.targetPublicId)}`;
   }
-  return `/library?pool=${encodeURIComponent(value.targetPublicId)}#library-activity-${activity}`;
+  return `/library?pool=${encodeURIComponent(value.targetPublicId)}`;
 }
 
 function inboxFailed(value: unknown): value is Error {
   return value instanceof Error;
 }
 
-function notificationContent(
+export function notificationContent(
   formatTimestamp: (timestamp: number | Date) => string,
 ): (notification: LibraryWatchNotification) => RecordContent {
   return (notification) => {
-    const activity = activityHref(notification);
+    const target = targetHref(notification);
     return {
       title: eventLabel(notification),
       description: `${targetLabel(notification)}: ${notification.targetPublicId}`,
@@ -64,9 +64,6 @@ function notificationContent(
         ...(notification.forkedPublicId === null
           ? []
           : [{ kind: "text" as const, label: "Fork ID", value: notification.forkedPublicId }]),
-        ...(notification.activityId === null
-          ? []
-          : [{ kind: "text" as const, label: "Activity ID", value: notification.activityId }]),
         {
           kind: "time" as const,
           label: "Occurred",
@@ -74,18 +71,15 @@ function notificationContent(
           dateTime: new Date(notification.occurredAt).toISOString(),
         },
       ],
-      actions:
-        activity === null
-          ? []
-          : [
-              {
-                id: "open-exact-activity",
-                kind: "link" as const,
-                label: "Open exact activity",
-                href: activity,
-                primary: true,
-              },
-            ],
+      actions: [
+        {
+          id: "open-target",
+          kind: "link" as const,
+          label: notification.targetKind === "question" ? "Open Question" : "Open Question Pool",
+          href: target,
+          primary: true,
+        },
+      ],
     };
   };
 }
@@ -108,7 +102,7 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
     runtime.client.getLibraryWatchNotifications(),
   );
   const failed = (): boolean => inboxFailed(notifications.error);
-  const formatTimestamp = createDisplayDateTimeFormatter(browserDisplayTimeZone());
+  const formatTimestamp = useSelectedDisplayDateTimeFormatter();
   const notificationListState = (): RecordListState => {
     if (notifications.loading) return { kind: "loading", label: "Loading Watch activity..." };
     if (failed()) {
@@ -136,7 +130,7 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
           title: "No Watch activity yet",
           message: "New Revisions, public forks, and stewardship activity will appear here.",
         }}
-        content={notificationContent(formatTimestamp)}
+        content={(notification) => notificationContent(formatTimestamp())(notification)}
         recordId={notificationId}
         rows={notifications() ?? []}
         state={notificationListState()}

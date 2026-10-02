@@ -15,10 +15,15 @@ export function ContentClassificationSelect(props: {
   readonly allowRetired?: boolean;
   readonly load: (parentUuid: string) => Promise<ReadonlyArray<VocabularyItem>>;
   readonly onChange: (uuid: string | null) => void;
+  /** Bumps the choice request after a vocabulary row is created or accepted. */
+  readonly reloadToken?: number;
 }): JSX.Element {
   const [items, { refetch }] = createResource(
-    () => (props.parentUuid === undefined ? "root" : props.parentUuid || false),
-    props.load,
+    () => {
+      const parent = props.parentUuid === undefined ? "root" : props.parentUuid || false;
+      return parent === false ? false : `${parent}#${props.reloadToken ?? 0}`;
+    },
+    (source) => props.load(source.slice(0, source.lastIndexOf("#"))),
   );
   return (
     <label class="content-classification-select">

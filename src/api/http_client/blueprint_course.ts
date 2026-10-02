@@ -4,6 +4,7 @@ import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
 import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_members";
+import { decodeRecognitionTitles } from "../decoders/recognition_titles";
 import {
   decodeBlueprintComparisonView,
   decodeCanonicalBlueprintCourse,
@@ -12,6 +13,12 @@ import { decodeBlueprintHistoryPageView } from "../decoders/blueprint_history";
 import { decodeUuid } from "../decoder";
 import { decodeCourseClassification } from "../decoders/course_classification";
 import { decodeCursor, decodeQuestionId } from "../decoders/shared";
+import {
+  emptyRecognitionTitles,
+  mergeRecognitionTitles,
+  recognitionTitleBatches,
+  type RecognitionTitleMaps,
+} from "../recognition_titles";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
@@ -72,6 +79,7 @@ function pagePath(
   promotedOnly = false,
   classification?: BlueprintCourseClassificationSearch,
   sort: BlueprintCourseListSort = "name",
+  tag = "",
 ): string {
   if (
     pageSize !== undefined &&
@@ -94,6 +102,11 @@ function pagePath(
   if (!(["name", "adoptions", "students"] as const).includes(sort)) {
     throw new ApiProtocolError("Blueprint Course sort must be name, adoptions, or students");
   }
+  if (tag !== tag.trim() || /\p{Cc}/u.test(tag) || Array.from(tag).length > 120) {
+    throw new ApiProtocolError(
+      "Blueprint Course tag must be at most 120 characters without surrounding spaces or control characters",
+    );
+  }
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", cursor);
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));
@@ -103,6 +116,7 @@ function pagePath(
   if (publicOnly) query.set("publicOnly", "true");
   if (promotedOnly) query.set("promotedOnly", "true");
   if (sort !== "name") query.set("sort", sort);
+  if (tag !== "") query.set("tag", tag);
   if (classification !== undefined) {
     // ASVS 2.2.1-2.2.3: validate UUIDs and complete chains; service validates real parents.
     const { disciplineUuid, subjectUuid, topicUuid, subtopicUuid, crossDiscipline } =
@@ -146,6 +160,18 @@ function idempotencyKey(value: BlueprintIdempotencyKey, path: string): string {
     );
   }
   return value;
+}
+
+function distinctCanonicalIds(values: readonly string[], path: string): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const [index, value] of values.entries()) {
+    const canonical = decodeQuestionId(value, `${path}[${index}]`);
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    ids.push(canonical);
+  }
+  return ids;
 }
 
 function blueprintPath(value: BlueprintCourseId): string {
@@ -390,6 +416,32 @@ export function createBlueprintCourseClient(
       }
       return body;
     },
+    loadRecognitionTitles: async (questionIds, poolIds): Promise<RecognitionTitleMaps> => {
+      const questions = distinctCanonicalIds(questionIds, "questionIds");
+      const pools = distinctCanonicalIds(poolIds, "poolIds");
+      const batches = recognitionTitleBatches(questions, pools);
+      let titles = emptyRecognitionTitles();
+      for (const batch of batches) {
+        const path = "/api/course-blueprints/recognition-titles";
+        const loaded = (
+          await blueprintJson(
+            fetchImplementation,
+            basePath,
+            path,
+            (value) =>
+              decodeRecognitionTitles(
+                value,
+                new Set(batch.questionIds),
+                new Set(batch.poolIds),
+                path,
+              ),
+            { method: "POST", body: batch, expectedStatus: 200 },
+          )
+        ).body;
+        titles = mergeRecognitionTitles(titles, loaded);
+      }
+      return titles;
+    },
     listBlueprintCourses: async (
       cursor,
       pageSize,
@@ -399,6 +451,7 @@ export function createBlueprintCourseClient(
       promotedOnly = false,
       classification,
       sort,
+      tag = "",
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath(
         "/api/course-blueprints",
@@ -410,6 +463,7 @@ export function createBlueprintCourseClient(
         promotedOnly,
         classification,
         sort,
+        tag,
       );
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
         .body;

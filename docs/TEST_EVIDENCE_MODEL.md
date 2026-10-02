@@ -33,8 +33,12 @@ doubt, remove it.
 ## Supported validation lanes
 
 `./launchers/all_test.sh` is the aggregate repository front door. It runs the
-owned Rust, codebase, Python, and declared service checks. Browser and
-connected operations remain explicit when their owner requires them.
+owned Rust, codebase, Python, and declared service checks. Its `local_stack.py
+acceptance` step currently dispatches the database baseline, installation-data
+replay, and Course Appearance PostgreSQL/MinIO lanes. The four Assessment E2E
+scripts are separate entry points and do not run through that aggregate step.
+Browser and other connected operations remain explicit when their owner
+requires them; a green aggregate result proves only the lanes it actually ran.
 
 Every bounded work item names the commands necessary for its claim. A result is
 green only when its required commands ran successfully on the material tree.

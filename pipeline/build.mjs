@@ -43,7 +43,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 const skipWasm = process.argv.includes("--skip-wasm");
 
-const distDir = path.join(repoRoot, "dist");
+const publishedDistDir = path.join(repoRoot, "dist");
+let distDir = publishedDistDir;
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
 const STANDALONE_STYLESHEETS = ["styles/ple_embed.css"];
@@ -70,6 +71,16 @@ function run(command, args) {
 
 //============================================
 
+/** Resolves the generated web bridge files or reports the supported repair. */
+function wasmBridgeFiles() {
+  if (!fs.existsSync(wasmWebDir)) {
+    throw new Error(`WASM bridge missing at ${wasmWebDir}. Build it with ./pipeline/build_wasm.sh`);
+  }
+  return fs.readdirSync(wasmWebDir);
+}
+
+//============================================
+
 /**
  * Resolves the browser entry point.
  *
@@ -91,7 +102,7 @@ function resolveEntry() {
 //============================================
 
 /**
- * Copies the generated WASM bridge into dist/wasm/.
+ * Copies the generated WASM bridge into its content-addressed dist/wasm/ directory.
  *
  * A missing bridge is a hard failure rather than a warning: the client shares
  * generation, validation, and timer logic with the server through this module,
@@ -99,13 +110,10 @@ function resolveEntry() {
  *
  * @returns {void}
  */
-function copyWasmBridge() {
-  if (!fs.existsSync(wasmWebDir)) {
-    throw new Error(`WASM bridge missing at ${wasmWebDir}. Build it with ./pipeline/build_wasm.sh`);
-  }
-  const targetDir = path.join(distDir, "wasm");
+function copyWasmBridge(wasmAssetVersion) {
+  const targetDir = path.join(distDir, "wasm", wasmAssetVersion);
   fs.mkdirSync(targetDir, { recursive: true });
-  for (const entry of fs.readdirSync(wasmWebDir)) {
+  for (const entry of wasmBridgeFiles()) {
     fs.copyFileSync(path.join(wasmWebDir, entry), path.join(targetDir, entry));
   }
 }
@@ -119,15 +127,15 @@ function copyWasmBridge() {
  * classic "my change did nothing" bug, and it wastes more time in playtests
  * than it costs to prevent.
  *
- * @param {string} bundleHash short content hash of the built bundle
- * @param {string} componentStylesheetHash short content hash of bundled component styles
+ * @param {string} bundleFile content-addressed browser bundle filename
+ * @param {string} stylesheetFile content-addressed stylesheet filename
  * @returns {void}
  */
-function copyIndexHtml(bundleHash, componentStylesheetHash) {
+function copyIndexHtml(bundleFile, stylesheetFile) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
   const fingerprinted = source
-    .replace(/(src=")(\.?\/?main\.js)(")/, `$1/main.js?v=${bundleHash}$3`)
-    .replace(/(href=")(\.?\/?main\.css)(")/, `$1/main.css?v=${componentStylesheetHash}$3`);
+    .replace(/(src=")(\.?\/?main\.js)(")/, `$1/${bundleFile}$3`)
+    .replace(/(href=")(\.?\/?main\.css)(")/, `$1/${stylesheetFile}$3`);
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
 }
 
@@ -294,67 +302,136 @@ async function main() {
   console.log("==> Ribbon icon sprite");
   checkRibbonIconSprite();
 
-  fs.mkdirSync(distDir, { recursive: true });
-  for (const child of fs.readdirSync(distDir)) {
-    fs.rmSync(path.join(distDir, child), { recursive: true, force: true });
-  }
+  const stagingDir = fs.mkdtempSync(path.join(repoRoot, ".dist-staging-"));
+  distDir = stagingDir;
+  try {
+    fs.mkdirSync(distDir, { recursive: true });
 
-  console.log("==> bundle");
-  await esbuild.build({
-    entryPoints: [path.join(repoRoot, entry)],
-    outfile: path.join(distDir, "main.js"),
-    bundle: true,
-    external: ["/assets/fonts/*"],
-    format: "esm",
-    target: "es2020",
-    platform: "browser",
-    minify: true,
-    sourcemap: true,
-    logLevel: "info",
-    plugins: [solidPlugin()],
-  });
-  const bundleBytes = fs.readFileSync(path.join(distDir, "main.js"));
-  const bundleHash = crypto.createHash("sha256").update(bundleBytes).digest("hex").slice(0, 8);
-  const componentStylesheetBytes = fs.readFileSync(path.join(distDir, "main.css"));
-  const componentStylesheetHash = crypto
-    .createHash("sha256")
-    .update(componentStylesheetBytes)
-    .digest("hex")
-    .slice(0, 8);
-  copyStandaloneStylesheets();
-  const fontUrls = browserFontUrlsFromStylesheet(
-    ["main.css", ...STANDALONE_STYLESHEETS]
-      .map((stylesheet) => fs.readFileSync(path.join(distDir, stylesheet), "utf8"))
-      .join("\n"),
-  );
-  copyIndexHtml(bundleHash, componentStylesheetHash);
-  copyPublicBrowserFiles();
-  copyRibbonIconSprite();
-  copyBrowserFontAssets(fontUrls);
-  copyAvatarCatalogAssets();
-  checkBrowserFontDelivery(fontUrls);
-  checkAvatarCatalogDelivery();
-
-  copyWasmBridge();
-
-  for (const required of [
-    "index.html",
-    "main.js",
-    "main.css",
-    ...STANDALONE_STYLESHEETS,
-    ...PUBLIC_BROWSER_FILES,
-    RIBBON_ICON_SPRITE,
-    ...avatarCatalogFiles().map((file) => path.join(AVATAR_CATALOG_DIST_DIRECTORY, file)),
-    ...browserFontDistributionPaths(fontUrls).map((fontPath) =>
-      path.join("assets", "fonts", fontPath),
-    ),
-  ]) {
-    if (!fs.existsSync(path.join(distDir, required))) {
-      throw new Error(`build finished but dist/${required} is missing`);
+    const wasmFiles = wasmBridgeFiles().sort();
+    const wasmHasher = crypto.createHash("sha256");
+    for (const file of wasmFiles) {
+      wasmHasher.update(file).update(fs.readFileSync(path.join(wasmWebDir, file)));
     }
-  }
+    const wasmAssetVersion = wasmHasher.digest("hex").slice(0, 12);
 
-  console.log(`Built ${path.relative(repoRoot, distDir)}/ (bundle ${bundleHash})`);
+    console.log("==> bundle");
+    await esbuild.build({
+      entryPoints: [path.join(repoRoot, entry)],
+      outfile: path.join(distDir, "main.js"),
+      bundle: true,
+      external: ["/assets/fonts/*"],
+      format: "esm",
+      target: "es2020",
+      platform: "browser",
+      minify: true,
+      sourcemap: true,
+      logLevel: "info",
+      plugins: [solidPlugin()],
+      define: { __PLE_WASM_ASSET_VERSION__: JSON.stringify(wasmAssetVersion) },
+    });
+    const bundlePath = path.join(distDir, "main.js");
+    const bundleMapPath = `${bundlePath}.map`;
+    const bundleMapName = `main.${crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(bundlePath))
+      .digest("hex")
+      .slice(0, 8)}.js.map`;
+    const bundleBytes = fs
+      .readFileSync(bundlePath, "utf8")
+      .replace("sourceMappingURL=main.js.map", `sourceMappingURL=${bundleMapName}`);
+    const bundleHash = crypto.createHash("sha256").update(bundleBytes).digest("hex").slice(0, 8);
+    const stylesheetPath = path.join(distDir, "main.css");
+    const stylesheetMapPath = `${stylesheetPath}.map`;
+    const stylesheetMapName = `main.${crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(stylesheetPath))
+      .digest("hex")
+      .slice(0, 8)}.css.map`;
+    const stylesheetBytes = fs
+      .readFileSync(stylesheetPath, "utf8")
+      .replace("sourceMappingURL=main.css.map", `sourceMappingURL=${stylesheetMapName}`);
+    const componentStylesheetHash = crypto
+      .createHash("sha256")
+      .update(stylesheetBytes)
+      .digest("hex")
+      .slice(0, 8);
+    const bundleFile = `main.${bundleHash}.js`;
+    const stylesheetFile = `main.${componentStylesheetHash}.css`;
+    fs.writeFileSync(bundlePath, bundleBytes);
+    fs.writeFileSync(stylesheetPath, stylesheetBytes);
+    for (const [mapPath, mapName, outputFile] of [
+      [bundleMapPath, bundleMapName, bundleFile],
+      [stylesheetMapPath, stylesheetMapName, stylesheetFile],
+    ]) {
+      const sourceMap = JSON.parse(fs.readFileSync(mapPath, "utf8"));
+      sourceMap.file = outputFile;
+      fs.writeFileSync(path.join(distDir, mapName), `${JSON.stringify(sourceMap)}\n`);
+      fs.rmSync(mapPath);
+    }
+    fs.renameSync(bundlePath, path.join(distDir, bundleFile));
+    fs.renameSync(stylesheetPath, path.join(distDir, stylesheetFile));
+    copyStandaloneStylesheets();
+    const fontUrls = browserFontUrlsFromStylesheet(
+      [stylesheetFile, ...STANDALONE_STYLESHEETS]
+        .map((stylesheet) => fs.readFileSync(path.join(distDir, stylesheet), "utf8"))
+        .join("\n"),
+    );
+    copyIndexHtml(bundleFile, stylesheetFile);
+    copyPublicBrowserFiles();
+    copyRibbonIconSprite();
+    copyBrowserFontAssets(fontUrls);
+    copyAvatarCatalogAssets();
+    checkBrowserFontDelivery(fontUrls);
+    checkAvatarCatalogDelivery();
+
+    copyWasmBridge(wasmAssetVersion);
+
+    for (const required of [
+      "index.html",
+      bundleFile,
+      stylesheetFile,
+      ...STANDALONE_STYLESHEETS,
+      ...PUBLIC_BROWSER_FILES,
+      RIBBON_ICON_SPRITE,
+      ...avatarCatalogFiles().map((file) => path.join(AVATAR_CATALOG_DIST_DIRECTORY, file)),
+      ...browserFontDistributionPaths(fontUrls).map((fontPath) =>
+        path.join("assets", "fonts", fontPath),
+      ),
+    ]) {
+      if (!fs.existsSync(path.join(distDir, required))) {
+        throw new Error(`build finished but dist/${required} is missing`);
+      }
+    }
+
+    // All fallible compilation and copy preparation is complete. Publish each
+    // prepared asset atomically inside the existing mounted directory; retain
+    // prior fingerprinted bundle/WASM files for clients holding older HTML.
+    fs.mkdirSync(publishedDistDir, { recursive: true });
+    const publishFiles = (sourceDir, relativeDir = "") => {
+      for (const entry of fs.readdirSync(path.join(sourceDir, relativeDir), {
+        withFileTypes: true,
+      })) {
+        const relativePath = path.join(relativeDir, entry.name);
+        if (relativePath === "index.html") continue;
+        if (entry.isDirectory()) {
+          publishFiles(sourceDir, relativePath);
+        } else {
+          const targetPath = path.join(publishedDistDir, relativePath);
+          fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+          fs.renameSync(path.join(sourceDir, relativePath), targetPath);
+        }
+      }
+    };
+    publishFiles(stagingDir);
+    const stagedIndex = path.join(stagingDir, "index.html");
+    const publishedIndex = path.join(publishedDistDir, "index.html");
+    fs.renameSync(stagedIndex, publishedIndex);
+
+    console.log(`Built ${path.relative(repoRoot, publishedDistDir)}/ (bundle ${bundleHash})`);
+  } finally {
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+    distDir = publishedDistDir;
+  }
 }
 
 await main();

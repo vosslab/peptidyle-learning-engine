@@ -46,17 +46,43 @@ test("canonical Assessment routes extract opaque IDs and reject the retired gene
     ],
     [
       "assessmentAttempt",
-      "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+      "/courses/CIABCDEFGS/attempt",
+      {
+        courseInstanceId: "CIABCDEFGS",
+        assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
+      },
+      { ...attemptKey("00000000-0000-0000-0000-000000000001"), courseInstanceId: "CIABCDEFGS" },
       { assessmentAttemptId: "00000000-0000-0000-0000-000000000001" },
-      attemptKey("00000000-0000-0000-0000-000000000001"),
+    ],
+    [
+      "assessmentAttemptSummary",
+      "/courses/CIABCDEFGS/review",
+      {
+        courseInstanceId: "CIABCDEFGS",
+        assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
+      },
+      { ...attemptKey("00000000-0000-0000-0000-000000000001"), courseInstanceId: "CIABCDEFGS" },
+      { assessmentAttemptId: "00000000-0000-0000-0000-000000000001" },
     ],
   ];
-  for (const [id, pathname, expectedParams, expectedScopeKey] of routeCases) {
+  for (const [id, pathname, expectedParams, expectedScopeKey, historyState] of routeCases) {
     const route = routeById(id);
     assert.equal(routeContractForPathname(pathname), route, id);
-    assert.deepEqual(routeParams(route, pathname), expectedParams, id);
-    assert.deepEqual(routeScopeKey(pathname), expectedScopeKey, id);
+    assert.deepEqual(routeParams(route, pathname, historyState), expectedParams, id);
+    assert.deepEqual(routeScopeKey(pathname, historyState), expectedScopeKey, id);
   }
+  assert.deepEqual(routeParams(routeById("assessmentAttempt"), "/courses/CIABCDEFGS/attempt"), {
+    courseInstanceId: "CIABCDEFGS",
+  });
+  assert.equal(routeScopeKey("/courses/CIABCDEFGS/attempt").kind, "invalid");
+  assert.equal(
+    routeScopeKey("/courses/CIABCDEFGS/review", { assessmentAttemptId: "R-4" }).kind,
+    "invalid",
+  );
+  assert.equal(
+    routeContractForPathname("/assessment-attempts/00000000-0000-0000-0000-000000000001"),
+    undefined,
+  );
   assert.equal(
     routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assignments/A9D2RX5AF/policies"),
     undefined,

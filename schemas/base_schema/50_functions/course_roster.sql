@@ -73,7 +73,10 @@ CREATE FUNCTION ple_audit.record_course_roster_event(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit AS $$
 BEGIN
     IF p_course_instance_id IS NULL OR p_student_account_id IS NULL OR p_acting_account_id IS NULL
-       OR p_kind NOT IN ('invitation_created', 'invitation_claimed', 'student_access_revoked') THEN
+       OR p_kind NOT IN (
+           'invitation_created', 'invitation_claimed', 'student_access_revoked',
+           'student_access_restored'
+       ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Event arguments are invalid';
     END IF;
     INSERT INTO ple_audit.course_roster_event

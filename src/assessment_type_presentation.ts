@@ -25,15 +25,16 @@ export interface AssessmentTypePresentation {
  */
 export const ASSESSMENT_TYPE_PRESENTATIONS = Object.freeze({
   regular_assignment: {
-    label: "Regular Assignment",
+    label: "Weekly Assignment",
     description:
       "Practice applying course ideas outside class. Reinforces current learning and can introduce new topics.",
     icon: "pen-to-square",
     colorToken: "--ple-assessment-type-regular-assignment",
   },
   practice_question_assignment: {
-    label: "Practice Question Assignment",
-    description: "Focused review or study-guide practice using material already covered.",
+    label: "Unit Review Assignment",
+    description:
+      "Focused review or study-guide practice using material already covered, with unlimited Attempts and a low point value.",
     icon: "arrows-spin",
     colorToken: "--ple-assessment-type-practice-question-assignment",
   },

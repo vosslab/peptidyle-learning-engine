@@ -16,6 +16,14 @@ import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintCo
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintRevisionNumber } from "../../../generated/api/BlueprintRevisionNumber";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
+import { emptyRecognitionTitles, type RecognitionTitleMaps } from "../../api/recognition_titles";
+import {
+  comparisonRecognitionIds,
+  labeledPoolRecognition,
+  labeledQuestionRecognition,
+  recognizedIdList,
+} from "../recognition_label";
+import { recognitionTitlesResource } from "../recognition_titles_load";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { normalizeHumanEnteredPublicId } from "../../question_id";
 import {
@@ -25,6 +33,7 @@ import {
 } from "../../components/record_list/record_list";
 import { RecordDetailList } from "../../components/record_list/record_detail_list";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
+import { ComparisonMembershipSummary } from "./blueprint_comparison_membership";
 import {
   assessmentDifferenceLabels,
   forkModuleLabel,
@@ -104,7 +113,9 @@ export function Settings(props: { readonly value: unknown }): JSX.Element {
 export function AssessmentSnapshot(props: {
   readonly snapshot: BlueprintComparisonSide["assessments"][number] | undefined;
   readonly side: BlueprintComparisonSide;
+  readonly titles?: RecognitionTitleMaps;
 }): JSX.Element {
+  const titles = (): RecognitionTitleMaps => props.titles ?? emptyRecognitionTitles();
   return (
     <Show when={props.snapshot} fallback={<p>Not present in this Revision.</p>}>
       {(snapshot) => (
@@ -118,7 +129,16 @@ export function AssessmentSnapshot(props: {
           <p class="blueprint-fork-instructions">
             {snapshot().content.instructions || "No instructions."}
           </p>
-          <p>Question IDs in this Assessment: {snapshot().questionIds.join(", ") || "None"}.</p>
+          <p>
+            Question IDs in this Assessment:{" "}
+            {recognizedIdList(
+              snapshot().questionIds,
+              titles().questions,
+              "Question",
+              "Question ID",
+            )}
+            .
+          </p>
           <h5>Questions and Pools in authored order</h5>
           <Show
             when={snapshot().content.entries.length > 0}
@@ -129,22 +149,40 @@ export function AssessmentSnapshot(props: {
                 {(entry) => (
                   <li>
                     <Show when={entry.kind === "fixed" ? entry : undefined}>
-                      {(fixed) => (
-                        <p>
-                          Question {fixed().published_question_revision_tuple.publishedQuestionId},
-                          Revision {fixed().published_question_revision_tuple.revisionNumber};{" "}
-                          {fixed().points_possible} points.
-                        </p>
-                      )}
+                      {(fixed) => {
+                        const tuple = fixed().published_question_revision_tuple;
+                        const line = labeledQuestionRecognition(
+                          titles().questions.get(tuple.publishedQuestionId),
+                          tuple.publishedQuestionId,
+                          tuple.revisionNumber,
+                        );
+                        return (
+                          <>
+                            <p>{line.title}</p>
+                            <p>
+                              {line.identifier}; {fixed().points_possible} points.
+                            </p>
+                          </>
+                        );
+                      }}
                     </Show>
                     <Show when={entry.kind === "pool" ? entry : undefined}>
-                      {(pool) => (
-                        <p>
-                          Question Pool {pool().question_pool_id}, Edit{" "}
-                          {pool().question_pool_edit_number}; select {pool().selection_count};{" "}
-                          {pool().points_per_item} points per Question.
-                        </p>
-                      )}
+                      {(pool) => {
+                        const line = labeledPoolRecognition(
+                          titles().pools.get(pool().question_pool_id),
+                          pool().question_pool_id,
+                          pool().question_pool_edit_number,
+                        );
+                        return (
+                          <>
+                            <p>{line.title}</p>
+                            <p>
+                              {line.identifier}; select {pool().selection_count};{" "}
+                              {pool().points_per_item} points per Question.
+                            </p>
+                          </>
+                        );
+                      }}
                     </Show>
                     <Settings
                       value={{
@@ -167,7 +205,14 @@ export function AssessmentSnapshot(props: {
   );
 }
 
-function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Element {
+function Comparison(props: {
+  readonly client: BlueprintCourseClient;
+  readonly view: BlueprintComparisonView;
+}): JSX.Element {
+  const recognition = recognitionTitlesResource(
+    () => props.client,
+    () => comparisonRecognitionIds(props.view),
+  );
   const assessment = (
     side: BlueprintComparisonSide,
     blueprintAssessmentId: string,
@@ -184,6 +229,9 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
     );
   return (
     <div data-blueprint-fork-comparison>
+      <Show when={recognition.status()}>
+        <p role="status">{recognition.status()}</p>
+      </Show>
       <div class="blueprint-fork-columns blueprint-fork-heads">
         <For each={["left", "right"] as const}>
           {(key) => (
@@ -230,15 +278,37 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
         and local IDs do not establish identity. Question Revision pins and Pool membership do not
         expose Question bodies; body differences are not determined here.
       </p>
+      <ComparisonMembershipSummary view={props.view} />
       <h3>Question IDs</h3>
-      <p>Shared: {props.view.sharedQuestionIds.join(", ") || "None"}.</p>
+      <p>
+        Shared:{" "}
+        {recognizedIdList(
+          props.view.sharedQuestionIds,
+          recognition.titles().questions,
+          "Question",
+          "Question ID",
+        )}
+        .
+      </p>
       <p>
         Removed from left to right (left only):{" "}
-        {props.view.leftOnlyQuestionIds.join(", ") || "None"}.
+        {recognizedIdList(
+          props.view.leftOnlyQuestionIds,
+          recognition.titles().questions,
+          "Question",
+          "Question ID",
+        )}
+        .
       </p>
       <p>
         Added from left to right (right only):{" "}
-        {props.view.rightOnlyQuestionIds.join(", ") || "None"}.
+        {recognizedIdList(
+          props.view.rightOnlyQuestionIds,
+          recognition.titles().questions,
+          "Question",
+          "Question ID",
+        )}
+        .
       </p>
       <h3>Assessments related by shared Questions</h3>
       <RecordDetailList
@@ -253,7 +323,16 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
               {assessment(props.view.left, edge.leftAssessmentId)?.content.title} compared with{" "}
               {assessment(props.view.right, edge.rightAssessmentId)?.content.title}
             </summary>
-            <p>Shared Question IDs: {edge.sharedQuestionIds.join(", ")}.</p>
+            <p>
+              Shared Question IDs:{" "}
+              {recognizedIdList(
+                edge.sharedQuestionIds,
+                recognition.titles().questions,
+                "Question",
+                "Question ID",
+              )}
+              .
+            </p>
             <Show when={assessment(props.view.left, edge.leftAssessmentId)}>
               {(left) => (
                 <Show when={assessment(props.view.right, edge.rightAssessmentId)}>
@@ -276,6 +355,7 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
                 <AssessmentSnapshot
                   snapshot={assessment(props.view.left, edge.leftAssessmentId)}
                   side={props.view.left}
+                  titles={recognition.titles()}
                 />
               </section>
               <section>
@@ -283,6 +363,7 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
                 <AssessmentSnapshot
                   snapshot={assessment(props.view.right, edge.rightAssessmentId)}
                   side={props.view.right}
+                  titles={recognition.titles()}
                 />
               </section>
             </div>
@@ -310,7 +391,11 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
               renderRecord={(item) => (
                 <details class="blueprint-fork-item">
                   <summary>{item.content.title}</summary>
-                  <AssessmentSnapshot snapshot={item} side={props.view[key]} />
+                  <AssessmentSnapshot
+                    snapshot={item}
+                    side={props.view[key]}
+                    titles={recognition.titles()}
+                  />
                 </details>
               )}
             />
@@ -627,7 +712,7 @@ export function BlueprintForkReview(
       <Show when={!review.loading && review()} keyed>
         {(loaded) => (
           <>
-            <Comparison view={loaded.comparison} />
+            <Comparison client={props.client} view={loaded.comparison} />
             <Show
               when={
                 !props.hasUnsavedChanges &&

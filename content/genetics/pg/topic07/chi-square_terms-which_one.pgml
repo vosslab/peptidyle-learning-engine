@@ -42,7 +42,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #4424d6; font-weight:700;">critical value</span>',
   },
   {
-    'item_name' => '<strong>the boundary of how extreme a test statistic we need to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
+    'item_name' => '<strong>the chi-square test statistic cutoff above which we reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> at the chosen significance level</strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -120,7 +120,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
   },
   {
-    'item_name' => '<strong>the statistical cutoff of the result for the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> to be <span style="color: #4d8426; font-weight:700;">supported</span> or not</strong>',
+    'item_name' => '<strong>the probability cutoff chosen in advance for deciding when to reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -146,7 +146,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
   },
   {
-    'item_name' => '<strong>the fixed probability for whether or NOT the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be <span style="color: #4d8426; font-weight:700;">supported</span></strong>',
+    'item_name' => '<strong>the chosen threshold for deciding whether the p-value is small enough to reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -159,7 +159,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
   },
   {
-    'item_name' => '<strong>a fixed probability cutoff whether the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be or cannot be <span style="color: #4d8426; font-weight:700;">supported</span></strong>',
+    'item_name' => '<strong>a fixed probability cutoff used with the p-value to decide whether to reject the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -198,7 +198,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
   },
   {
-    'item_name' => '<strong>the probability of getting a result that is either the same or more extreme than the actual observations</strong>',
+    'item_name' => '<strong>assuming the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> is true, the probability of getting results at least as extreme as those observed</strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -263,7 +263,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
   },
   {
-    'item_name' => '<strong>we want to <span style="color: #eb1601; font-weight:700;">faill to support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test</strong>',
+    'item_name' => '<strong>we look for evidence against this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test</strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -302,7 +302,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
   },
   {
-    'item_name' => '<strong>if the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> cannot be <span style="color: #4d8426; font-weight:700;">supported</span> , then this opposing hypothesis is <span style="color: #4d8426; font-weight:700;">supported</span></strong>',
+    'item_name' => '<strong>if the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> is rejected, the results provide evidence for this opposing hypothesis</strong>',
     'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
     'singular_item' => 'definition',
     'choices' => [
@@ -467,4 +467,3 @@ The correct answer is: [$correct]*
 END_PGML_SOLUTION
 
 ENDDOCUMENT();
-

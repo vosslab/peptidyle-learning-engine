@@ -126,7 +126,8 @@ CREATE TYPE ple_data.invitation_response AS ENUM (
     'accepted', 'declined', 'revoked'
 );
 CREATE TYPE ple_data.roster_event_kind AS ENUM (
-    'invitation_created', 'invitation_claimed', 'student_access_revoked'
+    'invitation_created', 'invitation_claimed', 'student_access_revoked',
+    'student_access_restored'
 );
 CREATE TYPE ple_data.ownership_event_kind AS ENUM (
     'initial', 'transferred'

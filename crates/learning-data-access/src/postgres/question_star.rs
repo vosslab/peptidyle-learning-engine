@@ -1,13 +1,14 @@
 //! PostgreSQL implementation of the authenticated Question Star boundary.
 
 use async_trait::async_trait;
-use question_model::PublishedQuestionId;
+use question_model::{PublishedQuestionId, validate_question_title};
+use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor, SessionTokenHash,
-    StoreError,
+    Cursor, DiscoveryPageRequest, Page, QuestionStarProjection, QuestionStarStore,
+    QuestionStarredInstructor, SessionTokenHash, StarredQuestionSummary, StoreError,
 };
 
 /// PostgreSQL Store for self-only Instructor Star state and public counts.
@@ -79,6 +80,70 @@ impl PostgresQuestionStarStore {
     }
 }
 
+fn validated_question_title(value: String) -> Result<String, StoreError> {
+    if value != value.trim()
+        || value.chars().any(char::is_control)
+        || validate_question_title(&value).is_err()
+    {
+        return Err(StoreError::InvalidRecord(
+            "Starred Question title".to_owned(),
+        ));
+    }
+    Ok(value)
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StarCursor {
+    page_size: u16,
+    starred_at_micros: i64,
+    published_question_id: String,
+}
+
+fn starred_question_page(
+    rows: &[sqlx::postgres::PgRow],
+    page_size: usize,
+    page_size_value: u16,
+) -> Result<Page<StarredQuestionSummary>, StoreError> {
+    let has_next = rows.len() > page_size;
+    let visible_rows = rows.iter().take(page_size).collect::<Vec<_>>();
+    let mut items = Vec::with_capacity(visible_rows.len());
+    for row in &visible_rows {
+        let question_id = row
+            .try_get::<String, _>("published_question_id")
+            .map_err(map_sqlx_error)?
+            .parse::<PublishedQuestionId>()
+            .map_err(|_| StoreError::InvalidRecord("Starred Question identity".to_owned()))?;
+        items.push(StarredQuestionSummary {
+            question_id,
+            question_title: validated_question_title(
+                row.try_get("question_title").map_err(map_sqlx_error)?,
+            )?,
+        });
+    }
+    let next_cursor = if has_next {
+        let row = visible_rows
+            .last()
+            .ok_or_else(|| StoreError::InvalidRecord("Starred Question page cursor".to_owned()))?;
+        let position = StarCursor {
+            page_size: page_size_value,
+            starred_at_micros: row.try_get("starred_at_micros").map_err(map_sqlx_error)?,
+            published_question_id: row
+                .try_get("published_question_id")
+                .map_err(map_sqlx_error)?,
+        };
+        Some(
+            Cursor::parse(serde_json::to_string(&position).map_err(|_| {
+                StoreError::InvalidRecord("Starred Question page cursor".to_owned())
+            })?)
+            .map_err(|_| StoreError::InvalidRecord("Starred Question page cursor".to_owned()))?,
+        )
+    } else {
+        None
+    };
+    Ok(Page { items, next_cursor })
+}
+
 fn validated_display_name(value: String) -> Result<QuestionStarredInstructor, StoreError> {
     if value != value.trim()
         || value.is_empty()
@@ -128,5 +193,52 @@ impl QuestionStarStore for PostgresQuestionStarStore {
         let projection = Self::read_in(&mut tx, question_id).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(projection)
+    }
+
+    async fn list_current_starred_questions(
+        &self,
+        session_token_hash: SessionTokenHash,
+        page: DiscoveryPageRequest,
+    ) -> Result<Page<StarredQuestionSummary>, StoreError> {
+        let mut tx = self.begin(session_token_hash).await?;
+        let position = page
+            .after
+            .as_ref()
+            .map(|cursor| {
+                if cursor.as_str().len() > 1024 {
+                    return Err(StoreError::InvalidRecord(
+                        "Starred Question cursor".to_owned(),
+                    ));
+                }
+                serde_json::from_str::<StarCursor>(cursor.as_str())
+                    .map_err(|_| StoreError::InvalidRecord("Starred Question cursor".to_owned()))
+            })
+            .transpose()?;
+        if position
+            .as_ref()
+            .is_some_and(|cursor| cursor.page_size != page.size.get())
+        {
+            return Err(StoreError::InvalidRecord(
+                "Starred Question cursor".to_owned(),
+            ));
+        }
+        let rows = sqlx::query(
+            "SELECT published_question_id, question_title, starred_at_micros \
+             FROM ple_api.list_current_starred_questions($1, $2, $3)",
+        )
+        .bind(position.as_ref().map(|cursor| cursor.starred_at_micros))
+        .bind(
+            position
+                .as_ref()
+                .map(|cursor| cursor.published_question_id.as_str()),
+        )
+        .bind(i32::from(page.size.get()))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let result_page =
+            starred_question_page(&rows, usize::from(page.size.get()), page.size.get())?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(result_page)
     }
 }

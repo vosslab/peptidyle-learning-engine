@@ -14,6 +14,8 @@ import { BrowseLibraryRoutePage, LibraryRoutePage } from "./pages/library_route_
 import { LibraryWatchNotificationsPage } from "./pages/library_watch_notifications_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
+import { MyQuestionsPage } from "./pages/my_questions_page";
+import { StarredQuestionsPage } from "./pages/starred_questions_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
 import { InactiveCourseListPage } from "./pages/course_list_page";
@@ -46,6 +48,10 @@ import { StudentAttemptHistoryPage } from "./pages/student_course_attempt_histor
 import { StudentResponseStatsPage } from "./pages/student_course_response_stats_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { ContentDisciplinesPage } from "./pages/content_disciplines_page";
+import {
+  SysadminCourseInspectionListPage,
+  SysadminCourseInspectionPage,
+} from "./pages/sysadmin_course_inspection_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
 import { AssessmentTemplatesPage } from "./pages/assessment_templates_page";
 import { AssessmentWorkspaceCreatePage } from "./pages/assessment_workspace/assessment_workspace_create_page";
@@ -84,6 +90,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentScores: StudentScoresPage,
   instructorAccounts: InstructorAccountsPage,
   contentDisciplines: ContentDisciplinesPage,
+  sysadminCourseInspection: SysadminCourseInspectionListPage,
+  sysadminCourseInspectionDetail: SysadminCourseInspectionPage,
   courseAssessments: CourseInstancePage,
   assessmentOverview: AssessmentOverviewPage,
   assessmentAttempt: AssessmentAttemptPage,
@@ -92,6 +100,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   libraryBrowse: BrowseLibraryRoutePage,
   libraryWatchNotifications: LibraryWatchNotificationsPage,
   questionDetail: QuestionDetailPage,
+  myQuestions: MyQuestionsPage,
+  starredQuestions: StarredQuestionsPage,
   questionDrafts: QuestionDraftsPage,
   questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,

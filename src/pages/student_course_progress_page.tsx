@@ -45,7 +45,8 @@ function progressContent(
   ): string | undefined => {
     const timestamp = assessment.latestActivityAt;
     if (timestamp === null) return undefined;
-    return formatDateTime()?.(timestamp);
+    const format = formatDateTime();
+    return format?.(timestamp);
   };
   return (assessment): RecordContent => {
     const details: Array<RecordFact> = [
@@ -108,7 +109,8 @@ export function StudentCourseProgressPage(): JSX.Element {
   const [accountSettings] = createResource(() => applicationApi.client.getAccountSettings());
   const formatDateTime = createMemo(() => {
     const timeZone = accountSettings()?.timeZone;
-    return timeZone === undefined ? undefined : createDisplayDateTimeFormatter(timeZone);
+    if (timeZone !== undefined) return createDisplayDateTimeFormatter(timeZone);
+    return accountSettings.error !== undefined ? (): string => "Time unavailable" : undefined;
   });
   const course = createMemo(() => {
     const id = courseInstanceId();

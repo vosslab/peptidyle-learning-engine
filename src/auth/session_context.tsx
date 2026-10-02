@@ -90,7 +90,7 @@ function hasHttpStatus(error: unknown, expectedStatus: number): boolean {
   return error.status === expectedStatus;
 }
 
-const SessionContext = createContext<SessionBootstrap>();
+export const SessionContext = createContext<SessionBootstrap>();
 
 export interface SessionProviderProps {
   readonly getSession: () => Promise<AuthenticatedSession>;

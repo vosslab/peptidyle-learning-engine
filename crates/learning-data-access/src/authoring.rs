@@ -26,6 +26,12 @@ pub struct AuthoringDraft {
     /// Deliberately authored backend-independent feedback for the next
     /// published Question Revision. It is never source-derived.
     pub general_feedback: Option<String>,
+    /// Optional PLE-managed Hint copied onto the next Published Question Revision.
+    /// ASVS 8.2.3: this is not Question Backend source.
+    pub hint: Option<String>,
+    /// Optional PLE-managed Worked Solution copied onto the next Published Question Revision.
+    /// ASVS 8.2.3: this is not Question Backend source.
+    pub worked_solution: Option<String>,
     /// Current author-declared educational type that publication makes immutable.
     pub question_type: QuestionType,
     /// Exact current private source object evidence.
@@ -92,6 +98,12 @@ pub struct SaveAuthoringDraftGeneralFeedbackInput {
     pub draft_question_uuid: DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
     pub general_feedback: Option<String>,
+    /// Written only when `replace_support` is true. ASVS 2.2.1.
+    pub hint: Option<String>,
+    /// Written only when `replace_support` is true. ASVS 2.2.1.
+    pub worked_solution: Option<String>,
+    /// False leaves the stored Hint and Worked Solution unchanged.
+    pub replace_support: bool,
 }
 
 /// Exact owner-only Draft Question deletion precondition.

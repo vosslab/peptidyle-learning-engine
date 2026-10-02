@@ -17,11 +17,15 @@ pub enum LibraryWatchTargetKind {
     QuestionPool,
 }
 
-/// Complete evidence for one of the four events that reaches a Watch inbox.
+/// Complete evidence for one Watch event that reaches the inbox.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibraryWatchActivity {
     Revision {
         revision_number: u64,
+    },
+    /// A Question Pool member-list save. `edit_number` is the Pool Edit Number.
+    MembersChanged {
+        edit_number: u64,
     },
     Fork {
         source_revision_number: u64,
@@ -44,12 +48,6 @@ pub struct LibraryWatchNotification {
     pub target_public_id: PublishedQuestionId,
     pub activity: LibraryWatchActivity,
     pub occurred_at: Timestamp,
-}
-
-/// Least-privilege worker capability: materialize a bounded Watch outbox batch.
-#[async_trait]
-pub trait LibraryWatchNotificationStore: Send + Sync {
-    async fn materialize_library_watch_notifications(&self, limit: u16) -> Result<u32, StoreError>;
 }
 
 /// Browser-facing private inbox for the authenticated active Instructor only.

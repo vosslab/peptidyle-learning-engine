@@ -31,6 +31,8 @@ const draft = {
     question_answer: "afterSubmit",
     question_answer_explanation: "afterSubmit",
     class_statistics: "never",
+    hints: "never",
+    worked_solutions: "never",
   },
 };
 

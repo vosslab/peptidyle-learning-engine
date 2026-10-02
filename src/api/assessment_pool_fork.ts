@@ -16,6 +16,7 @@ import type { PublishedQuestionRevisionTuple } from "../../generated/api/Publish
 /** Closed browser input for importing one reusable Pool into an Assessment-owned fork. */
 export interface ImportAssessmentQuestionPoolForkInput {
   readonly sourceQuestionPoolId: QuestionPoolId;
+  readonly expectedSourceQuestionPoolEditNumber: QuestionPoolEditNumber;
   readonly authoredPosition: number;
   readonly selectionCount: number;
   readonly pointsPerItem: AssessmentPointValue;

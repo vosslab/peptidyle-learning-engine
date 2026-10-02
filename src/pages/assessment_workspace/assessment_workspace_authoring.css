@@ -13,7 +13,7 @@
   margin: 0 0 var(--ple-section-gap, 0.75rem);
   padding: var(--ple-panel-padding, 0.85rem);
   border-inline-start: 0.35rem solid var(--ple-success);
-  border-radius: var(--ple-radius-inset, 0.7rem);
+  border-radius: var(--ple-radius-surface, 0.35rem);
   background: color-mix(in srgb, var(--ple-success) 12%, var(--ple-card-surface));
   box-shadow: var(--ple-shadow);
 }
@@ -43,12 +43,15 @@
   min-block-size: 30rem;
 }
 
+/* The heading and the entries are the teaching task. Panel padding would stack a card around them. */
 .assessment-editor-panel {
   min-width: 0;
-  padding: var(--ple-panel-padding, 0.85rem);
-  border-radius: var(--ple-radius-inset, 0.7rem);
-  background: color-mix(in srgb, var(--ple-card-surface) 84%, transparent);
-  box-shadow: var(--ple-shadow);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-surface, 0.35rem);
+  background: transparent;
+  box-shadow: none;
 }
 
 .assessment-editor-panel h2 {
@@ -104,10 +107,10 @@
   align-items: center;
   min-block-size: var(--ple-assignment-actions-reserved-block-size);
   margin: 0 0 var(--ple-section-gap, 0.75rem);
-  padding: calc(var(--ple-panel-padding, 0.85rem) - 0.3rem);
-  border-radius: var(--ple-radius-inset, 0.7rem);
-  background: color-mix(in srgb, var(--ple-card-surface) 94%, transparent);
-  box-shadow: var(--ple-shadow);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .assessment-editor-list {

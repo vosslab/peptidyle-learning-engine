@@ -16,6 +16,7 @@ uuid.workspace = true
 # Keep the hostile-image decoder policy below the server and import adapters so
 # no publication path can accidentally choose a weaker parser.
 image.workspace = true
+resvg.workspace = true
 
 # Enabled by the `s3` feature so the memory backend needs no SDK types. Select
 # the modern HTTP 1.x client explicitly: the SDK's default feature set also

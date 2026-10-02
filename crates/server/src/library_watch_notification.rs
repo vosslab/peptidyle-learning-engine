@@ -69,6 +69,7 @@ enum TargetKindResponse {
 #[serde(rename_all = "camelCase")]
 enum EventKindResponse {
     Revision,
+    MembersChanged,
     Fork,
     ImprovementThread,
     ImpactNotice,
@@ -89,6 +90,12 @@ impl From<LibraryWatchNotification> for NotificationResponse {
             LibraryWatchActivity::Revision { revision_number } => (
                 EventKindResponse::Revision,
                 Some(revision_number),
+                None,
+                None,
+            ),
+            LibraryWatchActivity::MembersChanged { edit_number } => (
+                EventKindResponse::MembersChanged,
+                Some(edit_number),
                 None,
                 None,
             ),
@@ -219,9 +226,7 @@ async fn instructor_session_hash(
     match resolve_session(sessions, joined_cookie_header(headers).as_deref()).await {
         // ASVS 8.2.1/8.3.1: the trusted SQL boundary repeats this predicate
         // from the installed session; no browser-provided actor can enter it.
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -316,8 +321,13 @@ mod tests {
     fn notification(activity: LibraryWatchActivity) -> LibraryWatchNotification {
         let question_id = question_model::PublishedQuestionId::from_random_identifier("0000000")
             .expect("Question ID");
+        let target_kind = if matches!(activity, LibraryWatchActivity::MembersChanged { .. }) {
+            LibraryWatchTargetKind::QuestionPool
+        } else {
+            LibraryWatchTargetKind::Question
+        };
         LibraryWatchNotification {
-            target_kind: LibraryWatchTargetKind::Question,
+            target_kind,
             target_public_id: question_id,
             activity,
             occurred_at: question_model::Timestamp::from_unix_millis(1),
@@ -335,6 +345,13 @@ mod tests {
                 LibraryWatchActivity::Revision { revision_number: 2 },
                 "revision",
                 Some(2),
+                None,
+                None,
+            ),
+            (
+                LibraryWatchActivity::MembersChanged { edit_number: 5 },
+                "membersChanged",
+                Some(5),
                 None,
                 None,
             ),
@@ -374,6 +391,9 @@ mod tests {
             let response = serde_json::to_value(NotificationResponse::from(notification(activity)))
                 .expect("Watch response serializes");
             assert_eq!(response["eventKind"], event_kind);
+            if event_kind == "membersChanged" {
+                assert_eq!(response["targetKind"], "questionPool");
+            }
             assert_eq!(response["revisionNumber"], option_number(revision));
             assert_eq!(response["forkedPublicId"], option_string(forked));
             assert_eq!(response["activityId"], option_string(activity_id));

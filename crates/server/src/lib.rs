@@ -81,12 +81,16 @@ mod question_fork;
 pub(crate) mod question_image_delivery;
 /// Instructor Question Library browse and answer-free detail routes.
 mod question_library;
+/// Active-vetted-Instructor Topic, Subtopic, and Tag edits for many Question Pools.
+mod question_pool_bulk_metadata;
 /// Active-Instructor reusable Published Question Pool creation.
 mod question_pool_creation;
 /// Published Pool Library browse/current detail and owned fork detail routes.
 mod question_pool_library;
 /// Vetted-Instructor Pool Stars and actor-private Pool Watch state.
 mod question_pool_stewardship;
+/// Active-vetted-Instructor optional Pool Hint, Question Feedback, and Worked Solution.
+mod question_pool_support;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
 mod question_publication_images;

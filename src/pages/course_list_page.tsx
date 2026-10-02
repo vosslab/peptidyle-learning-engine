@@ -25,6 +25,7 @@ import {
   type RecordListState,
 } from "../components/record_list/record_list";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
+import { courseTermFitsActiveLifetime } from "../api/decoders/course_term";
 import "./course_list_page.css";
 
 type AdoptableBlueprintCourse = Pick<
@@ -259,6 +260,12 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     }
     if (startDate() === "" || endDate() === "" || endDate() < startDate()) {
       setCreationError("Enter an end date on or after the Course Term start date.");
+      return;
+    }
+    if (!courseTermFitsActiveLifetime(endDate(), new Date().toISOString().slice(0, 10))) {
+      setCreationError(
+        "Choose an end date within six months of today. A Course remains Active for at most six months from creation.",
+      );
       return;
     }
     setCreationError(null);

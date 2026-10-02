@@ -15,9 +15,10 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
 use learning_data_access::{
-    AuthenticationCeremonyLifetime, AuthenticationSecretHash, PendingSysadminTotpAttestation,
-    SessionLifetime, SessionRecord, SessionStore, StoreError, SysadminTotpAttestationId,
-    SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
+    AuthenticationCeremonyLifetime, AuthenticationSecretHash, PasswordlessLoginMethod,
+    PendingSysadminTotpAttestation, SessionLifetime, SessionRecord, SessionStore, StoreError,
+    SysadminTotpAttestationId, SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore,
+    SysadminTotpVerificationReservation, passwordless_primary_account,
 };
 use question_model::{AccountId, UserRole};
 use serde::Serialize;
@@ -31,7 +32,10 @@ mod session_cookie;
 #[path = "auth/sysadmin_totp.rs"]
 mod sysadmin_totp;
 
-pub(crate) use browser_boundary::{ProductionBrowserBoundary, production_cookie_boundary};
+pub(crate) use browser_boundary::{
+    AcceptedBrowserOrigin, ProductionBrowserBoundary, document_parent_origin,
+    production_cookie_boundary,
+};
 #[cfg(test)]
 use browser_boundary::{normalize_production_cookies, origin_matches};
 pub use live_demo::{
@@ -304,6 +308,25 @@ where
         .route("/api/auth/session", get(session_handler::<S>))
         .route("/api/auth/logout", post(logout_handler::<S>))
         .with_state(state)
+}
+
+/// Issues a Student or Instructor session only after an email-code or passkey proof.
+///
+/// A Sysadmin role returns `Ok(None)` so this path cannot open a Sysadmin session
+/// or accept a password.
+pub async fn issue_passwordless_login(
+    sessions: &dyn SessionStore,
+    account: AccountId,
+    user_role: UserRole,
+    method: PasswordlessLoginMethod,
+    config: SessionConfig,
+) -> Result<Option<IssuedSession>, AuthError> {
+    let Some(primary) = passwordless_primary_account(account, user_role, method) else {
+        return Ok(None);
+    };
+    issue_session(sessions, primary.account, config)
+        .await
+        .map(Some)
 }
 
 /// Issues a session after a trusted provider has established an existing Account.

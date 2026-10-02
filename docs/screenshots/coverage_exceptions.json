@@ -11,6 +11,16 @@
       "reason": "The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
     },
     {
+      "id": "myQuestions",
+      "status": "deferred",
+      "reason": "My Questions lists the Instructor's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
+    },
+    {
+      "id": "starredQuestions",
+      "status": "deferred",
+      "reason": "Starred lists the Instructor's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
+    },
+    {
       "id": "myChangeProposals",
       "status": "deferred",
       "reason": "Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed."
@@ -39,6 +49,16 @@
       "id": "contentDisciplines",
       "status": "deferred",
       "reason": "The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+    },
+    {
+      "id": "sysadminCourseInspection",
+      "status": "deferred",
+      "reason": "Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+    },
+    {
+      "id": "sysadminCourseInspectionDetail",
+      "status": "deferred",
+      "reason": "Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
     },
     {
       "id": "pendingCourseInvitations",
@@ -80,12 +100,12 @@
     {
       "id": "task:myQuestions",
       "status": "deferred",
-      "reason": "My Questions is a future Ribbon destination without a Product Route."
+      "reason": "My Questions is an Instructor route to the current Account's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
     },
     {
       "id": "task:starred",
       "status": "deferred",
-      "reason": "Starred Questions is a future Ribbon destination without a Product Route."
+      "reason": "Starred is an Instructor route to the current Account's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh."
     },
     {
       "id": "task:watched",

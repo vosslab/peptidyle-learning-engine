@@ -97,5 +97,7 @@
 }
 
 .page-frame__title {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
   font-size: clamp(1.25rem, 1.6vw, 1.6rem);
 }

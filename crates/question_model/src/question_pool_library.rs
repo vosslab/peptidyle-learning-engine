@@ -12,8 +12,8 @@ use uuid::Uuid;
 use crate::{
     AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
     PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionStatistics, ReusableQuestionView,
+    QuestionPoolMetadataEditNumber, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionStatistics, ReusableQuestionView,
 };
 
 /// Current Pool lineage metadata, independent of immutable membership Revisions.
@@ -40,8 +40,10 @@ pub struct QuestionPoolMetadata {
 pub struct QuestionPoolLibrarySummary {
     pub metadata: QuestionPoolMetadata,
     pub question_pool_id: QuestionPoolId,
-    /// Current-state concurrency marker; not a historical membership object.
+    /// Membership version used by Assessment and historical membership references.
     pub question_pool_edit_number: QuestionPoolEditNumber,
+    /// Current mutable Pool metadata concurrency token.
+    pub question_pool_metadata_edit_number: QuestionPoolMetadataEditNumber,
     /// Total members in the current Pool membership.
     pub member_count: NonZeroU32,
     /// Exact Pool-owned Bloom Classification when assigned; member classifications do not substitute.

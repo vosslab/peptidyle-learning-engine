@@ -13,7 +13,7 @@ is Assessment, and Student work is collectively Coursework.
 
 1. Open an authorized Course Instance and choose an Assessment under
    Coursework. A particular item is labeled with its Assessment Type, such as
-   Quiz or Regular Assignment.
+   Quiz or Weekly Assignment.
 2. Start or resume an Assessment Attempt.
 3. Work one Question at a time and navigate among all Questions in the
    Assessment.
@@ -27,7 +27,7 @@ is Assessment, and Student work is collectively Coursework.
 Incomplete responses are not saved as complete. At submission, a Question with
 no complete saved response remains visibly unanswered, receives zero credit,
 and counts as incorrect without being sent to the Question Backend. When
-several Attempts are submitted, the highest score is used. Practice Question
+several Attempts are submitted, the highest score is used. Unit Review
 Assignments show the correct answer immediately after submission. Optional
 Question Feedback is shown when the backend provides it and does not use the
 Assessment's correct-answer disclosure setting.

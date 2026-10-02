@@ -135,7 +135,8 @@ CREATE FUNCTION ple_api.list_live_student_course_response_stats(
     not_full_credit_count bigint,
     average_display_duration_ms double precision,
     display_duration_sample_count bigint,
-    relevant_assessment_attempt_id uuid
+    relevant_assessment_attempt_id uuid,
+    question_title text
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -175,9 +176,12 @@ BEGIN
            stats.incorrect_attempt_count, stats.unanswered_attempt_count,
            stats.disclosed_attempt_count, stats.not_full_credit_count,
            stats.average_display_duration_ms, stats.display_duration_sample_count,
-           stats.relevant_assessment_attempt_id
+           stats.relevant_assessment_attempt_id,
+           metadata.question_title
       FROM ple_private.read_student_course_response_stats(
           p_course_instance_id, student_record_id_value
-      ) AS stats;
+      ) AS stats
+      LEFT JOIN ple_data.published_question_metadata AS metadata
+        ON metadata.published_question_id::text = stats.published_question_id;
 END
 $$;

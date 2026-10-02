@@ -94,6 +94,10 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await created
       .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
       .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
+      .click();
     await created.getByText("Deactivated", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "account_deactivated", session);
 

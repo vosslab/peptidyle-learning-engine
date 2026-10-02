@@ -4,6 +4,8 @@ import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
+import { resolveTheme } from "../../src/appearance/appearance_rules.ts";
+import { themeStyle, themeTokens } from "../../src/appearance/theme_registry.ts";
 import { bundleRecordListHarness } from "../support/record_list_harness_loader.ts";
 import { startHarnessServer } from "./ribbon_harness_server.mjs";
 
@@ -40,6 +42,20 @@ export async function openRecordListHarness(options = {}) {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   await page.goto(harnessServer.evidenceUrl);
+  const theme = resolveTheme({ signedInInstructor: false });
+  await page.evaluate(
+    ({ declarations, themeId }) => {
+      const root = document.documentElement;
+      for (const entry of declarations.split(";")) {
+        const separator = entry.indexOf(":");
+        if (separator <= 0) continue;
+        root.style.setProperty(entry.slice(0, separator).trim(), entry.slice(separator + 1).trim());
+      }
+      root.dataset.theme = themeId;
+      root.dataset.displayMode = "light";
+    },
+    { declarations: themeStyle(themeTokens(theme)), themeId: theme },
+  );
   const typography = await page.evaluate(() => {
     const code = document.createElement("pre");
     code.textContent = "semantic code typography probe";

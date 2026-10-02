@@ -34,6 +34,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
       { publishedQuestionId: SECOND_QUESTION, revisionNumber: 7 },
     ],
     interchangeabilityAttested: true,
+    tags: ["membrane", "bilayer"],
   });
 
   assert.deepEqual(created, { questionPoolId: "3S8B-24DZ", questionPoolEditNumber: 1 });
@@ -50,6 +51,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
       { publishedQuestionId: SECOND_QUESTION, revisionNumber: 7 },
     ],
     interchangeabilityAttested: true,
+    tags: ["membrane", "bilayer"],
   });
 
   const malformedReceiptClient = createHttpApiClient({
@@ -88,6 +90,9 @@ test("Question Pool creation rejects missing or noncanonical metadata before tra
     { title: " Pool " },
     { description: "hidden\u0000control" },
     { title: "a".repeat(513) },
+    { tags: [" membrane"] },
+    { tags: ["lipid", "lipid"] },
+    { tags: [""] },
   ]) {
     await assert.rejects(client.createQuestionPool({ ...valid, ...patch }), DecodeError);
   }

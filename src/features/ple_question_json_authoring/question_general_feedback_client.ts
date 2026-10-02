@@ -8,10 +8,20 @@ import { ApiProtocolError } from "../../api/http_client/error";
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const SAFE_ORIGIN = "https://ple-question-general-feedback.invalid";
 
-export type PleQuestionGeneralFeedbackRead = {
+export type PleQuestionManagedSupport = {
   readonly generalFeedback: string | null;
+  readonly hint: string | null;
+  readonly workedSolution: string | null;
+};
+
+export type PleQuestionGeneralFeedbackRead = PleQuestionManagedSupport & {
   readonly draftQuestionEditNumber: string;
 };
+
+/** Empty authored support is absence. A non-empty value is stored as entered. ASVS 2.2.1. */
+export function optionalPleManagedSupportText(value: string): string | null {
+  return value.trim() === "" ? null : value;
+}
 
 export type PleQuestionGeneralFeedbackSave = {
   readonly draftQuestionEditNumber: string;
@@ -53,7 +63,7 @@ export interface PleQuestionGeneralFeedbackClient {
   load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionGeneralFeedbackRead>;
   save(
     draftQuestion: DraftQuestionRouteId,
-    generalFeedback: string | null,
+    support: PleQuestionManagedSupport,
     expectedDraftQuestionEditNumber: string,
   ): Promise<PleQuestionGeneralFeedbackSave>;
 }
@@ -159,21 +169,33 @@ async function boundedJson(response: Response, path: string): Promise<unknown> {
   }
 }
 
-function decodeMetadata(value: unknown, path: string): string | null {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value) ||
-    Object.keys(value).length !== 1 ||
-    !("generalFeedback" in value) ||
-    ((value as Record<string, unknown>).generalFeedback !== null &&
-      typeof (value as Record<string, unknown>).generalFeedback !== "string")
-  ) {
+function optionalSupportText(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value === "string") return value;
+  return undefined;
+}
+
+function decodeMetadata(value: unknown, path: string): PleQuestionManagedSupport {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new PleQuestionGeneralFeedbackProtocolError(
-      `Question general feedback response ${path} must contain only generalFeedback`,
+      `Question general feedback response ${path} must contain generalFeedback, hint, and workedSolution`,
     );
   }
-  return (value as { readonly generalFeedback: string | null }).generalFeedback;
+  const record = value as Record<string, unknown>;
+  const generalFeedback = optionalSupportText(record.generalFeedback);
+  const hint = optionalSupportText(record.hint);
+  const workedSolution = optionalSupportText(record.workedSolution);
+  if (
+    Object.keys(record).length !== 3 ||
+    generalFeedback === undefined ||
+    hint === undefined ||
+    workedSolution === undefined
+  ) {
+    throw new PleQuestionGeneralFeedbackProtocolError(
+      `Question general feedback response ${path} must contain generalFeedback, hint, and workedSolution`,
+    );
+  }
+  return { generalFeedback, hint, workedSolution };
 }
 
 function requestInit(
@@ -205,14 +227,14 @@ export function createPleQuestionGeneralFeedbackClient(
     if (!response.ok) throw new PleQuestionGeneralFeedbackRequestError(response.status, path);
     requireJson(response, path);
     return {
-      generalFeedback: decodeMetadata(await boundedJson(response, path), path),
+      ...decodeMetadata(await boundedJson(response, path), path),
       draftQuestionEditNumber: draftQuestionEditNumberFromResponse(response, path),
     };
   }
 
   async function save(
     draftQuestion: DraftQuestionRouteId,
-    generalFeedback: string | null,
+    support: PleQuestionManagedSupport,
     expectedDraftQuestionEditNumber: string,
   ): Promise<PleQuestionGeneralFeedbackSave> {
     const path = metadataPath(draftQuestion);
@@ -225,7 +247,11 @@ export function createPleQuestionGeneralFeedbackClient(
           "content-type": "application/json",
           "if-match": ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path),
         },
-        JSON.stringify({ generalFeedback }),
+        JSON.stringify({
+          generalFeedback: support.generalFeedback,
+          hint: support.hint,
+          workedSolution: support.workedSolution,
+        }),
       ),
     );
     if (response.status === 409 || response.status === 412 || response.status === 428) {

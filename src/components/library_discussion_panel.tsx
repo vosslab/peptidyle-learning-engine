@@ -5,7 +5,7 @@ import { For, Show, createEffect, createResource, createSignal, type JSX } from 
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
-import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../format_datetime";
+import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import type {
   LibraryImpactNotice,
   LibraryImprovementPost,
@@ -22,13 +22,6 @@ export interface LibraryDiscussionPanelProps {
 
 function activityAnchor(activityId: string): string {
   return `library-activity-${activityId}`;
-}
-
-const displayTimeZone = browserDisplayTimeZone();
-const formatBrowserDateTime = createDisplayDateTimeFormatter(displayTimeZone);
-
-function timestamp(value: number): string {
-  return formatBrowserDateTime(value);
 }
 
 function parseRevisionNumber(value: string): number | null {
@@ -62,6 +55,7 @@ function ImpactNoticeView(props: {
 function CancelledImpactNotice(props: {
   readonly notice: Extract<LibraryImpactNotice, { readonly state: "cancelled" }>;
 }): JSX.Element {
+  const formatDateTime = useSelectedDisplayDateTimeFormatter();
   return (
     <section
       id={activityAnchor(props.notice.impactNoticeId)}
@@ -70,11 +64,11 @@ function CancelledImpactNotice(props: {
     >
       <p>
         <strong>Impact notice</strong> by {props.notice.authorDisplayName} ·{" "}
-        {timestamp(props.notice.createdAt)}
+        {formatDateTime()(props.notice.createdAt)}
         <Show when={props.notice.affectedRevisionNumber !== null}>
           {` · Revision ${props.notice.affectedRevisionNumber}`}
         </Show>
-        {` · Cancelled ${timestamp(props.notice.cancelledAt)}`}
+        {` · Cancelled ${formatDateTime()(props.notice.cancelledAt)}`}
       </p>
       <p>{props.notice.body}</p>
     </section>
@@ -94,6 +88,7 @@ function ActiveImpactNotice(props: {
   );
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal("");
+  const formatDateTime = useSelectedDisplayDateTimeFormatter();
 
   async function update(): Promise<void> {
     const value = parseRevisionNumber(affectedRevision());
@@ -140,7 +135,7 @@ function ActiveImpactNotice(props: {
     >
       <p>
         <strong>Impact notice</strong> by {props.notice.authorDisplayName} ·{" "}
-        {timestamp(props.notice.createdAt)}
+        {formatDateTime()(props.notice.createdAt)}
         <Show when={props.notice.affectedRevisionNumber !== null}>
           {` · Revision ${props.notice.affectedRevisionNumber}`}
         </Show>
@@ -353,6 +348,7 @@ function ThreadView(props: {
   const [reply, setReply] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
+  const formatDateTime = useSelectedDisplayDateTimeFormatter();
 
   async function act(action: () => Promise<void>): Promise<void> {
     setBusy(true);
@@ -372,7 +368,7 @@ function ThreadView(props: {
       case "open":
         return "Open thread";
       case "resolved":
-        return `Resolved ${timestamp(props.thread.resolvedAt)}`;
+        return `Resolved ${formatDateTime()(props.thread.resolvedAt)}`;
     }
   }
 
@@ -476,6 +472,7 @@ function PostView(props: {
   const [body, setBody] = createSignal(props.post.body);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal("");
+  const formatDateTime = useSelectedDisplayDateTimeFormatter();
   async function save(): Promise<void> {
     setSaving(true);
     setError("");
@@ -496,7 +493,7 @@ function PostView(props: {
   return (
     <section id={activityAnchor(props.post.postId)} class="library-improvement-post">
       <p>
-        <strong>{props.post.authorDisplayName}</strong> · {timestamp(props.post.createdAt)}
+        <strong>{props.post.authorDisplayName}</strong> · {formatDateTime()(props.post.createdAt)}
         <Show when={props.post.updatedAt !== null}> · Edited</Show>
       </p>
       <Show when={props.mayEdit} fallback={<p>{props.post.body}</p>}>

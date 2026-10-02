@@ -525,13 +525,13 @@ Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#assessment-specifications).
 Pools into graded or practice work.
 
 **Assignment** is not an object, category, or parent Type. It appears only in
-the names Regular Assignment, Practice Question Assignment, and Bonus
+the names Weekly Assignment, Unit Review Assignment, and Bonus
 Assignment.
 
 **Assessment Type** is one of:
 
-- **Regular Assignment**;
-- **Practice Question Assignment**;
+- **Weekly Assignment**;
+- **Unit Review Assignment**;
 - **Bonus Assignment**;
 - **Quiz**; or
 - **Exam**.
@@ -555,8 +555,8 @@ the browser preference live. Theme selection and Display Mode Preference are
 independent: neither changes the other. There is no System or Auto Display
 Mode, Theme inheritance, Theme-strength setting, or per-Course Display Mode.
 
-The product-defined Font Awesome Type icons are `pen-to-square` for Regular
-Assignment, `arrows-spin` for Practice Question Assignment, `star` for Bonus
+The product-defined Font Awesome Type icons are `pen-to-square` for Weekly
+Assignment, `arrows-spin` for Unit Review Assignment, `star` for Bonus
 Assignment, `circle-question` for Quiz, and `file-signature` for Exam. Themes
 define Type colors while preserving Type meaning and icons. Labels and icons
 remain sufficient without color.
@@ -612,8 +612,8 @@ late work.
 
 ## Assessment Types and disclosure
 
-Regular Assignments support regular learning and default to unlimited Attempts.
-They reinforce current learning and may introduce new topics. Practice Question
+Weekly Assignments support regular learning and default to unlimited Attempts.
+They reinforce current learning and may introduce new topics. Unit Review
 Assignments provide focused review of covered material and may carry a small
 number of points or extra credit. They use the same whole-Attempt submission
 boundary as other Assessments and show the correct answer immediately after
@@ -623,7 +623,7 @@ add earned points directly to the grade. Quizzes assess recent material; Exams
 are individual assessments associated with scheduled exam periods. Both allow
 one Assessment Attempt and may use more restrictive settings.
 
-Regular and Bonus Assignments rarely show the correct answer but show the
+Weekly and Bonus Assignments rarely show the correct answer but show the
 Student response and correctness. Quizzes and Exams withhold correct answers
 until all Students in the Course complete it. Completion means Student
 submission or automatic submission on expiration, regardless of correctness

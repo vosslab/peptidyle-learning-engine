@@ -46,6 +46,7 @@ test("Pool list retains independent metadata and current Pool identity", () => {
       {
         questionPoolId: "3S8B-24DZ",
         questionPoolEditNumber: 4,
+        questionPoolMetadataEditNumber: 1,
         metadata,
         memberCount: 2,
         bloom,
@@ -95,6 +96,26 @@ test("Pool list retains independent metadata and current Pool identity", () => {
   );
 });
 
+test("Question Pools use the shared Question Library metadata required for publication", () => {
+  const shared = {
+    ...metadata,
+    topicUuid: "00000000-0000-0000-0000-000000000003",
+    subtopicUuid: "00000000-0000-0000-0000-000000000004",
+    tags: ["review"],
+  };
+  const decoded = decodeQuestionPoolMetadata(shared, "metadata");
+  assert.equal(decoded.disciplineUuid, shared.disciplineUuid);
+  assert.equal(decoded.subjectUuid, shared.subjectUuid);
+  assert.equal(decoded.topicUuid, shared.topicUuid);
+  assert.equal(decoded.subtopicUuid, shared.subtopicUuid);
+  assert.deepEqual(decoded.tags, shared.tags);
+  for (const field of ["disciplineUuid", "subjectUuid"]) {
+    const incomplete = { ...shared };
+    delete incomplete[field];
+    assert.throws(() => decodeQuestionPoolMetadata(incomplete, "metadata"), DecodeError);
+  }
+});
+
 test("Pool metadata rejects missing required fields, unknown fields and malformed classifications", () => {
   for (const patch of [
     { title: undefined },
@@ -121,6 +142,7 @@ test("Pool list permits a blank Bloom pair and rejects partial or malformed Bloo
   const item = {
     questionPoolId: "3S8B-24DZ",
     questionPoolEditNumber: 4,
+    questionPoolMetadataEditNumber: 1,
     metadata,
     memberCount: 2,
     bloom,

@@ -35,20 +35,24 @@ function decodePositiveSafeInteger(value: unknown, path: string): number {
   return decoded;
 }
 
-function decodeSharedMetadataText(value: unknown, path: string): string {
+function decodeSearchText(value: unknown, path: string, maximum: number): string {
   if (
     typeof value !== "string" ||
     value.trim() !== value ||
     value.length === 0 ||
-    [...value].length > MAX_SHARED_METADATA_TEXT_CODE_POINTS ||
+    [...value].length > maximum ||
     hasControlCharacter(value)
   ) {
     throw new DecodeError(
       path,
-      `trimmed, nonempty, control-free text within ${MAX_SHARED_METADATA_TEXT_CODE_POINTS} Unicode code points`,
+      `trimmed, nonempty, control-free text within ${maximum} Unicode code points`,
     );
   }
   return value;
+}
+
+function decodeSharedMetadataText(value: unknown, path: string): string {
+  return decodeSearchText(value, path, MAX_SHARED_METADATA_TEXT_CODE_POINTS);
 }
 
 function decodeTags(value: unknown, path: string): Array<string> {
@@ -158,13 +162,35 @@ export function validateQuestionBulkMetadataRequest(
   const selection = rawSelection.map((value, index) => {
     const itemPath = `request.selection[${index}]`;
     const item = decodeRecord(value, itemPath);
-    requireOnlyFields(item, itemPath, ["questionId", "metadataEditNumber"]);
-    return {
+    requireOnlyFields(item, itemPath, [
+      "questionId",
+      "metadataEditNumber",
+      "questionTitle",
+      "questionDescription",
+    ]);
+    const selected: QuestionBulkMetadataUpdateRequest["selection"][number] = {
       questionId: decodeQuestionId(field(item, "questionId", itemPath), `${itemPath}.questionId`),
       metadataEditNumber: decodePositiveSafeInteger(
         field(item, "metadataEditNumber", itemPath),
         `${itemPath}.metadataEditNumber`,
       ),
+    };
+    const questionTitle =
+      "questionTitle" in item
+        ? decodeSearchText(field(item, "questionTitle", itemPath), `${itemPath}.questionTitle`, 512)
+        : undefined;
+    const questionDescription =
+      "questionDescription" in item
+        ? decodeSearchText(
+            field(item, "questionDescription", itemPath),
+            `${itemPath}.questionDescription`,
+            4000,
+          )
+        : undefined;
+    return {
+      ...selected,
+      ...(questionTitle === undefined ? {} : { questionTitle }),
+      ...(questionDescription === undefined ? {} : { questionDescription }),
     };
   });
   const ids = selection.map((item) => item.questionId);
@@ -177,12 +203,16 @@ export function validateQuestionBulkMetadataRequest(
 
   const rawPatch = decodeRecord(field(request, "patch", "request"), "request.patch");
   const keys = Object.keys(rawPatch);
+  const changesQuestionText = selection.some(
+    (item) => item.questionTitle !== undefined || item.questionDescription !== undefined,
+  );
   if (
-    keys.length === 0 ||
+    keys.length > 5 ||
     keys.some(
       (key) =>
         !["tags", "disciplineUuid", "subjectUuid", "topicUuid", "subtopicUuid"].includes(key),
-    )
+    ) ||
+    (keys.length === 0 && !changesQuestionText)
   ) {
     throw new DecodeError("request.patch", "at least one closed shared-metadata field");
   }

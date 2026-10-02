@@ -12,6 +12,7 @@ export interface BlueprintSearchSnapshot {
   readonly classification: BlueprintCourseClassificationSearch;
   readonly classificationDescription: string;
   readonly sort: BlueprintCourseListSort;
+  readonly tag: string;
 }
 
 export interface BlueprintSearchReturnState {
@@ -26,7 +27,12 @@ export interface BlueprintSearchReturnState {
   readonly linkKey: string;
 }
 
-export const BLUEPRINT_SEARCH_RETURN_PARAMETER = "blueprintReturn";
+export interface BlueprintSearchHistoryState {
+  readonly accountId: string;
+  readonly token: string;
+  readonly state: BlueprintSearchReturnState;
+}
+
 const BLUEPRINT_SEARCH_RETURN_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 let pending: {
@@ -47,13 +53,6 @@ export function parseBlueprintSearchReturnToken(value: unknown): string | null {
     : null;
 }
 
-/** The same token belongs in the source history entry and the detail route href. */
-export function blueprintSearchReturnPath(token: string): string {
-  return `/blueprint-courses/search/public?${new URLSearchParams({
-    [BLUEPRINT_SEARCH_RETURN_PARAMETER]: token,
-  }).toString()}`;
-}
-
 /** Save only immediately before same-tab result navigation, as in Question Library. */
 export function saveBlueprintSearchReturnState(
   session: AuthenticatedSession,
@@ -62,6 +61,16 @@ export function saveBlueprintSearchReturnState(
 ): void {
   if (parseBlueprintSearchReturnToken(token) === null) return;
   pending = { session, token, state };
+}
+
+/** Store the temporary return snapshot on its source history entry for reload and Back. */
+export function blueprintSearchHistoryState(
+  session: AuthenticatedSession,
+  token: string,
+  state: BlueprintSearchReturnState,
+): BlueprintSearchHistoryState | null {
+  if (parseBlueprintSearchReturnToken(token) === null) return null;
+  return { accountId: session.account.id, token, state };
 }
 
 /**
@@ -76,7 +85,7 @@ export function blueprintDetailCollectionLink(
   const token = parseBlueprintSearchReturnToken(returnToken);
   if (token !== null) {
     return {
-      href: blueprintSearchReturnPath(token),
+      href: "/blueprint-courses/search/public",
       label: "Return to Public Blueprint Courses",
     };
   }
@@ -92,9 +101,56 @@ export function blueprintDetailCollectionLink(
 /** Exact session identity and single consumption prevent cross-Account restoration. */
 export function takeBlueprintSearchReturnState(
   session: AuthenticatedSession,
-  token: string | null,
+  token: unknown,
+  historyState?: unknown,
 ): BlueprintSearchReturnState | null {
-  const state = pending?.session === session && pending.token === token ? pending.state : null;
+  const parsedToken = parseBlueprintSearchReturnToken(token);
+  const pendingState =
+    pending?.session === session && (parsedToken === null || pending.token === parsedToken)
+      ? pending.state
+      : null;
   pending = null;
-  return state;
+  if (pendingState !== null) return pendingState;
+  if (!isRecord(historyState)) return null;
+  if (historyState.accountId !== session.account.id) return null;
+  if (parseBlueprintSearchReturnToken(historyState.token) === null) return null;
+  if (parsedToken !== null && historyState.token !== parsedToken) return null;
+  return isReturnState(historyState.state) ? historyState.state : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSnapshot(value: unknown): value is BlueprintSearchSnapshot {
+  if (!isRecord(value) || !isRecord(value.classification)) return false;
+  const classification = value.classification;
+  const nullableString = (item: unknown): boolean => item === null || typeof item === "string";
+  return (
+    typeof value.query === "string" &&
+    typeof value.promotedOnly === "boolean" &&
+    nullableString(classification.disciplineUuid) &&
+    nullableString(classification.subjectUuid) &&
+    nullableString(classification.topicUuid) &&
+    nullableString(classification.subtopicUuid) &&
+    typeof classification.crossDiscipline === "boolean" &&
+    typeof value.classificationDescription === "string" &&
+    (value.sort === "name" || value.sort === "adoptions" || value.sort === "students") &&
+    typeof value.tag === "string"
+  );
+}
+
+function isReturnState(value: unknown): value is BlueprintSearchReturnState {
+  if (!isRecord(value) || !isSnapshot(value.draft) || !isSnapshot(value.submitted)) return false;
+  const cursors = value.previousCursors;
+  const validCursor = (item: unknown): boolean => item === undefined || typeof item === "string";
+  return (
+    validCursor(value.currentCursor) &&
+    Array.isArray(cursors) &&
+    cursors.every(validCursor) &&
+    (value.pageSize === 50 || value.pageSize === 100 || value.pageSize === 250) &&
+    typeof value.scrollY === "number" &&
+    Number.isFinite(value.scrollY) &&
+    typeof value.linkKey === "string"
+  );
 }

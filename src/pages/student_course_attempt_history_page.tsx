@@ -1,12 +1,17 @@
 // Student-owned, cursor-paginated history across every enrolled Course.
 
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
+import { useNavigate } from "@solidjs/router";
 
 import type { StudentCourseAttemptHistoryEntry } from "../api/student_course_attempt_history";
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
+import {
+  assessmentAttemptPath,
+  assessmentAttemptRouteState,
+} from "../navigation/assessment_attempt_route";
+import { assessmentAttemptRouteId } from "../navigation/public_route";
 import { PageFrame } from "../components/page_frame";
 import {
   RecordList,
@@ -14,14 +19,6 @@ import {
   type RecordListState,
 } from "../components/record_list/record_list";
 import "./student_course_attempt_history_page.css";
-
-function attemptPath(attempt: StudentCourseAttemptHistoryEntry): string {
-  const route =
-    attempt.submittedAt === undefined ? "assessmentAttempt" : "assessmentAttemptSummary";
-  const path = buildRoutePath(route, { assessmentAttemptId: attempt.assessmentAttemptId });
-  if (path === undefined) throw new Error("Attempt History requires a canonical Attempt ID.");
-  return path;
-}
 
 function scoreLabel(attempt: StudentCourseAttemptHistoryEntry): string | undefined {
   const score = attempt.assessmentScore;
@@ -72,14 +69,7 @@ function attemptHistoryContent(
   return {
     title: attempt.assessmentTitle,
     details,
-    actions: [
-      {
-        id: "open-attempt",
-        kind: "link",
-        href: attemptPath(attempt),
-        label: attempt.submittedAt === undefined ? "Open Attempt" : "Review Attempt",
-      },
-    ],
+    actions: [],
   };
 }
 
@@ -100,6 +90,7 @@ function CourseAttemptHistory(props: {
   readonly formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined;
 }): JSX.Element {
   const api = useApplicationApi();
+  const navigate = useNavigate();
   const [cursor, setCursor] = createSignal<string | undefined>(undefined);
   const [priorCursors, setPriorCursors] = createSignal<Array<string | undefined>>([]);
   const [page] = createResource(
@@ -123,7 +114,26 @@ function CourseAttemptHistory(props: {
         ariaLabel={`${props.course.shortName} Attempts`}
         emptyState={{ title: "No Attempts have been started in this Course." }}
         recordId={(attempt) => attempt.assessmentAttemptId}
-        content={(attempt) => attemptHistoryContent(attempt, props.formatDateTime)}
+        content={(attempt) => {
+          const content = attemptHistoryContent(attempt, props.formatDateTime);
+          const route = attempt.submittedAt === undefined ? "attempt" : "review";
+          return {
+            ...content,
+            actions: [
+              {
+                id: "open-attempt",
+                kind: "command",
+                label: route === "attempt" ? "Open Attempt" : "Review Attempt",
+                onClick: () =>
+                  navigate(assessmentAttemptPath(route, props.course.id), {
+                    state: assessmentAttemptRouteState(
+                      assessmentAttemptRouteId(attempt.assessmentAttemptId),
+                    ),
+                  }),
+              },
+            ],
+          };
+        }}
         rows={page()?.items ?? []}
         state={attemptHistoryListState(page.loading, page.error !== undefined)}
       />
@@ -171,7 +181,8 @@ export function StudentAttemptHistoryPage(): JSX.Element {
   const [accountSettings] = createResource(() => api.client.getAccountSettings());
   const formatDateTime = createMemo(() => {
     const timeZone = accountSettings()?.timeZone;
-    return timeZone === undefined ? undefined : createDisplayDateTimeFormatter(timeZone);
+    if (timeZone !== undefined) return createDisplayDateTimeFormatter(timeZone);
+    return accountSettings.error !== undefined ? (): string => "Time unavailable" : undefined;
   });
 
   return (

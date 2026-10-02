@@ -28,6 +28,11 @@ pub struct ResolvedPleQuestionJsonSource {
 }
 
 impl ResolvedPleQuestionJsonSource {
+    /// Returns the optional Question Hint compiled from this exact source.
+    pub fn question_hint(&self) -> Option<&question_model::QuestionHint> {
+        self.compiled.question_hint()
+    }
+
     /// Resolves, parses, and compiles the source attached to this exact revision.
     pub async fn resolve<S: ObjectStore>(
         store: &S,

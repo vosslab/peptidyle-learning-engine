@@ -43,6 +43,7 @@ import { DisplayModeToggle } from "../appearance/display_mode_toggle";
 export interface AppRibbonProps {
   /** The complete synchronous presentation model; shell ownership stays outside this component. */
   readonly model: RibbonModel;
+  readonly onNavigate?: (href: string, state: unknown) => void;
   /** Shell-owned navigation progress; absent in static and SSR presentation. */
   readonly routingInFlight?: Accessor<boolean>;
   /** User motion preference injected by the future shell; absent means ordinary motion. */
@@ -100,6 +101,7 @@ function isUnmodifiedPrimaryActivation(event: MouseEvent): boolean {
 function RibbonLink(props: {
   readonly control: RibbonControlModel;
   readonly pendingNavigation: RibbonPendingNavigation;
+  readonly onNavigate?: AppRibbonProps["onNavigate"];
 }): JSX.Element {
   // The closed map supplies a glyph only after the presentation model has
   // explicitly declared that this particular control earns one. This keeps a
@@ -112,7 +114,7 @@ function RibbonLink(props: {
   return (
     <a
       class={`ple-app-ribbon__link ple-app-ribbon__link--${props.control.presentation}`}
-      href={props.control.href}
+      href={props.control.href ?? ""}
       aria-current={props.control.selected ? "page" : undefined}
       aria-busy={pending() ? "true" : undefined}
       aria-label={iconOnlySafe() ? props.control.label : undefined}
@@ -125,6 +127,10 @@ function RibbonLink(props: {
       onClick={(event) => {
         if (props.control.href !== undefined && isUnmodifiedPrimaryActivation(event)) {
           props.pendingNavigation.activate(props.control.href);
+          if (props.control.state !== undefined && props.onNavigate !== undefined) {
+            event.preventDefault();
+            props.onNavigate(props.control.href, props.control.state);
+          }
         }
       }}
     >
@@ -256,6 +262,7 @@ function RibbonOverflowCues(props: { readonly state: RibbonOverflowCueState }): 
 function TaskArea(props: {
   readonly area: RibbonTaskAreaModel;
   readonly pendingNavigation: RibbonPendingNavigation;
+  readonly onNavigate?: AppRibbonProps["onNavigate"];
   readonly showUnavailable: boolean;
 }): JSX.Element {
   const controls = (): ReadonlyArray<RibbonControlModel> =>
@@ -266,7 +273,11 @@ function TaskArea(props: {
         <For each={controls()}>
           {(control) =>
             visibleControl(control) ? (
-              <RibbonLink control={control} pendingNavigation={props.pendingNavigation} />
+              <RibbonLink
+                control={control}
+                pendingNavigation={props.pendingNavigation}
+                onNavigate={props.onNavigate}
+              />
             ) : (
               <UnavailableRibbonChoice control={control} />
             )
@@ -508,24 +519,28 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
           ref={setTopRow}
         >
           <div class="ple-app-ribbon__context-identity">
-            <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
-              <span class="ple-app-ribbon__brand-mark" aria-hidden="true">
-                P
-              </span>
-              <span class="ple-app-ribbon__brand-word">Peptidyle</span>
-            </a>
             <span
               class="ple-app-ribbon__user-role"
               data-user-role={props.model.context.productLabel.toLowerCase()}
             >
               {props.model.context.productLabel}
             </span>
+            <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
+              <span class="ple-app-ribbon__brand-mark" aria-hidden="true">
+                P
+              </span>
+              <span class="ple-app-ribbon__brand-word">Peptidyle</span>
+            </a>
           </div>
           <div class="ple-app-ribbon__tabs-frame">
             <nav class="ple-app-ribbon__tabs" aria-label="Ribbon tabs" ref={setTabRow}>
               <For each={visibleTabs()}>
                 {(control) => (
-                  <RibbonLink control={control} pendingNavigation={pendingNavigation} />
+                  <RibbonLink
+                    control={control}
+                    pendingNavigation={pendingNavigation}
+                    onNavigate={props.onNavigate}
+                  />
                 )}
               </For>
             </nav>
@@ -618,6 +633,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               <TaskArea
                 area={area}
                 pendingNavigation={pendingNavigation}
+                onNavigate={props.onNavigate}
                 showUnavailable={isRequiredTaskArea(area)}
               />
             )}

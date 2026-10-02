@@ -19,6 +19,7 @@ import { RecordSequence } from "../../components/record_list/record_sequence";
 type LoadState = "loading" | "ready" | "empty" | "error";
 
 export interface QuestionPoolPickerSelection {
+  readonly title: string;
   readonly questionPoolId: QuestionPoolId;
   readonly questionPoolEditNumber: QuestionPoolEditNumber;
   readonly memberCount: number;
@@ -160,7 +161,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
       }
       setDetail(loaded);
       setDetailState("ready");
-      setMessage(`Selected ${loaded.questionPoolId}, Edit ${loaded.questionPoolEditNumber}.`);
+      setMessage(`Selected ${poolLabel(summary)}.`);
       setMessageIsError(false);
     } catch {
       if (request !== detailRequest) return;
@@ -181,6 +182,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
     if (dialog.open) dialog.close();
     props.trigger?.focus();
     props.onConfirm({
+      title: choice.metadata.title,
       questionPoolId: choice.questionPoolId,
       questionPoolEditNumber: choice.questionPoolEditNumber,
       memberCount: choice.memberCount,

@@ -616,6 +616,7 @@ pub(super) fn decode_workspace(
                             row.try_get("question_revision_number")
                                 .map_err(map_sqlx_error)?,
                         )?,
+                        question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
                         description: row
                             .try_get("question_description")
                             .map_err(map_sqlx_error)?,

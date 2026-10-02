@@ -65,7 +65,7 @@
 .record-list--gallery .record-list__row--semantic {
   grid-column: auto;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
 }
 
 .record-list--gallery .record-list__semantic-frame {
@@ -130,7 +130,13 @@
   color: var(--ple-muted);
 }
 
-.record-list__facts,
+.record-list__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: var(--ple-space-1) var(--ple-space-3);
+  align-items: start;
+}
+
 .record-list__actions,
 .record-list__body {
   display: flex;
@@ -142,6 +148,7 @@
 .record-list__fact,
 .record-list__assessment-type {
   display: inline-flex;
+  min-inline-size: 0;
   gap: var(--ple-space-1);
   align-items: center;
 }
@@ -153,7 +160,7 @@
 
 .record-list__fact--course-classification {
   display: block;
-  flex: 1 1 100%;
+  grid-column: 1 / -1;
   min-inline-size: 0;
 }
 

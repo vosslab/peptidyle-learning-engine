@@ -4,8 +4,10 @@ use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
-use chrono::NaiveDate;
+use chrono::{Months, NaiveDate};
 use serde::{Deserialize, Serialize};
+
+const ACTIVE_LIFETIME_MONTHS: u32 = 6;
 
 /// One exact proleptic-Gregorian calendar date serialized as `YYYY-MM-DD`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -130,6 +132,30 @@ impl CourseTerm {
     pub fn end_date(&self) -> &CourseDate {
         &self.end_date
     }
+
+    /// Rejects an inclusive end after the UTC calendar date six months after creation.
+    ///
+    /// The cutoff date stays inside the Active lifetime. A stored term may span more than six
+    /// months when its start is earlier than the creation date.
+    pub fn ensure_within_active_lifetime(
+        &self,
+        created_on: &CourseDate,
+    ) -> Result<(), CourseTermError> {
+        let cutoff = active_lifetime_end(created_on)?;
+        if self.end_date > cutoff {
+            return Err(CourseTermError::EndAfterActiveLifetime);
+        }
+        Ok(())
+    }
+}
+
+fn active_lifetime_end(created_on: &CourseDate) -> Result<CourseDate, CourseTermError> {
+    let created = NaiveDate::parse_from_str(created_on.as_str(), "%Y-%m-%d")
+        .map_err(|_| CourseTermError::StartDate)?;
+    let cutoff = created
+        .checked_add_months(Months::new(ACTIVE_LIFETIME_MONTHS))
+        .ok_or(CourseTermError::EndAfterActiveLifetime)?;
+    CourseDate::parse(&cutoff.format("%Y-%m-%d").to_string()).map_err(|_| CourseTermError::EndDate)
 }
 
 /// The concrete invalid component of a proposed course term.
@@ -141,6 +167,8 @@ pub enum CourseTermError {
     EndDate,
     /// Inclusive end precedes inclusive start.
     EndBeforeStart,
+    /// Inclusive end is after the UTC calendar date six months after creation.
+    EndAfterActiveLifetime,
 }
 
 impl Display for CourseTermError {
@@ -149,6 +177,9 @@ impl Display for CourseTermError {
             Self::StartDate => "course term start date is invalid",
             Self::EndDate => "course term end date is invalid",
             Self::EndBeforeStart => "course term end date is before its start date",
+            Self::EndAfterActiveLifetime => {
+                "course term end date is after its six-month Active lifetime"
+            }
         })
     }
 }
@@ -242,6 +273,50 @@ mod tests {
             CourseTerm::from_parts("2026-08-25", "2026-08-24"),
             Err(CourseTermError::EndBeforeStart)
         );
+    }
+
+    #[test]
+    fn active_lifetime_includes_the_cutoff_date_and_rejects_the_next_day() {
+        let created_on = CourseDate::parse("2026-01-31").expect("creation date");
+        let through_cutoff =
+            CourseTerm::from_parts("2025-08-01", "2026-07-31").expect("term ending on the cutoff");
+        through_cutoff
+            .ensure_within_active_lifetime(&created_on)
+            .expect("the cutoff date remains Active");
+        let past_cutoff = CourseTerm::from_parts("2026-01-31", "2026-08-01").expect("ordered term");
+        assert_eq!(
+            past_cutoff.ensure_within_active_lifetime(&created_on),
+            Err(CourseTermError::EndAfterActiveLifetime)
+        );
+
+        let month_end = CourseDate::parse("2026-08-31").expect("month-end creation");
+        CourseTerm::from_parts("2026-08-31", "2027-02-28")
+            .expect("clamped February cutoff")
+            .ensure_within_active_lifetime(&month_end)
+            .expect("the clamped cutoff date remains Active");
+        assert_eq!(
+            CourseTerm::from_parts("2026-08-31", "2027-03-01")
+                .expect("day after the clamp")
+                .ensure_within_active_lifetime(&month_end),
+            Err(CourseTermError::EndAfterActiveLifetime)
+        );
+
+        let leap_creation = CourseDate::parse("2023-08-31").expect("leap-year creation");
+        CourseTerm::from_parts("2023-08-31", "2024-02-29")
+            .expect("leap-day cutoff")
+            .ensure_within_active_lifetime(&leap_creation)
+            .expect("the leap-day cutoff remains Active");
+        assert_eq!(
+            CourseTerm::from_parts("2023-08-31", "2024-03-01")
+                .expect("day after the leap-day cutoff")
+                .ensure_within_active_lifetime(&leap_creation),
+            Err(CourseTermError::EndAfterActiveLifetime)
+        );
+    }
+
+    #[test]
+    fn stored_terms_longer_than_six_months_remain_valid_course_terms() {
+        CourseTerm::from_parts("2026-01-01", "2026-12-31").expect("stored year-long term");
     }
 
     #[test]

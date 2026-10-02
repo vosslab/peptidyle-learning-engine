@@ -7,6 +7,7 @@ import { createStudentCourseResponseStatsClient } from "../src/api/http_client/s
 
 const first = {
   publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },
+  questionTitle: "Peptide bond",
   fullCreditAttemptCount: 1,
   partialCreditAttemptCount: 2,
   incorrectAttemptCount: 1,
@@ -60,6 +61,7 @@ test("Response Stats rejects hidden fields and inconsistent or unranked counts",
           {
             ...first,
             publishedQuestionRevisionTuple: { publishedQuestionId: "2R5X-E7YA", revisionNumber: 1 },
+            questionTitle: "Peptide bond",
             notFullCreditCount: 4,
             disclosedAttemptCount: 4,
             partialCreditAttemptCount: 3,

@@ -38,6 +38,10 @@ function assessmentEntryContent(props: {
   readonly entry: AssessmentBlueprintUpdateEntry & {
     readonly availability?: AssessmentEntryAvailability;
   };
+  readonly questionTitle: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => string;
+  readonly poolTitle: (questionPoolId: string) => string;
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): RecordContent {
@@ -61,9 +65,11 @@ function assessmentEntryContent(props: {
   if (props.entry.kind === "fixedQuestion") {
     const revision = props.entry.publishedQuestionRevisionTuple;
     return {
-      title: `Question ${revision.publishedQuestionId}, revision ${revision.revisionNumber}`,
+      title: props.questionTitle(revision),
       description: props.description(revision),
       details: [
+        { kind: "text", label: "Question ID", value: revision.publishedQuestionId },
+        { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
         { kind: "text", label: "Points", value: `${props.entry.pointsPossible} points` },
         ...commonDetails,
       ],
@@ -76,8 +82,11 @@ function assessmentEntryContent(props: {
       ? "Assessment-owned Question Pool"
       : "Library source Question Pool";
   return {
-    title: `${poolLabel} ${props.entry.questionPoolId}, edit ${props.entry.questionPoolEditNumber}`,
+    title: props.poolTitle(props.entry.questionPoolId),
+    description: poolLabel,
     details: [
+      { kind: "text", label: "Question Pool ID", value: props.entry.questionPoolId },
+      { kind: "text", label: "Edit", value: String(props.entry.questionPoolEditNumber) },
       { kind: "text", label: "Selection count", value: `${props.entry.selectionCount}` },
       {
         kind: "text",
@@ -109,6 +118,8 @@ const FEEDBACK_LABELS = [
   ["question_answer", "Correct answer"],
   ["question_answer_explanation", "Question answer explanation"],
   ["class_statistics", "Class statistics"],
+  ["hints", "Hints"],
+  ["worked_solutions", "Worked Solutions"],
 ] as const;
 
 function settingCopy(value: string): string {
@@ -119,6 +130,10 @@ function settingCopy(value: string): string {
 export function AssessmentBlueprintContentSummary(props: {
   readonly heading: string;
   readonly content: AssessmentBlueprintUpdateContent;
+  readonly questionTitle: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => string;
+  readonly poolTitle: (questionPoolId: string) => string;
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): JSX.Element {
@@ -188,6 +203,8 @@ export function AssessmentBlueprintContentSummary(props: {
           content={(record) =>
             assessmentEntryContent({
               entry: record.entry,
+              questionTitle: props.questionTitle,
+              poolTitle: props.poolTitle,
               description: props.description,
               poolRole: props.poolRole,
             })

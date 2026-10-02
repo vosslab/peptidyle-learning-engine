@@ -51,9 +51,12 @@ pub mod postgres;
 mod question_bulk_metadata;
 mod question_image_delivery;
 mod question_image_publication;
+mod question_pool_bulk_metadata;
+mod question_pool_support;
 pub use content_classification::{
     ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
     ContentDisciplineAdministrationStore, ContentDisciplineDiscoveryStore,
+    ContentDisciplineRequest, ContentDisciplineRequestStore, ContentSubjectCreation,
 };
 mod question_fork;
 mod question_library;
@@ -87,9 +90,9 @@ pub use assessment_attempt::{
     PreparedIssuedQuestion, PreparedQuestionPoolSelection,
 };
 pub use assessment_delivery::{
-    BackendAnswerReviewAvailability, IssuedQuestionPresentation, LiveAssessmentAccess,
-    LiveAssessmentAttempt, LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore,
-    LiveAssessmentPreviousAttempt, LiveAssessmentPreviousAttemptState,
+    BackendAnswerReviewAvailability, CourseClassAnalysis, IssuedQuestionPresentation,
+    LiveAssessmentAccess, LiveAssessmentAttempt, LiveAssessmentAttemptScore,
+    LiveAssessmentDeliveryStore, LiveAssessmentPreviousAttempt, LiveAssessmentPreviousAttemptState,
     NativeAssessmentIssuanceBatch, NativePleIssuanceSource, NativePresentationInput,
     NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput, ReadyQuestionImageRendition,
     StudentAssessmentAttemptBackendDocument, StudentAssessmentAttemptBackendDocumentResume,
@@ -135,8 +138,9 @@ pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
     AuthenticationSecretHash, EmailAuthenticationChallenge, EmailAuthenticationChallengeId,
     EmailAuthenticationPurpose, MAX_AUTHENTICATION_CEREMONY_SECONDS, Passkey, PasskeyCeremonyId,
-    PasskeyId, PendingSysadminTotpAttestation, SysadminTotpAttestationId, SysadminTotpCounter,
-    SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
+    PasskeyId, PasswordlessLoginMethod, PendingSysadminTotpAttestation, SysadminTotpAttestationId,
+    SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
+    passwordless_primary_account,
 };
 pub use authentication_email::{
     AuthenticationEmail, AuthenticationEmailError, EmailDomain, MAX_AUTHENTICATION_EMAIL_BYTES,
@@ -159,10 +163,10 @@ pub use blueprint_change_proposal::{
 pub use blueprint_course::{
     ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListCursorPosition,
     BlueprintCourseListRequest, BlueprintCourseListSort, BlueprintCourseStore,
-    BlueprintPromotionStore, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
-    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
-    StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintPoolMembers,
-    StoredBlueprintPromotion, StoredBlueprintRevision,
+    BlueprintPromotionStore, RecognitionTitles, StoredBlueprintAssessment,
+    StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
+    StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
+    StoredBlueprintPoolMembers, StoredBlueprintPromotion, StoredBlueprintRevision,
 };
 pub use blueprint_history::{BlueprintHistoryKind, BlueprintHistoryStore};
 pub use blueprint_lineage::{
@@ -186,11 +190,12 @@ pub use course_blueprint_publication::CourseBlueprintPublicationStore;
 pub use course_instance::{
     CourseClassificationUpdate, CourseCreationInstructor, CourseInstanceCreationSource,
     CourseInstanceLifecycleState, CourseInstancePoolIdIssuer, CourseInstanceStore,
-    CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput, CreatedCourseInstance,
+    CourseInstanceSummary, CourseInstanceView, CourseRetentionLifecycleState,
+    CreateCourseInstanceInput, CreatedCourseInstance, InstallationCourseInspection,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
-    CourseRosterImportInput, CourseRosterStore,
+    CourseRosterImportInput, CourseRosterStore, ResetStudentSignupAccess,
 };
 pub use course_theme::CourseThemeStore;
 pub use draft_question_images::{
@@ -218,8 +223,9 @@ pub(crate) use imathas_question_backend_session::{
 };
 pub use instructor_account::{
     CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
-    DeactivateInstructorAccountInput, InstructorAccountList, InstructorAccountState,
-    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionId,
+    DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountList,
+    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
+    InstructorIdentityVettingDecisionId,
 };
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
@@ -231,8 +237,7 @@ pub use library_discussion::{
     LibraryImprovementThreadLifecycle,
 };
 pub use library_watch_notification::{
-    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification,
-    LibraryWatchNotificationStore, LibraryWatchTargetKind,
+    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,
 };
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
@@ -240,7 +245,7 @@ pub use live_student_course_landing::{
     LiveStudentCourseActiveAttempt, LiveStudentCourseAttemptHistoryEntry,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseLandingSummary, LiveStudentCourseProgressAssessment,
-    LiveStudentCourseResponseQuestionStats,
+    LiveStudentCourseResponseQuestionStats, LiveStudentLatestFeedback,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
@@ -269,6 +274,11 @@ pub use question_library::{
     QuestionLibrarySearchSort, QuestionLibraryStore, QuestionLibraryTextField,
     QuestionLibraryTextTerm,
 };
+pub use question_pool_bulk_metadata::{
+    BulkQuestionPoolSearchMetadataInput, BulkQuestionPoolSearchMetadataPatch,
+    BulkQuestionPoolSearchMetadataResult, BulkQuestionPoolSearchMetadataSelection,
+    BulkQuestionPoolSearchMetadataStore,
+};
 pub use question_pool_creation::{
     CreateQuestionPoolError, CreateQuestionPoolInput, CreatedQuestionPool,
     QuestionPoolCreationStore,
@@ -278,6 +288,7 @@ pub use question_pool_library::{
     QuestionPoolDiscoveryPage, QuestionPoolLibraryStore, QuestionPoolTextField,
     QuestionPoolTextFilter, QuestionPoolTextTerm,
 };
+pub use question_pool_support::{QuestionPoolPleManagedSupport, QuestionPoolSupportStore};
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSource, DraftQuestionPublicationSourceStore,
     DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore, DraftQuestionUuid,
@@ -286,7 +297,9 @@ pub use question_source::{
     NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
     PreparedQuestionImagePublication,
 };
-pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
+pub use question_star::{
+    QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor, StarredQuestionSummary,
+};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};
 pub use retention::{CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore};
 pub use retention_notification::{

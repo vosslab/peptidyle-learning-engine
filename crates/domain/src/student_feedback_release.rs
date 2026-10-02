@@ -7,13 +7,14 @@
 
 use question_model::{
     AssessmentScoringState, AssessmentType, GradingResult, QuestionAnswer,
-    QuestionAnswerExplanation, QuestionFeedback, StudentFeedback, StudentFeedbackReleaseRule,
-    StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback, Timestamp,
+    QuestionAnswerExplanation, QuestionContentBlock, QuestionFeedback, StudentFeedback,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback,
+    Timestamp,
 };
 
 use crate::effective_assessment_properties::{AssessmentAccessDecision, EffectiveAssessmentPolicy};
 
-/// The six independently evaluated Student Feedback Release fields.
+/// The independently evaluated Student Feedback Release fields.
 ///
 /// A caller uses these booleans to omit protected fields from Student Feedback;
 /// this type contains no protected content itself.
@@ -25,13 +26,27 @@ pub struct StudentFeedbackReleaseDecision {
     pub question_answer: bool,
     pub question_answer_explanation: bool,
     pub class_statistics: bool,
+    /// Hints use this boolean, not question-answer disclosure.
+    pub hints: bool,
+    /// Worked Solutions use this boolean, not hint or question-answer disclosure.
+    pub worked_solutions: bool,
+}
+
+/// Hints and Worked Solutions after their own disclosure timings are applied.
+///
+/// Absent content stays absent. Neither field is Question Feedback or a Question Answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisclosedSupportContent {
+    pub hints: Option<Vec<QuestionContentBlock>>,
+    pub worked_solutions: Option<Vec<QuestionContentBlock>>,
 }
 
 /// Applies the Course-cohort gate to Quiz and Exam answer disclosure.
 ///
 /// The caller supplies one current-cohort completion decision calculated at a
 /// trusted persistence boundary. Other Assessment Types and independently
-/// configured feedback fields are unchanged.
+/// configured feedback fields are unchanged. Hints and Worked Solutions keep
+/// the timings on their own settings. ASVS 8.2.3.
 pub fn gate_quiz_exam_answers_for_current_cohort(
     mut decision: StudentFeedbackReleaseDecision,
     assessment_type: AssessmentType,
@@ -204,7 +219,46 @@ pub fn evaluate_allowed_student_feedback_release(
             policy.due_at.value,
             policy.closes_at.value,
         ),
+        hints: timing_released(
+            rule.hints,
+            now,
+            submitted_at,
+            policy.due_at.value,
+            policy.closes_at.value,
+        ),
+        worked_solutions: timing_released(
+            rule.worked_solutions,
+            now,
+            submitted_at,
+            policy.due_at.value,
+            policy.closes_at.value,
+        ),
     }
+}
+
+/// Shows Hints and Worked Solutions only when each field's own timing allows it.
+///
+/// ASVS 8.2.3: a released Question Answer does not reveal either field, and
+/// one field's timing does not reveal the other. Empty content stays absent.
+pub fn project_disclosed_support(
+    decision: StudentFeedbackReleaseDecision,
+    hints: Option<&[QuestionContentBlock]>,
+    worked_solutions: Option<&[QuestionContentBlock]>,
+) -> DisclosedSupportContent {
+    DisclosedSupportContent {
+        hints: disclosed_blocks(decision.hints, hints),
+        worked_solutions: disclosed_blocks(decision.worked_solutions, worked_solutions),
+    }
+}
+
+fn disclosed_blocks(
+    released: bool,
+    blocks: Option<&[QuestionContentBlock]>,
+) -> Option<Vec<QuestionContentBlock>> {
+    if !released {
+        return None;
+    }
+    blocks.and_then(|blocks| (!blocks.is_empty()).then(|| blocks.to_vec()))
 }
 
 fn timing_released(

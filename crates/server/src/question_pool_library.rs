@@ -25,8 +25,8 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEntryId, AssessmentId, AssessmentQuestionPoolForkView,
     BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
-    CourseInstanceId, UserRole, QuestionPoolBloomCorrectionReceipt, QuestionPoolBloomFacets,
-    QuestionPoolId, QuestionPoolLibraryPage, QuestionPoolMemberView, QuestionPoolView,
+    CourseInstanceId, QuestionPoolBloomCorrectionReceipt, QuestionPoolBloomFacets, QuestionPoolId,
+    QuestionPoolLibraryPage, QuestionPoolMemberView, QuestionPoolView, UserRole,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -363,12 +363,15 @@ async fn pool_evidence(
     if !is_instructor {
         return Ok(question_model::QuestionStatistics::Unavailable);
     }
-    let (pool_issued_count, totals) = state
+    let (pool_issued_count, pool_issued_contributor_floor, totals) = state
         .pools
         .load_question_pool_usage_statistics(token, question_pool_id)
         .await
         .map_err(store_error)?;
-    Ok(totals.into_available(None, Some(pool_issued_count)))
+    Ok(totals.into_shared_statistics(
+        None,
+        Some((pool_issued_count, pool_issued_contributor_floor)),
+    ))
 }
 
 #[allow(clippy::result_large_err)]
@@ -572,9 +575,7 @@ async fn instructor(
         .filter(|values| !values.is_empty())
         .map(|values| values.join("; "));
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
     }

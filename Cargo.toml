@@ -47,6 +47,7 @@ getrandom = "*"
 hmac = "*"
 html5ever = "*"
 image = { version = "*", default-features = false, features = ["jpeg", "png", "webp"] }
+resvg = { version = "*", default-features = false, features = ["text", "raster-images"] }
 idna = "*"
 libc = "*"
 lettre = { version = "*", default-features = false, features = [

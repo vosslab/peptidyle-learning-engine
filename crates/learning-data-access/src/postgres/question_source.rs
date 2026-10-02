@@ -18,11 +18,6 @@ use crate::{
 };
 use question_model::WorkspaceId;
 
-// This legacy uniqueness boundary also conclusively identifies a freshly
-// minted Question ID collision. New code serializes candidate allocation and
-// reports the same outcome with the dedicated QP001 SQLSTATE.
-const PUBLISHED_QUESTION_PRIMARY_KEY: &str = "published_question_pkey";
-
 /// PostgreSQL implementation of the session-authorized Draft Question Source Binding Store.
 #[derive(Clone)]
 pub struct PostgresDraftQuestionSourceBindingStore {
@@ -407,28 +402,7 @@ fn map_new_question_lineage_publication_error(
     {
         return NewQuestionLineagePublicationError::IdentityCollision;
     }
-    if let sqlx::Error::Database(database_error) = &error
-        && database_error.code().as_deref() == Some("23505")
-    {
-        return if is_published_question_identity_collision(
-            database_error.code().as_deref(),
-            database_error.constraint(),
-        ) {
-            NewQuestionLineagePublicationError::IdentityCollision
-        } else {
-            // Do not expose a PostgreSQL constraint name beyond this adapter.
-            // A different uniqueness violation is not an ID-allocation race.
-            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
-                "Question Publication violates a database uniqueness invariant".to_string(),
-            ))
-        };
-    }
     NewQuestionLineagePublicationError::Store(map_sqlx_error(error))
-}
-
-fn is_published_question_identity_collision(code: Option<&str>, constraint: Option<&str>) -> bool {
-    code == Some("QP001")
-        || (code == Some("23505") && constraint == Some(PUBLISHED_QUESTION_PRIMARY_KEY))
 }
 
 fn question_id_for_persistence(question_id: &question_model::PublishedQuestionId) -> &str {
@@ -448,30 +422,6 @@ fn wire_string(value: &impl Serialize, label: &str) -> Result<String, StoreError
 mod tests {
     use super::*;
     use std::str::FromStr;
-
-    #[test]
-    fn only_explicit_question_id_outcomes_are_identity_collisions() {
-        assert!(is_published_question_identity_collision(
-            Some("23505"),
-            Some(PUBLISHED_QUESTION_PRIMARY_KEY),
-        ));
-        assert!(is_published_question_identity_collision(
-            Some("QP001"),
-            None,
-        ));
-        assert!(!is_published_question_identity_collision(
-            Some("23505"),
-            Some("question_publication_event_question_id_revision_number_key"),
-        ));
-        assert!(!is_published_question_identity_collision(
-            Some("23505"),
-            None
-        ));
-        assert!(!is_published_question_identity_collision(
-            Some("23503"),
-            Some(PUBLISHED_QUESTION_PRIMARY_KEY),
-        ));
-    }
 
     #[test]
     fn new_lineage_publication_binds_the_canonical_database_question_id() {

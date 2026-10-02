@@ -42,6 +42,7 @@ RESET ROLE;
 \ir 70_grants/assessment_policy_snapshot.sql
 \ir 70_grants/assessment_entry_snapshot.sql
 \ir 70_grants/question_library_operations.sql
+\ir 70_grants/recognition_titles.sql
 \ir 70_grants/question_bloom.sql
 \ir 70_grants/assessment_creation.sql
 \ir 70_grants/assessment_deadline_sync.sql

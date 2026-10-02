@@ -45,7 +45,7 @@
   min-width: 0;
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
 }
 
 .question-pool-picker-footer {

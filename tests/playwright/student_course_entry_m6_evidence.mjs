@@ -9,6 +9,13 @@ import { bundleStudentCourseEntryM6Harness } from "../support/student_course_ent
 import { CANONICAL_VIEWPORTS } from "./screenshot_corpus/manifest.ts";
 import { startHarnessServer } from "./ribbon_harness_server.mjs";
 
+const STUDENT_WORKFLOW_SENTENCE =
+  "Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.";
+const STUDENT_KEYBOARD_SENTENCE =
+  "Every Student browser action should be usable with the keyboard alone.";
+const HEADING_ACTION_SENTENCE =
+  "Use headings and action labels that reflect the current state and next useful step.";
+
 const bundle = await bundleStudentCourseEntryM6Harness();
 const harnessServer = await startHarnessServer(
   `<!doctype html><head><style>${bundle.stylesheet}</style></head><body><div id="root"></div><script type="module">
@@ -34,19 +41,84 @@ async function criticalOrSeriousViolations(page) {
     .map((violation) => violation.id);
 }
 
+async function assertWorkflowFits(page, locator, viewportId) {
+  await locator.waitFor({ state: "visible" });
+  const box = await locator.boundingBox();
+  const viewport = page.viewportSize();
+  assert.ok(box !== null, `${viewportId}: ${STUDENT_WORKFLOW_SENTENCE}`);
+  assert.ok(box.x >= -1, `${viewportId}: ${STUDENT_WORKFLOW_SENTENCE}`);
+  assert.ok(box.x + box.width <= viewport.width + 1, `${viewportId}: ${STUDENT_WORKFLOW_SENTENCE}`);
+  const hittable = await locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return false;
+    const hit = document.elementFromPoint(x, y);
+    return hit === element || (hit !== null && element.contains(hit));
+  });
+  assert.equal(hittable, true, `${viewportId}: ${STUDENT_WORKFLOW_SENTENCE}`);
+  assert.equal(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+    true,
+    `${viewportId}: ${STUDENT_WORKFLOW_SENTENCE}`,
+  );
+}
+
+async function activateWithKeyboard(page, name) {
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  });
+  const seen = [];
+  for (let step = 0; step < 40; step += 1) {
+    await page.keyboard.press("Tab");
+    const current = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement) || element === document.body) return null;
+      return {
+        tag: element.tagName,
+        label: (element.getAttribute("aria-label") ?? element.innerText ?? "")
+          .replace(/\s+/gu, " ")
+          .trim(),
+      };
+    });
+    if (current === null) continue;
+    seen.push(`${current.tag}:${current.label}`);
+    if (!["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "SUMMARY"].includes(current.tag)) {
+      throw new Error(
+        `${STUDENT_KEYBOARD_SENTENCE} Focus landed on ${current.tag} ${current.label}`,
+      );
+    }
+    if (current.label === name) {
+      await page.keyboard.press("Enter");
+      return;
+    }
+  }
+  throw new Error(
+    `${STUDENT_KEYBOARD_SENTENCE} Tab did not reach ${name}. Saw ${seen.join(" | ")}`,
+  );
+}
+
 async function assertCourseworkRows(page) {
   const coursework = page.getByRole("list", { name: "Available Coursework", exact: true });
   const rows = coursework.getByRole("listitem");
   const expectedRows = [
-    ["Protein structure practice", "Resume Regular Assignment"],
-    ["Bonus protein challenge", "Review Bonus Assignment"],
-    ["Peptide quiz", "Open Quiz"],
+    ["Protein structure practice", "Resume Weekly Assignment", "In progress"],
+    ["Bonus protein challenge", "Review Bonus Assignment", "Completed"],
+    ["Peptide quiz", "Open Quiz", "Upcoming"],
   ];
   assert.equal(await rows.count(), expectedRows.length);
-  for (const [index, [title, action]] of expectedRows.entries()) {
+  for (const [index, [title, action, stateLabel]] of expectedRows.entries()) {
     const row = rows.nth(index);
     await row.getByRole("heading", { name: title, exact: true }).waitFor({ state: "visible" });
     await row.getByRole("link", { name: action, exact: true }).waitFor({ state: "visible" });
+    const status = row.locator(".record-list__fact").filter({ hasText: "Status:" });
+    await status.getByText(stateLabel, { exact: true }).waitFor({ state: "visible" });
+    assert.equal(
+      await row.getByRole("heading", { name: title, exact: true }).isVisible(),
+      true,
+      HEADING_ACTION_SENTENCE,
+    );
   }
 }
 try {
@@ -133,9 +205,38 @@ try {
   const landingDueText = await landingDue.textContent();
   assert.notEqual(landingDueText, null);
   assert.equal(await landingDue.getAttribute("datetime"), "2026-09-16T22:00:00.000Z");
+  const laptop = CANONICAL_VIEWPORTS.laptop;
+  const tablet = CANONICAL_VIEWPORTS.tablet;
+  const phone = CANONICAL_VIEWPORTS.phone;
+  const square = CANONICAL_VIEWPORTS.square;
+  assert.ok(laptop.width >= 1280 && laptop.width > laptop.height, STUDENT_WORKFLOW_SENTENCE);
+  assert.ok(tablet.height > tablet.width, STUDENT_WORKFLOW_SENTENCE);
+  assert.ok(phone.width <= 400 && phone.height > phone.width, STUDENT_WORKFLOW_SENTENCE);
+  assert.equal(square.width, square.height, STUDENT_WORKFLOW_SENTENCE);
   for (const [viewportId, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
     await page.setViewportSize(viewport);
+    await page.goto(`${origin}?mode=one`);
+    await assertWorkflowFits(
+      page,
+      page.getByRole("link", { name: "Open Course", exact: true }),
+      viewportId,
+    );
+    await page.goto(`${origin}?mode=home`);
+    await page
+      .getByRole("heading", { name: "All Coursework", exact: true })
+      .waitFor({ state: "visible" });
+    await assertWorkflowFits(
+      page,
+      page.getByRole("link", { name: "Resume Weekly Assignment", exact: true }),
+      viewportId,
+    );
+    await page.goto(`${origin}?mode=landing`);
     await assertCourseworkRows(page);
+    await assertWorkflowFits(
+      page,
+      page.getByRole("link", { name: "Resume Weekly Assignment", exact: true }),
+      viewportId,
+    );
     assert.equal(
       await page.locator('[data-ribbon-row="top"]').getByText("BCHM 301", { exact: true }).count(),
       0,
@@ -151,8 +252,7 @@ try {
       `${viewportId}: Coursework scan rows do not create horizontal overflow`,
     );
   }
-  await page.getByRole("link", { name: "Resume Regular Assignment", exact: true }).focus();
-  await page.keyboard.press("Enter");
+  await activateWithKeyboard(page, "Resume Weekly Assignment");
   await page
     .getByText("Active Attempt destination", { exact: true })
     .waitFor({ state: "visible", timeout: 5_000 })
@@ -164,12 +264,15 @@ try {
     });
   assert.equal(
     await page.locator("[data-m6-location]").textContent(),
-    "/assessment-attempts/00000000-0000-0000-0000-000000000006",
+    "/courses/CI7K3M2QAZ/attempt",
+  );
+  assert.equal(
+    await page.locator("[data-m6-history-state]").textContent(),
+    '{"assessmentAttemptId":"00000000-0000-0000-0000-000000000006"}',
   );
 
   await page.goto(`${origin}?mode=landing`);
-  await page.getByRole("link", { name: "Review Bonus Assignment", exact: true }).focus();
-  await page.keyboard.press("Enter");
+  await activateWithKeyboard(page, "Review Bonus Assignment");
   await page
     .getByRole("heading", { name: "Previous attempts", exact: true })
     .waitFor({ state: "visible" });
@@ -188,28 +291,32 @@ try {
   await newestAttempt.getByText("Score not released", { exact: true }).waitFor({
     state: "visible",
   });
+  await newestAttempt.getByRole("button", { name: "Review Attempt", exact: true }).waitFor();
+  await newestAttempt.getByRole("button", { name: "Review Attempt", exact: true }).click();
+  await page.getByText("Attempt summary destination", { exact: true }).waitFor();
   assert.equal(
-    await newestAttempt
-      .getByRole("link", { name: "Review Attempt", exact: true })
-      .getAttribute("href"),
-    "/assessment-attempts/00000000-0000-0000-0000-000000000007/summary",
+    await page.locator("[data-m6-location]").textContent(),
+    "/courses/CI7K3M2QAZ/review",
   );
+  assert.equal(
+    await page.locator("[data-m6-history-state]").textContent(),
+    '{"assessmentAttemptId":"00000000-0000-0000-0000-000000000007"}',
+  );
+  await page.goto(`${origin}?mode=landing`);
+  await activateWithKeyboard(page, "Review Bonus Assignment");
+  await page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
   const releasedAttempt = previousAttempts.nth(1);
   await releasedAttempt.getByRole("heading", { name: "Attempt 1", exact: true }).waitFor({
     state: "visible",
   });
   await releasedAttempt.getByText("Submitted", { exact: true }).waitFor({ state: "visible" });
   await releasedAttempt.getByText("3 of 8 points", { exact: true }).waitFor({ state: "visible" });
-  assert.equal(
-    await releasedAttempt
-      .getByRole("link", { name: "Review Attempt", exact: true })
-      .getAttribute("href"),
-    "/assessment-attempts/00000000-0000-0000-0000-000000000005/summary",
-  );
+  await releasedAttempt.getByRole("button", { name: "Review Attempt", exact: true }).waitFor();
+  await activateWithKeyboard(page, "Start Bonus Assignment");
+  await page.getByText("Active Attempt destination", { exact: true }).waitFor({ state: "visible" });
 
   await page.goto(`${origin}?mode=landing`);
-  await page.getByRole("link", { name: "Open Quiz", exact: true }).focus();
-  await page.keyboard.press("Enter");
+  await activateWithKeyboard(page, "Open Quiz");
   await page.locator('[data-route-surface="assessmentOverview"]').waitFor({ state: "visible" });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
   const overviewDueText = await page.locator("[data-assessment-decision-due]").textContent();
@@ -219,12 +326,16 @@ try {
 
   await page.goto(`${origin}?mode=landing`);
   await page.getByRole("link", { name: "Your Courses", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("link", { name: "Your Courses", exact: true }).click();
+  await activateWithKeyboard(page, "Your Courses");
   await page.waitForFunction(
     () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses",
   );
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
+    .waitFor({ state: "visible" });
+  await activateWithKeyboard(page, "Open Course");
+  await page
+    .getByRole("heading", { name: "Biochemistry 301: Proteins and Peptides", exact: true })
     .waitFor({ state: "visible" });
   assert.deepEqual(pageErrors, []);
 } finally {

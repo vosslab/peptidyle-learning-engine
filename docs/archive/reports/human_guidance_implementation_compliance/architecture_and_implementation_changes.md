@@ -78,7 +78,7 @@ production-deployment evidence.
 - Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
   - Source: `docs/HUMAN_GUIDANCE.md:45`
 
-- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
+- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](../../../NAMING_CONVENTIONS.md) for details.
   - Source: `docs/HUMAN_GUIDANCE.md:51`
 
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
@@ -95,7 +95,7 @@ production-deployment evidence.
 
 ### Development principles -- PLE development rules
 
-- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
+- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](../../../LIVE_DEMO_SPEC.md).
   - Source: `docs/HUMAN_GUIDANCE.md:65`
 
 Latest Student response distinction rewrite: live HG requires visually distinct current Question,

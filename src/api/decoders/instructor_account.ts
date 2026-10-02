@@ -109,13 +109,14 @@ export function decodeInstructorAccountList(
   path = "response",
 ): InstructorAccountList {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["accounts", "displayTimeZone"]);
+  requireOnlyFields(record, path, ["accounts", "displayTimeZone", "nextCursor"]);
   return {
     accounts: decodeArray(field(record, "accounts", path), `${path}.accounts`, summary),
     displayTimeZone: displayTimeZone(
       field(record, "displayTimeZone", path),
       `${path}.displayTimeZone`,
     ),
+    nextCursor: decodeNullable(field(record, "nextCursor", path), `${path}.nextCursor`, accountId),
   };
 }
 

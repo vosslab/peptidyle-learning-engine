@@ -47,6 +47,7 @@ mod known_forks;
 mod list;
 mod pool_members;
 mod promotion;
+mod recognition_titles;
 mod responses;
 mod views;
 
@@ -112,6 +113,10 @@ pub fn blueprint_course_router(
             post(course_publication::create),
         )
         .route("/api/course-blueprints/import", post(exchange::import))
+        .route(
+            "/api/course-blueprints/recognition-titles",
+            post(recognition_titles::load_recognition_titles),
+        )
         .route(
             "/api/course-blueprints/{blueprint_course_id}",
             get(load_blueprint).put(save_blueprint),

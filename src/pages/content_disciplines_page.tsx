@@ -2,13 +2,18 @@
 
 import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
-import type { ContentClassificationItem } from "../api/content_classification";
+import type {
+  ContentClassificationItem,
+  ContentDisciplineRequest,
+} from "../api/content_classification";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { createDisciplineFromRequest } from "../components/discipline_request";
 import { PageFrame } from "../components/page_frame";
 import { RecordDetailList } from "../components/record_list/record_detail_list";
 
 const unavailableDisciplines: ReadonlyArray<ContentClassificationItem> = [];
+const unavailableRequests: ReadonlyArray<ContentDisciplineRequest> = [];
 
 function disciplineFailureCopy(): string {
   return "That Discipline change could not be completed. Check the name and try again.";
@@ -27,6 +32,12 @@ export function ContentDisciplinesPage(): JSX.Element {
     boolean
   >(isSysadmin, async (allowed) =>
     allowed ? runtime.client.listDisciplinesIncludingRetired() : unavailableDisciplines,
+  );
+  const [requests, { mutate: mutateRequests, refetch: refetchRequests }] = createResource<
+    ReadonlyArray<ContentDisciplineRequest>,
+    boolean
+  >(isSysadmin, async (allowed) =>
+    allowed ? runtime.client.listOpenDisciplineRequests() : unavailableRequests,
   );
   const [newName, setNewName] = createSignal("");
   const [nameByUuid, setNameByUuid] = createSignal<Record<string, string>>({});
@@ -50,6 +61,41 @@ export function ContentDisciplinesPage(): JSX.Element {
         : current.map((item) => (item.uuid === updated.uuid ? updated : item)),
     );
     setNameByUuid((current) => ({ ...current, [updated.uuid]: updated.name }));
+  }
+
+  async function createFromRequest(request: ContentDisciplineRequest): Promise<void> {
+    if (busyUuid() !== null || creating()) return;
+    setBusyUuid(request.uuid);
+    setError(null);
+    try {
+      const created = await createDisciplineFromRequest(runtime.client, request);
+      mutate((current) => (current === undefined ? current : [...current, created]));
+      mutateRequests((current) =>
+        current === undefined ? current : current.filter((item) => item.uuid !== request.uuid),
+      );
+      setAnnouncement(`Discipline ${created.name} created.`);
+    } catch {
+      setError(disciplineFailureCopy());
+    } finally {
+      setBusyUuid(null);
+    }
+  }
+
+  async function dismissRequest(request: ContentDisciplineRequest): Promise<void> {
+    if (busyUuid() !== null || creating()) return;
+    setBusyUuid(request.uuid);
+    setError(null);
+    try {
+      await runtime.client.resolveDisciplineRequest(request.uuid);
+      mutateRequests((current) =>
+        current === undefined ? current : current.filter((item) => item.uuid !== request.uuid),
+      );
+      setAnnouncement(`Discipline request ${request.requestedName} dismissed.`);
+    } catch {
+      setError("That Discipline request could not be dismissed.");
+    } finally {
+      setBusyUuid(null);
+    }
   }
 
   async function create(event: SubmitEvent): Promise<void> {
@@ -140,6 +186,50 @@ export function ContentDisciplinesPage(): JSX.Element {
           {creating() ? "Creating Discipline..." : "Create Discipline"}
         </button>
       </form>
+      <RecordDetailList
+        ariaLabel="Discipline requests"
+        emptyState={{ title: "No Discipline requests are open." }}
+        recordId={(item) => item.uuid}
+        rows={requests() ?? []}
+        state={
+          requests.loading
+            ? { kind: "loading", label: "Loading Discipline requests..." }
+            : requests.error !== undefined
+              ? {
+                  kind: "error",
+                  message:
+                    "Discipline requests could not load. Check your connection and try again.",
+                  retry: () => void refetchRequests(),
+                }
+              : { kind: "ready" }
+        }
+        renderRecord={(item) => (
+          <div class="auth-panel">
+            <h2>{item.requestedName}</h2>
+            <p>
+              Requester Account ID <span>{item.requestedByAccountId}</span>
+            </p>
+            <p>
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={busyUuid() === item.uuid}
+                onClick={() => void createFromRequest(item)}
+              >
+                Create this Discipline
+              </button>{" "}
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={busyUuid() === item.uuid}
+                onClick={() => void dismissRequest(item)}
+              >
+                Dismiss request
+              </button>
+            </p>
+          </div>
+        )}
+      />
       <Show when={error()}>
         {(message) => (
           <section class="inline-error" role="alert">

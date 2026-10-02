@@ -100,7 +100,9 @@
       "submitted_response": "after_submit",
       "question_answer": "after_submit",
       "question_answer_explanation": "after_submit",
-      "class_statistics": "never"
+      "class_statistics": "never",
+      "hints": "never",
+      "worked_solutions": "never"
     },
     "policies": {
       "questionVariationRule": "newVariation",
@@ -134,7 +136,9 @@
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
           "question_answer_explanation": "after_submit",
-          "class_statistics": "never"
+          "class_statistics": "never",
+          "hints": "never",
+          "worked_solutions": "never"
         },
         "effectivePolicySources": {
           "schedule": { "kind": "assessment" },
@@ -173,7 +177,9 @@
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
           "question_answer_explanation": "after_submit",
-          "class_statistics": "never"
+          "class_statistics": "never",
+          "hints": "never",
+          "worked_solutions": "never"
         },
         "effectivePolicySources": {
           "schedule": { "kind": "assessment" },
@@ -212,7 +218,9 @@
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
           "question_answer_explanation": "after_submit",
-          "class_statistics": "never"
+          "class_statistics": "never",
+          "hints": "never",
+          "worked_solutions": "never"
         },
         "effectivePolicySources": {
           "schedule": { "kind": "assessment" },
@@ -251,7 +259,9 @@
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
           "question_answer_explanation": "after_submit",
-          "class_statistics": "never"
+          "class_statistics": "never",
+          "hints": "never",
+          "worked_solutions": "never"
         },
         "effectivePolicySources": {
           "schedule": { "kind": "assessment" },

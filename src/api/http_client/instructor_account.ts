@@ -2,7 +2,7 @@
 
 import type { AccountId } from "../../../generated/api/AccountId";
 import type { ApiClient } from "../client";
-import type { InstructorAccountClient } from "../instructor_account";
+import type { InstructorAccountBrowse, InstructorAccountClient } from "../instructor_account";
 import {
   decodeCompleteInstructorIdentityVettingInput,
   decodeCreateInstructorAccountInput,
@@ -46,6 +46,33 @@ async function instructorAccountJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
+const instructorAccountPageSizes: ReadonlyArray<number> = [50, 100, 250];
+
+/** ASVS 2.2.1: allow-list the list body before posting it. The server repeats the check. */
+function instructorAccountBrowseBody(browse: InstructorAccountBrowse): {
+  readonly query: string;
+  readonly state: InstructorAccountBrowse["state"];
+  readonly pageSize: InstructorAccountBrowse["pageSize"];
+  readonly afterAccountId: InstructorAccountBrowse["afterAccountId"];
+} {
+  const trimmed = browse.query.trim();
+  if ([...trimmed].length > 320 || /[\p{Cc}]/u.test(trimmed)) {
+    throw new ApiProtocolError("Instructor Account search is invalid");
+  }
+  if (!instructorAccountPageSizes.includes(browse.pageSize)) {
+    throw new ApiProtocolError("Instructor Account list is invalid");
+  }
+  if (browse.afterAccountId !== null && !isCanonicalAccountId(browse.afterAccountId)) {
+    throw new ApiProtocolError("Instructor Account list is invalid");
+  }
+  return {
+    query: trimmed,
+    state: browse.state,
+    pageSize: browse.pageSize,
+    afterAccountId: browse.afterAccountId,
+  };
+}
+
 /** Composes this capability independently from ordinary Course-account surfaces. */
 export function createInstructorAccountClient(
   fetchImplementation: ApiFetch,
@@ -58,6 +85,14 @@ export function createInstructorAccountClient(
         basePath,
         "/api/instructor-accounts",
         decodeInstructorAccountList,
+      ),
+    findInstructorAccounts: (browse) =>
+      instructorAccountJson(
+        fetchImplementation,
+        basePath,
+        "/api/instructor-accounts/find",
+        decodeInstructorAccountList,
+        { method: "POST", body: instructorAccountBrowseBody(browse), status: 200 },
       ),
     completeInstructorIdentityVetting: (input) =>
       instructorAccountJson(

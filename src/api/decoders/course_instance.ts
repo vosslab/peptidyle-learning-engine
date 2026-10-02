@@ -11,11 +11,15 @@ import type {
   CourseInstanceCreationSource,
   CreateCourseInstanceInput,
   CreatedCourseInstance,
+  InstallationCourseInspection,
+  InstallationCoursePage,
 } from "../course_instance";
 import type { CourseEditNumber } from "../../../generated/api/CourseEditNumber";
 import {
   DecodeError,
   decodeArray,
+  decodeNonemptyString,
+  decodeNullable,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
@@ -261,4 +265,83 @@ export function decodeCourseCreationInstructors(
       accountId: accountId(field(instructor, "accountId", entryPath), `${entryPath}.accountId`),
     };
   });
+}
+
+function instructorDisplayName(value: unknown, path: string): string {
+  const name = decodeNonemptyString(value, path);
+  if (name !== name.trim() || Array.from(name).length > 200 || /\p{Cc}/u.test(name)) {
+    throw new DecodeError(path, "a verified Instructor display name");
+  }
+  return name;
+}
+
+/** Strict decoder for one Sysadmin Course inspection. ASVS 1.5.2/2.2.1/8.2.3. */
+export function decodeInstallationCourse(
+  value: unknown,
+  path = "response",
+): InstallationCourseInspection {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "shortName",
+    "longName",
+    "term",
+    "lifecycleState",
+    "retentionLifecycleState",
+    "instructorDisplayNames",
+  ]);
+  const instructorDisplayNames = decodeArray(
+    field(record, "instructorDisplayNames", path),
+    `${path}.instructorDisplayNames`,
+    instructorDisplayName,
+  );
+  if (instructorDisplayNames.length > 200) {
+    throw new DecodeError(`${path}.instructorDisplayNames`, "at most 200 Instructor display names");
+  }
+  return {
+    id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
+    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
+    lifecycleState: decodeStringEnum(
+      field(record, "lifecycleState", path),
+      `${path}.lifecycleState`,
+      ["active", "inactive"] as const,
+    ),
+    retentionLifecycleState: decodeStringEnum(
+      field(record, "retentionLifecycleState", path),
+      `${path}.retentionLifecycleState`,
+      ["active", "archived", "deleted"] as const,
+    ),
+    instructorDisplayNames,
+  };
+}
+
+/** Strict decoder for one bounded installation Course page. */
+export function decodeInstallationCoursePage(
+  value: unknown,
+  path = "response",
+): InstallationCoursePage {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["courses", "nextCursor"]);
+  const courses = decodeArray(
+    field(record, "courses", path),
+    `${path}.courses`,
+    decodeInstallationCourse,
+  );
+  if (courses.length > 250) {
+    throw new DecodeError(`${path}.courses`, "at most 250 Courses");
+  }
+  const nextCursor = decodeNullable(
+    field(record, "nextCursor", path),
+    `${path}.nextCursor`,
+    decodeNonemptyString,
+  );
+  if (nextCursor !== null && nextCursor.length > 4096) {
+    throw new DecodeError(`${path}.nextCursor`, "a bounded installation Course cursor");
+  }
+  return {
+    courses,
+    nextCursor,
+  };
 }

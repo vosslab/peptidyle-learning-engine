@@ -11,7 +11,7 @@ import {
 } from "../decoder";
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
-import { field, requireOnlyFields } from "./shared";
+import { decodeQuestionTitle, field, requireOnlyFields } from "./shared";
 
 function questionStats(
   value: unknown,
@@ -20,6 +20,7 @@ function questionStats(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "publishedQuestionRevisionTuple",
+    "questionTitle",
     "fullCreditAttemptCount",
     "partialCreditAttemptCount",
     "incorrectAttemptCount",
@@ -58,6 +59,14 @@ function questionStats(
       "a positive revision number",
     );
   }
+  const rawQuestionTitle = decodeString(
+    field(record, "questionTitle", path),
+    `${path}.questionTitle`,
+  );
+  const questionTitle =
+    rawQuestionTitle.length === 0
+      ? ""
+      : decodeQuestionTitle(rawQuestionTitle, `${path}.questionTitle`);
   const fullCreditAttemptCount = decodeNonnegativeInteger(
     field(record, "fullCreditAttemptCount", path),
     `${path}.fullCreditAttemptCount`,
@@ -116,6 +125,7 @@ function questionStats(
   }
   return {
     publishedQuestionRevisionTuple: { publishedQuestionId, revisionNumber },
+    questionTitle,
     fullCreditAttemptCount,
     partialCreditAttemptCount,
     incorrectAttemptCount,

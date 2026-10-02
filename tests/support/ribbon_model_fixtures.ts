@@ -84,7 +84,11 @@ export function materializeRibbonRoute(
   }
   const pathname = buildRoutePath(route.id, paramsForRoute(route));
   if (pathname === undefined) throw new Error(`Ribbon fixture cannot build ${route.id}.`);
-  const params = routeParams(route, pathname);
+  const routeState =
+    route.id === "assessmentAttempt" || route.id === "assessmentAttemptSummary"
+      ? { assessmentAttemptId: CANONICAL_FIXTURE_PARAMS.assessmentAttemptId }
+      : undefined;
+  const params = routeParams(route, pathname, routeState);
   if (params === undefined) throw new Error(`Ribbon fixture cannot parse ${route.id}.`);
   const ribbonParams =
     route.ribbon.scope === "assessmentAttempt"

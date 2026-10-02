@@ -63,10 +63,23 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
                 .selection
                 .iter()
                 .map(|selected| {
-                    json!({
-                        "questionId": selected.question_id.as_str(),
-                        "metadataEditNumber": selected.metadata_edit_number,
-                    })
+                    let mut item = Map::new();
+                    item.insert(
+                        "questionId".to_owned(),
+                        json!(selected.question_id.as_str()),
+                    );
+                    item.insert(
+                        "metadataEditNumber".to_owned(),
+                        json!(selected.metadata_edit_number),
+                    );
+                    // ASVS 2.2.1: Title and Description stay with the Question they name.
+                    if let Some(title) = &selected.question_title {
+                        item.insert("questionTitle".to_owned(), json!(title));
+                    }
+                    if let Some(description) = &selected.question_description {
+                        item.insert("questionDescription".to_owned(), json!(description));
+                    }
+                    Value::Object(item)
                 })
                 .collect(),
         );

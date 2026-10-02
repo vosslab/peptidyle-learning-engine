@@ -8,13 +8,16 @@ import type { AssessmentQuestionPoolForkView } from "../../../generated/api/Asse
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import {
   QuestionPicker,
+  type QuestionPickerProps,
   type QuestionPickerSelection,
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
 } from "../../features/question_picker";
+import { labeledQuestionRecognition } from "../../features/recognition_label";
 import { questionRevisionKey } from "./assessment_workspace_questions_model";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import type { RecordContent } from "../../components/record_list/record_list";
+import type { QuestionPoolMemberView } from "../../../generated/api/QuestionPoolMemberView";
 import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { RecordSequence } from "../../components/record_list/record_sequence";
 
@@ -24,12 +27,28 @@ export interface AssessmentPoolEntryEditorProps {
   readonly exactMembersUnavailable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
+  readonly loadQuestionInspection?: QuestionPickerProps["loadQuestionInspection"];
+  readonly questionRevisionPreviewDocumentUrl?: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
+  readonly questionImageUrl?: QuestionPickerProps["questionImageUrl"];
   readonly mutationsEnabled: boolean;
   readonly busy: boolean;
   readonly onSelectionCount: (selectionCount: number) => void;
   readonly onReplaceMembers: (
     members: ReadonlyArray<PublishedQuestionRevisionTuple>,
   ) => Promise<void>;
+}
+
+/** Question title for recognition, with the public Question ID kept as a labeled identifier. */
+export function assessmentPoolMemberContent(member: QuestionPoolMemberView): RecordContent {
+  const revision = member.publishedQuestionRevisionTuple;
+  return {
+    title: member.question.question_library.summary.metadata.questionTitle,
+    details: [
+      { kind: "text", label: "Question ID", value: revision.publishedQuestionId },
+      { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
+    ],
+    actions: [],
+  };
 }
 
 /** Renders exact immutable fork members and only the two permitted Assessment-owned mutations. */
@@ -80,8 +99,11 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
   return (
     <section class="assessment-pool-fork" aria-labelledby={`assessment-pool-${props.entry.id}`}>
       <h3 id={`assessment-pool-${props.entry.id}`}>
-        Question Pool {props.entry.questionPoolId} Edit {props.entry.questionPoolEditNumber}
+        {props.fork?.metadata.title ?? "Question Pool"}
       </h3>
+      <p>
+        Question Pool ID {props.entry.questionPoolId}, Edit {props.entry.questionPoolEditNumber}
+      </p>
       <Show
         when={props.fork}
         fallback={
@@ -94,7 +116,6 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
       >
         {(fork) => (
           <>
-            <h4>{fork().metadata.title}</h4>
             <p>{fork().metadata.description}</p>
             <CourseClassificationSummary value={fork().metadata} />
             <Show when={fork().bloom}>
@@ -121,10 +142,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
             <RecordSequence
               rows={fork().members.map((member, index) => ({ member, index }))}
               content={(record): RecordContent => ({
-                // ASVS 1.2.1: ordinary JSX rendering keeps IDs inert; no HTML or raw JSON rendering.
-                title: `Question ${record.member.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${record.member.publishedQuestionRevisionTuple.revisionNumber}`,
-                description: record.member.question.question_library.summary.metadata.questionTitle,
-                details: [],
+                ...assessmentPoolMemberContent(record.member),
                 actions: [
                   {
                     id: "remove-member",
@@ -157,8 +175,15 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                       (member) => member.publishedQuestionRevisionTuple,
                     ),
                   ),
-                recordLabel: (record): string =>
-                  `Question ${record.member.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${record.member.publishedQuestionRevisionTuple.revisionNumber}`,
+                recordLabel: (record): string => {
+                  const revision = record.member.publishedQuestionRevisionTuple;
+                  const line = labeledQuestionRecognition(
+                    record.member.question.question_library.summary.metadata.questionTitle,
+                    revision.publishedQuestionId,
+                    revision.revisionNumber,
+                  );
+                  return `${line.title} (${line.identifier})`;
+                },
                 isDisabled: (): boolean => !props.mutationsEnabled || props.busy || !attested(),
               }}
             />
@@ -208,7 +233,10 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                   trigger={pickerTrigger}
                   title="Add one pinned Question"
                   confirmLabel="Add pinned Question"
-                  instructions="The selected Question is appended with its exact Published Revision. Cancel leaves this Pool unchanged."
+                  instructions="The selected Question is appended with its exact Published Revision. Inspect a Question before adding it. Cancel leaves this Pool unchanged."
+                  loadQuestionInspection={props.loadQuestionInspection}
+                  questionRevisionPreviewDocumentUrl={props.questionRevisionPreviewDocumentUrl}
+                  questionImageUrl={props.questionImageUrl}
                   onConfirm={append}
                   onCancel={() => setPickerOpen(false)}
                 />

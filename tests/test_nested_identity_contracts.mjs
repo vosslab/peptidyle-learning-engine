@@ -16,7 +16,10 @@ import { decodeQuestionAvailabilityTransition } from "../src/api/decoders/questi
 import { decodeQuestionPoolPreview } from "../src/api/decoders/pool_preview.ts";
 import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 import { decodeAssessmentSummary } from "../src/api/decoders/question_library.ts";
-import { decodeBlueprintChangeProposalCreateRequest } from "../src/api/decoders/blueprint_change_proposal.ts";
+import {
+  decodeBlueprintChangeProposalCreateRequest,
+  decodeBlueprintChangeProposalPageView,
+} from "../src/api/decoders/blueprint_change_proposal.ts";
 import { decodeBlueprintComparisonView } from "../src/api/decoders/blueprint_comparison.ts";
 import { decodeKnownBlueprintForks } from "../src/api/decoders/blueprint_course.ts";
 import {
@@ -248,6 +251,8 @@ test("Student View, Template, Pool Preview, accommodation, and availability reje
         question_answer: "never",
         question_answer_explanation: "never",
         class_statistics: "after_close",
+        hints: "never",
+        worked_solutions: "never",
       },
     },
     assessmentTemplateEditNumber: "1",
@@ -316,6 +321,8 @@ test("Assessment Summary, Gradebook, and Due Soon reject leftover courseId", () 
       question_answer: "never",
       question_answer_explanation: "never",
       class_statistics: "never",
+      hints: "never",
+      worked_solutions: "never",
     },
     policies: {
       questionVariationRule: "newVariation",
@@ -356,6 +363,41 @@ test("Assessment Summary, Gradebook, and Due Soon reject leftover courseId", () 
       decodeDueSoonAssessments({
         ...dueSoon,
         items: [{ ...dueSoon.items[0], courseId: COURSE }],
+      }),
+    DecodeError,
+  );
+});
+
+test("change proposal JSON uses the proposal UUID and rejects a second proposal id", () => {
+  const proposalId = "00000000-0000-0000-0000-00000000001e";
+  const proposal = {
+    proposalId,
+    createdAt: 1_790_971_200_125,
+    sourceRevisionTuple: BLUEPRINT_TUPLE,
+    sourceBlueprintEditNumber: "1",
+    sourceNames: { shortName: "Source", longName: "Source Course" },
+    targetRevisionTuple: BLUEPRINT_TUPLE,
+    targetBlueprintEditNumber: "1",
+    targetNames: { shortName: "Target", longName: "Target Course" },
+    targetIsStale: false,
+    accepted: null,
+  };
+  const decoded = decodeBlueprintChangeProposalPageView({ items: [proposal], nextCursor: null });
+  assert.equal(decoded.items[0]?.proposalId, proposalId);
+  assert.equal(Object.hasOwn(decoded.items[0] ?? {}, "id"), false);
+  assert.throws(
+    () =>
+      decodeBlueprintChangeProposalPageView({
+        items: [{ ...proposal, id: proposalId }],
+        nextCursor: null,
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeBlueprintChangeProposalPageView({
+        items: [{ ...proposal, proposalId: `${proposalId}-2` }],
+        nextCursor: null,
       }),
     DecodeError,
   );

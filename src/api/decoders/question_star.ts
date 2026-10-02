@@ -1,15 +1,22 @@
 // Strict decoder for the closed Published Question Star projection.
 
+import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
 import {
   DecodeError,
   decodeArray,
   decodeBoolean,
   decodeNonemptyString,
   decodeNonnegativeInteger,
+  decodeNullable,
   decodeRecord,
 } from "../decoder";
-import { field, requireOnlyFields } from "./shared";
-import type { QuestionStarProjection, QuestionStarredInstructor } from "../question_star";
+import { decodeQuestionId, field, requireOnlyFields } from "./shared";
+import type {
+  QuestionStarProjection,
+  QuestionStarredInstructor,
+  StarredQuestionPage,
+  StarredQuestionSummary,
+} from "../question_star";
 
 const MAX_VERIFIED_INSTRUCTOR_DISPLAY_NAME_SCALARS = 200;
 const CONTROL_CHARACTER = /[\p{Cc}]/u;
@@ -60,5 +67,47 @@ export function decodeQuestionStarProjection(
       `${path}.viewerHasStarred`,
     ),
     starredInstructors,
+  };
+}
+
+function decodeQuestionTitle(value: unknown, path: string): string {
+  const title = decodeNonemptyString(value, path);
+  if (
+    title !== title.trim() ||
+    CONTROL_CHARACTER.test(title) ||
+    Array.from(title).length > MAX_QUESTION_TITLE_UNICODE_SCALARS
+  ) {
+    throw new DecodeError(path, "a Question title");
+  }
+  return title;
+}
+
+function decodeStarredQuestionSummary(value: unknown, path: string): StarredQuestionSummary {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["questionId", "questionTitle"]);
+  return {
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    questionTitle: decodeQuestionTitle(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+    ),
+  };
+}
+
+/** Rejects Account identity and every field outside the personal Star collection. */
+export function decodeStarredQuestionPage(value: unknown, path = "response"): StarredQuestionPage {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["items", "nextCursor"]);
+  const nextCursor = decodeNullable(
+    field(record, "nextCursor", path),
+    `${path}.nextCursor`,
+    (cursor, cursorPath) => decodeNonemptyString(cursor, cursorPath),
+  );
+  if (nextCursor !== null && nextCursor.length > 1024) {
+    throw new DecodeError(`${path}.nextCursor`, "a bounded Starred Question cursor");
+  }
+  return {
+    items: decodeArray(field(record, "items", path), `${path}.items`, decodeStarredQuestionSummary),
+    nextCursor,
   };
 }

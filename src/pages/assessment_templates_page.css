@@ -20,7 +20,7 @@
   margin: 0;
   padding: 0.75rem 0.9rem;
   border-inline-start: 0.3rem solid var(--ple-accent);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-surface-soft);
 }
 
@@ -35,13 +35,15 @@
   gap: var(--ple-card-gap, 1rem);
 }
 
+/* Two columns of one workspace. A card around either column would isolate it. */
 .assessment-template-overview,
 .assessment-template-editor {
   min-width: 0;
-  padding: var(--ple-panel-padding, 0.9rem);
-  border-radius: var(--ple-radius-inset);
-  background: var(--ple-card-surface);
-  box-shadow: var(--ple-shadow);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .assessment-template-overview {
@@ -93,8 +95,20 @@
   font-weight: 500;
 }
 
-.assessment-template-editor-empty {
-  min-height: 10rem;
+/* The heading and message are one group, with a readable gap and no card padding. */
+.assessment-templates .empty-state.assessment-template-editor-empty {
+  display: grid;
+  gap: var(--ple-space-2);
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.assessment-template-editor-empty p {
+  margin: 0;
 }
 
 .assessment-template-editor-header,
@@ -115,7 +129,7 @@
 
 .assessment-template-identity {
   padding: 0.75rem;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-surface-soft);
 }
 
@@ -134,7 +148,7 @@
 .assessment-template-setting-group {
   padding: 0.75rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
 }
 
 .assessment-template-setting-group h3,

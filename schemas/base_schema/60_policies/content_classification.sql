@@ -12,6 +12,10 @@ ALTER TABLE ple_data.content_discipline ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.content_discipline FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE ple_data.content_discipline_request ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_data.content_discipline_request FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE ple_data.content_subject ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.content_subject FORCE ROW LEVEL SECURITY;
@@ -29,6 +33,9 @@ ALTER TABLE ple_data.content_subtopic ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.content_subtopic FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY content_discipline_data_owner_access ON ple_data.content_discipline
+    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY content_discipline_request_data_owner_access ON ple_data.content_discipline_request
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY content_subject_data_owner_access ON ple_data.content_subject

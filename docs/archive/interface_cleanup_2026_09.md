@@ -29,8 +29,8 @@ treating them as one list is the main risk to this cleanup:
    every time zone in the product is Course-owned.
 
 Document ownership also needed a decision, and the owner has now given it: only
-[docs/HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) and
-[docs/TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md)
+[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) and
+[TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md)
 are human-approved, and `docs/INTERFACE_TERMINOLOGY.md` should hold terminology rather than
 Ribbon-level structural restrictions. That removes the block on the notes' Ribbon shape and makes
 the first task a documentation ownership repair rather than a negotiation.
@@ -101,7 +101,7 @@ rewrite; what remains is recorded as a decision in M0.
 
 - Evidence strategy for uncertain methods: density, timer prominence, and navigation-bar legibility
   are visual questions. Each carries browser evidence at the canonical profiles in
-  [docs/UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md)
+  [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md)
   (1280 by 800 Instructor; 1280 by 800 and 800 by 1280 Student; narrow-phone guard) plus
   `image_evaluator` review, rather than a pixel equivalence gate, per HUMAN_GUIDANCE.md on avoiding
   arbitrary numeric gates.
@@ -1849,7 +1849,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 ## Test and verification strategy
 
 Match the layer to the claim, per
-[docs/TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md)
+[TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md)
 and PYTEST_STYLE.md:
 
 - Fast offline checks for durable contracts: route-contract shape, Ribbon catalog and schema

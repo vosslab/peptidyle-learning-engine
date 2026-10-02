@@ -99,6 +99,8 @@ pub(crate) struct AttemptFacts {
     feedback_question_answer: String,
     feedback_question_answer_explanation: String,
     feedback_class_statistics: String,
+    feedback_hints: String,
+    feedback_worked_solutions: String,
 }
 
 #[derive(Deserialize, Serialize)]

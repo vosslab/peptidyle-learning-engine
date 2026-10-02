@@ -2,6 +2,7 @@
 
 import dataclasses
 import pathlib
+import re
 import os
 import collections.abc
 import secrets
@@ -594,7 +595,30 @@ def build_object_storage(
 def build_artifacts(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, options: LifecycleOptions) -> None:
 	"""Build the production browser artifact or require its complete reusable bundle."""
 	if not options.build:
-		if not (repo_root / "dist/index.html").is_file() or not (repo_root / "dist/main.js").is_file():
+		dist_dir = repo_root / "dist"
+		index_path = dist_dir / "index.html"
+		index_html = index_path.read_text(encoding="utf-8") if index_path.is_file() else ""
+		bundle_match = re.search(r'<script\s+type="module"\s+src="/(main\.[0-9a-f]{8}\.js)"', index_html)
+		stylesheet_match = re.search(r'<link\s+rel="stylesheet"\s+href="/(main\.[0-9a-f]{8}\.css)"', index_html)
+		bundle_path = dist_dir / bundle_match.group(1) if bundle_match else None
+		stylesheet_path = dist_dir / stylesheet_match.group(1) if stylesheet_match else None
+		wasm_version_match = None
+		if bundle_path is not None and bundle_path.is_file():
+			wasm_version_match = re.search(
+				r"[\"']([0-9a-f]{12})/",
+				bundle_path.read_text(encoding="utf-8"),
+			)
+		wasm_dir = dist_dir / "wasm" / wasm_version_match.group(1) if wasm_version_match else None
+		if (
+			not index_path.is_file()
+			or bundle_path is None
+			or not bundle_path.is_file()
+			or stylesheet_path is None
+			or not stylesheet_path.is_file()
+			or wasm_dir is None
+			or not (wasm_dir / "ple_bridge.js").is_file()
+			or not (wasm_dir / "ple_bridge_bg.wasm").is_file()
+		):
 			raise local_stack_control.models.ControllerError("reuse build requires a complete dist bundle")
 		return
 	profile = "--release" if options.release else "--debug"

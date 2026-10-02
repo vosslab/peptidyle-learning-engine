@@ -53,12 +53,7 @@ export function BlueprintCourseLifecycleControls(
     <>
       <p class="blueprint-course-field-help">{lifecycle().meaning}</p>
       <Show
-        when={
-          lifecycle().canPublish ||
-          lifecycle().canArchive ||
-          lifecycle().canRestore ||
-          lifecycle().canReturnToPrivate
-        }
+        when={lifecycle().canPublish || lifecycle().canRestore || lifecycle().canReturnToPrivate}
       >
         <aside class="blueprint-course-inspection">
           <Show when={lifecycle().canPublish}>
@@ -87,25 +82,6 @@ export function BlueprintCourseLifecycleControls(
               {props.metadataSaving ? "Returning..." : "Return to Private"}
             </button>
           </Show>
-          <Show when={lifecycle().canArchive}>
-            <h2>Archive Blueprint Course</h2>
-            <p>
-              Archive removes this Blueprint Course from new selection. Saved Revisions remain
-              intact.
-            </p>
-            <label>
-              Confirm Blueprint Course long name
-              <input
-                value={props.archiveConfirmation}
-                maxlength="200"
-                disabled={props.metadataSaving}
-                onInput={(event) => props.onArchiveConfirmationInput(event.currentTarget.value)}
-              />
-            </label>
-            <button type="button" disabled={props.metadataSaving} onClick={props.onArchive}>
-              {props.metadataSaving ? "Archiving..." : "Archive Blueprint Course"}
-            </button>
-          </Show>
           <Show when={lifecycle().canRestore}>
             <h2>Restore Blueprint Course</h2>
             <p>Restore makes this Blueprint Course Public for new Instructor adoption.</p>
@@ -113,6 +89,34 @@ export function BlueprintCourseLifecycleControls(
               {props.metadataSaving ? "Restoring..." : "Restore Blueprint Course"}
             </button>
           </Show>
+        </aside>
+      </Show>
+      <Show when={lifecycle().canArchive}>
+        <aside
+          class="blueprint-course-archive-danger-zone"
+          aria-labelledby="blueprint-archive-heading"
+        >
+          <h2 id="blueprint-archive-heading">Danger Zone: Archive Blueprint Course</h2>
+          <p>
+            Archive removes this Blueprint Course from new selection. Saved Revisions remain intact.
+          </p>
+          <label>
+            Confirm Blueprint Course long name
+            <input
+              value={props.archiveConfirmation}
+              maxlength="200"
+              disabled={props.metadataSaving}
+              onInput={(event) => props.onArchiveConfirmationInput(event.currentTarget.value)}
+            />
+          </label>
+          <button
+            type="button"
+            class="blueprint-course-archive-confirm"
+            disabled={props.metadataSaving || props.archiveConfirmation !== props.view.long_name}
+            onClick={props.onArchive}
+          >
+            {props.metadataSaving ? "Archiving..." : "Archive Blueprint Course"}
+          </button>
         </aside>
       </Show>
     </>

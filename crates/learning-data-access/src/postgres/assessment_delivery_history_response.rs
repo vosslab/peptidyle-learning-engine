@@ -41,6 +41,8 @@ pub(super) async fn read(
                 position,
                 response,
                 general_feedback: row.try_get("general_feedback").map_err(map_sqlx_error)?,
+                hint: row.try_get("hint").map_err(map_sqlx_error)?,
+                worked_solution: row.try_get("worked_solution").map_err(map_sqlx_error)?,
                 presentation_evidence: presentation_evidence_from_row(row)?,
                 presentation_source: match row
                     .try_get::<Option<String>, _>("backend")

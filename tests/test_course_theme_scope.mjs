@@ -1,12 +1,14 @@
 // Theme registry and Course Appearance decoder contracts.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { THEME_VALUES } from "../generated/api/Theme.ts";
 import { decodeCourseAppearanceView } from "../src/api/decoders.ts";
+import { resolveDisplayMode, resolveTheme } from "../src/appearance/appearance_rules.ts";
+import { THEME_REGISTRY, themeStyle, themeTokens } from "../src/appearance/theme_registry.ts";
 import { courseBannerImageAlternativeText } from "../src/features/course_appearance/course_banner_alternative_text.ts";
-import { themeTokens } from "../src/appearance/theme_registry.ts";
 
 function relativeLuminance(hex) {
   const channel = (offset) => {
@@ -85,4 +87,75 @@ test("course banners preserve their closed decorative or informative treatment",
     courseBannerImageAlternativeText(informative.banner.alternativeText),
     "Forest canopy",
   );
+});
+
+function biomeCatalogRows() {
+  const text = readFileSync(new URL("../docs/BIOME_THEME_PALETTES.md", import.meta.url), "utf8");
+  const pattern =
+    /^\| `([^`]+)` \| ([^|]+?) \| ((?:`#[0-9a-f]{6}` \/ ){4}`#[0-9a-f]{6}`) \| ((?:`#[0-9a-f]{6}` \/ ){4}`#[0-9a-f]{6}`) \|$/u;
+  const rows = [];
+  for (const line of text.split("\n")) {
+    const match = pattern.exec(line);
+    if (match === null) continue;
+    const colors = (cell) => [...cell.matchAll(/#[0-9a-f]{6}/gu)].map((item) => item[0]);
+    rows.push({
+      id: match[1],
+      name: match[2].trim(),
+      light: colors(match[3]),
+      dark: colors(match[4]),
+    });
+  }
+  return rows;
+}
+
+test("the fixed biome catalog keeps durable habitat names and distinct light and dark surfaces", () => {
+  const rows = biomeCatalogRows();
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    [...THEME_VALUES],
+  );
+  const lightCanvases = new Set();
+  const darkCanvases = new Set();
+  for (const row of rows) {
+    const definition = THEME_REGISTRY[row.id];
+    assert.equal(definition.name, row.name);
+    for (const mode of ["light", "dark"]) {
+      const palette = definition[mode];
+      assert.deepEqual(
+        [palette.canvas, palette.surface, palette.secondary, palette.accent, palette.highlight],
+        row[mode],
+      );
+      const luminance = relativeLuminance(palette.canvas);
+      if (mode === "light") {
+        assert.ok(luminance >= 0.6, `${row.id} light canvas is ${luminance}`);
+        lightCanvases.add(palette.canvas);
+      } else {
+        assert.ok(luminance <= 0.08, `${row.id} dark canvas is ${luminance}`);
+        darkCanvases.add(palette.canvas);
+      }
+    }
+    const style = themeStyle(themeTokens(row.id, "dark"));
+    assert.match(style, new RegExp(`--ple-page-background: ${definition.dark.canvas}`, "u"));
+    assert.match(style, new RegExp(`--ple-surface: ${definition.dark.surface}`, "u"));
+    assert.match(style, new RegExp(`--ple-surface-soft: ${definition.dark.secondary}`, "u"));
+    assert.match(style, new RegExp(`--ple-highlight: ${definition.dark.highlight}`, "u"));
+    assert.match(style, new RegExp(`--ple-accent: ${definition.dark.accent}`, "u"));
+  }
+  assert.equal(lightCanvases.size, rows.length);
+  assert.equal(darkCanvases.size, rows.length);
+  assert.equal(THEME_REGISTRY.grass.name, "Grassland");
+  assert.equal(
+    resolveTheme({
+      courseTheme: "ocean",
+      instructorPersonalTheme: "forest",
+      signedInInstructor: true,
+    }),
+    "ocean",
+  );
+  assert.equal(
+    resolveTheme({ instructorPersonalTheme: "forest", signedInInstructor: true }),
+    "forest",
+  );
+  assert.equal(resolveDisplayMode("dark", "light"), "dark");
+  assert.equal(resolveDisplayMode(null, "light"), "light");
 });

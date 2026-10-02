@@ -534,10 +534,6 @@ export function QuestionDetailPage(): JSX.Element {
           {(record) => (
             <article>
               <p class="eyebrow">Published question</p>
-              <section class="question-detail-description" aria-label="Question Description">
-                <h2>Question Description</h2>
-                <p>{record().summary.metadata.questionDescription}</p>
-              </section>
               <section aria-label="Question prompt">
                 <Show
                   when={record().summary.backend === "webwork"}
@@ -585,6 +581,10 @@ export function QuestionDetailPage(): JSX.Element {
                   />
                 )}
               </Show>
+              <section class="question-detail-description" aria-label="Question Description">
+                <h2>Question Description</h2>
+                <p>{record().summary.metadata.questionDescription}</p>
+              </section>
               <section class="question-detail-support" aria-label="Question details and actions">
                 <CopyableQuestionId
                   questionTitle={record().summary.metadata.questionTitle}

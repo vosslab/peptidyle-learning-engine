@@ -23,7 +23,7 @@ use objects::{
     image_validation::{MAX_STILL_IMAGE_BYTES, ProfileImageCrop, normalized_profile_image_webp},
     s3::S3ObjectStore,
 };
-use question_model::{ObjectId, UserRole, ProfileImageId, Timestamp};
+use question_model::{ObjectId, ProfileImageId, Timestamp, UserRole};
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
@@ -169,10 +169,7 @@ async fn replace_profile_image(State(state): State<RouteState>, request: Request
         Ok(session) => session,
         Err(response) => return *response,
     };
-    if !matches!(
-        session.role,
-        UserRole::Instructor | UserRole::Sysadmin
-    ) {
+    if !matches!(session.role, UserRole::Instructor | UserRole::Sysadmin) {
         return route_error(
             StatusCode::FORBIDDEN,
             "Profile image upload is not available",
@@ -350,10 +347,7 @@ async fn deliver_profile_image(
         Ok(session) => session,
         Err(response) => return *response,
     };
-    if !matches!(
-        session.role,
-        UserRole::Instructor | UserRole::Sysadmin
-    ) {
+    if !matches!(session.role, UserRole::Instructor | UserRole::Sysadmin) {
         return concealed();
     }
     let object = match state

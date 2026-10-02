@@ -30,6 +30,11 @@ export type ResponseControlMode = "save" | "formatOnly";
 export type ResponseSaveOutcome =
   { readonly kind: "accepted" } | { readonly kind: "rejected"; readonly message: string };
 const ResponseControlModeContext = createContext<ResponseControlMode>("save");
+export type ResponsePersistenceNotice = "idle" | "saving" | "saved" | "error";
+const ResponsePersistenceContext = createContext<{
+  readonly notice: ResponsePersistenceNotice;
+  readonly detail: string | undefined;
+}>({ notice: "idle", detail: undefined });
 
 export function ResponseControlModeProvider(props: {
   readonly mode: ResponseControlMode;
@@ -39,6 +44,27 @@ export function ResponseControlModeProvider(props: {
     <ResponseControlModeContext.Provider value={props.mode}>
       {props.children}
     </ResponseControlModeContext.Provider>
+  );
+}
+
+export function ResponsePersistenceProvider(props: {
+  readonly notice?: ResponsePersistenceNotice;
+  readonly detail?: string;
+  readonly children: JSX.Element;
+}): JSX.Element {
+  return (
+    <ResponsePersistenceContext.Provider
+      value={{
+        get notice() {
+          return props.notice ?? "idle";
+        },
+        get detail() {
+          return props.detail;
+        },
+      }}
+    >
+      {props.children}
+    </ResponsePersistenceContext.Provider>
   );
 }
 export type MultipleChoiceResponseFormat =
@@ -88,6 +114,9 @@ export interface QuestionResponseControlBaseProps {
   readonly onSave?: (response: StudentResponse) => Promise<ResponseSaveOutcome>;
   /** Delivery surfaces may name a durable save without changing response semantics. */
   readonly saveLabel?: string;
+  /** Attempt save state. Saved and saving replace the format-status sentence. */
+  readonly persistenceNotice?: ResponsePersistenceNotice;
+  readonly persistenceDetail?: string;
   readonly onEscape: () => void;
   /**
    * Editable delivery surfaces receive the raw response synchronously.  This
@@ -221,10 +250,22 @@ function phaseMessage(phase: QuestionResponseControlPhase): string {
     case "failed":
       return phase.message;
     case "saving":
-      return "Saving your response. Please wait.";
+      return "Saving response...";
     case "saved":
       return "Response saved.";
   }
+}
+
+/** One saved-status line. Attempt persistence replaces the format-ready sentence. */
+export function responseStatusMessage(
+  phase: QuestionResponseControlPhase,
+  notice: ResponsePersistenceNotice = "idle",
+  detail?: string,
+): string {
+  if (notice === "error") return detail ?? "Response was not saved.";
+  if (notice === "saving") return "Saving response...";
+  if (notice === "saved") return "Response saved.";
+  return phaseMessage(phase);
 }
 
 function formatOnlyPhaseMessage(phase: QuestionResponseControlPhase): string {
@@ -374,22 +415,26 @@ export function Status(props: {
   readonly controller: ResponseController;
 }): JSX.Element {
   const mode = useContext(ResponseControlModeContext);
+  const persistence = useContext(ResponsePersistenceContext);
   return (
     <p
       id={`${props.attemptId}-format-status`}
       class="format-status"
       classList={{
-        error: props.controller.invalid(),
+        error: persistence.notice === "error" || props.controller.invalid(),
         ready:
-          props.controller.phase().kind === "ready" || props.controller.phase().kind === "saved",
+          persistence.notice === "saved" ||
+          props.controller.phase().kind === "ready" ||
+          props.controller.phase().kind === "saved",
+        saved: persistence.notice === "saved" || props.controller.phase().kind === "saved",
       }}
-      role="status"
+      role={persistence.notice === "error" ? "alert" : "status"}
       aria-label="Response format"
-      aria-live="polite"
+      aria-live={persistence.notice === "error" ? "assertive" : "polite"}
     >
       {mode === "formatOnly"
         ? formatOnlyPhaseMessage(props.controller.phase())
-        : phaseMessage(props.controller.phase())}
+        : responseStatusMessage(props.controller.phase(), persistence.notice, persistence.detail)}
     </p>
   );
 }

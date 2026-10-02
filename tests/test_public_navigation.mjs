@@ -20,12 +20,14 @@ import {
   authoringWorkspaceRouteId,
   draftQuestionRouteId,
 } from "../src/navigation/public_route.ts";
+import { routeParams, routeScopeKey } from "../src/navigation/route_params.ts";
 import {
   resolveAssessmentRoute,
   resolveAssessmentAttemptRoute,
   resolveAssessmentAttemptIdentity,
   resolveWorkspaceRoute,
 } from "../src/navigation/resolved_route.ts";
+import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 import {
   normalizeHumanEnteredPublicId,
   normalizeHumanEnteredQuestionId,
@@ -100,6 +102,89 @@ test("human route IDs are canonical, typed, and bounded", () => {
   assert.equal(normalizeHumanEnteredPublicId("courseInstance", "CIABCDEFGT"), null);
   assert.equal(parseQuestionRouteId("P-50-v3"), null);
   assert.equal(parseQuestionRouteId("7K3-M9QU"), null);
+});
+
+const UUID_ROUTE_ID = "00000000-0000-0000-0000-00000000001e";
+const CANONICAL_ROUTE_IDS = {
+  courseInstanceId: "CIABCDEFGS",
+  assessmentId: "AABCDEFG8",
+  questionId: "7K3M-79QP",
+  blueprintCourseId: "BPABCDEFGJ",
+  assessmentAttemptId: UUID_ROUTE_ID,
+  draftQuestionId: UUID_ROUTE_ID,
+  proposalId: UUID_ROUTE_ID,
+  membershipId: UUID_ROUTE_ID,
+};
+
+function fillRoute(path, overrides = {}) {
+  return path.replace(/:([A-Za-z0-9]+)/g, (_, name) => {
+    const value = overrides[name] ?? CANONICAL_ROUTE_IDS[name];
+    assert.equal(typeof value, "string", name);
+    return value;
+  });
+}
+
+test("objects without a public ID use their UUID in routes and reject a secondary Id", () => {
+  const seen = new Map();
+  for (const route of ROUTE_CONTRACT) {
+    const names = [...route.path.matchAll(/:([A-Za-z0-9]+)/g)].map((match) => match[1]);
+    assert.equal(new Set(names).size, names.length, route.path);
+    if (names.length === 0) continue;
+    const pathname = fillRoute(route.path);
+    const params = routeParams(route, pathname);
+    assert.ok(params);
+    assert.deepEqual(Object.keys(params).sort(), [...names].sort());
+    const routeState =
+      route.id === "assessmentAttempt" || route.id === "assessmentAttemptSummary"
+        ? { assessmentAttemptId: UUID_ROUTE_ID }
+        : undefined;
+    assert.notEqual(routeScopeKey(pathname, routeState).kind, "invalid", route.path);
+    for (const name of names) {
+      assert.equal(params[name], CANONICAL_ROUTE_IDS[name]);
+      const canonical = CANONICAL_ROUTE_IDS[name];
+      assert.equal(
+        routeScopeKey(fillRoute(route.path, { [name]: `${canonical}-2` })).kind,
+        "invalid",
+        `${route.path} ${name}`,
+      );
+      const otherKind = canonical === UUID_ROUTE_ID ? "CIABCDEFGS" : UUID_ROUTE_ID;
+      assert.equal(
+        routeScopeKey(fillRoute(route.path, { [name]: otherKind })).kind,
+        "invalid",
+        `${route.path} ${name}`,
+      );
+      if (canonical === UUID_ROUTE_ID) {
+        for (const secondary of ["R-1", "D-50", "W-40"]) {
+          assert.equal(
+            routeScopeKey(fillRoute(route.path, { [name]: secondary })).kind,
+            "invalid",
+            `${route.path} ${secondary}`,
+          );
+        }
+      }
+      seen.set(name, canonical === UUID_ROUTE_ID ? "uuid" : "public");
+    }
+  }
+  const uuidNames = [...seen.entries()]
+    .filter(([, kind]) => kind === "uuid")
+    .map(([name]) => name)
+    .sort();
+  assert.deepEqual(uuidNames, ["draftQuestionId", "proposalId"]);
+  const attempt = routeScopeKey("/courses/CIABCDEFGS/attempt", {
+    assessmentAttemptId: UUID_ROUTE_ID,
+  });
+  assert.deepEqual(attempt, {
+    kind: "assessmentAttempt",
+    courseInstanceId: "CIABCDEFGS",
+    assessmentAttemptId: UUID_ROUTE_ID,
+  });
+  assert.deepEqual(routeScopeKey("/courses/CIABCDEFGS/attempt"), {
+    kind: "invalid",
+    scope: "assessmentAttempt",
+  });
+  assert.equal(routeScopeKey(`/assessment-attempts/${UUID_ROUTE_ID}`).kind, "invalid");
+  assert.equal(Object.hasOwn(attempt, "attemptNumber"), false);
+  assert.equal(Object.hasOwn(attempt, "attemptId"), false);
 });
 
 test("route resolution recovers protected API identities without weakening ID kinds", async () => {

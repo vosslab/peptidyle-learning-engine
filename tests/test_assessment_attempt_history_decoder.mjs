@@ -76,6 +76,37 @@ function history() {
   };
 }
 
+test("attempt history JSON uses the Assessment Attempt UUID and rejects a second attempt id", () => {
+  const decoded = decodeStudentAssessmentAttemptHistory(history());
+  assert.equal(decoded.assessmentAttemptId, "00000000-0000-0000-0000-00000000000c");
+  assert.equal(decoded.attemptNumber, 2);
+  assert.equal(Object.hasOwn(decoded, "attemptId"), false);
+  assert.throws(
+    () =>
+      decodeStudentAssessmentAttemptHistory({
+        ...history(),
+        attemptId: "00000000-0000-0000-0000-00000000000c",
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeStudentAssessmentAttemptHistory({
+        ...history(),
+        assessmentAttemptId: "00000000-0000-0000-0000-00000000000c-2",
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeStudentAssessmentAttemptHistory({
+        ...history(),
+        assessmentAttemptId: "2",
+      }),
+    DecodeError,
+  );
+});
+
 test("selected history independently accepts disclosed aggregate and per-position grades", () => {
   const decoded = decodeStudentAssessmentAttemptHistory({
     ...history(),
@@ -183,4 +214,27 @@ test("selected history accepts recorded outcome feedback and omits unavailable e
     { kind: "text", markdown: "Try again." },
   ]);
   assert.equal(decoded.questions[0].questionAnswerExplanation, undefined);
+});
+
+test("selected history keeps a course average only for a safe completed cohort", () => {
+  const safe = {
+    state: "available",
+    completed_student_cohort_size: 5,
+    assessment_average_score: 0.8,
+  };
+  const decoded = decodeStudentAssessmentAttemptHistory({
+    ...history(),
+    classStatistics: safe,
+  });
+  assert.deepEqual(decoded.classStatistics, safe);
+  for (const classStatistics of [
+    { state: "unavailable" },
+    { state: "available", completed_student_cohort_size: 1, assessment_average_score: 0.8 },
+    { state: "available", completed_student_cohort_size: 4, assessment_average_score: 0.8 },
+  ]) {
+    assert.throws(
+      () => decodeStudentAssessmentAttemptHistory({ ...history(), classStatistics }),
+      DecodeError,
+    );
+  }
 });

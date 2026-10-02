@@ -16,6 +16,8 @@ export function decodeStudentFeedbackReleaseRule(
     "question_answer",
     "question_answer_explanation",
     "class_statistics",
+    "hints",
+    "worked_solutions",
   ] as const;
   requireOnlyFields(record, path, fields);
   const decodeTiming = (fieldName: (typeof fields)[number]): StudentFeedbackReleaseTiming =>
@@ -33,5 +35,7 @@ export function decodeStudentFeedbackReleaseRule(
     question_answer: decodeTiming("question_answer"),
     question_answer_explanation: decodeTiming("question_answer_explanation"),
     class_statistics: decodeTiming("class_statistics"),
+    hints: decodeTiming("hints"),
+    worked_solutions: decodeTiming("worked_solutions"),
   };
 }

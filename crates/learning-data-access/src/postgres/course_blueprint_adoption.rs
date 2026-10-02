@@ -1,5 +1,7 @@
 //! Materialize all immutable Blueprint members with fresh teaching identities.
 
+use std::collections::BTreeSet;
+
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentTitle, QuestionAttemptTimeLimit,
     QuestionPoolSelectedQuestionOrder,
@@ -68,6 +70,26 @@ pub(super) fn materialize(
         }
     }
     Ok(Value::Array(assessments))
+}
+
+/// Assessments on the saved Revision that the prior Revision does not already contain.
+pub(super) fn newly_added_assessments(
+    prior: &StoredBlueprintCourseContent,
+    saved: &StoredBlueprintCourseContent,
+) -> StoredBlueprintCourseContent {
+    let prior_sources: BTreeSet<_> = prior
+        .modules
+        .iter()
+        .flat_map(|module| &module.assessments)
+        .map(|assessment| assessment.blueprint_assessment_id)
+        .collect();
+    let mut additions = saved.clone();
+    for module in &mut additions.modules {
+        module
+            .assessments
+            .retain(|assessment| !prior_sources.contains(&assessment.blueprint_assessment_id));
+    }
+    additions
 }
 
 /// Exact reusable projection, deliberately independent of fresh identity issuance.
@@ -252,4 +274,129 @@ fn random_uuid() -> Result<Uuid, StoreError> {
 
 fn invalid(field: &str) -> StoreError {
     StoreError::InvalidRecord(format!("invalid {field}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use question_model::{
+        AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+        AssessmentPointValue, BlueprintAssessmentDefaults, BlueprintAssessmentId,
+        BlueprintModuleId, LateWorkRule, PublishedQuestionRevisionTuple, QuestionAttemptLimit,
+        QuestionAttemptTimeLimit, StudentFeedbackReleaseRule,
+    };
+    use serde_json::json;
+    use uuid::Uuid;
+
+    use super::{materialize, newly_added_assessments};
+    use crate::{
+        PoolBloomPreparationReceipts, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
+        StoredBlueprintAssessmentEntry, StoredBlueprintCourseContent, StoredBlueprintModule,
+    };
+
+    fn assessment(identity: u128, title: &str) -> StoredBlueprintAssessment {
+        StoredBlueprintAssessment {
+            blueprint_assessment_id: BlueprintAssessmentId::from_uuid(Uuid::from_u128(identity)),
+            content: StoredBlueprintAssessmentContent {
+                assessment_type: question_model::AssessmentType::RegularAssignment,
+                title: title.to_string(),
+                instructions: AssessmentInstructions::default(),
+                entries: vec![StoredBlueprintAssessmentEntry::Fixed {
+                    published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                        published_question_id: "7K3M-19QX".parse().expect("Question ID"),
+                        revision_number: question_model::QuestionRevisionNumber::new(1)
+                            .expect("revision"),
+                    },
+                    points_possible: AssessmentPointValue::from_whole(1),
+                    scoring_rule: AssessmentEntryScoringRule::Normal,
+                    question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                    question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
+                }],
+                defaults: BlueprintAssessmentDefaults {
+                    assessment_attempt_time_limit_seconds: None,
+                    attempt_limit: None,
+                    late_work_rule: LateWorkRule::Accept,
+                    activity_rules: AssessmentActivityRules::default(),
+                    student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
+                },
+            },
+        }
+    }
+
+    fn course(modules: Vec<StoredBlueprintModule>) -> StoredBlueprintCourseContent {
+        StoredBlueprintCourseContent { modules }
+    }
+
+    fn module(
+        identity: u128,
+        assessments: Vec<StoredBlueprintAssessment>,
+    ) -> StoredBlueprintModule {
+        StoredBlueprintModule {
+            blueprint_module_id: BlueprintModuleId::from_uuid(Uuid::from_u128(identity)),
+            label: "Module".to_string(),
+            assessments,
+        }
+    }
+
+    #[test]
+    fn daughter_creation_copies_every_blueprint_assessment() {
+        let membrane = assessment(0xA1, "Membrane review");
+        let groups = assessment(0xA2, "Functional groups");
+        let content = course(vec![
+            module(1, vec![membrane.clone()]),
+            module(2, vec![groups.clone()]),
+        ]);
+        let payload = materialize(&content, None, &mut PoolBloomPreparationReceipts::default())
+            .expect("daughter copy payload");
+        let members = payload
+            .as_array()
+            .expect("one member per Blueprint Assessment");
+        assert_eq!(members.len(), 2);
+        assert_eq!(
+            members[0]["source"],
+            json!(membrane.blueprint_assessment_id.to_string())
+        );
+        assert_eq!(
+            members[1]["source"],
+            json!(groups.blueprint_assessment_id.to_string())
+        );
+        for member in members {
+            assert!(member.get("assessment_status").is_none());
+            assert!(member["values"]["available_at"].is_null());
+            assert!(member["values"]["due_at"].is_null());
+            assert!(member["values"]["closes_at"].is_null());
+            assert_eq!(member["entries"][0]["kind"], "fixed_question");
+            assert_eq!(member["entries"][0]["questionId"], "7K3M-19QX");
+            assert_eq!(member["entries"][0]["revisionNumber"], 1);
+        }
+    }
+
+    #[test]
+    fn newly_added_blueprint_assessments_are_the_daughter_append() {
+        let membrane = assessment(0xA1, "Membrane review");
+        let groups = assessment(0xA2, "Functional groups");
+        let prior = course(vec![module(1, vec![membrane.clone()])]);
+        let saved = course(vec![module(1, vec![membrane, groups.clone()])]);
+        let additions = newly_added_assessments(&prior, &saved);
+        assert_eq!(additions.modules[0].assessments.len(), 1);
+        assert_eq!(
+            additions.modules[0].assessments[0].blueprint_assessment_id,
+            groups.blueprint_assessment_id
+        );
+        let payload = materialize(
+            &additions,
+            None,
+            &mut PoolBloomPreparationReceipts::default(),
+        )
+        .expect("newly added copy payload");
+        let members = payload.as_array().expect("only the new Assessment");
+        assert_eq!(members.len(), 1);
+        assert_eq!(
+            members[0]["source"],
+            json!(groups.blueprint_assessment_id.to_string())
+        );
+        assert!(members[0].get("assessment_status").is_none());
+        assert!(members[0]["values"]["available_at"].is_null());
+        assert!(members[0]["values"]["due_at"].is_null());
+        assert!(members[0]["values"]["closes_at"].is_null());
+    }
 }

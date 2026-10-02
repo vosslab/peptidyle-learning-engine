@@ -19,8 +19,8 @@ authority. Avoid generic `user`, `owner`, or `admin` when the precise PLE role
 is known.
 
 Assessment is the generic activity object. Assignment is not an object,
-category, or parent Type; it appears only in Regular Assignment, Practice
-Question Assignment, and Bonus Assignment. New identifiers use `assessment`,
+category, or parent Type; it appears only in Weekly Assignment, Unit Review
+Assignment, and Bonus Assignment. New identifiers use `assessment`,
 not generic `assignment`.
 
 ## Language matrix

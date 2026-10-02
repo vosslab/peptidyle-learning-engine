@@ -29,6 +29,7 @@ import {
   type PleQuestionJsonTextResponseMatchRule,
   type PleQuestionJsonOrderingItem,
 } from "./question_json_source";
+import { isRecordedExternalJavascriptDependency } from "./recorded_javascript_dependencies";
 
 const MAX_SOURCE_BYTES = 256 * 1024;
 const MAX_CHOICES = 100;
@@ -120,13 +121,7 @@ function decodeExternalResourceKind(
   path: string,
 ): PleQuestionJsonExternalResourceKind {
   const kind = string(value, path);
-  if (
-    kind === "link" ||
-    kind === "image" ||
-    kind === "script" ||
-    kind === "stylesheet" ||
-    kind === "other"
-  ) {
+  if (kind === "link" || kind === "image" || kind === "stylesheet" || kind === "other") {
     return kind;
   }
   throw new DecodeError(path, "a known external resource kind");
@@ -164,10 +159,8 @@ function decodeExternalResource(value: unknown, path: string): PleQuestionJsonEx
   ) {
     throw new DecodeError(`${path}.url`, "an absolute HTTPS URL without user information");
   }
-  return {
-    url,
-    kind: decodeExternalResourceKind(field(record, "kind", path), `${path}.kind`),
-  };
+  const kind = decodeExternalResourceKind(field(record, "kind", path), `${path}.kind`);
+  return { url, kind };
 }
 
 function decodeExternalResources(
@@ -191,7 +184,8 @@ function decodeAuthorScriptLibrary(
   value: unknown,
   path: string,
 ): PleQuestionJsonAuthorScriptLibrary {
-  if (value === "rdkit") return value;
+  // ASVS 15.1.2: the library name must be on the recorded dependency inventory.
+  if (value === "rdkit" && isRecordedExternalJavascriptDependency(value)) return value;
   throw new DecodeError(path, "a known author script library");
 }
 
@@ -321,13 +315,21 @@ function decodeTextResponseMatchRule(
   throw new DecodeError(path, "a known text match mode");
 }
 
-function decodeAnswers(value: unknown, path: string, maxLength: number): ReadonlyArray<string> {
+function decodeAnswers(
+  value: unknown,
+  path: string,
+  matchMode: PleQuestionJsonTextResponseMatchRule,
+  maxLength: number,
+): ReadonlyArray<string> {
   if (!Array.isArray(value) || value.length === 0) {
     throw new DecodeError(path, "a nonempty array of accepted answers");
   }
   const answers = value.map((answer, index) =>
     boundedText(answer, `${path}[${index}]`, MAX_FEEDBACK_CHARS),
   );
+  if (matchMode === "exact" && answers.some((answer) => answer.length > maxLength)) {
+    throw new DecodeError(path, "exact accepted answers that fit within maxLength");
+  }
   if (new Set(answers).size !== answers.length) {
     throw new DecodeError(path, "unique accepted answers");
   }
@@ -378,11 +380,15 @@ function decodeBlank(value: unknown, path: string): PleQuestionJsonBlank {
     throw new DecodeError(`${path}.id`, "a lowercase semantic blank identifier");
   }
   const maxLength = decodeTextMaxLength(field(record, "maxLength", path), `${path}.maxLength`);
+  const matchMode = decodeTextResponseMatchRule(
+    field(record, "matchMode", path),
+    `${path}.matchMode`,
+  );
   return {
     id,
     label: boundedText(field(record, "label", path), `${path}.label`, MAX_CHOICE_TEXT_CHARS),
-    answers: decodeAnswers(field(record, "answers", path), `${path}.answers`, maxLength),
-    matchMode: decodeTextResponseMatchRule(field(record, "matchMode", path), `${path}.matchMode`),
+    answers: decodeAnswers(field(record, "answers", path), `${path}.answers`, matchMode, maxLength),
+    matchMode,
     maxLength,
   };
 }
@@ -734,17 +740,19 @@ export function decodePleQuestionJsonSource(
       field(responseRecord, "maxLength", responsePath),
       `${responsePath}.maxLength`,
     );
+    const matchMode = decodeTextResponseMatchRule(
+      field(responseRecord, "matchMode", responsePath),
+      `${responsePath}.matchMode`,
+    );
     response = {
       kind: PLE_QUESTION_JSON_FILL_IN_RESPONSE_KIND,
       answers: decodeAnswers(
         field(responseRecord, "answers", responsePath),
         `${responsePath}.answers`,
+        matchMode,
         maxLength,
       ),
-      matchMode: decodeTextResponseMatchRule(
-        field(responseRecord, "matchMode", responsePath),
-        `${responsePath}.matchMode`,
-      ),
+      matchMode,
       maxLength,
     };
   } else if (responseKind === PLE_QUESTION_JSON_MULTI_FILL_IN_RESPONSE_KIND) {

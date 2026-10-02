@@ -59,33 +59,47 @@ function deliveryFacts(entry: AssessmentEntry): ReadonlyArray<RecordFact> {
 export function selectedAssessmentEntryContent(args: {
   readonly entry: AssessmentEntry;
   readonly entryNumber: number;
+  readonly questionTitle: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => string;
+  readonly poolTitle: (questionPoolId: string) => string;
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly bloom: BloomClassificationView | undefined;
   readonly removeDisabled: boolean;
   readonly remove: () => void;
 }): RecordContent {
   const entry = args.entry;
-  const identity =
-    entry.kind === "fixedQuestion"
-      ? `Entry ${args.entryNumber} · ${entry.publishedQuestionRevisionTuple.publishedQuestionId} · Revision ${entry.publishedQuestionRevisionTuple.revisionNumber}`
-      : `Entry ${args.entryNumber} · Question Pool ${entry.questionPoolId} · Edit ${entry.questionPoolEditNumber}`;
   const description =
     entry.kind === "fixedQuestion"
       ? args.description(entry.publishedQuestionRevisionTuple)
       : entry.selectionRule.selectedQuestionOrder === "randomOrder"
         ? "Random selected Question order"
         : "Question Pool order";
-  const specifics =
+  const identity =
     entry.kind === "fixedQuestion"
-      ? [labeledFact("Points", entry.pointsPossible)]
+      ? [
+          labeledFact("Question ID", entry.publishedQuestionRevisionTuple.publishedQuestionId),
+          labeledFact("Revision", String(entry.publishedQuestionRevisionTuple.revisionNumber)),
+          labeledFact("Points", entry.pointsPossible),
+        ]
       : [
+          labeledFact("Question Pool ID", entry.questionPoolId),
+          labeledFact("Edit", String(entry.questionPoolEditNumber)),
           labeledFact("Questions selected", String(entry.selectionCount)),
           labeledFact("Points per Question", entry.pointsPerItem),
         ];
   return {
-    title: identity,
+    title:
+      entry.kind === "fixedQuestion"
+        ? args.questionTitle(entry.publishedQuestionRevisionTuple)
+        : args.poolTitle(entry.questionPoolId),
     description,
-    details: [...bloomFacts(args.bloom), ...specifics, ...deliveryFacts(entry)],
+    details: [
+      labeledFact("Entry", String(args.entryNumber)),
+      ...identity,
+      ...bloomFacts(args.bloom),
+      ...deliveryFacts(entry),
+    ],
     actions: [
       {
         id: "remove",

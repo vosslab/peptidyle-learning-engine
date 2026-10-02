@@ -22,6 +22,7 @@ export type RouteScopeIdentity = RouteScopeKey;
 
 export interface RouteScopeProviderProps {
   readonly pathname: Accessor<string> | string;
+  readonly historyState?: Accessor<unknown>;
   /** Changes whenever the authenticated browser session crosses a safe boundary. */
   readonly sessionBoundary?: Accessor<unknown>;
   readonly children: JSX.Element;
@@ -76,7 +77,12 @@ interface PublishedRouteNavigation {
  */
 export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element {
   const applicationApi = useApplicationApi();
-  const controller = createRouteScopeController(props.pathname, applicationApi.queries);
+  const currentHistoryState = props.historyState ?? ((): undefined => undefined);
+  const controller = createRouteScopeController(
+    props.pathname,
+    applicationApi.queries,
+    currentHistoryState,
+  );
   const pathname = props.pathname;
   const currentPathname = typeof pathname === "function" ? pathname : (): string => pathname;
   const sessionBoundary: Accessor<unknown> =
@@ -89,13 +95,16 @@ export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element 
   const [publishedLabels, setPublishedLabels] = createSignal<PublishedRouteLabels>();
   const [publishedNavigation, setPublishedNavigation] = createSignal<PublishedRouteNavigation>();
   let previousPathname: string | undefined;
+  let previousHistoryState: unknown = Symbol("initial-route-history-state");
   let previousSessionBoundary: unknown = Symbol("initial-route-scope-session-boundary");
   let hasSessionBoundary = false;
 
   createEffect(() => {
     const nextPathname = currentPathname();
-    if (nextPathname === previousPathname) return;
+    const nextHistoryState = currentHistoryState();
+    if (nextPathname === previousPathname && nextHistoryState === previousHistoryState) return;
     previousPathname = nextPathname;
+    previousHistoryState = nextHistoryState;
     setRouteGeneration((current) => current + 1);
     setPublishedLabels(undefined);
     setPublishedNavigation(undefined);

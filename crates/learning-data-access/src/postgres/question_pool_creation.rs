@@ -81,7 +81,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
             .map_err(CreateQuestionPoolError::Store)?;
         let row = sqlx::query(
             "SELECT question_pool_id, question_pool_edit_number \
-             FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6)",
+             FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(input.question_pool_id.as_str())
         .bind(member_question_ids)
@@ -90,6 +90,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
         // ASVS 1.2.4: Pool text remains query data, never SQL source.
         .bind(input.title)
         .bind(input.description)
+        .bind(input.tags)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_create_question_pool_error)?;

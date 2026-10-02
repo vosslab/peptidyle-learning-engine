@@ -11,7 +11,7 @@ tests/
   test_*.py              fast pytest unit/integration (collected by pytest)
   test_*.mjs             pure Node tests, no browser (rare)
   conftest.py            pytest config; declares collect_ignore
-  conftest.py includes:  collect_ignore = ["e2e", "playwright"]
+  conftest.py includes:  collect_ignore = ["e2e", "playwright", "_temp"]
   playwright/            browser-driven evidence, excluded from pytest and the aggregate
     record_list_*.mjs    focused production RecordList component contracts
     fast_ui_*.mjs        stack-free production-route composition and optional headed fixtures
@@ -87,12 +87,13 @@ label-resolved target instead of deleting the receipt or broadening cleanup.
 
 ## How pytest stays fast
 
-`tests/conftest.py` declares the E2E exclusions and omits the checkout disk
-budget check from permanent pytest collection. The disk budget is an
-operational, one-time developer-volume cleanup check rather than product
-behavior or release acceptance. Pytest never collects test functions from the
-excluded E2E subtrees, regardless of filename inside
-them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `*.spec.ts`
+`tests/conftest.py` excludes `tests/e2e/`, `tests/playwright/`, and the temporary
+`tests/_temp/` workspace, and omits the checkout disk budget check from permanent pytest
+collection. Keep `tests/_temp/` untracked; run a one-time pytest check explicitly by its
+path instead of relying on the permanent suite to collect it. The disk budget is an
+operational, one-time developer-volume cleanup check rather than product behavior or
+release acceptance. Pytest never collects functions from these excluded subtrees,
+regardless of filename inside them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `*.spec.ts`
 for scenario-registry-owned Playwright scenarios) are a readability layer on top of this active guard.
 
 Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed. The sole current scoped exception is `bash_script_line_limit` for `tests/e2e/**`: documented executable E2E runners may exceed the small-script limit, while their shebang, ASCII, whitespace, and other hygiene scans remain active.

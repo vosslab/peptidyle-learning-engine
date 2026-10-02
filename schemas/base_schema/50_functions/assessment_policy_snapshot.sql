@@ -22,7 +22,9 @@ CREATE FUNCTION ple_private.ensure_assessment_policy_snapshot(
     p_feedback_question_answer ple_data.feedback_release,
     p_feedback_question_answer_explanation ple_data.feedback_release,
     p_feedback_class_statistics ple_data.feedback_release,
-    p_assessment_type ple_data.assessment_type
+    p_assessment_type ple_data.assessment_type,
+    p_feedback_hints ple_data.feedback_release DEFAULT 'never',
+    p_feedback_worked_solutions ple_data.feedback_release DEFAULT 'never'
 ) RETURNS ple_data.sha256_digest
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -51,7 +53,9 @@ BEGIN
         'feedback_submitted_response', p_feedback_submitted_response,
         'feedback_question_answer', p_feedback_question_answer,
         'feedback_question_answer_explanation', p_feedback_question_answer_explanation,
-        'feedback_class_statistics', p_feedback_class_statistics
+        'feedback_class_statistics', p_feedback_class_statistics,
+        'feedback_hints', p_feedback_hints,
+        'feedback_worked_solutions', p_feedback_worked_solutions
     );
     snapshot_id := sha256(convert_to(canonical_jsonb::text, 'UTF8'));
     INSERT INTO ple_data.assessment_policy_snapshot (
@@ -72,6 +76,8 @@ BEGIN
         feedback_question_answer,
         feedback_question_answer_explanation,
         feedback_class_statistics,
+        feedback_hints,
+        feedback_worked_solutions,
         created_at
     ) VALUES (
         snapshot_id,
@@ -91,6 +97,8 @@ BEGIN
         p_feedback_question_answer,
         p_feedback_question_answer_explanation,
         p_feedback_class_statistics,
+        p_feedback_hints,
+        p_feedback_worked_solutions,
         clock_timestamp()
     ) ON CONFLICT (assessment_policy_snapshot_id) DO NOTHING;
     RETURN snapshot_id;

@@ -64,8 +64,9 @@ export function ribbonParamsFor(
   route: RouteContract,
   pathname: string,
   routeData: CourseThemeRouteData | undefined,
+  historyState?: unknown,
 ): RouteParams {
-  const params = routeParams(route, pathname);
+  const params = routeParams(route, pathname, historyState);
   if (params === undefined) return undefined;
   if (routeData?.kind !== "assessmentAttempt" && routeData?.kind !== "assessmentAttemptHistory") {
     return params;
@@ -175,7 +176,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     // scope provider rejects resolution. `deriveRibbonModel` cannot turn those
     // raw values into navigation URLs, so the model remains data-free and all
     // affected route controls stay unavailable.
-    const params = ribbonParamsFor(route, currentPathname, routeData);
+    const params = ribbonParamsFor(route, currentPathname, routeData, location.state);
     if (params === undefined) return undefined;
     return deriveRibbonModel(
       {
@@ -183,7 +184,9 @@ export function App(props: RouteSectionProps): JSX.Element {
         params,
         studentCourses: studentNavigation?.studentCourses,
         activeAttemptId: studentNavigation?.activeAttemptId,
+        activeAttemptCourseInstanceId: studentNavigation?.activeAttemptCourseInstanceId,
         latestFeedbackAttemptId: studentNavigation?.latestFeedbackAttemptId,
+        latestFeedbackCourseInstanceId: studentNavigation?.latestFeedbackCourseInstanceId,
       },
       { userRole: state.session.account.userRole },
       ribbonLabelsFor(routeData, publishedLabels),
@@ -194,6 +197,7 @@ export function App(props: RouteSectionProps): JSX.Element {
   return (
     <ApplicationShell
       pathname={pathname}
+      historyState={() => location.state}
       ribbonModel={ribbonModel}
       content={(currentPathname) => <RouteContent {...props} pathname={currentPathname} />}
     />

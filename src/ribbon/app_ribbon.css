@@ -328,12 +328,17 @@
   inline-size: 2rem;
   block-size: 2rem;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--ple-ribbon-rule, var(--ple-border));
   border-radius: var(--ple-radius-inset);
   padding: 0;
   color: var(--ple-muted);
   background: var(--ple-ribbon-interaction-surface, var(--ple-surface-soft));
+}
+
+.ple-app-ribbon__profile > * {
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 .ple-app-ribbon__profile img {
@@ -413,7 +418,7 @@
 
 .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
   color: var(--ple-on-highlight);
-  background: var(--ple-ribbon-tab-surface);
+  background-color: var(--ple-ribbon-tab-surface);
   box-shadow: inset 0 0 0 1px var(--ple-border-strong);
   font-weight: 760;
 }
@@ -445,7 +450,7 @@
 
 .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
   color: var(--ple-on-highlight);
-  background: var(--ple-highlight);
+  background-color: var(--ple-highlight);
   box-shadow: inset 0 -1px 0 var(--ple-border-strong);
   font-weight: 760;
 }
@@ -482,13 +487,13 @@
 }
 
 /* Pending feedback scans within the activated key without changing a box
-   metric. The highlight foreground preserves the same visible gloss in every
-   resolved appearance. */
+   metric. The sheen uses the highlight foreground at 16% so the label stays
+   at least 4.5:1 on every biome look while the band is crossing it. */
 .ple-app-ribbon__link[data-ribbon-pending="true"] {
   background-image: linear-gradient(
     105deg,
     transparent 28%,
-    color-mix(in srgb, var(--ple-on-highlight) 42%, transparent) 44%,
+    color-mix(in srgb, var(--ple-on-highlight) 16%, transparent) 44%,
     transparent 60%
   );
   background-position: 150% 0;
@@ -593,7 +598,15 @@
   }
 
   .ple-app-ribbon__user-role {
-    display: none;
+    display: inline-flex;
+    inline-size: auto;
+  }
+
+  /* The Student phone badge stays shorter than the shared desktop reservation. */
+  .ple-app-ribbon__user-role[data-user-role="student"] {
+    padding-inline: 0.15rem;
+    letter-spacing: 0;
+    font-size: 0.62rem;
   }
 
   .ple-app-ribbon__tabs-frame {

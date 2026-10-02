@@ -26,10 +26,11 @@ chapters:
         question_type: multipleChoice
         points: 1
         source: sources/genetics/genetic_disorders-which_one.pgml
-        source_sha256: 810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c
+        source_sha256: 240e27f43aa062a600bbc68a8961d42c9af7c503263f98549bc7b05d08489e9e
         upstream_sha256: 4edab7a28f18559ae54273d64a87facaeaf76dc957bf1707f4673a1b1cf3b8a3
         changes:
           - Replaced apostrophe escapes with PG-translator-safe q literals.
+          - Corrected Angelman syndrome wording to maternal UBE3A loss of function.
       - slug: genetics-disorders-webwork-matching
         question_title: "Genetic disorders: Matching"
         question_description: "Match genetic disorders to their characteristic findings."
@@ -39,12 +40,13 @@ chapters:
         question_type: matching
         points: 4
         source: sources/genetics/genetic_disorders-matching.pgml
-        source_sha256: ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718
+        source_sha256: dbcd740014baeaf4aae617f738f3d44267967b0bd04c0b75c4731e9e95a68797
         upstream_sha256: 343af2709f98f12a0520168db24566ee9740f6eda51d9eebe267d40ad1797382
         changes:
           - Replaced apostrophe escapes with PG-translator-safe q literals.
           - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
           - Kept partial-credit scores numeric in the renderer JSON contract.
+          - Corrected Angelman syndrome wording to maternal UBE3A loss of function.
       - slug: genetics-disorders-ple-question-json-mc
         question_title: "Genetics Chapter 1: Phenylalanine metabolism"
         question_description: "Identify the metabolic consequence of a phenylalanine pathway defect."

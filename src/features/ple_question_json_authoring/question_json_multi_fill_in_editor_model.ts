@@ -201,6 +201,12 @@ export function addMultiFillBlankAnswer(
   const blank = response?.blanks.find((candidate) => candidate.id === blankId);
   if (blank === undefined) return refused(source, "That blank no longer exists.");
   const answer = nextAcceptedAnswer(blank.answers, blank.maxLength);
+  if (answer === null) {
+    return refused(
+      source,
+      "Enter another accepted answer directly; no short suggestion is available.",
+    );
+  }
   const answers = [...blank.answers, answer];
   return replaceBlank(source, blankId, { ...blank, answers });
 }
@@ -230,10 +236,16 @@ function nextBlankId(blanks: ReadonlyArray<PleQuestionJsonBlank>): string {
   return `blank_${index}`;
 }
 
-function nextAcceptedAnswer(answers: ReadonlyArray<string>, maxLength: number): string {
-  const candidate = "Alternative answer".slice(0, maxLength);
-  if (!answers.includes(candidate)) return candidate;
-  let index = 2;
-  while (answers.includes(`Alternative ${index}`.slice(0, maxLength))) index += 1;
-  return `Alternative ${index}`.slice(0, maxLength);
+function nextAcceptedAnswer(answers: ReadonlyArray<string>, maxLength: number): string | null {
+  const existing = new Set(answers);
+  const suggested = "Alternative answer".slice(0, maxLength);
+  if (!existing.has(suggested)) return suggested;
+
+  // At most answers.length + 1 distinct candidates are needed to find a free value.
+  for (let index = 10; index < answers.length + 11; index += 1) {
+    const candidate = index.toString(36).toUpperCase();
+    if (candidate.length > maxLength) return null;
+    if (!existing.has(candidate)) return candidate;
+  }
+  return null;
 }

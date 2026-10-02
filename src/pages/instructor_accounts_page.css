@@ -1,0 +1,17 @@
+/* High-consequence Instructor Account deactivation, apart from ordinary account facts. */
+
+.instructor-account-consequence {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  padding: 0.65rem 0.8rem;
+  border-inline-start: 0.25rem solid var(--ple-danger);
+  border-radius: 0 var(--ple-radius-surface) var(--ple-radius-surface) 0;
+  background: color-mix(in srgb, var(--ple-danger) 8%, var(--ple-surface));
+}
+
+.instructor-account-consequence p {
+  margin: 0;
+  color: var(--ple-danger);
+  font-weight: 700;
+}

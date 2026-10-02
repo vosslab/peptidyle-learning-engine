@@ -469,6 +469,8 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                         question_answer_explanation:
                             question_model::StudentFeedbackReleaseTiming::AfterClose,
                         class_statistics: question_model::StudentFeedbackReleaseTiming::AfterDue,
+                        hints: question_model::StudentFeedbackReleaseTiming::DuringAttempt,
+                        worked_solutions: question_model::StudentFeedbackReleaseTiming::Never,
                     },
                 },
             }],
@@ -549,14 +551,14 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Instructor account");
     let reader_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, user_role, created_at) \
-         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
+         VALUES ('U00000010', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("reader Instructor account");
     let student_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, user_role, created_at) \
-         VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
+         VALUES ('U00000011', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await

@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
   appendAvailableFixedQuestion,
+  assessmentPointValueDraft,
   deliveredAssessmentQuestionCount,
   moveAssessmentEntry,
   removeAssessmentEntry,
   sortAssessmentEntriesByBloom,
+  withFixedQuestionPointValues,
 } from "../src/pages/assessment_workspace/assessment_workspace_questions_model.ts";
 import { assessmentPolicySaveInput } from "../src/pages/assessment_workspace/assessment_workspace_policy_model.ts";
+import { resolveQuestionIdBatch } from "../src/pages/assessment_workspace/assessment_question_id_batch.ts";
 
 const fixed = {
   kind: "fixedQuestion",
@@ -189,7 +193,13 @@ test("Policy save retains normalized Entries and the current availability and cl
       question_answer: "never",
       question_answer_explanation: "never",
       class_statistics: "never",
+      hints: "never",
+      worked_solutions: "never",
     },
+  };
+  const studentFeedbackReleaseRule = {
+    ...current.studentFeedbackReleaseRule,
+    question_answer: "after_due",
   };
   const saved = assessmentPolicySaveInput(current, {
     instructions: "New instructions",
@@ -198,11 +208,84 @@ test("Policy save retains normalized Entries and the current availability and cl
     assessmentAttemptTimeLimitSeconds: 3600,
     attemptLimit: 2,
     activityRules: current.activityRules,
-    studentFeedbackReleaseRule: current.studentFeedbackReleaseRule,
+    studentFeedbackReleaseRule,
   });
 
   assert.equal(saved.entries, current.entries);
   assert.equal(saved.availableAt, current.availableAt);
   assert.equal(saved.closesAt, current.closesAt);
   assert.equal(saved.dueAt, "2026-09-16T23:59:00.000");
+  assert.equal(saved.attemptLimit, 2);
+  assert.equal(saved.lateWorkRule, "accept");
+  assert.equal(saved.studentFeedbackReleaseRule.question_answer, "after_due");
+  assert.equal(saved.studentFeedbackReleaseRule.score, "never");
+});
+
+test("Assessment Properties scoring changes only the chosen fixed Question points", () => {
+  const points = assessmentPointValueDraft("4.5");
+  assert.equal(points, "4.5");
+  const updated = withFixedQuestionPointValues([fixed, pool], { [fixed.id]: points });
+  assert.equal(updated[1], pool);
+  assert.notEqual(updated[0], fixed);
+  assert.equal(updated[0].pointsPossible, "4.5");
+  assert.equal(updated[0].publishedQuestionRevisionTuple, fixed.publishedQuestionRevisionTuple);
+});
+
+test("Question ID paste adds the canonical batch and withholds invalid or missing IDs", async () => {
+  const resolved = [];
+  const pin = {
+    questionId: "7K3M-79QP",
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 4 },
+    questionTitle: "Peptide bond",
+    description: "Formation",
+    bloom: null,
+  };
+  const batch = await resolveQuestionIdBatch(
+    "7K3M-79QP, 7k3m79qp\n2R5X-E7YA",
+    2,
+    async (questionId) => {
+      resolved.push(questionId);
+      if (questionId === "2R5X-E7YA") return "missing";
+      return pin;
+    },
+  );
+  assert.deepEqual(resolved, ["7K3M-79QP", "2R5X-E7YA"]);
+  assert.equal(batch.kind, "resolved");
+  if (batch.kind !== "resolved") return;
+  assert.deepEqual(batch.pins, [pin]);
+  assert.deepEqual(batch.missing, ["2R5X-E7YA"]);
+  assert.deepEqual(batch.unavailable, []);
+
+  let calls = 0;
+  const invalid = await resolveQuestionIdBatch("7K3M-79QP not-an-id", 2, async () => {
+    calls += 1;
+    return pin;
+  });
+  assert.equal(calls, 0);
+  assert.equal(invalid.kind, "invalid");
+  if (invalid.kind === "invalid") assert.deepEqual(invalid.invalidTokens, ["not-an-id"]);
+
+  const empty = await resolveQuestionIdBatch(" \n,", 2, async () => pin);
+  assert.equal(empty.kind, "empty");
+  const tooMany = await resolveQuestionIdBatch("7K3M-79QP 2R5X-E7YA", 1, async () => pin);
+  assert.equal(tooMany.kind, "overCapacity");
+
+  const page = readFileSync(
+    new URL(
+      "../src/pages/assessment_workspace/assessment_workspace_questions_page.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const view = readFileSync(
+    new URL(
+      "../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(page.includes("addQuestionsById"), true);
+  assert.equal(page.includes("resolveQuestionIdBatch"), true);
+  assert.equal(view.includes("Add by Question ID"), true);
+  assert.equal(view.includes("Add Question IDs"), true);
 });

@@ -307,7 +307,9 @@ impl PostgresQuestionLibraryStore {
             .collect::<Vec<_>>();
         let rows = sqlx::query(
             "SELECT published_question_id, issued_count, blank_count, answered_count, \
-                    correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq \
+                    correct_count, partial_count, incorrect_count, issued_contributor_floor, \
+                    blank_contributor_floor, answered_contributor_floor, correct_contributor_floor, \
+                    partial_contributor_floor, incorrect_contributor_floor, credit_sum, credit_sum_sq \
              FROM ple_api.read_question_library_usage_statistics($1)",
         )
         .bind(&ids)
@@ -338,7 +340,9 @@ impl PostgresQuestionLibraryStore {
             .await?;
         let rows = sqlx::query(
             "SELECT revision_number, issued_count, blank_count, answered_count, \
-                    correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq \
+                    correct_count, partial_count, incorrect_count, issued_contributor_floor, \
+                    blank_contributor_floor, answered_contributor_floor, correct_contributor_floor, \
+                    partial_contributor_floor, incorrect_contributor_floor, credit_sum, credit_sum_sq \
              FROM ple_api.read_question_library_revision_usage_statistics($1)",
         )
         .bind(question_id.as_str())
@@ -599,6 +603,12 @@ pub(crate) fn decode_usage_totals(
         correct_count: count_u64(row, "correct_count")?,
         partial_count: count_u64(row, "partial_count")?,
         incorrect_count: count_u64(row, "incorrect_count")?,
+        issued_contributor_floor: count_u64(row, "issued_contributor_floor")?,
+        blank_contributor_floor: count_u64(row, "blank_contributor_floor")?,
+        answered_contributor_floor: count_u64(row, "answered_contributor_floor")?,
+        correct_contributor_floor: count_u64(row, "correct_contributor_floor")?,
+        partial_contributor_floor: count_u64(row, "partial_contributor_floor")?,
+        incorrect_contributor_floor: count_u64(row, "incorrect_contributor_floor")?,
         credit_sum: numeric_f64(row, "credit_sum")?,
         credit_sum_sq: numeric_f64(row, "credit_sum_sq")?,
     })

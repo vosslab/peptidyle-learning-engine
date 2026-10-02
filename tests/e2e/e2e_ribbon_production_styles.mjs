@@ -17,7 +17,10 @@ execFileSync("node", [pipelineBuildScript, "--skip-wasm"], {
   stdio: "inherit",
 });
 
-const css = fs.readFileSync(path.join(repoRoot, "dist/main.css"), "utf8");
+const indexHtml = fs.readFileSync(path.join(repoRoot, "dist/index.html"), "utf8");
+const stylesheetPath = indexHtml.match(/href="\/(main\.[0-9a-f]{8}\.css)"/u)?.[1];
+assert.ok(stylesheetPath, "the production index references its fingerprinted stylesheet");
+const css = fs.readFileSync(path.join(repoRoot, "dist", stylesheetPath), "utf8");
 assert.match(css, /\.ple-app-ribbon(?:[,{])/u, "production CSS includes the Ribbon root rule");
 assert.match(
   css,

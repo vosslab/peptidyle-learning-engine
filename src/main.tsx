@@ -27,7 +27,7 @@ if (mountPoint === null) {
   throw new Error("application root #root missing from index.html");
 }
 
-log.info("peptidyle client booting");
+log.info("clientBooting");
 
 const sessionBoundary = createBrowserSessionBoundary(browserFetch, query.clear);
 const apiClient = createBrowserApiClient({ fetch: sessionBoundary.fetch });

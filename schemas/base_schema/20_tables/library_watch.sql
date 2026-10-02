@@ -25,7 +25,6 @@ CREATE TABLE ple_data.library_watch_event (
             ))),
     activity_id uuid,
     occurred_at timestamptz NOT NULL,
-    processed_at timestamptz,
     CHECK (
         (event_kind IN ('revision', 'members_changed') AND revision_number IS NOT NULL
             AND forked_public_id IS NULL AND activity_id IS NULL)
@@ -54,4 +53,3 @@ COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted
 COMMENT ON COLUMN ple_data.library_watch_event.revision_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.library_watch_event.forked_public_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.library_watch_event.activity_id IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.library_watch_event.processed_at IS 'NULL means this optional fact is absent.';

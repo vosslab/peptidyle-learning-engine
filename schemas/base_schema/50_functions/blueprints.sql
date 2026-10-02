@@ -169,7 +169,9 @@ BEGIN
             IF defaults_value -> 'assessment_attempt_time_limit_seconds' <> 'null'::jsonb THEN
                 IF jsonb_typeof(defaults_value -> 'assessment_attempt_time_limit_seconds') <> 'number'
                    OR defaults_value ->> 'assessment_attempt_time_limit_seconds' !~ '^[1-9][0-9]*$'
-                   OR (defaults_value ->> 'assessment_attempt_time_limit_seconds')::numeric > 43200 THEN
+                   OR (defaults_value ->> 'assessment_attempt_time_limit_seconds')::numeric < 60
+                   OR (defaults_value ->> 'assessment_attempt_time_limit_seconds')::numeric > 43200
+                   OR (defaults_value ->> 'assessment_attempt_time_limit_seconds')::numeric % 60 <> 0 THEN
                     RETURN false;
                 END IF;
             END IF;
@@ -181,7 +183,8 @@ BEGIN
                 'assessmentQuestionOrderRule'
             ]) OR NOT ple_data.blueprint_content_has_exact_keys(feedback_value, ARRAY[
                 'score', 'per_item_correctness', 'submitted_response',
-                'question_answer', 'question_answer_explanation', 'class_statistics'
+                'question_answer', 'question_answer_explanation', 'class_statistics',
+                'hints', 'worked_solutions'
             ]) THEN
                 RETURN false;
             END IF;

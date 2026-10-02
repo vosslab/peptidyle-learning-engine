@@ -23,7 +23,7 @@ const COURSE_ENTRY_BANNER_STYLES = `
   /* HG requires one 5:1 banner, not a page hero. */
   aspect-ratio: 5 / 1;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset, 0.5rem);
+  border-radius: var(--ple-radius-surface, 0.35rem);
 }
 
 .course-entry-banner {

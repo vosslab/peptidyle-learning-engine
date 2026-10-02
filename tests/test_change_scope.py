@@ -122,16 +122,16 @@ def test_podman_go_created_stamp_does_not_rebuild_application(
 	assert decision.containers == "none"
 
 
-def test_png_hashes_include_viewport_subdirectories(tmp_path: pathlib.Path) -> None:
+def test_screenshot_hashes_include_viewport_subdirectories(tmp_path: pathlib.Path) -> None:
 	"""Review copies include every published responsive rendition."""
 	root = tmp_path / "repository"
-	flat = root / "docs" / "screenshots" / "student" / "course_list.png"
-	nested = root / "docs" / "screenshots" / "student" / "phone" / "course_list.png"
+	flat = root / "docs" / "screenshots" / "student" / "course_list.webp"
+	nested = root / "docs" / "screenshots" / "student" / "phone" / "course_list.webp"
 	flat.parent.mkdir(parents=True)
 	nested.parent.mkdir(parents=True)
 	flat.write_bytes(b"flat")
 	nested.write_bytes(b"phone")
 
-	hashes = capture_screenshots.png_hashes(root)
+	hashes = capture_screenshots.screenshot_hashes(root)
 
-	assert set(hashes) == {"student/course_list.png", "student/phone/course_list.png"}
+	assert set(hashes) == {"student/course_list.webp", "student/phone/course_list.webp"}

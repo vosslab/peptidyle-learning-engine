@@ -15,6 +15,8 @@ export interface QuestionBulkMetadataPatch {
 export interface QuestionBulkMetadataSelectionItem {
   readonly questionId: PublishedQuestionId;
   readonly metadataEditNumber: number;
+  readonly questionTitle?: string;
+  readonly questionDescription?: string;
 }
 
 export interface QuestionBulkMetadataUpdateRequest {

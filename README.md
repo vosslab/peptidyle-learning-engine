@@ -109,7 +109,8 @@ Startup trouble: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 - [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md): the teaching workflow, start to gradebook.
 - [docs/FAQ.md](docs/FAQ.md): Blueprints, repeated practice, grading, and Student records.
 - [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md): demo Accounts and teaching data.
-- [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md): the complete product rules.
+- [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md): product guidance; settled behavior lives in its
+  owning contracts.
 - [docs/RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md): ADAPT, WeBWorK, and other systems.
 
 Developers: start at [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and

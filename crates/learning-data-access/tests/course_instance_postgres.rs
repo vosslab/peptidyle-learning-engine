@@ -361,3 +361,247 @@ async fn course_creation_rejects_a_term_after_its_active_lifetime() {
 
     admin.close().await;
 }
+
+/// Active Courses are the current teaching Course Instances. An Inactive Course
+/// is a past Course Instance and keeps its metadata after Student data is removed.
+///
+/// Failure means the Active cutoff could leave a Course teaching, or Student-data
+/// deletion could remove the Course name, term, or discipline. Repair the
+/// retention transition before accepting a release.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
+async fn inactive_course_keeps_metadata_after_student_data_deletion() {
+    let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
+    let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
+    let mut tx = admin.begin().await.expect("course retention transaction");
+    let discipline_id = Uuid::from_u128(0xc761);
+
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ($1, 'Past Course discipline') ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .bind(discipline_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Course discipline");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("account fixture owner");
+    let instructor_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
+         VALUES ('U0000001' || ple_private.crockford_checksum_character('U0000001'), \
+                 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Instructor Account");
+    let student_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
+         VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Student Account");
+    sqlx::query("SET LOCAL ROLE ple_api_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("Course fixture owner");
+    let (course_id, short_name, long_name, term_start, term_end): (
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = sqlx::query_as(
+        "INSERT INTO ple_data.course_instance \
+         (course_instance_id, source_kind, course_short_name, course_long_name, \
+          content_discipline_id, tags, term_starts_on, term_ends_on, created_at) \
+         VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+                 'empty', 'PAST-1', 'Past teaching Course', $1, ARRAY[]::text[], \
+                 current_date, current_date + 1, pg_catalog.transaction_timestamp()) \
+         RETURNING course_instance_id, course_short_name, course_long_name, \
+                   term_starts_on::text, term_ends_on::text",
+    )
+    .bind(discipline_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Active Course");
+    let student_record_id = Uuid::from_u128(0xc762);
+    sqlx::query(
+        "INSERT INTO ple_data.student_record \
+         (student_record_id, course_instance_id, student_account_id, created_at) \
+         VALUES ($1, $2, $3, pg_catalog.transaction_timestamp())",
+    )
+    .bind(student_record_id)
+    .bind(&course_id)
+    .bind(&student_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Student record");
+    sqlx::query(
+        "INSERT INTO ple_data.course_membership \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, \
+          joined_at) VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp())",
+    )
+    .bind(Uuid::from_u128(0xc763))
+    .bind(&course_id)
+    .bind(&instructor_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Instructor membership");
+    sqlx::query(
+        "INSERT INTO ple_data.course_membership \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, \
+          joined_at) VALUES ($1, $2, $3, 'student', $4, clock_timestamp())",
+    )
+    .bind(Uuid::from_u128(0xc764))
+    .bind(&course_id)
+    .bind(&student_id)
+    .bind(student_record_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Student membership");
+    sqlx::query("SELECT set_config('ple.session_account_id', $1, true)")
+        .bind(&instructor_id)
+        .execute(&mut *tx)
+        .await
+        .expect("Instructor session");
+    let active_listing: (String, String, String) = sqlx::query_as(
+        "SELECT short_name, long_name, course_lifecycle_state \
+           FROM ple_api.list_course_instances() WHERE course_instance_id = $1",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("current teaching Course");
+    assert_eq!(
+        active_listing,
+        (short_name.clone(), long_name.clone(), "active".to_owned())
+    );
+
+    sqlx::query("SET LOCAL ROLE ple_course_retention_executor")
+        .execute(&mut *tx)
+        .await
+        .expect("retention executor");
+    let marked: bool = sqlx::query_scalar(
+        "SELECT ple_api.mark_course_instance_inactive( \
+             $1, \
+             (SELECT active_until_at FROM ple_data.course_instance \
+               WHERE course_instance_id = $1))",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("mark Inactive at the Active cutoff");
+    assert!(marked, "the due Active cutoff marks the Course Inactive");
+    let archived: bool = sqlx::query_scalar(
+        "SELECT ple_api.archive_course_student_records( \
+             $1, \
+             (SELECT course.retention_starts_at + schedule.archive_after_retention_start \
+                FROM ple_data.course_instance AS course \
+                CROSS JOIN ple_data.retention_schedule() AS schedule \
+               WHERE course.course_instance_id = $1))",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("archive Student records");
+    assert!(archived, "Student-record archive starts retention deletion");
+    let deleted: bool = sqlx::query_scalar(
+        "SELECT ple_api.delete_course_student_records( \
+             $1, \
+             (SELECT course.retention_starts_at \
+                     + schedule.archive_after_retention_start \
+                     + schedule.delete_after_archive \
+                FROM ple_data.course_instance AS course \
+                CROSS JOIN ple_data.retention_schedule() AS schedule \
+               WHERE course.course_instance_id = $1))",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("delete Student records");
+    assert!(
+        deleted,
+        "due Student-record deletion removes FERPA Student data"
+    );
+
+    let kept: (String, String, String, String, Uuid, String, i64) = sqlx::query_as(
+        "SELECT course_short_name, course_long_name, term_starts_on::text, term_ends_on::text, \
+                content_discipline_id, course_lifecycle_state::text, \
+                purged_students_ever_enrolled \
+           FROM ple_data.course_instance WHERE course_instance_id = $1",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("retained Course metadata");
+    assert_eq!(
+        kept,
+        (
+            short_name.clone(),
+            long_name.clone(),
+            term_start,
+            term_end,
+            discipline_id,
+            "inactive".to_owned(),
+            1,
+        )
+    );
+    let student_rows: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM ple_data.student_record WHERE course_instance_id = $1",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Student record count");
+    let student_memberships: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM ple_data.course_membership \
+          WHERE course_instance_id = $1 AND role = 'student'",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Student membership count");
+    let instructor_memberships: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM ple_data.course_membership \
+          WHERE course_instance_id = $1 AND role = 'instructor'",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Instructor membership count");
+    assert_eq!(student_rows, 0, "Student records are removed");
+    assert_eq!(student_memberships, 0, "Student memberships are removed");
+    assert_eq!(instructor_memberships, 1, "the teaching Instructor remains");
+
+    sqlx::query("SET LOCAL ROLE ple_api_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("Instructor list role");
+    sqlx::query("SELECT set_config('ple.session_account_id', $1, true)")
+        .bind(&instructor_id)
+        .execute(&mut *tx)
+        .await
+        .expect("Instructor session after deletion");
+    let inactive_listing: (String, String, String) = sqlx::query_as(
+        "SELECT short_name, long_name, course_lifecycle_state \
+           FROM ple_api.list_course_instances() WHERE course_instance_id = $1",
+    )
+    .bind(&course_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("past Course");
+    assert_eq!(
+        inactive_listing,
+        (short_name, long_name, "inactive".to_owned())
+    );
+
+    tx.rollback().await.expect("course retention rollback");
+    admin.close().await;
+}

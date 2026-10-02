@@ -26,10 +26,15 @@ const sourceSprite = fs.readFileSync(
   "utf8",
 );
 const builtSprite = fs.readFileSync(path.join(repoRoot, "dist/assets/ribbon-icons.svg"), "utf8");
+const indexHtml = fs.readFileSync(path.join(repoRoot, "dist/index.html"), "utf8");
+const bundlePath = indexHtml.match(/src="\/(main\.[0-9a-f]{8}\.js)"/u)?.[1];
+const stylesheetPath = indexHtml.match(/href="\/(main\.[0-9a-f]{8}\.css)"/u)?.[1];
+assert.ok(bundlePath, "the production index references its fingerprinted browser bundle");
+assert.ok(stylesheetPath, "the production index references its fingerprinted stylesheet");
 const browserArtifacts = [
-  fs.readFileSync(path.join(repoRoot, "dist/index.html"), "utf8"),
-  fs.readFileSync(path.join(repoRoot, "dist/main.js"), "utf8"),
-  fs.readFileSync(path.join(repoRoot, "dist/main.css"), "utf8"),
+  indexHtml,
+  fs.readFileSync(path.join(repoRoot, "dist", bundlePath), "utf8"),
+  fs.readFileSync(path.join(repoRoot, "dist", stylesheetPath), "utf8"),
   builtSprite,
 ].join("\n");
 

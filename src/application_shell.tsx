@@ -43,6 +43,7 @@ import {
 
 export interface ApplicationShellProps {
   readonly pathname: Accessor<string>;
+  readonly historyState?: Accessor<unknown>;
   readonly ribbonModel: (
     routeData: CourseThemeRouteData | undefined,
     publishedLabels: RibbonContextLabels,
@@ -86,6 +87,7 @@ interface ContentErrorProps {
 function AppearanceRibbon(props: {
   readonly model: RibbonModel;
   readonly renderProfileAvatar: () => JSX.Element;
+  readonly onNavigate: (href: string, state: unknown) => void;
 }): JSX.Element {
   const appearance = useAppearance();
   const switchDisplayMode = (): void => {
@@ -95,6 +97,7 @@ function AppearanceRibbon(props: {
   return (
     <AppRibbon
       model={props.model}
+      onNavigate={props.onNavigate}
       displayMode={appearance.appearance().mode}
       displayModeBusy={appearance.busy()}
       onSwitchDisplayMode={switchDisplayMode}
@@ -411,6 +414,7 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
                 <div on:ple-ribbon-action={handleRibbonAction}>
                   <AppearanceRibbon
                     model={model()}
+                    onNavigate={(href, state) => navigate(href, { state })}
                     renderProfileAvatar={(): JSX.Element => (
                       <RibbonAccountAvatar
                         client={applicationApi.client}
@@ -431,7 +435,11 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
   }
 
   return (
-    <RouteScopeProvider pathname={props.pathname} sessionBoundary={session.state}>
+    <RouteScopeProvider
+      pathname={props.pathname}
+      historyState={props.historyState}
+      sessionBoundary={session.state}
+    >
       <ShellInterior />
     </RouteScopeProvider>
   );

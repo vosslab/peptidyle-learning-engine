@@ -55,6 +55,10 @@ pub(super) fn validate_author_script(
         let id = match library {
             PleQuestionJsonAuthorScriptLibrary::Rdkit => "rdkit",
         };
+        // ASVS 15.1.2: the library name must be on the recorded dependency inventory.
+        if !super::recorded_javascript::is_recorded_external_javascript_dependency(id) {
+            return invalid("external JavaScript dependency is not recorded");
+        }
         validate_bounded_text(
             "author script library",
             id,

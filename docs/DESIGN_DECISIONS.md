@@ -30,7 +30,7 @@ plans are evidence about implementation or history; they do not override it.
 
 **Decision.** PLE calls the generic object an Assessment. Assignment is not an
 object, category, or parent Type; it appears only inside the Assessment Type
-names Regular Assignment, Practice Question Assignment, and Bonus Assignment.
+names Weekly Assignment, Unit Review Assignment, and Bonus Assignment.
 Quiz and Exam complete the five current Types.
 
 **Why.** A single generic noun keeps course content, attempts, navigation, and
@@ -38,7 +38,7 @@ data relationships understandable while Types communicate teaching purpose.
 
 **Consequence.** Schema, Store/server contracts, HTTP routes, DTOs, and
 browser paths use Assessment as the generic object. Assignment remains only
-in Regular Assignment, Practice Question Assignment, and Bonus Assignment.
+in Weekly Assignment, Unit Review Assignment, and Bonus Assignment.
 New documentation and UI must not reintroduce Assignment as the generic object.
 
 ### DD-A9-01: Assessment terminology uses a direct preproduction cutover
@@ -54,7 +54,7 @@ and `/assessment-attempts/:assessmentAttemptId`. Canonical API families are
 `/api/assessments/due-soon`, `/api/course-instances/{course_instance_id}/assessments...`,
 and `/api/assessment-attempts/{assessment_attempt_id}...`. Public configuration is
 called Assessment Properties, not policies. Assignment remains only in the
-three Type display names: Regular Assignment, Practice Question Assignment,
+three Type display names: Weekly Assignment, Unit Review Assignment,
 and Bonus Assignment.
 
 **Why.** The product model has one generic activity object. Keeping competing
@@ -682,7 +682,7 @@ external-dependency Human Guidance occurrences.
 **Decision.** Current production Question Backends are PLE and WeBWorK. iMathAS
 and H5P remain desired secondary Backends in Human Guidance's Deferred product
 behavior section and are not current implementation requirements. Future H5P
-use is limited to Regular Assignments, Bonus Assignments, and Practice Question
+use is limited to Weekly Assignments, Bonus Assignments, and Unit Review
 Assignments; Quizzes and Exams do not use H5P because its runtime exposes
 answers and correctness to the Student browser.
 
@@ -920,7 +920,7 @@ from stored fractions.
 ### Highest Attempt and point-only scoring
 
 **Decision.** Instructors control Attempt limits and Assessment behavior.
-Regular Assignment defaults support repeated work toward success. When several
+Weekly Assignment defaults support repeated work toward success. When several
 Attempts are submitted, the highest Assessment Attempt score is the Student's
 Assessment score. An unanswered Question remains visibly unanswered, receives
 zero credit, and counts as incorrect without backend evaluation.
@@ -1851,8 +1851,9 @@ infer authority and lifecycle from implementation details, including assigning
 `QuestionImageAssetId` to a QTI extract before it was a Question-bound image.
 
 **Consequence.** Domain APIs, SQL, JSON, and Object Address kinds use these
-role names. SVG remains unsupported Question ingest. Non-image Question media
-is not a current product type.
+role names. SVG upload input is rewritten into a WebP Question Image Asset
+before storage. The stored kind remains PNG, JPEG, or WebP. Non-image Question
+media is not a current product type.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),

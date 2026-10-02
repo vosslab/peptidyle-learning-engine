@@ -4,8 +4,12 @@ SET LOCAL ROLE ple_private_owner;
 
 -- Bulk metadata is deliberately a narrow Question Library command.  It does
 -- not accept source, Revision, availability, ownership, or arbitrary JSON
--- mutations.  One transaction locks and validates the whole selection before
--- writing, then returns its result in canonical Question-ID order (ASVS 2.3.3).
+-- mutations.  Title and Description stay on the individual Question.
+-- Discipline, Subject, Topic, Subtopic, and Tags are the shared patch.
+-- The command updates Published Question metadata and does not insert a
+-- Question Revision.  One transaction locks and validates the whole selection
+-- before writing, then returns its result in canonical Question-ID order
+-- (ASVS 2.2.1, 2.3.3).
 CREATE FUNCTION ple_private.bulk_replace_published_question_metadata(
     p_selection jsonb, p_patch jsonb
 ) RETURNS TABLE(published_question_id text, metadata_edit_number bigint)
@@ -49,7 +53,9 @@ BEGIN
             WHERE jsonb_typeof(value) <> 'object'
                OR NOT (value ? 'questionId' AND value ? 'metadataEditNumber')
                OR EXISTS (SELECT 1 FROM jsonb_object_keys(value) AS key(name)
-                           WHERE name NOT IN ('questionId', 'metadataEditNumber'))
+                           WHERE name NOT IN (
+                               'questionId', 'metadataEditNumber', 'questionTitle', 'questionDescription'
+                           ))
                OR jsonb_typeof(value -> 'questionId') <> 'string'
                OR value ->> 'questionId' !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
                OR substr(value ->> 'questionId', 6, 1) IS DISTINCT FROM
@@ -59,6 +65,18 @@ BEGIN
                     )
                OR jsonb_typeof(value -> 'metadataEditNumber') <> 'number'
                OR value ->> 'metadataEditNumber' !~ '^[1-9][0-9]{0,17}$'
+               OR (value ? 'questionTitle' AND (
+                   jsonb_typeof(value -> 'questionTitle') <> 'string'
+                   OR value ->> 'questionTitle' <> btrim(value ->> 'questionTitle')
+                   OR char_length(value ->> 'questionTitle') NOT BETWEEN 1 AND 512
+                   OR value ->> 'questionTitle' ~ '[[:cntrl:]]'
+               ))
+               OR (value ? 'questionDescription' AND (
+                   jsonb_typeof(value -> 'questionDescription') <> 'string'
+                   OR value ->> 'questionDescription' <> btrim(value ->> 'questionDescription')
+                   OR char_length(value ->> 'questionDescription') NOT BETWEEN 1 AND 4000
+                   OR value ->> 'questionDescription' ~ '[[:cntrl:]]'
+               ))
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Bulk Published Question metadata selection is invalid';
@@ -70,15 +88,17 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Bulk Published Question metadata selection contains duplicate Question IDs';
     END IF;
-    SELECT jsonb_agg(jsonb_build_object(
+    SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
         'questionId', value ->> 'questionId',
-        'metadataEditNumber', (value ->> 'metadataEditNumber')::bigint
-    ) ORDER BY value ->> 'questionId')
+        'metadataEditNumber', (value ->> 'metadataEditNumber')::bigint,
+        'questionTitle', CASE WHEN value ? 'questionTitle' THEN value -> 'questionTitle' END,
+        'questionDescription', CASE WHEN value ? 'questionDescription' THEN value -> 'questionDescription' END
+    )) ORDER BY value ->> 'questionId')
       INTO normalized_selection
       FROM jsonb_array_elements(p_selection) AS element(value);
 
     IF p_patch IS NULL OR jsonb_typeof(p_patch) <> 'object'
-       OR (SELECT count(*) FROM jsonb_object_keys(p_patch)) NOT BETWEEN 1 AND 5
+       OR (SELECT count(*) FROM jsonb_object_keys(p_patch)) > 5
        OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_patch) AS key(name)
                   WHERE name NOT IN ('tags', 'disciplineUuid', 'subjectUuid', 'topicUuid', 'subtopicUuid'))
        OR (p_patch ? 'tags' AND jsonb_typeof(p_patch -> 'tags') <> 'array')
@@ -131,6 +151,14 @@ BEGIN
     ELSE
         normalized_patch := p_patch;
     END IF;
+    IF (SELECT count(*) FROM jsonb_object_keys(normalized_patch)) = 0
+       AND NOT EXISTS (
+           SELECT 1 FROM jsonb_array_elements(normalized_selection) AS element(value)
+            WHERE value ? 'questionTitle' OR value ? 'questionDescription'
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Bulk Published Question metadata patch is invalid';
+    END IF;
     -- Lock every target in canonical Question-ID order (ASVS 2.3.4) and
     -- validate all of them before the first write. An unavailable, missing, or forbidden
     -- target deliberately has the same whole-operation refusal surface.
@@ -170,17 +198,22 @@ BEGIN
 
     WITH updated AS (
         UPDATE ple_data.published_question_metadata AS metadata
-           SET tags = CASE WHEN set_tags THEN normalized_tags ELSE metadata.tags END,
+           SET question_title = COALESCE(replacement.question_title, metadata.question_title),
+               question_description = COALESCE(replacement.question_description, metadata.question_description),
+               tags = CASE WHEN set_tags THEN normalized_tags ELSE metadata.tags END,
                content_discipline_id = CASE WHEN set_discipline THEN (normalized_patch ->> 'disciplineUuid')::uuid ELSE metadata.content_discipline_id END,
                content_subject_id = CASE WHEN set_subject THEN (normalized_patch ->> 'subjectUuid')::uuid ELSE metadata.content_subject_id END,
                content_topic_id = CASE WHEN set_topic THEN (normalized_patch ->> 'topicUuid')::uuid ELSE metadata.content_topic_id END,
                content_subtopic_id = CASE WHEN set_subtopic THEN (normalized_patch ->> 'subtopicUuid')::uuid ELSE metadata.content_subtopic_id END,
                metadata_edit_number = metadata.metadata_edit_number + 1,
                updated_at = pg_catalog.clock_timestamp()
-         WHERE metadata.published_question_id IN (
-             SELECT value ->> 'questionId'
-               FROM jsonb_array_elements(normalized_selection) AS element(value)
-         )
+          FROM (
+              SELECT value ->> 'questionId' AS published_question_id,
+                     CASE WHEN value ? 'questionTitle' THEN value ->> 'questionTitle' END AS question_title,
+                     CASE WHEN value ? 'questionDescription' THEN value ->> 'questionDescription' END AS question_description
+                FROM jsonb_array_elements(normalized_selection) AS element(value)
+          ) AS replacement
+         WHERE metadata.published_question_id = replacement.published_question_id
          RETURNING metadata.published_question_id, metadata.metadata_edit_number
     )
     SELECT jsonb_agg(jsonb_build_object(

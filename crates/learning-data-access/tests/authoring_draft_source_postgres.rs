@@ -251,6 +251,9 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                 draft_question_uuid: draft.draft_question_uuid,
                 expected_edit_number: first_edit,
                 general_feedback: Some("Reviewed general feedback.".to_owned()),
+                hint: None,
+                worked_solution: None,
+                replace_support: false,
             },
         )
         .await

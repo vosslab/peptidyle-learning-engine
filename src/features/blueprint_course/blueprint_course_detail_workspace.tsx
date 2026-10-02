@@ -1,5 +1,5 @@
 // Explicit Revision Save editing for reusable Blueprint Courses.
-import { A, useLocation } from "@solidjs/router";
+import { A } from "@solidjs/router";
 import {
   Match,
   Show,
@@ -15,14 +15,10 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { PageFrame } from "../../components/page_frame";
-import { browserDisplayTimeZone, createDisplayDateTimeFormatter } from "../../format_datetime";
+import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
-import {
-  BLUEPRINT_SEARCH_RETURN_PARAMETER,
-  blueprintDetailCollectionLink,
-  parseBlueprintSearchReturnToken,
-} from "../../pages/blueprint_course_search_return_state";
+import { blueprintDetailCollectionLink } from "../../pages/blueprint_course_search_return_state";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,
@@ -98,9 +94,8 @@ function errorMessage(error: unknown, fallback: string): string {
 export function BlueprintCourseDetailWorkspace(
   props: BlueprintCourseDetailWorkspaceProps,
 ): JSX.Element {
-  const location = useLocation();
-  const displayTimeZone = browserDisplayTimeZone();
-  const formatDateTime = createDisplayDateTimeFormatter(displayTimeZone);
+  const formatInAccountZone = useSelectedDisplayDateTimeFormatter();
+  const formatDateTime = (timestamp: number | Date): string => formatInAccountZone()(timestamp);
   const [editing, setEditing] = createSignal(false);
   const [selectedAssessment, setSelectedAssessment] = createSignal<SelectedBlueprintAssessment>();
   const [state, setState] = createSignal<LoadState>("loading");
@@ -154,29 +149,15 @@ export function BlueprintCourseDetailWorkspace(
           : "publicBlueprintSearch",
     });
   }
-  function blueprintSearchReturnToken(): string | undefined {
-    const token = parseBlueprintSearchReturnToken(
-      new URLSearchParams(location.search).get(BLUEPRINT_SEARCH_RETURN_PARAMETER),
-    );
-    return token ?? undefined;
-  }
-  function publishBlueprintNavigation(view: BlueprintCourseView): void {
+  function publishBlueprintNavigation(): void {
     if (activePublication === undefined) return;
-    const token =
-      view.read_access === "active_instructor" ? blueprintSearchReturnToken() : undefined;
-    publishRouteScopeNavigation(
-      activePublication,
-      token === undefined ? {} : { blueprintSearchReturnToken: token },
-    );
+    publishRouteScopeNavigation(activePublication, {});
   }
   const blueprintCollection = (): { readonly href: string; readonly label: string } =>
-    blueprintDetailCollectionLink(
-      current()?.view.read_access,
-      blueprintSearchReturnToken() ?? null,
-    );
+    blueprintDetailCollectionLink(current()?.view.read_access, null);
   createEffect(() => {
     const view = current()?.view;
-    if (view !== undefined) publishBlueprintNavigation(view);
+    if (view !== undefined) publishBlueprintNavigation();
   });
   const dirty = (): boolean => {
     const loaded = current();

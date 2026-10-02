@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+
+import { build } from "esbuild";
+import { solidPlugin } from "esbuild-plugin-solid";
+
 import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../src/pages/library_page_model.ts";
 
 import {
   MAX_QUESTION_PICKER_SELECTION_CAP,
   QuestionPickerSession,
+  inspectQuestionPickerRow,
   moveQuestionPickerSelection,
+  questionPickerInspectionView,
   questionPickerSelection,
   toggleQuestionPickerSelection,
 } from "../src/features/question_picker/question_picker_model.ts";
@@ -238,6 +244,129 @@ test("picker replaces one discovery page and forwards the Library page size", as
   assert.deepEqual(requests.at(-1), { cursor: null, pageSize: 100 });
   assert.equal(states.at(-1)?.rows[0]?.displayId, "7K3M-79QP");
   assert.equal(session.pageSize, 100);
+});
+
+function inspectionDetails() {
+  return {
+    summary: {
+      questionId: "2R5X-E7YA",
+      backend: "ple",
+      metadata: { questionTitle: "Enzyme kinetics" },
+      publishedQuestionRevisionTuple: { publishedQuestionId: "2R5X-E7YA", revisionNumber: 4 },
+    },
+    prompt: { kind: "static", blocks: [{ kind: "text", markdown: "Enzyme active site" }] },
+    responsePreview: { kind: "shortText" },
+    source: { answer: "concealed" },
+  };
+}
+
+async function loadQuestionPickerInspectionRenderer() {
+  const result = await build({
+    bundle: true,
+    stdin: {
+      contents: `
+        import { createComponent } from "solid-js";
+        import { renderToString } from "solid-js/web";
+        import { QuestionPickerInspection } from "./src/features/question_picker/question_picker_inspection.tsx";
+        export function renderQuestionPickerInspection(view, previewDocumentUrl, questionImageUrl) {
+          return renderToString(() =>
+            createComponent(QuestionPickerInspection, {
+              view,
+              previewDocumentUrl,
+              questionImageUrl,
+              onClose() {},
+            }),
+          );
+        }
+      `,
+      resolveDir: new URL("..", import.meta.url).pathname,
+      sourcefile: "question_picker_inspection_ssr.js",
+      loader: "js",
+    },
+    format: "esm",
+    outfile: "question_picker_inspection_ssr.js",
+    platform: "node",
+    plugins: [
+      {
+        name: "css-stub",
+        setup(pluginBuild) {
+          pluginBuild.onResolve({ filter: /\.css$/ }, (args) => ({
+            path: args.path,
+            namespace: "css-stub",
+          }));
+          pluginBuild.onLoad({ filter: /.*/, namespace: "css-stub" }, () => ({
+            contents: "export default {};",
+            loader: "js",
+          }));
+        },
+      },
+      solidPlugin({ solid: { generate: "ssr", hydratable: false } }),
+    ],
+    write: false,
+  });
+  const javascript = result.outputFiles.find((output) => output.path.endsWith(".js"));
+  if (javascript === undefined) {
+    throw new Error("Question inspection bundle is missing JavaScript.");
+  }
+  const encoded = Buffer.from(javascript.contents).toString("base64");
+  const module = await import(`data:text/javascript;base64,${encoded}`);
+  if (typeof module.renderQuestionPickerInspection !== "function") {
+    throw new Error("Question inspection bundle does not export renderQuestionPickerInspection.");
+  }
+  return module.renderQuestionPickerInspection;
+}
+
+test("inspectQuestionPickerRow keeps the current selection and QuestionPickerInspection shows the prompt without adding the Question", async () => {
+  const selected = row("7K3M-79QP", "Pinned", 2);
+  const selection = questionPickerSelection("many", 200, [selected]);
+  const candidate = row("2R5X-E7YA", "Enzyme kinetics", 4);
+  const inspected = inspectQuestionPickerRow(selection, candidate);
+  assert.equal(inspected.selection, selection);
+  assert.deepEqual(
+    inspected.publishedQuestionRevisionTuple,
+    candidate.publishedQuestionRevisionTuple,
+  );
+  assert.deepEqual(selection.questionIds, ["7K3M-79QP"]);
+  const repeated = inspectQuestionPickerRow(selection, selected);
+  assert.equal(repeated.selection, selection);
+  assert.deepEqual(selection.questionIds, ["7K3M-79QP"]);
+
+  const details = inspectionDetails();
+  const view = questionPickerInspectionView(details);
+  assert.equal(view.questionTitle, "Enzyme kinetics");
+  assert.equal(view.questionId, "2R5X-E7YA");
+  assert.equal(view.backend, "ple");
+  assert.equal(view.prompt.blocks[0].markdown, "Enzyme active site");
+  assert.deepEqual(view.responsePreview, { kind: "shortText" });
+  assert.equal(Object.hasOwn(view, "source"), false);
+  assert.deepEqual(
+    view.publishedQuestionRevisionTuple,
+    details.summary.publishedQuestionRevisionTuple,
+  );
+
+  const renderQuestionPickerInspection = await loadQuestionPickerInspectionRenderer();
+  const imageUrl = () => new URL("https://ple.invalid/questions/2R5X-E7YA/revisions/4/images/site");
+  const html = renderQuestionPickerInspection(view, null, imageUrl);
+  assert.match(html, /Inspect before adding/);
+  assert.match(html, /Enzyme active site/);
+  assert.match(html, /This inspection does not add the Question/);
+  assert.match(html, /Text response/);
+  assert.doesNotMatch(html, /Add selected Questions/);
+  assert.doesNotMatch(html, /Add pinned Question/);
+  assert.doesNotMatch(html, /concealed/);
+
+  const webworkView = questionPickerInspectionView({
+    ...details,
+    summary: { ...details.summary, backend: "webwork" },
+    responsePreview: null,
+  });
+  const previewDocumentUrl = "https://ple.invalid/questions/2R5X-E7YA/revisions/4/preview-document";
+  const webworkHtml = renderQuestionPickerInspection(webworkView, previewDocumentUrl, imageUrl);
+  assert.match(webworkHtml, /This inspection does not add the Question/);
+  assert.equal(webworkHtml.includes(previewDocumentUrl), true);
+  assert.doesNotMatch(webworkHtml, /Enzyme active site/);
+  assert.doesNotMatch(webworkHtml, /Add selected Questions/);
+  assert.doesNotMatch(webworkHtml, /concealed/);
 });
 
 function emptyQuery() {

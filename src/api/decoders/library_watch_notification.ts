@@ -22,6 +22,7 @@ const TARGET_KINDS = [
 ] as const satisfies ReadonlyArray<LibraryWatchTargetKind>;
 const EVENT_KINDS = [
   "revision",
+  "membersChanged",
   "fork",
   "improvementThread",
   "impactNotice",
@@ -85,6 +86,16 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
     case "revision":
       if (revisionNumber === null || forkedPublicId !== null || activityId !== null) {
         throw new DecodeError(path, "a Revision event with Revision evidence only");
+      }
+      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+    case "membersChanged":
+      if (
+        common.targetKind !== "questionPool" ||
+        revisionNumber === null ||
+        forkedPublicId !== null ||
+        activityId !== null
+      ) {
+        throw new DecodeError(path, "a Question Pool membership edit with its Edit Number only");
       }
       return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
     case "fork":

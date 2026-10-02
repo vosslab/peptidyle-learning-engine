@@ -8,8 +8,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::{
-    LiveAssessmentDeliveryStore, QuestionIssuanceReproductionInput,
-    StudentAssessmentAttemptHistoryEvidence, StudentAssessmentAttemptPresentationSource,
+    QuestionIssuanceReproductionInput, StudentAssessmentAttemptHistoryEvidence,
+    StudentAssessmentAttemptPresentationSource,
 };
 use question_model::{AssessmentAttemptId, PublishedQuestionRevisionTuple};
 
@@ -318,6 +318,7 @@ mod tests {
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,
                 score: None,
+                class_statistics: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
                     published_question_revision_tuple: PublishedQuestionRevisionTuple {
@@ -330,6 +331,8 @@ mod tests {
                     response: None,
                     backend_answer_review: None,
                     feedback: StudentFeedback::empty(),
+                    hints: None,
+                    worked_solution: None,
                 }],
             },
             assessment_type: AssessmentType::PracticeQuestionAssignment,
@@ -344,6 +347,7 @@ mod tests {
             all_students_completed: false,
             grading_is_current: false,
             grading_results: vec![None],
+            course_class_analysis: None,
         }
     }
 

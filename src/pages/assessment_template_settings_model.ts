@@ -7,7 +7,6 @@ import type { LateWorkRule } from "../../generated/api/LateWorkRule";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import {
   assessmentDurationOverrideMinutesDraft,
-  assessmentDurationOverrideMinutesError,
   assessmentDurationOverrideSecondsFromMinutesDraft,
 } from "../assessment_duration";
 import { optionalPositiveIntegerDraft } from "./assessment_workspace/assessment_workspace_policy_model";
@@ -21,8 +20,6 @@ export interface AssessmentTemplateDraft {
   readonly assessmentType: AssessmentType;
   readonly instructions: string;
   readonly timeLimit: string;
-  /** Blocks an unrelated save from silently clearing a legacy non-minute duration. */
-  readonly legacyTimeLimitSeconds: number | null;
   readonly attemptLimit: string;
   readonly lateWorkRule: LateWorkRule;
   readonly variationRule: AssessmentTemplateSettings["activityRules"]["questionVariationRule"];
@@ -47,11 +44,6 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
     timeLimit: assessmentDurationOverrideMinutesDraft(
       template.settings.assessmentAttemptTimeLimitSeconds,
     ),
-    legacyTimeLimitSeconds:
-      template.settings.assessmentAttemptTimeLimitSeconds !== null &&
-      template.settings.assessmentAttemptTimeLimitSeconds % 60 !== 0
-        ? template.settings.assessmentAttemptTimeLimitSeconds
-        : null,
     attemptLimit: assessmentTypeHasOneAttempt(template.assessmentType)
       ? "1"
       : (template.settings.attemptLimit?.toString() ?? ""),
@@ -67,16 +59,12 @@ export function assessmentTemplateSettings(
   draft: AssessmentTemplateDraft,
 ): AssessmentTemplateDraftResult {
   const timeLimitSeconds = assessmentDurationOverrideSecondsFromMinutesDraft(draft.timeLimit);
-  const timeLimitError = assessmentDurationOverrideMinutesError(
-    draft.timeLimit,
-    draft.legacyTimeLimitSeconds,
-  );
   const attemptLimit = optionalPositiveIntegerDraft(
     assessmentTypeHasOneAttempt(draft.assessmentType) ? "1" : draft.attemptLimit,
   );
-  if (timeLimitSeconds === undefined || timeLimitError !== undefined || !attemptLimit.valid) {
+  if (timeLimitSeconds === undefined || !attemptLimit.valid) {
     return {
-      error: timeLimitError ?? "Attempt limits must be positive whole numbers or blank.",
+      error: "Duration and attempt limits must be positive whole numbers or blank.",
     };
   }
 

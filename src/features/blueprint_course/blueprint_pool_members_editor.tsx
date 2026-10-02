@@ -5,6 +5,9 @@ import { Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
+import type { RecognitionTitleMaps } from "../../api/recognition_titles";
+import { labeledQuestionRecognition, recognitionTitle } from "../recognition_label";
+import { recognitionTitlesResource } from "../recognition_titles_load";
 import { MAX_REUSABLE_ENTRIES } from "./blueprint_course_model";
 import {
   QuestionPicker,
@@ -23,6 +26,7 @@ export interface BlueprintPoolMembersEditorProps {
   readonly blueprintCourseId: string;
   readonly assessmentId: string;
   readonly client: BlueprintCourseClient;
+  readonly initialTitles?: RecognitionTitleMaps;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
@@ -38,6 +42,13 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   const questionPoolEditNumber = initialPool.question_pool_edit_number;
   const [members, setMembers] = createSignal<PublishedQuestionRevisionTuple[]>();
   const [error, setError] = createSignal("");
+  const recognition = recognitionTitlesResource(
+    () => props.client,
+    () => ({
+      questionIds: (members() ?? []).map((member) => member.publishedQuestionId),
+      poolIds: [questionPoolId],
+    }),
+  );
   const [pickerOpen, setPickerOpen] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
   let disposed = false;
@@ -86,6 +97,10 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
         );
     }
   }
+  createEffect(() => {
+    const incoming = props.initialTitles;
+    if (incoming !== undefined) recognition.remember(incoming);
+  });
   onMount(() => {
     void loadMembers();
   });
@@ -109,6 +124,12 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   }
 
   function addQuestions(selection: QuestionPickerSelection): void {
+    recognition.remember({
+      questions: new Map(
+        selection.questions.map((question) => [question.questionId, question.row.questionTitle]),
+      ),
+      pools: new Map(),
+    });
     const next = [...(members() ?? [])];
     for (const question of selection.questions) {
       const publishedQuestionRevisionTuple = question.row.publishedQuestionRevisionTuple;
@@ -133,9 +154,13 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
 
   return (
     <section class="blueprint-course-content-card" aria-label="Blueprint Pool members">
-      <h4>
-        Question Pool {questionPoolId}, Edit {questionPoolEditNumber}
-      </h4>
+      <h4>{recognitionTitle(recognition.titles().pools.get(questionPoolId), "Question Pool")}</h4>
+      <p>
+        Question Pool ID {questionPoolId}, Edit {questionPoolEditNumber}
+      </p>
+      <Show when={recognition.status()}>
+        <p role="status">{recognition.status()}</p>
+      </Show>
       <p>
         Members are exact Question Revision Tuples, in authored order. This edit changes only this
         Blueprint Assessment-owned Pool, not its source or adopted Course Instances.
@@ -157,8 +182,16 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
               rows={list().map((member, index) => ({ member, index }))}
               content={(record): RecordContent => ({
                 // ASVS 1.2.1: ordinary JSX rendering keeps IDs inert; no HTML or raw JSON rendering.
-                title: `Question ${record.member.publishedQuestionId}`,
+                title: recognitionTitle(
+                  recognition.titles().questions.get(record.member.publishedQuestionId),
+                  "Question",
+                ),
                 details: [
+                  {
+                    kind: "text",
+                    label: "Question ID",
+                    value: record.member.publishedQuestionId,
+                  },
                   {
                     kind: "text",
                     label: "Revision",
@@ -190,8 +223,14 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
                         changeMembers(
                           reorderedRecordListRows(list(), sourceIndex, destinationIndex),
                         ),
-                      recordLabel: (record): string =>
-                        `Question ${record.member.publishedQuestionId}, Revision ${record.member.revisionNumber}`,
+                      recordLabel: (record): string => {
+                        const line = labeledQuestionRecognition(
+                          recognition.titles().questions.get(record.member.publishedQuestionId),
+                          record.member.publishedQuestionId,
+                          record.member.revisionNumber,
+                        );
+                        return `${line.title} (${line.identifier})`;
+                      },
                     }
                   : undefined
               }

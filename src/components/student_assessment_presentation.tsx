@@ -76,16 +76,35 @@ export function StudentAssessmentStartFacts(props: {
             <dd>{props.pointsPossible}</dd>
           </div>
         </Show>
-        <Show when={props.decision === undefined}>
-          <div>
-            <dt>Time limit</dt>
-            <dd>{formatAssessmentAttemptTimeLimit(props.timeLimitSeconds, props.questionCount)}</dd>
-          </div>
-        </Show>
       </dl>
-      <Show when={props.decision}>
+      <Show
+        when={props.decision}
+        fallback={
+          <CourseworkFactSection headingId="coursework-attempt-rules-heading" title="Attempt rules">
+            <div>
+              <dt>Time limit</dt>
+              <dd>
+                {formatAssessmentAttemptTimeLimit(props.timeLimitSeconds, props.questionCount)}
+              </dd>
+            </div>
+          </CourseworkFactSection>
+        }
+      >
         {(decision) => <StudentAssessmentDecisionDetails decision={decision()} />}
       </Show>
+    </section>
+  );
+}
+
+function CourseworkFactSection(props: {
+  readonly headingId: string;
+  readonly title: string;
+  readonly children: JSX.Element;
+}): JSX.Element {
+  return (
+    <section class="student-assessment-decision__section" aria-labelledby={props.headingId}>
+      <h3 id={props.headingId}>{props.title}</h3>
+      <dl class="assessment-facts">{props.children}</dl>
     </section>
   );
 }
@@ -103,50 +122,58 @@ export function StudentAssessmentDecisionDetails(props: {
         </strong>
         <Show when={props.decision.publicReason}>{(publicReason) => <> - {publicReason()}</>}</Show>
       </p>
-      <dl class="assessment-facts">
-        <div>
-          <dt>Due</dt>
-          <dd data-assessment-decision-due>
-            {formatAssessmentDeliveryTime(props.decision.dueAt, formatDateTime, "No due time")}
-          </dd>
-        </div>
-        <div>
-          <dt>Time limit</dt>
-          <dd>{formatAssessmentAttemptTimeLimit(props.decision.timeLimitSeconds)}</dd>
-        </div>
-        <div>
-          <dt>Attempt limit</dt>
-          <dd>{formatAssessmentLimit(props.decision.attemptLimit, "attempt", "attempts")}</dd>
-        </div>
-      </dl>
+      <div class="student-assessment-decision__sections">
+        <CourseworkFactSection headingId="coursework-deadlines-heading" title="Deadlines">
+          <div>
+            <dt>Due</dt>
+            <dd data-assessment-decision-due>
+              {formatAssessmentDeliveryTime(props.decision.dueAt, formatDateTime, "No due time")}
+            </dd>
+          </div>
+        </CourseworkFactSection>
+        <CourseworkFactSection headingId="coursework-attempt-rules-heading" title="Attempt rules">
+          <div>
+            <dt>Time limit</dt>
+            <dd>{formatAssessmentAttemptTimeLimit(props.decision.timeLimitSeconds)}</dd>
+          </div>
+          <div>
+            <dt>Attempt limit</dt>
+            <dd>{formatAssessmentLimit(props.decision.attemptLimit, "attempt", "attempts")}</dd>
+          </div>
+        </CourseworkFactSection>
+      </div>
       <details class="student-assessment-decision__details">
         <summary>More timing and Attempt rules</summary>
-        <dl class="assessment-facts">
-          <div>
-            <dt>Available</dt>
-            <dd>
-              {formatAssessmentDeliveryTime(
-                props.decision.availableAt,
-                formatDateTime,
-                "No opening time",
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>Closes</dt>
-            <dd>
-              {formatAssessmentDeliveryTime(
-                props.decision.closesAt,
-                formatDateTime,
-                "No closing time",
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>Late work</dt>
-            <dd>{formatLateWorkRule(props.decision.lateWorkRule)}</dd>
-          </div>
-        </dl>
+        <div class="student-assessment-decision__sections">
+          <CourseworkFactSection headingId="coursework-availability-heading" title="Availability">
+            <div>
+              <dt>Available</dt>
+              <dd>
+                {formatAssessmentDeliveryTime(
+                  props.decision.availableAt,
+                  formatDateTime,
+                  "No opening time",
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Closes</dt>
+              <dd>
+                {formatAssessmentDeliveryTime(
+                  props.decision.closesAt,
+                  formatDateTime,
+                  "No closing time",
+                )}
+              </dd>
+            </div>
+          </CourseworkFactSection>
+          <CourseworkFactSection headingId="coursework-late-work-heading" title="Attempt rules">
+            <div>
+              <dt>Late work</dt>
+              <dd>{formatLateWorkRule(props.decision.lateWorkRule)}</dd>
+            </div>
+          </CourseworkFactSection>
+        </div>
       </details>
     </div>
   );
@@ -251,7 +278,7 @@ function formatLaterAttemptRules(
       : variationRule === "newVariation"
         ? "uses new Question Variations"
         : "uses its Question Variation Rule";
-  return `A later Assessment Attempt selects Questions again from each Question Pool and ${variation}.`;
+  return `A later Attempt selects Questions again from each Question Pool and ${variation}.`;
 }
 
 function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
@@ -266,7 +293,9 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule | undefined): string
   if (rule === undefined) return undefined;
   const questionAnswerTiming = formatDisclosureTiming(rule.question_answer);
   const questionAnswerExplanationTiming = formatDisclosureTiming(rule.question_answer_explanation);
-  return `Question Feedback is shown when provided; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
+  const hintsTiming = formatDisclosureTiming(rule.hints);
+  const workedSolutionsTiming = formatDisclosureTiming(rule.worked_solutions);
+  return `Question Feedback is shown when provided; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}; Hints are shown ${hintsTiming}; Worked Solutions are shown ${workedSolutionsTiming}.`;
 }
 
 function classStatisticsSummary(statistics: ClassStatistics): string {
@@ -296,7 +325,7 @@ export function StudentAssessmentPresentation(
   return (
     <PageFrame
       routeSurface="studentAssessment"
-      eyebrow="Assessment overview"
+      eyebrow="Coursework"
       title={props.assessment.title}
       lede="Work from the structures and concepts in front of you. Memorization is not the goal."
     >
@@ -373,13 +402,14 @@ export function StudentAssessmentPresentation(
       </section>
       <dl class="assessment-facts">
         <div>
-          <dt>Later Assessment Attempt</dt>
+          <dt>Later Attempt</dt>
           <dd>{formatLaterAttemptRules(props.assessment.questionVariationRule)}</dd>
         </div>
         <div>
           <dt>Student Feedback Release</dt>
           <dd>
-            {disclosure() ?? "Student Feedback is available according to the Assessment settings."}
+            {disclosure() ??
+              "Student Feedback is available according to this Coursework's settings."}
           </dd>
         </div>
         <Show when={props.progress}>

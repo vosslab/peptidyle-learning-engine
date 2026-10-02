@@ -31,8 +31,8 @@ use objects::{
     image_validation::verify_still_image, s3::S3ObjectStore,
 };
 use question_model::{
-    ObjectId, UserRole, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend,
-    QuestionResponseFormat, QuestionRevisionNumber, QuestionType,
+    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend,
+    QuestionResponseFormat, QuestionRevisionNumber, QuestionType, UserRole,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -384,9 +384,7 @@ async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

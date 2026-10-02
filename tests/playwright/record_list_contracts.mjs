@@ -53,6 +53,32 @@ async function checkAlignment(page) {
       assert.equal(row.action, expected[index].action, `${id} retains the record action`);
       assert.equal(row.actionVisible, true, `${id} retains actions`);
     }
+    const grouped = await list.getByRole("listitem").evaluateAll((elements) =>
+      elements.map((row) => {
+        const titles = [...row.querySelectorAll(".record-list__title")];
+        const content = row.querySelector(".record-list__content");
+        const facts = row.querySelector(".record-list__facts");
+        const actions = row.querySelector(".record-list__actions");
+        const title = titles[0] ?? null;
+        const groupedAfterTitle = (later) =>
+          content instanceof Element &&
+          title instanceof Element &&
+          later instanceof Element &&
+          content.contains(title) &&
+          content.contains(later) &&
+          (title.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+        return {
+          titleCount: titles.length,
+          factsFollowTitle: groupedAfterTitle(facts),
+          actionsFollowTitle: groupedAfterTitle(actions),
+        };
+      }),
+    );
+    for (const group of grouped) {
+      assert.equal(group.titleCount, 1, `${id} gives the list entry one title`);
+      assert.equal(group.factsFollowTitle, true, `${id} groups metadata beneath the title`);
+      assert.equal(group.actionsFollowTitle, true, `${id} groups actions beneath the title`);
+    }
   }
   await page.setViewportSize({ width: 1024, height: 768 });
 }
@@ -794,7 +820,10 @@ async function checkRecordFamily(page) {
   const columnCount = await table.getByRole("columnheader").count();
   for (let rowIndex = 0; rowIndex < tableRowCount; rowIndex += 1) {
     const row = tableRows.nth(rowIndex);
-    assert.equal(await row.getByRole("rowheader").count(), 1, "each record has a row header");
+    assert.equal(await row.getByRole("rowheader").count(), 1, "each table record has one title");
+    const title = (await row.getByRole("rowheader").innerText()).trim();
+    assert.notEqual((await row.getByRole("cell").first().innerText()).trim(), "");
+    assert.equal((await row.getByRole("button").innerText()).trim(), `Open ${title}`);
     assert.equal(
       await row.getByRole("cell").count(),
       columnCount - 1,
@@ -827,6 +856,24 @@ async function checkRecordFamily(page) {
   const details = family.getByRole("list", { name: "Attempt review records", exact: true });
   assert.deepEqual(await recordIds(details), ["attempt-one", "attempt-two"]);
   assert.ok((await details.innerText()).trim().length > 0, "expanded records retain their content");
+  const detailItems = details.getByRole("listitem");
+  assert.equal(await detailItems.count(), 2);
+  for (let index = 0; index < 2; index += 1) {
+    const item = detailItems.nth(index);
+    assert.equal(await item.getByRole("heading").count(), 1, "each review record has one title");
+    const title = (await item.getByRole("heading").innerText()).trim();
+    const placedWithTitle = await item.evaluate((element) => {
+      const heading = element.querySelector("h3");
+      const note = element.querySelector("p");
+      const action = element.querySelector("button");
+      const follows = (earlier, later) =>
+        earlier instanceof Element &&
+        later instanceof Element &&
+        (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+      return follows(heading, note) && follows(heading, action);
+    });
+    assert.equal(placedWithTitle, true, `${title} keeps its note and action with the title`);
+  }
 }
 
 async function checkPresentation(page) {

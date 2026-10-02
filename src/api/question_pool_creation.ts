@@ -9,6 +9,8 @@ export interface CreateQuestionPoolInput {
   readonly description: string;
   readonly members: ReadonlyArray<PublishedQuestionRevisionTuple>;
   readonly interchangeabilityAttested: true;
+  /** Omitted means this command does not send a tag list. */
+  readonly tags?: ReadonlyArray<string>;
 }
 
 /** Server-issued Pool ID; a new Pool starts at Edit Number 1. */

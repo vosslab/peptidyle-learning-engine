@@ -2,9 +2,6 @@
 -- Functions, policies, and privileges live in later layers.
 
 
-
-
-
 -- SQLx 0.9 performs CREATE TABLE IF NOT EXISTS on every forward run. Its
 -- narrow CREATE grant is limited to this otherwise isolated schema (ASVS 13.2.2).
 RESET ROLE;
@@ -48,18 +45,12 @@ ALTER TABLE ple_migration._sqlx_migrations OWNER TO ple_migrator;
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.assessment_unrelease_event IS 'role: event, Redacted completed Assessment Unrelease audit evidence: actor, Assessment, aggregate counts, and time only.';
 
 RESET ROLE;
 RESET ROLE;
-COMMENT ON TABLE ple_migration._sqlx_migrations IS 'role: aggregate, deleted by retention policy for audit rows; the SQLx ledger is never purged. HUMAN_GUIDANCE.md Audit and Unrelease.';
-
 
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.assessment_unrelease_event IS 'role: event, Redacted completed Assessment Unrelease audit evidence: actor, Assessment, aggregate counts, and time only.';
 
 RESET ROLE;
 RESET ROLE;
-COMMENT ON TABLE ple_migration._sqlx_migrations IS 'role: aggregate, deleted by retention policy for audit rows; the SQLx ledger is never purged. HUMAN_GUIDANCE.md Audit and Unrelease.';
-

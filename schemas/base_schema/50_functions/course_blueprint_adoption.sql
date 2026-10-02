@@ -105,7 +105,9 @@ BEGIN
             'feedback_submitted_response', source_content #> '{defaults,student_feedback_release_rule,submitted_response}',
             'feedback_question_answer', source_content #> '{defaults,student_feedback_release_rule,question_answer}',
             'feedback_question_answer_explanation', source_content #> '{defaults,student_feedback_release_rule,question_answer_explanation}',
-            'feedback_class_statistics', source_content #> '{defaults,student_feedback_release_rule,class_statistics}'
+            'feedback_class_statistics', source_content #> '{defaults,student_feedback_release_rule,class_statistics}',
+            'feedback_hints', source_content #> '{defaults,student_feedback_release_rule,hints}',
+            'feedback_worked_solutions', source_content #> '{defaults,student_feedback_release_rule,worked_solutions}'
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'Blueprint adoption policy differs from its exact Revision';
@@ -229,7 +231,8 @@ BEGIN
             candidate.assessment_question_order_rule, candidate.feedback_score,
             candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
             candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
-            candidate.feedback_class_statistics, assessment_type_value
+            candidate.feedback_class_statistics, assessment_type_value,
+            candidate.feedback_hints, candidate.feedback_worked_solutions
         );
         -- The assessment trigger owns the public identity.  Supply its
         -- canonical domain-valid mint placeholder rather than a raw UUID,

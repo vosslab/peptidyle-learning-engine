@@ -18,17 +18,20 @@ use browser_api_contract::assessment_delivery::StudentQuestionPresentation;
 use learning_data_access::{
     LiveAssessmentAttempt, LiveAssessmentDeliveryStore, NativeAssessmentIssuanceBatch,
     NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
-    QuestionIssuanceReproductionInput, SessionTokenHash, StoreError,
+    QuestionIssuanceReproductionInput, SessionStore, SessionTokenHash, StoreError,
     postgres::{PostgresLiveAssessmentDeliveryStore, PostgresSessionStore},
 };
 use objects::s3::S3ObjectStore;
+use objects::{
+    ObjectAddress, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, SignedUrl, StoredObject,
+};
 use question_model::presentation::build_question_presentation;
 use question_model::question_library::QuestionBackendInterface;
 use question_model::{
-    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, UserRole,
-    PublishedQuestionRevisionTuple, QuestionBackend, QuestionBackendCapabilities,
-    QuestionPresentation, QuestionPresentationChecksum, QuestionRevisionNumber,
-    SourceObjectChecksum, StudentResponse,
+    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, PublishedQuestionRevisionTuple,
+    QuestionBackend, QuestionBackendCapabilities, QuestionPresentation,
+    QuestionPresentationChecksum, QuestionRevisionNumber, SourceObjectChecksum, StudentResponse,
+    UserRole,
 };
 use serde::Serialize;
 
@@ -51,14 +54,59 @@ struct PositionQuery {
     position: u32,
 }
 
+/// Object-store seam for Assessment delivery source resolution.
+///
+/// ASVS 8.2.2: production still passes an `S3ObjectStore` into
+/// [`DeliveryObjects::new`]. The trait object does not grant Attempt access.
+#[derive(Clone)]
+pub(crate) struct DeliveryObjects(Arc<dyn ObjectStore>);
+
+impl DeliveryObjects {
+    pub(crate) fn new(store: impl ObjectStore + 'static) -> Self {
+        Self(Arc::new(store))
+    }
+}
+
+#[async_trait::async_trait]
+impl ObjectStore for DeliveryObjects {
+    async fn put(&self, request: PutObject) -> Result<ObjectRecord, ObjectStoreError> {
+        self.0.put(request).await
+    }
+
+    async fn get(&self, address: &ObjectAddress) -> Result<StoredObject, ObjectStoreError> {
+        self.0.get(address).await
+    }
+
+    async fn delete(&self, address: &ObjectAddress) -> Result<(), ObjectStoreError> {
+        self.0.delete(address).await
+    }
+
+    async fn signed_url(
+        &self,
+        address: &ObjectAddress,
+        now: question_model::Timestamp,
+    ) -> Result<SignedUrl, ObjectStoreError> {
+        self.0.signed_url(address, now).await
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct StateData {
-    pub(crate) sessions: Arc<PostgresSessionStore>,
-    pub(crate) delivery: PostgresLiveAssessmentDeliveryStore,
-    pub(crate) objects: S3ObjectStore,
+    /// ASVS 8.2.1: the router still binds only `PostgresSessionStore`. The trait
+    /// object does not add an authorization path.
+    pub(crate) sessions: Arc<dyn SessionStore>,
+    /// ASVS 8.2.2: the router still binds only `PostgresLiveAssessmentDeliveryStore`.
+    /// Attempt ownership stays inside that PostgreSQL store.
+    pub(crate) delivery: Arc<dyn LiveAssessmentDeliveryStore>,
+    /// ASVS 8.2.2: the router still constructs `S3ObjectStore`. This wrapper only
+    /// resolves immutable source bytes. It does not authorize an Attempt or
+    /// choose a Question ID, revision, lifecycle, or stored outcome.
+    pub(crate) objects: DeliveryObjects,
     pub(crate) webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     /// Validated deployment-owned origin used to scope C858's exact WASM CSP
-    /// source. Request headers never select a CSP authority.
+    /// source. Exact mode never lets request headers select a CSP authority.
+    /// Live Demo request-host mode uses only the origin the cookie boundary
+    /// already accepted. ASVS 3.4.3 and 3.5.5.
     pub(crate) browser_origin: Arc<str>,
 }
 
@@ -121,8 +169,8 @@ pub fn assessment_delivery_router(
         )
         .with_state(StateData {
             sessions,
-            delivery,
-            objects,
+            delivery: Arc::new(delivery),
+            objects: DeliveryObjects::new(objects),
             webwork,
             browser_origin,
         })
@@ -463,7 +511,7 @@ async fn rebuild_committed_attempt_presentations(
 }
 
 async fn issue_new_presentations(
-    objects: &S3ObjectStore,
+    objects: &impl ObjectStore,
     sources: &[NativePleIssuanceSource],
 ) -> Result<Vec<NativePresentationInput>, StartError> {
     // The common interface makes this an explicit PLE-owned lifecycle path;
@@ -574,7 +622,7 @@ async fn issue_new_webwork_presentations(
 }
 
 pub(crate) async fn resolve_webwork_source(
-    objects: &S3ObjectStore,
+    objects: &impl ObjectStore,
     source: &NativeWebworkIssuanceSource,
 ) -> Result<ResolvedWebworkQuestionSource, StartError> {
     let object =
@@ -601,7 +649,7 @@ pub(crate) async fn resolve_webwork_source(
 }
 
 pub(super) async fn resolve_source(
-    objects: &S3ObjectStore,
+    objects: &impl ObjectStore,
     source: &NativePleIssuanceSource,
 ) -> Result<ResolvedPleQuestionJsonSource, StartError> {
     let object =
@@ -645,7 +693,7 @@ pub(crate) async fn student(
 }
 
 pub(super) async fn student_with_sessions(
-    sessions: &PostgresSessionStore,
+    sessions: &dyn SessionStore,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(sessions, cookie(headers).as_deref()).await {

@@ -1,31 +1,37 @@
 // log.ts - the central browser logging surface.
 //
-// Why this module exists: eslint.config.js sets `no-console: warn` and
-// check_codebase.sh runs ESLint with --max-warnings 0, so a bare console call
-// in src/ fails the gate. Routing through here gives one place to add a level
-// filter, a transport, or redaction later without touching call sites.
-//
-// Redaction matters for this product specifically: an answer key or a grading
-// decision must never reach a browser log. Anything logged here is visible to
-// the student, so treat it as public output.
+// eslint.config.js sets `no-console: warn` and check_codebase.sh runs ESLint
+// with --max-warnings 0, so a bare console call in src/ fails the gate.
+// This module is the only browser diagnostic. It prints a closed public
+// phrase. An unrecognized event is withheld, and extra arguments are ignored,
+// so an answer key, grade, response, or Student record cannot reach the console.
 
 /* eslint-disable no-console */
 
-type LogArgs = readonly unknown[];
+const PUBLIC_DIAGNOSTICS = {
+  clientBooting: "peptidyle client booting",
+} as const;
+
+type PublicDiagnostic = keyof typeof PUBLIC_DIAGNOSTICS;
+
+function emit(method: "info" | "warn" | "error", event: string): void {
+  const message = PUBLIC_DIAGNOSTICS[event as PublicDiagnostic];
+  console[method](message === undefined ? "[ple] diagnostic withheld" : `[ple] ${message}`);
+}
 
 export const log = {
   /** Routine progress a developer wants while working. */
-  info(message: string, ...args: LogArgs): void {
-    console.info(`[ple] ${message}`, ...args);
+  info(event: PublicDiagnostic): void {
+    emit("info", event);
   },
 
   /** A recoverable problem the user may still be able to work around. */
-  warn(message: string, ...args: LogArgs): void {
-    console.warn(`[ple] ${message}`, ...args);
+  warn(event: PublicDiagnostic): void {
+    emit("warn", event);
   },
 
   /** A failure the user needs to know about. */
-  error(message: string, ...args: LogArgs): void {
-    console.error(`[ple] ${message}`, ...args);
+  error(event: PublicDiagnostic): void {
+    emit("error", event);
   },
 };

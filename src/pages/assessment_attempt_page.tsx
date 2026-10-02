@@ -1,6 +1,6 @@
 // assessment_attempt_page.tsx - live one-question Student Assessment Attempt delivery.
 
-import { useNavigate } from "@solidjs/router";
+import { A, useNavigate, useParams } from "@solidjs/router";
 import {
   createEffect,
   createSignal,
@@ -33,10 +33,15 @@ import type { ResponseSaveOutcome } from "../components/question_response_contro
 import {
   saveCapturedBackendOwnedResponse,
   saveCompleteResponseBeforeAttemptSubmission,
+  submitAttemptActionLabel,
   type BackendOwnedCapture,
 } from "./assessment_attempt_finish";
 import { AssessmentAttemptResponseState } from "./assessment_attempt_response_state";
-import { assessmentAttemptRouteId } from "../navigation/public_route";
+import { assessmentAttemptRouteId, parseCourseInstanceId } from "../navigation/public_route";
+import {
+  assessmentAttemptPath,
+  assessmentAttemptRouteState,
+} from "../navigation/assessment_attempt_route";
 import {
   useRetryRouteScope,
   useRouteScopeData,
@@ -324,10 +329,10 @@ function AttemptExperience(props: {
       setSubmissionState("submitted");
       // ASVS 1.2.2, 2.3.1, 8.2.2-8.2.3: enter the server-authorized, field-redacted result
       // view only after this exact whole-Attempt submission is accepted.
-      navigate(
-        `/assessment-attempts/${assessmentAttemptRouteId(result.assessmentAttemptId)}/summary`,
-        { replace: true },
-      );
+      navigate(assessmentAttemptPath("review", props.context.course.id), {
+        replace: true,
+        state: assessmentAttemptRouteState(assessmentAttemptRouteId(result.assessmentAttemptId)),
+      });
     } catch (error: unknown) {
       setSubmissionState("error");
       if (error instanceof ApiRequestError && error.status === 503) {
@@ -606,6 +611,8 @@ function AttemptExperience(props: {
                   initialResponse={currentPresentation.savedResponse ?? undefined}
                   validator={validator}
                   saveLabel="Save response"
+                  persistenceNotice={saveState()}
+                  persistenceDetail={saveError() ?? undefined}
                   mode="save"
                   onResponseEdit={(response) =>
                     responseEdited(currentPresentation.position, response)
@@ -621,23 +628,6 @@ function AttemptExperience(props: {
                   onSave={saveOutcome}
                   onEscape={() => finishAssessmentButton?.focus()}
                 />
-                <Show when={saveState() === "saving"}>
-                  <p class="calm-status" role="status">
-                    Saving response...
-                  </p>
-                </Show>
-                <Show when={saveState() === "saved"}>
-                  <p class="saved-notice" role="status">
-                    Response saved.
-                  </p>
-                </Show>
-                <Show when={saveError()}>
-                  {(message) => (
-                    <p class="inline-error" role="alert">
-                      {message()}
-                    </p>
-                  )}
-                </Show>
               </div>
             </article>
           </Show>
@@ -662,7 +652,7 @@ function AttemptExperience(props: {
             disabled={submissionState() === "submitting"}
             onClick={() => void submitAttempt()}
           >
-            {submissionState() === "submitting" ? "Submitting Attempt..." : "Submit Attempt"}
+            {submitAttemptActionLabel(submissionState())}
           </button>
           <Show when={submissionError()}>
             {(message) => (
@@ -678,6 +668,9 @@ function AttemptExperience(props: {
 }
 
 export function AssessmentAttemptPage(): JSX.Element {
+  const params = useParams();
+  const courseInstanceId = (): ReturnType<typeof parseCourseInstanceId> =>
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const routeData = useRouteScopeData();
   const loadState = useRouteScopeLoadState();
   const retryScope = useRetryRouteScope();
@@ -690,13 +683,27 @@ export function AssessmentAttemptPage(): JSX.Element {
       when={context()}
       keyed
       fallback={
-        <PageFrame routeSurface="assessmentAttempt" title="Assessment Attempt">
+        <PageFrame routeSurface="assessmentAttempt" title="Coursework">
           <Show
             when={loadState() === "rejected"}
             fallback={
-              <p class="loading-state" role="status">
-                Loading your Attempt...
-              </p>
+              <Show
+                when={loadState() !== "unavailable"}
+                fallback={
+                  <>
+                    <p>No Attempt is selected. Open the Course to choose an Assessment.</p>
+                    <Show when={courseInstanceId()}>
+                      {(course) => (
+                        <A href={`/student/courses/${course()}`}>Return to this Course</A>
+                      )}
+                    </Show>
+                  </>
+                }
+              >
+                <p class="loading-state" role="status">
+                  Loading your Attempt...
+                </p>
+              </Show>
             }
           >
             <p class="inline-error" role="alert">

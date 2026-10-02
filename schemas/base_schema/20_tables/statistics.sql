@@ -18,6 +18,14 @@ CREATE TABLE ple_data.question_revision_statistics (
     correct_count bigint NOT NULL DEFAULT 0 CHECK (correct_count >= 0),
     partial_count bigint NOT NULL DEFAULT 0 CHECK (partial_count >= 0),
     incorrect_count bigint NOT NULL DEFAULT 0 CHECK (incorrect_count >= 0),
+    -- Anonymous lifetime lower bounds. They survive Student Work purge and
+    -- are deliberately never summed across revisions or purge epochs.
+    issued_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (issued_contributor_floor >= 0),
+    blank_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (blank_contributor_floor >= 0),
+    answered_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (answered_contributor_floor >= 0),
+    correct_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (correct_contributor_floor >= 0),
+    partial_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (partial_contributor_floor >= 0),
+    incorrect_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (incorrect_contributor_floor >= 0),
     credit_sum numeric NOT NULL DEFAULT 0 CHECK (credit_sum >= 0),
     credit_sum_sq numeric NOT NULL DEFAULT 0 CHECK (credit_sum_sq >= 0),
     created_on date NOT NULL DEFAULT CURRENT_DATE,
@@ -28,6 +36,12 @@ CREATE TABLE ple_data.question_revision_statistics (
     CHECK (updated_on >= created_on),
     CHECK (issued_count = blank_count + answered_count),
     CHECK (answered_count = correct_count + partial_count + incorrect_count),
+    CHECK (issued_contributor_floor <= issued_count
+        AND blank_contributor_floor <= blank_count
+        AND answered_contributor_floor <= answered_count
+        AND correct_contributor_floor <= correct_count
+        AND partial_contributor_floor <= partial_count
+        AND incorrect_contributor_floor <= incorrect_count),
     CHECK (credit_sum >= correct_count
         AND credit_sum <= correct_count + partial_count),
     CHECK (credit_sum_sq >= correct_count
@@ -38,9 +52,11 @@ CREATE TABLE ple_data.question_pool_statistics (
     question_pool_id ple_data.question_family_id PRIMARY KEY
         REFERENCES ple_data.question_pool(question_pool_id),
     issued_count bigint NOT NULL DEFAULT 0 CHECK (issued_count >= 0),
+    issued_contributor_floor bigint NOT NULL DEFAULT 0 CHECK (issued_contributor_floor >= 0),
     created_on date NOT NULL DEFAULT CURRENT_DATE,
     updated_on date NOT NULL DEFAULT CURRENT_DATE,
-    CHECK (updated_on >= created_on)
+    CHECK (updated_on >= created_on),
+    CHECK (issued_contributor_floor <= issued_count)
 );
 
 CREATE TABLE ple_data.question_pool_member_statistics (

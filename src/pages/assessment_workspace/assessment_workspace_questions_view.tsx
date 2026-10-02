@@ -22,6 +22,7 @@ import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { nextQuestionEditDirty } from "./assessment_workspace_questions_model";
 import {
   QuestionPicker,
+  type QuestionPickerProps,
   type QuestionPickerSelection,
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
@@ -57,6 +58,10 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly bloomSortUnavailableReason: Accessor<string | undefined>;
   readonly sortByBloomClassification: () => void;
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
+  readonly questionTitle: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => string;
+  readonly poolTitle: (questionPoolId: string) => string;
   readonly entryBlooms: Accessor<ReadonlyMap<AssessmentEntryId, BloomClassificationView>>;
   readonly move: (index: number, offset: -1 | 1) => void;
   readonly remove: (index: number) => void;
@@ -64,6 +69,9 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly poolForkLoadFailed: Accessor<boolean>;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
+  readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
+  readonly questionRevisionPreviewDocumentUrl: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
+  readonly questionImageUrl: QuestionPickerProps["questionImageUrl"];
   readonly questionPoolClient: QuestionPoolLibraryClient;
   readonly updatePoolSelectionCount: (
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
@@ -75,6 +83,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   ) => Promise<void>;
   readonly remainingQuestionCapacity: Accessor<number>;
   readonly addPublishedQuestions: (selection: QuestionPickerSelection) => void;
+  readonly addQuestionsById: (value: string) => Promise<boolean>;
   readonly poolImport: Accessor<QuestionPoolPickerSelection | undefined>;
   readonly choosePool: (selection: QuestionPoolPickerSelection) => void;
   readonly poolSelectionCount: Accessor<string>;
@@ -145,6 +154,8 @@ export function AssessmentWorkspaceQuestionsView(
     bloomSortUnavailableReason,
     sortByBloomClassification,
     description,
+    questionTitle,
+    poolTitle,
     entryBlooms,
     move,
     remove,
@@ -152,11 +163,15 @@ export function AssessmentWorkspaceQuestionsView(
     poolForkLoadFailed,
     pickerRepository,
     pickerSources,
+    loadQuestionInspection,
+    questionRevisionPreviewDocumentUrl,
+    questionImageUrl,
     questionPoolClient,
     updatePoolSelectionCount,
     replacePoolMembers,
     remainingQuestionCapacity,
     addPublishedQuestions,
+    addQuestionsById,
     poolImport,
     choosePool,
     poolSelectionCount,
@@ -170,6 +185,7 @@ export function AssessmentWorkspaceQuestionsView(
     importPool,
   } = args;
   const [questionPickerOpen, setQuestionPickerOpen] = createSignal(false);
+  const [questionIdBatch, setQuestionIdBatch] = createSignal("");
   const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
   let questionPickerTrigger: HTMLButtonElement | undefined;
   let poolPickerTrigger: HTMLButtonElement | undefined;
@@ -231,6 +247,8 @@ export function AssessmentWorkspaceQuestionsView(
                     poolRole="assessmentOwned"
                     content={currentBlueprintUpdateContent(review().assessment)}
                     description={description}
+                    questionTitle={questionTitle}
+                    poolTitle={poolTitle}
                   />
                   <Show when={review().proposed}>
                     {(content) => (
@@ -239,6 +257,8 @@ export function AssessmentWorkspaceQuestionsView(
                         poolRole="librarySource"
                         content={content()}
                         description={description}
+                        questionTitle={questionTitle}
+                        poolTitle={poolTitle}
                       />
                     )}
                   </Show>
@@ -317,6 +337,8 @@ export function AssessmentWorkspaceQuestionsView(
             selectedAssessmentEntryContent({
               entry: record.entry,
               entryNumber: record.index + 1,
+              questionTitle,
+              poolTitle,
               description,
               bloom: entryBlooms().get(record.entry.id),
               removeDisabled: busy() || needsReload(),
@@ -332,6 +354,9 @@ export function AssessmentWorkspaceQuestionsView(
                   exactMembersUnavailable={poolForkLoadFailed()}
                   pickerRepository={pickerRepository}
                   pickerSources={pickerSources}
+                  loadQuestionInspection={loadQuestionInspection}
+                  questionRevisionPreviewDocumentUrl={questionRevisionPreviewDocumentUrl}
+                  questionImageUrl={questionImageUrl}
                   mutationsEnabled={
                     !dirty() && !needsReload() && poolEntry().availability === "available"
                   }
@@ -366,7 +391,32 @@ export function AssessmentWorkspaceQuestionsView(
           Room for {remainingQuestionCapacity()} more Questions, counting each Pool's selected
           Questions.
         </p>
+        <label class="assessment-editor-field">
+          Add by Question ID
+          <textarea
+            rows="3"
+            value={questionIdBatch()}
+            disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
+            aria-describedby="assessment-question-id-batch-help"
+            onInput={(event) => setQuestionIdBatch(event.currentTarget.value)}
+          />
+          <small id="assessment-question-id-batch-help">
+            Paste Question IDs separated by spaces, commas, or new lines. Each added Question keeps
+            its current Published Revision.
+          </small>
+        </label>
         <div class="assessment-editor-actions">
+          <button
+            type="button"
+            disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
+            onClick={() => {
+              void addQuestionsById(questionIdBatch()).then((added) => {
+                if (added) setQuestionIdBatch("");
+              });
+            }}
+          >
+            Add Question IDs
+          </button>
           <button
             type="button"
             class="primary-action"
@@ -386,7 +436,10 @@ export function AssessmentWorkspaceQuestionsView(
             trigger={questionPickerTrigger}
             title="Choose published Questions"
             confirmLabel="Add selected Questions"
-            instructions="Selected Questions are added to this Assessment in tray order and keep their exact Published Revisions. Cancel leaves the current Entries unchanged."
+            instructions="Selected Questions are added to this Assessment in tray order and keep their exact Published Revisions. Inspect a Question before adding it. Cancel leaves the current Entries unchanged."
+            loadQuestionInspection={loadQuestionInspection}
+            questionRevisionPreviewDocumentUrl={questionRevisionPreviewDocumentUrl}
+            questionImageUrl={questionImageUrl}
             onConfirm={(selection) => {
               setQuestionPickerOpen(false);
               addPublishedQuestions(selection);
@@ -414,8 +467,8 @@ export function AssessmentWorkspaceQuestionsView(
         <Show when={poolImport()}>
           {(selected) => (
             <p>
-              Question Pool {selected().questionPoolId}, Edit {selected().questionPoolEditNumber},{" "}
-              {selected().memberCount} published Questions.
+              {selected().title} ({selected().questionPoolId}, Edit{" "}
+              {selected().questionPoolEditNumber}), {selected().memberCount} published Questions.
             </p>
           )}
         </Show>

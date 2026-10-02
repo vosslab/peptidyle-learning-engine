@@ -8,8 +8,14 @@
   margin-top: 0;
 }
 
+.record-collection__state--loading {
+  border-inline-start: var(--ple-space-1) solid var(--ple-accent);
+  color: var(--ple-ink);
+}
+
 .record-collection__state--error {
   border-inline-start: var(--ple-space-1) solid var(--ple-danger);
+  color: var(--ple-danger);
 }
 
 .record-sequence,
@@ -82,7 +88,7 @@
 
 .record-table__scroll {
   overflow-x: auto;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }

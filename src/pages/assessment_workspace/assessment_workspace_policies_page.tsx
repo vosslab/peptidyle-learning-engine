@@ -1,6 +1,10 @@
 import { A } from "@solidjs/router";
 import {
   ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
+  NO_CLOSING_TIME_GUIDANCE,
+  NO_OPENING_TIME_GUIDANCE,
+  OPTIONAL_DURATION_OVERRIDE_GUIDANCE,
+  UNLIMITED_ATTEMPTS_GUIDANCE,
   assessmentDurationDefaultDescription,
   assessmentDurationOverrideMinutesDraft,
   assessmentDurationOverrideMinutesError,
@@ -57,6 +61,12 @@ const FEEDBACK_FIELDS = [
     "class_statistics",
     "Class statistics",
     "Default: Never. Choose a later timing only when sharing class statistics is appropriate.",
+  ],
+  ["hints", "Hints", "Default: Never. This timing is separate from correct-answer disclosure."],
+  [
+    "worked_solutions",
+    "Worked Solutions",
+    "Default: Never. This timing is separate from Hints and from correct-answer disclosure.",
   ],
 ] as const;
 
@@ -120,12 +130,6 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   const [timeLimit, setTimeLimit] = createSignal(
     assessmentDurationOverrideMinutesDraft(initial.assessmentAttemptTimeLimitSeconds),
   );
-  const [legacyTimeLimitSeconds, setLegacyTimeLimitSeconds] = createSignal<number | null>(
-    initial.assessmentAttemptTimeLimitSeconds !== null &&
-      initial.assessmentAttemptTimeLimitSeconds % 60 !== 0
-      ? initial.assessmentAttemptTimeLimitSeconds
-      : null,
-  );
   const oneAttemptOnly = initial.assessmentType === "quiz" || initial.assessmentType === "exam";
   const [attemptLimit, setAttemptLimit] = createSignal(
     oneAttemptOnly ? "1" : (initial.attemptLimit?.toString() ?? ""),
@@ -161,7 +165,6 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       (dueDate() !== "" && parsedDueAt === null) ||
       parsedAvailableAt === undefined ||
       parsedClosesAt === undefined ||
-      legacyTimeLimitSeconds() !== null ||
       parsedTimeLimit === undefined ||
       parsedAttemptLimit === undefined
     )
@@ -253,7 +256,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     if (input === null) {
       setPolicyState((state) => baseAssessmentPolicyDraftChanged(state, state.draft, false));
       setMessage(
-        assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) ??
+        assessmentDurationOverrideMinutesError(timeLimit()) ??
           "Enter complete local dates and times and positive whole-number limits, or leave them blank.",
       );
       return;
@@ -291,12 +294,6 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     setClosesDate(optionalScheduleDateDraft(current.closesAt));
     setClosesTime(optionalScheduleTimeDraft(current.closesAt));
     setTimeLimit(assessmentDurationOverrideMinutesDraft(current.assessmentAttemptTimeLimitSeconds));
-    setLegacyTimeLimitSeconds(
-      current.assessmentAttemptTimeLimitSeconds !== null &&
-        current.assessmentAttemptTimeLimitSeconds % 60 !== 0
-        ? current.assessmentAttemptTimeLimitSeconds
-        : null,
-    );
     setAttemptLimit(oneAttemptOnly ? "1" : (current.attemptLimit?.toString() ?? ""));
     setLateWorkRule(current.lateWorkRule);
     setActivityRules(current.activityRules);
@@ -557,6 +554,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                 </small>
               )}
             </Show>
+            <small>{NO_OPENING_TIME_GUIDANCE}</small>
           </div>
           <div class="assessment-workspace-schedule" role="group" aria-label="Due date and time">
             <label class="assessment-editor-field">
@@ -626,6 +624,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                 </small>
               )}
             </Show>
+            <small>{NO_CLOSING_TIME_GUIDANCE}</small>
           </div>
           <label class="assessment-editor-field">
             Assessment duration override in minutes (optional, maximum 720 minutes / 12 hours)
@@ -636,19 +635,14 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
               step="1"
               inputmode="numeric"
               value={timeLimit()}
-              aria-invalid={
-                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) !==
-                undefined
-              }
+              aria-invalid={assessmentDurationOverrideMinutesError(timeLimit()) !== undefined}
               aria-describedby={
-                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) ===
-                undefined
+                assessmentDurationOverrideMinutesError(timeLimit()) === undefined
                   ? undefined
                   : "assessment-duration-override-error"
               }
               onInput={(event) => {
                 setTimeLimit(event.currentTarget.value);
-                setLegacyTimeLimitSeconds(null);
                 recordDraft();
               }}
             />
@@ -664,13 +658,10 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                     0,
                   ),
               )}{" "}
-              Leave the override blank to use this calculated default. Enter a whole number of
-              minutes from 1 to {ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} for a specific
-              override.
+              {OPTIONAL_DURATION_OVERRIDE_GUIDANCE} Enter a whole number of minutes from 1 to{" "}
+              {ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} for a specific override.
             </small>
-            <Show
-              when={assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds())}
-            >
+            <Show when={assessmentDurationOverrideMinutesError(timeLimit())}>
               {(error) => (
                 <small id="assessment-duration-override-error" role="alert">
                   {error()}
@@ -692,6 +683,9 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
             />
             <Show when={oneAttemptOnly}>
               <small>Quiz and Exam permit exactly one Assessment Attempt.</small>
+            </Show>
+            <Show when={!oneAttemptOnly}>
+              <small>{UNLIMITED_ATTEMPTS_GUIDANCE}</small>
             </Show>
           </label>
           <p>

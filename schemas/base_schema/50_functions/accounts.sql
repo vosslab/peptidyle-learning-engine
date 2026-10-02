@@ -307,7 +307,8 @@ BEGIN
     IF p_normalized_email IS NULL
        OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
        OR p_normalized_email IS DISTINCT FROM lower(btrim(p_normalized_email))
-       OR p_delivery_email IS NULL OR char_length(btrim(p_delivery_email)) NOT BETWEEN 3 AND 320 THEN
+       OR p_delivery_email IS NULL OR char_length(btrim(p_delivery_email)) NOT BETWEEN 3 AND 320
+       OR p_normalized_email !~ '^[^@[:space:]]+@([a-z0-9-]+\.)+edu$' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student Account input is invalid';
     END IF;
     SELECT account.account_id INTO v_account_id

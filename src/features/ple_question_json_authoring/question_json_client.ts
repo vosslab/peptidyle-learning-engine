@@ -306,12 +306,10 @@ export function createPleQuestionJsonClient(
   ): Promise<PleQuestionJsonImageDescriptor> {
     if (image.size < 1 || image.size > 8 * 1024 * 1024)
       throw new PleQuestionJsonProtocolError("Choose an image no larger than 8 MiB.");
-    if (!["image/png", "image/jpeg", "image/webp"].includes(image.type))
-      throw new PleQuestionJsonProtocolError(
-        "Choose a PNG, JPEG, or WebP image. SVG is not yet supported.",
-      );
+    if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(image.type))
+      throw new PleQuestionJsonProtocolError("Choose a PNG, JPEG, WebP, or SVG image.");
     const path = `/api/authoring/drafts/${encodedId(draftQuestion)}/images`;
-    // ASVS 2.2.2: browser checks aid usability; the server verifies the actual raster bytes.
+    // ASVS 2.2.2: browser checks aid usability; the server verifies the bytes and rewrites SVG.
     const response = await fetchImplementation(sameOriginPath(basePath, path), {
       method: "POST",
       credentials: "same-origin",

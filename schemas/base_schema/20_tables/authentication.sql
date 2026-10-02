@@ -26,7 +26,6 @@ CREATE TABLE ple_private.authentication_rate_limit (
 );
 
 
-
 CREATE TABLE ple_private.email_authentication_challenge (
     challenge_id uuid PRIMARY KEY,
     token_hash bytea NOT NULL UNIQUE CHECK (pg_catalog.octet_length(token_hash) = 32),
@@ -74,8 +73,6 @@ CREATE TABLE ple_private.passkey (
 );
 
 
-
-
 -- Sysadmin TOTP is a second factor, never a selector or demo-only shortcut.
 -- The encrypted seed is AEAD-wrapped by the server-held key ring before it
 -- reaches this table; plaintext seed material has no database column.
@@ -101,7 +98,6 @@ CREATE TABLE ple_private.sysadmin_totp_attestation (
 );
 
 
-
 -- An Account may use a verified 30-second TOTP counter once only.  It is
 -- intentionally retained after the pending attestation expires so replay is
 -- impossible across browser-bound ceremonies (ASVS 6.5.1).
@@ -111,7 +107,6 @@ CREATE TABLE ple_private.sysadmin_totp_used_counter (
     used_at timestamp with time zone NOT NULL,
     PRIMARY KEY (account_id, totp_counter)
 );
-
 
 
 -- A reservation exists only after PostgreSQL has resolved a live, matching
@@ -165,111 +160,6 @@ COMMENT ON TABLE ple_private.sysadmin_totp_verification_attempt IS 'role: event,
 
 COMMENT ON TABLE ple_private.authenticated_session IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
 
-COMMENT ON TABLE ple_private.account_authentication_email IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authentication_rate_limit IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.email_authentication_challenge IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey_ceremony IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_credential IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_attestation IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_used_counter IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_verification_attempt IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authenticated_session IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-
-
-COMMENT ON TABLE ple_private.account_authentication_email IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authentication_rate_limit IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.email_authentication_challenge IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey_ceremony IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_credential IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_attestation IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_used_counter IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_verification_attempt IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authenticated_session IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-
-
-COMMENT ON TABLE ple_private.account_authentication_email IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authentication_rate_limit IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.email_authentication_challenge IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey_ceremony IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_credential IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_attestation IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_used_counter IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_verification_attempt IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authenticated_session IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.account_authentication_email IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authentication_rate_limit IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.email_authentication_challenge IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey_ceremony IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_credential IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_attestation IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_used_counter IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_verification_attempt IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authenticated_session IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-
-
-COMMENT ON TABLE ple_private.account_authentication_email IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authentication_rate_limit IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.email_authentication_challenge IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey_ceremony IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.passkey IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_credential IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_attestation IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_used_counter IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.sysadmin_totp_verification_attempt IS 'role: event, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
-
-COMMENT ON TABLE ple_private.authenticated_session IS 'role: current state, deleted by Account closure and the authentication retention sweep. HUMAN_GUIDANCE.md Authentication.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.email_authentication_challenge.consumed_at IS 'NULL means this optional fact is absent.';
@@ -280,4 +170,3 @@ COMMENT ON COLUMN ple_private.passkey.revoked_at IS 'NULL means this optional fa
 COMMENT ON COLUMN ple_private.sysadmin_totp_attestation.consumed_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.sysadmin_totp_verification_attempt.locked_until IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.authenticated_session.revoked_at IS 'NULL means this optional fact is absent.';
-

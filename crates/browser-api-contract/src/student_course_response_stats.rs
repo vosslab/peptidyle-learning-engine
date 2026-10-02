@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentCourseResponseQuestionStats {
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    /// Current lineage title. Empty when that title is absent.
+    pub question_title: String,
     pub full_credit_attempt_count: u64,
     pub partial_credit_attempt_count: u64,
     pub incorrect_attempt_count: u64,
@@ -39,6 +41,7 @@ mod tests {
                         .expect("Published Question ID"),
                     revision_number: QuestionRevisionNumber::new(3).expect("revision"),
                 },
+                question_title: "Peptide bond".to_owned(),
                 full_credit_attempt_count: 1,
                 partial_credit_attempt_count: 1,
                 incorrect_attempt_count: 0,
@@ -57,6 +60,7 @@ mod tests {
             wire["questions"][0]["publishedQuestionRevisionTuple"]["revisionNumber"],
             3
         );
+        assert_eq!(wire["questions"][0]["questionTitle"], "Peptide bond");
         assert_eq!(wire["questions"][0]["disclosedAttemptCount"], 2);
         assert_eq!(
             wire["questions"][0]["averageDisplayDurationMs"],

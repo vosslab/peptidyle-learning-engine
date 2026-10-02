@@ -1,10 +1,5 @@
 import type { LocalDateAndTime } from "../generated/api/LocalDateAndTime";
 
-/** Returns the browser's resolved IANA zone for callers that preserve browser-local display. */
-export function browserDisplayTimeZone(): string {
-  return new Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
-
 /** Creates a formatter for instants shown in one explicitly chosen display time zone. */
 export function createDisplayDateTimeFormatter(
   displayTimeZone: string,

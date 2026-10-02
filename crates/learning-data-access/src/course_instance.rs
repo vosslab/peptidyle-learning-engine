@@ -11,7 +11,7 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{DiscoveryPageRequest, Page, SessionTokenHash, StoreError};
 
 /// Closed source for a new live Course Instance.
 ///
@@ -95,6 +95,35 @@ pub struct CourseInstanceSummary {
 pub enum CourseInstanceLifecycleState {
     Active,
     Inactive,
+}
+
+/// Closed Student-data retention state. The value is Course status, not a Student count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CourseRetentionLifecycleState {
+    Active,
+    Archived,
+    Deleted,
+}
+
+/// Sysadmin inspection of one installation Course. Student records stay out of this projection.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallationCourseInspection {
+    /// Public Course Instance ID.
+    pub id: CourseInstanceId,
+    /// Compact Course Instance name.
+    pub short_name: String,
+    /// Descriptive Course Instance name.
+    pub long_name: String,
+    /// Inclusive Course Term.
+    pub term: CourseTerm,
+    /// Course activity, independent of Student-data retention.
+    pub lifecycle_state: CourseInstanceLifecycleState,
+    /// Student-data retention state, without enrollment counts.
+    pub retention_lifecycle_state: CourseRetentionLifecycleState,
+    /// Verified display names of the active Instructors. Empty when none are recorded.
+    pub instructor_display_names: Vec<String>,
 }
 
 fn valid_name(value: &str) -> bool {
@@ -208,6 +237,21 @@ pub trait CourseInstanceStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<CourseCreationInstructor>, StoreError>;
+
+    /// Lists installation Courses for the current Sysadmin. An empty query returns the first page.
+    async fn list_installation_courses(
+        &self,
+        session_token_hash: SessionTokenHash,
+        query: &str,
+        page: DiscoveryPageRequest,
+    ) -> Result<Page<InstallationCourseInspection>, StoreError>;
+
+    /// Reads one installation Course for the current Sysadmin.
+    async fn load_installation_course(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+    ) -> Result<InstallationCourseInspection, StoreError>;
 }
 
 /// Accepted metadata state; no-op updates keep their validator.

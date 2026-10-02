@@ -3,7 +3,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { userRoleHomePath, userRoleHomeRouteId, ROUTE_CONTRACT } from "../src/route_contract.ts";
+import { profileRoleMayManageImage } from "../src/features/profile_avatar/profile_avatar_role.ts";
+import {
+  userRoleHomePath,
+  userRoleHomeRouteId,
+  userRoleMayAccessRoute,
+  ROUTE_CONTRACT,
+} from "../src/route_contract.ts";
 import { deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 import { ribbonSchemaFor } from "../src/ribbon/ribbon_schema.ts";
 
@@ -72,4 +78,15 @@ test("Profile is the only common authenticated-self Account preference route", (
     ROUTE_CONTRACT.some((candidate) => candidate.path === "/account-settings"),
     false,
   );
+});
+
+test("student route access and staff image management follow User Role", () => {
+  assert.equal(profileRoleMayManageImage("student"), false);
+  assert.equal(profileRoleMayManageImage("instructor"), true);
+  assert.equal(profileRoleMayManageImage("sysadmin"), true);
+  for (const routeId of ["courseAppearance", "questionDrafts", "questionDraftEditor"]) {
+    assert.equal(userRoleMayAccessRoute(routeId, "student"), false, routeId);
+    assert.equal(userRoleMayAccessRoute(routeId, "instructor"), true, routeId);
+  }
+  assert.equal(userRoleMayAccessRoute("profile", "student"), true);
 });

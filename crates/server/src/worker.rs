@@ -11,58 +11,15 @@ use tokio::io::AsyncWriteExt;
 
 use adapter_webwork::{HttpWebworkRenderer, WebworkAdapter};
 use learning_data_access::{
-    AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,
-    LibraryWatchNotificationStore, StoreError, StudentAssessmentAttemptFinalizationEvaluation,
-    StudentAssessmentAttemptFinalizationPreparation,
+    AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation, StoreError,
+    StudentAssessmentAttemptFinalizationEvaluation,
 };
 use objects::s3::S3ObjectStore;
 
 use crate::assessment_delivery::direct_finalization;
 
-/// Composes two closed worker capabilities without granting either raw tables.
-pub struct WorkerStores<E, W> {
-    pub expiry: E,
-    pub watches: W,
-}
-
-#[async_trait::async_trait]
-impl<E: AssessmentAttemptExpirySweepStore + Send + Sync, W: Send + Sync>
-    AssessmentAttemptExpirySweepStore for WorkerStores<E, W>
-{
-    async fn prepare_expired_assessment_attempt_finalizations(
-        &self,
-        limit: u32,
-    ) -> Result<Vec<ExpiredAssessmentAttemptFinalizationPreparation>, StoreError> {
-        self.expiry
-            .prepare_expired_assessment_attempt_finalizations(limit)
-            .await
-    }
-    async fn commit_expired_assessment_attempt_finalization(
-        &self,
-        id: uuid::Uuid,
-        preparation: StudentAssessmentAttemptFinalizationPreparation,
-        evaluations: Vec<StudentAssessmentAttemptFinalizationEvaluation>,
-    ) -> Result<(), StoreError> {
-        self.expiry
-            .commit_expired_assessment_attempt_finalization(id, preparation, evaluations)
-            .await
-    }
-}
-
-#[async_trait::async_trait]
-impl<E: Send + Sync, W: LibraryWatchNotificationStore> LibraryWatchNotificationStore
-    for WorkerStores<E, W>
-{
-    async fn materialize_library_watch_notifications(&self, limit: u16) -> Result<u32, StoreError> {
-        self.watches
-            .materialize_library_watch_notifications(limit)
-            .await
-    }
-}
-
 const WORKER_READINESS_BIND_ADDRESS: &str = "0.0.0.0:3001";
 const ATTEMPT_EXPIRY_SWEEP_LIMIT: u32 = 100;
-const LIBRARY_WATCH_NOTIFICATION_LIMIT: u16 = 100;
 // The Student-visible expiry window is intentionally about a minute. This
 // also bounds retries of an unavailable backend without per-Attempt state.
 const ATTEMPT_EXPIRY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -70,9 +27,7 @@ const ATTEMPT_EXPIRY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::
 /// Sweep expired Assessment Attempts while serving the private readiness socket.
 // ASVS 2.3.1 and 2.3.3: expiry follows the same server-owned submission order
 // and PostgreSQL atomically rechecks the captured snapshot before committing it.
-pub async fn run_until_shutdown<
-    S: AssessmentAttemptExpirySweepStore + LibraryWatchNotificationStore,
->(
+pub async fn run_until_shutdown<S: AssessmentAttemptExpirySweepStore>(
     store: S,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
@@ -94,30 +49,14 @@ pub async fn run_until_shutdown<
     }
 }
 
-async fn run_attempt_expiry_sweep<
-    S: AssessmentAttemptExpirySweepStore + LibraryWatchNotificationStore,
->(
+async fn run_attempt_expiry_sweep<S: AssessmentAttemptExpirySweepStore>(
     store: S,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Result<()> {
     loop {
         run_attempt_expiry_sweep_iteration(&store, &objects, webwork.as_ref()).await?;
-        materialize_library_watch_notifications_iteration(&store).await;
         tokio::time::sleep(ATTEMPT_EXPIRY_SWEEP_INTERVAL).await;
-    }
-}
-
-/// Watch delivery is retryable background work. It must not take down the
-/// expiry worker when one bounded materialization attempt is unavailable.
-async fn materialize_library_watch_notifications_iteration<S: LibraryWatchNotificationStore>(
-    store: &S,
-) {
-    if let Err(error) = store
-        .materialize_library_watch_notifications(LIBRARY_WATCH_NOTIFICATION_LIMIT)
-        .await
-    {
-        tracing::warn!(event = "library_watch_materialization_failed", error = %error);
     }
 }
 
@@ -154,7 +93,7 @@ async fn finalize_prepared_expired_attempt<S: AssessmentAttemptExpirySweepStore>
     let evaluations = match evaluations {
         Ok(evaluations) => evaluations,
         Err(error) => {
-            log_expiry_error(assessment_attempt_id, "evaluation", &error);
+            log_expiry_error("evaluation", &error);
             return;
         }
     };
@@ -166,16 +105,15 @@ async fn finalize_prepared_expired_attempt<S: AssessmentAttemptExpirySweepStore>
         )
         .await
     {
-        log_expiry_error(assessment_attempt_id, "commit", &error);
+        log_expiry_error("commit", &error);
     }
 }
 
-fn log_expiry_error(assessment_attempt_id: uuid::Uuid, stage: &'static str, error: &StoreError) {
+fn log_expiry_error(stage: &'static str, error: &StoreError) {
     tracing::warn!(
         event = "attempt_expiry_finalization_failed",
-        assessment_attempt_id = %assessment_attempt_id,
         stage,
-        error = %error,
+        error_kind = error.diagnostic_kind(),
     );
 }
 

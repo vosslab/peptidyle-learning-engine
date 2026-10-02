@@ -8,7 +8,7 @@ use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportInput,
-    CourseRosterStore, SessionTokenHash, StoreError,
+    CourseRosterStore, ResetStudentSignupAccess, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for Course Roster Import, claim, and access revocation.
@@ -169,6 +169,64 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(())
     }
+
+    async fn reset_student_signup_access(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+        roster_id: String,
+    ) -> Result<ResetStudentSignupAccess, StoreError> {
+        validate_roster_id(&roster_id)?;
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let row = sqlx::query(
+            "SELECT roster_id, roster_email, course_name \
+             FROM ple_api.reset_student_signup_access($1, $2)",
+        )
+        .bind(course_instance_id.as_string())
+        .bind(&roster_id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let reset = ResetStudentSignupAccess {
+            roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
+            email: row.try_get("roster_email").map_err(map_sqlx_error)?,
+            course_name: row.try_get("course_name").map_err(map_sqlx_error)?,
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(reset)
+    }
+
+    async fn restore_student_course_access(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_instance_id: CourseInstanceId,
+        roster_id: String,
+    ) -> Result<(), StoreError> {
+        validate_roster_id(&roster_id)?;
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        sqlx::query("SELECT ple_api.restore_student_course_access($1, $2, $3)")
+            .bind(random_uuid()?)
+            .bind(course_instance_id.as_string())
+            .bind(&roster_id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(())
+    }
+}
+
+fn validate_roster_id(roster_id: &str) -> Result<(), StoreError> {
+    if roster_id.is_empty() || roster_id.len() > 64 {
+        return Err(StoreError::InvalidRecord(
+            "Course roster identifier is invalid".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<CourseRosterEntry, StoreError> {

@@ -9,17 +9,18 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     body::to_bytes,
-    extract::{Path, Request, State},
+    extract::{Path, Query, Request, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::get,
 };
 use learning_data_access::{
-    QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor, SessionTokenHash,
+    Cursor, DiscoveryPageRequest, DiscoveryPageSize, Page, QuestionStarProjection,
+    QuestionStarStore, QuestionStarredInstructor, SessionTokenHash, StarredQuestionSummary,
     StoreError,
     postgres::{PostgresQuestionStarStore, PostgresSessionStore},
 };
-use question_model::{UserRole, PublishedQuestionId};
+use question_model::{PublishedQuestionId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -39,6 +40,7 @@ pub fn question_stewardship_router(
     stars: PostgresQuestionStarStore,
 ) -> Router {
     Router::new()
+        .route("/api/questions/stewardship/stars", get(list_stars))
         .route(
             "/api/questions/by-id/{question_id}/stewardship/star",
             get(read_star).put(set_star),
@@ -77,6 +79,43 @@ impl From<QuestionStarredInstructor> for StarredInstructorResponse {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StarredQuestionListResponse {
+    items: Vec<StarredQuestionItemResponse>,
+    next_cursor: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StarredQuestionListQuery {
+    cursor: Option<String>,
+    page_size: Option<u16>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StarredQuestionItemResponse {
+    question_id: String,
+    question_title: String,
+}
+
+impl From<Page<StarredQuestionSummary>> for StarredQuestionListResponse {
+    fn from(value: Page<StarredQuestionSummary>) -> Self {
+        Self {
+            items: value
+                .items
+                .into_iter()
+                .map(|item| StarredQuestionItemResponse {
+                    question_id: item.question_id.as_str().to_owned(),
+                    question_title: item.question_title,
+                })
+                .collect(),
+            next_cursor: value.next_cursor.map(|cursor| cursor.as_str().to_owned()),
+        }
+    }
+}
+
 impl From<QuestionStarProjection> for StarResponse {
     fn from(value: QuestionStarProjection) -> Self {
         Self {
@@ -88,6 +127,58 @@ impl From<QuestionStarProjection> for StarResponse {
                 .map(Into::into)
                 .collect(),
         }
+    }
+}
+
+async fn list_stars(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    query: Result<Query<StarredQuestionListQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
+    let (cursor, page_size) = match query {
+        Ok(Query(query)) => (query.cursor, query.page_size.unwrap_or(50)),
+        Err(_) => return route_error(StatusCode::BAD_REQUEST, "Starred Question page is invalid"),
+    };
+    let size = match DiscoveryPageSize::new(page_size) {
+        Ok(size) => size,
+        Err(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Starred Question page size is invalid",
+            );
+        }
+    };
+    let page = match cursor {
+        Some(value) if value.len() <= 1024 => match Cursor::parse(value) {
+            Ok(cursor) => DiscoveryPageRequest::after(cursor, size),
+            Err(_) => {
+                return route_error(
+                    StatusCode::BAD_REQUEST,
+                    "Starred Question cursor is invalid",
+                );
+            }
+        },
+        Some(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Starred Question cursor is invalid",
+            );
+        }
+        None => DiscoveryPageRequest::first(size),
+    };
+    let session = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .stars
+        .list_current_starred_questions(session, page)
+        .await
+    {
+        Ok(page) => {
+            crate::auth::no_store(Json(StarredQuestionListResponse::from(page)).into_response())
+        }
+        Err(error) => store_error_response(error),
     }
 }
 
@@ -175,9 +266,7 @@ async fn instructor_session_hash(
     {
         // ASVS 8.2.1 and 8.3.1: role authorization is server-derived. The
         // subsequent database procedure independently rechecks active status.
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

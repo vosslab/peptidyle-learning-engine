@@ -270,10 +270,11 @@ BEGIN
     );
     INSERT INTO ple_private.draft_question_metadata(
         draft_question_id, question_title, question_description,
-        general_feedback, language, created_at, updated_at
+        general_feedback, hint, worked_solution, language, created_at, updated_at
     ) VALUES (
         p_draft_question_uuid, source_metadata.question_title,
         source_metadata.question_description, source_revision.general_feedback,
+        source_revision.hint, source_revision.worked_solution,
         source_metadata.language, created_at, created_at);
     INSERT INTO ple_private.object_record(
         object_record_id, object_address, object_storage_area, object_data_class,
@@ -365,13 +366,14 @@ CREATE FUNCTION ple_private.load_authoring_draft(p_draft_question_uuid uuid)
 RETURNS TABLE (
     draft_question_id uuid, authoring_workspace_id uuid,
     draft_question_edit_number bigint, question_title text, question_description text,
-    general_feedback text, language text, question_type text, object_record_id uuid, object_address jsonb, sha256 bytea,
+    general_feedback text, hint text, worked_solution text, language text, question_type text, object_record_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT question.draft_question_id, question.authoring_workspace_id,
            question.draft_question_edit_number, metadata.question_title,
-           metadata.question_description, metadata.general_feedback, metadata.language,
+           metadata.question_description, metadata.general_feedback, metadata.hint,
+           metadata.worked_solution, metadata.language,
            binding.question_type, record.object_record_id,
            record.object_address, record.sha256, record.size_bytes, record.media_type,
            pg_catalog.round(extract(epoch FROM record.created_at) * 1000)::bigint
@@ -584,10 +586,19 @@ $$;
 
 -- General feedback is deliberately authored PLE metadata.  This is the one
 -- metadata editor boundary: it neither reads nor parses backend source or
--- dynamic backend feedback.  A Draft edit advances the ordinary Draft CAS;
--- publication then records the exact text on a new immutable Revision.
+-- dynamic backend feedback.  Hint and Worked Solution use the same boundary.
+-- p_replace_support false leaves those two columns unchanged, so an ordinary
+-- general-feedback save cannot wipe them.  A Draft edit advances the ordinary
+-- Draft CAS; publication then records the exact text on a new immutable Revision.
+-- ASVS 2.2.1 and 2.2.2: each text is trimmed, 1-4000 characters, and free of controls.
+-- ASVS 8.2.3: this function does not copy WeBWorK source into these columns.
 CREATE FUNCTION ple_private.save_authoring_draft_general_feedback(
-    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_general_feedback text
+    p_draft_question_uuid uuid,
+    p_expected_draft_question_edit_number bigint,
+    p_general_feedback text,
+    p_hint text DEFAULT NULL,
+    p_worked_solution text DEFAULT NULL,
+    p_replace_support boolean DEFAULT false
 ) RETURNS TABLE (draft_question_edit_number bigint, general_feedback text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -597,15 +608,23 @@ DECLARE
 BEGIN
     IF p_draft_question_uuid IS NULL
        OR p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
+       OR p_replace_support IS NULL
        OR (p_general_feedback IS NOT NULL AND (
            p_general_feedback <> btrim(p_general_feedback)
            OR char_length(p_general_feedback) NOT BETWEEN 1 AND 4000
+           OR p_general_feedback ~ '[[:cntrl:]]'
+       ))
+       OR (p_hint IS NOT NULL AND (
+           p_hint <> btrim(p_hint)
+           OR char_length(p_hint) NOT BETWEEN 1 AND 4000
+           OR p_hint ~ '[[:cntrl:]]'
+       ))
+       OR (p_worked_solution IS NOT NULL AND (
+           p_worked_solution <> btrim(p_worked_solution)
+           OR char_length(p_worked_solution) NOT BETWEEN 1 AND 4000
+           OR p_worked_solution ~ '[[:cntrl:]]'
        ))
        OR NOT ple_api.current_session_account_is_instructor() THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Draft Question general feedback arguments are invalid';
-    END IF;
-    IF p_general_feedback IS NOT NULL AND p_general_feedback ~ '[[:cntrl:]]' THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question general feedback arguments are invalid';
     END IF;
@@ -625,6 +644,8 @@ BEGIN
     END IF;
     UPDATE ple_private.draft_question_metadata
        SET general_feedback = p_general_feedback,
+           hint = CASE WHEN p_replace_support THEN p_hint ELSE hint END,
+           worked_solution = CASE WHEN p_replace_support THEN p_worked_solution ELSE worked_solution END,
            updated_at = pg_catalog.clock_timestamp()
      WHERE draft_question_id = v_draft_question_uuid;
     UPDATE ple_private.draft_question AS question
@@ -741,7 +762,7 @@ CREATE FUNCTION ple_api.load_authoring_draft(p_draft_question_uuid uuid)
 RETURNS TABLE (
     draft_question_id uuid, authoring_workspace_id uuid,
     draft_question_edit_number bigint, question_title text, question_description text,
-    general_feedback text, language text, question_type text, object_record_id uuid, object_address jsonb, sha256 bytea,
+    general_feedback text, hint text, worked_solution text, language text, question_type text, object_record_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -775,12 +796,18 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.save_authoring_draft_general_feedback(
-    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_general_feedback text
+    p_draft_question_uuid uuid,
+    p_expected_draft_question_edit_number bigint,
+    p_general_feedback text,
+    p_hint text DEFAULT NULL,
+    p_worked_solution text DEFAULT NULL,
+    p_replace_support boolean DEFAULT false
 ) RETURNS TABLE (draft_question_edit_number bigint, general_feedback text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.save_authoring_draft_general_feedback(
-        p_draft_question_uuid, p_expected_draft_question_edit_number, p_general_feedback)
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_general_feedback,
+        p_hint, p_worked_solution, p_replace_support)
 $$;
 
 CREATE FUNCTION ple_api.delete_draft_question(

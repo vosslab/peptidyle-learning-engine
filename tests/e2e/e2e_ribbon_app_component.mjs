@@ -166,7 +166,7 @@ test("required Instructor choices remain visible without inventing unfinished ro
       new RegExp(
         [
           `data-ribbon-control="${control.id}"[^>]*>[\\s\\S]*?`,
-          `class="ple-app-ribbon__control-label">${control.label}</span>`,
+          `class="ple-app-ribbon__control-label"[^>]*>${control.label}</span>`,
         ].join(""),
       ),
       `${control.label} remains visibly identified without obsolete availability annotation`,

@@ -11,21 +11,21 @@ SET CONSTRAINTS ALL DEFERRED;
 SET LOCAL ROLE ple_data_owner;
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease target', '',
-    NULL, NULL, NULL, 90, NULL,
+    NULL, NULL, NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never',
     'regular_assignment'
 ), 'hex') AS target_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Statistics survivor', '',
-    NULL, NULL, NULL, 90, NULL,
+    NULL, NULL, NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never',
     'regular_assignment'
 ), 'hex') AS survivor_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease lock race', '',
-    NULL, NULL, NULL, 90, NULL,
+    NULL, NULL, NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never',
     'regular_assignment'
@@ -38,8 +38,9 @@ INSERT INTO ple_private.account (account_id, user_role, created_at)
 VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp())
 RETURNING account_id AS instructor_id \gset
 SELECT set_config('ple.test_unrelease_instructor_id', :'instructor_id', false);
+SELECT 'U0000001' || ple_private.crockford_checksum_character('U0000001') AS student_account_id \gset
 INSERT INTO ple_private.account (account_id, user_role, created_at)
-VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp())
+VALUES (:'student_account_id', 'student', pg_catalog.transaction_timestamp())
 RETURNING account_id AS student_id \gset
 SELECT set_config('ple.test_unrelease_student_id', :'student_id', false);
 

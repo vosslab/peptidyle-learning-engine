@@ -66,6 +66,17 @@ impl AuthenticationEmail {
     pub fn domain(&self) -> &EmailDomain {
         &self.domain
     }
+
+    /// Accepts a United States institutional Student domain and rejects lookalikes.
+    ///
+    /// The domain is the full normalized host, so `university.edu.example` does not pass.
+    pub fn require_institutional_student_domain(&self) -> Result<(), AuthenticationEmailError> {
+        if self.domain.as_str().ends_with(".edu") {
+            Ok(())
+        } else {
+            Err(AuthenticationEmailError::NotInstitutional)
+        }
+    }
 }
 
 impl std::fmt::Debug for AuthenticationEmail {
@@ -117,11 +128,19 @@ impl EmailDomain {
 pub enum AuthenticationEmailError {
     InvalidEmail,
     InvalidDomain,
+    NotInstitutional,
 }
 
 impl std::fmt::Display for AuthenticationEmailError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("authentication email is invalid")
+        match self {
+            Self::NotInstitutional => {
+                formatter.write_str("student authentication email must be institutional")
+            }
+            Self::InvalidEmail | Self::InvalidDomain => {
+                formatter.write_str("authentication email is invalid")
+            }
+        }
     }
 }
 
@@ -176,6 +195,25 @@ mod tests {
             "a..b@example.edu",
         ] {
             assert!(AuthenticationEmail::parse(value).is_err(), "{value:?}");
+        }
+    }
+
+    #[test]
+    fn student_authentication_email_requires_an_institutional_domain() {
+        let accepted = AuthenticationEmail::parse("Student@Biology.Roosevelt.EDU")
+            .expect("institutional address parses");
+        accepted
+            .require_institutional_student_domain()
+            .expect("edu domain is institutional");
+        assert_eq!(accepted.normalized(), "student@biology.roosevelt.edu");
+
+        for value in ["student@gmail.com", "student@university.edu.example"] {
+            let email = AuthenticationEmail::parse(value).expect(value);
+            assert_eq!(
+                email.require_institutional_student_domain(),
+                Err(AuthenticationEmailError::NotInstitutional),
+                "{value}"
+            );
         }
     }
 }

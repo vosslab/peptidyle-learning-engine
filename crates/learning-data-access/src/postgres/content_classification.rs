@@ -7,8 +7,9 @@ use uuid::Uuid;
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
-    ContentDisciplineAdministrationStore, ContentDisciplineDiscoveryStore, SessionTokenHash,
-    StoreError,
+    ContentDisciplineAdministrationStore, ContentDisciplineDiscoveryStore,
+    ContentDisciplineRequest, ContentDisciplineRequestStore, ContentSubjectCreation,
+    SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -107,6 +108,50 @@ impl PostgresContentClassificationStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(item)
     }
+
+    async fn create_child(
+        &self,
+        token: SessionTokenHash,
+        create_sql: &'static str,
+        list_sql: &'static str,
+        id_column: &'static str,
+        name: String,
+        parent: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let created: Uuid = sqlx::query_scalar(create_sql)
+            .bind(name)
+            .bind(parent)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        let listed = sqlx::query(list_sql)
+            .bind(parent)
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        let Some(item) = matching_item(&listed, id_column, created)? else {
+            return Err(StoreError::Unavailable(
+                "created vocabulary was not readable".to_string(),
+            ));
+        };
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(item)
+    }
+}
+
+fn matching_item(
+    rows: &[sqlx::postgres::PgRow],
+    id_column: &'static str,
+    created: Uuid,
+) -> Result<Option<ContentClassificationItem>, StoreError> {
+    for row in rows {
+        let item = decode_classification_item(row, id_column)?;
+        if item.uuid == created {
+            return Ok(Some(item));
+        }
+    }
+    Ok(None)
 }
 
 fn decode_classification_item(
@@ -126,6 +171,25 @@ fn decode_discipline(row: &sqlx::postgres::PgRow) -> Result<ContentDiscipline, S
             .map_err(map_sqlx_error)?,
         name: row.try_get("name").map_err(map_sqlx_error)?,
         is_retired: row.try_get("is_retired").map_err(map_sqlx_error)?,
+    })
+}
+
+fn decode_discipline_request(
+    row: &sqlx::postgres::PgRow,
+) -> Result<ContentDisciplineRequest, StoreError> {
+    // ASVS 14.2.6: the row exposes the requester Account ID, not an email or display name.
+    Ok(ContentDisciplineRequest {
+        uuid: row
+            .try_get("content_discipline_request_id")
+            .map_err(map_sqlx_error)?,
+        requested_name: row.try_get("requested_name").map_err(map_sqlx_error)?,
+        requested_by_account_id: row
+            .try_get::<String, _>("requested_by_account_id")
+            .map_err(map_sqlx_error)
+            .and_then(|value| {
+                question_model::AccountId::new(value)
+                    .map_err(|message| StoreError::InvalidRecord(message.to_string()))
+            })?,
     })
 }
 
@@ -179,6 +243,114 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
             "SELECT content_subtopic_id, name FROM ple_api.list_content_subtopics($1)",
             "content_subtopic_id",
             Some(topic_uuid),
+        )
+        .await
+    }
+
+    async fn create_subject(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+        discipline_uuid: Uuid,
+    ) -> Result<ContentSubjectCreation, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let created: Uuid = sqlx::query_scalar("SELECT ple_api.create_content_subject($1, $2)")
+            .bind(&name)
+            .bind(discipline_uuid)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        let listed =
+            sqlx::query("SELECT content_subject_id, name FROM ple_api.list_content_subjects($1)")
+                .bind(discipline_uuid)
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+        if let Some(item) = matching_item(&listed, "content_subject_id", created)? {
+            tx.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ContentSubjectCreation {
+                uuid: item.uuid,
+                name: item.name,
+                needs_acceptance: false,
+            });
+        }
+        let found =
+            sqlx::query("SELECT content_subject_id, name FROM ple_api.find_content_subject($1)")
+                .bind(&name)
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+        let Some(item) = matching_item(&found, "content_subject_id", created)? else {
+            return Err(StoreError::Unavailable(
+                "created Subject was not readable".to_string(),
+            ));
+        };
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(ContentSubjectCreation {
+            uuid: item.uuid,
+            name: item.name,
+            needs_acceptance: true,
+        })
+    }
+
+    async fn accept_subject_discipline(
+        &self,
+        token: SessionTokenHash,
+        subject_uuid: Uuid,
+        discipline_uuid: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError> {
+        let mut tx = self.begin(token).await?;
+        sqlx::query("SELECT ple_api.add_content_subject_discipline($1, $2)")
+            .bind(subject_uuid)
+            .bind(discipline_uuid)
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        let listed =
+            sqlx::query("SELECT content_subject_id, name FROM ple_api.list_content_subjects($1)")
+                .bind(discipline_uuid)
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+        let Some(item) = matching_item(&listed, "content_subject_id", subject_uuid)? else {
+            return Err(StoreError::Unavailable(
+                "accepted Subject was not readable".to_string(),
+            ));
+        };
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(item)
+    }
+
+    async fn create_topic(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+        subject_uuid: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError> {
+        self.create_child(
+            token,
+            "SELECT ple_api.create_content_topic($1, $2)",
+            "SELECT content_topic_id, name FROM ple_api.list_content_topics($1)",
+            "content_topic_id",
+            name,
+            subject_uuid,
+        )
+        .await
+    }
+
+    async fn create_subtopic(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+        topic_uuid: Uuid,
+    ) -> Result<ContentClassificationItem, StoreError> {
+        self.create_child(
+            token,
+            "SELECT ple_api.create_content_subtopic($1, $2)",
+            "SELECT content_subtopic_id, name FROM ple_api.list_content_subtopics($1)",
+            "content_subtopic_id",
+            name,
+            topic_uuid,
         )
         .await
     }
@@ -263,5 +435,81 @@ impl ContentDisciplineAdministrationStore for PostgresContentClassificationStore
             None,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl ContentDisciplineRequestStore for PostgresContentClassificationStore {
+    async fn request_discipline(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+    ) -> Result<ContentDisciplineRequest, StoreError> {
+        let mut tx = self.begin(token).await?;
+        // ASVS 1.2.4: the name is a bound parameter. SQL decides who may request.
+        let row = sqlx::query(
+            "SELECT content_discipline_request_id, requested_name, requested_by_account_id \
+             FROM ple_api.request_content_discipline($1)",
+        )
+        .bind(name)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let item = decode_discipline_request(&row)?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(item)
+    }
+
+    async fn list_open_discipline_requests(
+        &self,
+        token: SessionTokenHash,
+    ) -> Result<Vec<ContentDisciplineRequest>, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let rows = sqlx::query(
+            "SELECT content_discipline_request_id, requested_name, requested_by_account_id \
+             FROM ple_api.list_open_content_discipline_requests()",
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let items = rows
+            .iter()
+            .map(decode_discipline_request)
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(items)
+    }
+
+    async fn resolve_discipline_request(
+        &self,
+        token: SessionTokenHash,
+        request_uuid: Uuid,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin(token).await?;
+        sqlx::query("SELECT ple_api.resolve_content_discipline_request($1)")
+            .bind(request_uuid)
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn fulfill_discipline_request(
+        &self,
+        token: SessionTokenHash,
+        request_uuid: Uuid,
+    ) -> Result<ContentDiscipline, StoreError> {
+        let mut tx = self.begin(token).await?;
+        // ASVS 2.3.3: one server operation owns request creation and resolution in one transaction.
+        let discipline_uuid: Uuid =
+            sqlx::query_scalar("SELECT ple_api.fulfill_content_discipline_request($1)")
+                .bind(request_uuid)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+        let item = Self::discipline_for_uuid(&mut tx, discipline_uuid).await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(item)
     }
 }

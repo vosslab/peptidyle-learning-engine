@@ -156,6 +156,13 @@ def test_writer_emits_fixed_production_auth_manifest(
 	)
 	assert values["PLE_E2E_OWNER"] == "live-demo-browser"
 	assert values["PLE_BROWSER_ORIGIN"] == "https://localhost:55001"
+	assert values["PLE_ACCEPT_REQUEST_BROWSER_HOST"] == "1"
+	caddyfile = (pathlib.Path(__file__).resolve().parents[1] / "containers" / "Caddyfile").read_text(
+		encoding="utf-8"
+	)
+	assert "https://:8080 {" in caddyfile
+	assert "tls internal" in caddyfile
+	assert "https://localhost:8080" not in caddyfile
 	assert len(values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"]) == 32
 	assert len(values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"]) == 64
 	assert values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"] != values["MINIO_ROOT_USER"]

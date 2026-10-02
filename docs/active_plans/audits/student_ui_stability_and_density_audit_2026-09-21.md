@@ -68,13 +68,13 @@ tablet, and 1 square captures. Representative evidence includes:
   [phone Course list](../../screenshots/student/phone/course_list.webp)
 - [Not started Coursework](../../screenshots/student/laptop/not_started.webp) and
   [phone Not started Coursework](../../screenshots/student/phone/not_started.webp)
-- [Before you start](../../screenshots/student/laptop/overview_history.png)
-- [Unanswered Question](../../screenshots/student/laptop/question_unanswered_mc.png),
-  [phone Unanswered Question](../../screenshots/student/phone/question_unanswered_mc.png),
-  [tablet Unanswered Question](../../screenshots/student/tablet/question_unanswered_mc.png),
-  and [square Unanswered Question](../../screenshots/student/square/question_unanswered_mc.png)
-- [Question navigation](../../screenshots/student/laptop/assessment_navigation.png)
-- [Submitted Attempt](../../screenshots/student/phone/submitted.png)
+- `overview_history.png`
+- `question_unanswered_mc.png`,
+  `question_unanswered_mc.png`,
+  `question_unanswered_mc.png`,
+  and `question_unanswered_mc.png`
+- `assessment_navigation.png`
+- `submitted.png`
 - [Screenshot-by-screenshot appendix](student_screenshot_breakdown_appendix_2026-09-21.md)
 
 The review uses [Human Guidance](../../HUMAN_GUIDANCE.md), especially the

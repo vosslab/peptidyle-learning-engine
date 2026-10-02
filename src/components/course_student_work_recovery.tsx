@@ -1,10 +1,14 @@
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
+import type { BlueprintCourseClient } from "../api/blueprint_course";
 import type {
   CourseStudentWorkRecoveryClient,
   RecoveredAttempt,
   RecoverySelection,
+  RecoverySummary,
 } from "../api/course_student_work_recovery";
+import { labeledQuestionRecognition } from "../features/recognition_label";
+import { recognitionTitlesResource } from "../features/recognition_titles_load";
 import { ApiRequestError } from "../api/http_client/error";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { RecordDetailList } from "./record_list/record_detail_list";
@@ -61,10 +65,41 @@ function Evidence(props: { readonly label: string; readonly text: string | null 
   );
 }
 
+export function archivedAttemptVisibleFacts(
+  attempt: RecoverySummary,
+  formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
+): { readonly title: string; readonly details: ReadonlyArray<RecordFact> } {
+  return {
+    title: `${attempt.assessmentTitle}: Attempt ${attempt.assessmentAttemptNumber}`,
+    details: [
+      {
+        kind: "text",
+        label: "Roster ID",
+        value:
+          attempt.courseRosterTuple === null ? "Not retained" : attempt.courseRosterTuple.rosterId,
+      },
+      recoveryInstantFact("Started", attempt.startedAt, formatDateTime, "No retained start time"),
+      recoveryInstantFact(
+        "Submitted",
+        attempt.submittedAt,
+        formatDateTime,
+        "No retained submission time",
+      ),
+      recoveryInstantFact(
+        "Deletion cutoff",
+        attempt.deleteDueAt,
+        formatDateTime,
+        "No retained deletion cutoff",
+      ),
+    ],
+  };
+}
+
 /** Deliberate evidence access, not an archive browser or restoration command. */
 export function CourseStudentWorkRecovery(props: {
   readonly courseInstanceId: CourseInstanceId;
-  readonly client: CourseStudentWorkRecoveryClient;
+  readonly client: CourseStudentWorkRecoveryClient &
+    Pick<BlueprintCourseClient, "loadRecognitionTitles">;
   /** Authenticated Instructor Account preference, never the Course or browser zone. */
   readonly displayTimeZone: string;
 }): JSX.Element {
@@ -75,38 +110,21 @@ export function CourseStudentWorkRecovery(props: {
   const [selected, setSelected] = createSignal("");
   const [evidence, setEvidence] = createSignal<RecoveredAttempt>();
   const [message, setMessage] = createSignal("");
+  const recognition = recognitionTitlesResource(
+    () => props.client,
+    () => ({
+      questionIds: (evidence()?.questions ?? []).map(
+        (question) => question.publishedQuestionRevisionTuple.publishedQuestionId,
+      ),
+      poolIds: [],
+    }),
+  );
   type RecoveryAttempt = RecoverySelection["attempts"][number];
   const selectedAttemptIds = (): ReadonlySet<string> =>
     selected() === "" ? new Set() : new Set([selected()]);
   function attemptContent(attempt: RecoveryAttempt): RecordContent {
-    return {
-      title: `${attempt.assessmentTitle}: Attempt ${attempt.assessmentAttemptNumber}`,
-      details: [
-        {
-          kind: "text",
-          label: "Roster ID",
-          value:
-            attempt.courseRosterTuple === null
-              ? "Not retained"
-              : attempt.courseRosterTuple.rosterId,
-        },
-        { kind: "text", label: "Retained Attempt ID", value: attempt.assessmentAttemptId },
-        recoveryInstantFact("Started", attempt.startedAt, formatDateTime, "No retained start time"),
-        recoveryInstantFact(
-          "Submitted",
-          attempt.submittedAt,
-          formatDateTime,
-          "No retained submission time",
-        ),
-        recoveryInstantFact(
-          "Deletion cutoff",
-          attempt.deleteDueAt,
-          formatDateTime,
-          "No retained deletion cutoff",
-        ),
-      ],
-      actions: [],
-    };
+    const visible = archivedAttemptVisibleFacts(attempt, formatDateTime);
+    return { title: visible.title, details: visible.details, actions: [] };
   }
   let generation = 0;
   let action: HTMLButtonElement | undefined;
@@ -302,39 +320,57 @@ export function CourseStudentWorkRecovery(props: {
                 </p>
                 <Evidence label="Exact Attempt facts" text={attempt().attemptFactsText} />
                 <Evidence label="Submission" text={attempt().submissionText} />
+                <Show when={recognition.status()}>
+                  <p role="status">{recognition.status()}</p>
+                </Show>
                 <RecordDetailList
                   ariaLabel="Recovered Question evidence"
                   emptyState={{ title: "No recovered Question evidence is available." }}
                   recordId={(question) => question.issuedPosition.toString()}
                   rows={attempt().questions}
                   state={{ kind: "ready" }}
-                  renderRecord={(question) => (
-                    <div>
-                      <h4>
-                        Issued Question {question.issuedPosition + 1}:{" "}
-                        {question.publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
-                        {question.publishedQuestionRevisionTuple.revisionNumber}
-                      </h4>
-                      <Evidence label="Delivery and exact Revision" text={question.deliveryText} />
-                      <Evidence label="Pool selection" text={question.poolText} />
-                      <Evidence label="Question Attempt" text={question.attemptText} />
-                      <Evidence label="Presentation" text={question.presentationText} />
-                      <Evidence label="Reproduction evidence" text={question.reproductionText} />
-                      <Evidence
-                        label="Retained backend document (inert text)"
-                        text={question.backendDocumentText}
-                      />
-                      <Evidence label="Saved response" text={question.savedResponseText} />
-                      <Evidence label="Finalized response" text={question.finalizedResponseText} />
-                      <Evidence label="Retained grading outcome" text={question.gradingText} />
-                      <Show when={question.unavailableEvidence.length > 0}>
-                        <p>Unavailable evidence:</p>
-                        <ul>
-                          <For each={question.unavailableEvidence}>{(item) => <li>{item}</li>}</For>
-                        </ul>
-                      </Show>
-                    </div>
-                  )}
+                  renderRecord={(question) => {
+                    const revision = question.publishedQuestionRevisionTuple;
+                    const line = labeledQuestionRecognition(
+                      recognition.titles().questions.get(revision.publishedQuestionId),
+                      revision.publishedQuestionId,
+                      revision.revisionNumber,
+                    );
+                    return (
+                      <div>
+                        <h4>
+                          Issued Question {question.issuedPosition + 1}: {line.title}
+                        </h4>
+                        <p>{line.identifier}</p>
+                        <Evidence
+                          label="Delivery and exact Revision"
+                          text={question.deliveryText}
+                        />
+                        <Evidence label="Pool selection" text={question.poolText} />
+                        <Evidence label="Question Attempt" text={question.attemptText} />
+                        <Evidence label="Presentation" text={question.presentationText} />
+                        <Evidence label="Reproduction evidence" text={question.reproductionText} />
+                        <Evidence
+                          label="Retained backend document (inert text)"
+                          text={question.backendDocumentText}
+                        />
+                        <Evidence label="Saved response" text={question.savedResponseText} />
+                        <Evidence
+                          label="Finalized response"
+                          text={question.finalizedResponseText}
+                        />
+                        <Evidence label="Retained grading outcome" text={question.gradingText} />
+                        <Show when={question.unavailableEvidence.length > 0}>
+                          <p>Unavailable evidence:</p>
+                          <ul>
+                            <For each={question.unavailableEvidence}>
+                              {(item) => <li>{item}</li>}
+                            </For>
+                          </ul>
+                        </Show>
+                      </div>
+                    );
+                  }}
                 />
               </section>
             )}

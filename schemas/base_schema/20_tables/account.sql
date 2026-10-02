@@ -4,7 +4,6 @@
 SET LOCAL ROLE ple_private_owner;
 
 
-
 -- This append-only registry is the sole allocation authority for public IDs.
 -- Its primary key covers every public object type, including the shared
 -- Question/Question Pool namespace. Rows are deliberately never reclaimed:
@@ -26,7 +25,6 @@ CREATE TABLE ple_private.account (
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     CHECK (updated_at >= created_at)
 );
-
 
 
 CREATE TABLE ple_private.account_state_event (
@@ -93,7 +91,6 @@ CREATE TABLE ple_audit.instructor_account_creation_event (
 );
 
 
-
 -- A completed identity check is evidence about a candidate identity, not an
 -- Account state.  Keeping it separate means no caller can manufacture an
 -- unapproved Instructor Account and later try to restrict its capabilities.
@@ -144,41 +141,21 @@ SET LOCAL ROLE ple_audit_owner;
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
 
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
 
 
 SET LOCAL ROLE ple_audit_owner;
@@ -186,120 +163,66 @@ SET LOCAL ROLE ple_audit_owner;
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
 
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
 
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
 
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.public_id_reservation IS 'role: vocabulary, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_private.account IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_state_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
-
-COMMENT ON TABLE ple_private.account_time_zone IS 'role: current state, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
-COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.account_state_event.reason IS 'NULL means this optional fact is absent.';

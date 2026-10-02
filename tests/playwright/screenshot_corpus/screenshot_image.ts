@@ -14,8 +14,11 @@ export async function captureScreenshotWebp(page: Page): Promise<Buffer> {
       ["-quiet", "-preset", "text", "-q", "90", "-m", "6", "-o", "-", "--", "-"],
       { encoding: "buffer", maxBuffer: 16 * 1024 * 1024 },
       (error, stdout): void => {
-        if (error !== null) reject(new Error("WebP screenshot encoding failed", { cause: error }));
-        else resolve(stdout);
+        if (error !== null) {
+          reject(new Error(`WebP screenshot encoding failed: ${error.message}`));
+          return;
+        }
+        resolve(stdout);
       },
     );
     if (encoder.stdin === null) {

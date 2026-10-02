@@ -56,6 +56,8 @@ function createdWorkspace(
       question_answer: "never",
       question_answer_explanation: "never",
       class_statistics: "never",
+      hints: "never",
+      worked_solutions: "never",
     },
     displayTimeZone,
     entries: [
@@ -86,12 +88,43 @@ function createdWorkspace(
     questions: [
       {
         publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
+        questionTitle: "Peptide bond",
         description: "A fixed question.",
         bloom,
       },
     ],
   };
 }
+
+test("Course Instance delivery keeps Students, deadlines, release, and attempt settings", async () => {
+  const availableAt = "2026-09-30T09:00:00.000";
+  const dueAt = "2026-10-01T17:00:00.000";
+  const closesAt = "2026-10-02T17:00:00.000";
+  const workspace = decodeLiveAssessmentWorkspace({
+    ...createdWorkspace(),
+    status: "released",
+    availableAt,
+    dueAt,
+    closesAt,
+    attemptLimit: 2,
+  });
+  assert.equal(workspace.status, "released");
+  assert.equal(workspace.availableAt, availableAt);
+  assert.equal(workspace.dueAt, dueAt);
+  assert.equal(workspace.closesAt, closesAt);
+  assert.equal(workspace.attemptLimit, 2);
+  const roster = [{ rosterId: "s1", rosterName: "Ada Lovelace", state: "activeStudent" }];
+  const students = await createHttpApiClient({
+    fetch: async () =>
+      new Response(JSON.stringify(roster), {
+        headers: {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+        },
+      }),
+  }).getLiveCourseRoster(course);
+  assert.deepEqual(students, roster);
+});
 
 test("Assessment Workspace accepts exact browser-supported zones and rejects invalid names", async () => {
   const validFetch = createRecordingFetch(

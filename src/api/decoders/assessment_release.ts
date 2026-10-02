@@ -56,6 +56,7 @@ import {
   decodeIdentifier,
   decodeQuestionDescription,
   decodeQuestionId,
+  decodeQuestionTitle,
   decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
@@ -315,12 +316,21 @@ function entries(value: unknown, path: string): ReadonlyArray<AssessmentEntry> {
 
 function authoredQuestion(value: unknown, path: string): AuthoredAssessmentQuestion {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["publishedQuestionRevisionTuple", "description", "bloom"]);
+  requireOnlyFields(record, path, [
+    "publishedQuestionRevisionTuple",
+    "questionTitle",
+    "description",
+    "bloom",
+  ]);
   return {
     publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
       field(record, "publishedQuestionRevisionTuple", path),
       `${path}.publishedQuestionRevisionTuple`,
       true,
+    ),
+    questionTitle: decodeQuestionTitle(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
     ),
     description: decodeQuestionDescription(
       field(record, "description", path),

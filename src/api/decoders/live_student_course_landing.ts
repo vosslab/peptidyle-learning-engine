@@ -355,16 +355,20 @@ export function decodeStudentLatestFeedback(
   value: unknown,
   path = "response",
 ): StudentLatestFeedback {
+  if (value === null) return null;
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assessmentAttemptId"]);
-  const rawAttemptId = decodeNullable(
-    field(record, "assessmentAttemptId", path),
-    `${path}.assessmentAttemptId`,
-    decodeString,
+  requireOnlyFields(record, path, ["assessmentAttemptId", "courseInstanceId"]);
+  const assessmentAttemptId = parseAssessmentAttemptId(
+    decodeString(field(record, "assessmentAttemptId", path), `${path}.assessmentAttemptId`),
   );
-  const assessmentAttemptId = rawAttemptId === null ? null : parseAssessmentAttemptId(rawAttemptId);
-  if (rawAttemptId !== null && assessmentAttemptId === null) {
+  if (assessmentAttemptId === null) {
     throw new DecodeError(`${path}.assessmentAttemptId`, "a canonical Assessment Attempt UUID");
   }
-  return { assessmentAttemptId };
+  return {
+    assessmentAttemptId,
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
+  };
 }

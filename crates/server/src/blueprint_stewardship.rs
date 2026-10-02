@@ -390,9 +390,7 @@ async fn instructor_session_hash(
     {
         // ASVS 8.2.1--8.3.1: role derives only from the server session; the
         // Store independently enforces an active vetted-Instructor predicate.
-        Ok(session) if session.record.user_role == UserRole::Instructor => {
-            Ok(session.session_hash)
-        }
+        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

@@ -153,18 +153,36 @@ $$;
 CREATE FUNCTION ple_private.create_content_subject(p_name text, p_discipline_uuid uuid)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE new_uuid uuid; normalized_name text;
+DECLARE
+    new_uuid uuid;
+    existing_uuid uuid;
+    normalized_name text;
 BEGIN
     PERFORM ple_private.require_content_classification_actor(false);
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
     PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
+    -- An existing global name is the offer. Association stays a separate acceptance.
+    SELECT item.content_subject_id INTO existing_uuid
+      FROM ple_data.content_subject AS item
+     WHERE lower(item.name) = lower(normalized_name)
+     FOR UPDATE;
+    IF FOUND THEN
+        RETURN existing_uuid;
+    END IF;
     new_uuid := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.content_subject (content_subject_id, name)
     VALUES (new_uuid, normalized_name);
-    -- Initial association is inseparable from Instructor creation within a Discipline.
     INSERT INTO ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
     VALUES (new_uuid, p_discipline_uuid);
     RETURN new_uuid;
+EXCEPTION WHEN unique_violation THEN
+    SELECT item.content_subject_id INTO existing_uuid
+      FROM ple_data.content_subject AS item
+     WHERE lower(item.name) = lower(normalized_name);
+    IF existing_uuid IS NULL THEN
+        RAISE;
+    END IF;
+    RETURN existing_uuid;
 END
 $$;
 
@@ -371,6 +389,114 @@ BEGIN
 END
 $$;
 
+-- ASVS 1.2.4/8.2.1/8.3.1: a request stores a bounded name. It does not create a Discipline.
+CREATE FUNCTION ple_private.request_content_discipline(p_name text)
+RETURNS TABLE (
+    content_discipline_request_id uuid,
+    requested_name text,
+    requested_by_account_id ple_data.account_id
+) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    actor_id text;
+    normalized_name text;
+    new_uuid uuid;
+BEGIN
+    actor_id := ple_private.require_content_classification_actor(false);
+    normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
+    RETURN QUERY
+    SELECT item.content_discipline_request_id, item.requested_name, item.requested_by_account_id
+      FROM ple_data.content_discipline_request AS item
+     WHERE item.requested_by_account_id = actor_id
+       AND lower(item.requested_name) = lower(normalized_name)
+       AND item.resolved_at IS NULL;
+    IF FOUND THEN
+        RETURN;
+    END IF;
+    new_uuid := pg_catalog.gen_random_uuid();
+    INSERT INTO ple_data.content_discipline_request (
+        content_discipline_request_id, requested_name, requested_by_account_id
+    ) VALUES (new_uuid, normalized_name, actor_id);
+    RETURN QUERY
+    SELECT item.content_discipline_request_id, item.requested_name, item.requested_by_account_id
+      FROM ple_data.content_discipline_request AS item
+     WHERE item.content_discipline_request_id = new_uuid;
+EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY
+    SELECT item.content_discipline_request_id, item.requested_name, item.requested_by_account_id
+      FROM ple_data.content_discipline_request AS item
+     WHERE item.requested_by_account_id = actor_id
+       AND lower(item.requested_name) = lower(normalized_name)
+       AND item.resolved_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE;
+    END IF;
+END
+$$;
+
+
+
+-- ASVS 8.2.2/14.2.6: a Sysadmin sees the requester Account ID and the requested name only.
+CREATE FUNCTION ple_private.list_open_content_discipline_requests()
+RETURNS TABLE (
+    content_discipline_request_id uuid,
+    requested_name text,
+    requested_by_account_id ple_data.account_id
+) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    PERFORM ple_private.require_current_sysadmin_account();
+    RETURN QUERY
+    SELECT item.content_discipline_request_id, item.requested_name, item.requested_by_account_id
+      FROM ple_data.content_discipline_request AS item
+     WHERE item.resolved_at IS NULL
+     ORDER BY item.requested_at, item.content_discipline_request_id;
+END
+$$;
+
+
+
+-- ASVS 8.3.1/16.5.1: only a Sysadmin resolves a request, and a missing request stays generic.
+CREATE FUNCTION ple_private.resolve_content_discipline_request(p_request_uuid uuid)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    PERFORM ple_private.require_current_sysadmin_account();
+    UPDATE ple_data.content_discipline_request AS item
+       SET resolved_at = pg_catalog.transaction_timestamp()
+     WHERE item.content_discipline_request_id = p_request_uuid
+       AND item.resolved_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Content Discipline request is unavailable';
+    END IF;
+END
+$$;
+
+-- ASVS 2.3.3: fulfillment creates the requested Discipline and resolves its request atomically.
+CREATE FUNCTION ple_private.fulfill_content_discipline_request(p_request_uuid uuid)
+RETURNS uuid LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE requested_name text; discipline_uuid uuid;
+BEGIN
+    PERFORM ple_private.require_current_sysadmin_account();
+    SELECT item.requested_name INTO requested_name
+      FROM ple_data.content_discipline_request AS item
+     WHERE item.content_discipline_request_id = p_request_uuid
+       AND item.resolved_at IS NULL
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Content Discipline request is unavailable';
+    END IF;
+    discipline_uuid := ple_private.create_content_discipline(requested_name);
+    PERFORM ple_private.resolve_content_discipline_request(p_request_uuid);
+    RETURN discipline_uuid;
+END
+$$;
+
+
+
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.find_content_subject(p_name text)
@@ -459,3 +585,35 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_priva
 CREATE FUNCTION ple_api.list_content_subtopics(p_topic_uuid uuid)
 RETURNS TABLE (content_subtopic_id uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_subtopics(p_topic_uuid) $$;
+
+CREATE FUNCTION ple_api.request_content_discipline(p_name text)
+RETURNS TABLE (
+    content_discipline_request_id uuid,
+    requested_name text,
+    requested_by_account_id ple_data.account_id
+) LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT * FROM ple_private.request_content_discipline(p_name)
+$$;
+
+CREATE FUNCTION ple_api.list_open_content_discipline_requests()
+RETURNS TABLE (
+    content_discipline_request_id uuid,
+    requested_name text,
+    requested_by_account_id ple_data.account_id
+) LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT * FROM ple_private.list_open_content_discipline_requests()
+$$;
+
+CREATE FUNCTION ple_api.resolve_content_discipline_request(p_request_uuid uuid)
+RETURNS void LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.resolve_content_discipline_request(p_request_uuid)
+$$;
+
+CREATE FUNCTION ple_api.fulfill_content_discipline_request(p_request_uuid uuid)
+RETURNS uuid LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.fulfill_content_discipline_request(p_request_uuid)
+$$;

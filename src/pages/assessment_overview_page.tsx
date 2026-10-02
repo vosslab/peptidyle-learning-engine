@@ -27,9 +27,17 @@ import {
   type AssessmentRouteId,
   type CourseInstanceRouteId,
 } from "../navigation/public_route";
+import {
+  assessmentAttemptPath,
+  assessmentAttemptRouteState,
+} from "../navigation/assessment_attempt_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 
-function previousAttemptContent(attempt: LiveAssessmentPreviousAttempt): RecordContent {
+function previousAttemptContent(
+  attempt: LiveAssessmentPreviousAttempt,
+  courseInstanceId: CourseInstanceRouteId,
+  navigate: ReturnType<typeof useNavigate>,
+): RecordContent {
   return {
     title: `Attempt ${attempt.attemptNumber}`,
     details: [
@@ -50,9 +58,14 @@ function previousAttemptContent(attempt: LiveAssessmentPreviousAttempt): RecordC
     actions: [
       {
         id: "review-attempt",
-        kind: "link",
+        kind: "command",
         label: "Review Attempt",
-        href: `/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttemptId)}/summary`,
+        onClick: () =>
+          navigate(assessmentAttemptPath("review", courseInstanceId), {
+            state: assessmentAttemptRouteState(
+              assessmentAttemptRouteId(attempt.assessmentAttemptId),
+            ),
+          }),
       },
     ],
   };
@@ -116,7 +129,10 @@ export function AssessmentOverviewPage(): JSX.Element {
       const attempt = await runtime.client.startLiveAssessment(courseInstanceId, assessmentId);
       if (!requestIsCurrent()) return;
       const assessmentAttemptId = assessmentAttemptRouteId(attempt.assessmentAttemptId);
-      navigate(`/assessment-attempts/${assessmentAttemptId}`, { replace: true });
+      navigate(assessmentAttemptPath("attempt", courseInstanceId), {
+        replace: true,
+        state: assessmentAttemptRouteState(assessmentAttemptId),
+      });
     } catch (_error: unknown) {
       if (!requestIsCurrent()) return;
       setStartError(
@@ -211,7 +227,7 @@ export function AssessmentOverviewPage(): JSX.Element {
                   ariaLabel="Previous attempts"
                   emptyState={{ title: "No previous attempts" }}
                   recordId={(attempt) => attempt.assessmentAttemptId}
-                  content={previousAttemptContent}
+                  content={(attempt) => previousAttemptContent(attempt, course()!, navigate)}
                   rows={current().previousAttempts}
                   state={{ kind: "ready" }}
                 />

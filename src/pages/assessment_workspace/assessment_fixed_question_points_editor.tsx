@@ -2,12 +2,12 @@ import { Show, createMemo, createSignal, type Accessor, type JSX } from "solid-j
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
+import { assessmentPointValueDraft } from "../../assessment_point_value";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { RecordList, type RecordContent } from "../../components/record_list/record_list";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
-  assessmentPointValueDraft,
   questionSaveInput,
   withFixedQuestionPointValues,
 } from "./assessment_workspace_questions_model";
@@ -107,9 +107,20 @@ export function AssessmentFixedQuestionPointsEditor(
 
   function fixedQuestionContent(entry: FixedQuestionEntry): RecordContent {
     const revision = entry.publishedQuestionRevisionTuple;
+    const questionTitle = workspace
+      .assessment()
+      .workspace.questions.find(
+        (question) =>
+          question.publishedQuestionRevisionTuple.publishedQuestionId ===
+            revision.publishedQuestionId &&
+          question.publishedQuestionRevisionTuple.revisionNumber === revision.revisionNumber,
+      )?.questionTitle;
     return {
-      title: `Question ${revision.publishedQuestionId}, Revision ${revision.revisionNumber}`,
-      details: [],
+      title: questionTitle ?? "Question",
+      details: [
+        { kind: "text", label: "Question ID", value: revision.publishedQuestionId },
+        { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
+      ],
       actions: [],
     };
   }

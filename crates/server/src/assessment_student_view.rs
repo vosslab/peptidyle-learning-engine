@@ -13,7 +13,7 @@ use adapter_webwork::{
 };
 use axum::{
     Json, Router,
-    extract::{Path, RawQuery, State},
+    extract::{Extension, Path, RawQuery, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::get,
@@ -29,12 +29,12 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId, AssessmentQuestionOrderRule,
     CourseInstanceId, InstructorStudentView, InstructorStudentViewEntry,
-    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, UserRole,
-    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionPresentationResponseFormat,
-    QuestionRevisionNumber,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionPresentationResponseFormat, QuestionRevisionNumber,
+    UserRole,
 };
 
-use crate::auth::{AuthError, resolve_session};
+use crate::auth::{AcceptedBrowserOrigin, AuthError, document_parent_origin, resolve_session};
 
 const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
@@ -176,6 +176,7 @@ async fn document(
         u32,
     )>,
     RawQuery(raw_query): RawQuery,
+    accepted: Option<Extension<AcceptedBrowserOrigin>>,
 ) -> Response {
     let expected = match document_edit_query(raw_query.as_deref()) {
         Ok(value) => value,
@@ -205,7 +206,14 @@ async fn document(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    answer_free_document(&state, source, &published_question_revision_tuple).await
+    let browser_origin = document_parent_origin(&state.browser_origin, accepted);
+    answer_free_document(
+        &state,
+        source,
+        &published_question_revision_tuple,
+        browser_origin.as_ref(),
+    )
+    .await
 }
 
 fn project_manifest(
@@ -449,6 +457,7 @@ async fn answer_free_document(
     state: &StateData,
     source: InstructorStudentViewSource,
     expected: &PublishedQuestionRevisionTuple,
+    browser_origin: &str,
 ) -> Response {
     match source {
         InstructorStudentViewSource::Ple {
@@ -480,7 +489,7 @@ async fn answer_free_document(
             };
             crate::author_content_document_route::author_content_document_response(
                 &author_content,
-                state.browser_origin.as_ref(),
+                browser_origin,
             )
         }
         InstructorStudentViewSource::Webwork {

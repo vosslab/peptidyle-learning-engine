@@ -83,13 +83,28 @@ export function createQuestionPoolCreationClient(
       const title = decodeQuestionPoolText(input.title, "request.title", 512);
       const description = decodeQuestionPoolText(input.description, "request.description", 4000);
       const members = requestMembers(input);
+      const tags =
+        input.tags === undefined
+          ? undefined
+          : input.tags.map((tag, index) =>
+              decodeQuestionPoolText(tag, `request.tags[${index}]`, 120),
+            );
+      if (tags !== undefined && new Set(tags).size !== tags.length) {
+        throw new DecodeError("request.tags", "unique tags");
+      }
       const response = await requestSameOrigin(
         fetchImplementation,
         basePath,
         CREATE_QUESTION_POOL_PATH,
         {
           method: "POST",
-          body: { title, description, members, interchangeabilityAttested: true },
+          body: {
+            title,
+            description,
+            members,
+            interchangeabilityAttested: true,
+            ...(tags === undefined ? {} : { tags }),
+          },
         },
       );
       requireNoStore(response, CREATE_QUESTION_POOL_PATH);

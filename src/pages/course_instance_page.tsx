@@ -23,6 +23,7 @@ import { formatLocalWallClockDateTime } from "../format_datetime";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
 import { parseCourseInstanceId } from "../navigation/public_route";
+import { CompactShortNameField } from "./compact_short_name_field";
 import { CourseBlueprintUpdateReviewList } from "./course_blueprint_update_review";
 import {
   canonicalLocalDateAndTime,
@@ -180,20 +181,17 @@ function CreateBlueprintFromCourseInstance(props: {
           <form aria-busy={busy()} onSubmit={(event) => void create(event)}>
             <fieldset disabled={busy()}>
               <div class="course-instance-blueprint-dialog__fields">
-                <label>
-                  Blueprint short name
-                  <input
-                    ref={(element) => {
-                      shortNameInput = element;
-                    }}
-                    name="shortName"
-                    value={shortName()}
-                    maxlength="200"
-                    autocomplete="off"
-                    required
-                    onInput={(event) => setShortName(event.currentTarget.value)}
-                  />
-                </label>
+                <CompactShortNameField
+                  label="Blueprint short name"
+                  name="shortName"
+                  value={shortName()}
+                  maxLength={200}
+                  helpId="course-instance-blueprint-short-name-help"
+                  inputRef={(element) => {
+                    shortNameInput = element;
+                  }}
+                  onInput={setShortName}
+                />
                 <label>
                   Blueprint long name
                   <input

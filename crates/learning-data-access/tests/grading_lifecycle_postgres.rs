@@ -5,7 +5,13 @@
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use adapter_ple::{PleQuestionBackend, ResolvedPleQuestionJsonSource};
+use objects::{ObjectAddress, ObjectStore, PutObject, memory::MemoryObjectStore};
+use question_model::{
+    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+    SourceObjectChecksum, StudentResponse, Timestamp, response::ResponseItemId,
+};
+use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 const STUDENT_RECORD: &str = "00000000-0000-0000-0000-00000000f506";
@@ -625,3 +631,220 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
         "late Student commit leaves no immutable submission"
     );
 }
+
+const COLOR_QUESTION_JSON: &str = r#"{
+  "format": "pleQuestionJson",
+  "questionTitle": "Favorite color",
+  "questionDescription": "Instructor-facing color-choice example.",
+  "prompt": "What is my favorite color?",
+  "response": {
+    "kind": "singleChoice",
+    "choices": [
+      {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
+      {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
+      {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
+    ],
+    "correctChoice": "blue"
+  },
+  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."},
+  "tags": ["example"],
+  "questionLicense": "CC-BY-SA-4.0",
+  "questionCitation": null,
+  "language": "en-US"
+}"#;
+
+async fn color_question_source() -> ResolvedPleQuestionJsonSource {
+    let store = MemoryObjectStore::default();
+    let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+        published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+            .expect("Question ID"),
+        revision_number: QuestionRevisionNumber::new(1).expect("revision"),
+    };
+    let source_object_id = ObjectId::from_uuid(Uuid::from_u128(901));
+    let record = store
+        .put(PutObject {
+            address: ObjectAddress::QuestionSource {
+                published_question_revision_tuple: published_question_revision_tuple.clone(),
+                object_id: source_object_id,
+            },
+            bytes: COLOR_QUESTION_JSON.as_bytes().to_vec(),
+            media_type: adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE.to_string(),
+            created_at: Timestamp::from_unix_millis(1),
+        })
+        .await
+        .expect("Question source");
+    ResolvedPleQuestionJsonSource::resolve(
+        &store,
+        published_question_revision_tuple,
+        source_object_id,
+        SourceObjectChecksum::parse(record.sha256.to_string()).expect("source checksum"),
+    )
+    .await
+    .expect("compiled Question")
+}
+
+fn grade_credit(source: &ResolvedPleQuestionJsonSource, response: &StudentResponse) -> f64 {
+    PleQuestionBackend::new()
+        .grade_question_json(source, response)
+        .expect("Question Backend grade")
+        .evaluation
+        .normalized_credit()
+}
+
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
+async fn backend_returned_credit_is_stored_as_the_immutable_grading_outcome() {
+    let source = color_question_source().await;
+    let correct = StudentResponse::MultipleChoice {
+        selected: vec![ResponseItemId::new("blue")],
+    };
+    let incorrect = StudentResponse::MultipleChoice {
+        selected: vec![ResponseItemId::new("red")],
+    };
+    assert_eq!(grade_credit(&source, &correct), 1.0);
+    assert_eq!(grade_credit(&source, &incorrect), 0.0);
+    assert_eq!(
+        grade_credit(&source, &incorrect),
+        grade_credit(&source, &incorrect),
+        "the same complete response returns the same credit fraction"
+    );
+
+    let pool = migration_pool().await;
+    let attempt_id = Uuid::from_u128(0xf5600000000000000000000000000001);
+    let fixture = make_attempt(
+        &pool,
+        Uuid::from_u128(0xf5610000000000000000000000000001),
+        attempt_id,
+        Uuid::from_u128(0xf5620000000000000000000000000001),
+        Uuid::from_u128(0xf5630000000000000000000000000001),
+    )
+    .await;
+    let saved_response = serde_json::to_value(&incorrect).expect("saved response JSON");
+    let mut save_tx = pool.begin().await.expect("response transaction");
+    set_student(&mut save_tx)
+        .await
+        .expect("Student save session");
+    let saved_state: String = sqlx::query_scalar(
+        "SELECT response_state FROM ple_api.save_student_assessment_attempt_response($1, 1, $2)",
+    )
+    .bind(fixture.attempt_id)
+    .bind(&saved_response)
+    .fetch_one(&mut *save_tx)
+    .await
+    .expect("saved graded response");
+    assert_eq!(saved_state, "saved");
+    save_tx.commit().await.expect("saved response commit");
+
+    let mut commit_tx = pool.begin().await.expect("finalization transaction");
+    set_student(&mut commit_tx)
+        .await
+        .expect("Student finalization session");
+    let prepared = sqlx::query(
+        "SELECT question_attempt_id, saved_at_millis, student_response \
+         FROM ple_api.prepare_student_assessment_attempt_finalization($1) \
+         WHERE preparation_state = 'ready'",
+    )
+    .bind(fixture.attempt_id)
+    .fetch_one(&mut *commit_tx)
+    .await
+    .expect("ready saved response");
+    let question_attempt_id: Uuid = prepared
+        .try_get("question_attempt_id")
+        .expect("Question Attempt");
+    let saved_at_millis: i64 = prepared
+        .try_get("saved_at_millis")
+        .expect("saved response time");
+    let prepared_response: serde_json::Value = prepared
+        .try_get("student_response")
+        .expect("prepared response");
+    let graded_response: StudentResponse =
+        serde_json::from_value(prepared_response.clone()).expect("prepared response decodes");
+    let backend_credit = grade_credit(&source, &graded_response);
+    assert_eq!(backend_credit, 0.0);
+    let score = sqlx::query(
+        "SELECT points_earned, points_possible \
+         FROM ple_api.commit_student_assessment_attempt_finalization( \
+             $1, 'student', jsonb_build_array(jsonb_build_object( \
+                 'question_attempt_id', $2, \
+                 'saved_at_millis', $3, \
+                 'student_response', $4, \
+                 'normalized_credit', $5::double precision)))",
+    )
+    .bind(fixture.attempt_id)
+    .bind(question_attempt_id)
+    .bind(saved_at_millis)
+    .bind(&prepared_response)
+    .bind(backend_credit)
+    .fetch_one(&mut *commit_tx)
+    .await
+    .expect("finalization stores the backend credit");
+    let points_earned: f64 = score.try_get("points_earned").expect("points earned");
+    let points_possible: f64 = score.try_get("points_possible").expect("points possible");
+    assert_eq!(points_earned, 0.0);
+    assert_eq!(points_possible, 2.0);
+    commit_tx.commit().await.expect("finalization commit");
+
+    let mut stored_tx = pool.begin().await.expect("stored outcome transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *stored_tx)
+        .await
+        .expect("grading evidence role");
+    let stored_credit: f64 = sqlx::query_scalar(
+        "SELECT normalized_credit::float8 FROM ple_private.grading_result \
+         WHERE question_attempt_id = $1",
+    )
+    .bind(question_attempt_id)
+    .fetch_one(&mut *stored_tx)
+    .await
+    .expect("stored credit");
+    assert_eq!(stored_credit, backend_credit);
+    let rewrite = sqlx::query(
+        "UPDATE ple_private.grading_result SET normalized_credit = 1 \
+         WHERE question_attempt_id = $1",
+    )
+    .bind(question_attempt_id)
+    .execute(&mut *stored_tx)
+    .await;
+    match rewrite {
+        Err(sqlx::Error::Database(error)) => {
+            assert_eq!(error.code().as_deref(), Some("55000"));
+            assert_eq!(error.message(), "Grading evidence is immutable");
+        }
+        Ok(_) => panic!("stored grading credit was rewritten"),
+        Err(error) => panic!("grading rewrite failed unexpectedly: {error}"),
+    }
+    stored_tx
+        .rollback()
+        .await
+        .expect("grading rewrite observation rollback");
+    let mut second_tx = pool.begin().await.expect("second outcome transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *second_tx)
+        .await
+        .expect("second outcome role");
+    let second_record = sqlx::query(
+        "SELECT ple_private.record_direct_automated_grading_result($1, $2::numeric, clock_timestamp())",
+    )
+    .bind(question_attempt_id)
+    .bind(backend_credit)
+    .execute(&mut *second_tx)
+    .await;
+    match second_record {
+        Err(sqlx::Error::Database(error)) => {
+            assert_eq!(error.code().as_deref(), Some("42501"));
+            assert_eq!(
+                error.message(),
+                "Direct automated grading target is unavailable"
+            );
+        }
+        Ok(_) => panic!("a second grading outcome was stored"),
+        Err(error) => panic!("second grading outcome failed unexpectedly: {error}"),
+    }
+    second_tx
+        .rollback()
+        .await
+        .expect("second outcome observation rollback");
+}
+
+#[path = "grading_lifecycle_postgres/grading_rescore_postgres.rs"]
+mod grading_rescore_postgres;

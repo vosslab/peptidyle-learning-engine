@@ -12,7 +12,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use learning_data_access::LiveAssessmentDeliveryStore;
 use question_model::{AssessmentAttemptId, AuthorContentLibraryId};
 
 use crate::{
@@ -31,6 +30,7 @@ pub(crate) async fn document(
     State(state): State<StateData>,
     headers: HeaderMap,
     Path((assessment_attempt, position)): Path<(String, u32)>,
+    accepted: Option<axum::extract::Extension<crate::auth::AcceptedBrowserOrigin>>,
 ) -> Response {
     let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) if position > 0 => value,
@@ -56,7 +56,8 @@ pub(crate) async fn document(
         Some(value) => value,
         _ => return concealed(),
     };
-    author_content_document_response(&author_content, state.browser_origin.as_ref())
+    let browser_origin = crate::auth::document_parent_origin(&state.browser_origin, accepted);
+    author_content_document_response(&author_content, browser_origin.as_ref())
 }
 
 /// Builds one isolated author-content document after the caller has authorized
@@ -192,7 +193,16 @@ window.addEventListener("message", (event) => {{
 
 #[cfg(test)]
 mod tests {
-    use super::{document_csp, document_html};
+    use axum::body::{Body, to_bytes};
+    use axum::http::{Request, StatusCode, header};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use question_model::{AuthorContentLibraryId, AuthorContentPresentation};
+    use tower::ServiceExt;
+
+    use super::{author_content_document_response, document_csp, document_html};
+    use crate::author_content_dependency_assets::{
+        author_content_dependency_asset_router, reviewed_rdkit_runtime,
+    };
 
     #[test]
     fn author_document_installs_the_closed_appearance_receiver_before_author_source() {
@@ -222,5 +232,303 @@ mod tests {
         assert!(csp.contains("script-src 'nonce-test-nonce'"));
         assert!(csp.contains("connect-src 'none'"));
         assert!(!csp.contains("style-src"));
+    }
+
+    #[tokio::test]
+    async fn author_supplied_javascript_may_provide_client_side_rendering_or_interaction_without_access_to_a_random_seed()
+     {
+        let seed = "question-seed-9f3c";
+        let source = "document.getElementById('author-content-root').textContent = 'rendered';";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), Vec::new()).expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let (parts, body) = response.into_parts();
+        let html = String::from_utf8(
+            to_bytes(body, usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+        let headers = format!("{:?}", parts.headers);
+
+        assert!(html.contains(&STANDARD.encode(source.as_bytes())));
+        assert!(html.contains("author.textContent"));
+        assert!(html.contains("id=\"author-content-root\""));
+        assert!(!html.contains(seed));
+        assert!(!headers.contains(seed));
+    }
+
+    #[tokio::test]
+    async fn author_supplied_javascript_runs_in_an_isolated_browser_environment() {
+        let source = "document.getElementById('author-content-root').textContent = 'rendered';";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), Vec::new()).expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let (parts, body) = response.into_parts();
+        let csp = parts
+            .headers
+            .get(header::CONTENT_SECURITY_POLICY)
+            .expect("content security policy")
+            .to_str()
+            .expect("content security policy text");
+        let html = String::from_utf8(
+            to_bytes(body, usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+
+        assert!(csp.starts_with("sandbox allow-scripts"));
+        assert!(!csp.contains("allow-same-origin"));
+        assert!(csp.contains("default-src 'none'"));
+        assert!(csp.contains("frame-ancestors 'self'"));
+        assert_eq!(
+            parts
+                .headers
+                .get(header::REFERRER_POLICY)
+                .expect("referrer policy")
+                .to_str()
+                .expect("referrer policy text"),
+            "no-referrer"
+        );
+        assert!(html.contains(&STANDARD.encode(source.as_bytes())));
+        assert!(html.contains("author.textContent"));
+    }
+
+    #[tokio::test]
+    async fn author_supplied_javascript_is_treated_as_untrusted_content() {
+        // ASVS 1.2.1: untrusted source is carried as data, not parsed as HTML.
+        let source = "</script><img src=x onerror=alert(1)>";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), Vec::new()).expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let html = String::from_utf8(
+            to_bytes(response.into_body(), usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+
+        assert!(html.contains(&STANDARD.encode(source.as_bytes())));
+        assert!(html.contains("author.textContent"));
+        assert!(!html.contains(source));
+        assert!(!html.contains("onerror=alert(1)"));
+    }
+
+    #[tokio::test]
+    async fn author_supplied_javascript_is_isolated_from_ple_application_state_credentials_and_privileged_browser_context()
+     {
+        // ASVS 3.4.5 and 3.5.1: the document origin stays opaque and receives no
+        // credentials or application state.
+        let source = "document.getElementById('author-content-root').textContent = 'rendered';";
+        let credential = "ple-session-credential";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), Vec::new()).expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let (parts, body) = response.into_parts();
+        let csp = parts
+            .headers
+            .get(header::CONTENT_SECURITY_POLICY)
+            .expect("content security policy")
+            .to_str()
+            .expect("content security policy text");
+        let html = String::from_utf8(
+            to_bytes(body, usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+
+        assert_eq!(
+            csp.split(';').next().expect("sandbox directive").trim(),
+            "sandbox allow-scripts"
+        );
+        assert!(csp.contains("connect-src 'none'"));
+        assert!(parts.headers.get(header::SET_COOKIE).is_none());
+        assert!(parts.headers.get(header::COOKIE).is_none());
+        assert!(parts.headers.get(header::AUTHORIZATION).is_none());
+        assert!(html.contains(&STANDARD.encode(source.as_bytes())));
+        for absent in [
+            "localStorage",
+            "sessionStorage",
+            "document.cookie",
+            "indexedDB",
+            "Authorization",
+            credential,
+        ] {
+            assert!(!html.contains(absent), "{absent}");
+        }
+    }
+
+    #[tokio::test]
+    async fn author_supplied_javascript_is_limited_to_client_side_rendering_and_interaction() {
+        // ASVS 3.4.3 and 15.2.5: the author script may render in its document
+        // and receives no network, form, frame, or worker capability.
+        let source = "document.getElementById('author-content-root').textContent = 'rendered';";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), Vec::new()).expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let (parts, body) = response.into_parts();
+        let csp = parts
+            .headers
+            .get(header::CONTENT_SECURITY_POLICY)
+            .expect("content security policy")
+            .to_str()
+            .expect("content security policy text");
+        let html = String::from_utf8(
+            to_bytes(body, usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+
+        assert_eq!(
+            csp.split(';').next().expect("sandbox directive").trim(),
+            "sandbox allow-scripts"
+        );
+        for required in [
+            "default-src 'none'",
+            "base-uri 'none'",
+            "object-src 'none'",
+            "connect-src 'none'",
+            "img-src 'none'",
+            "media-src 'none'",
+            "font-src 'none'",
+            "frame-src 'none'",
+            "worker-src 'none'",
+            "form-action 'none'",
+        ] {
+            assert!(csp.contains(required), "{required}");
+        }
+        for absent in [
+            "allow-same-origin",
+            "allow-forms",
+            "allow-popups",
+            "allow-top-navigation",
+            "allow-downloads",
+            "allow-modals",
+        ] {
+            assert!(!csp.contains(absent), "{absent}");
+        }
+        assert!(html.contains(&STANDARD.encode(source.as_bytes())));
+        assert!(html.contains("author.textContent"));
+        for absent in ["fetch(", "XMLHttpRequest", "WebSocket", "/api/"] {
+            assert!(!html.contains(absent), "{absent}");
+        }
+    }
+
+    #[tokio::test]
+    async fn author_supplied_javascript_operates_independently_of_ple_application_apis_and_privileged_state()
+     {
+        // ASVS 15.2.5: the author script is installed from its own source.
+        // The document builder takes no API client, session, or privileged state.
+        let source = "document.getElementById('author-content-root').textContent = 'rendered';";
+        let credential = "ple-session-credential";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), Vec::new()).expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let (parts, body) = response.into_parts();
+        let csp = parts
+            .headers
+            .get(header::CONTENT_SECURITY_POLICY)
+            .expect("content security policy")
+            .to_str()
+            .expect("content security policy text");
+        let html = String::from_utf8(
+            to_bytes(body, usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+
+        assert!(csp.contains("connect-src 'none'"));
+        assert!(parts.headers.get(header::AUTHORIZATION).is_none());
+        assert!(parts.headers.get(header::COOKIE).is_none());
+        assert!(parts.headers.get(header::SET_COOKIE).is_none());
+        assert!(html.contains(&STANDARD.encode(source.as_bytes())));
+        assert!(html.contains("author.textContent"));
+        for absent in [
+            "/api/",
+            credential,
+            "Authorization",
+            "localStorage",
+            "document.cookie",
+        ] {
+            assert!(!html.contains(absent), "{absent}");
+        }
+    }
+
+    #[tokio::test]
+    async fn supported_external_dependencies_should_eventually_become_ple_owned_and_served_locally()
+    {
+        // ASVS 3.6.1: the reviewed runtime is PLE-owned local bytes. The author
+        // document names those routes and no external CDN host.
+        let source = "document.getElementById('author-content-root').textContent = 'rendered';";
+        let author_content =
+            AuthorContentPresentation::new(source.to_string(), vec![AuthorContentLibraryId::Rdkit])
+                .expect("author content");
+        let response = author_content_document_response(&author_content, "https://ple.test");
+        let (parts, body) = response.into_parts();
+        let csp = parts
+            .headers
+            .get(header::CONTENT_SECURITY_POLICY)
+            .expect("content security policy")
+            .to_str()
+            .expect("content security policy text");
+        let html = String::from_utf8(
+            to_bytes(body, usize::MAX)
+                .await
+                .expect("document body")
+                .to_vec(),
+        )
+        .expect("document text");
+        let runtime = reviewed_rdkit_runtime().expect("reviewed current runtime");
+        let javascript = runtime.javascript_path();
+        let wasm = runtime.wasm_path();
+
+        assert_eq!(
+            javascript,
+            "/api/author-content-dependencies/rdkit/RDKit_minimal.js"
+        );
+        assert_eq!(
+            wasm,
+            "/api/author-content-dependencies/rdkit/RDKit_minimal.wasm"
+        );
+        assert!(html.contains(&format!("src=\"{javascript}\"")));
+        assert!(html.contains(wasm));
+        assert!(csp.contains(&format!("'{sri}'", sri = runtime.javascript_sri())));
+        let connect = csp
+            .split(';')
+            .map(str::trim)
+            .find(|directive| directive.starts_with("connect-src "))
+            .expect("connect-src");
+        assert_eq!(connect, format!("connect-src https://ple.test{wasm}"));
+        for absent in ["cdn.", "unpkg.com", "jsdelivr.net", "cdnjs.cloudflare.com"] {
+            assert!(!html.contains(absent), "{absent}");
+            assert!(!csp.contains(absent), "{absent}");
+        }
+
+        let app = author_content_dependency_asset_router();
+        for path in [javascript, wasm] {
+            let served = app
+                .clone()
+                .oneshot(Request::get(path).body(Body::empty()).expect("request"))
+                .await
+                .expect("dependency response");
+            assert_eq!(served.status(), StatusCode::OK);
+            assert!(served.headers().get(header::LOCATION).is_none());
+            assert!(
+                !to_bytes(served.into_body(), usize::MAX)
+                    .await
+                    .expect("dependency body")
+                    .is_empty()
+            );
+        }
     }
 }

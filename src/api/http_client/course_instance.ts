@@ -15,6 +15,8 @@ import {
   decodeCreateBlueprintFromCourseInstanceInput,
   decodeCreateCourseInstanceInput,
   decodeCreatedCourseInstance,
+  decodeInstallationCourse,
+  decodeInstallationCoursePage,
 } from "../decoders/course_instance";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import {
@@ -41,6 +43,29 @@ function idempotencyKey(value: string, path: string): string {
     );
   }
   return value;
+}
+
+function installationCourseQuery(value: string): string {
+  const query = value.trim();
+  if (Array.from(query).length > 200 || /\p{Cc}/u.test(query)) {
+    throw new ApiProtocolError("installation Course query is invalid");
+  }
+  return query;
+}
+
+function installationCourseCursor(value: string | null): string | null {
+  if (value !== null && (value.length === 0 || value.length > 4096)) {
+    throw new ApiProtocolError("installation Course cursor is invalid");
+  }
+  return value;
+}
+
+function installationCoursePath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
+    throw new ApiProtocolError("Course Instance ID must be canonical");
+  }
+  // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
+  return `/api/sysadmin/courses/${encodeURIComponent(courseInstanceId)}`;
 }
 
 export function courseInstancePath(courseInstanceId: CourseInstanceId): string {
@@ -199,6 +224,38 @@ export function createCourseInstanceClient(
         basePath,
         "/api/course-instance-creation/instructors",
         decodeCourseCreationInstructors,
+      ),
+    listInstallationCourses: (
+      query,
+      cursor,
+      pageSize,
+    ): ReturnType<CourseInstanceClient["listInstallationCourses"]> => {
+      const bounded = installationCourseQuery(query);
+      const after = installationCourseCursor(cursor);
+      const pagination = { ...(after === null ? {} : { cursor: after }), pageSize };
+      // ASVS 14.2.1: a nonempty search stays in the JSON body, not the URL.
+      if (bounded.length === 0) {
+        return courseInstanceJson(
+          fetchImplementation,
+          basePath,
+          `/api/sysadmin/courses?pageSize=${pageSize}${after === null ? "" : `&cursor=${encodeURIComponent(after)}`}`,
+          decodeInstallationCoursePage,
+        );
+      }
+      return courseInstanceJson(
+        fetchImplementation,
+        basePath,
+        "/api/sysadmin/courses/search",
+        decodeInstallationCoursePage,
+        { method: "POST", body: { query: bounded, ...pagination } },
+      );
+    },
+    loadInstallationCourse: (courseInstanceId) =>
+      courseInstanceJson(
+        fetchImplementation,
+        basePath,
+        installationCoursePath(courseInstanceId),
+        decodeInstallationCourse,
       ),
   };
 }
