@@ -378,6 +378,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Ribbon should remain in the same location and use the same overall structure while navigating.
 - Navigation choices should remain in predictable locations as users move between related pages.
 - Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course, Assessment, Question, or other item does not change the Tier 2 choices or their order.
+- Tier 1 Ribbon choices use compact folder-tab styling. The selected Tier 1 tab visually connects to the Tier 2 row beneath it.
+- Tier 2 Ribbon choices use smaller, simpler tabs than Tier 1. Selection should be clear without making the selected tab substantially larger.
+- Tier 1 and Tier 2 tab geometry and hierarchy stay consistent across roles and themes; themes change their colors rather than their structure.
 - Changing a Ribbon selection should change the content below the Ribbon without moving the main content area up or down.
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
@@ -385,19 +388,30 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### User top bar interface
 
-- All signed-in users share the same top-left logo/account and top-right profile bar layout.
-- The top bar remains in a consistent location as users navigate.
-- The PLE logo and product name appear at the upper left and link to the user's home dashboard.
-- Each User Role has its own home dashboard and navigation.
-- User Role appears once next to the PLE name.
-- Role-specific navigation appears between the product identity and Profile.
-- Profile appears at the far right as an icon-only avatar.
-- Clicking the Profile avatar opens the Profile menu.
-- I want the Profile menu to contain Profile and Sign Out.
-- I want Profile to be the only page that names the Account's time zone; other pages should show times
-  without repeating the zone name.
-- Sign Out belongs in the Profile menu rather than the main top bar.
+- On laptop, tablet, and desktop, the top bar has one fixed left-to-right structure: **PLE logo, product name, User Role badge, Tier 1 navigation, flexible gap, Light/Dark control, Profile image**.
+- On laptop, tablet, and desktop, the top-left structure is fixed: **PLE logo, then product name, then User Role badge**.
+- On phones, the top-left structure is fixed: **PLE logo, then User Role badge**. The product name is omitted.
+- Tier 1 navigation immediately follows the User Role badge.
+- The Light/Dark control and Profile image stay together at the far right.
+- The top bar structure and element order remain fixed as users navigate or change the selected Tier 1 choice.
+- The PLE logo and product name link to the user's home dashboard.
+- Each User Role has its own home dashboard and Tier 1 navigation.
+- The User Role appears once in the top bar.
+- The Profile image is an icon-only control that opens a dropdown menu containing **Profile settings** and **Sign Out**.
+- **Profile settings** is the only page that names and sets the Account's time zone. Other pages show times without repeating the time zone name.
+
+#### Phone top bar
+
+- The phone top bar keeps the same identifying order at the left: **PLE logo, User Role badge**, followed by Tier 1 navigation.
+- The phone layout uses the available width aggressively for navigation.
+- Tier 1 navigation should expand into available horizontal space before requiring horizontal scrolling.
+- When Tier 1 choices cannot fit, the Tier 1 navigation scrolls horizontally while preserving choice order.
+- The Light/Dark control and Profile image remain at the right when space permits; compact phone behavior may adapt these controls without changing the identity and navigation order.
+- Tier 2 navigation uses the full available screen width and may scroll horizontally when its choices do not fit.
+- Tier 1 and Tier 2 navigation remain compact so the Ribbon leaves as much vertical space as practical for page content.
+
 - See **Ribbon and page layout** for the overall navigation and page-position rules.
+
 
 ### Profile avatar interface
 
@@ -426,6 +440,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - All signed-in users have a permanent breadcrumb row below the top Ribbon.
 - The breadcrumb row remains in the same location and keeps the same space as users navigate.
 - Breadcrumbs show the path from the user's home dashboard to the current page.
+- The normal breadcrumb hierarchy is Home / Ribbon Tier 1 / Ribbon Tier 2 / Page / SubPage ...
 - Each breadcrumb level links back to its corresponding page.
 - Breadcrumbs use human-readable names rather than internal identifiers.
 - Course and Assessment breadcrumbs preserve the current Course context.
