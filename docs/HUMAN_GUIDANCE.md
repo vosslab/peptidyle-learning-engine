@@ -445,6 +445,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Breadcrumbs use human-readable names rather than internal identifiers.
 - Course and Assessment breadcrumbs preserve the current Course context.
 - Keeping the breadcrumb row in place prevents the main content from moving up or down as breadcrumb depth changes.
+- Breadcrumbs preserve useful intermediate navigation levels rather than collapsing the path to only broad and current pages.
+- Include each meaningful ancestor that gives the user a useful place to navigate back to.
+- Ribbon Tier 1 and Tier 2 selections remain in the breadcrumb list when the current page is a descendant of those navigation choices.
+- Avoid duplicate breadcrumb levels when two adjacent levels would resolve to the same destination or convey the same navigation context.
 - See **Ribbon and page layout** for the overall page-position rules.
 
 ### Instructor interface
