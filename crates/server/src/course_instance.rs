@@ -189,6 +189,7 @@ async fn read_course_summary(
                 long_name: summary.long_name,
                 term: summary.term,
                 role: summary.role,
+                lifecycle_state: summary.lifecycle_state,
             })
             .into_response(),
         ),
@@ -531,4 +532,33 @@ fn concealed() -> Response {
 
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::extract::{Path, State};
+    use axum::http::{HeaderMap, StatusCode};
+
+    use super::*;
+
+    fn unreachable_pool() -> learning_data_access::postgres::Pool {
+        learning_data_access::postgres::lazy_pool("postgres://ple:ple@127.0.0.1:1/ple")
+            .expect("lazy pool")
+    }
+
+    #[tokio::test]
+    async fn load_course_instance_rejects_a_bad_checksum_before_database_lookup() {
+        let pool = unreachable_pool();
+        let state = CourseInstanceRouteState {
+            sessions: Arc::new(PostgresSessionStore::new(pool.clone())),
+            courses: PostgresCourseInstanceStore::new(pool),
+        };
+        let response = load_course_instance(
+            State(state),
+            HeaderMap::new(),
+            Path("CIABCDEFG0".to_string()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
 }

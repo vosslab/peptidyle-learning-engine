@@ -20,7 +20,7 @@ async function studentProfile(runtime: ScenarioRuntime): Promise<void> {
       const page = session.page;
       await choosePersona(page, "Mary Okafor");
       await page.getByRole("button", { name: "Profile", exact: true }).click();
-      await page.getByRole("menuitem", { name: "Profile", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Profile settings", exact: true }).click();
       await page.locator('[data-route-surface="profile"]').waitFor();
       await page.getByRole("heading", { level: 1, name: "Your profile", exact: true }).waitFor();
       await page.getByRole("heading", { level: 2, name: "Avatar Gallery", exact: true }).waitFor();

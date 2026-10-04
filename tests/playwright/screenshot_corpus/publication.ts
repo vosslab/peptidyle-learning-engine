@@ -20,6 +20,12 @@ const ACTIVE_CORPUS_METADATA = [
   "current_capture_receipt.json",
   "coverage_exceptions.json",
 ] as const;
+
+/** Review tools sit beside Instructor captures and are not corpus images. */
+const INSTRUCTOR_REVIEW_FILES: ReadonlySet<string> = new Set([
+  "crop-stack.sh",
+  "stacked-screenshot.webp",
+]);
 export interface PublishedImage {
   readonly id: string;
   readonly path: string;
@@ -54,12 +60,17 @@ function rolePath(root: string, role: ScreenshotRole): string {
   return target;
 }
 
+async function corpusEntries(directory: string): Promise<Dirent[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  return entries.filter((entry) => !entry.isFile() || entry.name !== ".DS_Store");
+}
+
 async function actualWebpPaths(
   root: string,
   allowedMetadata: ReadonlyArray<string>,
   requiredMetadata: ReadonlyArray<string> = allowedMetadata,
 ): Promise<ReadonlyArray<string>> {
-  const rootEntries = await readdir(root, { withFileTypes: true });
+  const rootEntries = await corpusEntries(root);
   const directories = rootEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   const files = rootEntries.filter((entry) => entry.isFile()).map((entry) => entry.name);
   const special = rootEntries.filter((entry) => !entry.isDirectory() && !entry.isFile());
@@ -88,14 +99,21 @@ async function actualWebpPaths(
   const paths: string[] = [];
   for (const role of ROLE_IDS) {
     const directory = rolePath(root, role);
-    const entries: Dirent[] = await readdir(directory, { withFileTypes: true });
+    const entries = await corpusEntries(directory);
     for (const entry of entries) {
+      if (
+        !entry.isDirectory() &&
+        role === "instructor" &&
+        INSTRUCTOR_REVIEW_FILES.has(entry.name)
+      ) {
+        continue;
+      }
       if (entry.isDirectory()) {
         if (!(entry.name in CANONICAL_VIEWPORTS)) {
           throw new Error(`unmanaged screenshot viewport folder: ${role}/${entry.name}`);
         }
         const viewportDirectory = path.join(directory, entry.name);
-        const viewportEntries = await readdir(viewportDirectory, { withFileTypes: true });
+        const viewportEntries = await corpusEntries(viewportDirectory);
         for (const viewportEntry of viewportEntries) {
           if (!viewportEntry.isFile() || !viewportEntry.name.endsWith(".webp")) {
             throw new Error(

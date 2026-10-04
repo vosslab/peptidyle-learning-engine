@@ -1,0 +1,30 @@
+/* The content sheet starts at Tier 2's open lower edge. The small surrounding
+ * rail belongs to the Ribbon; reading widths remain owned by PageFrame. */
+.ple-ribbon-shell-grid {
+  --ple-content-edge-inset: var(--ple-space-2);
+  background: var(--ple-ribbon-context-surface);
+}
+
+.ple-ribbon-shell-grid > .shell {
+  margin-inline: var(--ple-content-edge-inset);
+  margin-block-end: var(--ple-content-edge-inset);
+  background: var(--ple-theme-canvas);
+  border-radius: 0 0 var(--ple-space-2) var(--ple-space-2);
+  /* The surface boundary supplies the edge; a second shadow or top rule
+   * would compete with the selected tab's open connection. */
+  box-shadow: none;
+}
+
+@media (max-width: 40rem) {
+  .ple-ribbon-shell-grid {
+    --ple-content-edge-inset: var(--ple-space-1);
+    /* Outer rail plus inner gutter retain 16px for phone page content. */
+    --ple-shell-inline-gutter: var(--ple-space-3);
+  }
+}
+
+@media (forced-colors: active) {
+  .ple-ribbon-shell-grid > .shell {
+    box-shadow: none;
+  }
+}

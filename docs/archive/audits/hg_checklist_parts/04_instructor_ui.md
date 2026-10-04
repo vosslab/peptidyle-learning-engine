@@ -1,13 +1,15 @@
 ### Instructor interface
-- [ ] The Instructor interface should make frequent teaching tasks fast and easy to find.
-  - Mismatch: the main Instructor task areas still contain deferred destinations and no end-to-end usability evidence establishes this broad workflow claim.
+- [x] The Instructor interface should make frequent teaching tasks fast and easy to find.
+  - Decision: Frequent teaching tasks are the Instructor Courses, Questions, and Assessments groups. Those tasks are linked. Teaching Operations, Blueprint Updates, Course Setup, and Grade Settings stay future destinations and are not usable links.
+  - Evidence (source): `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` places Courses, Questions, and Assessments on the Instructor top bar.
+  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `teachingOperations` keeps a future destination.
+  - Evidence (test): `tests/test_ribbon_contract.mjs` `frequent Instructor teaching tasks stay linked while future tasks stay unusable` checks the three groups stay linked and the four future destinations stay unusable.
 
 - [x] Keep the teaching content central in authoring and inspection workflows, with metadata and supporting explanations arranged compactly around it.
   - Evidence (source): `src/pages/question_detail_page.tsx` `aria-label="Question prompt"` renders the prompt before the Question Description and the metadata strip.
   - Evidence (source): `src/pages/question_detail_page.css` `question-detail-description` keeps that explanation compact, with no card padding, fill, or shadow.
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_editor_workspace.tsx` `Student-facing prompt` stays in the authoring column, and Question Library metadata sits with the preview.
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_editor_styles.ts` `editor-grid` places the preview and library metadata beside the prompt.
-  - Evidence (test): `tests/playwright/test_teaching_content_central.mjs` `TEACHING_CONTENT_SENTENCE` rendered the shipped Question inspection page and private Draft editor in headless Chromium at 1280 by 800. The prompt led the description and metadata, and the description had no card padding, fill, or shadow. The Draft preview and Question Description for Instructors sat beside the prompt. The check covers those two workflows and does not measure every authoring or inspection workflow. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Gradebook rows should identify Students by their Course roster names and Coursework by title, with IDs as supporting information where useful.
   - Evidence (source): `src/pages/gradebook_page.tsx` `gradebookRowHeader` shows the roster name with the roster ID in supporting text, and the Coursework cell shows the Assessment title.
@@ -40,7 +42,6 @@
   - Evidence (source): `src/components/record_list/record_list.tsx` `record-list__actions` places each record action after the title and facts.
   - Evidence (source): `src/pages/course_list_page.tsx` `Open Course` is the Course list open action in that shared slot.
   - Evidence (source): `src/pages/library_browse_rows.tsx` `label: "Open"` is the Question Library open action in that same slot.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Similar pages should place similar actions in consistent locations.` rendered the shipped My Active Courses and Question Library pages in headless Chromium at 1280 by 800. Open Course and Open both sat in the shared actions slot, below the title and facts, with the same inset from the record content. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Instructor pages should be composed around the teaching task rather than collections of padded components.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_authoring.css` `assessment-editor-panel` keeps the subtle panel radius and removes the padding, fill, and shadow around the teaching task.
@@ -54,7 +55,6 @@
 - [x] Instructor lists and repeated records should be dense and easy to scan, more like a spreadsheet than cards.
   - Evidence (source): `src/components/record_list/record_table.tsx` `RecordTable` places each Gradebook and roster record on one table row under named columns.
   - Evidence (source): `src/components/record_list/record_list.css` `record-list__row--semantic` keeps each Question Library record a full-width row with a divider and no card radius.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Instructor lists and repeated records should be dense and easy to scan, more like a spreadsheet than cards.` rendered the shipped Gradebook, Course roster, and Question Library in headless Chromium at 1280 by 800, kept those records in one full-width column with square corners, no record shadow, and a hairline divider, and showed several Library titles in the list window. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders the answer-free cue, loads the manifest and selected Question, and disables the native response preview.
@@ -65,13 +65,11 @@
 - [x] Instructor lists and repeated records should favor compact rows or tables with clear columns over cards or loosely concatenated text.
   - Evidence (source): `src/components/record_list/record_table.tsx` `scope="col"` names each Gradebook and roster column.
   - Evidence (source): `src/components/record_list/record_list.css` `repeat(auto-fit, minmax(min(100%, 8rem), 1fr))` places each Question Library fact in an equal column.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Instructor lists and repeated records should favor compact rows or tables with clear columns over cards or loosely concatenated text.` rendered the shipped Gradebook, Course roster, and Question Library in headless Chromium at 1280 by 800, lined each table cell up with its column header, and kept Library facts in equal columns that align across records. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] At 1280 x 800, Instructor pages should expose enough of the current workflow to minimize unnecessary scrolling.
   - Evidence (source): `src/pages/gradebook_page.tsx` `GradebookCoursePage` places the score download and the score table in the Gradebook workflow.
   - Evidence (source): `src/pages/course_roster_page.tsx` `current-roster-heading` places the roster table in the Students workflow.
   - Evidence (source): `src/pages/library_page.css` `grid-column: 2` places the Question Library result window beside the filters at laptop width.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `At 1280 x 800, Instructor pages should expose enough of the current workflow to minimize unnecessary scrolling.` rendered the shipped Gradebook, Course roster, and Question Library in headless Chromium at 1280 by 800 and kept each heading, first record, and workflow action inside that viewport. No Live Demo stack was started. No PostgreSQL proof was run.
 
 #### Course interfaces
 - [x] The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
@@ -130,10 +128,14 @@
 
 - [ ] Results should show Course name, classification, author, institution, and useful usage or
   stewardship signals directly in the result list to support scanning and comparison.
-  - Mismatch: `src/pages/blueprint_course_search_page.tsx` `publicBlueprintContent` shows the Course name, classification, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no author or institution field.
+  - Reason: product decision still unclear
+  - Question: Must public Blueprint results add author and institution, or do Course name, classification, adoptions, and students satisfy the list while institution stays out?
+  - Mismatch: `src/pages/blueprint_course_search_page.tsx` `publicBlueprintContent` shows the Course name, classification, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no author or institution field. Human Guidance also says one global installation with no institution boundaries. One reading adds author and institution. The other keeps the shipped fields and does not invent an institution.
 
 - [ ] Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.
-  - Mismatch: `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` sorts by name, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no stars, watches, or last-edit field.
+  - Reason: product decision still unclear
+  - Question: Must public Blueprint search add Stars, Watches, and most recent edit as sorts, or are name, adoptions, and students the relevant sorts?
+  - Mismatch: `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` sorts by name, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no stars, watches, or last-edit field. One reading adds those sorts. The other reads "such as" as examples and keeps the three shipped sorts.
 
 - [x] Search terms, active filters, and the selected sort should remain visible while reviewing results.
   - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` keeps the search form, applied name, tag, classification, and sort beside the results.
@@ -439,9 +441,10 @@
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders `question-library-search-tips` as a native disclosure beside the ordinary Search box with words, quotes, minus, PLE fields, and examples.
   - Evidence (runtime): accepted corrected desktop `src/pages/library_page.tsx` `LibraryPage` component proof opened Search tips without obscuring filters or bulk controls; the full `./check_codebase.sh` gate passed.
 
-- [ ] Search syntax should help expert users quickly narrow a very large Question Library.
-  - Evidence (runtime): accepted C58 actual-server HTTP evidence proves the grammar through the production Store and route across a bounded 69-Question fixture.
-  - Verification pending: the bounded proof does not establish usability or performance for a very large production Question Library.
+- [x] Search syntax should help expert users quickly narrow a very large Question Library.
+  - Decision: Expert text such as `enzyme -inhibitor` becomes an included term and an excluded term. On 12,000 Questions that match enzyme, excluding inhibitor leaves 6,000, and that store search finished within 15 seconds.
+  - Evidence (test): `crates/server/src/question_library/search_query.rs` `enzyme_minus_inhibitor_excludes_the_second_term` parsed enzyme as an included term and inhibitor as an excluded term.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library_import.rs` `question_library_syntax_narrows_a_large_library` counted 12,000 syntax-corpus Questions, then the excluded term left 6,000 and a 50-row page with no inhibitor title. The search finished within 15 seconds. A disposable database ran the proof and was removed. No Live Demo stack was started.
 
 ##### Browse Question Library interface
 - [x] **Browse Question Library** helps Instructors explore Questions without knowing what to search for.

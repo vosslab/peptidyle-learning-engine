@@ -185,7 +185,7 @@ print(json.dumps({
 	if ! course="$(python3 -c '
 import json, re, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
-course = value.get("course") if isinstance(value, dict) else None
+course = value.get("courseInstance") if isinstance(value, dict) else None
 course_instance_id = course.get("id") if isinstance(course, dict) else None
 if not isinstance(course_instance_id, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}", course_instance_id) is None:
 	raise SystemExit(1)

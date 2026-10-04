@@ -184,7 +184,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
           .click();
         await instructor.getByRole("link", { name: "Courses", exact: true }).click();
         await expect(
-          instructor.getByRole("heading", { name: "Course Instances you teach", exact: true }),
+          instructor.getByRole("heading", { name: "My Active Courses", exact: true }),
         ).toBeVisible();
         const secondCourseShortName = "Appearance";
         const secondCourseLongName = `Appearance isolation ${scenarioInput.namespace}`;

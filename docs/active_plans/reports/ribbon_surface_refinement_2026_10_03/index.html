@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PLE surface refinement: local comparison</title>
+<style>
+*{box-sizing:border-box} body{margin:0;background:#e9edf0;color:#17212b;font:16px/1.5 system-ui,sans-serif}
+header{padding:20px 28px;background:#fff;border-bottom:1px solid #cad1d6} h1{font-size:22px;margin:0 0 6px} p{margin:0 0 14px;color:#45505b}
+.controls{display:flex;gap:20px;flex-wrap:wrap} label{display:flex;gap:8px;align-items:center}select{padding:6px 10px;border:1px solid #798690;border-radius:5px;font:inherit;background:#fff;color:#17212b}
+main{padding:24px;overflow:auto}img{display:block;max-width:100%;height:auto;margin:auto;box-shadow:0 3px 18px #17212b18}footer{padding:0 28px 20px;font-size:14px}
+</style>
+<header><h1>Ribbon and content: surface refinement</h1><p>Compare the silhouette, spacing, joins, and outer content edge. Local current-source renders with synthetic Course data.</p>
+<div class="controls"><label>Version <select id="version"><option value="after">Refined</option><option value="before">Before</option></select></label><label>Theme <select id="mode"><option>light</option><option>dark</option></select></label><label>Width <select id="width"><option value="1280">Desktop</option><option value="393">Phone</option></select></label></div></header>
+<main><img id="render" src="final_1280_light.png" alt="Refined Course interface in light mode at desktop width"></main>
+<footer><p>Final local-demo views: <a href="live_course_dark.webp">Course</a> / <a href="live_roster_light.webp">Roster</a> / <a href="live_library_light.webp">Question library</a> / <a href="live_student_phone.webp">Student phone</a>.</p>Local review only. The screenshot corpus has not been published by this pass.</footer>
+<script>
+const version=document.querySelector('#version'),mode=document.querySelector('#mode'),width=document.querySelector('#width'),render=document.querySelector('#render');
+function update(){const base=version.value==='before'?'../ribbon_file_tabs_2026_10_03/':'';render.src=`${base}final_${width.value}_${mode.value}.png`;render.alt=`${version.value} Course interface, ${mode.value}, ${width.value}px`;}
+for(const control of [version,mode,width])control.addEventListener('change',update);
+</script></html>

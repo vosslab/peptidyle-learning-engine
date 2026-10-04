@@ -178,7 +178,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
             "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, membership_role, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags \
+             term_ends_on::text AS term_ends_on, membership_role, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, \
+             course_lifecycle_state \
              FROM ple_api.read_course_summary($1)",
         )
         .bind(course_instance_id.as_str())
@@ -534,6 +535,10 @@ fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, S
             row.try_get("term_ends_on").map_err(map_sqlx_error)?,
         )?,
         role: membership_role(&stored_membership_role)?,
+        lifecycle_state: lifecycle_state(
+            row.try_get("course_lifecycle_state")
+                .map_err(map_sqlx_error)?,
+        )?,
     })
 }
 
@@ -599,7 +604,7 @@ fn term(start_date: String, end_date: String) -> Result<CourseTerm, StoreError> 
     CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course Term"))
 }
 
-fn decode_installation_course(
+pub(super) fn decode_installation_course(
     row: &sqlx::postgres::PgRow,
 ) -> Result<InstallationCourseInspection, StoreError> {
     let instructor_display_names: Vec<String> = row

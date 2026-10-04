@@ -201,6 +201,10 @@ test(
             search.bloomCognitiveProcess === null && search.bloomKnowledgeDimension === null,
         ),
       );
+      await page.getByText("Retrieve relevant knowledge", { exact: true }).waitFor();
+      await page
+        .getByText("Terminology, specific details, and discrete elements", { exact: true })
+        .waitFor();
       const bloomFilters = page.getByRole("group", { name: "Bloom filters", exact: true });
       const cognitiveProcess = bloomFilters.getByRole("combobox", { name: "Cognitive Process" });
       const knowledgeDimension = bloomFilters.getByRole("combobox", {

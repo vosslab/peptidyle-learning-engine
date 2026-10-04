@@ -17,25 +17,23 @@ use axum::{
 use browser_api_contract::assessment_delivery::StudentQuestionPresentation;
 use learning_data_access::{
     LiveAssessmentAttempt, LiveAssessmentDeliveryStore, NativeAssessmentIssuanceBatch,
-    NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
-    QuestionIssuanceReproductionInput, SessionStore, SessionTokenHash, StoreError,
+    NativePleIssuanceSource, NativeWebworkIssuanceSource, SessionStore, SessionTokenHash,
+    StoreError,
     postgres::{PostgresLiveAssessmentDeliveryStore, PostgresSessionStore},
 };
 use objects::s3::S3ObjectStore;
 use objects::{
     ObjectAddress, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, SignedUrl, StoredObject,
 };
-use question_model::presentation::build_question_presentation;
-use question_model::question_library::QuestionBackendInterface;
 use question_model::{
     AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, PublishedQuestionRevisionTuple,
-    QuestionBackend, QuestionBackendCapabilities, QuestionPresentation,
-    QuestionPresentationChecksum, QuestionRevisionNumber, SourceObjectChecksum, StudentResponse,
-    UserRole,
+    QuestionPresentation, QuestionPresentationChecksum, QuestionRevisionNumber,
+    SourceObjectChecksum, StudentResponse, UserRole,
 };
 use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
+use question_backend::BasicQuestionBackend;
 
 mod context;
 pub(crate) mod direct_finalization;
@@ -43,6 +41,7 @@ pub(crate) mod history;
 mod history_response;
 mod ple_shell;
 mod presentation_images;
+mod question_backend;
 mod submission;
 
 pub(super) use presentation_images::{
@@ -452,8 +451,17 @@ async fn issue_native_assessment_batch(
     let prepared = if !batch.requires_presentation_commit() {
         Vec::new()
     } else {
-        let mut values = issue_new_presentations(&state.objects, sources).await?;
-        values.extend(issue_new_webwork_presentations(state, webwork_sources).await?);
+        let ple = question_backend::PleQuestionBackendAdapter;
+        let webwork = question_backend::WebworkQuestionBackendAdapter {
+            adapter: &state.webwork,
+        };
+        let mut values = Vec::with_capacity(sources.len() + webwork_sources.len());
+        for source in sources {
+            values.push(ple.issue_one(&state.objects, source).await?);
+        }
+        for source in webwork_sources {
+            values.push(webwork.issue_one(&state.objects, source).await?);
+        }
         values.sort_by_key(|value| value.position);
         values
     };
@@ -508,117 +516,6 @@ async fn rebuild_committed_attempt_presentations(
         presentations.push(reproduce_selected_issued_presentation(evidence)?.presentation);
     }
     Ok(presentations)
-}
-
-async fn issue_new_presentations(
-    objects: &impl ObjectStore,
-    sources: &[NativePleIssuanceSource],
-) -> Result<Vec<NativePresentationInput>, StartError> {
-    // The common interface makes this an explicit PLE-owned lifecycle path;
-    // it is not a cue to interpret another adapter's private controls.
-    let backend = ple_shell::native_ple_backend(QuestionBackendInterface::new(
-        QuestionBackend::Ple,
-        QuestionBackendCapabilities::none(),
-    ))?;
-    let mut inputs = Vec::with_capacity(sources.len());
-    for source in sources {
-        // ASVS 2.2.1/2.2.2: only the trusted server/store boundary may
-        // classify native source reproduction; a static source never gains a seed.
-        if source.reproduction != QuestionIssuanceReproductionInput::Static {
-            return Err(StartError::Invalid);
-        }
-        let resolved = resolve_source(objects, source).await?;
-        let issued = backend
-            .issue_question_json(&resolved)
-            .map_err(|_| StartError::Invalid)?;
-        let assets = question_image_renditions(source);
-        let presentation = build_question_presentation(&issued.presentation, &assets)
-            .map_err(|_| StartError::Unavailable)?;
-        if presentation.reproduction != question_model::QuestionReproduction::Static {
-            return Err(StartError::Invalid);
-        }
-        let response_item_bindings =
-            question_model::presentation::extract_durable_response_item_bindings(&presentation)
-                .map_err(|_| StartError::Invalid)?;
-        inputs.push(NativePresentationInput {
-            issued_question_id: source
-                .issued_question_id
-                .ok_or(StartError::Invalid)?
-                .to_string(),
-            assessment_entry_id: source.assessment_entry_id.clone(),
-            position: source.position,
-            question_id: source.question_id.clone(),
-            revision_number: source.revision_number,
-            reproduction: presentation.reproduction,
-            reproduction_details: serde_json::to_value(issued.reproduction_details)
-                .map_err(|_| StartError::Invalid)?,
-            presentation: serde_json::to_value(&presentation.presentation)
-                .map_err(|_| StartError::Invalid)?,
-            presentation_nonce: presentation.presentation.presentation_nonce.to_hex(),
-            presentation_checksum: presentation.checksum.to_hex(),
-            author_content: presentation.author_content.clone(),
-            response_item_bindings,
-            question_image_renditions: source.question_image_renditions.clone(),
-            issued_capability: "ple_question_json_presentation".to_string(),
-            backend_document: None,
-        });
-    }
-    Ok(inputs)
-}
-
-async fn issue_new_webwork_presentations(
-    state: &StateData,
-    sources: &[NativeWebworkIssuanceSource],
-) -> Result<Vec<NativePresentationInput>, StartError> {
-    let mut inputs = Vec::with_capacity(sources.len());
-    for source in sources {
-        // ASVS 2.2.1/2.2.2: renderer issuance consumes only a trusted
-        // Seeded input, then retains the renderer-produced paired evidence.
-        let seed = match &source.reproduction {
-            QuestionIssuanceReproductionInput::Seeded { question_seed } => *question_seed,
-            QuestionIssuanceReproductionInput::Static => return Err(StartError::Invalid),
-        };
-        let issued = state
-            .webwork
-            .issue(seed, &resolve_webwork_source(&state.objects, source).await?)
-            .await
-            .map_err(|_| StartError::Unavailable)?;
-        let document = String::from_utf8(issued.document).map_err(|_| StartError::Invalid)?;
-        let presentation = build_question_presentation(
-            &issued.presentation,
-            &question_image_renditions_from_ready(&source.question_image_renditions),
-        )
-        .map_err(|_| StartError::Unavailable)?;
-        if presentation.reproduction.question_seed() != Some(seed) {
-            return Err(StartError::Invalid);
-        }
-        let response_item_bindings =
-            question_model::presentation::extract_durable_response_item_bindings(&presentation)
-                .map_err(|_| StartError::Invalid)?;
-        inputs.push(NativePresentationInput {
-            issued_question_id: source
-                .issued_question_id
-                .ok_or(StartError::Invalid)?
-                .to_string(),
-            assessment_entry_id: source.assessment_entry_id.clone(),
-            position: source.position,
-            question_id: source.question_id.clone(),
-            revision_number: source.revision_number,
-            reproduction: presentation.reproduction,
-            reproduction_details: serde_json::to_value(issued.reproduction_details)
-                .map_err(|_| StartError::Invalid)?,
-            presentation: serde_json::to_value(&presentation.presentation)
-                .map_err(|_| StartError::Invalid)?,
-            presentation_nonce: presentation.presentation.presentation_nonce.to_hex(),
-            presentation_checksum: presentation.checksum.to_hex(),
-            author_content: None,
-            response_item_bindings,
-            question_image_renditions: source.question_image_renditions.clone(),
-            issued_capability: "webwork_presentation".to_string(),
-            backend_document: Some(document),
-        });
-    }
-    Ok(inputs)
 }
 
 pub(crate) async fn resolve_webwork_source(

@@ -312,6 +312,7 @@ pub use session::{
 };
 pub use store_error::StoreError;
 pub use support_capability::{
-    IssueSupportRepairCapabilityInput, SupportCourseRosterEntry, SupportRepairCapabilityReceipt,
-    SupportRepairCapabilityStore, SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
+    IssueSupportRepairCapabilityInput, SupportCourseContent, SupportCourseRosterEntry,
+    SupportRepairCapabilityReceipt, SupportRepairCapabilityStore,
+    SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
 };

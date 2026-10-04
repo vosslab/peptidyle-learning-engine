@@ -422,6 +422,55 @@ fn every_published_question_address_uses_canonical_question_id_json() {
 }
 
 #[test]
+fn object_storage_and_its_hash_keep_the_canonical_public_id() {
+    let question =
+        PublishedQuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
+    assert_eq!(question.as_str(), "ABCD-XEFG");
+    let revision = PublishedQuestionRevisionTuple {
+        published_question_id: question,
+        revision_number: QuestionRevisionNumber::new(1).expect("revision"),
+    };
+    let object = ObjectId::from_uuid(Uuid::from_u128(5));
+    let source = ObjectAddress::QuestionSource {
+        published_question_revision_tuple: revision.clone(),
+        object_id: object,
+    };
+    assert_eq!(
+        source.path(),
+        format!("questions/ABCD-XEFG/versions/1/source/{object}")
+    );
+    let encoded = serde_json::to_string(&source).expect("object address JSON");
+    assert!(encoded.contains("\"publishedQuestionId\":\"ABCD-XEFG\""));
+    let import = WorkspaceImportId::from_uuid(Uuid::from_u128(4));
+    let archive = Sha256Checksum::compute(b"archive");
+    let hashed = published_import_archive_object_id(&revision, import, archive);
+    let other_question = PublishedQuestionRevisionTuple {
+        published_question_id: PublishedQuestionId::from_random_identifier("BCDEFGH")
+            .expect("other Question ID"),
+        revision_number: revision.revision_number,
+    };
+    assert_ne!(
+        hashed,
+        published_import_archive_object_id(&other_question, import, archive)
+    );
+    let course = CourseInstanceId::new("CIABCDEFGS").expect("canonical Course ID");
+    let banner = CourseBannerId::from_uuid(Uuid::from_u128(11));
+    let stored = ObjectAddress::StudentRecord {
+        course_instance_id: course.clone(),
+        object_id: object,
+    };
+    assert_eq!(
+        stored.path(),
+        format!("courses/CIABCDEFGS/records/{object}")
+    );
+    let course_hash = course_banner_source_object_id(&course, banner);
+    assert_ne!(
+        course_hash,
+        course_banner_source_object_id(&CourseInstanceId::from_debug_serial(12), banner)
+    );
+}
+
+#[test]
 fn object_address_rejects_noncanonical_question_id_json() {
     let encoded = r#"{"kind":"questionSource","publishedQuestionRevisionTuple":{"publishedQuestionId":"ABCDXEFG","revisionNumber":3},"objectId":"00000000-0000-0000-0000-000000000005"}"#;
 

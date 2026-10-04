@@ -5,7 +5,9 @@ import { For, Show, type JSX } from "solid-js";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
 import {
+  BLOOM_COGNITIVE_PROCESS_MEANINGS,
   BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSION_MEANINGS,
   BLOOM_KNOWLEDGE_DIMENSIONS,
   isBloomCognitiveProcess,
   isBloomKnowledgeDimension,
@@ -85,6 +87,36 @@ export function LibraryBloomDiscovery(props: {
             </For>
           </select>
         </label>
+      </div>
+      <div class="question-library-bloom-report" aria-label="Bloom teaching interpretation">
+        <div>
+          <section aria-labelledby="bloom-cognitive-meanings">
+            <h3 id="bloom-cognitive-meanings">Cognitive Process</h3>
+            <dl>
+              <For each={BLOOM_COGNITIVE_PROCESSES}>
+                {(value) => (
+                  <div>
+                    <dt>{value}</dt>
+                    <dd>{BLOOM_COGNITIVE_PROCESS_MEANINGS[value]}</dd>
+                  </div>
+                )}
+              </For>
+            </dl>
+          </section>
+          <section aria-labelledby="bloom-knowledge-meanings">
+            <h3 id="bloom-knowledge-meanings">Knowledge Dimension</h3>
+            <dl>
+              <For each={BLOOM_KNOWLEDGE_DIMENSIONS}>
+                {(value) => (
+                  <div>
+                    <dt>{value}</dt>
+                    <dd>{BLOOM_KNOWLEDGE_DIMENSION_MEANINGS[value]}</dd>
+                  </div>
+                )}
+              </For>
+            </dl>
+          </section>
+        </div>
       </div>
       <Show when={hasReport()}>
         <div class="question-library-bloom-report" aria-label="Bloom Classification report">

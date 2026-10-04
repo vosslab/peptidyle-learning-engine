@@ -41,7 +41,7 @@ pub(super) async fn promotion_boundary(
         .expect("private owner");
     let sysadmin_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, user_role, created_at) \
-         VALUES ('U00000012', 'sysadmin', pg_catalog.transaction_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'sysadmin', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await

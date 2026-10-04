@@ -69,6 +69,7 @@ function instructorCourse(courseInstanceId: string): CourseRouteView {
       classification: FIXTURE_CLASSIFICATION,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
+      lifecycleState: "active",
     },
     appearance: { theme: "grass", banner: null },
   };

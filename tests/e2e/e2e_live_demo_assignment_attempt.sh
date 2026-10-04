@@ -21,14 +21,17 @@ esac
 rerelease_latest_unreleased_current_assignment() {
 	local instructor="$1" postgres output course assignment workspace edit released
 	postgres="$(service_id postgres)"
-	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT course.course_instance_id || '\'' '\'' || assessment.assessment_id FROM ple_data.course_instance AS course JOIN ple_data.assessment AS assessment ON assessment.course_instance_id=course.course_instance_id JOIN ple_data.assessment_policy_snapshot AS policy ON policy.assessment_policy_snapshot_id=assessment.assessment_policy_snapshot_id WHERE assessment.assessment_status='\''unreleased'\'' AND policy.assessment_title='\''Current Assignment'\'' ORDER BY assessment.assessment_id DESC LIMIT 1"')"
+	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT course.course_instance_id || '\'' '\'' || assessment.assessment_id FROM ple_data.course_instance AS course JOIN ple_data.assessment AS assessment ON assessment.course_instance_id=course.course_instance_id JOIN ple_data.assessment_policy_snapshot AS policy ON policy.assessment_policy_snapshot_id=assessment.assessment_policy_snapshot_id WHERE assessment.assessment_status='\''unreleased'\'' AND policy.assessment_title='\''Current Assignment'\'' ORDER BY assessment.created_at DESC LIMIT 1"')"
 	printf '%s\n' "$output" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{8} A[0-9A-HJKMNP-TV-Z]{8}$' || { echo "current unreleased Assessment prerequisite is unavailable" >&2; exit 1; }
 	read -r course assignment <<<"$output"
 	workspace="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor")"
 	require_status "Instructor current unreleased Assessment read" "$workspace" 200
 	read -r _ edit < <(workspace_id_and_edit_number "$(response_body "$workspace")")
 	released="$(request "/api/course-instances/$course/assessments/$assignment/release" "$instructor" POST '' "$edit")"
-	require_status "Current Assessment re-release" "$released" 200
+	if [ "$(response_status "$released")" != 200 ]; then
+		echo "Current Assessment re-release returned HTTP $(response_status "$released"): $(response_body "$released")" >&2
+		exit 1
+	fi
 	printf '%s %s\n' "$course" "$assignment"
 }
 
@@ -118,7 +121,7 @@ assert_evidence_rows() {
 		                JOIN ple_private.assessment_attempt AS attempt ON attempt.assessment_attempt_id = issued.assessment_attempt_id
 		                JOIN ple_data.assessment AS assessment_row ON assessment_row.assessment_id = attempt.assessment_id
 		                WHERE assessment_row.assessment_id = '$assignment'
-		                  AND (issued.question_id IS NULL OR issued.revision_number < 1))
+		                  AND (issued.published_question_id IS NULL OR issued.revision_number < 1))
 	THEN 'assessment_attempt_evidence' ELSE 'incomplete' END"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$output" = assessment_attempt_evidence ] || { echo "Assessment Attempt evidence rows are incomplete" >&2; exit 1; }
@@ -176,9 +179,9 @@ assert_score() {
 	python3 -c '
 import json,sys
 value=json.loads(sys.argv[1]); attempt=sys.argv[2]
-if set(value)!={"assessmentAttempt","submissionState"} or value["assessmentAttempt"] != attempt or value["submissionState"] != "submitted":
+if set(value)!={"assessmentAttemptId","submissionState"} or value["assessmentAttemptId"] != attempt or value["submissionState"] != "submitted":
     raise SystemExit("submission did not return its closed receipt")
-' "$(response_body "$response")" "$attempt"
+' "$(response_body "$response")" "$attempt" || return 1
 	history="$(request "/api/assessment-attempts/$attempt/history" "$student_cookie")"
 	require_status "Submitted Assessment Attempt history" "$history" 200
 	python3 -c '
@@ -189,13 +192,13 @@ if not isinstance(score,dict) or set(score)!={"pointsEarned","pointsPossible"}:
 if not all(isinstance(score[key],(int,float)) and not isinstance(score[key],bool) for key in score) or score["pointsPossible"] <= 0 or not 0 <= score["pointsEarned"] <= score["pointsPossible"]:
     raise SystemExit("submitted Assessment Attempt history returned an invalid immutable-fraction score")
 print(json.dumps(score,separators=(",",":")))
-' "$(response_body "$history")"
+' "$(response_body "$history")" || return 1
 }
 
 assert_renderer_fraction_matches_submission() {
 	local attempt="$1" score="$2" postgres observed
 	postgres="$(service_id postgres)"
-	observed="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "SELECT json_build_object('pointsEarned', result.normalized_credit * entry.points_possible, 'pointsPossible', entry.points_possible)::text FROM ple_private.grading_result AS result JOIN ple_private.question_attempt AS question_attempt ON question_attempt.question_attempt_id=result.question_attempt_id JOIN ple_private.issued_question AS issued ON issued.issued_question_id=question_attempt.issued_question_id JOIN ple_private.assessment_attempt AS assessment_attempt ON assessment_attempt.assessment_attempt_id=issued.assessment_attempt_id JOIN ple_data.assessment_entry AS entry ON entry.assessment_entry_id=issued.assessment_entry_id WHERE assessment_attempt.assessment_attempt_id='$attempt'::uuid")"
+	observed="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "SELECT json_build_object('pointsEarned', sum(score.points_earned), 'pointsPossible', sum(score.points_possible))::text FROM ple_private.grading_result AS result JOIN ple_private.question_attempt AS question_attempt ON question_attempt.question_attempt_id=result.question_attempt_id JOIN ple_private.issued_question AS issued ON issued.issued_question_id=question_attempt.issued_question_id JOIN ple_private.assessment_attempt AS assessment_attempt ON assessment_attempt.assessment_attempt_id=issued.assessment_attempt_id JOIN ple_private.assessment_entry_snapshot AS snapshot ON snapshot.assessment_entry_snapshot_id=issued.assessment_entry_snapshot_id CROSS JOIN LATERAL ple_private.score_recorded_credit(result.normalized_credit, snapshot.scoring_rule, coalesce((SELECT question.points_possible FROM ple_data.assessment_entry_question AS question WHERE question.assessment_entry_id=issued.assessment_entry_id), (SELECT pool.points_per_item FROM ple_data.assessment_entry_pool AS pool WHERE pool.assessment_entry_id=issued.assessment_entry_id), snapshot.points)) AS score WHERE assessment_attempt.assessment_attempt_id='$attempt'::uuid")"
 	python3 -c '
 import json,sys
 expected=json.loads(sys.argv[1]); actual=json.loads(sys.argv[2])
@@ -240,14 +243,14 @@ prove_native_current_points() {
 	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Native Current Points" 300 "$published_question_revision_tuple")"
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Native Assessment start" "$started" 201
-	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttempt"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
+	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttemptId"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
 	selected="$(request "/api/assessment-attempts/$attempt/student-question?position=1" "$mary")"
 	require_status "Native Question selection" "$selected" 200
 	saved="$(request "/api/assessment-attempts/$attempt/responses/1" "$mary" PUT "$(native_response_payload "$selected")")"
 	require_status "Native response save" "$saved" 200
 	submitted="$(request "/api/assessment-attempts/$attempt/submission" "$mary" POST '{}')"
 	require_status "Native submission" "$submitted" 200
-	initial_score="$(assert_score "$submitted" "$attempt" "$mary")"
+	initial_score="$(assert_score "$submitted" "$attempt" "$mary")" || exit 1
 	python3 -c 'import json,sys; score=json.loads(sys.argv[1]); raise SystemExit(0 if score["pointsEarned"] > 0 else "native current-point acceptance needs nonzero retained credit")' "$initial_score"
 	workspace="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor")"
 	require_status "Native current-points workspace" "$workspace" 200
@@ -280,7 +283,7 @@ prove_background_expiry() {
 	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Background Expiry" 300 "$published_question_revision_tuple")"
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Expiry Assessment start" "$started" 201
-	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttempt"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
+	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttemptId"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
 	selected="$(request "/api/assessment-attempts/$attempt/student-question?position=1" "$mary")"
 	require_status "Expiry native Question selection" "$selected" 200
 	saved="$(request "/api/assessment-attempts/$attempt/responses/1" "$mary" PUT "$(native_response_payload "$selected")")"
@@ -318,7 +321,7 @@ prove_webwork_submission() {
 	assignment="$(create_released_backend_assignment "$course" "$instructor" webwork "WeBWorK Submission")"
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "WeBWorK Assessment start" "$started" 201
-	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttempt"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
+	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttemptId"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
 	port="$(gateway_port)"
 	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
 		node tests/playwright/e2e_live_demo_webwork_submission_browser.mjs "$port" "$attempt"
@@ -338,7 +341,7 @@ prove_webwork_submission() {
 	python3 -m local_stack_control.disposable_stack_command replace-webwork-renderer --manifest "$manifest" >/dev/null
 	submitted="$(request "/api/assessment-attempts/$attempt/submission" "$mary" POST '{}')"
 	require_status "WeBWorK Submission" "$submitted" 200
-	score="$(assert_score "$submitted" "$attempt" "$mary")"
+	score="$(assert_score "$submitted" "$attempt" "$mary")" || exit 1
 	assert_renderer_fraction_matches_submission "$attempt" "$score"
 	gradebook="$(request "/api/course-instances/$course/gradebook" "$instructor")"
 	require_status "Instructor Gradebook scored read" "$gradebook" 200

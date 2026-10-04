@@ -1,0 +1,19 @@
+/* Shared state surfaces for both tiers. Keep selection contrast independent of
+ * label contrast and of each tier's silhouette/connection geometry. */
+:root {
+  --ple-ribbon-inactive-ink-share: 24%;
+}
+
+.ple-app-ribbon,
+.ple-ribbon-shell-grid {
+  /* Move the resting bar away from the open surface in either display mode.
+   * Canvas preserves the theme hue; ink supplies a consistent value step. */
+  --ple-ribbon-context-surface: color-mix(
+    in srgb,
+    var(--ple-ink) var(--ple-ribbon-inactive-ink-share),
+    var(--ple-theme-canvas)
+  );
+  --ple-ribbon-folder-selected-surface: var(--ple-theme-canvas);
+  /* The focus ring must remain clear on both the resting and open surfaces. */
+  --ple-ribbon-focus: var(--ple-ink);
+}

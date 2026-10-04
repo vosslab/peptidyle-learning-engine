@@ -233,6 +233,48 @@ test("duplicate WebP bytes remain valid and retain their receipt hashes", async 
   }
 });
 
+test("instructor review files stay beside captures and other files stay rejected", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-instructor-review-"));
+  try {
+    const completeManifest = await loadManifest(manifestPath);
+    const captures = completeManifest.captures
+      .filter((capture) => capture.role === "instructor")
+      .slice(0, 1);
+    assert.equal(captures.length, 1);
+    const manifest = { ...completeManifest, captures };
+    await writeFixtureCorpus(root, manifest, "instructor-review");
+    await writeFile(
+      path.join(root, "instructor", "crop-stack.sh"),
+      "#!/usr/bin/env bash\n",
+      "utf8",
+    );
+    await writeFile(
+      path.join(root, "instructor", "stacked-screenshot.webp"),
+      Buffer.from("review-stack"),
+    );
+
+    const images = await inspectCorpus(root, manifest);
+    assert.deepEqual(
+      images.map((image) => image.path),
+      captures.map((capture) => capture.path),
+    );
+
+    await writeFile(path.join(root, "instructor", "notes.txt"), "extra", "utf8");
+    await assert.rejects(
+      () => inspectCorpus(root, manifest),
+      /unmanaged screenshot role entry: instructor\/notes.txt/u,
+    );
+    await rm(path.join(root, "instructor", "notes.txt"));
+    await writeFile(path.join(root, "student", "crop-stack.sh"), "#!/usr/bin/env bash\n", "utf8");
+    await assert.rejects(
+      () => inspectCorpus(root, manifest),
+      /unmanaged screenshot role entry: student\/crop-stack.sh/u,
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("eight generated folder galleries link their manifest images and appear in README", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-galleries-"));
   try {

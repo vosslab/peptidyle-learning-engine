@@ -3,6 +3,10 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import {
+  BLOOM_COGNITIVE_PROCESS_MEANINGS,
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSION_MEANINGS,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
   decodeBloomClassificationCorrectionRequest,
   decodeBloomClassificationView,
 } from "../src/api/decoders/bloom_classification.ts";
@@ -16,6 +20,21 @@ const bloom = {
   knowledgeDimension: "Procedural Knowledge",
   classificationEditNumber: "9223372036854775807",
 };
+
+test("Bloom teaching meanings cover every guide value and no other", () => {
+  assert.deepEqual(Object.keys(BLOOM_COGNITIVE_PROCESS_MEANINGS), [...BLOOM_COGNITIVE_PROCESSES]);
+  assert.deepEqual(Object.keys(BLOOM_KNOWLEDGE_DIMENSION_MEANINGS), [
+    ...BLOOM_KNOWLEDGE_DIMENSIONS,
+  ]);
+  for (const meaning of Object.values(BLOOM_COGNITIVE_PROCESS_MEANINGS)) {
+    assert.equal(meaning.trim(), meaning);
+    assert.ok(meaning.length > 0);
+  }
+  for (const meaning of Object.values(BLOOM_KNOWLEDGE_DIMENSION_MEANINGS)) {
+    assert.equal(meaning.trim(), meaning);
+    assert.ok(meaning.length > 0);
+  }
+});
 
 test("Bloom Classification decoder preserves the closed pair and exact Edit Number", () => {
   assert.deepEqual(decodeBloomClassificationView(bloom, "bloom"), bloom);

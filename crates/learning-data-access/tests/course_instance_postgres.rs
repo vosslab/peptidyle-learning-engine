@@ -4,8 +4,8 @@
 
 use learning_data_access::postgres::{PostgresCourseInstanceStore, lazy_pool};
 use learning_data_access::{
-    CourseInstanceCreationSource, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
-    StoreError,
+    CourseInstanceCreationSource, CourseInstanceLifecycleState, CourseInstanceStore,
+    CreateCourseInstanceInput, SessionTokenHash, StoreError,
 };
 use question_model::{AccountId, CourseTerm};
 use sqlx::{Connection, PgConnection};
@@ -38,6 +38,28 @@ fn empty_course_input() -> CreateCourseInstanceInput {
         long_name: "Empty Course contract".to_owned(),
         term: CourseTerm::from_parts("2026-01-01", "2026-05-01").expect("fixture term"),
         assigned_instructor_account_id: None,
+    }
+}
+
+async fn ensure_assigned_instructor_session(admin: &sqlx::postgres::PgPool) {
+    let mut transaction = admin.begin().await.expect("session lookup");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("private fixture role");
+    let existing: Option<String> = sqlx::query_scalar(
+        "SELECT account_id::text FROM ple_private.authenticated_session WHERE session_id = $1",
+    )
+    .bind(id(ASSIGNED_SESSION))
+    .fetch_optional(&mut *transaction)
+    .await
+    .expect("assigned session lookup");
+    transaction
+        .rollback()
+        .await
+        .expect("session lookup rollback");
+    if existing.is_none() {
+        seed(admin).await;
     }
 }
 
@@ -603,5 +625,67 @@ async fn inactive_course_keeps_metadata_after_student_data_deletion() {
     );
 
     tx.rollback().await.expect("course retention rollback");
+    admin.close().await;
+}
+
+/// The member Course summary carries the same stored activity state as creation and the list.
+///
+/// Failure means a course route could not tell an Active Course from an Inactive Course without a
+/// second query. Repair `ple_api.read_course_summary` before accepting a release.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
+async fn read_course_summary_returns_course_lifecycle_state() {
+    let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
+    let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
+    let application_url = std::env::var("DATABASE_URL").expect("application database URL");
+    ensure_assigned_instructor_session(&admin).await;
+
+    let mut course_input = empty_course_input();
+    course_input.short_name = "SUM-LIFE".to_owned();
+    course_input.long_name = "Summary lifecycle Course".to_owned();
+    let store = PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("app pool"));
+    let created = store
+        .create_course_instance(token(0xc1), course_input, Default::default())
+        .await
+        .expect("Empty Course creation");
+    let course_id = created.course_instance.id;
+    let active = store
+        .read_course_summary(token(0xc1), course_id.clone())
+        .await
+        .expect("active course summary");
+    assert_eq!(
+        active.lifecycle_state,
+        CourseInstanceLifecycleState::Active,
+        "a new Course is active"
+    );
+
+    let mut tx = admin.begin().await.expect("inactive transition");
+    sqlx::query("SET LOCAL ROLE ple_course_retention_executor")
+        .execute(&mut *tx)
+        .await
+        .expect("retention executor");
+    let marked: bool = sqlx::query_scalar(
+        "SELECT ple_api.mark_course_instance_inactive( \
+             $1, \
+             (SELECT active_until_at FROM ple_data.course_instance \
+               WHERE course_instance_id = $1))",
+    )
+    .bind(course_id.as_str())
+    .fetch_one(&mut *tx)
+    .await
+    .expect("mark Inactive at the Active cutoff");
+    assert!(marked, "the due Active cutoff marks the Course Inactive");
+    tx.commit().await.expect("inactive commit");
+
+    let inactive = store
+        .read_course_summary(token(0xc1), course_id)
+        .await
+        .expect("inactive course summary");
+    assert_eq!(
+        inactive.lifecycle_state,
+        CourseInstanceLifecycleState::Inactive,
+        "read_course_summary returns the stored inactive state"
+    );
+
     admin.close().await;
 }

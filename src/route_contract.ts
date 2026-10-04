@@ -32,11 +32,24 @@ export const RIBBON_TAB_IDS = [
 
 export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
 
+/**
+ * A Tier 2 destination that stays selected on a descendant page.
+ * Course lifecycle and Blueprint parents are resolved from context, not this field.
+ */
+export type RibbonTierTwoParentId =
+  | "searchQuestionLibrary"
+  | "myDraftQuestions"
+  | "myBlueprintCourses"
+  | "allCoursework"
+  | "studentAttemptHistory";
+
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
   readonly scope: RibbonScope;
   /** Role-level Ribbon tab that selects this route. */
   readonly tierOneArea: TierOneArea;
+  /** Tier 2 control that stays selected when this page is deeper than that control. */
+  readonly tierTwoParent?: RibbonTierTwoParentId;
 }
 
 export interface RouteContract {
@@ -109,6 +122,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
+      tierTwoParent: "myBlueprintCourses",
     },
     pageLayout: "fullWidth",
   },
@@ -120,6 +134,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
+      tierTwoParent: "myBlueprintCourses",
     },
     pageLayout: "fullWidth",
   },
@@ -305,7 +320,11 @@ export const ROUTE_CONTRACT = [
     // ASVS 8.3.1: client admission targets the separately role-gated Student landing route;
     // the server remains the authorization boundary for the exact Student Record.
     requiredUserRoles: ["student"],
-    ribbon: { scope: "courseInstance", tierOneArea: "coursework" },
+    ribbon: {
+      scope: "courseInstance",
+      tierOneArea: "coursework",
+      tierTwoParent: "allCoursework",
+    },
   },
   {
     id: "assessmentAttempt",
@@ -315,6 +334,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "assessmentAttempt",
       tierOneArea: "coursework",
+      tierTwoParent: "allCoursework",
     },
   },
   {
@@ -325,6 +345,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "assessmentAttempt",
       tierOneArea: "grades",
+      tierTwoParent: "studentAttemptHistory",
     },
   },
   {
@@ -367,6 +388,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
+      tierTwoParent: "searchQuestionLibrary",
     },
   },
   {
@@ -410,6 +432,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
+      tierTwoParent: "myDraftQuestions",
     },
     pageLayout: "fullWidth",
   },

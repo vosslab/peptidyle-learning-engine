@@ -6,8 +6,8 @@ import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 
 import { profileRoleMayManageImage } from "../src/features/profile_avatar/profile_avatar_role.ts";
+import { buildRoutePath } from "../src/ribbon/ribbon_route_path.ts";
 import {
-  buildRoutePath,
   deriveRibbonModel,
   ribbonModelAvailabilityMayAccessRoute,
 } from "../src/ribbon/ribbon_contract.ts";
@@ -156,7 +156,7 @@ test("every signed-in User Role has one accessible generic Profile end control",
       [
         {
           id: "profile",
-          label: "Profile",
+          label: "Profile settings",
           availability: "Available",
           glyph: "profile",
           href: "/profile",
@@ -221,12 +221,21 @@ test("settled Instructor Tier 2 destinations and order stay fixed across deeper 
       area.controls.filter((control) => control.selected),
     );
     assert.ok(selected.length <= 1, `${route.id} selects at most one Tier 2 destination`);
-    for (const control of selected) {
-      assert.equal(
-        control.destination.kind === "route" && control.destination.routeId === route.id,
-        true,
-        `${route.id} selects only its own destination`,
+    const rowControls = model.taskAreas.flatMap((area) => area.controls);
+    const exactDestination = rowControls.some(
+      (control) => control.destination.kind === "route" && control.destination.routeId === route.id,
+    );
+    if (exactDestination) {
+      assert.equal(selected.length, 1, `${route.id} keeps its exact Tier 2 destination`);
+      assert.equal(selected[0].destination.routeId, route.id, route.id);
+    } else if (route.ribbon.tierTwoParent !== undefined) {
+      assert.deepEqual(
+        selected.map((control) => control.id),
+        [route.ribbon.tierTwoParent],
+        `${route.id} keeps its declared Tier 2 parent`,
       );
+    } else {
+      assert.deepEqual(selected, [], `${route.id} has no Tier 2 ancestor without a parent`);
     }
     const previous = rowsByTierOne.get(route.ribbon.tierOneArea);
     if (previous === undefined) rowsByTierOne.set(route.ribbon.tierOneArea, row);
@@ -309,6 +318,34 @@ test("Instructor Product routes reserve owner-ordered task groups despite unavai
   }
 });
 
+test("frequent Instructor teaching tasks stay linked while future tasks stay unusable", () => {
+  const courses = controlsFor("instructorHome", "instructor").model;
+  const questions = controlsFor("library", "instructor").model;
+  const assessments = controlsFor("assessmentsDueSoon", "instructor").model;
+  assert.deepEqual(
+    courses.tabs.map((control) => control.label),
+    ["Courses", "Questions", "Assessments"],
+  );
+  const linked = [courses, questions, assessments].flatMap((model) =>
+    model.taskAreas.flatMap((area) => area.controls),
+  );
+  for (const control of linked) {
+    assert.equal(control.availability, "Available", control.id);
+    assert.match(control.href ?? "", /^\//, control.id);
+  }
+  const futureIds = ["teachingOperations", "blueprintUpdates", "courseSetup", "gradeSettings"];
+  for (const futureId of futureIds) {
+    const entry = RIBBON_TASK_CATALOG.find((candidate) => candidate.id === futureId);
+    assert.ok(entry, futureId);
+    assert.equal(entry.destination.kind, "future", futureId);
+    assert.equal(
+      linked.some((control) => control.id === futureId && control.href !== undefined),
+      false,
+      futureId,
+    );
+  }
+});
+
 test("Ribbon has one plain brand anchor rather than a separate product-name treatment", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() =>
@@ -325,6 +362,29 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
     "exactly one element in the Ribbon carries the product wordmark",
   );
   assert.doesNotMatch(html, /ple-app-ribbon__product-name/);
+});
+
+test("top bar order is logo, role badge, Tier 1, then Light/Dark and Profile", async () => {
+  const RealAppRibbon = await loadAppRibbonForSsr();
+  const html = renderToString(() =>
+    createComponent(RealAppRibbon, {
+      model: M6_RIBBON_FIXTURES.courseInstructor,
+      displayMode: "light",
+      onSwitchDisplayMode: () => undefined,
+    }),
+  );
+  const brand = html.indexOf("ple-app-ribbon__brand");
+  const role = html.indexOf("ple-app-ribbon__user-role");
+  const tabs = html.indexOf('aria-label="Ribbon tabs"');
+  const mode = html.indexOf("ple-app-ribbon__display-mode-toggle");
+  const profile = html.indexOf('data-ribbon-context-control="profile"');
+  assert.ok(brand >= 0 && role > brand, "logo precedes the role badge");
+  assert.ok(tabs > role, "Tier 1 follows the role badge");
+  assert.ok(mode > tabs && profile > mode, "Light/Dark precedes the Profile control");
+  const phone = readFileSync(new URL("../src/ribbon/app_ribbon.css", import.meta.url), "utf8");
+  const phoneRule = phone.slice(phone.indexOf("@media (max-width: 40rem)"));
+  assert.doesNotMatch(phoneRule, /\.ple-app-ribbon__user-role\s*\{[^}]*order:/s);
+  assert.match(phoneRule, /\.ple-app-ribbon__brand-word\s*\{[^}]*display:\s*none;/s);
 });
 
 test("Student Tier 2 choices and order stay fixed across routes and Course context", () => {
@@ -510,252 +570,19 @@ test("relationship admission may check without moving schema-owned positions", (
   }
 });
 
-test("breadcrumb trails are canonical route projections with one current terminal", () => {
-  const labels = {
-    courseShortName: "BCHM 355",
-    courseLongName: "Biochemistry I",
-    assessmentTitle: "Problem Set 7",
-    assessmentAttemptTitle: "Problem Set 7",
-    questionTitle: "Catalytic triad",
-    blueprintCourseTitle: "Molecular Biology Blueprint",
-    blueprintBreadcrumbParent: "myBlueprintCourses",
-  };
-  const cases = [
-    ["courses", ["Home"]],
-    ["courseAssessments", ["Home", "Biochemistry I"]],
-    ["courseAppearance", ["Home", "Biochemistry I", "Appearance"]],
-    ["assessmentWorkspaceQuestions", ["Home", "Biochemistry I", "Problem Set 7", "Questions"]],
-    ["assessmentWorkspacePolicies", ["Home", "Biochemistry I", "Problem Set 7", "Properties"]],
-    ["questionDetail", ["Home", "Question Library", "Catalytic triad"]],
-    ["questionDraftEditor", ["Home", "My Draft Questions", "Catalytic triad"]],
-    ["blueprintCourseDetail", ["Home", "My Blueprint Courses", "Molecular Biology Blueprint"]],
-    ["publicBlueprintSearch", ["Home", "Search Public Blueprint Courses"]],
-    ["assessmentAttempt", ["Home", "Courses", "Biochemistry I", "Problem Set 7", "Attempt"]],
-    [
-      "assessmentAttemptSummary",
-      ["Home", "Courses", "Biochemistry I", "Problem Set 7", "Attempt history"],
-    ],
-  ];
-  for (const [routeId, expectedLabels] of cases) {
-    const routeState = routeStateFor(routeId);
-    const model = deriveRibbonModel(
-      routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
-        ? {
-            ...routeState,
-            params: {
-              ...routeState.params,
-              courseInstanceId: "CI7K3M2QAZ",
-              assessmentId: "A9D2RX5AF",
-            },
-          }
-        : routeState,
-      { userRole: "instructor" },
-      labels,
-    );
-    assert.deepEqual(
-      model.breadcrumbs.map((item) => item.label),
-      expectedLabels,
-      routeId,
-    );
-    assert.equal(
-      model.breadcrumbs.filter((item) => item.current).length,
-      expectedLabels.length === 0 ? 0 : 1,
-      `${routeId} has exactly one current terminal`,
-    );
-    for (const item of model.breadcrumbs.filter((candidate) => candidate.href !== undefined)) {
-      assert.ok(
-        routeContractForPathname(item.href),
-        `${routeId}:${item.label} has a declared href`,
-      );
-    }
-  }
-  const courseBreadcrumb = deriveRibbonModel(
-    routeStateFor("assessmentWorkspaceQuestions"),
-    { userRole: "instructor" },
-    labels,
-  ).breadcrumbs[1];
-  assert.deepEqual(
-    [courseBreadcrumb?.label, courseBreadcrumb?.compactLabel],
-    ["Biochemistry I", "BCHM 355"],
-    "the breadcrumb model keeps descriptive and compact Course identities together",
-  );
-  const malformed = ROUTE_CONTRACT.find((route) => route.id === "courseAppearance");
-  assert.ok(malformed);
-  const invalid = deriveRibbonModel(
-    { route: malformed, params: { courseInstanceId: "C-1/not-an-id" } },
-    { userRole: "instructor" },
-    labels,
-  );
-  assert.deepEqual(
-    invalid.breadcrumbs,
-    [{ label: "Home", href: "/instructor", current: false }],
-    "malformed scope retains only the known home without identifier copy",
-  );
-  const scoped = deriveRibbonModel(
-    routeStateFor("courseAppearance"),
-    { userRole: "instructor" },
-    labels,
-  );
-  assert.deepEqual(Object.keys(scoped.context).sort(), [
-    "accountControls",
-    "productLabel",
-    "signOutAction",
-  ]);
-  assert.equal(Object.hasOwn(scoped, "contentLayout"), false);
-  assert.equal(scoped.breadcrumbs[1]?.label, "Biochemistry I");
-});
-
-test("loaded Blueprint access selects its actual collection parent", () => {
-  const routeState = routeStateFor("blueprintCourseDetail");
-  const publicLabels = {
-    blueprintCourseTitle: "Public Molecular Biology Blueprint",
-    blueprintBreadcrumbParent: "publicBlueprintSearch",
-  };
-  const model = deriveRibbonModel(routeState, { userRole: "instructor" }, publicLabels);
-  assert.deepEqual(
-    model.breadcrumbs.map(({ label, href, current }) => ({ label, href, current })),
-    [
-      { label: "Home", href: "/instructor", current: false },
-      {
-        label: "Search Public Blueprint Courses",
-        href: "/blueprint-courses/search/public",
-        current: false,
-      },
-      {
-        label: "Public Molecular Biology Blueprint",
-        href: "/blueprint-courses/BP7K3M2QAF",
-        current: true,
-      },
-    ],
-  );
-  for (const navigation of [{}]) {
-    const directModel = deriveRibbonModel(
-      routeState,
-      { userRole: "instructor" },
-      publicLabels,
-      navigation,
-    );
-    assert.equal(
-      directModel.breadcrumbs[1]?.href,
-      "/blueprint-courses/search/public",
-      "direct and malformed Blueprint Search returns use the bare collection route",
-    );
-  }
-});
-
-test("Student breadcrumb parents use their real collection and Course destinations", () => {
-  const labels = { courseLongName: "Biochemistry I", assessmentTitle: "Problem Set 7" };
-  const cases = [
-    [
-      "studentCourseLanding",
-      ["Home", "Courses", "Biochemistry I"],
-      ["/student", "/student/courses", "/student/courses/CI7K3M2QAZ"],
-    ],
-    [
-      "studentCourseProgress",
-      ["Home", "Courses", "Biochemistry I", "Progress"],
-      [
-        "/student",
-        "/student/courses",
-        "/student/courses/CI7K3M2QAZ",
-        "/student/courses/CI7K3M2QAZ/progress",
-      ],
-    ],
-    [
-      "assessmentOverview",
-      ["Home", "Courses", "Biochemistry I", "Problem Set 7"],
-      [
-        "/student",
-        "/student/courses",
-        "/student/courses/CI7K3M2QAZ",
-        "/courses/CI7K3M2QAZ/assessments/A9D2RX5AF",
-      ],
-    ],
-    [
-      "studentResponseStats",
-      ["Home", "Grades", "Response Stats"],
-      ["/student", "/student/grades", "/student/grades/response-stats"],
-    ],
-    [
-      "studentAttemptHistory",
-      ["Home", "Grades", "Attempt History"],
-      ["/student", "/student/grades", "/student/grades/attempt-history"],
-    ],
-  ];
-  for (const [routeId, expectedLabels, expectedHrefs] of cases) {
-    const model = deriveRibbonModel(routeStateFor(routeId), { userRole: "student" }, labels);
-    assert.deepEqual(
-      model.breadcrumbs.map(({ label }) => label),
-      expectedLabels,
-      routeId,
-    );
-    assert.deepEqual(
-      model.breadcrumbs.map(({ href }) => href),
-      expectedHrefs,
-      routeId,
-    );
-    assert.equal(model.breadcrumbs.at(-1)?.current, true, routeId);
-  }
-});
-
-test("Student Course Invitation acceptance stays outside Course breadcrumb context", () => {
-  const model = deriveRibbonModel(
-    routeStateFor("studentCourseInvitation"),
-    { userRole: "student" },
-    LABELS,
-  );
-  assert.deepEqual(
-    model.breadcrumbs.map(({ label }) => label),
-    ["Home", "Course Invitations", "Course Invitation"],
-  );
-});
-
-test("deferred scope labels retain a linked human-readable current breadcrumb", () => {
-  const cases = [
-    ["courseAssessments", "instructor", ["Home", "Course"]],
-    ["assessmentWorkspaceOverview", "instructor", ["Home", "Course", "Assessment"]],
-    ["studentCourseLanding", "student", ["Home", "Courses", "Course"]],
-    ["studentCourseProgress", "student", ["Home", "Courses", "Course", "Progress"]],
-    ["assessmentOverview", "student", ["Home", "Courses", "Course", "Before you start"]],
-    ["studentResponseStats", "student", ["Home", "Grades", "Response Stats"]],
-    ["assessmentAttempt", "student", ["Home", "Attempt"]],
-  ];
-  for (const [routeId, userRole, expectedLabels] of cases) {
-    const state = routeStateFor(routeId);
-    const model = deriveRibbonModel(state, { userRole }, LABELS);
-    assert.deepEqual(
-      model.breadcrumbs.map(({ label }) => label),
-      expectedLabels,
-      routeId,
-    );
-    assert.deepEqual(
-      model.breadcrumbs.map(({ current }) => current),
-      expectedLabels.map((_, index) => index === expectedLabels.length - 1),
-      routeId,
-    );
-    const breadcrumbParams =
-      routeId === "assessmentAttempt"
-        ? { courseInstanceId: state.params.courseInstanceId }
-        : state.params;
-    assert.equal(model.breadcrumbs.at(-1).href, buildRoutePath(routeId, breadcrumbParams), routeId);
-    assert.equal(
-      model.breadcrumbs.some(({ label }) => label.includes(PARAMETER_VALUES.assessmentAttemptRef)),
-      false,
-      routeId,
-    );
-  }
-});
-
-test("deferred assessment-attempt summary retains only its linked current breadcrumb", () => {
+test("deferred assessment-attempt summary keeps Attempt History and its review crumb", () => {
   const state = routeStateFor("assessmentAttemptSummary");
   assert.deepEqual(Object.keys(state.params), ["courseInstanceId", "assessmentAttemptId"]);
   const model = deriveRibbonModel(state, { userRole: "student" }, LABELS);
   assert.deepEqual(model.breadcrumbs, [
     { label: "Home", href: "/student", current: false },
+    { label: "Grades", href: "/student/grades", current: false },
+    { label: "Attempt History", href: "/student/grades/attempt-history", current: false },
     {
       label: "Attempt history",
       href: "/courses/CI7K3M2QAZ/review",
       current: true,
+      state: { assessmentAttemptId: state.params.assessmentAttemptId },
     },
   ]);
   assert.equal(
@@ -894,9 +721,217 @@ test("Course breadcrumbs preserve the authored long name", () => {
     const model = deriveRibbonModel(state, { userRole: "instructor" }, { courseLongName });
     assert.deepEqual(
       model.breadcrumbs.map(({ label }) => label),
-      ["Home", courseLongName],
+      ["Home", "Courses", courseLongName],
     );
   }
+});
+
+test("hierarchy breadcrumbs keep ancestors and collapse only identical adjacent names", () => {
+  const labels = {
+    courseShortName: "BCHM 355",
+    courseLongName: "Biochemistry I",
+    assessmentTitle: "Problem Set 7",
+    assessmentAttemptTitle: "Problem Set 7",
+    questionTitle: "Catalytic triad",
+    blueprintCourseTitle: "Molecular Biology Blueprint",
+  };
+  const selectedTaskIds = (model) =>
+    model.taskAreas.flatMap((area) =>
+      area.controls.filter((control) => control.selected).map((control) => control.id),
+    );
+  const trail = (routeId, userRole, contextLabels, routeState = routeStateFor(routeId)) => {
+    const model = deriveRibbonModel(routeState, { userRole }, contextLabels);
+    assert.equal(model.breadcrumbs.filter((item) => item.current).length, 1, routeId);
+    assert.equal(model.breadcrumbs.at(-1)?.current, true, routeId);
+    for (const item of model.breadcrumbs) {
+      assert.equal(typeof item.href, "string", `${routeId}:${item.label}`);
+      assert.ok(routeContractForPathname(item.href), `${routeId}:${item.label}`);
+    }
+    return model;
+  };
+
+  const instructorHome = trail("instructorHome", "instructor", {});
+  assert.deepEqual(
+    instructorHome.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "My Active Courses"],
+  );
+  assert.deepEqual(
+    instructorHome.breadcrumbs.map((item) => item.href),
+    ["/instructor", "/instructor", "/instructor"],
+  );
+  assert.deepEqual(selectedTaskIds(instructorHome), ["myActiveCourses"]);
+
+  const activeRoster = trail("courseRoster", "instructor", {
+    ...labels,
+    courseLifecycleState: "active",
+  });
+  assert.deepEqual(
+    activeRoster.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "My Active Courses", "Biochemistry I", "Students"],
+  );
+  assert.deepEqual(selectedTaskIds(activeRoster), ["myActiveCourses"]);
+
+  const inactiveRoster = trail("courseRoster", "instructor", {
+    ...labels,
+    courseLifecycleState: "inactive",
+  });
+  assert.deepEqual(
+    inactiveRoster.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "My Inactive Courses", "Biochemistry I", "Students"],
+  );
+  assert.deepEqual(selectedTaskIds(inactiveRoster), ["myInactiveCourses"]);
+
+  const unresolvedRoster = trail("courseRoster", "instructor", labels);
+  assert.deepEqual(selectedTaskIds(unresolvedRoster), []);
+  assert.equal(
+    unresolvedRoster.breadcrumbs.some((item) => item.label.startsWith("My ")),
+    false,
+  );
+
+  const blueprint = trail("blueprintCourseDetail", "instructor", {
+    ...labels,
+    blueprintBreadcrumbParent: "myBlueprintCourses",
+  });
+  assert.deepEqual(
+    blueprint.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "My Blueprint Courses", "Molecular Biology Blueprint"],
+  );
+  assert.deepEqual(selectedTaskIds(blueprint), ["myBlueprintCourses"]);
+
+  const unknownBlueprint = trail("blueprintCourseDetail", "instructor", labels);
+  assert.deepEqual(selectedTaskIds(unknownBlueprint), []);
+  assert.deepEqual(
+    unknownBlueprint.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "Molecular Biology Blueprint"],
+  );
+
+  const question = trail("questionDetail", "instructor", labels);
+  assert.deepEqual(
+    question.breadcrumbs.map((item) => item.label),
+    ["Home", "Questions", "Search Question Library", "Catalytic triad"],
+  );
+  assert.deepEqual(selectedTaskIds(question), ["searchQuestionLibrary"]);
+
+  const library = trail("library", "instructor", {});
+  const searchCrumb = library.breadcrumbs.find((item) => item.label === "Search Question Library");
+  const pageCrumb = library.breadcrumbs.find((item) => item.label === "Question Library");
+  assert.equal(searchCrumb?.href, "/library");
+  assert.equal(pageCrumb?.href, searchCrumb?.href);
+  assert.notEqual(searchCrumb?.label, pageCrumb?.label);
+
+  const workspace = trail("assessmentWorkspacePolicies", "instructor", labels);
+  assert.deepEqual(
+    workspace.breadcrumbs.map((item) => item.label),
+    ["Home", "Assessments", "Biochemistry I", "Problem Set 7", "Properties"],
+  );
+  assert.deepEqual(selectedTaskIds(workspace), []);
+  assert.equal(workspace.tabs.find((tab) => tab.selected)?.id, "productAssessments");
+
+  const progress = trail("studentCourseProgress", "student", labels, {
+    ...routeStateFor("studentCourseProgress"),
+    studentCourses: [{ id: PARAMETER_VALUES.courseInstanceId, shortName: "BCHM 355" }],
+  });
+  assert.deepEqual(
+    progress.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "Biochemistry I", "Progress"],
+  );
+  assert.equal(
+    progress.breadcrumbs.find((item) => item.label === "Biochemistry I")?.compactLabel,
+    "BCHM 355",
+  );
+  assert.deepEqual(selectedTaskIds(progress), [
+    `studentCourse:${PARAMETER_VALUES.courseInstanceId}`,
+  ]);
+
+  const progressNamedLikePage = trail(
+    "studentCourseProgress",
+    "student",
+    { ...labels, courseLongName: "Progress", courseShortName: "PROG" },
+    {
+      ...routeStateFor("studentCourseProgress"),
+      studentCourses: [{ id: PARAMETER_VALUES.courseInstanceId, shortName: "PROG" }],
+    },
+  );
+  assert.deepEqual(
+    progressNamedLikePage.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses", "Progress"],
+  );
+  assert.equal(
+    progressNamedLikePage.breadcrumbs.at(-1)?.href,
+    buildRoutePath("studentCourseProgress", routeStateFor("studentCourseProgress").params),
+  );
+  assert.notEqual(
+    progressNamedLikePage.breadcrumbs.at(-1)?.href,
+    progressNamedLikePage.taskAreas
+      .flatMap((area) => area.controls)
+      .find((control) => control.selected)?.href,
+  );
+
+  const attemptState = routeStateFor("assessmentAttempt");
+  const attempt = trail("assessmentAttempt", "student", labels, {
+    ...attemptState,
+    params: {
+      ...attemptState.params,
+      courseInstanceId: PARAMETER_VALUES.courseInstanceId,
+      assessmentId: PARAMETER_VALUES.assessmentId,
+    },
+  });
+  assert.deepEqual(
+    attempt.breadcrumbs.map((item) => item.label),
+    ["Home", "Coursework", "All Coursework", "Biochemistry I", "Problem Set 7", "Attempt"],
+  );
+  assert.deepEqual(selectedTaskIds(attempt), ["allCoursework"]);
+
+  const activeAttempt = trail("assessmentAttempt", "student", labels, {
+    ...attemptState,
+    params: {
+      ...attemptState.params,
+      courseInstanceId: PARAMETER_VALUES.courseInstanceId,
+      assessmentId: PARAMETER_VALUES.assessmentId,
+    },
+    activeAttemptId: attemptState.params.assessmentAttemptId,
+    activeAttemptCourseInstanceId: PARAMETER_VALUES.courseInstanceId,
+  });
+  assert.deepEqual(selectedTaskIds(activeAttempt), ["activeAttempt"]);
+  assert.equal(
+    activeAttempt.breadcrumbs.some((item) => item.label === "All Coursework"),
+    false,
+  );
+
+  const summary = trail("assessmentAttemptSummary", "student", labels);
+  assert.deepEqual(selectedTaskIds(summary), ["studentAttemptHistory"]);
+  const summaryState = routeStateFor("assessmentAttemptSummary");
+  const latestFeedback = trail("assessmentAttemptSummary", "student", labels, {
+    ...summaryState,
+    latestFeedbackAttemptId: summaryState.params.assessmentAttemptId,
+    latestFeedbackCourseInstanceId: PARAMETER_VALUES.courseInstanceId,
+  });
+  assert.deepEqual(selectedTaskIds(latestFeedback), ["studentLatestFeedback"]);
+
+  const profile = trail("profile", "instructor", {});
+  assert.deepEqual(
+    profile.breadcrumbs.map((item) => item.label),
+    ["Home", "Profile settings"],
+  );
+  assert.equal(
+    profile.tabs.some((tab) => tab.selected),
+    false,
+  );
+
+  const inspection = trail("sysadminCourseInspection", "sysadmin", {});
+  assert.deepEqual(
+    inspection.breadcrumbs.map((item) => item.label),
+    ["Home", "Courses"],
+  );
+  assert.equal(inspection.breadcrumbs.at(-1)?.href, "/sysadmin/courses");
+
+  const malformed = ROUTE_CONTRACT.find((route) => route.id === "courseRoster");
+  const invalid = deriveRibbonModel(
+    { route: malformed, params: { courseInstanceId: "not-a-course" } },
+    { userRole: "instructor" },
+    { ...labels, courseLifecycleState: "active" },
+  );
+  assert.deepEqual(invalid.breadcrumbs, [{ label: "Home", href: "/instructor", current: false }]);
 });
 
 test("every signed-in route reserves linked breadcrumbs rooted at its role home", () => {

@@ -18,7 +18,7 @@ import {
 } from "../components/record_list/record_list";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { parseCourseInstanceId } from "../navigation/public_route";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
+import { buildRoutePath } from "../ribbon/ribbon_route_path";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import "./student_course_progress_page.css";
 import {

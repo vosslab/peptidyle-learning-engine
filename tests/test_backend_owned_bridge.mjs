@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   backendOwnedDocumentPath,
   backendOwnedResponseFromPairs,
+  backendOwnedStatusMessage,
   classifyBackendOwnedResponseMessage,
   isBackendOwnedResponseMessage,
 } from "../src/components/question_response_controls/backend_owned_document.tsx";
@@ -264,6 +265,31 @@ test("parent accepts only the bridge message and builds only the current documen
   assert.equal(
     isBackendOwnedResponseMessage({ kind: "ple.backendOwned.response", pairs: [], extra: true }),
     false,
+  );
+});
+
+test("a captured backend document reports saved only after the Attempt accepts it", () => {
+  assert.equal(
+    backendOwnedStatusMessage("capturing", "Saving response...", "saved"),
+    "Saving response...",
+  );
+  assert.equal(backendOwnedStatusMessage("ready", "Question ready.", "idle"), "Question ready.");
+  assert.equal(
+    backendOwnedStatusMessage("ready", "Saving response...", "saving"),
+    "Saving response...",
+  );
+  assert.equal(
+    backendOwnedStatusMessage("ready", "Saving response...", "saved"),
+    "Response saved.",
+  );
+  assert.equal(backendOwnedStatusMessage("saved", "Response saved.", "idle"), "Response saved.");
+  assert.equal(
+    backendOwnedStatusMessage("ready", "Question ready.", "error", "Save did not finish."),
+    "Save did not finish.",
+  );
+  assert.equal(
+    backendOwnedStatusMessage("failed", "This response is too large to save.", "saved"),
+    "This response is too large to save.",
   );
 });
 

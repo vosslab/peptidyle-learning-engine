@@ -109,6 +109,7 @@ pub(super) fn serde_with(attrs: &[Attribute]) -> Option<String> {
 pub(super) fn apply_rename(name: &str, rule: Option<&str>) -> Result<String> {
     match rule {
         None => Ok(name.to_string()),
+        Some("lowercase") => Ok(name.to_ascii_lowercase()),
         Some("camelCase") => Ok(to_camel_case(name)),
         Some("snake_case") => Ok(to_snake_case(name)),
         Some("kebab-case") => Ok(to_snake_case(name).replace('_', "-")),
@@ -161,7 +162,7 @@ fn serde_name_value(attrs: &[Attribute], key: &str) -> Result<Option<String>> {
 
 fn validate_rename_rule(rule: &str) -> Result<()> {
     match rule {
-        "camelCase" | "snake_case" | "kebab-case" => Ok(()),
+        "lowercase" | "camelCase" | "snake_case" | "kebab-case" => Ok(()),
         _ => bail!("unsupported serde rename rule: {rule}"),
     }
 }

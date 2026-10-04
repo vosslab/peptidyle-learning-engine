@@ -31,11 +31,13 @@ $$;
 CREATE FUNCTION ple_api.read_course_summary(p_course_instance_id text)
 RETURNS TABLE(course_instance_id text, short_name text, long_name text,
               term_starts_on date, term_ends_on date, membership_role text,
-              content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[])
+              content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[],
+              course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, membership.role,
-           course.content_discipline_id, course.content_subject_id, course.content_topic_id, course.content_subtopic_id, course.tags
+           course.content_discipline_id, course.content_subject_id, course.content_topic_id, course.content_subtopic_id, course.tags,
+           course.course_lifecycle_state::text
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership
         ON membership.course_instance_id = course.course_instance_id

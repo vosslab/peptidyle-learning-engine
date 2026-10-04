@@ -173,10 +173,11 @@ pub use crate::capability::{
     QuestionBackendCapabilities,
 };
 pub use crate::course::{
-    AssessmentEntrySummary, AssessmentOverview, AssessmentSummary, CourseInstanceRouteSummary,
-    CourseMembershipRole, CourseSummary, FixedQuestionAssessmentEntrySummary, GradebookSummaryRow,
-    QuestionPoolAssessmentEntrySummary, StudentAssessmentDelivery, StudentAssessmentDetail,
-    StudentAssessmentLandingSummary, StudentLateWorkStatus,
+    AssessmentEntrySummary, AssessmentOverview, AssessmentSummary, CourseInstanceLifecycleState,
+    CourseInstanceRouteSummary, CourseMembershipRole, CourseSummary,
+    FixedQuestionAssessmentEntrySummary, GradebookSummaryRow, QuestionPoolAssessmentEntrySummary,
+    StudentAssessmentDelivery, StudentAssessmentDetail, StudentAssessmentLandingSummary,
+    StudentLateWorkStatus,
 };
 pub use crate::course_appearance::{
     CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerId,

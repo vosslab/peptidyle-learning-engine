@@ -184,7 +184,10 @@ function RecordActionControl(props: { readonly action: Accessor<RecordAction> })
     >
       <a
         class="record-list__action"
-        classList={{ "record-list__action--primary": link().primary === true }}
+        classList={{
+          "record-list__action--primary": link().primary === true,
+          "primary-link": link().primary === true,
+        }}
         href={link().href}
         title={link().title}
         ref={(element) => link().ref?.(element)}

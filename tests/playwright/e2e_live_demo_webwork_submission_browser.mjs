@@ -60,7 +60,10 @@ try {
   const response = await persisted;
   const body = await response.json();
   if (!response.ok() || body?.savedResponse?.kind !== "backendOwned") {
-    throw new Error("WeBWorK saved response was not retained after browser reload");
+    const saved = JSON.stringify(body?.savedResponse ?? null);
+    throw new Error(
+      `WeBWorK saved response was not retained after browser reload (HTTP ${response.status()} savedResponse=${saved})`,
+    );
   }
   console.log("WeBWorK browser capture and reload: PASS");
 } finally {

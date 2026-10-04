@@ -5,12 +5,12 @@ base="${ple_root}/docs/screenshots"
 output="${ple_root}/test-results/screenshot-averages"
 
 mkdir -p "${output}"
-find "${output}" -maxdepth 1 -type f -name '*-avg*.png' -delete
+find "${output}" -maxdepth 1 -type f -name '*-avg*.webp' -delete
 
 shopt -s nullglob
 while IFS= read -r -d '' folder
 do
-  images=("${folder}"/*.png)
+  images=("${folder}"/*.webp)
   count=${#images[@]}
 
   (( count == 0 )) && continue
@@ -18,8 +18,8 @@ do
   rel="${folder#${base}/}"
   name="${rel//\//-}"
 
-  outimg="${output}/${name}-avg.png"
-  cropimg="${output}/${name}-avg-crop.png"
+  outimg="${output}/${name}-avg.webp"
+  cropimg="${output}/${name}-avg-crop.webp"
 
   echo "averaging ${count} images -> ${outimg}"
 
@@ -28,7 +28,7 @@ do
 done < <(find "${base}" -type d -print0)
 
 echo ""
-find "${output}" -maxdepth 1 -type f -name '*-avg*.png' -print | sort
+find "${output}" -maxdepth 1 -type f -name '*-avg*.webp' -print | sort
 
 echo ""
-echo "open ${output}/*crop.png"
+echo "open ${output}/*crop.webp"

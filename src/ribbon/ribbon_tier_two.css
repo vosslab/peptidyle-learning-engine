@@ -1,0 +1,66 @@
+/* Tier 2: rectangular tabs on the content edge. Shape and surface decisions
+ * stay here; shared scrolling, keyboard focus, and row sizing stay in the shell. */
+:root {
+  --ple-ribbon-task-radius: 0;
+  --ple-ribbon-task-control-size: 2rem;
+}
+
+.ple-app-ribbon {
+  --ple-ribbon-task-surface: var(--ple-ribbon-context-surface);
+  --ple-ribbon-task-selected-surface: var(--ple-theme-canvas);
+}
+
+/* Tasks sit on the content edge with explicit proximity grouping. The
+   between-area padding is deliberately larger than the within-area gap. */
+.ple-app-ribbon__tasks {
+  align-items: flex-end;
+  gap: var(--ple-ribbon-space-row);
+  padding-inline: var(--ple-ribbon-space-inline);
+  color: var(--ple-theme-on-secondary);
+  background-color: var(--ple-ribbon-task-surface);
+  box-shadow: none;
+  scroll-snap-type: inline proximity;
+}
+
+.ple-app-ribbon__task-area {
+  align-items: flex-end;
+  align-self: flex-end;
+  gap: calc(var(--ple-ribbon-space-tight) / 2);
+}
+
+.ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
+  padding-inline-start: var(--ple-ribbon-space-between-area);
+  /* This task-area boundary uses the all-theme text-safe neutral rather than
+     the intentionally softer structural border token. */
+  border-inline-start: 1px solid var(--ple-muted);
+}
+
+/* Tier 2 uses compact text tabs. Reserve the same border in every state
+   so selection changes paint, not the box or the neighbor positions. */
+.ple-app-ribbon__tasks .ple-app-ribbon__link {
+  min-block-size: var(--ple-ribbon-task-control-size);
+  border: 1px solid transparent;
+  border-radius: var(--ple-ribbon-task-radius) var(--ple-ribbon-task-radius) 0 0;
+  color: var(--ple-muted);
+  background-color: transparent;
+  font-size: 0.82rem;
+  font-weight: 560;
+  padding-inline: var(--ple-space-3);
+  /* Connected surfaces change paint together, without a temporary seam. */
+  transition: var(--ple-ribbon-tab-transition);
+  scroll-snap-align: inline start;
+}
+
+.ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
+  color: var(--ple-ink);
+  border-color: transparent;
+  border-block-end-color: var(--ple-ribbon-task-selected-surface);
+  background-color: var(--ple-ribbon-task-selected-surface);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"]:hover {
+  color: var(--ple-ink);
+  background-color: var(--ple-ribbon-task-selected-surface);
+}

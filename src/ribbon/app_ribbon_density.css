@@ -9,23 +9,20 @@
     font-size: 0.64rem;
   }
 
+  .ple-app-ribbon__tasks .ple-app-ribbon__link {
+    font-size: 0.72rem;
+  }
+
   .ple-app-ribbon__link .ple-app-ribbon__icon {
     inline-size: 0.75em;
     block-size: 0.75em;
   }
 
-  /* At enlarged text, one long selected Task can exceed its cue-safe
-     scrollport. Keep its icon-and-text control inside that usable width so
-     the selection reveal has a complete target rather than an unresolvable
-     clipped edge. */
-  .ple-app-ribbon__tasks .ple-app-ribbon__link {
-    max-inline-size: calc(100dvw - var(--ple-ribbon-space-cue) - var(--ple-ribbon-space-cue) - 1px);
-  }
-
+  /* Phone labels stay whole. The task row scrolls; it does not slice a
+     visible name with an ellipsis inside the tab. */
   .ple-app-ribbon__tasks .ple-app-ribbon__control-label {
-    min-inline-size: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
   }
 }
@@ -37,6 +34,11 @@
     min-block-size: 2.75rem;
     min-inline-size: 2.75rem;
     padding-block: var(--ple-ribbon-space-tight);
+  }
+
+  /* The Tier 2 block-size rule outranks the shared touch target above. */
+  .ple-app-ribbon__tasks .ple-app-ribbon__link {
+    min-block-size: 2.75rem;
   }
 }
 
@@ -59,9 +61,8 @@
     border-color: ButtonText;
   }
 
-  /* Gradients are deliberately suppressed by forced-colors mode. Keep the
-     overflow state discoverable with a directional system-color marker that
-     is independent of the author palette. */
+  /* System-paired surfaces and directional markers keep scroll controls
+     discoverable independently of the author palette. */
   .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"] {
     display: grid;
     inline-size: max(1.25rem, var(--ple-ribbon-space-cue));
@@ -86,14 +87,18 @@
     content: "\203a";
   }
 
+  .ple-app-ribbon__tabs .ple-app-ribbon__link {
+    text-decoration: none;
+  }
+
   .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
     color: ButtonText;
     background: Canvas;
     outline: 1px solid Highlight;
-  }
-
-  .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
-    background: Highlight;
+    outline-offset: 1px;
+    box-shadow: none;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
   }
 
   .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
@@ -127,7 +132,7 @@
     outline-offset: var(--ple-ribbon-space-tight);
   }
 
-  .ple-app-ribbon__link:focus-visible::before,
+  .ple-app-ribbon__tasks .ple-app-ribbon__link:focus-visible::before,
   .ple-app-ribbon__brand:focus-visible::before,
   .ple-app-ribbon__profile:focus-visible::before,
   .ple-app-ribbon__profile-menu-item:focus-visible::before {
@@ -144,11 +149,10 @@
   block-size: var(--ple-control-min-height);
   min-inline-size: 0;
   padding-inline: var(--ple-ribbon-space-inline);
-  border-block-end: 1px solid var(--ple-border);
-  background: var(--ple-ribbon-context-surface);
+  background: var(--ple-theme-canvas);
   color: var(--ple-muted);
   font-size: 0.78rem;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .ple-shell__breadcrumb-prelude nav {
@@ -248,6 +252,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --ple-ribbon-tab-transition: none;
+  }
+
   .ple-app-ribbon,
   .ple-app-ribbon * {
     animation: none;

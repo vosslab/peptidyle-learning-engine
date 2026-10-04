@@ -22,13 +22,28 @@ GRANT EXECUTE ON FUNCTION ple_audit.record_support_repair_capability_event(uuid,
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.support_repair_roster_course(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.support_repair_roster_course(text),
+    ple_api.support_repair_course(text) FROM PUBLIC;
+
+SET LOCAL ROLE ple_data_owner;
+
+REVOKE ALL ON FUNCTION ple_api.support_repair_content_course(text),
+    ple_api.support_repair_content_facts(text, text) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_api.support_repair_content_course(text),
+    ple_api.support_repair_content_facts(text, text) TO ple_api_owner;
+
+SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.issue_support_repair_capability(text, text, text, text, uuid),
     ple_api.revoke_support_repair_capability(uuid),
-    ple_api.record_support_repair_capability_use(uuid, text, text) FROM PUBLIC;
+    ple_api.record_support_repair_capability_use(uuid, text, text),
+    ple_api.read_course_repair_support(uuid, text),
+    ple_api.read_course_content_repair_support(uuid, text, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.issue_support_repair_capability(text, text, text, text, uuid),
     ple_api.revoke_support_repair_capability(uuid),
-    ple_api.record_support_repair_capability_use(uuid, text, text) TO ple_app;
+    ple_api.record_support_repair_capability_use(uuid, text, text),
+    ple_api.read_course_repair_support(uuid, text),
+    ple_api.read_course_content_repair_support(uuid, text, text) TO ple_app;
 

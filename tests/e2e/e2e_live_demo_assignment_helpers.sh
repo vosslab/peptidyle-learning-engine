@@ -94,11 +94,11 @@ if not any(isinstance(item,dict) and item.get("id")==course_instance_id for item
 picker_published_question_revision_tuple() {
 	python3 -c '
 import json, re, sys
-items=json.loads(sys.argv[1])
+value=json.loads(sys.argv[1])
+items=value.get("items") if isinstance(value, dict) else value
 if not isinstance(items, list) or not items: raise SystemExit("Question picker is empty")
-item=items[0]
-if not isinstance(item, dict) or not {"publishedQuestionRevisionTuple", "description"}.issubset(item): raise SystemExit("Question picker is malformed")
-question_revision=item["publishedQuestionRevisionTuple"]
+summary=items[0].get("summary") if isinstance(items[0], dict) else None
+question_revision=summary.get("publishedQuestionRevisionTuple") if isinstance(summary, dict) else None
 if (not isinstance(question_revision, dict) or set(question_revision) != {"publishedQuestionId", "revisionNumber"}
     or not isinstance(question_revision["publishedQuestionId"], str)
     or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_revision["publishedQuestionId"]) is None
@@ -112,10 +112,11 @@ workspace_id_and_edit_number() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1])
+edit_number = value.get("assessmentEditNumber")
 if (not isinstance(value, dict) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}", value.get("id", ""))
-    or not isinstance(value.get("editNumber"), str) or not value["editNumber"].isdigit()):
+    or not isinstance(edit_number, str) or not edit_number.isdigit()):
     raise SystemExit("Assessment workspace lacks an Assessment ID and Edit Number")
-print(value["id"], value["editNumber"])
+print(value["id"], edit_number)
 ' "$1"
 }
 
@@ -165,10 +166,10 @@ assert_started() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); expected_resumed=sys.argv[2] == "true"; title=sys.argv[3]; question_revision=json.loads(sys.argv[4])
-required={"assessmentAttempt","assessment","attemptNumber","resumed","title","instructions","questions"}
+required={"assessmentAttemptId","assessmentId","attemptNumber","resumed","title","instructions","questions"}
 if set(value) != required or value["resumed"] is not expected_resumed or value["title"] != title:
     raise SystemExit("Assignment start did not preserve its retained evidence")
-if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value["assessmentAttempt"]): raise SystemExit("Attempt identity is malformed")
+if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value["assessmentAttemptId"]): raise SystemExit("Attempt identity is malformed")
 if not isinstance(value["questions"], list) or len(value["questions"]) != 1: raise SystemExit("Attempt lacks one issued Question")
 question=value["questions"][0]
 if question.get("publishedQuestionRevisionTuple") != question_revision: raise SystemExit("Issued Question lost its exact Question Revision pin")

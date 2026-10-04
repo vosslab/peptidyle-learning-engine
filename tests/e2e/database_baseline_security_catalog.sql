@@ -271,6 +271,300 @@ END
 $$;
 ROLLBACK;
 
+-- Course support repair: an Instructor issues an exact Course capability. The
+-- Sysadmin read returns non-student Course facts, records use, and does not
+-- create membership. Content stays rejected. The transaction rolls back.
+-- BEGIN course_support_repair_capability
+BEGIN;
+SET LOCAL ROLE ple_data_owner;
+INSERT INTO ple_data.content_discipline (content_discipline_id, name)
+VALUES ('00000000-0000-0000-0000-00000000c291', 'Course support fixture');
+SET LOCAL ROLE ple_private_owner;
+INSERT INTO ple_private.account (account_id, user_role, created_at)
+VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp())
+RETURNING account_id AS course_support_instructor_id \gset
+INSERT INTO ple_private.account (account_id, user_role, created_at)
+VALUES ('U00000009', 'sysadmin', pg_catalog.transaction_timestamp())
+RETURNING account_id AS course_support_sysadmin_id \gset
+INSERT INTO ple_private.account (account_id, user_role, created_at)
+VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp())
+RETURNING account_id AS course_support_outsider_id \gset
+SET LOCAL ROLE ple_api_owner;
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_instructor_id', true);
+SELECT course_instance_id AS course_support_course_id
+  FROM ple_api.create_course_instance(
+    'CI0000000Y',
+    '00000000-0000-0000-0000-00000000c292'::uuid,
+    '00000000-0000-0000-0000-00000000c293'::uuid,
+    '00000000-0000-0000-0000-00000000c294'::uuid,
+    'empty', NULL, NULL,
+    'SUPPORT', 'Scoped course support',
+    CURRENT_DATE, CURRENT_DATE,
+    NULL, '[]'::jsonb,
+    '00000000-0000-0000-0000-00000000c291'::uuid,
+    NULL, NULL, NULL, ARRAY[]::text[]
+  ) \gset
+SELECT course_instance_id AS course_support_other_course_id
+  FROM ple_api.create_course_instance(
+    'CI0000000Y',
+    '00000000-0000-0000-0000-00000000c297'::uuid,
+    '00000000-0000-0000-0000-00000000c298'::uuid,
+    '00000000-0000-0000-0000-00000000c299'::uuid,
+    'empty', NULL, NULL,
+    'OTHER', 'Unrelated course support',
+    CURRENT_DATE, CURRENT_DATE,
+    NULL, '[]'::jsonb,
+    '00000000-0000-0000-0000-00000000c291'::uuid,
+    NULL, NULL, NULL, ARRAY[]::text[]
+  ) \gset
+SELECT pg_catalog.set_config('ple.course_support_course_id', :'course_support_course_id', true);
+SELECT pg_catalog.set_config('ple.course_support_other_course_id', :'course_support_other_course_id', true);
+SELECT pg_catalog.set_config('ple.course_support_sysadmin_id', :'course_support_sysadmin_id', true);
+SELECT pg_catalog.set_config('ple.course_support_instructor_id', :'course_support_instructor_id', true);
+SELECT 'course-instance/' || :'course_support_course_id' AS course_support_path \gset
+DO $$
+BEGIN
+    BEGIN
+        PERFORM * FROM ple_api.issue_support_repair_capability(
+            current_setting('ple.course_support_sysadmin_id'),
+            'library',
+            'course-instance/' || current_setting('ple.course_support_course_id'),
+            'An unknown repair class is rejected',
+            '00000000-0000-0000-0000-00000000c296'::uuid
+        );
+        RAISE EXCEPTION 'unknown repair class was accepted';
+    EXCEPTION WHEN invalid_parameter_value THEN
+        NULL;
+    END;
+    IF EXISTS (
+        SELECT 1 FROM ple_api.issue_support_repair_capability(
+            current_setting('ple.course_support_sysadmin_id'),
+            'student',
+            'course-instance/' || current_setting('ple.course_support_course_id'),
+            'A course path is not a student roster',
+            '00000000-0000-0000-0000-00000000c29a'::uuid
+        )
+    ) THEN
+        RAISE EXCEPTION 'student repair accepted a course path';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_api.issue_support_repair_capability(
+            current_setting('ple.course_support_sysadmin_id'),
+            'course',
+            'course-instance/' || current_setting('ple.course_support_course_id') || '/roster/extra',
+            'A roster path is not a course',
+            '00000000-0000-0000-0000-00000000c29b'::uuid
+        )
+    ) THEN
+        RAISE EXCEPTION 'course repair accepted a roster path';
+    END IF;
+END
+$$;
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_outsider_id', true);
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_api.issue_support_repair_capability(
+            current_setting('ple.course_support_sysadmin_id'),
+            'course',
+            'course-instance/' || current_setting('ple.course_support_course_id'),
+            'An outsider cannot issue course support',
+            '00000000-0000-0000-0000-00000000c29c'::uuid
+        )
+    ) THEN
+        RAISE EXCEPTION 'outsider instructor issued course support';
+    END IF;
+END
+$$;
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_instructor_id', true);
+SELECT support_repair_capability_id AS course_support_capability_id
+  FROM ple_api.issue_support_repair_capability(
+    :'course_support_sysadmin_id',
+    'course',
+    :'course_support_path',
+    'Correct the course identity',
+    '00000000-0000-0000-0000-00000000c295'::uuid
+  ) \gset
+SELECT pg_catalog.set_config('ple.course_support_capability_id', :'course_support_capability_id', true);
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_sysadmin_id', true);
+DO $$
+DECLARE
+    found_course text;
+    found_names text[];
+BEGIN
+    IF NOT ple_api.current_session_account_has_platform_administration() THEN
+        RAISE EXCEPTION 'course support reader lacks platform administration';
+    END IF;
+    SELECT course.short_name, course.instructor_display_names
+      INTO found_course, found_names
+      FROM ple_api.read_course_repair_support(
+          current_setting('ple.course_support_capability_id')::uuid,
+          current_setting('ple.course_support_course_id')
+      ) AS course;
+    IF found_course IS DISTINCT FROM 'SUPPORT' OR found_names IS DISTINCT FROM ARRAY[]::text[] THEN
+        RAISE EXCEPTION 'course support projection is not the closed course facts';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_api.read_course_repair_support(
+            current_setting('ple.course_support_capability_id')::uuid,
+            current_setting('ple.course_support_other_course_id')
+        )
+    ) THEN
+        RAISE EXCEPTION 'course support capability read a different course';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_data.course_membership AS membership
+         WHERE membership.account_id = current_setting('ple.course_support_sysadmin_id')
+    ) THEN
+        RAISE EXCEPTION 'course support granted course membership';
+    END IF;
+END
+$$;
+-- ASVS 8.3.1: inspect audit effects under their owner after exercising API authorization.
+SET LOCAL ROLE ple_audit_owner;
+-- This append-only audit has no read policy. Temporarily expose rows only to
+-- the table owner for the assertion, then restore FORCE before further API calls.
+ALTER TABLE ple_audit.support_repair_capability_event NO FORCE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+    IF (
+        SELECT count(*) FROM ple_audit.support_repair_capability_event AS event
+         WHERE event.support_repair_capability_id = current_setting('ple.course_support_capability_id')::uuid
+           AND event.resource_class = 'course'
+           AND event.result = 'issued'
+    ) IS DISTINCT FROM 1 OR (
+        SELECT count(*) FROM ple_audit.support_repair_capability_event AS event
+         WHERE event.support_repair_capability_id = current_setting('ple.course_support_capability_id')::uuid
+           AND event.resource_class = 'course'
+           AND event.result = 'used'
+    ) IS DISTINCT FROM 1 THEN
+        RAISE EXCEPTION 'course support did not record issuance and one use';
+    END IF;
+END
+$$;
+ALTER TABLE ple_audit.support_repair_capability_event FORCE ROW LEVEL SECURITY;
+SET LOCAL ROLE ple_api_owner;
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_instructor_id', true);
+SET LOCAL ROLE ple_data_owner;
+SELECT assessment_id AS content_support_assessment_id
+  FROM ple_data.create_assessment(
+    'A0000000A', :'course_support_course_id', 'quiz',
+    'Scoped content support', 'Instructions stay out of the support projection'
+  ) \gset
+SELECT assessment_id AS content_support_other_assessment_id
+  FROM ple_data.create_assessment(
+    'A0000000A', :'course_support_course_id', 'exam',
+    'Other content support', 'The other Assessment is a different capability'
+  ) \gset
+SET LOCAL ROLE ple_api_owner;
+SELECT 'course-instance/' || :'course_support_course_id' || '/assessment/' || :'content_support_assessment_id' AS content_support_path \gset
+SELECT pg_catalog.set_config('ple.content_support_assessment_id', :'content_support_assessment_id', true);
+SELECT pg_catalog.set_config('ple.content_support_other_assessment_id', :'content_support_other_assessment_id', true);
+SELECT support_repair_capability_id AS content_support_capability_id
+  FROM ple_api.issue_support_repair_capability(
+    :'course_support_sysadmin_id', 'content', :'content_support_path',
+    'Correct the assessment identity', '00000000-0000-0000-0000-00000000c2a1'::uuid
+  ) \gset
+SELECT pg_catalog.set_config('ple.content_support_capability_id', :'content_support_capability_id', true);
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_sysadmin_id', true);
+DO $$
+DECLARE found_title text; found_type text; found_status text;
+BEGIN
+    SELECT content.title, content.assessment_type, content.status
+      INTO found_title, found_type, found_status
+      FROM ple_api.read_course_content_repair_support(
+          current_setting('ple.content_support_capability_id')::uuid,
+          current_setting('ple.course_support_course_id'),
+          current_setting('ple.content_support_assessment_id')
+      ) AS content;
+    IF found_title IS DISTINCT FROM 'Scoped content support'
+       OR found_type IS DISTINCT FROM 'quiz'
+       OR found_status IS DISTINCT FROM 'unreleased' THEN
+        RAISE EXCEPTION 'content support projection is not the closed assessment facts';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_api.read_course_content_repair_support(
+            current_setting('ple.content_support_capability_id')::uuid,
+            current_setting('ple.course_support_course_id'),
+            current_setting('ple.content_support_other_assessment_id')
+        )
+    ) THEN
+        RAISE EXCEPTION 'content support capability read a different assessment';
+    END IF;
+END
+$$;
+SET LOCAL ROLE ple_audit_owner;
+ALTER TABLE ple_audit.support_repair_capability_event NO FORCE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+    IF (
+        SELECT count(*) FROM ple_audit.support_repair_capability_event AS event
+         WHERE event.support_repair_capability_id = current_setting('ple.content_support_capability_id')::uuid
+           AND event.resource_class = 'content' AND event.result = 'issued'
+    ) IS DISTINCT FROM 1 OR (
+        SELECT count(*) FROM ple_audit.support_repair_capability_event AS event
+         WHERE event.support_repair_capability_id = current_setting('ple.content_support_capability_id')::uuid
+           AND event.resource_class = 'content' AND event.result = 'used'
+    ) IS DISTINCT FROM 1 THEN
+        RAISE EXCEPTION 'content support did not record issuance and one use';
+    END IF;
+END
+$$;
+ALTER TABLE ple_audit.support_repair_capability_event FORCE ROW LEVEL SECURITY;
+SET LOCAL ROLE ple_api_owner;
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_instructor_id', true);
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_api.read_course_repair_support(
+            current_setting('ple.course_support_capability_id')::uuid,
+            current_setting('ple.course_support_course_id')
+        )
+    ) THEN
+        RAISE EXCEPTION 'instructor session read course support';
+    END IF;
+END
+$$;
+SET LOCAL ROLE ple_private_owner;
+INSERT INTO ple_private.account_state_event (event_id, account_id, state, occurred_at, reason)
+VALUES (
+    gen_random_uuid(), :'course_support_instructor_id', 'deactivated',
+    pg_catalog.clock_timestamp(), 'Course support issuer left'
+);
+SET LOCAL ROLE ple_api_owner;
+SELECT pg_catalog.set_config('ple.session_account_id', :'course_support_sysadmin_id', true);
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_api.read_course_repair_support(
+            current_setting('ple.course_support_capability_id')::uuid,
+            current_setting('ple.course_support_course_id')
+        )
+    ) THEN
+        RAISE EXCEPTION 'course support survived issuer deactivation';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_api.read_course_content_repair_support(
+            current_setting('ple.content_support_capability_id')::uuid,
+            current_setting('ple.course_support_course_id'),
+            current_setting('ple.content_support_assessment_id')
+        )
+    ) THEN
+        RAISE EXCEPTION 'content support survived issuer deactivation';
+    END IF;
+    IF NOT has_function_privilege(
+        'ple_app', 'ple_api.read_course_repair_support(uuid, text)', 'EXECUTE'
+    ) OR has_function_privilege(
+        'public', 'ple_api.read_course_repair_support(uuid, text)', 'EXECUTE'
+    ) THEN
+        RAISE EXCEPTION 'course support execute privilege is wrong';
+    END IF;
+END
+$$;
+SELECT 'course support repair proof passed' AS course_support_proof;
+ROLLBACK;
+-- END course_support_repair_capability
+
 -- Bootstrap creates the role graph as the platform administrator. The
 -- restricted migrator receives exactly the four schema owners plus its
 -- database-owner, Unrelease, and Course-retention capabilities, each as

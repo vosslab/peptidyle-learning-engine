@@ -241,6 +241,7 @@ export function mountStudentCourseEntryM6Harness(
               classification: FIXTURE_CLASSIFICATION,
               term: { startDate: "2026-08-31", endDate: "2026-12-12" },
               role: "student",
+              lifecycleState: "active",
             },
             appearance: { theme: "ocean", banner: null },
           }),

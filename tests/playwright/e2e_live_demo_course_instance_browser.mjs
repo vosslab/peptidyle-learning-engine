@@ -60,7 +60,7 @@ try {
     .getByRole("link", { name: "Courses", exact: true })
     .click();
   await page.waitForURL(`${origin}/instructor`);
-  await page.getByRole("heading", { name: "Course Instances you teach" }).waitFor();
+  await page.getByRole("heading", { name: "My Active Courses" }).waitFor();
   const source = page.getByLabel("Blueprint Course");
   await source.selectOption({ label: `${blueprintTitle} · Revision 1` });
   await page.getByLabel("Course short name").fill(courseShortName);

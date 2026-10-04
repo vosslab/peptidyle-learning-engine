@@ -53,8 +53,8 @@ imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" 
 # access; exact-record repair is the only support path.
 concealed "$(request "/api/course-instances/$course/roster" "$sysadmin_cookie")" 'Sysadmin Course roster'
 
-# Only the implemented Student roster repair scope can be issued. Course and
-# content repair remain future work, not authority-free receipt scaffolding.
+# Student roster repair, exact Course identity, and one Course Assessment can
+# be issued. An unknown resource class stays rejected.
 repair_path='/api/support-repair-capabilities'
 for denied_cookie in '' "$student_cookie" "$sysadmin_cookie"; do
     concealed "$(request "$repair_path" "$denied_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourcePath\":\"course-instance/$course/roster/m17-support\",\"purpose\":\"Correct a roster mismatch\"}")" 'non-Instructor issuance'
@@ -73,16 +73,19 @@ print(x["capabilityId"])' "$(body "$repair_response")" "$sysadmin" "$resource_cl
 }
 student_reference="course-instance/$course/roster/m17-support"
 student_repair="$(issue_repair student "$student_reference" 'Correct a student roster mismatch')"
-for unsupported in course content; do
-    rejected="$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"$unsupported\",\"resourcePath\":\"$course\",\"purpose\":\"Unsupported repair\"}")"
-    [ "$(status "$rejected")" = 422 ] || { echo "Unsupported support class accepted" >&2; exit 1; }
-done
+rejected="$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"library\",\"resourcePath\":\"$course\",\"purpose\":\"Unsupported repair\"}")"
+[ "$(status "$rejected")" = 422 ] || { echo "Unsupported support class accepted" >&2; exit 1; }
+concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"content\",\"resourcePath\":\"$course\",\"purpose\":\"Content path is not an Assessment\"}")" 'inexact content path'
+course_reference="course-instance/$course"
+course_repair="$(issue_repair course "$course_reference" 'Correct a course identity mismatch')"
+concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"course\",\"resourcePath\":\"$course\",\"purpose\":\"Course path is not exact\"}")" 'inexact course path'
+concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"course\",\"resourcePath\":\"$course_reference/roster/m17-support\",\"purpose\":\"Roster path is not a course\"}")" 'roster path as course'
 for invalid_scope in "$sysadmin" "course-instance/$course/roster/missing-profile" "$student_reference/extra"; do
     concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourcePath\":\"$invalid_scope\",\"purpose\":\"Invalid repair scope\"}")" 'invalid exact record scope'
 done
 repair_record_path() { printf '%s' "$repair_path/$1/course-instances/$course/roster/m17-support"; }
-# C26 permits exactly the named Student record. A Course-class capability,
-# ordinary Sysadmin administration, and every other role remain concealed.
+# C26 permits exactly the named Student record. A Course capability, ordinary
+# Sysadmin administration, and every other role stay concealed on that record.
 concealed "$(request "$(repair_record_path "$student_repair")" '' )"
 concealed "$(request "$(repair_record_path "$student_repair")" "$student_cookie")"
 concealed "$(request "$(repair_record_path "$student_repair")" "$instructor_cookie")"
@@ -90,6 +93,18 @@ concealed "$(request "$repair_path/$student_repair/course-instances/$course/rost
 repair_record="$(request "$(repair_record_path "$student_repair")" "$sysadmin_cookie")"
 [ "$(status "$repair_record")" = 200 ] || { echo "Exact Student repair capability could not read its named record" >&2; exit 1; }
 python3 -c 'import json,sys; x=json.loads(sys.argv[1]); expected={"rosterId","state"}; raise SystemExit(0 if set(x)==expected and x["rosterId"]=="m17-support" and x["state"]=="invitationPending" else "Exact Student support projection is invalid")' "$(body "$repair_record")"
+concealed "$(request "$(repair_record_path "$course_repair")" "$sysadmin_cookie")" 'course capability on a student record'
+concealed "$(request "$repair_path/$student_repair/course-instances/$course" "$sysadmin_cookie")" 'student capability on a course'
+concealed "$(request "$repair_path/$course_repair/course-instances/$course" '')" 'anonymous course support'
+concealed "$(request "$repair_path/$course_repair/course-instances/$course" "$student_cookie")" 'student course support'
+concealed "$(request "$repair_path/$course_repair/course-instances/$course" "$instructor_cookie")" 'instructor course support'
+course_record="$(request "$repair_path/$course_repair/course-instances/$course" "$sysadmin_cookie")"
+[ "$(status "$course_record")" = 200 ] || { echo "Exact Course repair capability could not read its Course" >&2; exit 1; }
+python3 -c 'import json,sys
+x=json.loads(sys.argv[1])
+expected={"id","shortName","longName","term","lifecycleState","retentionLifecycleState","instructorDisplayNames"}
+if set(x)!=expected or x["id"]!=sys.argv[2] or x["lifecycleState"] not in ("active","inactive") or x["retentionLifecycleState"] not in ("active","archived","deleted") or not isinstance(x["instructorDisplayNames"], list) or not isinstance(x["term"], dict):
+    raise SystemExit("Exact Course support projection is invalid")' "$(body "$course_record")" "$course"
 # Capability use never makes the Sysadmin a Course member or Instructor, so
 # the normal Instructor-only mutation remains concealed as well.
 concealed "$(request "/api/course-instances/$course/roster" "$sysadmin_cookie" POST '{"entries":[{"email":"m18.denied@biology.roosevelt.edu","rosterId":"m18-denied","rosterName":"Synthetic Denied Student"}]}')"
@@ -112,7 +127,7 @@ SELECT 'CI0000000Y', 'empty', 'SUPPORT', 'Disposable support authority Course',
        src.content_discipline_id, src.content_subject_id, src.content_topic_id, src.content_subtopic_id, src.tags,
        src.term_starts_on, src.term_ends_on, src.created_at, src.active_until_at, src.retention_starts_at
   FROM ple_data.course_instance AS src
- WHERE src.course_instance_id = split_part((SELECT resource_path FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2)
+ WHERE src.course_instance_id = split_part((SELECT resource_path FROM ple_private.support_repair_capability WHERE support_repair_capability_id=:'capability'), '/', 2)
 RETURNING course_instance_id AS authority_course_id \gset
 INSERT INTO ple_data.course_origin(course_origin_id, course_instance_id, source_kind, created_at)
 SELECT gen_random_uuid(), :'authority_course_id', 'empty', src.created_at
@@ -120,9 +135,9 @@ SELECT gen_random_uuid(), :'authority_course_id', 'empty', src.created_at
 INSERT INTO ple_data.course_membership(course_membership_id,course_instance_id,account_id,role,joined_at)
 VALUES (gen_random_uuid(),:'authority_course_id',:'authority_instructor_id','instructor',clock_timestamp());
 INSERT INTO ple_private.course_roster_profile(course_roster_profile_id,course_instance_id,student_account_id,roster_id,roster_name,created_at)
-SELECT gen_random_uuid(), :'authority_course_id', student_account_id, 'm17-support', 'Mary', clock_timestamp()
+SELECT gen_random_uuid(), :'authority_course_id', student_account_id, 'm17-support', 'Mary', pg_catalog.transaction_timestamp()
   FROM ple_private.course_roster_profile
- WHERE course_instance_id = split_part((SELECT resource_path FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2)
+ WHERE course_instance_id = split_part((SELECT resource_path FROM ple_private.support_repair_capability WHERE support_repair_capability_id=:'capability'), '/', 2)
    AND roster_id = 'm17-support'
 RETURNING course_roster_profile_id AS authority_profile_id \gset
 INSERT INTO ple_private.course_invitation(
@@ -141,19 +156,19 @@ concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\
 support_sql -v capability="$student_repair" -v course="$authority_course" <<'SQL'
 INSERT INTO ple_data.course_membership(course_membership_id,course_instance_id,account_id,role,joined_at)
 SELECT gen_random_uuid(),:'course',issuer_account_id,'instructor',clock_timestamp()
-FROM ple_private.support_repair_capability WHERE capability_id=:'capability';
+FROM ple_private.support_repair_capability WHERE support_repair_capability_id=:'capability';
 SQL
 authority_repair="$(issue_repair student "$authority_scope" 'Original issuer authority regression')"
 authority_path="$repair_path/$authority_repair/course-instances/$authority_course/roster/m17-support"
 [ "$(status "$(request "$authority_path" "$sysadmin_cookie")")" = 200 ] || { echo "Current co-Instructor capability denied before authority change" >&2; exit 1; }
 support_sql -v capability="$authority_repair" <<'SQL'
 INSERT INTO ple_private.account_state_event(event_id,account_id,state,occurred_at,reason)
-SELECT gen_random_uuid(),issuer_account_id,'deactivated',clock_timestamp(),'Disposable support authority regression' FROM ple_private.support_repair_capability WHERE capability_id=:'capability';
+SELECT gen_random_uuid(),issuer_account_id,'deactivated',clock_timestamp(),'Disposable support authority regression' FROM ple_private.support_repair_capability WHERE support_repair_capability_id=:'capability';
 SQL
 concealed "$(request "$authority_path" "$sysadmin_cookie")"
 support_sql -v capability="$authority_repair" <<'SQL'
 INSERT INTO ple_private.account_state_event(event_id,account_id,state,occurred_at)
-SELECT gen_random_uuid(),issuer_account_id,'active',clock_timestamp() FROM ple_private.support_repair_capability WHERE capability_id=:'capability';
+SELECT gen_random_uuid(),issuer_account_id,'active',clock_timestamp() FROM ple_private.support_repair_capability WHERE support_repair_capability_id=:'capability';
 SQL
 # Reactivation preserves the Account but cannot resurrect its revoked session.
 instructor_cookie="$(persona_cookie elenaInstructor)"
@@ -164,12 +179,12 @@ SELECT gen_random_uuid(),membership.course_membership_id,'ended',clock_timestamp
 FROM ple_data.course_membership AS membership
 JOIN ple_data.course_instance AS course ON course.course_instance_id=membership.course_instance_id
 JOIN ple_private.support_repair_capability AS capability ON capability.issuer_account_id=membership.account_id
-WHERE capability.capability_id=:'capability' AND course.course_instance_id=:'course'
+WHERE capability.support_repair_capability_id=:'capability' AND course.course_instance_id=:'course'
 AND membership.role='instructor' AND ple_data.course_membership_is_active(membership.course_membership_id);
 SQL
 concealed "$(request "$authority_path" "$sysadmin_cookie")"
 authority_events="$(support_sql -v capability="$authority_repair" <<'SQL'
-SELECT result FROM ple_audit.support_repair_capability_event WHERE capability_id=:'capability' ORDER BY result;
+SELECT result FROM ple_audit.support_repair_capability_event WHERE support_repair_capability_id=:'capability' ORDER BY result;
 SQL
 )"
 [ "$authority_events" = $'issued\nused\nused' ] || { echo "Denied original issuer authority use produced a success audit" >&2; exit 1; }
@@ -182,7 +197,7 @@ concealed "$(request "$repair_path/$student_repair/revoke" "$instructor_cookie" 
 podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "DO \$\$ BEGIN IF has_table_privilege('\''ple_app'\'', '\''ple_private.support_repair_capability'\'', '\''SELECT'\'') OR has_table_privilege('\''ple_app'\'', '\''ple_audit.support_repair_capability_event'\'', '\''SELECT'\'') THEN RAISE EXCEPTION '\''direct support capability access widened'\''; END IF; END \$\$; SELECT '\''support_capability_catalog_authority'\'';"' | rg -qx 'support_capability_catalog_authority' || { echo "Support capability least privilege evidence failed" >&2; exit 1; }
 # Audit evidence is stable product behavior: one issuance per named class and
 # immutable revocation receipt, and one exact C26 Student-record use receipt.
-repair_events="$(podman exec "$postgres" sh -lc "psql -X -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -c \"SELECT resource_class || ':' || result FROM ple_audit.support_repair_capability_event WHERE capability_id = '$student_repair' ORDER BY resource_class, result\"")"
+repair_events="$(podman exec "$postgres" sh -lc "psql -X -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -c \"SELECT resource_class || ':' || result FROM ple_audit.support_repair_capability_event WHERE support_repair_capability_id = '$student_repair' ORDER BY resource_class, result\"")"
 python3 -c 'import sys; expected=["student:issued", "student:revoked", "student:used"]; actual=sorted(line for line in sys.stdin.read().splitlines() if line); raise SystemExit(0 if actual == expected else "Support repair audit receipts are incomplete")' <<<"$repair_events"
 echo "Support repair authority: exact Student scope, unsupported-class denial, concealment, and revocation complete"
 }

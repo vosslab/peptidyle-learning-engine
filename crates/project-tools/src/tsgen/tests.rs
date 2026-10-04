@@ -262,6 +262,21 @@ fn empty_contract_roots_preserve_existing_output() {
     );
 }
 #[test]
+fn lowercase_unit_enums_keep_serde_lowercase_wire_names() {
+    let item: syn::ItemEnum = syn::parse_quote! {
+        #[derive(Serialize)]
+        #[serde(rename_all = "lowercase")]
+        pub enum CourseInstanceLifecycleState { Active, Inactive }
+    };
+    assert_eq!(
+        generate_enum(&item)
+            .expect("lowercase rename should succeed")
+            .body,
+        "\"active\" | \"inactive\""
+    );
+}
+
+#[test]
 fn unit_enums_become_string_unions() {
     let item: syn::ItemEnum = syn::parse_quote! { #[derive(Serialize)] #[serde(rename_all = "camelCase")] pub enum Colour { DeepRed, Blue, } };
     assert_eq!(

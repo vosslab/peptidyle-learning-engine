@@ -26,6 +26,14 @@ pub enum CourseMembershipRole {
     Instructor,
 }
 
+/// Stored Course activity state, independent of Student-data retention.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CourseInstanceLifecycleState {
+    Active,
+    Inactive,
+}
+
 /// Course information sufficient for the signed-in landing page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +50,8 @@ pub struct CourseSummary {
     pub term: crate::CourseTerm,
     /// Signed-in Account's Course Membership Role for this Course Instance.
     pub role: CourseMembershipRole,
+    /// Stored Course activity state; it is independent of Student-data retention.
+    pub lifecycle_state: CourseInstanceLifecycleState,
 }
 
 /// Closed Course Instance identity and teaching-period data for course routes.
@@ -63,6 +73,8 @@ pub struct CourseInstanceRouteSummary {
     pub term: CourseTerm,
     /// Signed-in Account's Course Membership Role for this Course Instance.
     pub role: CourseMembershipRole,
+    /// Stored Course activity state; it is independent of Student-data retention.
+    pub lifecycle_state: CourseInstanceLifecycleState,
 }
 
 /// Browser-safe Assessment Content.
@@ -444,5 +456,83 @@ mod tests {
         assert!(value.get("assessment_progress").is_some());
         assert_eq!(value["assessment_scoring_state"], "current");
         assert!(value.get("best_score").is_none());
+    }
+
+    fn course_classification() -> crate::CourseClassification {
+        crate::CourseClassification {
+            discipline_uuid: Uuid::from_u128(0xcc01),
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            tags: Vec::new(),
+        }
+    }
+
+    fn course_summary(lifecycle_state: CourseInstanceLifecycleState) -> CourseSummary {
+        CourseSummary {
+            classification: course_classification(),
+            id: CourseInstanceId::from_debug_serial(7),
+            short_name: "BIOC 301".to_string(),
+            long_name: "BIOC 301: Biochemistry".to_string(),
+            term: CourseTerm::from_parts("2026-08-24", "2026-12-18").expect("fixture term"),
+            role: CourseMembershipRole::Student,
+            lifecycle_state,
+        }
+    }
+
+    fn course_route_summary(
+        lifecycle_state: CourseInstanceLifecycleState,
+    ) -> CourseInstanceRouteSummary {
+        let summary = course_summary(lifecycle_state);
+        CourseInstanceRouteSummary {
+            classification: summary.classification,
+            id: summary.id,
+            short_name: summary.short_name,
+            long_name: summary.long_name,
+            term: summary.term,
+            role: summary.role,
+            lifecycle_state,
+        }
+    }
+
+    #[test]
+    fn course_lifecycle_round_trips_active_and_inactive_and_rejects_unknown() {
+        for lifecycle_state in [
+            CourseInstanceLifecycleState::Active,
+            CourseInstanceLifecycleState::Inactive,
+        ] {
+            let wire = match lifecycle_state {
+                CourseInstanceLifecycleState::Active => "active",
+                CourseInstanceLifecycleState::Inactive => "inactive",
+            };
+            let summary = course_summary(lifecycle_state);
+            let summary_json = serde_json::to_value(&summary).expect("course summary serializes");
+            assert_eq!(summary_json["lifecycleState"], wire);
+            assert_eq!(
+                serde_json::from_value::<CourseSummary>(summary_json).expect("course summary"),
+                summary
+            );
+
+            let route = course_route_summary(lifecycle_state);
+            let route_json = serde_json::to_value(&route).expect("route summary serializes");
+            assert_eq!(route_json["lifecycleState"], wire);
+            assert_eq!(
+                serde_json::from_value::<CourseInstanceRouteSummary>(route_json)
+                    .expect("route summary"),
+                route
+            );
+        }
+
+        let mut unknown_summary =
+            serde_json::to_value(course_summary(CourseInstanceLifecycleState::Active))
+                .expect("course summary serializes");
+        unknown_summary["lifecycleState"] = serde_json::json!("retired");
+        assert!(serde_json::from_value::<CourseSummary>(unknown_summary).is_err());
+
+        let mut unknown_route =
+            serde_json::to_value(course_route_summary(CourseInstanceLifecycleState::Active))
+                .expect("route summary serializes");
+        unknown_route["lifecycleState"] = serde_json::json!("retired");
+        assert!(serde_json::from_value::<CourseInstanceRouteSummary>(unknown_route).is_err());
     }
 }

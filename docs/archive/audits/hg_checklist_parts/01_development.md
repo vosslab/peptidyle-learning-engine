@@ -142,13 +142,15 @@
 
 - [ ] All fields, identifiers, domain concepts, and terminology in the PostgreSQL database structure, Rust code,
   TypeScript code, JSON/API contracts, Terminology Contract, and Human Guidance are in alignment.
-  - Mismatch: no transferred audit status after Human Guidance regeneration.
+  - Reason: product decision still unclear
+  - Question: Does alignment mean the Terminology Contract and its registered cross-boundary surfaces use the same product terms, or must every column, Rust field, JSON key, and label be proven identical?
+  - Mismatch: `docs/TERMINOLOGY_CONTRACT.md` `Human-facing identifiers` names the public identity terms, and `tests/test_semantic_contract_registry.py` `test_semantic_contract_registry_points_at_native_coverage` checks registered surfaces. One reading treats that contract as the alignment. The other requires a whole-repository comparison Human Guidance does not bound.
 
 ### PLE development rules
-- [ ] A fresh production installation includes the complete Live Demo by default.
-  - Evidence (source): `local_stack_control/lifecycle.py` `provision_ready_installation_data` provisions installation data after readiness.
-  - Evidence (test): `tests/test_local_stack_demo_provisioning.py` `test_ready_installation_data_uses_one_canonical_migrator_command_after_readiness` verifies default provisioning.
-  - Verification pending: installation source is implemented, but fresh default installation acceptance of the complete current Live Demo and retained Public Genetics example remains required.
+- [x] A fresh production installation includes the complete Live Demo by default.
+  - Decision: The default installation command is `installation-data provision`, with no opt-out flag. It installs the Live Demo teaching graph, including Course BCHM 301, and then converges its Student activity. The Live Demo launcher was not started.
+  - Evidence (source): `crates/project-tools/src/installation_data.rs` `parse_arguments` selects Live Demo provisioning when the command is `provision` without `--without-live-demo`.
+  - Evidence (test): `tests/e2e/e2e_fresh_install_without_live_demo_launcher.sh` `fresh_install_includes_live_demo_and_genetics` ran that default command on a fresh schema and found Course BCHM 301, Biochemistry 301: Proteins and Peptides. Disposable Postgres, object storage, and the API were removed. The Live Demo launcher was not started.
 
 - [x] Treat the initial course content as shipped examples.
   - Evidence (source): `schemas/installation_data/live_demo.sql` `ple_data.course_instance` is seeded as installation-owned Live Demo teaching data.
@@ -156,13 +158,10 @@
 - [x] BiologyProblems.org content is free and open source.
   - Evidence (source): `content/genetics/ATTRIBUTION.md` `CC BY 4.0` records the bundled Biology Problems OER content license.
 
-- [ ] The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
-  - Evidence (source): `content/genetics/manifest.yaml` `short_name` and `long_name` define the bundled Genetics Blueprint.
-  - Evidence (runtime): 2026-09-16, ordinary discovery through `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.list_blueprint_courses` confirms the current Live Demo has `BPSPXHX6` (`Genetics` / `Fall Genetics`) owned by the Example Content Account (`00000000-0000-0000-0000-000000000106`) and Public, with nine Assessments and 42 distinct Questions. Elena's ordinary Instructor discovery returns it as Public and not owned by her; its live detail route is `https://localhost:8269/blueprint-courses/BPSPXHX6`. The only teaching Course Instance remains `BCHM301`; no Course Instance was created for this correction.
-  - Decision: the ordinary owner API published only `BPSPXHX6` using its current ETag. This confirms current-demo discoverability without changing the normal Private-at-creation rule for new Blueprint Courses.
-  - Evidence (source): `crates/project-tools/src/installation_data.rs` `publish_bundled_genetics` resolves the validated receipt, requires Example Content owner access, publishes only a Private retained example with its current metadata ETag, and skips an already-Public replay. Reload requires Public, unchanged ownership, and unchanged content Revision; generic `curriculum_content/publication.rs` imports remain Private.
-  - Evidence (test): `tests/test_local_stack_demo_provisioning.py` `test_explicit_demo_opt_out_keeps_bundled_content_provisioning` passes with five other focused controller checks. The parent reports `cargo check -p project-tools` passed in 18.03 seconds; both changed Rust files pass rustfmt, the controller passes Pyflakes, and the temporary fixed-shell generation probe passes. These checks do not establish fresh-install behavior.
-  - Verification pending: fresh default and opt-out installation, unchanged-Revision replay, and ordinary non-owner Instructor discovery/adoption need connected disposable proof. `local_stack_control/lifecycle.py` `require_bundled_genetics_without_live_demo` now uses the current six-argument Public-only discovery call and checks `availability = 'public'` plus `is_owner`; the separate `read_course_theme(uuid)` check is unchanged. The corrected connected oracle was not run. Independent review of the installation fix remains pending.
+- [x] The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
+  - Decision: Default installation publishes the bundled Genetics Blueprint and makes that retained example Public. A fresh run minted a new Blueprint ID, kept the name Genetics / Fall Genetics, and recorded 9 topics and 41 canonical Questions.
+  - Evidence (source): `content/genetics/manifest.yaml` `short_name` and `long_name` name the bundled Genetics example, and `crates/project-tools/src/installation_data.rs` `publish_bundled_genetics` publishes it through the ordinary owner API.
+  - Evidence (test): `tests/e2e/e2e_fresh_install_without_live_demo_launcher.sh` `fresh_install_includes_live_demo_and_genetics` found Genetics|Fall Genetics|public after the default provision command. Disposable Postgres, object storage, and the API were removed. The Live Demo launcher was not started.
 
 - N/A All Podman content on the Mac-Studio-36G machine belongs to this project.
   - Reason: human ownership statement about a named machine, not implemented PLE behavior.

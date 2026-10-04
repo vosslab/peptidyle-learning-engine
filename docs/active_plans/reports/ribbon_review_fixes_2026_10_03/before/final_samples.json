@@ -1,0 +1,692 @@
+[
+  {
+    "variant": "final",
+    "id": "tundra",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "forest",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "desert",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "grass",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "arctic",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "ocean",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "tropical",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "coral-reef",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "swamp",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "underground",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "salt-marsh",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "wetland",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "sea-floor",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "magma",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "beach",
+    "mode": "light",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "tundra",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "forest",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "desert",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "grass",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "arctic",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "ocean",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "tropical",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "coral-reef",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "swamp",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "underground",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "salt-marsh",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "wetland",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "sea-floor",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "magma",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  },
+  {
+    "variant": "final",
+    "id": "beach",
+    "mode": "dark",
+    "points": {
+      "folder": [
+        276.8125,
+        12
+      ],
+      "top": [
+        1080,
+        12
+      ],
+      "task": [
+        207.8125,
+        59
+      ],
+      "row": [
+        1080,
+        59
+      ]
+    }
+  }
+]

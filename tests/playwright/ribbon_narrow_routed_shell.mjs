@@ -97,7 +97,7 @@ export async function assertNarrowRoutedShell(currentCase) {
   );
   assert.deepEqual(
     breadcrumbItems.map((item) => item.text),
-    ["Home", "BCHM 355"],
+    ["Home", "Courses", "My Active Courses", "BCHM 355"],
     "the narrow breadcrumb uses the compact Course identity when the long name does not fit",
   );
 }

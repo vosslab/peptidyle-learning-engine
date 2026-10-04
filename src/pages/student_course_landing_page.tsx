@@ -21,7 +21,7 @@ import { formatAssessmentDeliveryTime } from "../components/student_assessment_p
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { parseCourseInstanceId } from "../navigation/public_route";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
+import { buildRoutePath } from "../ribbon/ribbon_route_path";
 import { studentCourseworkDisplay } from "./student_coursework_presentation";
 import {
   hasSubmittedStudentAttempt,

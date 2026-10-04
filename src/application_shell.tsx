@@ -208,6 +208,7 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
                     <li>
                       <A
                         href={breadcrumb.href}
+                        state={breadcrumb.state}
                         end
                         aria-current={breadcrumb.current ? "page" : undefined}
                       >

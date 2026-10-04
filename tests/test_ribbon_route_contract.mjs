@@ -24,7 +24,25 @@ test("declared routes select only Ribbon topology and task areas that exist", ()
     assert.equal(Object.hasOwn(route.ribbon, "contentLayout"), false, route.id);
     assert.ok(route.pageLayout === undefined || route.pageLayout === "fullWidth", route.id);
     const { tierOneArea } = route.ribbon;
-    assert.deepEqual(Object.keys(route.ribbon).sort(), ["scope", "tierOneArea"]);
+    assert.deepEqual(
+      Object.keys(route.ribbon)
+        .filter((key) => key !== "tierTwoParent")
+        .sort(),
+      ["scope", "tierOneArea"],
+      route.id,
+    );
+    if (route.ribbon.tierTwoParent !== undefined) {
+      assert.ok(
+        [
+          "searchQuestionLibrary",
+          "myDraftQuestions",
+          "myBlueprintCourses",
+          "allCoursework",
+          "studentAttemptHistory",
+        ].includes(route.ribbon.tierTwoParent),
+        route.id,
+      );
+    }
 
     if (tierOneArea !== "account") {
       const applicableRoles =

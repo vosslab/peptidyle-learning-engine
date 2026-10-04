@@ -277,7 +277,7 @@ boundary applies OWASP ASVS 2.1.1, 2.2.1--2.2.3, 2.3.1 and 2.3.3, 6.1.3,
 but do not replace, this server and database boundary.
 
 **Owner.** C15 in the active [Human Guidance implementation compliance
-plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+plan](archive/human_guidance_implementation_compliance_plan.md)
 owns the implementation and verification details.
 
 ### Profile is the one time-zone preference page
@@ -322,7 +322,7 @@ back and leaves the prior preference unchanged. The boundary applies OWASP ASVS
 controls aid usability but do not replace the server and database checks.
 
 **Owner.** C819-C823 in the active [Human Guidance implementation compliance
-plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+plan](archive/human_guidance_implementation_compliance_plan.md)
 own implementation and verification. C821 owns this scope decision.
 
 ### Account state preserves history
@@ -386,7 +386,7 @@ compatibility path.
 
 **Owner.** [CONTRACTS.md](CONTRACTS.md)'s Question lineage and revision boundary;
 C319 and C876-C879 implement it in the active
-[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
+[Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md).
 
 ### Bulk metadata editing is an all-or-none current-state command
 
@@ -421,7 +421,7 @@ replaces it.
 
 **Owner.** [CONTRACTS.md](CONTRACTS.md)'s Bulk Published Question metadata boundary;
 C365-C368 and C893 implement it in the active
-[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
+[Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md).
 
 ### Disciplines use stable retirement, not deletion
 
@@ -744,7 +744,7 @@ matrix always remains temporary: it demonstrates both tags and rejection of a
 native seed/hash, then is removed.
 
 **Owner.** C300 owns the native-delivery correction milestones in the active
-[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+[Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md)
 and their verification. A future, product-approved H5P implementation owns a
 new explicit binding design; C306 is not a dormant delivery seam. Human
 Guidance remains the product authority.
@@ -1008,6 +1008,71 @@ section caption is rendered.
 
 **Owner.** [app_ribbon.tsx](../src/ribbon/app_ribbon.tsx) and
 [app_ribbon.css](../src/ribbon/app_ribbon.css).
+
+### Curved Ribbon tabs sit above square content tabs
+
+**Decision.** Tier 1 is one continuous colored bar with integrated resting
+choices. Only its selected tab has a silhouette: rounded top corners and small
+outward-curving feet flowing into a narrow Ribbon surface beneath the bar.
+Tier 2 uses square corners and joins the page content directly. Both tiers
+reserve stable control boxes and row heights when selection changes.
+
+**Why.** The selected Tier 1 emerges from the bar as an open file-folder tab.
+A raised shoulder on an enclosed rectangle depicted a whole miniature folder,
+which misread the human's reference. Both selected tabs use the theme canvas;
+the resting bar mixes 24% theme ink into that canvas to separate its value
+consistently in light and dark modes. The lower Ribbon strip shares its
+selected tab's surface. Borderless, softly antialiased shoulders carry the
+silhouette; a traced accent outline made the earlier join look assembled.
+Tier 2 uses the same bar color and a square, borderless opening into content.
+These surface roles separate selection in either mode without a brightness rule.
+
+**Consequence.** A shared surface stylesheet owns the adjustable value step;
+separate tier stylesheets own the two silhouettes and surface connections.
+The all-theme check protects a 1.5:1 active/inactive surface regression floor,
+separately from the existing 5.5:1 text gate. This surface floor is not a WCAG
+text requirement or aesthetic acceptance: fresh renders establish visual quality.
+The curved face remains 32px tall inside a 44px touch target. Decorative
+pseudo-elements keep the label upright and the click/focus box stable. The
+shared outer keyboard focus ring stays clear of the tab decoration; forced
+colors retains an outline and underline. Connected faces repaint together
+when themes change; only label color transitions. A narrow outer rail defines
+the content sheet, with no top rule crossing its selected tab. Phone rail and
+inner gutter together preserve 16px for page content. Navigation stays shared.
+Overflow chevrons are native, directionally named scroll buttons rather than
+decorative marks. They advance their row with overlapping context, preserve the
+selected destination, and leave the keyboard order when that direction is
+unavailable. Their opaque row surface masks clipped text behind the control.
+
+**Owner.** [ribbon_tier_one.css](../src/ribbon/ribbon_tier_one.css),
+[ribbon_surfaces.css](../src/ribbon/ribbon_surfaces.css),
+[ribbon_tier_two.css](../src/ribbon/ribbon_tier_two.css),
+[ribbon_content_surface.css](../src/ribbon/ribbon_content_surface.css),
+[app_ribbon.css](../src/ribbon/app_ribbon.css), and
+[app_ribbon_density.css](../src/ribbon/app_ribbon_density.css).
+
+### Breadcrumbs follow the Ribbon hierarchy
+
+**Decision.** Breadcrumbs follow the selected Ribbon hierarchy: Home, the
+selected Tier 1 tab, the selected Tier 2 control, then the page's Course,
+Assessment, and title context. A route may declare `tierTwoParent`. Course
+roster, assessments, and appearance take My Active Courses or My Inactive
+Courses from the Course lifecycle on the course summary that route already
+loads. A Blueprint Course detail uses its breadcrumb parent. Adjacent crumbs
+collapse only when they show the same name.
+
+**Why.** The trail should show where the page sits in navigation. Two different
+names can share a URL, and one name should not appear twice in a row.
+
+**Consequence.** Exact Tier 2 selection, including Active Attempt and Latest
+Feedback, wins over an ancestor. Until lifecycle or the Blueprint parent is
+known, the trail omits that Tier 2 crumb. Account pages omit Tier 1 because
+they have no tab.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[ribbon_contract.ts](../src/ribbon/ribbon_contract.ts),
+[ribbon_breadcrumbs.ts](../src/ribbon/ribbon_breadcrumbs.ts), and
+[route_contract.ts](../src/route_contract.ts).
 
 ### Signed-in phone Ribbon keeps Tier 1 beside the P mark
 
@@ -1425,7 +1490,7 @@ square. This resolves the avatar and Profile-image bullets in
 bullet in [Instructor interface](HUMAN_GUIDANCE.md#instructor-interface).
 
 **Owner.** The avatar milestones in the active
-[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+[Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md)
 own the implementation details. Human Guidance remains the product authority.
 
 ### PLE-provided avatars are a versioned first-party catalog
@@ -1473,7 +1538,7 @@ Guidance item. Otherwise remove the checks at plan closeout.
 **Owner.** C40 owns the provided-avatar catalog and reusable picker; C819 owns
 role-neutral Profile Settings authorization; and C820 owns the real `/profile`
 route and page integration. The active [Human Guidance implementation
-compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+compliance plan](archive/human_guidance_implementation_compliance_plan.md)
 owns their implementation and verification. Human Guidance remains the product
 authority.
 
@@ -1515,7 +1580,7 @@ source dimensions, private enum shape, saga slots, or filter implementation.
 
 **Owner.** [CONTRACTS.md](CONTRACTS.md) and
 `crates/question_model/src/course_appearance.rs`; the active
-[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+[Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md)
 owns the implementation and verification milestones.
 
 ### High-consequence actions are distinct

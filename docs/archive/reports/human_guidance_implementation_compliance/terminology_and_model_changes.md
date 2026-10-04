@@ -1,90 +1,33 @@
-# Terminology And Model Changes
+# Terminology and model changes
 
-## Current heading reconciliation
+Implementation findings for product terms. Open readings are recorded once in
+[unresolved_or_ambiguous_items.md](unresolved_or_ambiguous_items.md).
 
-Current verbatim Human Guidance coverage is 998 bullets: 449 verified, 499 open
-(490 owning), and 50 N/A, at SHA256
-`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
-The generated checklist owns occurrence status and current first-owner pointers. All nine part
-gates, identity diff, and consistency pass for this snapshot. Unchanged scoring, timing,
-Blueprint, terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains
-unfinished; these gates establish inventory fidelity, not acceptance of the open requirements.
+## Terms the running system uses
 
-Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
-new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
-avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
-avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
-all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
-owns Library metadata, Part 08 Course classification, and Part 09 Assessment classification.
-The shared system requires exactly one Discipline per content object, optional narrower levels,
-and a Subject associated with one or more Sysadmin-managed Disciplines. The prior single-parent
-four-table foundation receipt does not satisfy this latest association shape or establish commands,
-normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
-KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+- Assessment is the generic object. Assignment appears in Assessment Type names.
+- A Course covers Blueprint Courses and Course Instances. A Blueprint Course has no
+  enrolled Students. A Course Instance is one teaching period.
+- Public IDs are the canonical strings. Account, Course, Assessment, Blueprint, and
+  Question parsers reject an internal UUID. Profile hides a UUID.
+- One value that identifies one object is an Id. A composite identity is a Tuple.
+  A WeBWorK source location is a Binding. No Reference type was added for that
+  location.
+- Question and Pool IDs use `XXXX-ZXXX`. Other public IDs use a prefix and no hyphen.
+- Content classification is Discipline, Subject, Topic, and Subtopic, shared by
+  Courses and Library Objects.
+- Bloom teaching values are the six Cognitive Process names and the four Knowledge
+  Dimension names. AI assignment of Bloom values stays deferred.
+- Native PLE Question JSON stays private, unversioned, and unpublished.
 
-Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
-no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
-`1 / 1`, total `1 / 4`. Native diagnostic `AZA01TD` / `R-5` follow-up saved/reloaded FIB, MA,
-MULTI-FIB, NUM, and ORDER, then submitted the whole Attempt: four correct `1 / 1` responses,
-deliberately partial-reordered ORDER incorrect `0 / 1`, total `4 / 5`. Practice-default permitted
-correct answers are displayed separately from retained responses. The supplied ledgers and
-`submitted-review-1280.png` / `submitted-review-390.png` under
-`/private/tmp/ple-student-types-proof/` are bounded receipts, not all-eight-type, complete keyboard,
-touch, or contrast acceptance. HOTSPOT and WeBWorK coverage remain open. Earlier topical
-inventories/correction IDs and superseded contradictions below are historical provenance.
+## Open readings in this area
 
-## Scope
+- Position 40 asks whether terminology alignment is the Terminology Contract plus
+  its registered surfaces, or a proof over every column, field, key, and label.
+- Position 529 asks whether Theme and provided-avatar tokens stay text vocabulary
+  keys or become UUID primary keys.
+- Position 537 asks whether Id, Tuple, and Binding are the simplest terms, or every
+  remaining value still needs a naming judgment.
 
-This is a fresh topical implementation-audit inventory. It collects currently open
-Human Guidance checklist records relevant to terminology and the model. The bullet text is copied
-verbatim from the generated checklist, and its source location is recorded beside it. This report
-does not establish exhaustive or disjoint topical coverage; the checklist remains the authority
-for each record's status.
-
-The authoritative exhaustive record is the
-[generated checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md).
-
-## Topical inventory
-
-### Product vocabulary
-
-- **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
-  - Source: `docs/HUMAN_GUIDANCE.md:73`
-
-- **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may start independently with no parent **Blueprint Course**, or an **Instructor** may create it from a **Blueprint Course**.
-  - Source: `docs/HUMAN_GUIDANCE.md:75`
-
-- **Adoption**: A connection between a **Blueprint Course** and a **Course Instance**. An **Instructor** establishes Adoption by creating a new Course Instance from a Blueprint Course or by creating a new Blueprint Course from an existing Course Instance's reusable structure.
-  - Source: `docs/HUMAN_GUIDANCE.md:76`
-
-- **Create Blueprint from Course Instance**: Creating a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records the existing Course Instance as its source, and that Course Instance remains the same teaching instance.
-  - Source: `docs/HUMAN_GUIDANCE.md:77`
-
-- **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
-  - Source: `docs/HUMAN_GUIDANCE.md:76`
-
-- **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
-  - Source: `docs/HUMAN_GUIDANCE.md:77`
-
-- **Question Library**: The global collection of Published Questions and published Question Pools available to vetted **Instructors**.
-  - Source: `docs/HUMAN_GUIDANCE.md:78`
-
-- **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
-  - Source: `docs/HUMAN_GUIDANCE.md:80`
-
-- **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
-  - Source: `docs/HUMAN_GUIDANCE.md:81`
-
-- **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
-  - Source: `docs/HUMAN_GUIDANCE.md:82`
-
-- **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
-  - Source: `docs/HUMAN_GUIDANCE.md:83`
-
-- **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
-  - Source: `docs/HUMAN_GUIDANCE.md:84`
-
-Latest Student response distinction rewrite: live HG requires visually distinct current Question,
-saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
-change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
-are retained as partial proof, not blanket acceptance of native response controls/actions.
+Development principles: 20 verified, 1 open, 30 not applicable. Data and history:
+159 verified, 2 open, 0 not applicable.

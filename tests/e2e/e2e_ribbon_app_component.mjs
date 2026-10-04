@@ -446,25 +446,41 @@ test(catalogPresentationTestName, async () => {
     .sort((left, right) =>
       `${left.selector}:${left.property}`.localeCompare(`${right.selector}:${right.property}`),
     );
+  assert.deepEqual(accentPaintConsumers, [], "the course accent has no selection-paint consumers");
+  const surfaceAlias = new Set(["--ple-ribbon-task-surface", "--ple-ribbon-tab-surface"]);
+  const selectedRibbonRule = /\.ple-app-ribbon__(?:tabs|tasks)\b[\s\S]*\[aria-current="page"\]/;
+  const rawThemePaint = ordinaryDeclarations.flatMap((declaration) => {
+    const tokens = [...declaration.value.matchAll(/var\(--ple-theme-([a-z0-9-]+)\)/gi)].map(
+      (match) => match[1].toLowerCase(),
+    );
+    if (tokens.length === 0) return [];
+    const aliasPointsAtSecondary =
+      surfaceAlias.has(declaration.property) && declaration.value === "var(--ple-theme-secondary)";
+    if (aliasPointsAtSecondary) return [];
+    const taskSurfaceToken = tokens.every(
+      (token) => token === "secondary" || token === "on-secondary",
+    );
+    const selected = selectedRibbonRule.test(declaration.selector);
+    const selectedForeground =
+      selected &&
+      tokens.length === 1 &&
+      tokens[0] === "on-secondary" &&
+      (declaration.property === "color" || declaration.property === "box-shadow");
+    if (selectedForeground || (!selected && taskSurfaceToken)) return [];
+    return [
+      {
+        selector: declaration.selector,
+        property: declaration.property,
+        value: declaration.value,
+      },
+    ];
+  });
   assert.deepEqual(
-    accentPaintConsumers,
+    rawThemePaint,
+    [],
     [
-      {
-        selector: '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after',
-        property: "background",
-      },
-      {
-        selector: '.ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"]',
-        property: "background",
-      },
-    ].sort((left, right) =>
-      `${left.selector}:${left.property}`.localeCompare(`${right.selector}:${right.property}`),
-    ),
-    "the derived course accent paints selected Tabs and Tasks",
-  );
-  assert.doesNotMatch(
-    source,
-    /var\(--ple-theme-[a-z0-9-]+\)/i,
-    "Ribbon production paint never bypasses the semantic theme recipe with a raw theme anchor",
+      "semantic ribbon surface aliases may point at the theme secondary surface,",
+      "and selected Tabs and Tasks do not paint their fill with a raw theme color",
+    ].join(" "),
   );
 });

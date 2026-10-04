@@ -574,6 +574,27 @@ mod tests {
         );
     }
 
+    fn unreachable_pool() -> learning_data_access::postgres::Pool {
+        learning_data_access::postgres::lazy_pool("postgres://ple:ple@127.0.0.1:1/ple")
+            .expect("lazy pool")
+    }
+
+    #[tokio::test]
+    async fn load_assessment_rejects_a_bad_checksum_before_database_lookup() {
+        let pool = unreachable_pool();
+        let state = super::StateData {
+            sessions: std::sync::Arc::new(super::PostgresSessionStore::new(pool.clone())),
+            assessments: super::PostgresLiveAssessmentStore::new(pool),
+        };
+        let response = super::load_assessment(
+            axum::extract::State(state),
+            axum::http::HeaderMap::new(),
+            axum::extract::Path(("CIABCDEFGS".to_string(), "AABCDEFG0".to_string())),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
     #[test]
     fn unrelease_confirmation_accepts_only_the_closed_title_payload() {
         let input: UnreleaseAssessmentInput =

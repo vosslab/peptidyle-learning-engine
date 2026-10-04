@@ -415,6 +415,7 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
     "term",
     "role",
     "classification",
+    "lifecycleState",
   ]);
   const decoded = {
     classification: decodeCourseClassification(
@@ -426,6 +427,11 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
+    lifecycleState: decodeStringEnum(
+      field(record, "lifecycleState", path),
+      `${path}.lifecycleState`,
+      ["active", "inactive"] as const,
+    ),
   } satisfies CourseSummary;
   return decoded;
 }

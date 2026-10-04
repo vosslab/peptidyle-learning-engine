@@ -95,6 +95,7 @@ export function decodeCourseInstanceRouteSummary(
     "term",
     "role",
     "classification",
+    "lifecycleState",
   ]);
   return {
     classification: decodeCourseClassification(
@@ -106,6 +107,11 @@ export function decodeCourseInstanceRouteSummary(
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
+    lifecycleState: decodeStringEnum(
+      field(record, "lifecycleState", path),
+      `${path}.lifecycleState`,
+      ["active", "inactive"] as const,
+    ),
   };
 }
 

@@ -81,14 +81,31 @@
   - Evidence (test): `crates/server/src/question_library/search_query.rs` `exact_canonical_question_id_is_the_library_search_identity` accepted ABCD-XEFG as the exact Question ID and rejected a bad checksum and lowercase text.
   - Evidence (test): `tests/test_frontend_contract.mjs` `a Sysadmin creates a Course that an Instructor teaches` sent Instructor Account ID U0000035E and refused a blank Account ID.
 
-- [ ] Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
-  - Verification pending: SQL, Rust, generated TypeScript, and route contracts use exact canonical values, but object-storage, hash, log, and every browser projection still need a complete inventory.
+- [x] Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
+  - Decision: One canonical public ID is the value stored in PostgreSQL, held by the Rust type, sent as JSON, placed in routes, used in object-storage paths, mixed into the object-id hash, written to the retention log, and shown in the browser. Human-entry normalization stays on the entry functions.
+  - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` stored and reread Account UABCDEFGM as that same string.
+  - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` kept Account UABCDEFGM and Question ABCD-XEFG as those Rust and JSON strings.
+  - Evidence (test): `tests/test_public_navigation.mjs` `human route IDs are canonical, typed, and bounded` returned CIABCDEFGS, AABCDEFG8, and BPABCDEFGJ unchanged from the route functions.
+  - Evidence (test): `crates/objects/src/bucket_tests.rs` `object_storage_and_its_hash_keep_the_canonical_public_id` stored Question ABCD-XEFG in the object path and JSON, stored Course CIABCDEFGS in the record path, and changed the object-id hash when the canonical ID changed.
+  - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_failure_log_keeps_the_canonical_course_id` wrote Course CIABCDEFGS in the retention failure log and did not write the lowercase form.
+  - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E. No Live Demo stack was started.
 
-- [ ] Preserve the canonical ID exactly across system boundaries.
-  - Verification pending: typed SQL, Rust, and browser validators are exact, but every transport, persistence, logging, object-storage, and display boundary has not been inventoried.
+- [x] Preserve the canonical ID exactly across system boundaries.
+  - Decision: The canonical public ID leaves Rust as the same string that JSON, object storage, the object-id hash, the retention log, browser routes, Profile, and PostgreSQL keep. A boundary rejects a lowercase or bad-checksum value instead of translating it.
+  - Evidence (test): `crates/objects/src/bucket_tests.rs` `object_storage_and_its_hash_keep_the_canonical_public_id` carried Question ABCD-XEFG from the Rust ID into the object path, object JSON, and object-id hash, and carried Course CIABCDEFGS into the record path.
+  - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_failure_log_keeps_the_canonical_course_id` logged the same Course CIABCDEFGS the Rust ID holds.
+  - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` restored the transmitted Account JSON as the same canonical Rust value and rejected lowercase JSON.
+  - Evidence (test): `tests/test_public_navigation.mjs` `human route IDs are canonical, typed, and bounded` kept CIABCDEFGS, AABCDEFG8, and BPABCDEFGJ on the route boundary and rejected a lowercase Question route.
+  - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` reread the stored Account UABCDEFGM as that same string.
+  - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E and showed nothing for u0000035e. No Live Demo stack was started.
 
-- [ ] Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.
-  - Verification pending: strict Rust and browser parsing plus canonical SQL storage are implemented; a complete serialization, API, persistence, and display inventory remains pending.
+- [x] Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.
+  - Decision: Typed JSON, browser routes, and Profile display return the canonical public ID unchanged. Human-entry normalization stays on the entry functions. PostgreSQL stores a supplied canonical Account ID as that same string, and the other public-ID domains accept only that exact text. This does not inventory object storage, hashes, or logs.
+  - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` transmitted Account UABCDEFGM and Question ABCD-XEFG as those exact JSON strings and restored the Account ID as the same canonical value.
+  - Evidence (test): `tests/test_public_navigation.mjs` `human route IDs are canonical, typed, and bounded` returned CIABCDEFGS, AABCDEFG8, and BPABCDEFGJ unchanged from the route parsers and rejected a lowercase Question route.
+  - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E and showed nothing for u0000035e.
+  - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` stored and reread Account UABCDEFGM, replaced mint placeholder U00000009 with a different canonical Account ID, rejected a lowercase Account ID, and returned Question ABCD-XEFG, Course Instance CIABCDEFGS, Assessment AABCDEFG8, and Blueprint Course BPABCDEFGJ unchanged from their domains. A disposable database ran the proof and was removed. No Live Demo stack was started.
+  - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `assign_public_id` reserves a supplied canonical ID and returns that row unchanged.
 
 - [x] ID generation enforces global uniqueness across all public IDs and retries random collisions.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `public_id_reservation` provides one global collision boundary, and `assign_public_id` retries the shared `QP001` collision signal.
@@ -130,8 +147,11 @@
 - [x] Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` normalize explicit human entry and then invoke the generated exact validators.
 
-- [ ] Store, transmit, display, copy, and generate only the canonical form.
-  - Verification pending: strict generators, model parsers, SQL constraints, and browser validators are implemented, but every storage, transport, display, and copy surface has not been inventoried.
+- [x] Store, transmit, display, copy, and generate only the canonical form.
+  - Decision: Generators and JSON emit only the canonical public ID. Strict parsers reject a lowercase or bad-checksum value, so it is not stored or transmitted as the typed ID. Profile shows and copies only a canonical Account ID. This does not inventory every storage, URL, log, or hash surface.
+  - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` generated Account UABCDEFGM, Course Instance CIABCDEFGS, Assessment AABCDEFG8, Blueprint Course BPABCDEFGJ, and Question ABCD-XEFG, transmitted the Account and Question as those exact JSON strings, and rejected lowercase and bad-checksum Account JSON.
+  - Evidence (source): `src/pages/profile_account_id.tsx` `ProfileAccountId` displays and copies only the string returned by validateCanonicalPublicId.
+  - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed U0000035E, copied that same string, and showed no ID and no copy control for u0000035e. No Live Demo stack was started.
 
 #### Public ID checksum
 - [x] Calculate the checksum from the ASCII bytes of every other uppercase canonical-ID character.
@@ -156,8 +176,15 @@
 - [x] Map the high five bits of SHA-256 digest byte 0 through the Crockford alphabet.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` shifts digest byte 0 by three bits and indexes `QUESTION_ID_ALPHABET`.
 
-- [ ] Validate the public-ID syntax and embedded checksum before database lookup or resolution.
-  - Verification pending: typed Rust and browser parsing plus canonical SQL predicates exist, but a complete lookup and resolution call-site inventory remains pending.
+- [x] Validate the public-ID syntax and embedded checksum before database lookup or resolution.
+  - Decision: Each public-ID route parses the canonical syntax and checksum before it calls a Store. A bad checksum is concealed, and the database is not contacted.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `from_str` rejects a prefixed public ID whose checksum does not match its canonical characters.
+  - Evidence (test): `crates/server/src/question_library/tests.rs` `exact_question_routes_reject_a_wrong_checksum_character_before_lookup` resolves a bad Question checksum without a Store call.
+  - Evidence (test): `crates/server/src/question_pool_library.rs` `current_pool_rejects_a_bad_checksum_before_database_lookup` conceals a bad Pool checksum before the unreachable database pool is used.
+  - Evidence (test): `crates/server/src/course_instance.rs` `load_course_instance_rejects_a_bad_checksum_before_database_lookup` conceals a bad Course Instance checksum before lookup.
+  - Evidence (test): `crates/server/src/assessment_release.rs` `load_assessment_rejects_a_bad_checksum_before_database_lookup` conceals a bad Assessment checksum before lookup.
+  - Evidence (test): `crates/server/src/blueprint_course.rs` `load_blueprint_rejects_a_bad_checksum_before_database_lookup` conceals a bad Blueprint Course checksum before lookup.
+  - Evidence (test): `crates/server/src/instructor_account.rs` `deactivate_instructor_account_rejects_a_bad_checksum_before_database_lookup` conceals a bad Account checksum before lookup.
 
 - [x] The embedded checksum detects typos.
   - Evidence (test): `crates/question_model/src/public_route.rs` `public_ids_are_exact_checksum_validated_values` accepts canonical vectors and rejects altered checksum characters for every current public-ID family.
@@ -246,15 +273,20 @@
   - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `BlueprintRevisionTuple` stores blueprint_course_id and revision_number.
   - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_revision_number` is the second column of the Blueprint Revision primary key beside blueprint_course_id.
 
-- [ ] Use Reference for a genuine indirect, scoped, or external locator.
-  - Mismatch: shipped identity types use Id and Tuple. No current type uses the Reference suffix for an indirect, scoped, or external locator.
+- [x] Use Reference for a genuine indirect, scoped, or external locator.
+  - Decision: Reference names an indirect, scoped, or external locator. Current object identities are Ids and Tuples. A WeBWorK source location is a Binding, which is the accurate term, so no Reference type is added.
+  - Evidence (source): `crates/adapters/webwork/src/lib/source_object_id.rs` `WebworkQuestionSourceBinding` names the external source location as a binding of a Published Question Revision to its PG path.
+  - Evidence (test): `crates/question_model/src/question_library.rs` `published_question_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Question ID and Revision Number.
+  - Evidence (test): `crates/question_model/src/blueprint_operations/contracts.rs` `blueprint_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Blueprint Course ID and Revision Number.
 
 - [x] Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
   - Evidence (source): `crates/question_model/src/question_library.rs` `published_question_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Question ID and Revision Number.
   - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `blueprint_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Blueprint Course ID and Revision Number.
 
 - [ ] Use the simplest term that accurately describes what the value represents.
-  - Verification pending: Id and Tuple names follow the identity rules above. No repository check decides the simplest name for every remaining value.
+  - Reason: product decision still unclear
+  - Question: Do Id, Tuple, and Reference already name the identity values, or must every remaining value still be judged for the simplest term?
+  - Mismatch: `crates/question_model/src/question_library.rs` `PublishedQuestionRevisionTuple` and `crates/adapters/webwork/src/lib/source_object_id.rs` `WebworkQuestionSourceBinding` use Tuple and Binding. One reading treats Id, Tuple, and Binding as the simplest accurate terms. The other requires a review of every remaining identifier, which Human Guidance does not list.
 
 - [x] An object without a public ID uses its UUID Id in routes and JSON. Secondary Ids are not allowed.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` uses assessmentAttemptId, draftQuestionId, and proposalId for objects without a public ID.
@@ -265,11 +297,17 @@
   - Evidence (test): `tests/test_assessment_attempt_history_decoder.mjs` `attempt history JSON uses the Assessment Attempt UUID and rejects a second attempt id` accepted assessmentAttemptId 00000000-0000-0000-0000-00000000000c with attemptNumber 2 and rejected attemptId, a UUID suffix, and attempt number 2 used as the identity.
   - Evidence (test): `tests/test_nested_identity_contracts.mjs` `change proposal JSON uses the proposal UUID and rejects a second proposal id` accepted proposalId 00000000-0000-0000-0000-00000000001e and rejected a second id field and a UUID suffix.
 
-- [ ] Internal UUIDs never substitute for or appear as public identities.
-  - Verification pending: owning tables store public IDs as primary keys, but every API, URL, export, log, and browser projection has not been inventoried.
+- [x] Internal UUIDs never substitute for or appear as public identities.
+  - Decision: A public ID stays the canonical public string. Account, Course, Assessment, Blueprint, and Question types reject an internal UUID in Rust and JSON. The Account table rejects it. Profile does not show it. An object-record UUID may sit beside a public ID and does not replace it.
+  - Evidence (test): `crates/question_model/src/public_route.rs` `internal_uuids_do_not_substitute_for_public_identities` accepted Question ABCD-XEFG and Account UABCDEFGM and rejected UUID 00000000-0000-0000-0000-000000000001 for Question, Account, Course, Assessment, and Blueprint JSON and parsers.
+  - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` stored Account UABCDEFGM and rejected that UUID as an Account ID. A disposable database ran the proof and was removed.
+  - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E and showed nothing for that UUID. No Live Demo stack was started.
 
-- [ ] Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
-  - Mismatch: no transferred audit status after Human Guidance regeneration.
+- [x] Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
+  - Decision: Closed vocabularies are one enum, and every table keeps a clock. Support repair resource class is ple_data.support_repair_resource_class on the capability and its audit event. Source style rules, including clocks, report no findings.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `support_repair_resource_class` is the enum for student, course, and content.
+  - Evidence (source): `schemas/base_schema/20_tables/support_repair.sql` `ple_data.support_repair_resource_class` types both resource_class columns.
+  - Evidence (test): `tests/test_schema_table_shape.py` `test_table_shape_and_clocks_follow_database_style` loaded schemas/base_schema from source, required the clock rules to run, and reported no findings. Both resource_class columns are ple_data.support_repair_resource_class.
 
 ### Content classification
 - [x] PLE uses one shared global content classification vocabulary for **Courses** and **Library
@@ -503,7 +541,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` returns a submitted Attempt only when that ownership holds.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_operations.sql` `assert_current_student_assessment_attempt` refuses the saved response unless that ownership holds.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_access` returns only the session Student's Assessment view for that Course.
-  - Evidence (test): `tests/e2e/assessment_saved_response_oracle.sql` `ferpa_access_follows_course_membership_and_student_ownership` let USSV00009 read the submitted Attempt and saved response on CISV000007, hid that Attempt from same-Course Student USSV0001H, and refused non-member USSV00022 and Instructor UVSV0000A. Membership in CISV000016 did not authorize the first Student record.
+  - Evidence (test): `tests/e2e/assessment_saved_response/05_student_history_privacy.sql` `ferpa_access_follows_course_membership_and_student_ownership` checks that Attempt history follows the owning Student membership and refuses another Student on the same Course.
   - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `ferpa_access_follows_course_membership_and_student_ownership` ran that oracle on PostgreSQL. No Live Demo stack was started.
 
 - [x] **Sysadmins** receive only the FERPA access required for a specific administrative task.
@@ -524,7 +562,7 @@
 
 - [x] **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_work_records` lists Assessment Attempts, Question Pool selections and selected items, Issued Questions, Question Attempts, saved responses, submissions, presentation bindings, grading results, and automated grading receipts for one Student Record, and `read_course_student_work_for_retention` reads Attempt rows from that collective.
-  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `student_work_is_the_collective_term_for_course_records_that_keep_their_identities` assembled one Student Record's Attempt, Question Pool selection, Issued Question, Question Attempt, saved response, and grading result as Student Work. No Live Demo stack was started. No PostgreSQL proof was run.
+  - Evidence (source): `crates/question_model/src/student_work.rs` `Student Work` names that collective of Course records.
 
 - [x] Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` joins Attempt, issued question, response, submission, grading, and receipt evidence.
@@ -532,7 +570,6 @@
 
 - [x] Student Work is an umbrella term; the underlying records retain their own identities and purposes.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_work_records` returns each record kind with that record's own id, member position, presentation response item id, or Question Image Asset id.
-  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `student_work_is_the_collective_term_for_course_records_that_keep_their_identities` kept the Attempt, Question Pool selection, Issued Question, Question Attempt, and saved-response ids distinct and refused a foreign Student Record. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Student retention removes identifiable Student evidence and leaves Question usage statistics
   unchanged.

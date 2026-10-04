@@ -11,7 +11,7 @@ import {
   type RecordListSelection,
   type RecordListState,
 } from "../components/record_list/record_list";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
+import { buildRoutePath } from "../ribbon/ribbon_route_path";
 import { questionLink, webworkFormatLabel } from "./library_page_helpers";
 import {
   QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,

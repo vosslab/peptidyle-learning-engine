@@ -1,11 +1,14 @@
 //! Exact-course Sysadmin support-capability issuance and revocation.
 
 use async_trait::async_trait;
-use question_model::{AccountId, CourseInstanceId, Timestamp};
+use question_model::{
+    AccountId, AssessmentId, AssessmentStatus, AssessmentTitle, AssessmentType, CourseInstanceId,
+    Timestamp,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{CourseRosterEntryState, SessionTokenHash, StoreError};
+use crate::{CourseRosterEntryState, InstallationCourseInspection, SessionTokenHash, StoreError};
 
 /// Existing task-specific repair projection excludes ordinary Course roster names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -15,21 +18,36 @@ pub struct SupportCourseRosterEntry {
     pub state: CourseRosterEntryState,
 }
 
-/// Only the implemented Course-local Student roster repair scope is supported.
-/// SQL resolves an existing canonical profile and checks the original issuer's
-/// current exact Course authority at issuance and use. Course/content are future work.
+/// Student roster repair, exact Course identity, and one Course Assessment are
+/// supported. SQL resolves the canonical path and checks the original issuer's
+/// current exact Course authority at issuance and use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportRepairResourceClass {
     Student,
+    Course,
+    Content,
 }
 
 impl SupportRepairResourceClass {
     pub(crate) fn database_name(self) -> &'static str {
         match self {
             Self::Student => "student",
+            Self::Course => "course",
+            Self::Content => "content",
         }
     }
+}
+
+/// Closed Assessment identity for one content-repair capability.
+/// Instructions, Questions, answers, and Student Work stay out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupportCourseContent {
+    pub assessment_id: AssessmentId,
+    pub assessment_type: AssessmentType,
+    pub title: AssessmentTitle,
+    pub status: AssessmentStatus,
 }
 
 /// Rust bounds clean input; SQL resolves the exact roster scope and derives expiry.
@@ -112,6 +130,23 @@ pub trait SupportRepairCapabilityStore: Send + Sync {
         course_instance_id: CourseInstanceId,
         roster_id: String,
     ) -> Result<Option<SupportCourseRosterEntry>, StoreError>;
+    /// Reads one Course's non-student facts for an active exact Course
+    /// capability. This is not a Course editor and not a Student reader.
+    async fn read_course_repair_support(
+        &self,
+        token: SessionTokenHash,
+        capability_id: Uuid,
+        course_instance_id: CourseInstanceId,
+    ) -> Result<Option<InstallationCourseInspection>, StoreError>;
+    /// Reads one Assessment's identity for an active content capability.
+    /// This is not an Assessment editor and not a Student Work reader.
+    async fn read_course_content_repair_support(
+        &self,
+        token: SessionTokenHash,
+        capability_id: Uuid,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
+    ) -> Result<Option<SupportCourseContent>, StoreError>;
 }
 
 #[cfg(test)]
@@ -156,11 +191,11 @@ mod tests {
 
     #[test]
     fn unsupported_repair_classes_fail_deserialization() {
-        for class in ["course", "content"] {
-            assert!(
-                serde_json::from_str::<SupportRepairResourceClass>(&format!("\"{class}\""))
-                    .is_err()
-            );
-        }
+        assert!(serde_json::from_str::<SupportRepairResourceClass>("\"library\"").is_err());
+        assert_eq!(
+            serde_json::from_str::<SupportRepairResourceClass>("\"content\"")
+                .expect("content class"),
+            SupportRepairResourceClass::Content
+        );
     }
 }

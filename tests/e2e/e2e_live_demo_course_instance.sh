@@ -152,7 +152,7 @@ assignment = {
   "title": "Course Instance source assignment",
   "instructions": "Use the published Question in reusable course structure.",
   "entries": [{"kind":"fixed","published_question_revision_tuple":published_question,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":2},"question_attempt_time_limit":{"kind":"unlimited"}}],
-  "defaults": {"assessment_attempt_time_limit_seconds":None,"assessment_attempt_limit":2,"late_work_rule":"accept","activity_rules":{"questionVariationRule":"newVariation","assessmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
+  "defaults": {"assessment_attempt_time_limit_seconds":None,"assessment_attempt_limit":2,"late_work_rule":"accept","activity_rules":{"questionVariationRule":"newVariation","assessmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never","hints":"never","worked_solutions":"never"}},
 }
 print(json.dumps({"classification":classification,"short_name":"M8 source","long_name":"M8 exact Blueprint source","modules":[{"label":"M8 module","assessments":[assignment]}]}, separators=(",",":")))
 ' "$1" "$2"
@@ -176,7 +176,8 @@ content = assignment.get("content") if isinstance(assignment, dict) else None
 if not isinstance(blueprint_module_id, str) or not isinstance(blueprint_assessment_id, str) or not isinstance(content, dict):
     raise SystemExit("Blueprint Revision 1 did not return stable reusable identities")
 entry = content.get("entries", [None])[0]
-question_revision = entry.get("question", {}).get("question_revision") if isinstance(entry, dict) else None
+question = entry.get("question") if isinstance(entry, dict) else None
+question_revision = question.get("published_question_revision_tuple") if isinstance(question, dict) else None
 if not isinstance(question_revision, dict) or set(question_revision) != {"publishedQuestionId", "revisionNumber"}:
     raise SystemExit("Blueprint Revision 1 did not return its reusable Question")
 replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_id":blueprint_module_id},"label":module.get("label"),"assessments":[{"choice":{"kind":"retained","blueprint_assessment_id":blueprint_assessment_id},"content":{"assessment_type":content.get("assessment_type"),"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","published_question_revision_tuple":question_revision,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults")}}]}]}
@@ -243,8 +244,8 @@ if origin is not None and (
     or not 0 < int(origin["adoptedBlueprintRevisionTuple"]["revisionNumber"]) <= int(origin["currentBlueprintRevisionTuple"]["revisionNumber"])
 ):
     raise SystemExit("Course Instance Blueprint origin was not a closed ordered provenance")
-forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
-if forbidden.intersection(value) or forbidden.intersection(course):
+private = {"accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
+if "id" in value or private.intersection(value) or private.intersection(course):
     raise SystemExit("Course Instance teaching-team view exposed future or private state")
 ' "$1" "$2" "$3" "$4" "$5"
 }

@@ -22,7 +22,7 @@ async function expectUsedCourse(page: Page, heading: string, openLinkName: strin
   await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
   const course = page.getByRole("listitem").filter({
     has: page.getByRole("heading", {
-      level: 2,
+      level: 3,
       name: "Biochemistry 301: Proteins and Peptides",
       exact: true,
     }),
@@ -35,11 +35,11 @@ async function enterThenReenterUsedCourse(page: Page, name: RegExp): Promise<voi
   await page.goto("/sign-in");
   await chooseSeededIdentityAtSignIn(page, name);
   await enterStudentCourse(page, "Biochemistry 301: Proteins and Peptides");
-  await expect(page.getByRole("link", { name: "Your courses", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Your Courses", exact: true })).toBeVisible();
   await signOutVisible(page);
   await chooseSeededIdentityAtSignIn(page, name);
   await enterStudentCourse(page, "Biochemistry 301: Proteins and Peptides");
-  await expect(page.getByRole("link", { name: "Your courses", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Your Courses", exact: true })).toBeVisible();
 }
 
 test("authentication and authorization: seeded sessions and role-owned boundaries", async ({
@@ -83,7 +83,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
 
     await test.step("Elena enters the seeded Instructor session with its used Course", async () => {
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await expectUsedCourse(elena, "Course Instances you teach", "Open Course");
+      await expectUsedCourse(elena, "My Active Courses", "Open Course");
     });
 
     await test.step("Mary enters and reenters her enrolled Student session", async () => {

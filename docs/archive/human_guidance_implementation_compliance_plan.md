@@ -9,8 +9,8 @@ acceptance, and keep unrelated workflows outside this plan.
 ## Execution priority
 
 Complete the SQL lock and the highest-impact visible UI gates first:
-[`sql_human_guidance_audit.md`](../../archive/audits/sql_human_guidance_audit.md) and
-[`UI_UX_USABILITY_AUDIT.md`](../audits/UI_UX_USABILITY_AUDIT.md). Fresh subagents may run
+[`sql_human_guidance_audit.md`](audits/sql_human_guidance_audit.md) and
+[`UI_UX_USABILITY_AUDIT.md`](../active_plans/audits/UI_UX_USABILITY_AUDIT.md). Fresh subagents may run
 independent work in parallel with non-overlapping ownership and settled dependencies. Refresh the
 full screenshot corpus only after the objective interim gate under R1 passes. Audit the fresh corpus
 again before resuming lower-impact UI work. Remaining Human Guidance work continues afterward.
@@ -834,7 +834,7 @@ confirmation clean; changelog entry.
 ### C2: Add a focused development-conformance inventory
 
 - HG bullets closed: "Use readable `snake_case` whenever possible; see
-  [NAMING_CONVENTIONS.md](../../NAMING_CONVENTIONS.md) for details."; "Do not create or leave
+  [NAMING_CONVENTIONS.md](../NAMING_CONVENTIONS.md) for details."; "Do not create or leave
   placeholder database tables, states, APIs, workers, or compatibility scaffolding before the
   feature has an approved product design."
 - Expected behavior: a focused repository inventory identifies source names that are not readable
@@ -902,7 +902,7 @@ confirmation clean; changelog entry.
 ### C5: Classify Live Demo priority as human-owned guidance
 
 - HG bullets closed: "The polished PLE Live Demo is the top priority; see
-  [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md)."
+  [LIVE_DEMO_SPEC.md](../LIVE_DEMO_SPEC.md)."
 - Expected behavior: the checklist records this project-priority statement as `N/A`, not as an
   unverifiable runtime requirement; Live Demo behavior remains audited through its actual HG
   product bullets.
@@ -1637,7 +1637,7 @@ dropped.
 | C861 | Draft-cleanup removal owner: Human Guidance's optional cleanup bullet is N/A because it specifies no clock or duration. Delete prohibited baseline placeholder warning/recovery table, APIs, grants, Store, worker, generated seams, and test seams; preserve manual C351 deletion/publication and do not implement cleanup. | Independent of C351. Unresolved question: Should PLE automate cleanup of abandoned Draft Questions? If yes, what event starts inactivity; how long until warning; how long is the recovery period after a successfully delivered warning; which save/edit/publication/ownership events reset or cancel it; and what is the outcome when warning delivery fails? | Ignored bounded removal inventory proves those placeholders are absent while manual deletion/publication remain; remove. No textual absence test becomes permanent. |
 | C862 | Blueprint lifecycle browser-codec/client direct-cutover contributor: generated `BlueprintAvailability` is exactly `Private|Public|Archived`; update only `src/api/decoders/blueprint_course.ts`, its client fixtures, and executable generated consumer to reject legacy `available|archived` aliases. It does not expand C50 workspace ownership. | C49,C72; hands C50,C19 browser gates. | Ignored codec matrix proves canonical decode and legacy-alias rejection; remove. Retain only a stable public lifecycle-decoder contract if every `PYTEST_STYLE.md` criterion supports it. |
 | C863-C869 | **Deferred product work; no current dispatch.** Human Guidance's Deferred product behavior section makes H5P desired but not a current implementation requirement and overrides this former implementation chain. Detailed H5P runtime design is outside the current goal. | No dependency edge enters the current compliance graph while H5P remains deferred. | No implementation or proof is required until Human Guidance moves H5P out of Deferred product behavior. |
-| C870 | **Complete.** Dormant H5P draft/Revision bindings, policies, secondary branches and APIs, adapter/importer crate/member, and workspace-import seams are absent. Retained generic bindings are used by delivered backends; no compatibility surface remains. | Independent of deferred C863-C869; preserves current PLE and WeBWorK backends. | Current non-doc source inventory is empty and Cargo metadata has no `adapter_h5p` workspace member. The archived [changelog](../../CHANGELOG-2026-09i.md) records the removal. This closes no-placeholder only, not future H5P delivery. |
+| C870 | **Complete.** Dormant H5P draft/Revision bindings, policies, secondary branches and APIs, adapter/importer crate/member, and workspace-import seams are absent. Retained generic bindings are used by delivered backends; no compatibility surface remains. | Independent of deferred C863-C869; preserves current PLE and WeBWorK backends. | Current non-doc source inventory is empty and Cargo metadata has no `adapter_h5p` workspace member. The archived [changelog](../CHANGELOG-2026-09i.md) records the removal. This closes no-placeholder only, not future H5P delivery. |
 | C876 | Question-fork lineage contributor: after C319's install-order audit, `question_lineages.sql` exposes only a server-consumable exact immutable Published Question Revision read/pin for fork attribution. It creates no Draft, authoring operation, client-selected ID, or source-attribution table because this install phase precedes authoring tables. | C211,C846,C319; hands C877. | Ignored exact-source/revision read probe; remove. Do not retain a source-table or call-order test. |
 | C877 | Question-fork authoring-schema contributor: later `question_authoring_operations.sql` creates one atomic active-Instructor operation and immutable fork-source attribution for a private Draft. Its server-only inputs are the resolved source Revision and actor-bound opaque idempotency key; `(actor, idempotency key)` returns the same Draft only for that exact source and otherwise refuses. The Draft retains private UUID identity and immutable source provenance. It stores no client-supplied authorship, source facts, Draft content, or public Question ID. | C9,C876; hands C878. | Ignored fresh-schema/RLS/concurrent-repeat matrix proves private ownership, exact immutable pin, key/source refusal, and one-Draft result; remove. Retain only a narrow stable authorization or idempotency outcome if it meets every `PYTEST_STYLE.md` criterion. |
 | C878 | Question-fork typed command contributor: `QuestionForkStore` and server command resolve the exact authorized Published Revision from the canonical request path and invoke C877 once. The request body contains no Question ID, source, attribution, authorship, or Draft payload. C9 publication mints and reserves a new public Question ID exactly once only after successful validation creates a new Published lineage. | C877; hands C879. | Ignored Store/server authorization, malformed-path, retry, and concurrent-request matrix proves no public ID is allocated for the Draft. Publication issuance belongs to C9/C369; remove. No mock call-order test is permanent. |

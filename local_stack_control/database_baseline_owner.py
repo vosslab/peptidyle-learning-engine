@@ -357,6 +357,20 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		"Course Active-lifetime PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "course_instance_postgres",
+			"read_course_summary_returns_course_lifecycle_state",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Course summary lifecycle PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
 	verification_environment = dict(application_environment)
 	tool_argv = [
 		"cargo", "run", "--manifest-path", str(repository_root / "Cargo.toml"), "--quiet",

@@ -268,4 +268,94 @@ mod tests {
             &[course]
         );
     }
+
+    struct FailingDelete {
+        course: CourseInstanceId,
+    }
+
+    #[async_trait]
+    impl CourseRetentionStore for FailingDelete {
+        async fn list_due_course_retention_actions(
+            &self,
+            _: Timestamp,
+        ) -> Result<Vec<CourseRetentionDueAction>, StoreError> {
+            Ok(vec![CourseRetentionDueAction {
+                course_instance_id: self.course.clone(),
+                action: CourseRetentionDueActionKind::Delete,
+                due_at: Timestamp::from_unix_millis(1),
+                archive_marked_at: Some(Timestamp::from_unix_millis(1)),
+            }])
+        }
+
+        async fn mark_course_instance_inactive(
+            &self,
+            _: CourseInstanceId,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            panic!("a failed delete must not mark the Course inactive")
+        }
+
+        async fn archive_course_student_records(
+            &self,
+            _: CourseInstanceId,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            panic!("a failed delete must not archive the Course")
+        }
+
+        async fn delete_course_student_records(
+            &self,
+            _: CourseInstanceId,
+            _: Timestamp,
+        ) -> Result<bool, StoreError> {
+            Err(StoreError::Unavailable("retention store".to_string()))
+        }
+    }
+
+    struct LogBuffer(std::sync::Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for LogBuffer {
+        fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("log buffer").extend_from_slice(data);
+            Ok(data.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for LogBuffer {
+        type Writer = LogBuffer;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            LogBuffer(std::sync::Arc::clone(&self.0))
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn course_retention_failure_log_keeps_the_canonical_course_id() {
+        let course = CourseInstanceId::new("CIABCDEFGS").expect("canonical Course ID");
+        let buffer = std::sync::Arc::new(Mutex::new(Vec::<u8>::new()));
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_ansi(false)
+            .with_writer(LogBuffer(std::sync::Arc::clone(&buffer)))
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        run_iteration(
+            &FailingDelete {
+                course: course.clone(),
+            },
+            &QuietNotifications,
+            &NotConfiguredCourseRetentionNotificationDelivery,
+        )
+        .await
+        .expect("a failed delete stays inside the retention iteration");
+        let logged = String::from_utf8(buffer.lock().expect("log buffer").clone())
+            .expect("retention log is UTF-8");
+        assert!(logged.contains("course_retention_transition_failed"));
+        assert!(logged.contains(course.as_str()));
+        assert!(!logged.contains(&course.as_str().to_ascii_lowercase()));
+    }
 }

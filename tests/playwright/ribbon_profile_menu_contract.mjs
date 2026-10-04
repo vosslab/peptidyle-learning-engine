@@ -39,11 +39,11 @@ try {
 
   const profile = page.getByRole("button", { name: "Profile", exact: true });
   const menu = page.getByRole("menu", { name: "Profile menu", exact: true });
-  const profileLink = page.getByRole("menuitem", { name: "Profile", exact: true });
+  const profileLink = page.getByRole("menuitem", { name: "Profile settings", exact: true });
   const accountSettings = page.getByRole("menuitem", { name: "Account settings", exact: true });
-  const signOut = page.getByRole("menuitem", { name: "Sign out", exact: true });
+  const signOut = page.getByRole("menuitem", { name: "Sign Out", exact: true });
 
-  assert.equal(await page.getByRole("button", { name: "Sign out", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Sign Out", exact: true }).count(), 0);
   for (const role of ["student", "instructor", "sysadmin"]) {
     await page.evaluate((userRole) => window.ribbonResponsive.setRoleHome(userRole), role);
     await flush(page);
@@ -51,11 +51,19 @@ try {
     await menu.waitFor({ state: "visible" });
     assert.equal(await profileLink.count(), 1, `${role} has one Profile command`);
     assert.equal(await accountSettings.count(), 0, `${role} has no second time-zone page`);
-    assert.equal(await signOut.count(), 1, `${role} has one Sign out command`);
+    assert.equal(await signOut.count(), 1, `${role} has one Sign Out command`);
     assert.equal(
       await menu.getByRole("menuitem").count(),
       2,
-      `${role} Profile menu contains Profile and Sign out`,
+      `${role} Profile menu contains Profile settings and Sign Out`,
+    );
+    assert.equal(
+      await page
+        .locator(".ple-app-ribbon__tabs, .ple-app-ribbon__tasks")
+        .getByText("Sign Out", { exact: true })
+        .count(),
+      0,
+      `${role} does not scatter Sign Out into Ribbon navigation`,
     );
     assert.equal(await profileLink.getAttribute("href"), "/profile", role);
     assert.equal(await page.locator('a[href="/account-settings"]').count(), 0);
@@ -86,6 +94,7 @@ try {
   assert.equal(await menu.count(), 0);
 
   process.stdout.write("Ribbon Profile menu behavior: PASS\n");
+  process.stdout.write("Account actions stay together in the Profile menu: PASS\n");
 } finally {
   await browser.close();
 }

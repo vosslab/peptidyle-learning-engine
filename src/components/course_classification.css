@@ -46,3 +46,9 @@
   overflow-wrap: anywhere;
   margin-block: 0.5rem;
 }
+
+/* The summary and its edit action form one metadata group. Keep the action
+ * content-sized instead of centering its label across a full-width grid cell. */
+.course-classification-editor > button {
+  justify-self: start;
+}

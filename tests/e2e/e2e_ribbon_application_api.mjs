@@ -59,6 +59,14 @@ const resolvingClient = createHttpApiClient({
         longName: "Molecular Biology",
         term: { startDate: "2026-01-12", endDate: "2026-05-08" },
         role: "instructor",
+        classification: {
+          disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+          subjectUuid: null,
+          topicUuid: null,
+          subtopicUuid: null,
+          tags: [],
+        },
+        lifecycleState: "active",
       },
       "/api/course-instances/CI7K3M2QAZ/appearance": { theme: "grass", banner: null },
       "/api/course-instances/CI4W8QF9AD/summary": {
@@ -67,6 +75,14 @@ const resolvingClient = createHttpApiClient({
         longName: "Genetics",
         term: { startDate: "2026-08-24", endDate: "2026-12-11" },
         role: "student",
+        classification: {
+          disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+          subjectUuid: null,
+          topicUuid: null,
+          subtopicUuid: null,
+          tags: [],
+        },
+        lifecycleState: "inactive",
       },
       "/api/course-instances/CI4W8QF9AD/appearance": { theme: "forest", banner: null },
       "/api/navigation/00000000-0000-0000-0000-000000000001": {
@@ -131,6 +147,14 @@ assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
     longName: "Molecular Biology",
     term: { startDate: "2026-01-12", endDate: "2026-05-08" },
     role: "instructor",
+    classification: {
+      disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+      subjectUuid: null,
+      topicUuid: null,
+      subtopicUuid: null,
+      tags: [],
+    },
+    lifecycleState: "active",
   },
   appearance: { theme: "grass", banner: null },
 });
@@ -146,6 +170,14 @@ assert.deepEqual(await resolutionApi.queries.courseScope(courseTwo), {
     longName: "Genetics",
     term: { startDate: "2026-08-24", endDate: "2026-12-11" },
     role: "student",
+    classification: {
+      disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+      subjectUuid: null,
+      topicUuid: null,
+      subtopicUuid: null,
+      tags: [],
+    },
+    lifecycleState: "inactive",
   },
   appearance: { theme: "forest", banner: null },
 });

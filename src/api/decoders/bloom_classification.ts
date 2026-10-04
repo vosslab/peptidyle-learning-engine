@@ -24,6 +24,24 @@ export const BLOOM_KNOWLEDGE_DIMENSIONS = [
   "Metacognitive Knowledge",
 ] as const satisfies ReadonlyArray<BloomKnowledgeDimension>;
 
+/** Guide meanings for the work a Question requires. AI assignment stays deferred. */
+export const BLOOM_COGNITIVE_PROCESS_MEANINGS = {
+  Remember: "Retrieve relevant knowledge",
+  Understand: "Construct meaning from presented or recalled knowledge",
+  Apply: "Use a procedure in a situation",
+  Analyze: "Separate material into parts and relate those parts",
+  Evaluate: "Make a judgment using stated or appropriate criteria",
+  Create: "Assemble elements into a coherent or functional new whole",
+} as const satisfies Record<BloomCognitiveProcess, string>;
+
+/** Guide meanings for the knowledge a Question assesses. */
+export const BLOOM_KNOWLEDGE_DIMENSION_MEANINGS = {
+  "Factual Knowledge": "Terminology, specific details, and discrete elements",
+  "Conceptual Knowledge": "Categories, principles, theories, models, and systems",
+  "Procedural Knowledge": "Skills, algorithms, techniques, methods, and their use",
+  "Metacognitive Knowledge": "Strategies and awareness of one's own cognition",
+} as const satisfies Record<BloomKnowledgeDimension, string>;
+
 export function isBloomCognitiveProcess(value: string): value is BloomCognitiveProcess {
   return BLOOM_COGNITIVE_PROCESSES.some((candidate) => candidate === value);
 }

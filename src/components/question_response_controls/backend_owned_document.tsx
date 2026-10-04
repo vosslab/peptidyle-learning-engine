@@ -15,7 +15,7 @@ import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { postEmbedAppearance } from "../../appearance/embed_appearance";
 import { AppearanceContext } from "../../appearance/appearance_context";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { QuestionResponseControlBaseProps } from "./common";
+import type { QuestionResponseControlBaseProps, ResponsePersistenceNotice } from "./common";
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
 
 const CAPTURE_REQUEST_PREFIX = "ple.backendOwned.capture:";
@@ -102,6 +102,23 @@ export function backendOwnedResponseFromPairs(
   return { kind: "backendOwned", payload: bytesToBase64(bytes) };
 }
 
+/**
+ * A captured form is working state. "Response saved." appears only after this
+ * Attempt accepts that response, or after the local phase records that acceptance.
+ */
+export function backendOwnedStatusMessage(
+  phase: BackendOwnedPhase,
+  localMessage: string,
+  persistenceNotice?: ResponsePersistenceNotice,
+  persistenceDetail?: string,
+): string {
+  if (phase === "loading" || phase === "capturing" || phase === "failed") return localMessage;
+  if (persistenceNotice === "error") return persistenceDetail ?? "Response was not saved.";
+  if (persistenceNotice === "saving") return "Saving response...";
+  if (persistenceNotice === "saved") return "Response saved.";
+  return localMessage;
+}
+
 /** Builds only the document route authorized by the current Assessment Attempt and position. */
 export function backendOwnedDocumentPath(
   assessmentAttemptId: AssessmentAttemptId,
@@ -166,10 +183,11 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
       return;
     }
     props.onResponseChange?.(response, { issues: [] }, editGeneration);
-    setPhase("saved");
-    setMessage("Response saved.");
+    if (phase() === "capturing") {
+      setPhase("ready");
+      setMessage("Saving response...");
+    }
     if (resolvesCapture) clearPendingCapture(response);
-    queueMicrotask(() => saveButton?.focus());
   }
 
   function handleMessage(event: MessageEvent<unknown>): void {
@@ -211,6 +229,7 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
     if (outcome.kind === "accepted") {
       setPhase("saved");
       setMessage("Response saved.");
+      queueMicrotask(() => saveButton?.focus());
       return;
     }
     setPhase("failed");
@@ -259,7 +278,12 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
         )}
       </Show>
       <p class="format-status" role="status" aria-live="polite">
-        {message()}
+        {backendOwnedStatusMessage(
+          phase(),
+          message(),
+          props.persistenceNotice,
+          props.persistenceDetail,
+        )}
       </p>
       <button
         ref={(element) => (saveButton = element)}

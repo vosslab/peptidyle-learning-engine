@@ -8,11 +8,11 @@
 set -euo pipefail
 
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_ROOT="$(cd "$script_directory/../.." && pwd -P)"
-readonly REPO_ROOT
+course_appearance_repository_root="$(cd "$script_directory/../.." && pwd -P)"
+readonly course_appearance_repository_root
 
 if [ "${1:-}" != "--owned-child" ]; then
-	cd "$REPO_ROOT"
+	cd "$course_appearance_repository_root"
 	exec python3 -m local_stack_control.course_appearance_cross_store_owner
 fi
 shift
@@ -37,7 +37,7 @@ require_command() {
 
 compose() {
 	(
-		cd "$REPO_ROOT"
+		cd "$course_appearance_repository_root"
 		python3 -m local_stack_control.disposable_stack_command compose \
 			--manifest "$runtime_manifest_path" "$@"
 	)
@@ -48,7 +48,7 @@ cleanup() {
 	local cleanup_failed=0
 	if [ "$compose_started" = "1" ]; then
 		(
-			cd "$REPO_ROOT"
+			cd "$course_appearance_repository_root"
 			python3 -m local_stack_control.disposable_stack_command cleanup \
 				--manifest "$runtime_manifest_path"
 		) || cleanup_failed=1
@@ -68,7 +68,7 @@ run_live_cargo_test() {
 		fail "$label must use the repository-owned Cargo test boundary"
 	shift 2
 	local output
-	if ! output="$(cd "$workspace" && cargo test --manifest-path "$REPO_ROOT/Cargo.toml" "$@" 2>&1)"; then
+	if ! output="$(cd "$workspace" && cargo test --manifest-path "$course_appearance_repository_root/Cargo.toml" "$@" 2>&1)"; then
 		printf '%s\n' "$output" >&2
 		fail "$label cargo test command failed"
 	fi
@@ -78,12 +78,12 @@ run_live_cargo_test() {
 	fi
 }
 
-cd "$REPO_ROOT"
+cd "$course_appearance_repository_root"
 require_command cargo
 require_command podman
 require_command python3
 # shellcheck disable=SC1091
-source "$REPO_ROOT/source_me.sh"
+source "$course_appearance_repository_root/source_me.sh"
 export PLE_ACCEPTANCE_RUNTIME_MANIFEST="$runtime_manifest_path"
 
 echo "course appearance E2E: using the owner-prepared canonical database build"

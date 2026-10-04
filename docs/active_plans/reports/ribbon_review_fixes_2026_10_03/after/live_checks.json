@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "mode": "light",
+      "scrollControls": "pointer and keyboard pass",
+      "documentOverflow": false
+    },
+    {
+      "width": 320,
+      "mode": "dark",
+      "scrollControls": "pointer and keyboard pass",
+      "documentOverflow": false
+    },
+    {
+      "width": 393,
+      "mode": "light",
+      "scrollControls": "pointer and keyboard pass",
+      "documentOverflow": false
+    },
+    {
+      "width": 393,
+      "mode": "dark",
+      "scrollControls": "pointer and keyboard pass",
+      "documentOverflow": false
+    }
+  ],
+  "blueprint": "structure precedes supporting metadata; editor opens and returns"
+}

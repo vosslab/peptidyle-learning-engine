@@ -249,4 +249,67 @@ mod tests {
         );
         assert!(!RESERVED_PUBLIC_ID_PREFIXES.contains(&"AC"));
     }
+
+    #[test]
+    fn store_transmit_display_copy_and_generate_only_the_canonical_form() {
+        let generated = [
+            AccountId::from_random_identity("ABCDEFG")
+                .expect("Account ID")
+                .to_string(),
+            CourseInstanceId::from_random_identity("ABCDEFG")
+                .expect("Course Instance ID")
+                .to_string(),
+            AssessmentId::from_random_identity("ABCDEFG")
+                .expect("Assessment ID")
+                .to_string(),
+            BlueprintCourseId::from_random_identity("ABCDEFG")
+                .expect("Blueprint Course ID")
+                .to_string(),
+            PublishedQuestionId::from_random_identifier("ABCDEFG")
+                .expect("Question ID")
+                .to_string(),
+        ];
+        assert_eq!(
+            generated,
+            [
+                "UABCDEFGM",
+                "CIABCDEFGS",
+                "AABCDEFG8",
+                "BPABCDEFGJ",
+                "ABCD-XEFG",
+            ]
+        );
+        let account = AccountId::from_random_identity("ABCDEFG").expect("Account ID");
+        let transmitted = serde_json::to_string(&account).expect("Account ID JSON");
+        assert_eq!(transmitted, "\"UABCDEFGM\"");
+        let restored: AccountId =
+            serde_json::from_str(&transmitted).expect("transmitted Account ID");
+        assert_eq!(restored.as_str(), account.as_str());
+        assert_eq!(restored.to_string(), restored.as_str());
+        assert!(serde_json::from_str::<AccountId>("\"uabcdefgm\"").is_err());
+        assert!(serde_json::from_str::<AccountId>("\"UABCDEFG0\"").is_err());
+        let question = PublishedQuestionId::from_random_identifier("ABCDEFG").expect("Question ID");
+        assert_eq!(
+            serde_json::to_string(&question).expect("Question ID JSON"),
+            "\"ABCD-XEFG\""
+        );
+    }
+
+    #[test]
+    fn internal_uuids_do_not_substitute_for_public_identities() {
+        let internal_uuid = "00000000-0000-0000-0000-000000000001";
+        assert!("ABCD-XEFG".parse::<PublishedQuestionId>().is_ok());
+        assert!(internal_uuid.parse::<PublishedQuestionId>().is_err());
+        assert!(internal_uuid.parse::<AccountId>().is_err());
+        assert!(internal_uuid.parse::<CourseInstanceId>().is_err());
+        assert!(internal_uuid.parse::<AssessmentId>().is_err());
+        assert!(internal_uuid.parse::<BlueprintCourseId>().is_err());
+        assert!(serde_json::from_str::<AccountId>(&format!("\"{internal_uuid}\"")).is_err());
+        assert!(
+            serde_json::from_str::<PublishedQuestionId>(&format!("\"{internal_uuid}\"")).is_err()
+        );
+        let account = AccountId::from_random_identity("ABCDEFG").expect("Account ID");
+        assert_eq!(account.as_str(), "UABCDEFGM");
+        assert!(!account.as_str().contains('-'));
+    }
 }

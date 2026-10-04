@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 import { chromium } from "playwright";
+import { assertTierThemeSurfaces } from "./ribbon_tier_theme_evidence.mjs";
 
 const courseThemeRegistry = await import("../../src/appearance/theme_registry.ts");
 import {
@@ -43,10 +44,11 @@ const stylesheetMarkup = [
   "html,body{margin:0;inline-size:100%;}",
   "</style>",
 ].join("\n");
+const documentTheme = courseThemeRegistry.themeStyle(courseThemeRegistry.themeTokens("tundra"));
 const documentMarkup = [
   viewportMarkup,
   stylesheetMarkup,
-  `</head><body>${markup}</body></html>`,
+  `</head><body style="${documentTheme}">${markup}</body></html>`,
 ].join("");
 const outputDirectory = mkdtempSync(join(tmpdir(), "ple_ribbon_density_"));
 
@@ -116,6 +118,7 @@ function contrast(foreground, background) {
 
 const browser = await chromium.launch({ headless: true });
 try {
+  await assertTierThemeSurfaces(browser, documentMarkup, outputDirectory, { parseColor, contrast });
   const normal = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await normal.newPage();
   await page.setContent(documentMarkup);
@@ -148,7 +151,10 @@ try {
           ancestors.push(current);
         }
         for (const current of ancestors.reverse()) {
-          const value = getComputedStyle(current).backgroundColor;
+          const value = getComputedStyle(
+            current,
+            current.matches('.ple-app-ribbon__tabs [aria-current="page"]') ? "::after" : null,
+          ).backgroundColor;
           const color = rgba(value);
           background = {
             red: color.red * color.alpha + background.red * (1 - color.alpha),
@@ -242,20 +248,30 @@ try {
       }
 
       const ordinary = links.filter((link) => !link.hasAttribute("aria-current"));
-      const selectedBefore = box(selectedTab);
-      const selectedStyle = getComputedStyle(selectedTab);
-      const selectedUnderline = getComputedStyle(selectedTab, "::after");
-      const underlinePaint = (style) => ({
-        backgroundColor: style.backgroundColor,
-        height: style.height,
-      });
+      const taskRow = ribbon.querySelector(".ple-app-ribbon__tasks");
+      if (!(taskRow instanceof HTMLElement)) throw new Error("missing Tier 2 row");
+      const settle = (element) => {
+        for (const animation of element.getAnimations({ subtree: true })) animation.finish();
+      };
+      const selectedSnapshot = {
+        box: box(selectedTab),
+        fontWeight: getComputedStyle(selectedTab).fontWeight,
+        background: getComputedStyle(selectedTab, "::after").backgroundColor,
+      };
       selectedTab.removeAttribute("aria-current");
+      settle(selectedTab);
       const unselectedSameControl = {
         box: box(selectedTab),
         fontWeight: getComputedStyle(selectedTab).fontWeight,
-        underline: underlinePaint(getComputedStyle(selectedTab, "::after")),
+        background: getComputedStyle(selectedTab).backgroundColor,
       };
       selectedTab.setAttribute("aria-current", "page");
+      settle(selectedTab);
+      const selectedTaskBox = box(selectedTask);
+      selectedTask.removeAttribute("aria-current");
+      const unselectedTaskBox = box(selectedTask);
+      selectedTask.setAttribute("aria-current", "page");
+      settle(selectedTask);
 
       const roleSwapBefore = box(unselectedTab);
       unselectedTab.setAttribute("data-ribbon-role", "destructive");
@@ -271,24 +287,13 @@ try {
         if (!(panelRibbon instanceof HTMLElement)) throw new Error("theme panel missing Ribbon");
         ensureMultipleTaskAreas(panelRibbon);
         const taskViewport = panelRibbon.querySelector(".ple-app-ribbon__tasks");
-        const appearanceTask = panelRibbon.querySelector('[data-ribbon-control="appearance"]');
-        if (!(taskViewport instanceof HTMLElement) || !(appearanceTask instanceof HTMLElement)) {
-          throw new Error("theme panel lacks the admitted Appearance task");
-        }
-        // Course Appearance is a task under the presently unavailable Course Setup tab, so the
-        // actual model has no selected visible Tab. Add a local selected-state specimen solely for
-        // this visual-system oracle; it neither changes the catalog nor claims a live Course Setup
-        // destination.
-        const selectedThemeTab = panelRibbon.querySelector(
-          '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]',
+        const selectedTask = panelRibbon.querySelector(
+          '.ple-app-ribbon__tasks [aria-current="page"]',
         );
-        if (selectedThemeTab === null) {
-          const firstThemeTab = panelRibbon.querySelector(
-            ".ple-app-ribbon__tabs .ple-app-ribbon__link",
-          );
-          if (!(firstThemeTab instanceof HTMLElement)) throw new Error("theme panel lacks a Tab");
-          firstThemeTab.setAttribute("aria-current", "page");
+        if (!(taskViewport instanceof HTMLElement) || !(selectedTask instanceof HTMLElement)) {
+          throw new Error("theme panel lacks its selected collection tab");
         }
+        selectedTask.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
         const targets = {
           unselectedTab: panelRibbon.querySelector(
             ".ple-app-ribbon__tabs .ple-app-ribbon__link:not([aria-current])",
@@ -327,16 +332,35 @@ try {
               foreground: getComputedStyle(focusTarget).outlineColor,
               background: backgroundAt(focusTarget),
             },
-            tabUnderline: {
-              foreground: getComputedStyle(targets.selectedTab, "::after").backgroundColor,
-              background: backgroundAt(targets.selectedTab),
-            },
+          },
+          folder: {
+            selectedTabBackground: getComputedStyle(targets.selectedTab, "::after").backgroundColor,
+            apronBackground: getComputedStyle(panelRibbon)
+              .getPropertyValue("--ple-ribbon-folder-selected-surface")
+              .trim(),
+            restingShape: getComputedStyle(targets.unselectedTab, "::after").content,
+            ribbonBackground: getComputedStyle(
+              panelRibbon.querySelector(".ple-app-ribbon__top-bar"),
+            ).backgroundColor,
+            unselectedTabBackground: getComputedStyle(targets.unselectedTab).backgroundColor,
+            topSpace:
+              targets.selectedTab.getBoundingClientRect().top -
+              panelRibbon.getBoundingClientRect().top,
+            bottomSpace:
+              taskViewport.getBoundingClientRect().top -
+              targets.selectedTab.getBoundingClientRect().bottom,
+            taskRowBackground: getComputedStyle(taskViewport).backgroundColor,
+            contentBackground: getComputedStyle(panelRibbon)
+              .getPropertyValue("--ple-theme-canvas")
+              .trim(),
+            selectedTaskBackground: getComputedStyle(targets.selectedTask).backgroundColor,
+            selectedTaskBottomEdge: getComputedStyle(targets.selectedTask).borderBottomColor,
+            selectedWeight: getComputedStyle(targets.selectedTab).fontWeight,
+            unselectedWeight: getComputedStyle(targets.unselectedTab).fontWeight,
           },
           focusTreatment: {
-            innerEdge: {
-              style: getComputedStyle(focusTarget, "::before").borderBlockStartStyle,
-              width: getComputedStyle(focusTarget, "::before").borderBlockStartWidth,
-            },
+            outlineWidth: getComputedStyle(focusTarget).outlineWidth,
+            outlineStyle: getComputedStyle(focusTarget).outlineStyle,
             outerOffset: getComputedStyle(focusTarget).outlineOffset,
           },
           rowSurfaces: {
@@ -351,8 +375,8 @@ try {
             .getPropertyValue("--ple-ribbon-course-accent")
             .trim(),
           geometry: {
-            appearanceWithinTaskViewport: (() => {
-              const task = relativeBox(appearanceTask, taskViewport);
+            selectionWithinTaskViewport: (() => {
+              const task = relativeBox(selectedTask, taskViewport);
               const viewport = taskViewport.getBoundingClientRect();
               return (
                 task.left >= 0 &&
@@ -361,19 +385,6 @@ try {
                 task.bottom <= viewport.height
               );
             })(),
-          },
-          paints: {
-            tabUnderline: getComputedStyle(
-              panelRibbon.querySelector(
-                '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]',
-              ),
-              "::after",
-            ).backgroundColor,
-            taskBackground: getComputedStyle(
-              panelRibbon.querySelector(
-                '.ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"]',
-              ),
-            ).backgroundColor,
           },
         };
       });
@@ -403,6 +414,8 @@ try {
           const style = getComputedStyle(link);
           return {
             id: link.dataset.ribbonControl,
+            tier: link.closest(".ple-app-ribbon__tasks") === null ? "tab" : "task",
+            unavailable: link.classList.contains("ple-app-ribbon__link--unavailable"),
             background: style.backgroundColor,
             borderColors: [
               style.borderTopColor,
@@ -417,15 +430,24 @@ try {
               style.borderLeftWidth,
             ],
             shadow: style.boxShadow,
+            radius: style.borderTopLeftRadius,
+            textDecoration: style.textDecorationLine,
           };
         }),
+        selectedTask: {
+          box: selectedTaskBox,
+          unselectedBox: unselectedTaskBox,
+          weight: getComputedStyle(selectedTask).fontWeight,
+          unselectedWeight: getComputedStyle(unselectedTask).fontWeight,
+          background: getComputedStyle(selectedTask).backgroundColor,
+          bottom: selectedTask.getBoundingClientRect().bottom,
+          rowBottom: taskRow.getBoundingClientRect().bottom,
+          textDecoration: getComputedStyle(selectedTask).textDecorationLine,
+        },
         selection: {
-          selected: {
-            box: selectedBefore,
-            fontWeight: selectedStyle.fontWeight,
-            underline: underlinePaint(selectedUnderline),
-          },
+          selected: selectedSnapshot,
           unselectedSameControl,
+          taskRowBackground: getComputedStyle(taskRow).backgroundColor,
         },
         roleSwap: { before: roleSwapBefore, after: roleSwapAfter },
         hierarchy: {
@@ -463,18 +485,37 @@ try {
   );
   assert.equal(
     evidence.flat.every((control) => {
-      const transparentBorders = control.borderColors.every(
-        (color, index) =>
-          Number.parseFloat(control.borderWidths[index]) === 0 || parseColor(color).alpha === 0,
-      );
+      const widths = control.borderWidths.map((width) => Number.parseFloat(width));
+      const sameBox = widths.every((width) => width === widths[0] && width > 0);
+      if (!sameBox || control.shadow !== "none") return false;
       return (
-        transparentBorders &&
         parseColor(control.background).alpha === 0 &&
-        control.shadow === "none"
+        control.borderColors.every((color) => parseColor(color).alpha === 0) &&
+        control.radius === "0px"
       );
     }),
     true,
-    "resting Ribbon controls remain flat rather than becoming bordered or shadowed cards",
+    "resting choices blend into their continuous rows: " + JSON.stringify(evidence.flat),
+  );
+  assert.equal(
+    evidence.selectedTask.weight !== evidence.selectedTask.unselectedWeight &&
+      !evidence.selectedTask.textDecoration.includes("underline"),
+    true,
+    "selected Tier 2 keeps heavier text without relying on an underline: " +
+      JSON.stringify(evidence.selectedTask),
+  );
+  assert.deepEqual(
+    evidence.selectedTask.box,
+    evidence.selectedTask.unselectedBox,
+    "Tier 2 selection preserves the control box",
+  );
+  assert.ok(
+    Math.abs(evidence.selectedTask.bottom - evidence.selectedTask.rowBottom) <= 1,
+    "selected Tier 2 reaches the row floor to connect with content",
+  );
+  assert.ok(
+    evidence.selectedTask.box.height <= evidence.selection.selected.box.height,
+    "both tiers stay compact without oversized folders",
   );
   assert.deepEqual(
     evidence.selection.selected.box,
@@ -486,13 +527,16 @@ try {
     evidence.selection.unselectedSameControl.fontWeight,
     "selected Tab has a non-color weight channel",
   );
+  assert.notDeepEqual(
+    parseColor(evidence.selection.selected.background),
+    parseColor(evidence.hierarchy.contextBackground),
+    "selected Tier 1 tab emerges from the colored bar: " + JSON.stringify(evidence.selection),
+  );
   assert.equal(
-    Number.parseFloat(evidence.selection.selected.underline.height) > 0 &&
-      parseColor(evidence.selection.selected.underline.backgroundColor).alpha > 0 &&
-      parseColor(evidence.selection.unselectedSameControl.underline.backgroundColor).alpha === 0,
+    parseColor(evidence.selection.selected.background).alpha > 0 &&
+      parseColor(evidence.selection.unselectedSameControl.background).alpha === 0,
     true,
-    "selected Tab adds a non-color underline shape without changing its box: " +
-      JSON.stringify(evidence.selection),
+    "only the selected Tier 1 has its own surface: " + JSON.stringify(evidence.selection),
   );
   assert.deepEqual(
     evidence.roleSwap.before,
@@ -522,26 +566,69 @@ try {
   );
   for (const theme of evidence.themes) {
     assert.equal(
-      new Set(Object.values(theme.rowSurfaces).map((paint) => JSON.stringify(parseColor(paint))))
-        .size,
-      3,
-      `${theme.id} keeps Context, Tab, and Task Rows on distinct neutral planes: ` +
-        JSON.stringify(theme.rowSurfaces),
+      parseColor(theme.rowSurfaces.tabs).alpha,
+      0,
+      `${theme.id} Tier 1 choices sit within the continuous Ribbon bar`,
     );
     assert.equal(
       Number.parseFloat(theme.focusTreatment.outerOffset) > 0 &&
-        Number.parseFloat(theme.focusTreatment.innerEdge.width) > 0 &&
-        theme.focusTreatment.innerEdge.style !== "none",
+        Number.parseFloat(theme.focusTreatment.outlineWidth) >= 2 &&
+        theme.focusTreatment.outlineStyle !== "none",
       true,
-      `${theme.id} keeps a two-part inner-edge and outer-offset focus indicator: ` +
+      `${theme.id} keeps a visible offset keyboard focus ring: ` +
         JSON.stringify(theme.focusTreatment),
+    );
+    assert.deepEqual(
+      parseColor(theme.folder.selectedTabBackground),
+      parseColor(theme.folder.apronBackground),
+      `${theme.id} selected Tier 1 tab flows into its Ribbon apron: ` +
+        JSON.stringify(theme.folder),
+    );
+    assert.equal(
+      parseColor(theme.folder.selectedTabBackground).alpha > 0,
+      true,
+      `${theme.id} selected Tier 1 tab surface is painted`,
+    );
+    assert.notEqual(
+      theme.folder.selectedWeight,
+      theme.folder.unselectedWeight,
+      `${theme.id} selected Tier 1 tab has a heavier weight`,
+    );
+    assert.notDeepEqual(
+      parseColor(theme.folder.selectedTabBackground),
+      parseColor(theme.folder.unselectedTabBackground),
+      `${theme.id} resting choices stay integrated into the Ribbon`,
+    );
+    assert.ok(
+      theme.folder.topSpace > 0 && theme.folder.bottomSpace > 0,
+      `${theme.id} selected tab keeps space above and an apron separating Tier 2`,
+    );
+    assert.equal(
+      theme.folder.restingShape,
+      "none",
+      `${theme.id} unselected Tier 1 choices have no enclosed tab silhouette`,
+    );
+    assert.deepEqual(
+      parseColor(theme.folder.selectedTaskBackground),
+      parseColor(theme.folder.contentBackground),
+      `${theme.id} selected Tier 2 shares the content surface`,
+    );
+    assert.deepEqual(
+      parseColor(theme.folder.selectedTaskBottomEdge),
+      parseColor(theme.folder.contentBackground),
+      `${theme.id} selected Tier 2 has an open bottom edge into content`,
+    );
+    assert.notDeepEqual(
+      parseColor(theme.folder.selectedTaskBackground),
+      parseColor(theme.folder.taskRowBackground),
+      `${theme.id} the selected Tier 2 surface separates naturally from its row`,
     );
     for (const [name, pair] of Object.entries({ ...theme.pairs, ...theme.indicators })) {
       const ratio = contrast(
         composite(parseColor(pair.foreground), pair.background),
         pair.background,
       );
-      const threshold = ["separator", "focus", "tabUnderline"].includes(name) ? 3 : 5.5;
+      const threshold = ["separator", "focus"].includes(name) ? 3 : 5.5;
       assert.equal(
         ratio >= threshold,
         true,
@@ -551,19 +638,10 @@ try {
     }
     assert.notEqual(theme.accent, "", `${theme.id} exposes the derived Ribbon accent alias`);
     assert.equal(
-      theme.geometry.appearanceWithinTaskViewport,
+      theme.geometry.selectionWithinTaskViewport,
       true,
-      `${theme.id} keeps the admitted Appearance task reachable without clipping`,
+      `${theme.id} keeps the selected collection reachable without clipping`,
     );
-    const accentPaint = parseColor(theme.paints.tabUnderline);
-    for (const [placement, paint] of Object.entries(theme.paints)) {
-      assert.deepEqual(
-        parseColor(paint),
-        accentPaint,
-        `${theme.id}:${placement} paints the same derived Ribbon accent ` +
-          "at every semantic placement",
-      );
-    }
   }
   await normal.close();
 
@@ -631,17 +709,15 @@ try {
     return {
       selectedTab: {
         weight: tabStyle.fontWeight,
-        underline: {
-          color: getComputedStyle(tab, "::after").backgroundColor,
-          height: getComputedStyle(tab, "::after").height,
-        },
+        outlineStyle: tabStyle.outlineStyle,
+        outlineWidth: tabStyle.outlineWidth,
+        textDecorationLine: tabStyle.textDecorationLine,
       },
       unselectedTab: {
         weight: unselectedTabStyle.fontWeight,
-        underline: {
-          color: getComputedStyle(unselectedTab, "::after").backgroundColor,
-          height: getComputedStyle(unselectedTab, "::after").height,
-        },
+        outlineStyle: unselectedTabStyle.outlineStyle,
+        outlineWidth: unselectedTabStyle.outlineWidth,
+        textDecorationLine: unselectedTabStyle.textDecorationLine,
       },
       selectedTask: { background: taskStyle.backgroundColor, color: taskStyle.color },
       unselectedTask: {
@@ -658,19 +734,16 @@ try {
         style: focusedUnselectedStyle.outlineStyle,
         width: focusedUnselectedStyle.outlineWidth,
       },
-      focusedUnselectedInnerEdge: {
-        color: getComputedStyle(unselectedTab, "::before").borderBlockStartColor,
-        style: getComputedStyle(unselectedTab, "::before").borderBlockStartStyle,
-        width: getComputedStyle(unselectedTab, "::before").borderBlockStartWidth,
-      },
     };
   }, FIELDSTATION_INSTRUCTOR);
   assert.equal(
     forcedEvidence.selectedTab.weight !== forcedEvidence.unselectedTab.weight &&
-      Number.parseFloat(forcedEvidence.selectedTab.underline.height) > 0 &&
-      forcedEvidence.selectedTab.underline.color !== forcedEvidence.unselectedTab.underline.color,
+      forcedEvidence.selectedTab.outlineStyle !== "none" &&
+      Number.parseFloat(forcedEvidence.selectedTab.outlineWidth) > 0 &&
+      forcedEvidence.selectedTab.textDecorationLine.includes("underline") &&
+      !forcedEvidence.unselectedTab.textDecorationLine.includes("underline"),
     true,
-    "forced colors keeps selected Tab distinct through both weight and underline shape: " +
+    "forced colors keeps selected Tab distinct through outline and text underline: " +
       JSON.stringify(forcedEvidence),
   );
   assert.equal(
@@ -685,15 +758,13 @@ try {
     "forced colors gives the selected Task a distinct system text/background state",
   );
   assert.equal(
-    Number.parseFloat(forcedEvidence.focusedUnselectedOutline.width) > 0 &&
+    Number.parseFloat(forcedEvidence.focusedUnselectedOutline.width) >= 2 &&
       Number.parseFloat(forcedEvidence.focusedUnselectedOutline.offset) > 0 &&
       forcedEvidence.focusedUnselectedOutline.style !== "none" &&
-      Number.parseFloat(forcedEvidence.focusedUnselectedInnerEdge.width) > 0 &&
-      forcedEvidence.focusedUnselectedInnerEdge.style !== "none" &&
       JSON.stringify(forcedEvidence.focusedUnselectedOutline) !==
         JSON.stringify(forcedEvidence.unfocusedOutline),
     true,
-    "forced colors keeps a two-part inner-edge and outer-offset focus indicator",
+    "forced colors keeps a distinct offset keyboard focus ring",
   );
   await forced.close();
 
@@ -719,6 +790,79 @@ try {
     "reduced motion removes Ribbon animations and transitions in compiled CSS",
   );
   await reduced.close();
+
+  const phone = await browser.newContext({ viewport: { width: 375, height: 800 } });
+  const phonePage = await phone.newPage();
+  await phonePage.setContent(documentMarkup);
+  const phoneEvidence = await phonePage.evaluate((selector) => {
+    const panel = document.querySelector(selector);
+    const ribbon = panel?.querySelector(".ple-app-ribbon");
+    const tasks = ribbon?.querySelector(".ple-app-ribbon__tasks");
+    const frame = ribbon?.querySelector('[data-ribbon-row-frame="tasks"]');
+    if (
+      !(ribbon instanceof HTMLElement) ||
+      !(tasks instanceof HTMLElement) ||
+      !(frame instanceof HTMLElement)
+    ) {
+      throw new Error("missing phone Ribbon task row");
+    }
+    const area = tasks.querySelector(".ple-app-ribbon__task-area");
+    if (!(area instanceof HTMLElement)) throw new Error("missing phone task area");
+    let guard = 0;
+    while (tasks.scrollWidth <= tasks.clientWidth + 1 && guard < 16) {
+      const clone = area.cloneNode(true);
+      if (!(clone instanceof HTMLElement)) throw new Error("phone task clone failed");
+      for (const control of clone.querySelectorAll("[aria-current]")) {
+        control.removeAttribute("aria-current");
+      }
+      tasks.append(clone);
+      guard += 1;
+    }
+    const cue = frame.querySelector(".ple-app-ribbon__overflow-cue--end");
+    if (!(cue instanceof HTMLElement)) throw new Error("missing phone end cue");
+    cue.setAttribute("data-ribbon-overflow-active", "true");
+    const rowStyle = getComputedStyle(tasks);
+    const ribbonBox = ribbon.getBoundingClientRect();
+    const frameBox = frame.getBoundingClientRect();
+    const rowBox = tasks.getBoundingClientRect();
+    const cueBox = cue.getBoundingClientRect();
+    const links = [...tasks.querySelectorAll(".ple-app-ribbon__link")].map((link) => {
+      const box = link.getBoundingClientRect();
+      const label = link.querySelector(".ple-app-ribbon__control-label");
+      const labelStyle = label instanceof HTMLElement ? getComputedStyle(label) : rowStyle;
+      const crossesEnd = box.left < rowBox.right - 1 && box.right > rowBox.right - 1;
+      return {
+        textOverflow: labelStyle.textOverflow,
+        whiteSpace: labelStyle.whiteSpace,
+        crossesEnd,
+        coveredByCue: !crossesEnd || (cueBox.left < box.right && cueBox.right > box.left),
+      };
+    });
+    return {
+      flexWrap: rowStyle.flexWrap,
+      overflowX: rowStyle.overflowX,
+      whiteSpace: rowStyle.whiteSpace,
+      frameSpansRibbon: frameBox.width >= ribbonBox.width - 1,
+      overflows: tasks.scrollWidth > tasks.clientWidth + 1,
+      links,
+    };
+  }, FIELDSTATION_INSTRUCTOR);
+  assert.equal(
+    phoneEvidence.frameSpansRibbon &&
+      phoneEvidence.flexWrap === "nowrap" &&
+      phoneEvidence.overflowX === "auto" &&
+      phoneEvidence.whiteSpace === "nowrap" &&
+      phoneEvidence.overflows &&
+      phoneEvidence.links.length > 0 &&
+      phoneEvidence.links.every(
+        (link) =>
+          link.whiteSpace === "nowrap" && link.textOverflow !== "ellipsis" && link.coveredByCue,
+      ),
+    true,
+    "phone Tier 2 spans the row, scrolls one line, and covers a clipped label: " +
+      JSON.stringify(phoneEvidence),
+  );
+  await phone.close();
   process.stdout.write(`Ribbon density evidence passed; screenshots: ${outputDirectory}\n`);
 } finally {
   await browser.close();

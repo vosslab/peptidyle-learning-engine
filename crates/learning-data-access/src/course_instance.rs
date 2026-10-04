@@ -89,13 +89,7 @@ pub struct CourseInstanceSummary {
     pub theme: Theme,
 }
 
-/// Closed stored activity state for a Course Instance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CourseInstanceLifecycleState {
-    Active,
-    Inactive,
-}
+pub use question_model::CourseInstanceLifecycleState;
 
 /// Closed Student-data retention state. The value is Course status, not a Student count.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

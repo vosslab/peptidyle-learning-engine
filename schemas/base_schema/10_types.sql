@@ -176,6 +176,9 @@ CREATE TYPE ple_data.retention_failure_kind AS ENUM (
 CREATE TYPE ple_data.repair_result AS ENUM (
     'issued', 'revoked', 'used'
 );
+CREATE TYPE ple_data.support_repair_resource_class AS ENUM (
+    'student', 'course', 'content'
+);
 CREATE TYPE ple_data.watch_notification_event_kind AS ENUM (
     'revision', 'published', 'archived', 'restored'
 );
@@ -246,6 +249,7 @@ GRANT USAGE ON TYPE
     ple_data.retention_action_kind,
     ple_data.retention_failure_kind,
     ple_data.repair_result,
+    ple_data.support_repair_resource_class,
     ple_data.watch_notification_event_kind,
     ple_data.auth_rate_scope,
     ple_data.email_challenge_purpose,

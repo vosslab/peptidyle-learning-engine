@@ -1,25 +1,24 @@
 ## Interface design
 ### General interface design
 - [ ] Design around what users need to find and do.
-  - Mismatch: No repository-wide behavioral or usability evidence establishes this broad design outcome.
+  - Reason: product decision still unclear
+  - Question: Do the shipped task ribbons and record pages already design around what users find and do, or does this sentence still require a separate usability study?
+  - Mismatch: `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` places Instructor Courses, Questions, and Assessments in the top bar, and `src/components/record_list/record_list.css` `.record-list__title` makes the record title the prominent fact. One reading treats those task surfaces as the design. The other treats the sentence as a whole-product usability outcome with no pass rule in Human Guidance.
 
 - [x] Important information should stand out from supporting information.
   - Evidence (source): `src/components/record_list/record_list.css` `.record-list__title` gives the record title the accent color and leaves the facts muted.
   - Evidence (source): `src/components/record_list/record_family.css` `.record-table thead th` gives each column header a heavier face and a distinct background.
   - Evidence (source): `src/components/record_list/record_family.css` `.record-table tbody th small` keeps the supporting id lighter than the row name.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Important information should stand out from supporting information.` rendered the shipped Gradebook, Course roster, My Active Courses, and Question Library in headless Chromium at 1280 by 800. Titles and column headers stood out from facts, cells, and supporting ids by weight or color. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Related information should be visually grouped and aligned.
   - Evidence (source): `src/components/record_list/record_list.css` `.record-list__facts` groups each record's related facts in one aligned grid.
   - Evidence (source): `src/components/record_list/record_list.tsx` `record-list__facts` places those facts together under the title.
   - Evidence (source): `src/components/record_list/record_table.tsx` `record-table` keeps each record's related cells on one row.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Related information should be visually grouped and aligned.` rendered the shipped Gradebook, Course roster, My Active Courses, and Question Library in headless Chromium at 1280 by 800. Related cells shared a row and lined up with their headers. Related facts stayed in one group below the title and above the actions, aligned within that group and across repeated records. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Similar pages should place similar controls in consistent locations.
   - Evidence (source): `src/components/record_list/record_sort_control.tsx` `RecordSortControl` places the order label above its select.
   - Evidence (source): `src/pages/library_page.tsx` `Order results` is the Question Library sort control above the result window.
   - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `Sort Public Blueprint Courses` is the Blueprint search sort control above its results.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Similar pages should place similar controls in consistent locations.` rendered the shipped Question Library and Public Blueprint Course search in headless Chromium at 1280 by 800. Each sort control sat above its results, aligned to that result region, with the label above the select and the same select inset. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] A page describes what each record shows and what the user can do. Shared record and page components own the markup, spacing, and reflow, so the same facts and actions stay readable when the page gets narrower.
   - Evidence (source): `src/pages/course_list_page.tsx` `courseContent` names each Course, its classification, its Term, and Open Course.
@@ -44,7 +43,6 @@
   - Evidence (source): `src/pages/course_roster_page.tsx` `Remove course access` places the roster action in the student row.
   - Evidence (source): `src/pages/course_list_page.tsx` `Open Course` places the Course action in the Course record.
   - Evidence (source): `src/pages/library_browse_rows.tsx` `label: "Open"` places the Question action in the Question record.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Primary actions should be easy to find and appear near the content or workflow they affect.` rendered the shipped Gradebook, Course roster, My Active Courses, and Question Library in headless Chromium at 1280 by 800. Each named action stayed in that viewport, inside its record or within the export group above the score table. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Identify the object and relevant context before an action that changes membership or stored
   settings, so users can recognize what they are accepting or changing.
@@ -57,13 +55,16 @@
   relevant group and keep the main task information easy to scan.
   - Evidence (source): `src/pages/gradebook_page.tsx` `Export Assessment points` explains the Gradebook download once, beside those actions.
   - Evidence (source): `src/pages/library_browse_rows.tsx` `question-library-bulk-help` explains the bulk actions once, inside that toolbar.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `Use concise helper text near the control it explains. Present shared explanations once per relevant group and keep the main task information easy to scan.` rendered the shipped Gradebook and Question Library in headless Chromium at 1280 by 800. Each explanation appeared once, next to its control, while the score table and the first Question stayed in view. No Live Demo stack was started. No PostgreSQL proof was run.
 
-- [ ] Avoid scattering related actions across page headers, menus, navigation, and content areas.
-  - Mismatch: Current top-bar Sign Out contradicts the specified Profile-menu location.
+- [x] Avoid scattering related actions across page headers, menus, navigation, and content areas.
+  - Decision: Profile and Sign out stay together in the Profile menu. Ribbon tabs and Ribbon tasks do not repeat Sign out, and page modules do not render a second Sign out control. Page actions stay beside the content they change.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-profile-menu` renders Profile and Sign out together, and `src/pages/gradebook_page.tsx` `Export Assessment points` keeps the Gradebook action beside that table.
+  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Account actions stay together in the Profile menu: PASS` opened the shipped Ribbon for Student, Instructor, and Sysadmin. Each Profile menu held Profile and Sign out, and Ribbon navigation did not repeat Sign out. No Live Demo stack was started.
 
 - [ ] Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
-  - Mismatch: No repository evidence can verify this whole-product qualitative outcome.
+  - Reason: product decision still unclear
+  - Question: Is the precision field console the one visual philosophy for the whole interface, or does Human Guidance still require a separate philosophy choice?
+  - Mismatch: `docs/UI_DESIGN_GUIDE.md` `precision field console` names one philosophy, and `src/style.css` `--ple-radius-surface` is a shared shell token. One reading treats that console as the chosen philosophy carried by the shell and record lists. The other treats the entire interface as an acceptance Human Guidance has not locked.
 
 - [x] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Evidence (source): `src/features/profile_avatar/profile_avatar_role.ts` `profileRoleMayManageImage` shows a Profile image upload only to an Instructor or Sysadmin.
@@ -72,19 +73,16 @@
   - Evidence (source): `crates/server/src/course_appearance.rs` `instructor_session_hash` admits only an Instructor session before a Course Banner upload.
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_editor_workspace.tsx` `Student-facing prompt` is a text box for Instructor-created Question content.
   - Evidence (source): `src/pages/course_roster_page.tsx` `importRoster` records Course roster rows from a text box.
-  - Evidence (test): `tests/test_ribbon_route_contract.mjs` `Students should have no upload capabilities. Instructor-created content should use text boxes` found file inputs only for the Course Banner, Profile image, and HOTSPOT image, refused those Instructor routes and the Profile image control for a Student, and kept the Question prompt and roster import as text boxes.
 
 - [x] Buttons should look intentionally designed rather than like native browser controls.
   - Evidence (source): `src/style.css` `:where(button)` sets appearance to none and gives each button a border, corner radius, background, and type weight.
   - Evidence (source): `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile` and `ple-app-ribbon__profile-menu-item` keep a designed border and corner radius and do not set appearance.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Buttons should look intentionally designed rather than like native browser controls.` rendered the shipped Ribbon with those stylesheets in headless Chromium. Profile and Sign out computed appearance none and a non-zero corner radius. No Live Demo stack was started. No PostgreSQL proof was run.
 
 ### Rounded rectangles preference
 - [x] Rounded rectangles are preferred for all interface objects, especially buttons, input fields, cards, avatars, tags, and interactive controls.
   - Evidence (source): `src/style.css` `:where(button)` rounds buttons, the text input rule rounds fields, `.course-card` rounds a card, and `.calm-status` rounds the status tag.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__profile` rounds the Profile avatar.
   - Evidence (source): `src/components/question_response_control_styles.ts` `choice-card` rounds an answer choice.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Rounded rectangles are preferred for all interface objects, especially buttons, input fields, cards, avatars, tags, and interactive controls.` measured those named shipped objects in headless Chromium. The button, input, card, avatar, and answer choice were above 0px and below 16px. The status tag kept its compact pill. Structural regions stay square under the later structural rule. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - N/A Rounded corners generally feel softer, friendlier, and more contemporary.
   - Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement.
@@ -96,12 +94,10 @@
   - Evidence (source): `src/style.css` `--ple-radius-surface` is smaller than `--ple-radius-control`, and `--ple-radius-control` is smaller than `--ple-radius-inset`. `body` sets no corner radius.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon` sets no corner radius.
   - Evidence (source): `src/features/question_picker/question_picker.css` `.question-picker-dialog` uses `--ple-radius-inset`.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Use corner radius to reinforce interface hierarchy.` measured the page body and Ribbon at 0px, then a course card, a button, and the Question picker dialog in increasing order, with the dialog below 16px, in headless Chromium. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Interactive and self-contained objects should generally be more rounded than structural containers.
   - Evidence (source): `src/style.css` `:where(button)` and the text input rule use the control radius, `.confirmation-dialog` uses that same radius, and `.course-card` uses the surface radius.
   - Evidence (source): `src/components/question_response_control_styles.ts` `choice-card` uses the control radius for an answer choice.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Interactive and self-contained objects should generally be more rounded than structural containers.` measured a shipped button, input, answer choice, confirmation dialog, and course card above 0px and below 16px after the page body, main region, Ribbon, tab navigation, and breadcrumb prelude measured 0px. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Use moderate rounding for buttons, input fields, answer choices, dialogs, and similar interactive controls.
   - Evidence (source): `src/style.css` `:where(button)` and the text input rule use `--ple-radius-control`, and `.confirmation-dialog` uses that same control radius.
@@ -110,26 +106,22 @@
   - Evidence (source): `src/features/question_pool_picker/question_pool_picker.css` `.question-pool-picker-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/pages/course_instance_page.css` `.course-instance-blueprint-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/features/blueprint_course/blueprint_course.css` `.blueprint-course-create-dialog` uses `--ple-radius-inset`.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Use moderate rounding for buttons, input fields, answer choices, dialogs, and similar interactive controls.` measured those named shipped controls in headless Chromium above 4px and below 16px. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Use subtle rounding for cards, tables, panels, and other content containers.
   - Evidence (source): `src/style.css` `.course-card` and `.question-card` use `--ple-radius-surface`, which is smaller than `--ple-radius-control`.
   - Evidence (source): `src/components/record_list/record_family.css` `.record-table__scroll` uses `--ple-radius-surface` for the table container.
   - Evidence (source): `src/pages/question_statistics_panel.css` `.question-statistics-panel` uses `--ple-radius-surface`.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_authoring.css` `.assessment-editor-panel` uses `--ple-radius-surface`.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Use subtle rounding for cards, tables, panels, and other content containers.` measured those shipped containers in headless Chromium above 0px and below the button radius. Dialogs, avatars, and compact media keep the inset radius. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Keep large page regions, navigation bars, breadcrumbs, and other structural layout elements square or nearly square.
   - Evidence (source): `src/style.css` `body` and the main content region set the page surface without a corner radius.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon` is the navigation bar and sets no corner radius. Tab links on that bar keep the control radius.
   - Evidence (source): `src/ribbon/app_ribbon_density.css` `.ple-shell__breadcrumb-prelude` is the breadcrumb trail and sets no corner radius.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Keep large page regions, navigation bars, breadcrumbs, and other structural layout elements square or nearly square.` measured the shipped Ribbon, its tab navigation, a breadcrumb prelude using the shipped class, body, and main at 0px on every corner in headless Chromium. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Pills and fully rounded shapes should be reserved for compact objects such as tags, badges, timers, and avatars.
   - Evidence (source): `src/style.css` `.calm-status` is the fully rounded status badge.
   - Evidence (source): `src/pages/library_page.css` `.question-library-browse-active` wraps the fully rounded active-filter tag.
   - Evidence (source): `src/components/question_response_control_styles.ts` `QUESTION_RESPONSE_CONTROL_STYLES` fully rounds the choice number and the status spinner.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Pills and fully rounded shapes should be reserved for compact objects such as tags, badges, timers, and avatars.` inventories every fully rounded border radius under src and measures those four compact elements in headless Chromium. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Apply corner radii consistently to objects that serve the same purpose.
   - Evidence (source): `src/style.css` `.primary-action` and `.quiet-action` share `--ple-radius-control` with `:where(button)`.
@@ -139,18 +131,15 @@
   - Evidence (source): `src/features/question_pool_picker/question_pool_picker.css` `.question-pool-picker-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/pages/course_instance_page.css` `.course-instance-blueprint-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/features/blueprint_course/blueprint_course.css` `.blueprint-course-create-dialog` uses `--ple-radius-inset`.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Apply corner radii consistently to objects that serve the same purpose.` measured three action buttons at one radius, three text fields at one radius, two cards at one radius, and four task dialogs at one larger radius in headless Chromium. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Use the application's typography, spacing, corner radius, borders, and interaction states consistently.
   - Evidence (source): `src/style.css` `font-family: inherit` keeps buttons and text fields on the application face. `:where(button)` sets the shared control size, padding, border, radius, and hover. `:focus-visible` sets the shared focus ring.
   - Evidence (source): `src/style.css` `input:not([type="radio"])` shares field padding, border, and radius with select and textarea.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Use the application's typography, spacing, corner radius, borders, and interaction states consistently.` measured plain, primary, quiet, and disabled buttons, plus input, select, and textarea, in headless Chromium with the shipped grass light tokens. They shared the application font and a 1px solid border. Each group shared padding and radius. The disabled button used a not-allowed cursor, keyboard focus showed a 2px solid ring, and hover changed the button border. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Primary, secondary, and low-emphasis actions should be visually distinct.
   - Evidence (source): `src/style.css` `:where(button)` is the unclassified secondary face, `.primary-action` is the filled primary face, and `.quiet-action` is the transparent low-emphasis face.
   - Evidence (source): `src/components/unsaved_changes_guard.tsx` `Stay and keep editing` is the low-emphasis action, the unlabeled save button is the secondary face, and `Discard and continue` is the primary action.
   - Evidence (source): `src/appearance/theme_registry.ts` `themeStyle` supplies the grass light tokens used to measure those faces.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Primary, secondary, and low-emphasis actions should be visually distinct.` rendered the shipped unsaved-changes dialog in headless Chromium. The quiet, unclassified, and primary buttons computed three different backgrounds, and the quiet border differed from the secondary border. No Live Demo stack was started. No PostgreSQL proof was run.
 
 ### Information density and layout
 - [x] Design Instructor and **Sysadmin** workflows for laptop browsers, using a 1280 by 800 viewport
@@ -163,12 +152,14 @@
 - [x] PLE often presents large collections where users need to find a few relevant items.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders the Question Library collection surface.
 
-- [ ] Optimize large collections for scanning, searching, filtering, and comparison.
-  - Mismatch: The broad all-collection outcome lacks complete implementation evidence.
+- [x] Optimize large collections for scanning, searching, filtering, and comparison.
+  - Decision: A large Question Library is scanned as semantic record rows that keep the title, Question ID, discipline, and author together. Search, tag, Question type, license, and title sort run on 13,000 Questions. Excluding one term narrows 12,000 enzyme Questions to 6,000.
+  - Evidence (test): `tests/playwright/test_library_collection_scan.mjs` `large collections stay scannable rows with comparable fields` rendered two shipped Library rows in a semantic record list, with both titles, Question IDs, disciplines, and authors visible together. No Live Demo stack was started.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library_import.rs` `question_library_search_filters_sort_and_bulk_edit_clean_a_large_import` searched, filtered, and title-sorted 13,000 imported Questions.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library_import.rs` `question_library_syntax_narrows_a_large_library` narrowed 12,000 enzyme Questions to 6,000 by excluding inhibitor. A disposable database ran that proof and was removed.
 
 - [x] Show enough useful information at once to support comparison without excessive scrolling.
   - Evidence (source): `src/pages/library_page.css` `question-library-bulk-toolbar` keeps the Question Library bulk strip compact and gives the result column the remaining width at the 1280 by 800 layout.
-  - Evidence (test): `tests/playwright/fast_ui_route_composition.mjs` `comparableLibraryRows` rendered the shipped Question Library and Course roster in headless Chromium at 1280 by 800. Two Library records stayed fully in that viewport with their titles and facts, and two roster rows stayed fully in that viewport. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Search and filters should help users quickly narrow large collections.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` applies search text, author, backend, tag, classification, Question type, license, course use, and capability changes to the current Question Library query.
@@ -180,61 +171,50 @@
   - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` keeps each Published Question title and its facts on one record row.
   - Evidence (source): `src/components/record_list/record_list.css` `record-list__facts` places those facts in a grid on the row.
   - Evidence (source): `src/pages/course_roster_page.tsx` `CourseRosterPage` keeps each Student, state, and action on one roster row.
-  - Evidence (test): `tests/playwright/test_dense_page_scan.mjs` `DENSE_PAGE_SENTENCE` rendered the shipped Question Library and Course roster in headless Chromium at 1280 by 800. Two Library records stayed in the viewport with their titles and facts on one line. Two roster rows stayed in the viewport with aligned Student and state columns. The rows were square, unshadowed, and separated by a divider. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Treat screen space as a limited resource. Prefer useful information over decorative whitespace.
   - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` places each Published Question in the result region.
   - Evidence (source): `src/pages/library_page.css` `library-browse-record-list__window` keeps desktop result rows on short block padding so the record text uses the row.
   - Evidence (source): `src/pages/course_roster_page.tsx` `CourseRosterPage` renders the Current roster in `src/pages/course_roster_page.css` `roster-section`, which sets no padding and no reserved block under the table.
-  - Evidence (test): `tests/playwright/test_screen_space.mjs` `SCREEN_SPACE_SENTENCE` rendered the shipped Question Library and Course roster in headless Chromium at 1280 by 800. The result region had no padding and its visible area was filled by records. Each visible record's title, description, facts, and action were taller than the row padding, and the space between those parts stayed within 16 pixels. The roster section ended at the table, and each Student cell's text was taller than its padding. Leftover viewport under the short roster is the end of the page. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Use spacing to separate meaningful groups rather than simply making pages spacious. Large gaps should communicate a meaningful change in section or task.
   - Evidence (source): `src/pages/library_page.tsx` `library-page__filters` stacks Question Library filters apart from `src/pages/library_page.css` `library-page__results`, so the result window does not open a hole between filter groups.
   - Evidence (source): `src/pages/course_roster_page.css` `roster-tools` separates the import tools from the Current roster.
-  - Evidence (test): `tests/playwright/test_group_spacing.mjs` `GROUP_SPACING_SENTENCE` rendered the shipped Question Library and Course roster in headless Chromium at 1280 by 800. Filter groups stayed 8 to 16 pixels apart, and the space inside one record stayed within that. Filters and results stayed 8 to 16 pixels apart. The result stack stayed within 24 pixels, and the result region stayed inside the viewport. Roster rows met at a divider, and the import tools followed the roster across a larger gap of at most 32 pixels. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Prefer alignment, typography, and dividers over unnecessary cards, boxes, borders, and nested containers.
   - Evidence (source): `src/pages/library_browse_controls.tsx` `LibraryBrowseControls` names each browse group with a heading.
   - Evidence (source): `src/pages/library_page.css` `question-library-browse-groups` separates those groups with a bottom divider and gives the choices no card, border, or nested box.
-  - Evidence (test): `tests/playwright/test_alignment_dividers.mjs` `ALIGNMENT_DIVIDER_SENTENCE` rendered the shipped Question Library browse groups in headless Chromium at 1280 by 800. Subjects, Tags, and Question Types shared one column. Each heading aligned with its group. Each group closed with a one-pixel divider and had no fill, corner radius, shadow, or side border. The choice list inside each group was not another box. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Cards and rounded containers should earn their space by representing a distinct object or interaction, not merely grouping nearby content.
   - Evidence (source): `src/pages/library_page.css` `question-library-controls` leaves Classification filters and Bloom filters unpadded, square, unfilled, and unshadowed. `src/pages/library_page.css` `question-library-bloom-report` does the same for the count lists. `src/pages/library_page.css` `question-library-bulk-toolbar` does the same for the action strip.
   - Evidence (source): `src/pages/library_page.css` `question-library-facet-choices` keeps a border and control radius on each choice, and `src/pages/library_browse_controls.tsx` `question-library-browse-active` keeps the selected Tag as its own pill.
-  - Evidence (test): `tests/playwright/test_distinct_object_cards.mjs` `DISTINCT_OBJECT_SENTENCE` rendered the shipped Question Library browse page in headless Chromium at 1280 by 800. Classification filters, Bloom filters, the Bloom count lists, and the bulk-action strip grouped more than one field or button and had no border, radius, shadow, or fill. One facet button kept its border and radius, and the Tag pill kept its radius. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Avoid the modern dashboard style of large rounded cards, generous padding, and isolated islands of content.
   - Evidence (source): `src/pages/assessment_templates_page.css` `assessment-template-overview` places Your Templates and the editor in one workspace without card fill, radius, or shadow. `src/pages/assessment_templates_page.css` `assessment-template-editor-empty` leaves Choose a Template unpadded and square.
   - Evidence (source): `src/pages/library_page.css` `question-library-controls-initial` keeps the opening search on the page without hero padding. `src/pages/library_page.css` `question-library-search-tips` leaves the tip text without a rounded shadow box. `src/pages/library_browse_record_list.css` `library-browse-record-list__window` keeps the result rows in a scroll region without a floating card.
-  - Evidence (test): `tests/playwright/test_dashboard_islands.mjs` `DASHBOARD_SENTENCE` rendered the shipped Template workspace, opening Question Library search, and Question Library browse page in headless Chromium at 1280 by 800. The Template columns shared one top edge and stayed within 24 pixels, with no padding, radius, shadow, or fill. Choose a Template was flat. The opening search had no block padding, and the opened search tips were flat text. The result region was at least 300 pixels tall, held two records, and had no card fill or shadow. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Use horizontal and vertical space efficiently without crowding information together. Related information should form clearly readable rows, columns, or groups.
   - Evidence (source): `src/pages/assessment_templates_page.css` `assessment-template-editor-empty` separates Choose a Template from its message. `src/pages/assessment_templates_page.css` `assessment-template-overview` stacks Your Templates as one column beside the editor.
   - Evidence (source): `src/pages/library_page.css` `question-library-controls` keeps each classification name off its field. `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` stacks a Question title, description, facts, and action. `src/components/library_bloom_discovery.tsx` `question-library-bloom-report` places each count beside its name.
-  - Evidence (test): `tests/playwright/test_readable_groups.mjs` `READABLE_GROUP_SENTENCE` rendered the shipped Template workspace and Question Library browse page in headless Chromium at 1280 by 800. The Template message sat 4 to 16 pixels under its heading, the overview stacked in one column, and the editor stayed 8 to 24 pixels to its right. A classification name sat 4 to 16 pixels above its field. A Question record stacked its parts in that same range, and at least two facts shared a row. A Bloom count sat at least 8 pixels from its name, and the two count lists stayed 4 to 16 pixels apart. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Size controls and content regions for their contents and task. Avoid unnecessarily tall panels, empty states, Question previews, and other fixed-height regions.
   - Evidence (source): `src/pages/library_page.css` `library-browse-record-list__window` keeps the desktop Question Library result region inside the viewport instead of a 65vh panel measured from the top of the screen.
   - Evidence (source): `src/pages/assessment_templates_page.css` `assessment-template-editor-empty` gives the Template empty state no reserved block size and no trailing message margin.
   - Evidence (source): `src/components/opaque_webwork_preview_frame.tsx` `OpaqueWebworkPreviewFrame` sizes the Question preview from a resize report between 160 and 1200 pixels.
-  - Evidence (test): `tests/playwright/test_region_sizing.mjs` `REGION_SENTENCE` rendered those shipped surfaces in headless Chromium at 1280 by 800. The result region stayed inside the viewport and held two records. The empty state was shorter than 160 pixels with at most 24 pixels under its message. The preview ignored a 2000 pixel report and adopted 420 pixels. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Keep the visual design compact, flat, information dense, and consistent across PLE.
   - Evidence (source): `src/pages/library_page.css` `question-pool-create-review-grid` and `src/components/question_pool_create_dialog.css` `question-pool-create-review-grid` use the same flat groups as Question Library browse.
   - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` and `src/pages/course_roster_page.tsx` `CourseRosterPage` keep collection rows compact and unshadowed, with the shared action height.
-  - Evidence (test): `tests/playwright/test_visual_consistency.mjs` `VISUAL_CONSISTENCY_SENTENCE` rendered the shipped Question Library, Course roster, and Question Pool review in headless Chromium at 1280 by 800. Two Library records and two roster rows stayed in view, shared one font, and had no corner radius or shadow. Their action heights matched within 2 pixels. The Pool review groups matched the browse groups: no padding, fill, radius, or shadow, in two columns 8 to 24 pixels apart. This proof does not measure every page. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Use compact rows, restrained corner rounding, and controls sized to their task.
   - Evidence (source): `src/style.css` `.instructor-list__row` uses `--ple-radius-surface` and `--ple-list-row-min-block-size`.
   - Evidence (source): `src/style.css` `:where(button)` uses `--ple-control-min-height` for the shared control size.
   - Evidence (source): `src/components/record_list/record_list.css` `.record-list__row` uses compact block padding and a divider, and sets no corner radius.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Use compact rows, restrained corner rounding, and controls sized to their task.` measured an instructor row and a record row in headless Chromium. Each row was at least as tall as its button and shorter than three button heights. The instructor row radius was above 0px and below the button radius. The record row radius was below the button radius. Both buttons shared one height. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Present short labels and values in aligned rows or compact grids, adapting to stacked groups
   when the available width requires them.
   - Evidence (source): `src/pages/question_statistics_panel.tsx` `QuestionStatisticsPanel` renders Blank rate, Answered rate, Correct rate, Partial rate, Incorrect rate, and Mean credit as short labels with their values.
   - Evidence (source): `src/pages/question_statistics_panel.css` `question-statistics-measures` places those pairs in two columns and stacks them to one column below 40rem.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Present short labels and values in aligned rows or compact grids, adapting to stacked groups when the available width requires them.` rendered QuestionStatisticsPanel in headless Chromium, measured two aligned columns at 1280px, then one stacked column at 480px. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Give each object one clear title within its list entry. Group its metadata and actions beneath
   or alongside that title.
@@ -296,9 +276,10 @@
   - Decision: The later rule uses a UUID Id in routes and JSON for an object without a public ID. Visible text and clipboard copies stay free of that UUID.
 
 ### Role badges
-- [x] The role badge is always in the upper left, just left of the logo.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__user-role` is the first control in `ple-app-ribbon__context-identity`, immediately before `ple-app-ribbon__brand`.
-  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__user-role` stays displayed at phone width for Student, Instructor, and Sysadmin.
+- [ ] The role badge is always in the upper left, just left of the logo.
+  - Reason: product decision still unclear
+  - Question: Does the later desktop top bar, which places the logo before the role badge, replace this sentence?
+  - Mismatch: Role badges says the badge is always just left of the logo. User top bar says laptop, tablet, and desktop are logo then badge, while the phone top bar is badge then logo.
 
 - [x] **Sysadmin** uses tomato red as its role color.
   - Evidence (source): `src/styles/user_role.css` `[data-user-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
@@ -426,6 +407,19 @@
   - Evidence (test): `tests/test_ribbon_contract.mjs` `settled Instructor Tier 2 destinations and order stay fixed across deeper routes` compares Instructor rows for the same Tier 1 area.
   - Evidence (test): `tests/test_ribbon_contract.mjs` `Student Tier 2 choices and order stay fixed across routes and Course context` compares Student rows while opening Course and Coursework routes.
 
+- [x] Tier 1 Ribbon choices use compact folder-tab styling. The selected Tier 1 tab visually connects to the Tier 2 row beneath it.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__tabs .ple-app-ribbon__link` removes the lower corner radius so the selected tab meets the Tier 2 row.
+
+- [x] Tier 2 Ribbon choices use smaller, simpler tabs than Tier 1. Selection should be clear without making the selected tab substantially larger.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `--ple-ribbon-task-block-size` is the shorter Tier 2 row, and selected task links keep that same block size.
+
+- [x] Tier 1 and Tier 2 tab geometry and hierarchy stay consistent across roles and themes; themes change their colors rather than their structure.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__tabs` and `.ple-app-ribbon__tasks` use the same geometry for every role and take color from theme tokens.
+
+- [x] The selected Tier 1 tab and the selected Tier 2 control stay selected when the current page is a descendant of those choices.
+  - Evidence (source): `src/ribbon/ribbon_contract.ts` `ancestorTaskId` selects the route parent only when the Tier 2 row has no exact match.
+  - Evidence (test): `tests/test_ribbon_contract.mjs` `hierarchy breadcrumbs keep ancestors and collapse only identical adjacent names` checks that Active Attempt beats All Coursework.
+
 - [x] Changing a Ribbon selection should change the content below the Ribbon without moving the main content area up or down.
   - Evidence (source): `src/application_shell.tsx` `ContentRegion` keeps `BreadcrumbPrelude` in place and swaps the routed page when `pathname` changes.
   - Evidence (test): `tests/playwright/ribbon_shell_contract.mjs` `shell geometry drifts` compares breadcrumb and main-content tops across signed-in routes.
@@ -440,48 +434,65 @@
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes `AppRibbon` and `BreadcrumbPrelude`.
 
 ### User top bar interface
-- [x] All signed-in users share the same top-left logo/account and top-right profile bar layout.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` renders the shared leading `ple-app-ribbon__context-identity` logo/account block and shared trailing `ple-app-ribbon__profile-endcap` Profile control for every role model; `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` pins the Profile control at the inline end, while Student narrow rules adapt only the middle navigation arrangement.
+- [x] On laptop, tablet, and desktop, the top bar has one fixed left-to-right structure: **PLE logo, product name, User Role badge, Tier 1 navigation, flexible gap, Light/Dark control, Profile image**.
+  - Evidence (test): `tests/test_ribbon_contract.mjs` `top bar order is logo, role badge, Tier 1, then Light/Dark and Profile` checks logo, product name, role badge, Tier 1, Light/Dark, and Profile.
 
-- [x] The top bar remains in a consistent location as users navigate.
+- [x] On laptop, tablet, and desktop, the top-left structure is fixed: **PLE logo, then product name, then User Role badge**.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__brand-mark` precedes `ple-app-ribbon__brand-word`, which precedes `ple-app-ribbon__user-role`.
+
+- [x] On phones, the top-left structure is fixed: **PLE logo, then User Role badge**. The product name is omitted.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__brand-word` sets `display: none` inside the phone rule while the logo mark stays before the badge.
+
+- [x] Tier 1 navigation immediately follows the User Role badge.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__tabs` follows `ple-app-ribbon__context-identity`.
+
+- [x] The Light/Dark control and Profile image stay together at the far right.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` anchors the display-mode toggle and Profile button at the inline end.
+
+- [x] The top bar structure and element order remain fixed as users navigate or change the selected Tier 1 choice.
   - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` measures the persistent top row across model changes.
 
-- [x] The PLE logo and product name appear at the upper left and link to the user's home dashboard.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__brand` is the upper-left Peptidyle home link immediately after the role badge.
+- [x] The PLE logo and product name link to the user's home dashboard.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__brand` links to `/` with the accessible name Peptidyle home.
 
-- [x] Each User Role has its own home dashboard and navigation.
+- [x] Each User Role has its own home dashboard and Tier 1 navigation.
   - Evidence (source): `src/pages/role_home_pages.tsx` `InstructorHomePage` opens the Instructor dashboard, `StudentHomePage` opens Student Coursework, and `SysadminHomePage` opens system administration.
-  - Evidence (source): `src/route_contract.ts` `userRoleHomeRouteId` selects a different home route for each User Role.
   - Evidence (source): `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` declares separate Tier 1 navigation for each User Role.
 
-- [x] User Role appears once next to the PLE name.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__user-role` occurs once in the shared identity block beside `ple-app-ribbon__brand`.
+- [x] The User Role appears once in the top bar.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__user-role` occurs once in the shared identity block.
 
-- [x] Role-specific navigation appears between the product identity and Profile.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` places `ple-app-ribbon__tabs` after identity and before account controls.
+- [x] The Profile image is an icon-only control that opens a dropdown menu containing **Profile settings** and **Sign Out**.
+  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `Profile settings` is the Profile menu destination.
+  - Evidence (source): `src/ribbon/ribbon_contract.ts` `Sign Out` is the Profile menu action.
+  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Profile settings` checks that the open menu contains that command and Sign Out.
 
-- [x] Profile appears at the far right as an icon-only avatar.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__profile-endcap` renders the shared icon-only Profile button after the navigation region; `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` anchors that endcap at the inline end.
-  - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in User Role has one accessible generic Profile end control` verifies the one accessible, text-free Profile control for Student, Instructor, and Sysadmin.
-  - Decision: A one-time real-shell probe verified the isolated Profile control at 1280 and 320 CSS pixels with a coarse pointer, including thumbnail-request isolation; it was removed rather than retained as a permanent browser test.
-
-- [x] Clicking the Profile avatar opens the Profile menu.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `openProfileMenu` controls the Profile trigger's `profileMenuOpen` state and renders the labelled `ple-profile-menu` menu.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Ribbon Profile menu contract: PASS` protects pointer and keyboard opening, focus, dismissal, and action dispatch.
-
-- [x] I want the Profile menu to contain Profile and Sign Out.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-profile-menu` renders the Profile link and the Sign out action.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Ribbon Profile menu contract: PASS` checks that the open menu contains those two commands.
-
-- [x] I want Profile to be the only page that names the Account's time zone; other pages should show times
-  without repeating the zone name.
+- [x] **Profile settings** is the only page that names and sets the Account's time zone. Other pages show times without repeating the time zone name.
   - Evidence (source): `src/pages/profile_page.tsx` `profile-time-zone-heading` names the Account time zone.
   - Evidence (source): `src/format_datetime.ts` `createDisplayDateTimeFormatter` formats a time without a zone name.
   - Evidence (test): `tests/test_pending_invitations_model.mjs` `invitation expiry uses the explicit viewer zone` checks that the shown expiry omits the zone name.
 
-- [x] Sign Out belongs in the Profile menu rather than the main top bar.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `data-ribbon-action={props.model.context.signOutAction.id}` renders Sign Out as a Profile-menu item and closes that menu after dispatch.
-  - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Ribbon Profile menu contract: PASS` verifies no top-bar Sign Out button and one dispatched Profile-menu Sign Out action.
+#### Phone top bar
+- [x] The phone top bar keeps the same identifying order at the left: **PLE logo, User Role badge**, followed by Tier 1 navigation.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__brand-word` hides the product name on phones without moving the logo ahead of the badge.
+
+- [x] The phone layout uses the available width aggressively for navigation.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__tabs-frame` uses `flex: 1 1 auto` on phones.
+
+- [x] Tier 1 navigation should expand into available horizontal space before requiring horizontal scrolling.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__tabs` sets `overflow-x: auto` only as the phone scrollport after the flexible tab frame.
+
+- [x] When Tier 1 choices cannot fit, the Tier 1 navigation scrolls horizontally while preserving choice order.
+  - Evidence (source): `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` keeps one Tier 1 order while the phone tab row scrolls.
+
+- [x] The Light/Dark control and Profile image remain at the right when space permits; compact phone behavior may adapt these controls without changing the identity and navigation order.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` stays at the inline end on phones.
+
+- [x] Tier 2 navigation uses the full available screen width and may scroll horizontally when its choices do not fit.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__tasks` is the full-width Tier 2 row and scrolls on overflow.
+
+- [x] Tier 1 and Tier 2 navigation remain compact so the Ribbon leaves as much vertical space as practical for page content.
+  - Evidence (source): `src/ribbon/app_ribbon.css` `--ple-ribbon-top-block-size` and `--ple-ribbon-task-block-size` keep the two Ribbon rows compact.
 
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` is the shared shell that composes the top bar and content region.
@@ -495,7 +506,9 @@
   - Evidence (source): `src/features/profile_avatar/provided_avatar_picker.tsx` `selectableEntries` reads the one selectable catalog.
 
 - [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+  - Reason: product decision still unclear
+  - Question: When another screen represents a user, must it show that user's private Profile image, or only the provided gallery avatar while the private image stays on that user's own Profile?
+  - Mismatch: `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` shows the signed-in Account's Profile image or provided avatar. `src/pages/instructor_accounts_page.tsx` `providedAvatarId` shows another Account's gallery avatar and not a private Profile image. One reading shows the private image everywhere a user is represented. The other keeps the private image on that user's own Profile and uses the provided avatar, or no image, on other screens.
   - Owner: 03_shell.md / Profile avatar interface (first occurrence; identical requirement and status).
 
 #### Student avatars
@@ -537,7 +550,9 @@
   - Evidence (source): `src/features/profile_avatar/staff_avatar_settings.tsx` `replaceImage` submits a new Profile image through the signed-in Account.
 
 - [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+  - Reason: product decision still unclear
+  - Question: When another screen represents a user, must it show that user's private Profile image, or only the provided gallery avatar while the private image stays on that user's own Profile?
+  - Mismatch: `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` shows the signed-in Account's Profile image or provided avatar. `src/pages/instructor_accounts_page.tsx` `providedAvatarId` shows another Account's gallery avatar and not a private Profile image. One reading shows the private image everywhere a user is represented. The other keeps the private image on that user's own Profile and uses the provided avatar, or no image, on other screens.
   - Owner: 03_shell.md / Profile avatar interface (first occurrence; identical requirement and status).
 
 ### Breadcrumbs interface
@@ -551,8 +566,11 @@
   - Evidence (test): `tests/playwright/ribbon_shell_contract.mjs` `shell geometry drifts` fails when that row or the main content moves between signed-in routes.
 
 - [x] Breadcrumbs show the path from the user's home dashboard to the current page.
-  - Evidence (source): `src/ribbon/ribbon_contract.ts` `breadcrumbsFor` starts each signed-in trail at the role home.
+  - Evidence (source): `src/ribbon/ribbon_breadcrumbs.ts` `breadcrumbsFor` starts each signed-in trail at the role home.
   - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in route reserves linked breadcrumbs rooted at its role home` checks that the first crumb is the role home and the last crumb is the current route.
+
+- [x] The normal breadcrumb hierarchy is Home / Ribbon Tier 1 / Ribbon Tier 2 / Page / SubPage ...
+  - Evidence (source): `src/ribbon/ribbon_breadcrumbs.ts` `studentCourseTrail` builds Home, the Courses Tier 1 crumb, the Course, and the current page.
 
 - [x] Each breadcrumb level links back to its corresponding page.
   - Evidence (source): `src/application_shell.tsx` `BreadcrumbPrelude` renders every crumb through `breadcrumb.href`.
@@ -567,6 +585,22 @@
 
 - [x] Keeping the breadcrumb row in place prevents the main content from moving up or down as breadcrumb depth changes.
   - Evidence (test): `tests/playwright/ribbon_shell_evidence.mjs` `label resolution preserves the reserved breadcrumb-prelude geometry` verifies stable shell geometry through deferred resolution.
+
+- [x] Breadcrumbs preserve useful intermediate navigation levels rather than collapsing the path to only broad and current pages.
+  - Evidence (source): `src/ribbon/ribbon_breadcrumbs.ts` `presentRibbonBreadcrumbs` keeps the Course and Assessment crumbs and places the selected Ribbon tiers ahead of them.
+  - Evidence (test): `tests/test_breadcrumb_ribbon_ancestors.mjs` `descendant pages keep the selected Ribbon tier and collapse only identical names` expects Home, Assessments, the Course, the Assessment, and Questions.
+
+- [x] Include each meaningful ancestor that gives the user a useful place to navigate back to.
+  - Evidence (source): `src/ribbon/ribbon_breadcrumbs.ts` `breadcrumbLinkItem` gives each inserted Ribbon ancestor the selected control's href.
+  - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in route reserves linked breadcrumbs rooted at its role home` checks that every crumb href is a declared route.
+
+- [x] Ribbon Tier 1 and Tier 2 selections remain in the breadcrumb list when the current page is a descendant of those navigation choices.
+  - Evidence (source): `src/ribbon/ribbon_breadcrumbs.ts` `presentRibbonBreadcrumbs` places the selected Tier 1 and Tier 2 crumbs ahead of the page trail.
+  - Evidence (test): `tests/test_breadcrumb_ribbon_ancestors.mjs` `descendant pages keep the selected Ribbon tier and collapse only identical names` expects Courses on Appearance and Questions on a Draft editor.
+
+- [x] Breadcrumbs represent the navigation hierarchy rather than a unique URL. Tier 1 and Tier 2 stay in the trail even when they link to the same page. Collapse two adjacent levels only when they show the same name.
+  - Evidence (source): `src/ribbon/ribbon_breadcrumbs.ts` `collapseAdjacentLabels` drops the earlier crumb only when the adjacent labels match.
+  - Evidence (test): `tests/test_ribbon_contract.mjs` `hierarchy breadcrumbs keep ancestors and collapse only identical adjacent names` keeps Search Question Library and Question Library when they share one URL.
 
 - [x] See **Ribbon and page layout** for the overall page-position rules.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes the Ribbon and the breadcrumb row in one shell.

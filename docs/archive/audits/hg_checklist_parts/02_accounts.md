@@ -72,7 +72,7 @@
 - [x] **Instructors** can browse the content of Public and Archived **Blueprint Courses**.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.load_blueprint_course` returns current Revision content to an Instructor who owns the course or when availability is Public or Archived.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.list_blueprint_courses` shows Public courses to Instructors and Archived courses only when archived inclusion is requested.
-  - Evidence (test): `tests/test_blueprint_instructor_browse.py` `test_instructor_load_includes_public_and_archived_content` reads those shipped visibility predicates.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` loads an Archived Blueprint for another Instructor.
 
 - [x] **Instructors** log in only with a passkey or email code; no passwords.
   - Evidence (source): `crates/learning-data-access/src/authentication_ceremony.rs` `passwordless_primary_account` accepts an Instructor email code or passkey and has no password method.
@@ -109,7 +109,6 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records`.
   - Evidence (source): `schemas/base_schema/60_policies/course_retention_transitions.sql` `ple_course_retention_executor`.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_is_course_instructor`.
-  - Evidence (test): `tests/test_course_retention_ferpa.py` `test_course_retention_deletes_student_work_without_the_account`.
 
 - [x] Student email addresses are immutable.
   - Evidence (source): `schemas/base_schema/50_functions/authentication.sql` `ple_private.enforce_account_authentication_email_role` rejects an Authentication Email update when the Account is not an Instructor.
@@ -132,15 +131,13 @@
 - [x] Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records`.
   - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_delete_follows_the_course_not_the_account`.
-  - Evidence (test): `tests/test_course_retention_ferpa.py` `test_course_retention_deletes_student_work_without_the_account`.
 
 - [x] Removing a **Student** from a Course revokes future Course access but does not immediately delete the Student's Course records or Student Work.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `revoke_course_roster_entry`.
-  - Evidence (test): `tests/test_course_retention_ferpa.py` `test_roster_revoke_keeps_student_records_and_work`.
+  - Evidence (test): `tests/e2e/e2e_live_demo_roster.sh` `assert_database_evidence` keeps the Student record and Account email after access revocation and requires the revoked audit event.
 
 - [x] Student Work and grades remain subject to the normal Course retention policy after enrollment ends.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records`.
-  - Evidence (test): `tests/test_course_retention_ferpa.py` `test_course_retention_deletes_student_work_without_the_account`.
 
 - [x] An **Instructor** can deactivate a Student's access to their Course.
   - Evidence (source): `crates/server/src/course_roster.rs` `revoke_course_roster_entry`.
@@ -148,7 +145,7 @@
 
 - [x] Deactivating Course access does not delete the Student Account or Student Work.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `revoke_course_roster_entry`.
-  - Evidence (test): `tests/test_course_retention_ferpa.py` `test_roster_revoke_keeps_student_records_and_work`.
+  - Evidence (test): `tests/e2e/e2e_live_demo_roster.sh` `assert_database_evidence` keeps the Student record and Account email after access revocation and requires the revoked audit event.
 
 - [x] An **Instructor** can restore the Student's Course access later.
   - Evidence (source): `schemas/base_schema/50_functions/course_roster_access.sql` `restore_student_course_access`.
@@ -173,8 +170,11 @@
 - [x] Sysadmins vet **Instructors** and create Instructor Accounts.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `require_completed_instructor_identity_vetting`.
 
-- [ ] Sysadmins can help Instructors repair Courses, Students, and content.
-  - Mismatch: `crates/server/src/support_capability.rs` `support_capability_router` and `tests/e2e/e2e_live_demo_support_capability.sh` establish scoped course-roster support, not repair authority for Courses, Students, and content.
+- [x] Sysadmins can help Instructors repair Courses, Students, and content.
+  - Decision: Repair help is an Instructor-issued, one-hour, audited read of one Student roster entry, one Course, or one Course Assessment. It does not grant Course membership or an edit.
+  - Evidence (source): `schemas/base_schema/50_functions/support_repair_capability.sql` `read_course_content_repair_support` returns the Assessment identity, type, title, and status for an exact content capability.
+  - Evidence (source): `crates/server/src/support_capability.rs` `read_repair_content` exposes that projection only to the Sysadmin who holds the capability.
+  - Evidence (test): `tests/e2e/database_baseline_security_catalog.sql` `read_course_content_repair_support` issues the capability, reads the closed Assessment facts, refuses a different Assessment, and conceals the read after the Instructor is deactivated. A disposable database executed that contract and was removed.
 
 - N/A The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.
   - Reason: human ownership statement, not an implemented PLE behavior.
@@ -185,7 +185,7 @@
 - [x] **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_has_platform_administration`.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_is_course_instructor`.
-  - Evidence (test): `tests/test_course_retention_ferpa.py` `test_sysadmin_platform_administration_does_not_grant_course_records`.
+  - Evidence (test): `tests/e2e/database_baseline_security_catalog.sql` `current_session_account_is_course_instructor` denies Course membership for an active Sysadmin session.
 
 - [x] A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
   - Evidence (source): `crates/learning-data-access/src/support_capability.rs` `IssueSupportRepairCapabilityInput`.

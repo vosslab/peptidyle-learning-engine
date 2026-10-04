@@ -50,7 +50,7 @@ try {
     .getByRole("list", { name: "Instructor Accounts", exact: true })
     .getByRole("listitem")
     .first();
-  const accountId = (await created.getByRole("heading", { level: 2 }).textContent())?.trim();
+  const accountId = (await created.getByRole("heading", { level: 3 }).textContent())?.trim();
   if (!/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(accountId ?? "")) {
     throw new Error("created Instructor Account did not have a canonical public ID");
   }
@@ -60,9 +60,9 @@ try {
     .getByRole("dialog")
     .getByRole("button", { name: "Deactivate Instructor Account" })
     .click();
-  await created.getByText("State: Deactivated").waitFor();
+  await created.getByText("Deactivated", { exact: true }).waitFor();
   await created.getByRole("button", { name: "Reactivate Instructor Account" }).click();
-  await created.getByText("State: Active").waitFor();
+  await created.getByText("Active", { exact: true }).waitFor();
 } finally {
   await context.close();
   await browser.close();

@@ -5112,7 +5112,7 @@ Columns:
 | sysadmin_account_id | ple_data.account_id | NOT NULL |
 | sysadmin_role | ple_data.user_role | NOT NULL |
 | issuer_account_id | ple_data.account_id | NOT NULL |
-| resource_class | text | NOT NULL |
+| resource_class | ple_data.support_repair_resource_class | NOT NULL |
 | resource_path | text | NOT NULL |
 | purpose | text | NOT NULL |
 | issued_at | timestamp with time zone | NOT NULL |
@@ -5152,7 +5152,7 @@ Columns:
 | support_repair_capability_id | uuid | NOT NULL |
 | sysadmin_account_id | ple_data.account_id | NOT NULL |
 | issuer_account_id | ple_data.account_id | NOT NULL |
-| resource_class | text | NOT NULL |
+| resource_class | ple_data.support_repair_resource_class | NOT NULL |
 | resource_path | text | NOT NULL |
 | purpose | text | NOT NULL |
 | result | ple_data.repair_result | NOT NULL |

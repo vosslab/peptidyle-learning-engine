@@ -17,6 +17,7 @@ function courseSummary() {
     longName: "Genetics",
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "student",
+    lifecycleState: "active",
     classification: {
       disciplineUuid: "00000000-0000-4000-8000-000000000001",
       subjectUuid: null,

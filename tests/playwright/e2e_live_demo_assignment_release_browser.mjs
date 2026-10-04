@@ -32,11 +32,10 @@ async function assertAnswerFreePreview(target) {
 }
 
 async function assessmentEntryIds(page) {
-  return page
-    .getByRole("heading", { name: "Ordered Assessment Entries", exact: true })
-    .locator("..")
-    .locator("[data-assessment-entry]")
-    .evaluateAll((entries) => entries.map((entry) => entry.getAttribute("data-assessment-entry")));
+  const entries = page.getByRole("list", { name: "Ordered Assessment Entries", exact: true });
+  return entries
+    .locator("[data-record-id]")
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-record-id")));
 }
 
 function hasExactEntryOrder(actual, expected) {
@@ -92,7 +91,7 @@ try {
     .getByRole("link", { name: "Create Course Instance from this Blueprint", exact: true })
     .click();
   await page.waitForURL(/\/instructor\?blueprint=BP[0-9A-HJKMNP-TV-Z]{8}#create-course-instance$/u);
-  await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
   await page
     .getByRole("combobox", { name: /^Blueprint Course/u })
     .selectOption({ label: `${blueprintTitle} · Revision 1` });
@@ -128,24 +127,18 @@ try {
   const assessmentIdentity = page.locator('dl[aria-label="Current Assessment"]');
   await assessmentIdentity.getByText(assessmentTitle, { exact: true }).waitFor();
   await assessmentIdentity.getByText("Unreleased", { exact: true }).waitFor();
-  const availableQuestions = page
-    .getByRole("heading", { name: "Available published Questions", exact: true })
-    .locator("..");
-  const initialAvailableQuestionCount = await availableQuestions
-    .getByRole("button", { name: "Add Question", exact: true })
-    .count();
-  if (initialAvailableQuestionCount < 2) {
+  await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
+  const questionResults = page.getByRole("list", { name: "Question results", exact: true });
+  await questionResults.getByRole("listitem").nth(1).waitFor();
+  const publishedQuestions = questionResults.getByRole("checkbox");
+  const publishedQuestionCount = await publishedQuestions.count();
+  if (publishedQuestionCount < 2) {
     throw new Error("the fixture did not offer two distinct published Questions to add");
   }
-  await availableQuestions
-    .getByRole("button", { name: "Add Question", exact: true })
-    .first()
-    .click();
-  await availableQuestions
-    .getByRole("button", { name: "Add Question", exact: true })
-    .first()
-    .click();
-  await page.getByText(/exact revision pin/u).waitFor();
+  await publishedQuestions.nth(0).check();
+  await publishedQuestions.nth(1).check();
+  await page.getByRole("button", { name: "Add selected Questions", exact: true }).click();
+  await page.getByText(/exact revision pins?/iu).waitFor();
   const localEntryIds = await assessmentEntryIds(page);
   if (
     localEntryIds.length !== 2 ||
@@ -156,8 +149,7 @@ try {
       "adding two available Questions did not create two distinct Assessment Entries",
     );
   }
-  await page.getByRole("heading", { name: /^Entry 1 · /u }).waitFor();
-  await page.getByRole("group", { name: "Entry 1 actions", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Move Entry 1 later", exact: true }).waitFor();
   await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
   await page
     .getByText("Questions and order saved. Review Assessment Properties when you are ready.", {
@@ -180,7 +172,7 @@ try {
   ) {
     throw new Error("the saved Assessment lacked two stable ordered Entries to reorder");
   }
-  const moveLater = page.getByRole("button", { name: "Move later", exact: true }).first();
+  const moveLater = page.getByRole("button", { name: "Move Entry 1 later", exact: true });
   if (await moveLater.isDisabled()) {
     throw new Error("the first saved Assessment Entry could not be moved later");
   }

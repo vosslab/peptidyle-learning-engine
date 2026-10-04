@@ -120,8 +120,8 @@
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `validate_external_resource_url` accepts only bounded, printable, absolute HTTPS URLs without user information.
   - Decision: A one-time parser proof accepted all five then-supported resource kinds and legacy omission, while rejecting invalid and duplicate URLs; remote script resources have since been removed from the closed kind set.
 
-- [x] Recorded external URLs include links, images, stylesheets, and other resources.
-  - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResourceKind` is the closed Link, Image, Stylesheet, and Other category set for every `externalResources` entry; external script syntax is not supported.
+- [x] Recorded external URLs include links, images, scripts, stylesheets, and other resources.
+  - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResourceKind` records Link, Image, Script, Stylesheet, and Other. A script URL is stored for review and is not executed.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResource` binds each recorded URL to exactly one reviewed category under `deny_unknown_fields` parsing.
 
 #### Native Question response presentation
@@ -200,9 +200,10 @@
   - Evidence (source): `crates/grading/src/ple_question_json.rs` `evaluate` scores the response from the server answer key.
   - Evidence (test): `crates/adapters/ple/src/lib/question_json_source_tests.rs` `grading_and_correctness_decisions_remain_server_owned_and_independent_of_author_supplied_javascript` issued an author script that returns red, kept that source and the rdkit library on the presentation, graded blue at credit 1, and graded red at credit 0.
 
-- [x] Supported author JavaScript libraries are explicitly recorded and served by PLE.
-  - Evidence (source): `crates/adapters/ple/src/question_json/source_document/recorded_javascript.rs` and `src/features/ple_question_json_authoring/recorded_javascript_dependencies.ts` retain the closed `rdkit` library registry; external script resources and CDN allowlists are absent.
-  - Evidence (test): `crates/adapters/ple/src/question_json/tests.rs` `supported_author_javascript_libraries_are_explicitly_recorded_and_reviewable` parses an author Question that declares rdkit.
+- [x] External JavaScript dependencies and CDN domains are explicitly recorded and reviewable.
+  - Evidence (source): `crates/adapters/ple/src/question_json/source_document/recorded_javascript.rs` `RECORDED_EXTERNAL_JAVASCRIPT_DEPENDENCIES` records rdkit, and `RECORDED_EXTERNAL_JAVASCRIPT_CDN_DOMAINS` records the approved CDN domain list.
+  - Evidence (test): `crates/adapters/ple/src/question_json/source_document/recorded_javascript.rs` `recorded_external_javascript_dependencies_and_cdn_domains_are_reviewable` checks that rdkit is recorded and the CDN domain list is empty.
+  - Evidence (test): `crates/adapters/ple/src/question_json/tests.rs` `supported_author_javascript_libraries_are_explicitly_recorded_and_reviewable` parses an author Question that declares rdkit and a recorded script URL.
 
 - N/A Approved external dependencies may initially load from recorded CDN sources.
   - Reason: Author Questions do not support remote script resources; the recorded rdkit dependency is served from PLE.
@@ -263,8 +264,11 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `commit_assessment_attempt_finalization` stores the returned credit fraction only when the prepared finalization kind is still current.
   - Evidence (test): `crates/server/src/assessment_delivery/direct_finalization.rs` `ple_owns_authorization_question_id_revisions_persistence_lifecycle_and_stored_outcomes` concealed an Instructor before preparation, then posted the shipped submission route for a Student. The handler graded revision 4 of the prepared Question ID, committed Deadline with normalized credit 1, and opened zero renderer connections. No Live Demo stack was started. No PostgreSQL proof was run.
 
-- [ ] PLE uses the same basic interface for every Question Backend, each backend handles its own internal details.
-  - Mismatch: `crates/question_model/src/question_library.rs` `QuestionBackend` is only an enum discriminator. Issuance and finalization branch separately on backend in `crates/server/src/assignment_delivery.rs` `issue_new_presentations` and `crates/server/src/assignment_delivery/direct_finalization.rs` `evaluate_one`; no common adapter interface covers every backend.
+- [x] PLE uses the same basic interface for every Question Backend, each backend handles its own internal details.
+  - Decision: The production Question Backends are PLE and WeBWorK. Deferred iMathAS and H5P stay outside this interface. Both production backends issue and grade through one adapter interface, and each adapter keeps its source, renderer, and response details.
+  - Evidence (source): `crates/server/src/assessment_delivery/question_backend.rs` `BasicQuestionBackend` issues one presentation and grades one saved response for every production backend.
+  - Evidence (source): `crates/server/src/assessment_delivery/question_backend.rs` `PleQuestionBackendAdapter` and `WebworkQuestionBackendAdapter` keep native JSON grading and PG renderer calls inside the adapter.
+  - Evidence (test): `crates/server/src/assessment_delivery/question_backend.rs` `both_production_backends_issue_and_grade_through_one_interface` issued and graded a native Question at credit 1 and a WeBWorK Question at credit 0.5 through that interface. No Live Demo stack was started. No PostgreSQL proof was run.
 
 - [x] Each Question Backend adapter retains its backend-specific interaction knowledge.
   - Evidence (source): `crates/adapters/webwork/src/lib/grade.rs` `pg_source` sends the Question's PG source, PG path, and backend-owned response payload to the renderer.
@@ -315,12 +319,12 @@
 - [x] Assessment scores are calculated from stored credit fractions and current Question point values.
   - Evidence (source): `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` multiplies the retained credit fraction by the current Question point value.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `prepare_assessment_attempt_finalization` applies that calculation when an Attempt is already submitted.
-  - Evidence (test): `crates/learning-data-access/tests/grading_rescore_postgres.rs` `current_point_values_recalculate_stored_credit_without_another_backend_grade` stored backend credit 1 as 2 of 2 and backend credit 0 as 0 of 2, then scored those same credits as 5 of 5 and 0 of 5 after the point value changed from 2 to 5.
+  - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres/grading_rescore_postgres.rs` `current_point_values_recalculate_stored_credit_without_another_backend_grade` stored backend credit 1 as 2 of 2 and backend credit 0 as 0 of 2, then scored those same credits as 5 of 5 and 0 of 5 after the point value changed from 2 to 5.
 
 - [x] Changing Question point values recalculates scores without another Question Backend interaction.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `save_assessment` writes the current Question point value.
   - Evidence (source): `crates/server/src/assessment_delivery/submission.rs` `AlreadySubmitted` returns the prepared score before Question Backend evaluation.
-  - Evidence (test): `crates/learning-data-access/tests/grading_rescore_postgres.rs` `current_point_values_recalculate_stored_credit_without_another_backend_grade` changed both point values through an Instructor save, and the next prepare returned already_submitted with no Question Attempt, response, backend, or source.
+  - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres/grading_rescore_postgres.rs` `current_point_values_recalculate_stored_credit_without_another_backend_grade` changed both point values through an Instructor save, and the next prepare returned already_submitted with no Question Attempt, response, backend, or source.
 
 #### WeBWorK source and algorithmic Questions
 - [x] Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
@@ -339,7 +343,7 @@
 
 - [x] Preserve backend-native algorithmic variation rather than expanding one algorithmic Question into static variants.
   - Evidence (source): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_source` publishes a parameterized source without static expansion.
-  - Evidence (runtime): `docs/active_plans/active/human_guidance_implementation_compliance_plan.md` `C839` accepts canonical source hashes with repeatable/reseeded renderer variation and deterministic grading.
+  - Evidence (runtime): `docs/archive/human_guidance_implementation_compliance_plan.md` `C839` accepts canonical source hashes with repeatable/reseeded renderer variation and deterministic grading.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_source` passed fresh publication of 42 ordinary WeBWorK lineages, and exact replay made no mutation. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
 
 - [x] One algorithmic Question remains one Published Question regardless of how many variants its Question Backend can generate.
@@ -647,8 +651,7 @@
 - [x] Question Pools may have their own authorship, attribution, license, and source information where
   appropriate.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_authorship` stores optional Pool-owned authors.
-  - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_license` stores an optional Pool-owned SPDX license.
-  - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_source` stores optional Pool-owned attribution and source information.
+  - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_provenance` stores optional Pool-owned SPDX license, attribution, and source information.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_provenance` stores those facts, and a later empty save clears them without writing member Question authorship, license, citation, the Pool edit number, or source_question_pool_id.
 
 - [x] Question Pool metadata describes the Pool rather than duplicating metadata from its member
@@ -714,8 +717,11 @@
   - Evidence (source): `crates/server/src/question_bulk_metadata.rs` `question_bulk_metadata_router` updates Tags, Discipline, Subject, Topic, and Subtopic for many Published Questions. `crates/server/src/question_pool_bulk_metadata.rs` `question_pool_search_metadata_router` updates Topic, Subtopic, and Tags for many Question Pools, and `decode_patch` refuses Discipline and Subject. `schemas/base_schema/50_functions/question_pools.sql` `validate_question_pool_lineage_update` keeps the Discipline and Subject established by the first member and allows those Pool search fields only while Edit Number stays unchanged. `src/pages/library_pool_discovery.tsx` `updatePoolSelection` selects many Pools, and `src/components/question_pool_search_metadata_editor.tsx` `QuestionPoolSearchMetadataEditor` submits the Pool command.
   - Evidence (test): `crates/server/src/question_pool_bulk_metadata.rs` `instructors_select_many_library_objects_and_update_shared_search_metadata` posted two Question Pools, kept Edit Number 4, refused disciplineUuid before storage, concealed a Student session without a store call, and refused 1001 Pools while the cap stayed 1000. `crates/server/src/question_bulk_metadata.rs` `question_library_workflows_support_bulk_operations_for_many_questions` posted two Published Questions through the Question command. No Live Demo stack was started. No PostgreSQL proof was run.
 
-- [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
-  - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
+- [x] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
+  - Decision: A large import is cleaned by narrowing the Question Library and applying one bulk metadata command to the sorted selection. The shipped command accepts at most 1,000 Questions, so the first sorted thousand are cleaned and the remaining imported Questions stay unchanged.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` applies text, tag, type, and license filters and title sort to the whole Library.
+  - Evidence (source): `schemas/base_schema/50_functions/published_question_metadata_operations.sql` `bulk_replace_published_question_metadata` replaces tags for the selected Published Questions and does not insert a Question Revision.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library_import.rs` `question_library_search_filters_sort_and_bulk_edit_clean_a_large_import` loaded 13,000 imported Questions on disposable PostgreSQL, narrowed them, sorted by title, retagged the first 1,000, and left the rest unchanged. The database was removed.
 
 #### Question Library metadata
 - [x] **Library Objects** use shared metadata for organization, search, filtering, and discovery.
@@ -842,8 +848,7 @@
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `student_history` returns the `project_history` projection.
   - Evidence (test): `crates/server/src/assessment_delivery/history.rs` `course_class_statistics_stay_omitted_when_a_student_could_be_inferred` omitted a cohort of 1 and a cohort one below the minimum, omitted a safe cohort while class statistics were Never, and disclosed that safe cohort after AfterSubmit.
 
-- [x] Schema and increment rules live in [DESIGN_DECISIONS.md](../../../../docs/DESIGN_DECISIONS.md) and
-  [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
+- [x] Schema and increment rules live in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
   - Evidence (source): `docs/DESIGN_DECISIONS.md` `Library usage statistics are retained counters` states the stored counts and the submission increment.
   - Evidence (source): `docs/FERPA_DATA_POLICY.md` `Question Library object usage statistics` states those schema and increment rules.
 
@@ -888,18 +893,28 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` `correct_question_revision_bloom` updates one stored dimension for an active Instructor and does not insert a Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` `correct_question_pool_bloom` updates one stored Pool dimension and does not insert a Question Revision.
 
-- [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
-  - Evidence (source): `crates/question_model/src/question_search.rs` retains two independent exact Bloom filters, unchanged sorts, and normalized-query-bound cursors. `crates/learning-data-access/src/postgres/question_library.rs` applies them to the whole Library relation and computes all six plus all four guide-order counts; `src/pages/library_search_parameters.ts`, `src/pages/library_page.tsx`, and `src/components/library_bloom_discovery.tsx` retain URL/saved-search values, zeros, and empty results.
-  - Verification pending: connected multi-page, role, and browser proof remains required. It stays open independently of the connected mixed-entry Assessment-sort/save/reload/concurrent-save proof required by the preceding row.
+- [x] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `p_bloom_cognitive_process` and `p_bloom_knowledge_dimension` filter the whole Library independently and the report emits every guide count.
+  - Evidence (source): `src/components/library_bloom_discovery.tsx` `LibraryBloomDiscovery` offers both filters, both teaching meanings, and both count lists.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library.rs` `question_library_search_filters_and_pages_in_postgresql` checks all six Cognitive Process counts and all four Knowledge Dimension counts, including a count past the first page.
+  - Evidence (test): `tests/playwright/test_bloom_classification_workflow.mjs` `Bloom Classification supports Question Library search and Assessment item sorting` selects Remember and Factual Knowledge and shows both teaching meanings.
 
-- [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
-  - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` accepts only the guide's six Cognitive Process and four Knowledge Dimension spellings.
-  - Verification pending: fresh PostgreSQL actual-role proof closes storage and publication-required attachment; classifier/provider semantics, Instructor-facing teaching interpretation, and connected search/reporting remain open.
+- [x] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
+  - Decision: The Deferred section keeps AI assignment, and Bloom does not block publication or Library entry. Shipped classification uses the guide's six Cognitive Process and four Knowledge Dimension values, and Library search shows each value's teaching meaning.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `bloom_cognitive_process` stores Remember, Understand, Apply, Analyze, Evaluate, and Create.
+  - Evidence (source): `schemas/base_schema/10_types.sql` `bloom_knowledge_dimension` stores Factual, Conceptual, Procedural, and Metacognitive Knowledge.
+  - Evidence (source): `src/components/library_bloom_discovery.tsx` `LibraryBloomDiscovery` shows those teaching meanings beside the Bloom filters.
+  - Evidence (test): `tests/test_bloom_classification_decoder.mjs` `Bloom teaching meanings cover every guide value and no other` checks that every shipped guide value has one meaning.
+  - Evidence (test): `tests/e2e/bloom_vocabulary.sql` `validate_bloom_pair` accepts every guide pair and rejects an unknown process and an unknown dimension. A disposable database executed that contract and was removed.
+  - Evidence (test): `tests/playwright/test_bloom_classification_workflow.mjs` `Bloom Classification supports Question Library search and Assessment item sorting` shows Retrieve relevant knowledge and the Factual Knowledge meaning in the Library browser.
 
 #### Question Library stewardship specifications
-- [ ] Question Library stewardship should use a GitHub-like model.
-  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records current Question/Pool Star and Watch SQL/LDA proof plus four-event private Watch delivery.
-  - Verification pending: connected Question/Pool workflows and browser presentation remain open.
+- [x] Question Library stewardship should use a GitHub-like model.
+  - Decision: The GitHub-like model is a private Watch plus retained improvement threads and impact notices. Creating either activity delivers it to the current watchers. Stars, forks, and Pool membership edits stay on their own bullets.
+  - Evidence (source): `schemas/base_schema/50_functions/library_discussion_operations.sql` `create_library_improvement_thread` retains a text-only thread, and `create_library_impact_notice` retains an owner-managed notice.
+  - Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_thread_event` and `enqueue_library_watch_impact_event` deliver those activities to current watchers.
+  - Evidence (source): `src/components/library_discussion_panel.tsx` `LibraryDiscussionPanel` presents improvement threads and impact notices on a Library Object.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library_stewardship.rs` `question_library_stewardship_delivers_threads_and_notices_to_a_watcher` watched a Published Question, created both activities through the shipped stores, and read both from the Watch inbox. A disposable database executed that contract and was removed.
 
 - [x] Published Questions and Question Pools can be starred and watched.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `set_current_question_star` records an Instructor Star, and `set_current_question_watch` records that Instructor's Question Watch.
@@ -969,5 +984,5 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `read_current_question_star` refuses a Student or empty session before returning starred Instructor names. `read_current_question_watch` refuses those sessions before returning Watch information.
   - Evidence (source): `schemas/base_schema/50_functions/question_pool_stewardship.sql` `read_current_question_pool_star` refuses a Student or empty session before returning starred Instructor names. `read_current_question_pool_watch` refuses those sessions before returning Watch information.
   - Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `read_current_library_watch_notifications` refuses a Student or empty session before returning the Watch inbox.
-  - Evidence (test): `tests/e2e/assessment_saved_response_oracle.sql` `students_and_anonymous_users_do_not_receive_instructor_identity_lists_or_watch_information` refused Student USSV00009 and an empty session on Question SVR1-4XYZ and Pool SVP1-FABC, then let Instructor UVSV0000A open the Question Star list, Question Watch, and the Watch inbox.
+  - Evidence (test): `tests/e2e/assessment_saved_response/06_question_watch_access.sql` `students_and_anonymous_users_do_not_receive_instructor_identity_lists_or_watch_information` refuses a Student and an empty session, then allows the Instructor watch read.
   - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `students_and_anonymous_users_do_not_receive_instructor_identity_lists_or_watch_information` ran that oracle on PostgreSQL. No Live Demo stack was started.

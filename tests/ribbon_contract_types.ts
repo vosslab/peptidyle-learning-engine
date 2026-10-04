@@ -1,8 +1,8 @@
 // Compile-only public-boundary assertions for the pure Ribbon contract.
 
 import { ROUTE_CONTRACT } from "../src/route_contract";
+import { buildRoutePath } from "../src/ribbon/ribbon_route_path";
 import {
-  buildRoutePath,
   deriveRibbonModel,
   type RibbonContextLabels,
   type RibbonRouteState,

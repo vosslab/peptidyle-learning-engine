@@ -590,10 +590,12 @@ export function BlueprintCourseDetailWorkspace(
           : `Reusable course structure without Students, deadlines, or course delivery settings. Current Revision ${current()!.view.current_revision_tuple.revisionNumber}.`
       }
       routeSurface="blueprintCourseDetail"
+      actions={
+        <A class="quiet-link" href={blueprintCollection().href}>
+          {blueprintCollection().label}
+        </A>
+      }
     >
-      <A class="quiet-link" href={blueprintCollection().href}>
-        {blueprintCollection().label}
-      </A>
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
@@ -614,57 +616,6 @@ export function BlueprintCourseDetailWorkspace(
         <Match when={state() === "ready" && current()}>
           {(loaded) => (
             <section class="blueprint-course-detail-editor">
-              <Show
-                when={
-                  loaded().view.availability === "public" ||
-                  loaded().view.availability === "archived"
-                }
-              >
-                <BlueprintStewardship
-                  client={props.client}
-                  blueprintCourseId={loaded().view.id}
-                  formatDateTime={formatDateTime}
-                />
-              </Show>
-              <CourseClassificationEditor
-                value={loaded().view.classification}
-                editNumber={loaded().view.blueprint_edit_number}
-                canEdit={
-                  blueprintLifecyclePresentation(
-                    loaded().view.availability,
-                    loaded().view.read_access,
-                  ).canEdit && !metadataSaving()
-                }
-                save={async (classification, editNumber) => {
-                  const transition = await props.client.updateBlueprintCourseClassification(
-                    loaded().view.id,
-                    classification,
-                    editNumber,
-                  );
-                  // Classification saves update metadata without consuming unrelated name drafts.
-                  applyMetadataState(transition);
-                }}
-                reload={async () => {
-                  const latest = await props.client.getBlueprintCourse(loaded().view.id);
-                  const prior = current();
-                  if (prior !== undefined)
-                    setCurrent({
-                      ...prior,
-                      view: {
-                        ...prior.view,
-                        short_name: latest.blueprintCourse.short_name,
-                        long_name: latest.blueprintCourse.long_name,
-                        availability: latest.blueprintCourse.availability,
-                        classification: latest.blueprintCourse.classification,
-                        blueprint_edit_number: latest.blueprintCourse.blueprint_edit_number,
-                      },
-                    });
-                  return {
-                    classification: latest.blueprintCourse.classification,
-                    editNumber: latest.blueprintCourse.blueprint_edit_number,
-                  };
-                }}
-              />
               <BlueprintCourseLifecycleControls
                 view={loaded().view}
                 placement="primary"
@@ -729,6 +680,57 @@ export function BlueprintCourseDetailWorkspace(
                 pickerSources={props.pickerSources}
                 onInvalidDraftChange={setInvalidDraft}
                 onChangeAssessment={changeAssessment}
+              />
+              <Show
+                when={
+                  loaded().view.availability === "public" ||
+                  loaded().view.availability === "archived"
+                }
+              >
+                <BlueprintStewardship
+                  client={props.client}
+                  blueprintCourseId={loaded().view.id}
+                  formatDateTime={formatDateTime}
+                />
+              </Show>
+              <CourseClassificationEditor
+                value={loaded().view.classification}
+                editNumber={loaded().view.blueprint_edit_number}
+                canEdit={
+                  blueprintLifecyclePresentation(
+                    loaded().view.availability,
+                    loaded().view.read_access,
+                  ).canEdit && !metadataSaving()
+                }
+                save={async (classification, editNumber) => {
+                  const transition = await props.client.updateBlueprintCourseClassification(
+                    loaded().view.id,
+                    classification,
+                    editNumber,
+                  );
+                  // Classification saves update metadata without consuming unrelated name drafts.
+                  applyMetadataState(transition);
+                }}
+                reload={async () => {
+                  const latest = await props.client.getBlueprintCourse(loaded().view.id);
+                  const prior = current();
+                  if (prior !== undefined)
+                    setCurrent({
+                      ...prior,
+                      view: {
+                        ...prior.view,
+                        short_name: latest.blueprintCourse.short_name,
+                        long_name: latest.blueprintCourse.long_name,
+                        availability: latest.blueprintCourse.availability,
+                        classification: latest.blueprintCourse.classification,
+                        blueprint_edit_number: latest.blueprintCourse.blueprint_edit_number,
+                      },
+                    });
+                  return {
+                    classification: latest.blueprintCourse.classification,
+                    editNumber: latest.blueprintCourse.blueprint_edit_number,
+                  };
+                }}
               />
               <BlueprintHistory
                 client={props.client}

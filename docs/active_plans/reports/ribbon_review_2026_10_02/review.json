@@ -1,0 +1,112 @@
+{
+  "checks": [
+    {
+      "path": "/courses/CIW436JH8V",
+      "parent": "My Active Courses",
+      "trail": [
+        "Home",
+        "Courses",
+        "My Active Courses",
+        "Biochemistry 301: Proteins and Peptides"
+      ]
+    },
+    {
+      "path": "/instructor/courses/CIW436JH8V/students",
+      "parent": "My Active Courses",
+      "trail": [
+        "Home",
+        "Courses",
+        "My Active Courses",
+        "Biochemistry 301: Proteins and Peptides",
+        "Students"
+      ]
+    },
+    {
+      "path": "/instructor/courses/CIW436JH8V/appearance",
+      "parent": "My Active Courses",
+      "trail": [
+        "Home",
+        "Courses",
+        "My Active Courses",
+        "Biochemistry 301: Proteins and Peptides",
+        "Appearance"
+      ]
+    },
+    {
+      "path": "/courses/CIQ9JE79XZ",
+      "parent": "My Inactive Courses",
+      "trail": [
+        "Home",
+        "Courses",
+        "My Inactive Courses",
+        "Ribbon review inactive Course"
+      ]
+    },
+    {
+      "path": "/instructor/courses/CIQ9JE79XZ/students",
+      "parent": "My Inactive Courses",
+      "trail": [
+        "Home",
+        "Courses",
+        "My Inactive Courses",
+        "Ribbon review inactive Course",
+        "Students"
+      ]
+    },
+    {
+      "path": "/instructor/courses/CIQ9JE79XZ/appearance",
+      "parent": "My Inactive Courses",
+      "trail": [
+        "Home",
+        "Courses",
+        "My Inactive Courses",
+        "Ribbon review inactive Course",
+        "Appearance"
+      ]
+    },
+    {
+      "inactiveCollectionOpensActualCourse": true
+    },
+    {
+      "width": 320,
+      "mode": "light",
+      "axe": []
+    },
+    {
+      "width": 320,
+      "mode": "dark",
+      "axe": []
+    },
+    {
+      "width": 393,
+      "mode": "light",
+      "axe": []
+    },
+    {
+      "width": 393,
+      "mode": "dark",
+      "axe": []
+    },
+    {
+      "width": 768,
+      "mode": "light",
+      "axe": []
+    },
+    {
+      "width": 768,
+      "mode": "dark",
+      "axe": []
+    },
+    {
+      "width": 1280,
+      "mode": "light",
+      "axe": []
+    },
+    {
+      "width": 1280,
+      "mode": "dark",
+      "axe": []
+    }
+  ],
+  "reviewId": "CIQ9JE79XZ"
+}

@@ -38,7 +38,7 @@ async function captureCheckpoint(
 async function openInstructorProfile(page: Page): Promise<void> {
   await enterInstructor(page);
   await page.getByRole("button", { name: "Profile", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Profile settings", exact: true }).click();
   await page.getByRole("heading", { level: 1, name: "Your profile", exact: true }).waitFor();
   await page.getByRole("heading", { level: 2, name: "Profile image", exact: true }).waitFor();
   await page.locator(".profile-thumbnail-placeholder").waitFor();

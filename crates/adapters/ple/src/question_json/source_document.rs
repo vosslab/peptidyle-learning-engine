@@ -69,8 +69,9 @@ pub(super) struct PleQuestionJsonDocumentBody {
 
 /// One remote resource declared by a native Question author.
 ///
-/// The closed kind set records links, images, stylesheets, and miscellaneous
-/// resources without making a remote script execution surface.
+/// The closed kind set records links, images, scripts, stylesheets, and
+/// miscellaneous resources. A script URL is recorded for review. It is not a
+/// remote script execution surface.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PleQuestionJsonExternalResource {
@@ -82,6 +83,7 @@ struct PleQuestionJsonExternalResource {
 enum PleQuestionJsonExternalResourceKind {
     Link,
     Image,
+    Script,
     Stylesheet,
     Other,
 }

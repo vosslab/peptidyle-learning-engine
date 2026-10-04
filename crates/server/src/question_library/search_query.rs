@@ -103,6 +103,20 @@ mod tests {
     }
 
     #[test]
+    fn enzyme_minus_inhibitor_excludes_the_second_term() {
+        let (question_id, terms) =
+            QuestionTextQuery::parse(Some("enzyme -inhibitor")).into_store_terms();
+        assert!(question_id.is_none());
+        assert_eq!(terms.len(), 2);
+        assert_eq!(terms[0].field, QuestionLibraryTextField::Any);
+        assert_eq!(terms[0].value, "enzyme");
+        assert!(!terms[0].excluded);
+        assert_eq!(terms[1].field, QuestionLibraryTextField::Any);
+        assert_eq!(terms[1].value, "inhibitor");
+        assert!(terms[1].excluded);
+    }
+
+    #[test]
     fn exact_canonical_question_id_is_the_library_search_identity() {
         let canonical = "ABCD-XEFG";
         let (question_id, terms) = QuestionTextQuery::parse(Some(canonical)).into_store_terms();

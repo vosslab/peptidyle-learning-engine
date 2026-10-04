@@ -1,82 +1,151 @@
 # Unresolved or ambiguous items
 
-## Current heading reconciliation
+Every open checklist row is listed once. Positions are the 0-based generator
+positions in the
+[checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md).
+No choice here authorizes new product behavior.
 
-Current verbatim Human Guidance coverage is 998 bullets: 449 verified, 499 open
-(490 owning), and 50 N/A, at SHA256
-`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
-The generated checklist owns occurrence status and current first-owner pointers. All nine part
-gates, identity diff, and consistency pass for this snapshot. Unchanged scoring, timing,
-Blueprint, terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains
-unfinished; these gates establish inventory fidelity, not acceptance of the open requirements.
+The documentation-pass report still names a Student Ribbon unlock. Current Human
+Guidance unlocks only the complete Sysadmin Ribbon task layout.
 
-Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
-new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
-avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
-avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
-all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
-owns Library metadata, Part 08 Course classification, and Part 09 Assessment classification.
-The shared system requires exactly one Discipline per content object, optional narrower levels,
-and a Subject associated with one or more Sysadmin-managed Disciplines. The prior single-parent
-four-table foundation receipt does not satisfy this latest association shape or establish commands,
-normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
-KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+## Unlocked design
 
-Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
-no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
-`1 / 1`, total `1 / 4`. Native diagnostic `AZA01TD` / `R-5` follow-up saved/reloaded FIB, MA,
-MULTI-FIB, NUM, and ORDER, then submitted the whole Attempt: four correct `1 / 1` responses,
-deliberately partial-reordered ORDER incorrect `0 / 1`, total `4 / 5`. Practice-default permitted
-correct answers are displayed separately from retained responses. The supplied ledgers and
-`submitted-review-1280.png` / `submitted-review-390.png` under
-`/private/tmp/ple-student-types-proof/` are bounded receipts, not all-eight-type, complete keyboard,
-touch, or contrast acceptance. HOTSPOT and WeBWorK coverage remain open. Earlier topical
-inventories/correction IDs and superseded contradictions below are historical provenance.
+- Position 475. The complete Sysadmin Ribbon task layout does not have a locked-in
+  design yet. Reason: HG: no locked-in design. Neighboring Sysadmin bullets stay
+  separate questions.
 
-## Result
+## Terminology and identity
 
-The Ribbon design below is explicitly unlocked by Human Guidance. It is a positive N/A audit result
-for implementation planning, not an unreviewed `[ ]` mismatch. Current finite timing requirements
-remain open where connected or browser acceptance is missing.
+- Position 40. All fields, identifiers, domain concepts, and terminology across
+  PostgreSQL, Rust, TypeScript, JSON, the Terminology Contract, and Human Guidance
+  are in alignment. Question: does alignment mean the Terminology Contract and its
+  registered surfaces, or a proof that every column, field, key, and label matches?
+  One reading treats `Human-facing identifiers` and
+  `test_semantic_contract_registry_points_at_native_coverage` as that alignment.
+  The other requires a whole-repository comparison Human Guidance does not bound.
+- Position 529. An object without a public ID uses a UUID or a parent composite key.
+  Question: are Theme and provided-avatar tokens objects that need UUID primary keys,
+  or durable vocabulary keys that keep text identifiers? Revisions use a composite
+  key and Attempts use a UUID. `theme_id` and `provided_avatar_id` are text keys.
+  One reading migrates those keys to UUIDs. The other keeps the vocabulary text.
+- Position 537. Use the simplest term that accurately describes the value. Question:
+  do Id, Tuple, and Reference already name identity values, or must every remaining
+  value be judged? `PublishedQuestionRevisionTuple` and
+  `WebworkQuestionSourceBinding` use Tuple and Binding. One reading treats those
+  rules as the simplest terms. The other requires a review Human Guidance does not
+  list.
 
-| Unlocked design | What Human Guidance settles | What remains open | Source |
-| --- | --- | --- | --- |
-| Student and Sysadmin Ribbon detail | Student navigation centers Courses and Coursework; Sysadmin navigation centers Accounts, Instructors, Courses, and system settings. | The complete Ribbon task layout for either role. | `docs/HUMAN_GUIDANCE.md` -- Student and Sysadmin interface |
+## Interface philosophy and avatars
 
-## Plausible later layouts, not requirements
+- Position 154. The role badge is always in the upper left, just left of the logo.
+  Question: does the later desktop top bar, which places the logo before the role
+  badge, replace this sentence? One reading keeps the badge left of the logo at
+  every width. The other follows the later top bar: logo, product name, then badge
+  on laptop, tablet, and desktop, and logo then badge on phones with the product
+  name omitted.
+- Position 103. Design around what users need to find and do. Question: do the
+  shipped task ribbons and record pages already do that, or is a separate usability
+  study still required? `PRODUCT_TIER_ONE` places Courses, Questions, and
+  Assessments in the Instructor top bar. One reading treats those surfaces as the
+  design. The other treats the sentence as a whole-product outcome with no pass rule.
+- Position 114. Choose one visual philosophy and carry it through the interface.
+  Question: is the precision field console that philosophy, or is a separate choice
+  still open? `docs/UI_DESIGN_GUIDE.md` names the precision field console, and
+  `src/style.css` shares `--ple-radius-surface`. One reading treats that console as
+  the choice carried by the shell and record lists. The other treats the entire
+  interface as an acceptance Human Guidance has not locked.
+- Positions 215 and 225. The same avatar sentence appears twice. Question: when
+  another screen represents a user, must it show that user's private Profile image,
+  or only the provided gallery avatar? `RibbonAccountAvatar` shows the signed-in
+  Account's image. Instructor Accounts uses `providedAvatarId` for another Account
+  and does not show a private Profile image. One reading shows the private image
+  everywhere. The other keeps it on that user's own Profile.
 
-- The Student Ribbon could present `Courses` and `Coursework` as two permanently visible choices, with
-  course selection and Coursework details in the page body.
-- The Sysadmin Ribbon could present `Accounts`, `Instructors`, `Courses`, and `System settings` as
-  permanently visible choices, with a contextual subnavigation row for the selected area.
+## Blueprint discovery
 
-Human Guidance leaves both behaviors open: it identifies the areas each role's navigation centers, but
-does not lock their order, labels, nesting, or whether a contextual subnavigation row exists. Neither
-example authorizes implementation before a product decision.
+- Position 269. Results should show Course name, classification, author, institution,
+  and usage or stewardship signals. Question: must results add author and institution,
+  or do name, classification, adoptions, and students satisfy the list while
+  institution stays out? `publicBlueprintContent` shows the shipped fields.
+  `BlueprintCourseSummaryView` has no author or institution field. Human Guidance
+  also says one global installation has no institution boundaries. One reading adds
+  the two fields. The other does not invent an institution.
+- Position 270. Public Blueprint search should sort by relevant fields such as Stars,
+  Watches, Adoptions, Students, and most recent edit. Question: must search add
+  Stars, Watches, and most recent edit, or are name, adoptions, and students the
+  relevant sorts? `PublicBlueprintSearchPage` sorts by those three.
+  `BlueprintCourseSummaryView` has no stars, watches, or last-edit field. One reading
+  adds the missing sorts. The other reads "such as" as examples and keeps the three
+  shipped sorts.
 
-Human Guidance now requires finite duration: a rounded 1.5-minutes-per-Question default, explicit
-Instructor override up to 12 hours, Pool selection count for the Question limit and default, and
-individual 1.5X/2X accommodations after the base duration with an effective 24-hour cap. Accepted
-independent SQL reproduces the former role-order failure, then proves fixed-entry 1/2/3/250
-arithmetic, empty/251 refusal, the 12-hour constraint, and ordinary Instructor-release/Student-
-start/resume at 180 seconds. It is not browser, HTTP, renderer, real Instructor override-save, or
-broad delivery acceptance. The incomplete accommodation slice is not ratio/UI or 24-hour-cap
-acceptance; no accepted connected multi-selection Pool timing proof exists.
+## Question Library notes
 
-Other generated evidence refreshes, implementation mismatches, and future work are not product
-ambiguity. Working-speed wording is audited pedagogical purpose (N/A), not a learning-effect gate;
-the underlying timing requirements remain binding. Exact unchanged SQL resume is verified, while
-actual browser/session resume and rendered expiry-unanswered/Backend-transport proof remain open.
+These indented notes stay open. Restore of a saved Question Library query already
+exists and does not by itself decide the "Should" sentence.
 
-Assessment Pool selection count is not an unresolved product decision. The recorded engineering
-choice uses the existing positive `selection_count` on the Assessment-owned Pool fork; the reusable
-Pool Revision owns its exact members. C905-C909 still own the missing exact fork Pool ID/Revision
-provenance, count-bound validation, delivery chain, and proof.
+- Position 317. Should opening a result and returning preserve search and position?
+  One reading requires that restore. The other keeps the sentence as an open design
+  note. `takeQuestionLibraryReturnState` already restores one saved query and scroll
+  position.
+- Position 318. Hover preview and open in a new tab by default. One reading requires
+  both. The other treats the sentence as an unsettled note. Links open in the same
+  tab and have no hover preview.
+- Position 319. Advanced Search considerations. One reading requires another search
+  mode. The other treats the bullet as a heading for the notes below. The Library
+  has one search box plus filters.
+- Position 320. One shared search box, or separate simple and advanced forms? One
+  reading keeps the single box in `LibraryPage`. The other asks for a separate form.
+  Human Guidance says to consider both.
+- Position 321. A minimal interface that shows options by priority. One reading asks
+  for a further advanced form. The other treats the sentence as a design note. The
+  initial Search page is one search box.
+- Position 322. MovieLens as a tiered filter. One reading requires that layout. The
+  other treats the link as a comparison note.
+- Position 323. IMDb advanced search, without movie-poster Questions. One reading
+  requires that form. The other treats the sentence as a comparison note. Results
+  use a semantic list.
+- Position 324. Google advanced search. One reading requires that form. The other
+  treats the link as a comparison note.
+- Position 325. PubMed advanced search. One reading requires that page. The other
+  treats the link as a comparison note.
+- Position 326. eBay advanced search. One reading requires that form. The other
+  treats the link as a comparison note.
+- Position 327. Should a Question ID include a preview image? One reading adds a
+  poster. The other keeps the text ID. `CopyableQuestionId` shows the text ID.
 
-Correction-milestone mappings are pending Milestone G and will be added after all Milestone G runs
-are complete.
+## Student and Sysadmin
 
-Latest Student response distinction rewrite: live HG requires visually distinct current Question,
-saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
-change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
-are retained as partial proof, not blanket acceptance of native response controls/actions.
+- Position 388. Guidance about the student interface. Question: does this require a
+  Student guidance surface, or does it only introduce the Student rules that follow?
+  The bullet names no Student-facing behavior. One reading treats it as a heading.
+  The other would require a guidance surface Human Guidance does not describe.
+- Position 460. The Sysadmin menu should make Accounts, Instructors, Courses, and
+  system configuration easy to find. Question: does system configuration need its own
+  destination now, or is the menu complete while installation-wide settings remain an
+  open inventory? Instructor Accounts and Courses are reachable. No system-configuration
+  destination exists. One reading adds that destination. The other waits for the
+  inventory.
+- Position 466. Instructor approval status should be easy to find and change.
+  Question: is approval the completed pre-account vetting decision, with later access
+  changed only by deactivate and reactivate, or a distinct Account status after
+  creation? The page exposes active, deactivated, and closed. Vetting is stored
+  separately. One reading keeps that. The other adds a post-creation approval control.
+- Position 470. System-wide settings should have their own area. Question: which
+  implemented installation-wide settings must Sysadmins view or change, and which
+  boundary owns each? No system-settings destination exists. One reading requires a
+  page for actual platform settings. The other requires no page until those settings
+  are identified.
+- Position 472. Rare installation and configuration tasks should remain available
+  through secondary navigation. Question: does this require a secondary Ribbon row
+  now, or does the Sysadmin home satisfy it while the complete layout stays unlocked?
+  `PRODUCT_TIER_TWO` has no Sysadmin destinations. The Sysadmin home still links
+  Disciplines, Library activity, and scoped roster support. One reading adds a
+  secondary row. The other keeps reachability on the home page.
+
+## Assessments
+
+- Position 1019. Quizzes may use more restrictive Attempt and collaboration settings
+  than Weekly Assignments. Question: does this require a distinct collaboration
+  control, or only the more restrictive Quiz Attempt limit? One reading keeps the
+  Quiz default of one Attempt. The other adds a collaboration setting Human Guidance
+  does not name.

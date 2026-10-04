@@ -12,6 +12,7 @@ import { chromium } from "playwright";
 
 import { bundledAppRibbonCss, loadAppRibbonForSsr } from "../support/ribbon_component_ssr.ts";
 import { M6_RIBBON_FIXTURES } from "../support/ribbon_model_fixtures.ts";
+import { themeStyle, themeTokens } from "../../src/appearance/theme_registry.ts";
 
 const globalCss = [
   readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
@@ -28,14 +29,7 @@ const RealAppRibbon = await loadAppRibbonForSsr();
 // shared design-token vocabulary app_ribbon.css consumes in the live document.
 const tokenCss = `
 :root {
-  --ple-surface-soft: #eef3f6;
-  --ple-card-surface: #ffffff;
-  --ple-ink: #344054;
-  --ple-muted: #536171;
-  --ple-accent: #17628a;
-  --ple-accent-strong: #164f70;
-  --ple-on-action: #ffffff;
-  --ple-border: #c8d0d6;
+  ${themeStyle(themeTokens("grass"))};
   --ple-space-1: 0.25rem;
   --ple-space-2: 0.5rem;
   --ple-space-3: 0.75rem;
@@ -135,7 +129,12 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1024, height: 700 } });
   const ribbonOnly = await ribbonStyles(page, `${tokenCss}\n${componentCss}`);
-  const ribbonWithFullStyles = await ribbonStyles(page, `${globalCss}\n${componentCss}`);
+  // Both surfaces receive the same runtime theme; the comparison isolates
+  // global layout rules rather than comparing missing theme tokens to a palette.
+  const ribbonWithFullStyles = await ribbonStyles(
+    page,
+    `${globalCss}\n${tokenCss}\n${componentCss}`,
+  );
   assert.deepEqual(
     ribbonWithFullStyles,
     ribbonOnly,

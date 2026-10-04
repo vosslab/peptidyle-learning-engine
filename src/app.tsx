@@ -48,10 +48,12 @@ function ribbonLabelsFor(
       assessmentAttemptTitle: history.assessment.title,
     };
   }
+  const course = courseRouteView(routeData);
   return {
     ...publishedLabels,
-    courseShortName: courseRouteView(routeData).summary.shortName,
-    courseLongName: courseRouteView(routeData).summary.longName,
+    courseShortName: course.summary.shortName,
+    courseLongName: course.summary.longName,
+    courseLifecycleState: course.summary.lifecycleState,
   };
 }
 

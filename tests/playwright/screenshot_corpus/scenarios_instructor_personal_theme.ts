@@ -23,7 +23,7 @@ async function openProfile(page: Page): Promise<void> {
 
 async function openProfileFromCurrentSession(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Profile", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Profile settings", exact: true }).click();
   await page.locator('[data-route-surface="profile"]').waitFor();
   await page.getByRole("heading", { level: 2, name: "Appearance", exact: true }).waitFor();
 }

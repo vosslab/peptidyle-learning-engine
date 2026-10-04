@@ -63,7 +63,8 @@
       "startDate": "2026-08-24",
       "endDate": "2026-12-18"
     },
-    "role": "student"
+    "role": "student",
+    "lifecycleState": "active"
   },
   "assessment": {
     "id": "A000001AT",

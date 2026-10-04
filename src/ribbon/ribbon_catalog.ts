@@ -132,7 +132,7 @@ const pairedIconFlags = {
 export const RIBBON_CONTEXT_CONTROL_CATALOG = [
   {
     id: "profile",
-    label: "Profile",
+    label: "Profile settings",
     userRoles: ["student", "instructor", "sysadmin"],
     availability: "Available",
     glyph: "profile",

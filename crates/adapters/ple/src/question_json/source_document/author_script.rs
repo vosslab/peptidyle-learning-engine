@@ -56,8 +56,13 @@ pub(super) fn validate_author_script(
             PleQuestionJsonAuthorScriptLibrary::Rdkit => "rdkit",
         };
         // ASVS 15.1.2: the library name must be on the recorded dependency inventory.
+        // An empty CDN inventory means PLE serves that library. A listed CDN is not
+        // wired here, so the validator fails closed instead of ignoring it.
         if !super::recorded_javascript::is_recorded_external_javascript_dependency(id) {
             return invalid("external JavaScript dependency is not recorded");
+        }
+        if !super::recorded_javascript::recorded_javascript_is_served_by_ple() {
+            return invalid("recorded JavaScript CDN delivery is not wired");
         }
         validate_bounded_text(
             "author script library",

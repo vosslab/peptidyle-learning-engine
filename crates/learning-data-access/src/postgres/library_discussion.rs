@@ -192,7 +192,9 @@ impl LibraryDiscussionStore for PostgresLibraryDiscussionStore {
                 .map_err(map_sqlx_error)?;
         let mut threads = Vec::with_capacity(thread_rows.len());
         for row in thread_rows {
-            let thread_id: Uuid = row.try_get("thread_id").map_err(map_sqlx_error)?;
+            let thread_id: Uuid = row
+                .try_get("library_improvement_thread_id")
+                .map_err(map_sqlx_error)?;
             let post_rows = sqlx::query("SELECT * FROM ple_api.read_library_improvement_posts($1)")
                 .bind(thread_id)
                 .fetch_all(&mut *tx)

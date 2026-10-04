@@ -171,6 +171,13 @@ async function prepareStudentInvitation(
       await invitationRosterRow
         .getByRole("button", { name: "Remove course access", exact: true })
         .click();
+      await page
+        .getByRole("dialog", {
+          name: "Remove course access for Synthetic Invitation Student?",
+          exact: true,
+        })
+        .getByRole("button", { name: "Revoke course access", exact: true })
+        .click();
       await invitationRosterRow.waitFor({ state: "detached" });
       createPendingInvitation = true;
     }
@@ -257,9 +264,15 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
       }
       const courseTasks = page.getByRole("navigation", { name: "Ribbon tasks", exact: true });
       await courseTasks.getByRole("link", { name: "BCHM 301", exact: true }).waitFor();
-      await courseTasks
-        .getByRole("link", { name: INVITATION_COURSE_SHORT_NAME, exact: true })
-        .waitFor();
+      const invitationCourse = courseTasks.getByRole("link", {
+        name: INVITATION_COURSE_SHORT_NAME,
+        exact: true,
+      });
+      await invitationCourse.waitFor({ state: "attached" });
+      await invitationCourse.evaluate((link) => {
+        link.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+      await invitationCourse.waitFor();
       await captureCheckpoint(runtime, checkpoint, session);
     } finally {
       await runtime.close(session);
@@ -516,10 +529,9 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
         .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
         .click();
       await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
-      const previousAttempt = session.page.getByRole("button", {
-        name: "Review Attempt",
-        exact: true,
-      });
+      const previousAttempt = session.page
+        .getByRole("button", { name: "Review Attempt", exact: true })
+        .first();
       await previousAttempt.waitFor();
       await previousAttempt.click();
       await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();

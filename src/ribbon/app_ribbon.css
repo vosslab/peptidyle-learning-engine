@@ -1,9 +1,10 @@
 /* Fixed-profile geometry and Fieldstation visual system for the persistent Ribbon.
- * Phone density, overflow cues, and reduced-motion live in app_ribbon_density.css
- * and load after this sheet from app_ribbon.tsx and main.tsx. */
+ * Tier-specific shapes and selection live in ribbon_tier_one.css and
+ * ribbon_tier_two.css. Density and accessibility overrides load last. */
 
 :root {
   --ple-ribbon-top-block-size: 3rem;
+  --ple-ribbon-tab-transition: color 110ms ease-out;
   --ple-ribbon-task-block-size: 2.5rem;
   --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
 }
@@ -18,14 +19,13 @@
      density and surface vocabulary. */
   --ple-ribbon-space-tight: var(--ple-space-1);
   --ple-ribbon-space-control: var(--ple-space-2);
-  --ple-ribbon-space-within-area: var(--ple-space-1);
+  --ple-ribbon-space-within-area: var(--ple-space-2);
   --ple-ribbon-space-between-area: var(--ple-space-3);
   --ple-ribbon-space-row: var(--ple-space-3);
   --ple-ribbon-space-inline: var(--ple-space-4);
   --ple-ribbon-space-cue: var(--ple-space-6);
   --ple-ribbon-space-endcap: var(--ple-space-7);
   --ple-ribbon-context-surface: var(--ple-surface);
-  --ple-ribbon-tab-surface: var(--ple-highlight);
   --ple-ribbon-task-surface: var(--ple-theme-secondary);
   --ple-ribbon-interaction-surface: var(--ple-highlight);
 }
@@ -41,6 +41,7 @@
 }
 
 .ple-app-ribbon {
+  --ple-ribbon-course-accent: var(--ple-accent);
   --ple-ribbon-rule: color-mix(in srgb, var(--ple-ink) 18%, transparent);
   --ple-ribbon-rule-quiet: color-mix(in srgb, var(--ple-ink) 10%, transparent);
   position: relative;
@@ -54,12 +55,9 @@
   overflow: visible;
   color: var(--ple-ink);
   background-color: var(--ple-surface);
-  /* The inset rule below paints the separator without adding a layout pixel
-     to either the taskful or taskless Ribbon geometry. */
+  /* Row-owned rules leave the selected task open to the content surface. */
   border-block-end: 0;
-  box-shadow:
-    0 0.3rem 0.75rem color-mix(in srgb, var(--ple-ink) 11%, transparent),
-    inset 0 -1px 0 var(--ple-ribbon-rule);
+  box-shadow: none;
 }
 
 .ple-app-ribbon__row {
@@ -77,8 +75,8 @@
   white-space: nowrap;
 }
 
-/* A scroll-end spacer lets the selected control clear the pinned fade rather
-   than stopping beneath it at the physical end of a long Ribbon row. */
+/* A scroll-end spacer lets the selected tab clear the pinned scroll control
+   at the physical end of a long Ribbon row. */
 .ple-app-ribbon__row::after {
   flex: 0 0 calc(var(--ple-ribbon-space-cue) + 1px);
   content: "";
@@ -112,19 +110,30 @@
   position: absolute;
   z-index: 1;
   inset-block: 0;
-  inline-size: calc(var(--ple-ribbon-space-cue) - 1px);
+  inline-size: var(--ple-ribbon-space-cue);
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   pointer-events: none;
+  visibility: hidden;
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition: none;
 }
 
 .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"] {
+  pointer-events: auto;
+  visibility: visible;
   opacity: 1;
+  cursor: pointer;
+  color: var(--ple-ink);
+  background: var(--ple-ribbon-row-surface);
 }
 
-/* A fade alone is easy to miss in ordinary color schemes. The same quiet
-   directional marks used by forced-colors mode make an active row-local
-   scrollport explicit while the gradient retains its spatial context. */
+/* Actual scroll controls cover clipped fragments at the edge. They share the
+   row surface so the chevron reads clearly without a floating button body. */
 .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"]::before {
   display: grid;
   inline-size: 100%;
@@ -132,9 +141,13 @@
   place-items: center;
   color: var(--ple-ink);
   font-size: 1.125rem;
-  font-weight: 800;
+  font-weight: 650;
   line-height: 1;
-  text-shadow: 0 0 0.18rem var(--ple-ribbon-row-surface);
+}
+
+.ple-app-ribbon__overflow-cue:focus-visible {
+  outline: 2px solid var(--ple-ribbon-focus);
+  outline-offset: -3px;
 }
 
 .ple-app-ribbon__overflow-cue--start[data-ribbon-overflow-active="true"]::before {
@@ -147,12 +160,10 @@
 
 .ple-app-ribbon__overflow-cue--start {
   inset-inline-start: 0;
-  background: linear-gradient(to right, var(--ple-ribbon-row-surface), transparent);
 }
 
 .ple-app-ribbon__overflow-cue--end {
   inset-inline-end: 0;
-  background: linear-gradient(to left, var(--ple-ribbon-row-surface), transparent);
 }
 
 /* Context answers where am I: quiet type, a neutral surface, and only the
@@ -226,17 +237,8 @@
   text-transform: uppercase;
 }
 
-/* The canonical 1280px Instructor bar needs the same full labels and glyphs
-   as wider desktops. Tighten only Tier 1 controls; the shared identity block
-   retains the same geometry at every non-phone viewport. */
-@media (min-width: 64rem) and (max-width: 80rem) {
-  .ple-app-ribbon__tabs .ple-app-ribbon__link {
-    --ple-ribbon-space-control: var(--ple-space-1);
-  }
-}
-
-/* Controls remain flat in their resting state. Presentation classes are a
-   catalog declaration, never a proxy for role or priority. */
+/* Shared control primitives. Tier styles own folder and content-tab faces;
+   presentation classes describe density rather than role or priority. */
 .ple-app-ribbon__link,
 .ple-app-ribbon__brand,
 .ple-app-ribbon__profile,
@@ -381,87 +383,6 @@
   background: var(--ple-ribbon-interaction-surface);
 }
 
-/* Tabs answer which destination: the selected surface, underline, and modest
-   weight change mark the choice without moving neighboring tabs. */
-.ple-app-ribbon__tabs {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-self: stretch;
-  align-items: stretch;
-  gap: var(--ple-ribbon-space-tight);
-  min-inline-size: 0;
-  margin-inline-start: var(--ple-ribbon-space-control);
-}
-
-.ple-app-ribbon__tabs-frame {
-  display: contents;
-}
-
-.ple-app-ribbon__tabs-frame > .ple-app-ribbon__overflow-cue {
-  display: none;
-}
-
-.ple-app-ribbon__tabs .ple-app-ribbon__link {
-  position: relative;
-  align-self: stretch;
-  justify-content: center;
-}
-
-.ple-app-ribbon__tabs .ple-app-ribbon__link::after {
-  position: absolute;
-  inset-inline: var(--ple-ribbon-space-control);
-  inset-block-end: 0;
-  block-size: var(--ple-ribbon-space-tight);
-  background: transparent;
-  content: "";
-}
-
-.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
-  color: var(--ple-on-highlight);
-  background-color: var(--ple-ribbon-tab-surface);
-  box-shadow: inset 0 0 0 1px var(--ple-border-strong);
-  font-weight: 760;
-}
-
-.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
-  background: var(--ple-on-highlight);
-}
-
-/* Tasks answer which part of the work to enter: a lighter strip with explicit
-   proximity grouping. The between-area padding is deliberately larger than
-   the within-area gap. */
-.ple-app-ribbon__tasks {
-  gap: var(--ple-ribbon-space-row);
-  padding-inline: var(--ple-ribbon-space-inline);
-  color: var(--ple-theme-on-secondary);
-  background-color: var(--ple-ribbon-task-surface);
-}
-
-.ple-app-ribbon__task-area {
-  gap: var(--ple-ribbon-space-within-area);
-}
-
-.ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
-  padding-inline-start: var(--ple-ribbon-space-between-area);
-  /* This task-area boundary uses the all-theme text-safe neutral rather than
-     the intentionally softer structural border token. */
-  border-inline-start: 1px solid var(--ple-muted);
-}
-
-.ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
-  color: var(--ple-on-highlight);
-  background-color: var(--ple-highlight);
-  box-shadow: inset 0 -1px 0 var(--ple-border-strong);
-  font-weight: 760;
-}
-
-/* Touch profiles enlarge controls globally, but this row's token is the
-   durable tier-2 geometry. Keep each task target inside that scrollport so a
-   coarse-pointer tablet cannot create clipped vertical label space. */
-.ple-app-ribbon__tasks .ple-app-ribbon__link {
-  min-block-size: var(--ple-ribbon-reserved-task-size);
-}
-
 .ple-app-ribbon__link:hover,
 .ple-app-ribbon__brand:hover,
 .ple-app-ribbon__profile:hover {
@@ -517,23 +438,23 @@
 .ple-app-ribbon__profile:focus-visible,
 .ple-app-ribbon__profile-menu-item:focus-visible {
   z-index: 1;
-  outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
+  outline: var(--ple-ribbon-space-tight) solid var(--ple-ribbon-focus);
   outline-offset: var(--ple-ribbon-space-tight);
 }
 
 .ple-app-ribbon__display-mode-toggle:focus-visible {
   z-index: 1;
-  outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
+  outline: var(--ple-ribbon-space-tight) solid var(--ple-ribbon-focus);
   outline-offset: var(--ple-ribbon-space-tight);
 }
 
-.ple-app-ribbon__link:focus-visible::before,
+.ple-app-ribbon__tasks .ple-app-ribbon__link:focus-visible::before,
 .ple-app-ribbon__brand:focus-visible::before,
 .ple-app-ribbon__profile:focus-visible::before,
 .ple-app-ribbon__profile-menu-item:focus-visible::before {
   position: absolute;
   inset: 0;
-  border: 1px solid var(--ple-focus);
+  border: 1px solid var(--ple-ribbon-focus);
   border-radius: inherit;
   content: "";
   pointer-events: none;
@@ -557,14 +478,13 @@
     --ple-ribbon-space-inline: var(--ple-space-2);
   }
 
-  /* Signed-in phone Ribbons retain the ordinary identity-to-destination
-     order. The compact P mark makes room for the same role-specific Tier 1
-     navigation without introducing a role-specific topology. */
+  /* Phone order is logo, badge, Tier 1, then only the width of Light/Dark
+     and Profile. The product word stays hidden. */
   .ple-app-ribbon__top-bar {
     gap: var(--ple-ribbon-space-tight);
     block-size: 100%;
     padding-inline-end: calc(
-      2rem + var(--ple-ribbon-space-inline) + var(--ple-ribbon-space-control)
+      var(--ple-ribbon-space-inline) + 2rem + var(--ple-ribbon-space-tight) + 2rem
     );
     overflow: hidden;
   }
@@ -600,44 +520,10 @@
   .ple-app-ribbon__user-role {
     display: inline-flex;
     inline-size: auto;
-  }
-
-  /* The Student phone badge stays shorter than the shared desktop reservation. */
-  .ple-app-ribbon__user-role[data-user-role="student"] {
-    padding-inline: 0.15rem;
+    /* Reserve enough room for a complete selected folder and its scroll cue,
+       including the longer Instructor badge at 320px. */
+    padding-inline: 0.25rem;
     letter-spacing: 0;
     font-size: 0.62rem;
-  }
-
-  .ple-app-ribbon__tabs-frame {
-    position: relative;
-    display: flex;
-    align-self: stretch;
-    min-inline-size: 0;
-    overflow: clip;
-  }
-
-  .ple-app-ribbon__tabs {
-    flex: 1 1 0;
-    margin-inline-start: 0;
-    gap: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-padding-inline: var(--ple-ribbon-space-cue);
-    scrollbar-width: thin;
-  }
-
-  .ple-app-ribbon__tabs .ple-app-ribbon__link {
-    font-size: 0.9rem;
-    padding-inline: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-app-ribbon__tabs::after {
-    flex: 0 0 var(--ple-ribbon-space-cue);
-    content: "";
-  }
-
-  .ple-app-ribbon__tabs-frame > .ple-app-ribbon__overflow-cue {
-    display: block;
   }
 }

@@ -711,6 +711,50 @@ mod tests {
         );
     }
 
+    fn unreachable_pool() -> learning_data_access::postgres::Pool {
+        learning_data_access::postgres::lazy_pool("postgres://ple:ple@127.0.0.1:1/ple")
+            .expect("lazy pool")
+    }
+
+    fn unreachable_objects() -> S3ObjectStore {
+        use objects::minio::{EndpointConfig, client};
+        use objects::s3::BucketNames;
+        S3ObjectStore::new(
+            client(&EndpointConfig {
+                endpoint_url: "http://127.0.0.1:1".to_string(),
+                region: "us-east-1".to_string(),
+                access_key_id: "unused".to_string(),
+                secret_access_key: "unused".to_string(),
+            }),
+            BucketNames {
+                public_assets: "public".to_string(),
+                private_content: "private".to_string(),
+                student_records: "student".to_string(),
+                temp_processing: "temp".to_string(),
+            },
+        )
+    }
+
+    #[tokio::test]
+    async fn load_blueprint_rejects_a_bad_checksum_before_database_lookup() {
+        let pool = unreachable_pool();
+        let state = BlueprintCourseRouteState {
+            sessions: Arc::new(PostgresSessionStore::new(pool.clone())),
+            blueprints: PostgresBlueprintCourseStore::new(pool.clone()),
+            course_publication: PostgresCourseBlueprintPublicationStore::new(pool.clone()),
+            lineage: PostgresBlueprintLineageStore::new(pool.clone()),
+            question_library: PostgresQuestionLibraryStore::new(pool),
+            objects: unreachable_objects(),
+        };
+        let response = load_blueprint(
+            State(state),
+            HeaderMap::new(),
+            Path("BPABCDEFG0".to_string()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
     #[test]
     fn hidden_store_failures_remain_concealed() {
         for error in [

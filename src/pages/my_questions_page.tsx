@@ -10,7 +10,7 @@ import {
   type RecordListState,
 } from "../components/record_list/record_list";
 import { RecordPageControls } from "../components/record_list/record_page_controls";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
+import { buildRoutePath } from "../ribbon/ribbon_route_path";
 import type { QuestionLibraryBrowseRow } from "./library_page_model";
 import {
   FIRST_MY_QUESTIONS_POSITION,

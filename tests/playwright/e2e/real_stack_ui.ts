@@ -160,7 +160,7 @@ export async function restoreViewportOrigin(page: Page): Promise<void> {
 
 export async function signOutVisible(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Profile", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sign Out", exact: true }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
   ).toBeVisible();

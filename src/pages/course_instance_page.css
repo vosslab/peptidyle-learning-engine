@@ -12,7 +12,7 @@
   gap: var(--ple-space-5);
   align-items: end;
   padding-block-end: var(--ple-space-3);
-  border-block-end: 1px solid var(--ple-border-strong);
+  border-block-end: 1px solid color-mix(in srgb, var(--ple-ink) 12%, transparent);
 }
 
 .course-instance-page__section-heading h2,
@@ -29,7 +29,7 @@
 .course-instance-page__details {
   margin-block-start: var(--ple-section-gap);
   padding-block-start: var(--ple-section-gap);
-  border-block-start: 1px solid var(--ple-border-strong);
+  border-block-start: 1px solid color-mix(in srgb, var(--ple-ink) 12%, transparent);
 }
 
 .course-instance-page__detail-grid {

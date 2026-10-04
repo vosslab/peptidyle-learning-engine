@@ -104,8 +104,14 @@
 
 .record-list__semantic-frame {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ple-space-3);
+}
+
+/* Text-only records use the full row. An actual image earns a media track;
+ * :where keeps gallery's single-column presentation in control. */
+.record-list__semantic-frame:where(:has(> .record-list__media)) {
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .record-list__content {
@@ -153,7 +159,13 @@
   align-items: center;
 }
 
+/* Keep short labels intact; a value can move below its label when narrow. */
+.record-list__fact {
+  flex-wrap: wrap;
+}
+
 .record-list__fact-label {
+  overflow-wrap: normal;
   color: var(--ple-ink);
   font-weight: 700;
 }
@@ -200,11 +212,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.record-list__action--primary {
-  background: var(--ple-accent);
-  color: var(--ple-on-action);
 }
 
 .record-list__body {

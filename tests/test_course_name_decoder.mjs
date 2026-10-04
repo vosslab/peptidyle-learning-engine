@@ -18,6 +18,7 @@ function courseSummary(shortName, longName) {
     longName,
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "instructor",
+    lifecycleState: "active",
   };
 }
 

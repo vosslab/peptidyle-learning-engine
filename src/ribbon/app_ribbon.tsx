@@ -13,7 +13,11 @@ import {
 } from "solid-js";
 
 import "./app_ribbon.css";
+import "./ribbon_surfaces.css";
+import "./ribbon_tier_one.css";
+import "./ribbon_tier_two.css";
 import "./app_ribbon_density.css";
+import "./ribbon_content_surface.css";
 
 import type {
   RibbonActionDescriptor,
@@ -183,6 +187,7 @@ interface RibbonOverflowCueState {
   /** Changes for observed layout mutations/resizes, including cue-stable resizes. */
   readonly geometryRevision: Accessor<number>;
   readonly setRow: (element: HTMLElement) => void;
+  readonly scroll: (direction: -1 | 1) => void;
 }
 
 /**
@@ -237,21 +242,42 @@ function createRibbonOverflowCueState(): RibbonOverflowCueState {
     });
   });
 
-  return { atEnd, atStart, geometryRevision, setRow };
+  function scroll(direction: -1 | 1): void {
+    const element = row();
+    if (element === undefined) return;
+    // Advance one readable viewport with overlap so the next choices retain
+    // context. Ordinary scrolling never changes the selected destination.
+    const inset = Number.parseFloat(getComputedStyle(element).scrollPaddingInlineStart) || 0;
+    element.scrollBy({
+      left: direction * Math.max(1, element.clientWidth - 2 * inset),
+      behavior: "instant",
+    });
+  }
+
+  return { atEnd, atStart, geometryRevision, setRow, scroll };
 }
 
-function RibbonOverflowCues(props: { readonly state: RibbonOverflowCueState }): JSX.Element {
+function RibbonOverflowCues(props: {
+  readonly state: RibbonOverflowCueState;
+  readonly label: string;
+}): JSX.Element {
   return (
     <>
-      <span
+      <button
+        type="button"
         class="ple-app-ribbon__overflow-cue ple-app-ribbon__overflow-cue--start"
-        aria-hidden="true"
+        aria-label={`Scroll ${props.label} backward`}
+        disabled={!props.state.atStart()}
+        onClick={() => props.state.scroll(-1)}
         data-ribbon-overflow-cue="start"
         data-ribbon-overflow-active={props.state.atStart() ? "true" : undefined}
       />
-      <span
+      <button
+        type="button"
         class="ple-app-ribbon__overflow-cue ple-app-ribbon__overflow-cue--end"
-        aria-hidden="true"
+        aria-label={`Scroll ${props.label} forward`}
+        disabled={!props.state.atEnd()}
+        onClick={() => props.state.scroll(1)}
         data-ribbon-overflow-cue="end"
         data-ribbon-overflow-active={props.state.atEnd() ? "true" : undefined}
       />
@@ -519,18 +545,18 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
           ref={setTopRow}
         >
           <div class="ple-app-ribbon__context-identity">
-            <span
-              class="ple-app-ribbon__user-role"
-              data-user-role={props.model.context.productLabel.toLowerCase()}
-            >
-              {props.model.context.productLabel}
-            </span>
             <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
               <span class="ple-app-ribbon__brand-mark" aria-hidden="true">
                 P
               </span>
               <span class="ple-app-ribbon__brand-word">Peptidyle</span>
             </a>
+            <span
+              class="ple-app-ribbon__user-role"
+              data-user-role={props.model.context.productLabel.toLowerCase()}
+            >
+              {props.model.context.productLabel}
+            </span>
           </div>
           <div class="ple-app-ribbon__tabs-frame">
             <nav class="ple-app-ribbon__tabs" aria-label="Ribbon tabs" ref={setTabRow}>
@@ -544,10 +570,10 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
                 )}
               </For>
             </nav>
-            <RibbonOverflowCues state={topOverflow} />
+            <RibbonOverflowCues state={topOverflow} label="Ribbon tabs" />
           </div>
         </section>
-        <RibbonOverflowCues state={topOverflow} />
+        <RibbonOverflowCues state={topOverflow} label="Ribbon tabs" />
       </section>
       <span class="ple-app-ribbon__profile-endcap">
         <Show when={props.displayMode !== undefined && props.onSwitchDisplayMode !== undefined}>
@@ -639,7 +665,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             )}
           </For>
         </nav>
-        <RibbonOverflowCues state={taskOverflow} />
+        <RibbonOverflowCues state={taskOverflow} label="Ribbon sections" />
       </section>
     </section>
   );

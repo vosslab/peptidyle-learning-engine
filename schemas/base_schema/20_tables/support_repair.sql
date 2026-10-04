@@ -3,15 +3,15 @@
 
 SET LOCAL ROLE ple_private_owner;
 
--- Narrow, audited repair-capability registry.  A capability is a request for
--- one existing Course-local Student roster profile; it never confers Course
--- membership. Course/content repair authority remains future implementation.
+-- Narrow, audited repair-capability registry. A capability names one existing
+-- Student roster profile or one Course Instance. It never confers Course
+-- membership. Content repair names one Assessment in that Course.
 CREATE TABLE ple_private.support_repair_capability (
     support_repair_capability_id uuid PRIMARY KEY,
     sysadmin_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     sysadmin_role ple_data.user_role NOT NULL DEFAULT 'sysadmin',
     issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    resource_class text NOT NULL DEFAULT 'student',
+    resource_class ple_data.support_repair_resource_class NOT NULL DEFAULT 'student',
     resource_path text NOT NULL CHECK (
         resource_path = btrim(resource_path)
         AND char_length(resource_path) BETWEEN 1 AND 512
@@ -36,7 +36,7 @@ CREATE TABLE ple_audit.support_repair_capability_event (
     support_repair_capability_id uuid NOT NULL REFERENCES ple_private.support_repair_capability (support_repair_capability_id),
     sysadmin_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    resource_class text NOT NULL DEFAULT 'student',
+    resource_class ple_data.support_repair_resource_class NOT NULL DEFAULT 'student',
     resource_path text NOT NULL CHECK (resource_path = btrim(resource_path)
         AND char_length(resource_path) BETWEEN 1 AND 512 AND resource_path !~ '[[:cntrl:]]'),
     purpose text NOT NULL CHECK (purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000

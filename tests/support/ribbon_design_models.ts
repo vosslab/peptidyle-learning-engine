@@ -2,9 +2,10 @@
 
 import type { UserRole } from "../../generated/api/UserRole";
 import type { RouteParamName } from "../../src/navigation/route_params";
-import type { RibbonScope } from "../../src/route_contract";
+import { ROUTE_CONTRACT, type RibbonScope } from "../../src/route_contract";
+import { buildRoutePath } from "../../src/ribbon/ribbon_route_path";
 import {
-  buildRoutePath,
+  deriveRibbonModel,
   type RibbonControlModel,
   type RibbonModel,
   type RibbonTaskAreaModel,
@@ -32,26 +33,22 @@ export const RIBBON_DESIGN_DECISION = {
   selectedTreatment: "fieldstation",
   retainedAlternative: "atlas",
   rationale: [
-    "Fieldstation's continuous surface and restrained course signal unify the rows:",
-    "Context is quiet, Tabs carry the strongest rhythm, and Tasks form a lighter",
-    "grouped work band. Selection uses weight, underline, and wash without geometry",
-    "change. Atlas remains credible, but its corner slash is visually ambiguous and",
-    "its cell divisions weaken the single-surface composition.",
+    "Tier 1 folders float on the Ribbon plane, with the open folder sharing its surface.",
+    "Tier 2 rectangular tabs sit on the content edge, and the selected tab joins content.",
+    "Shapes and surfaces establish hierarchy while selection preserves geometry.",
+    "Atlas remains a historical comparison, not a second production styling mode.",
   ].join(" "),
   productionNonNegotiables: [
-    "One surface with one outer bottom edge.",
-    "Preserve the where, which, then work hierarchy.",
-    "No state-driven geometry, with at least two non-color-compatible selection channels.",
-    [
-      "Labels remain primary and desktop Instructor controls remain direct; later",
-      "icons support labels.",
-    ].join(" "),
-    "All-theme signal migrates to exactly three semantic accent placements.",
+    "Floating Tier 1 folders and content-connected Tier 2 rectangles.",
+    "Preserve useful route ancestry through the shared breadcrumb model.",
+    "Selection preserves control geometry and reserved row heights.",
+    "Labels remain primary and widths follow their content.",
+    "Light and dark themes preserve open-versus-recessed surface relationships.",
     "Forced-color, focus, reduced-motion, and overflow reachability remain preserved.",
   ],
   productionReadinessBoundary: [
-    "Fieldstation is the direction, not already production-ready: literal spacing",
-    "becomes tokens and accent use narrows in the final treatment.",
+    "Static specimens support visual review. Routed browser and real-service",
+    "evidence remain separate acceptance requirements.",
   ].join(" "),
 } as const satisfies {
   readonly selectedTreatment: RibbonDesignTreatment;
@@ -80,7 +77,7 @@ const CANONICAL_PARAMS = {
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
-const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
+const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign Out" } as const;
 const SHORT_COURSE_NAME = "BCHM 355";
 export const VERY_LONG_COURSE_TITLE = [
   "Molecular Biology of the Cell: Evidence, Explanation, and Experimental Design",
@@ -334,20 +331,20 @@ function cloneWithCourseTitle(title: string): RibbonModel {
   });
 }
 
+function courseAppearanceModel(): RibbonModel {
+  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === "courseAppearance");
+  if (route === undefined) throw new Error("Course Appearance route is missing.");
+  return deriveRibbonModel(
+    { route, params: CANONICAL_PARAMS },
+    { userRole: "instructor" },
+    { courseShortName: SHORT_COURSE_NAME, courseLifecycleState: "active" },
+  );
+}
+
 /** Explicit state specimens in addition to the nine stable schemas. */
 export const RIBBON_DESIGN_STATE_SPECIMENS = {
   selectedAndUnselected: RIBBON_DESIGN_SCHEMAS.courseInstructor,
-  courseAppearance: model(
-    "courseInstance",
-    "instructor",
-    [control("courses"), control("questions"), control("productAssessments", { selected: true })],
-    [area("courseSetup", [control("gradeSettings"), control("appearance", { selected: true })])],
-    "reading",
-    {
-      scopeLabel: SHORT_COURSE_NAME,
-      signOutAction: SIGN_OUT,
-    },
-  ),
+  courseAppearance: courseAppearanceModel(),
   emptyTaskRow: RIBBON_DESIGN_SCHEMAS.courseStudent,
   populatedTaskRow: RIBBON_DESIGN_SCHEMAS.productInstructor,
   veryLongCourseTitle: cloneWithCourseTitle(VERY_LONG_COURSE_TITLE),

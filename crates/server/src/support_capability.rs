@@ -1,9 +1,9 @@
 //! Direct-Instructor issuance and revocation of closed support capabilities.
 //!
-//! Only existing canonical Course-local Student roster profiles are currently
-//! supported. SQL checks the original issuer's current exact Course authority
-//! at issuance and use. Course/content support remains future implementation.
-//! There is no generic resource-reading or repair route.
+//! Student roster profiles, exact Course identity, and one Course Assessment
+//! are supported. SQL checks the original issuer's current exact Course
+//! authority at issuance and use. There is no generic resource reader and no
+//! content editor.
 
 use crate::auth::{AuthError, resolve_session};
 use axum::{
@@ -17,7 +17,7 @@ use learning_data_access::{
     IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError, SupportRepairCapabilityStore,
     postgres::{PostgresSessionStore, PostgresSupportCapabilityStore},
 };
-use question_model::{CourseInstanceId, UserRole};
+use question_model::{AssessmentId, CourseInstanceId, UserRole};
 use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
@@ -36,6 +36,14 @@ pub fn support_capability_router(
         .route(
             "/api/support-repair-capabilities/{capability_id}/revoke",
             post(revoke_repair),
+        )
+        .route(
+            "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}",
+            get(read_repair_course),
+        )
+        .route(
+            "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}/assessments/{assessment_id}",
+            get(read_repair_content),
         )
         .route(
             "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}/roster/{roster_id}",
@@ -70,6 +78,70 @@ async fn read_repair_roster_entry(
         .await
     {
         Ok(Some(entry)) => crate::auth::no_store(Json(entry).into_response()),
+        Ok(None) => concealed(),
+        Err(error) => store_error_response(error),
+    }
+}
+
+/// ASVS 8.2.1/8.2.2/8.2.3/14.2.6/16.5.1: the Course projection is consumed only
+/// by the named capability. A missing or mismatched capability is concealed.
+async fn read_repair_course(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path((capability_id, course_instance_id)): Path<(String, String)>,
+) -> Response {
+    let capability_id = match Uuid::parse_str(&capability_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let course = match CourseInstanceId::from_str(&course_instance_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let token = match sysadmin_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .support
+        .read_course_repair_support(token, capability_id, course)
+        .await
+    {
+        Ok(Some(course)) => crate::auth::no_store(Json(course).into_response()),
+        Ok(None) => concealed(),
+        Err(error) => store_error_response(error),
+    }
+}
+
+/// ASVS 8.2.1/8.2.2/8.2.3/14.2.6/16.5.1: the Assessment projection is consumed
+/// only by the named capability. A missing or mismatched capability is concealed.
+async fn read_repair_content(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path((capability_id, course_instance_id, assessment_id)): Path<(String, String, String)>,
+) -> Response {
+    let capability_id = match Uuid::parse_str(&capability_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let course = match CourseInstanceId::from_str(&course_instance_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let assessment = match AssessmentId::from_str(&assessment_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let token = match sysadmin_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .support
+        .read_course_content_repair_support(token, capability_id, course, assessment)
+        .await
+    {
+        Ok(Some(content)) => crate::auth::no_store(Json(content).into_response()),
         Ok(None) => concealed(),
         Err(error) => store_error_response(error),
     }

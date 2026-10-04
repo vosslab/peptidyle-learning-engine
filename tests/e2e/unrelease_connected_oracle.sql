@@ -31,16 +31,15 @@ SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'regular_assignment'
 ), 'hex') AS race_snapshot_id \gset
 
--- Stable fixture identities keep the assertions readable without introducing
--- a product-side test marker or alternate model.
+-- Capture minted Account identities so earlier acceptance fixtures cannot
+-- collide with the permanent public-ID registry.
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.account (account_id, user_role, created_at)
 VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp())
 RETURNING account_id AS instructor_id \gset
 SELECT set_config('ple.test_unrelease_instructor_id', :'instructor_id', false);
-SELECT 'U0000001' || ple_private.crockford_checksum_character('U0000001') AS student_account_id \gset
 INSERT INTO ple_private.account (account_id, user_role, created_at)
-VALUES (:'student_account_id', 'student', pg_catalog.transaction_timestamp())
+VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp())
 RETURNING account_id AS student_id \gset
 SELECT set_config('ple.test_unrelease_student_id', :'student_id', false);
 

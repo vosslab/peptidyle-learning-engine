@@ -72,22 +72,24 @@ async function ribbonEvidence(page, profileId) {
       const activeCues = cues.filter(
         (cue) => cue.getAttribute("data-ribbon-overflow-active") === "true",
       );
-      const controls = [...row.querySelectorAll("a,button")].map((control) => {
-        const rect = control.getBoundingClientRect();
-        return {
-          height: rect.height,
-          label: control.textContent?.trim(),
-          left: rect.left,
-          right: rect.right,
-          width: rect.width,
-        };
-      });
+      const controls = [...row.querySelectorAll("a,button:not([data-ribbon-overflow-cue])")].map(
+        (control) => {
+          const rect = control.getBoundingClientRect();
+          return {
+            height: rect.height,
+            label: control.textContent?.trim(),
+            left: rect.left,
+            right: rect.right,
+            width: rect.width,
+          };
+        },
+      );
       return {
         id: row.dataset.ribbonRow,
         activeCueCount: activeCues.length,
         cues: cues.map((cue) => ({
-          ariaHidden: cue.getAttribute("aria-hidden"),
-          pointerEvents: getComputedStyle(cue).pointerEvents,
+          button: cue instanceof HTMLButtonElement,
+          label: cue.getAttribute("aria-label"),
         })),
         controls,
         overflows: row.scrollWidth > row.clientWidth,
@@ -206,14 +208,14 @@ function assertResponsiveRows(evidence, profile, expectedWidth) {
     assert.equal(
       row.frameContainsCue,
       true,
-      `${profile}: cues are paint siblings, not scrolling content`,
+      `${profile}: scroll controls stay outside the scrolling content`,
     );
     for (const cue of row.cues) {
-      assert.equal(cue.ariaHidden, "true", `${profile}: clipping cue is not announced`);
-      assert.equal(
-        cue.pointerEvents,
-        "none",
-        `${profile}: clipping cue cannot intercept a control`,
+      assert.equal(cue.button, true, `${profile}: overflow affordance is an operable button`);
+      assert.match(
+        cue.label,
+        /^Scroll Ribbon (tabs|sections) (backward|forward)$/,
+        `${profile}: scroll action has a directional accessible name`,
       );
     }
     if (row.overflows) {
@@ -248,10 +250,42 @@ function assertCanonicalDesktopTopBar(evidence) {
     );
   }
   assert.equal(
-    topRow.controls.some((control) => control.label === "Sign out"),
+    topRow.controls.some((control) => control.label === "Sign Out"),
     false,
     "instructor_desktop: Sign out is not scattered into the main top bar",
   );
+}
+
+async function assertOverflowControls(page, profile) {
+  const forward = page.getByRole("button", { name: "Scroll Ribbon sections forward" });
+  if (!(await forward.isVisible())) return;
+  const row = page.locator('[data-ribbon-row="tasks"]');
+  const before = await row.evaluate((element) => ({
+    scroll: element.scrollLeft,
+    selection: element.querySelector('[aria-current="page"]')?.getAttribute("href"),
+  }));
+  await forward.click();
+  await page.waitForFunction(
+    (previous) => document.querySelector('[data-ribbon-row="tasks"]').scrollLeft > previous,
+    before.scroll,
+  );
+  const advanced = await row.evaluate((element) => element.scrollLeft);
+  const backward = page.getByRole("button", { name: "Scroll Ribbon sections backward" });
+  await backward.focus();
+  await backward.press("Enter");
+  await page.waitForFunction(
+    (previous) => document.querySelector('[data-ribbon-row="tasks"]').scrollLeft < previous,
+    advanced,
+  );
+  assert.equal(
+    await row.locator('[aria-current="page"]').getAttribute("href"),
+    before.selection,
+    `${profile}: pointer and keyboard scrolling reveal choices without changing selection`,
+  );
+  await row.evaluate((element, previous) => {
+    element.scrollLeft = previous;
+  }, before.scroll);
+  await flush(page);
 }
 
 async function assertPinnedOverflowCues(page, profile) {
@@ -463,6 +497,7 @@ try {
     if (profile.id === "instructor_desktop") {
       assertCanonicalDesktopTopBar(baseline);
     }
+    await assertOverflowControls(page, profile.id);
     await assertPinnedOverflowCues(page, profile.id);
     await assertForcedColorsAffordances(page, profile.id);
     await assertTierOneKeyboardNavigation(page, profile.id);

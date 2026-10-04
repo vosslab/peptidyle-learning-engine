@@ -378,9 +378,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Ribbon should remain in the same location and use the same overall structure while navigating.
 - Navigation choices should remain in predictable locations as users move between related pages.
 - Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course, Assessment, Question, or other item does not change the Tier 2 choices or their order.
-- Tier 1 Ribbon choices use compact folder-tab styling. The selected Tier 1 tab visually connects to the Tier 2 row beneath it.
-- Tier 2 Ribbon choices use smaller, simpler tabs than Tier 1. Selection should be clear without making the selected tab substantially larger.
+- Tier 1 is a continuous colored Ribbon/bar. Its selected file-folder tab emerges through a contrasting surface and curved shoulders; unselected choices stay integrated into the bar.
+- Tier 1 uses a compact tab silhouette around its label, with curved transitions into the Ribbon surface below it. Keep the Tier 1 surface separate from Tier 2; individual choices are not miniature folders or enclosed cards.
+- The selected Tier 1 reads as the current/open tab. Choose its surface relationship to the colored bar in light and dark themes rather than fixing selection to a darker or lighter color.
+- Tier 2 uses simple rectangular tabs with square corners immediately against the content surface. Its selected tab flows into that surface with a matching background and open bottom edge; unselected tabs stay integrated into their row.
+- Active and inactive tabs in both Ribbon tiers must be clearly distinguishable by surface contrast in every theme and display mode. Inactive tabs visibly recede while retaining readable, enabled-looking labels; text accessibility contrast is a separate requirement.
+- Verify selection visibility from fresh light and dark renders across themes. The active tab should be obvious at a glance without close inspection of its curve, border, or surface connection.
+- Selection preserves each tab's basic geometry and the reserved row heights. Tier 1 widths follow their labels; Tier 2 labels may naturally need more width. Neither tier becomes substantially larger when selected.
+- Keep these relationships on narrow screens, use the available Tier 2 width, keep the selected item visible, and make additional choices discoverable through overflow/scrolling cues.
+- Use modern restrained styling. Reference images illustrate structure rather than gradients, gloss, heavy shadows, bevels, pills, or other decoration.
+- Judge visual work from fresh renders of the whole composition: proportions, spacing, silhouettes, surface transitions, edges, and hierarchy. Requirements and tests protect behavior; visual completion means the interface looks finished and intentional.
 - Tier 1 and Tier 2 tab geometry and hierarchy stay consistent across roles and themes; themes change their colors rather than their structure.
+- The selected Tier 1 tab and the selected Tier 2 control stay selected when the current page is a descendant of those choices.
 - Changing a Ribbon selection should change the content below the Ribbon without moving the main content area up or down.
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
@@ -448,7 +457,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Breadcrumbs preserve useful intermediate navigation levels rather than collapsing the path to only broad and current pages.
 - Include each meaningful ancestor that gives the user a useful place to navigate back to.
 - Ribbon Tier 1 and Tier 2 selections remain in the breadcrumb list when the current page is a descendant of those navigation choices.
-- Avoid duplicate breadcrumb levels when two adjacent levels would resolve to the same destination or convey the same navigation context.
+- Breadcrumbs represent the navigation hierarchy rather than a unique URL. Tier 1 and Tier 2 stay in the trail even when they link to the same page. Collapse two adjacent levels only when they show the same name.
 - See **Ribbon and page layout** for the overall page-position rules.
 
 ### Instructor interface

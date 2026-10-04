@@ -157,6 +157,7 @@ content = {
             "submitted_response": "after_submit",
             "question_answer": "never",
             "question_answer_explanation": "never", "class_statistics": "never",
+            "hints": "never", "worked_solutions": "never",
         },
     },
 }

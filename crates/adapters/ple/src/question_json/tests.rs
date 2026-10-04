@@ -380,6 +380,8 @@ fn supported_author_javascript_libraries_are_explicitly_recorded_and_reviewable(
     document["externalResources"] = json!([
         {"url": "https://example.edu/notes", "kind": "link"},
         {"url": "https://cdn.example.org/diagram.svg", "kind": "image"},
+        {"url": "https://example.edu/widget.js", "kind": "script"},
+        {"url": "https://example.edu/theme.css", "kind": "stylesheet"},
     ]);
     let recorded = serde_json::to_vec(&document).expect("recorded source");
     PleQuestionJsonDocument::parse(&recorded).expect("recorded rdkit source parses");

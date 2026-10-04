@@ -3,6 +3,7 @@
 // does not build dist/ or replace real-stack browser acceptance.
 
 import assert from "node:assert/strict";
+import { themeTokens } from "../../src/appearance/theme_registry.ts";
 
 import { assertDenseTopBarKeyboardTraversal } from "./ribbon_dense_top_bar_keyboard.mjs";
 import { assertNarrowRoutedShell } from "./ribbon_narrow_routed_shell.mjs";
@@ -22,7 +23,7 @@ try {
   await page.evaluate(() => window.ribbonShell.currentNavigate("/"));
   await waitForPath(page, "current-production", "/");
   const currentCase = caseLocator(page, "current-production");
-  await currentCase.locator(".site-header").waitFor({ state: "visible" });
+  await currentCase.getByText("Preparing your learning space", { exact: true }).waitFor();
   assert.equal(
     await currentCase.locator(".ple-app-ribbon").count(),
     0,
@@ -30,13 +31,13 @@ try {
   );
   assert.equal(
     await currentCase.locator(".site-header").count(),
-    1,
-    "the synthetic loading surface retains its identity header",
+    0,
+    "the loading surface waits for authoritative appearance before painting chrome",
   );
   assert.equal(
     await currentCase.locator('.sr-only[role="status"][aria-live="polite"]').count(),
     1,
-    "the synthetic loading surface retains the sign-out live region",
+    "the loading surface announces that appearance is being prepared",
   );
   await page.evaluate(() => window.ribbonShell.releaseSession());
   await currentCase.locator(".ple-app-ribbon").waitFor({ state: "visible" });
@@ -148,6 +149,10 @@ try {
     [currentCase.locator('[data-ribbon-control="courses"]'), "the Courses Tab"],
     [currentCase.locator('[data-ribbon-control="questions"]'), "the Questions Tab"],
     [currentCase.locator('[data-ribbon-control="productAssessments"]'), "the Assessments Tab"],
+    [
+      currentCase.getByRole("button", { name: "Switch to Dark", exact: true }),
+      "the display-mode control",
+    ],
     [currentCase.getByRole("button", { name: "Profile" }), "the Profile control"],
     [
       currentCase.locator('[data-ribbon-control="myBlueprintCourses"]'),
@@ -176,7 +181,7 @@ try {
   );
   assert.deepEqual(
     await deferredBreadcrumb.locator('nav[aria-label="Breadcrumb"] li').allTextContents(),
-    ["Home", "Course"],
+    ["Home", "Courses", "Course"],
     "a deferred course scope exposes a stable human-readable current label",
   );
   assert.equal(
@@ -192,11 +197,6 @@ try {
     await currentCase.locator('.ple-app-ribbon[data-ribbon-scope="courseInstance"]').count(),
     1,
     "the current-source App harness admits the fixed course Ribbon immediately",
-  );
-  assert.equal(
-    await currentCase.locator("[data-course-instance-id]").count(),
-    0,
-    "unresolved current-source harness course scope has no fabricated course theme ID",
   );
   assert.equal(
     await page.evaluate(() => window.ribbonShell.scopeRequestCount("CI7K3M2QAZ")),
@@ -219,16 +219,8 @@ try {
   await page.evaluate(() => window.ribbonShell.releaseCourseScope("CI7K3M2QAZ"));
   await page.waitForFunction(
     () =>
-      document
-        .querySelector('[data-m10-case="current-production"] [data-course-instance-id]')
-        ?.getAttribute("data-course-instance-id") === "CI7K3M2QAZ",
-    undefined,
-    { timeout: 3_000 },
-  );
-  await page.waitForFunction(
-    () =>
       document.querySelector(
-        '[data-m10-case="current-production"] nav[aria-label="Breadcrumb"] [aria-current="page"]',
+        '[data-m10-case="current-production"] nav[aria-label="Breadcrumb"] [data-course-breadcrumb-measure]',
       )?.textContent === "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)",
     undefined,
     { timeout: 3_000 },
@@ -240,9 +232,9 @@ try {
     "the resolved deep route renders one shell-owned breadcrumb landmark",
   );
   assert.deepEqual(
-    await currentCase.locator('nav[aria-label="Breadcrumb"] li').allInnerTexts(),
-    ["Home", "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)"],
-    "the resolved Course root omits its public ID from the human-readable current title",
+    (await currentCase.locator('nav[aria-label="Breadcrumb"] li').allInnerTexts()).slice(0, -1),
+    ["Home", "Courses", "My Active Courses"],
+    "the resolved Course keeps both Instructor collection ancestors",
   );
   assert.equal(
     await currentCase.locator('nav[aria-label="Breadcrumb"] [aria-current="page"]').count(),
@@ -595,7 +587,7 @@ try {
   await page.evaluate(() => window.ribbonShell.currentNavigate("/instructor"));
   await waitForPath(page, "current-production", "/instructor");
   await currentCase.getByRole("button", { name: "Profile" }).click();
-  await currentCase.getByRole("menuitem", { name: "Sign out" }).click();
+  await currentCase.getByRole("menuitem", { name: "Sign Out" }).click();
   await waitForPath(page, "current-production", "/sign-in");
   assert.equal(
     await currentCase.locator(".ple-app-ribbon").count(),
@@ -702,9 +694,7 @@ try {
 
   await page.evaluate(() => window.ribbonShell.fixtureNavigate("/courses/CI7K3M2QAZ"));
   await waitForPath(page, "fixture-shell", "/courses/CI7K3M2QAZ");
-  await fixtureCase
-    .locator('[data-course-instance-id="CI7K3M2QAZ"]')
-    .waitFor({ state: "attached" });
+  await page.locator('html[data-theme="grass"]').waitFor({ state: "attached" });
   const fixtureThemeScope = page.locator("html");
   assert.equal(
     await fixtureThemeScope.getAttribute("data-theme"),
@@ -712,14 +702,14 @@ try {
     "fixture begins from its route-supplied course appearance",
   );
   await fixtureCase.getByRole("button", { name: "Present Ocean course theme" }).click();
-  await fixtureThemeScope.evaluate((scope) => {
+  await fixtureThemeScope.evaluate((scope, expectedCanvas) => {
     if (scope.getAttribute("data-theme") !== "ocean") {
       throw new Error("presentation setter did not update data-theme");
     }
-    if (getComputedStyle(scope).getPropertyValue("--ple-theme-canvas").trim() !== "#ddeff5") {
+    if (getComputedStyle(scope).getPropertyValue("--ple-theme-canvas").trim() !== expectedCanvas) {
       throw new Error("presentation setter did not update the course theme variables");
     }
-  });
+  }, themeTokens("ocean").palette.canvas);
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
 
   await page.evaluate(() => window.ribbonShell.throwFixtureContent(true));
@@ -806,7 +796,7 @@ try {
   await fixtureProfile.focus();
   await page.keyboard.press("ArrowDown");
   const fixtureMenu = fixtureCase.getByRole("menu", { name: "Profile menu" });
-  await fixtureMenu.getByRole("menuitem", { name: "Sign out" }).click();
+  await fixtureMenu.getByRole("menuitem", { name: "Sign Out" }).click();
   await flush(page);
   assert.equal(
     await page.evaluate(() => window.ribbonShell.signOutActions()),

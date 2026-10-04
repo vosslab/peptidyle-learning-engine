@@ -59,3 +59,9 @@ mod blueprint_course_postgres_discovery;
 
 #[path = "blueprint_course_postgres/question_library.rs"]
 mod blueprint_course_postgres_question_library;
+
+#[path = "blueprint_course_postgres/question_library_import.rs"]
+mod blueprint_course_postgres_question_library_import;
+
+#[path = "blueprint_course_postgres/question_library_stewardship.rs"]
+mod blueprint_course_postgres_question_library_stewardship;

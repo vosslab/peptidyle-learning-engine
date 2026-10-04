@@ -9,8 +9,8 @@ import {
   type RouteContract,
   type RouteId,
 } from "../../src/route_contract";
+import { buildRoutePath } from "../../src/ribbon/ribbon_route_path";
 import {
-  buildRoutePath,
   deriveRibbonModel,
   type DeclaredRibbonRouteParams,
 } from "../../src/ribbon/ribbon_contract";
@@ -255,7 +255,7 @@ function model(
   };
 }
 
-const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
+const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign Out" } as const;
 
 /** All exact scope-by-role schemas, with catalog-valid controls and real declared destinations. */
 export const M6_RIBBON_FIXTURES = {

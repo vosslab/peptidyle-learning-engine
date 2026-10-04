@@ -45,7 +45,7 @@ const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
   "circle-question": "Quiz",
   "circle-user": "Profile",
   "file-signature": "Exam",
-  "right-from-bracket": "Sign out",
+  "right-from-bracket": "Sign Out",
   "box-archive": "My Inactive Courses",
   clock: "Assessments Due Soon",
   copy: "My Assessment Templates",

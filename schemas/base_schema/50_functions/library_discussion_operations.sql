@@ -155,8 +155,11 @@ BEGIN
     END IF;
     INSERT INTO ple_data.library_improvement_thread(
         library_improvement_thread_id, object_kind, public_object_id, creation_revision_number,
-        created_by_account_id, created_at
-    ) VALUES (v_thread_id, p_object_kind::ple_data.library_object_kind, p_public_object_id, v_creation_revision_number, v_actor, v_now);
+        created_by_account_id, created_at, updated_at
+    ) VALUES (
+        v_thread_id, p_object_kind::ple_data.library_object_kind, p_public_object_id,
+        v_creation_revision_number, v_actor, v_now, v_now
+    );
     INSERT INTO ple_data.library_improvement_post(
         post_id, library_improvement_thread_id, author_account_id, author_display_name, body, created_at
     ) VALUES (pg_catalog.gen_random_uuid(), v_thread_id, v_actor, v_name, p_body, v_now);

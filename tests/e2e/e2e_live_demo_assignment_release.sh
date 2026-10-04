@@ -24,7 +24,7 @@ assert_workspace() {
 	python3 -c '
 import json, sys
 value=json.loads(sys.argv[1]); status=sys.argv[2]; question_revision=json.loads(sys.argv[3])
-required={"id","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
+required={"id","assessmentEditNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
 if set(value) != required or value["status"] != status: raise SystemExit("workspace projection is not current and closed")
 if status == "unreleased" and value["questions"] and value["questions"][0].get("publishedQuestionRevisionTuple") != question_revision:
     raise SystemExit("workspace did not retain the exact Question Revision pin")
@@ -36,9 +36,9 @@ assert_unrelease_impact() {
 	python3 -c '
 import json, sys
 value=json.loads(sys.argv[1]); title=sys.argv[2]; edit=sys.argv[3]
-required={"confirmationTitle","editNumber","attemptCount","submissionCount","gradeCount"}
+required={"confirmationTitle","assessmentEditNumber","attemptCount","submissionCount","gradeCount"}
 if set(value) != required: raise SystemExit("Unrelease impact is not a closed aggregate projection")
-if value["confirmationTitle"] != title or value["editNumber"] != edit:
+if value["confirmationTitle"] != title or value["assessmentEditNumber"] != edit:
     raise SystemExit("Unrelease impact did not retain the current title and Edit Number")
 if any(not isinstance(value[key], int) or value[key] != 0 for key in ("attemptCount", "submissionCount", "gradeCount")):
     raise SystemExit("new Assignment unexpectedly has Student Work in its Unrelease impact")
@@ -52,17 +52,17 @@ import json, sys
 value=json.loads(sys.argv[1]); title=sys.argv[2]; previous_edit=sys.argv[3]; question_revision=json.loads(sys.argv[4])
 if set(value) != {"assessment", "deleted"}: raise SystemExit("Unrelease response is not a closed receipt")
 assignment=value["assessment"]; deleted=value["deleted"]
-workspace={"id","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
-impact={"confirmationTitle","editNumber","attemptCount","submissionCount","gradeCount"}
+workspace={"id","assessmentEditNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
+impact={"confirmationTitle","assessmentEditNumber","attemptCount","submissionCount","gradeCount"}
 if set(assignment) != workspace or set(deleted) != impact:
     raise SystemExit("Unrelease receipt contains an obsolete Assessment projection")
 if assignment["status"] != "unreleased" or assignment["title"] != title:
     raise SystemExit("Unrelease did not return the current Unreleased Assessment")
-if not isinstance(assignment["editNumber"], str) or int(assignment["editNumber"]) != int(previous_edit) + 1:
+if not isinstance(assignment["assessmentEditNumber"], str) or int(assignment["assessmentEditNumber"]) != int(previous_edit) + 1:
     raise SystemExit("Unrelease did not advance the Assessment Edit Number")
 if assignment["questions"] and assignment["questions"][0].get("publishedQuestionRevisionTuple") != question_revision:
     raise SystemExit("Unrelease lost the retained Question Revision pin")
-if (deleted["confirmationTitle"] != title or deleted["editNumber"] != assignment["editNumber"]
+if (deleted["confirmationTitle"] != title or deleted["assessmentEditNumber"] != assignment["assessmentEditNumber"]
     or any(not isinstance(deleted[key], int) or deleted[key] != 0 for key in ("attemptCount", "submissionCount", "gradeCount"))):
     raise SystemExit("Unrelease deletion receipt is not the expected redacted aggregate")
 ' "$(response_body "$response")" "$expected_title" "$previous_edit" "$expected_published_question_revision_tuple"
@@ -83,7 +83,7 @@ prove_service() {
 	read -r assignment initial_edit < <(workspace_id_and_edit_number "$(response_body "$created")")
 	assert_workspace "$created" unreleased '{}'
 
-	picker="$(request "/api/course-instances/$course/assessment-question-picker" "$instructor")"
+	picker="$(request "/api/questions/search?authorship=any&page_size=50" "$instructor")"
 	require_status "Assessment Question picker" "$picker" 200
 	published_question_revision_tuple="$(picker_published_question_revision_tuple "$(response_body "$picker")")"
 	payload="$(save_payload "$(response_body "$created")" "$published_question_revision_tuple" "Current Assignment")"
