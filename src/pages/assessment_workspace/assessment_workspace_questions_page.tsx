@@ -14,9 +14,8 @@ import { AssessmentPoolForkConflictError } from "../../api/http_client/assessmen
 import {
   questionLibraryPickerRepository,
   questionLibraryPickerSources,
-  type QuestionPickerSelection,
 } from "../../features/question_picker";
-import type { QuestionPoolPickerSelection } from "../../features/question_pool_picker/question_pool_picker";
+import type { AssessmentContentPickerSelection } from "../../features/assessment_content_picker";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
   appendAvailableFixedQuestion,
@@ -55,7 +54,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       }
     >
   >(new Map());
-  const [poolImport, setPoolImport] = createSignal<QuestionPoolPickerSelection>();
+  const [poolImport, setPoolImport] =
+    createSignal<Extract<AssessmentContentPickerSelection, { readonly kind: "pool" }>>();
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
@@ -303,36 +303,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage(
       `Added ${added} published ${added === 1 ? "Question" : "Questions"}. These Question IDs were not available: ${listedIds(withheld)}. Save Questions when ready.`,
     );
-  }
-
-  function addPublishedQuestions(selection: QuestionPickerSelection): void {
-    if (busy()) return;
-    if (needsReload()) {
-      setMessage("Reload the latest Assessment before adding an entry.");
-      return;
-    }
-    const added = addQuestionPins(
-      selection.questions.map((question) => ({
-        questionId: question.questionId,
-        publishedQuestionRevisionTuple: question.row.publishedQuestionRevisionTuple,
-        questionTitle: question.row.questionTitle,
-        description: question.row.summary,
-        bloom: question.row.bloom,
-      })),
-    );
-    if (added === "already") {
-      setMessage(
-        "Those published Questions are already on this Assessment. No Questions were added.",
-      );
-      return;
-    }
-    if (added === "capacity") {
-      setMessage(
-        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
-      );
-      return;
-    }
-    describeAddedQuestions(added, []);
   }
 
   async function addQuestionsById(value: string): Promise<boolean> {
@@ -607,12 +577,48 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function choosePool(selection: QuestionPoolPickerSelection): void {
+  function choosePool(
+    selection: Extract<AssessmentContentPickerSelection, { readonly kind: "pool" }>,
+  ): void {
     setPoolImport(selection);
     setPoolSelectionCount("1");
     setMessage(
       `${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}) is ready to import. Existing Assessment Entries remain here.`,
     );
+  }
+
+  function chooseAssessmentContent(selection: AssessmentContentPickerSelection): void {
+    if (selection.kind === "pool") {
+      choosePool(selection);
+      return;
+    }
+    if (busy()) return;
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before adding an entry.");
+      return;
+    }
+    const added = addQuestionPins(
+      selection.questions.map((question) => ({
+        questionId: question.publishedQuestionRevisionTuple.publishedQuestionId,
+        publishedQuestionRevisionTuple: question.publishedQuestionRevisionTuple,
+        questionTitle: question.title,
+        description: "Published Question",
+        bloom: null,
+      })),
+    );
+    if (added === "already") {
+      setMessage(
+        "Those published Questions are already on this Assessment. No Questions were added.",
+      );
+      return;
+    }
+    if (added === "capacity") {
+      setMessage(
+        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
+      );
+      return;
+    }
+    describeAddedQuestions(added, []);
   }
 
   async function importPool(): Promise<void> {
@@ -700,14 +706,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       applicationApi.client.questionRevisionPreviewDocumentUrl(publishedQuestionRevisionTuple),
     questionImageUrl: (publishedQuestionRevisionTuple, questionImageAssetId) =>
       applicationApi.client.questionImageUrl(publishedQuestionRevisionTuple, questionImageAssetId),
-    questionPoolClient: applicationApi.client,
+    assessmentContentRepository: questionLibrary,
     updatePoolSelectionCount,
     replacePoolMembers,
     remainingQuestionCapacity,
-    addPublishedQuestions,
+    chooseAssessmentContent,
     addQuestionsById,
     poolImport,
-    choosePool,
     poolSelectionCount,
     setPoolSelectionCount,
     poolPointsPerItem,

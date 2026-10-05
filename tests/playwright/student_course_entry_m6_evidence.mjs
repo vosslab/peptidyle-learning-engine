@@ -30,6 +30,7 @@ const harnessServer = await startHarnessServer(
       { body: bundle.javascript, contentType: "text/javascript; charset=utf-8" },
     ],
   ]),
+  { historyFallback: true },
 );
 const origin = harnessServer.evidenceUrl;
 const browser = await chromium.launch({ headless: true });
@@ -97,6 +98,15 @@ async function activateWithKeyboard(page, name) {
   throw new Error(
     `${STUDENT_KEYBOARD_SENTENCE} Tab did not reach ${name}. Saw ${seen.join(" | ")}`,
   );
+}
+
+async function activatePopupWithKeyboard(context, page, name, pageErrors) {
+  const popupPromise = context.waitForEvent("page");
+  await activateWithKeyboard(page, name);
+  const popup = await popupPromise;
+  popup.on("pageerror", (error) => pageErrors.push(error.message));
+  await popup.waitForLoadState();
+  return popup;
 }
 
 async function assertCourseworkRows(page) {
@@ -252,34 +262,44 @@ try {
       `${viewportId}: Coursework scan rows do not create horizontal overflow`,
     );
   }
-  await activateWithKeyboard(page, "Resume Weekly Assignment");
-  await page
+  const resumedAttemptPage = await activatePopupWithKeyboard(
+    context,
+    page,
+    "Resume Weekly Assignment",
+    pageErrors,
+  );
+  await resumedAttemptPage
     .getByText("Active Attempt destination", { exact: true })
     .waitFor({ state: "visible", timeout: 5_000 })
     .catch(async (error) => {
       throw new Error(
-        `Resume destination failed: location=${await page.locator("[data-m6-location]").textContent()}; errors=${pageErrors.join(" | ")}; body=${await page.locator("body").innerText()}`,
+        `Resume destination failed: location=${await resumedAttemptPage.locator("[data-m6-location]").textContent()}; errors=${pageErrors.join(" | ")}; body=${await resumedAttemptPage.locator("body").innerText()}`,
         { cause: error },
       );
     });
   assert.equal(
-    await page.locator("[data-m6-location]").textContent(),
+    await resumedAttemptPage.locator("[data-m6-location]").textContent(),
     "/courses/CI7K3M2QAZ/attempt",
   );
   assert.equal(
-    await page.locator("[data-m6-history-state]").textContent(),
+    await resumedAttemptPage.locator("[data-m6-history-state]").textContent(),
     '{"assessmentAttemptId":"00000000-0000-0000-0000-000000000006"}',
   );
+  await resumedAttemptPage.close();
 
-  await page.goto(`${origin}?mode=landing`);
-  await activateWithKeyboard(page, "Review Bonus Assignment");
-  await page
+  const bonusAssessmentPage = await activatePopupWithKeyboard(
+    context,
+    page,
+    "Review Bonus Assignment",
+    pageErrors,
+  );
+  await bonusAssessmentPage
     .getByRole("heading", { name: "Previous attempts", exact: true })
     .waitFor({ state: "visible" });
-  await page
+  await bonusAssessmentPage
     .getByRole("button", { name: "Start Bonus Assignment", exact: true })
     .waitFor({ state: "visible" });
-  const previousAttempts = page
+  const previousAttempts = bonusAssessmentPage
     .getByRole("list", { name: "Previous attempts", exact: true })
     .getByRole("listitem");
   assert.equal(await previousAttempts.count(), 2);
@@ -293,36 +313,52 @@ try {
   });
   await newestAttempt.getByRole("button", { name: "Review Attempt", exact: true }).waitFor();
   await newestAttempt.getByRole("button", { name: "Review Attempt", exact: true }).click();
-  await page.getByText("Attempt summary destination", { exact: true }).waitFor();
+  await bonusAssessmentPage.getByText("Attempt summary destination", { exact: true }).waitFor();
   assert.equal(
-    await page.locator("[data-m6-location]").textContent(),
+    await bonusAssessmentPage.locator("[data-m6-location]").textContent(),
     "/courses/CI7K3M2QAZ/review",
   );
   assert.equal(
-    await page.locator("[data-m6-history-state]").textContent(),
+    await bonusAssessmentPage.locator("[data-m6-history-state]").textContent(),
     '{"assessmentAttemptId":"00000000-0000-0000-0000-000000000007"}',
   );
-  await page.goto(`${origin}?mode=landing`);
-  await activateWithKeyboard(page, "Review Bonus Assignment");
-  await page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
-  const releasedAttempt = previousAttempts.nth(1);
+  await bonusAssessmentPage.close();
+  const releasedAssessmentPage = await activatePopupWithKeyboard(
+    context,
+    page,
+    "Review Bonus Assignment",
+    pageErrors,
+  );
+  await releasedAssessmentPage
+    .getByRole("heading", { name: "Previous attempts", exact: true })
+    .waitFor();
+  const releasedAttempt = releasedAssessmentPage
+    .getByRole("list", { name: "Previous attempts", exact: true })
+    .getByRole("listitem")
+    .nth(1);
   await releasedAttempt.getByRole("heading", { name: "Attempt 1", exact: true }).waitFor({
     state: "visible",
   });
   await releasedAttempt.getByText("Submitted", { exact: true }).waitFor({ state: "visible" });
   await releasedAttempt.getByText("3 of 8 points", { exact: true }).waitFor({ state: "visible" });
   await releasedAttempt.getByRole("button", { name: "Review Attempt", exact: true }).waitFor();
-  await activateWithKeyboard(page, "Start Bonus Assignment");
-  await page.getByText("Active Attempt destination", { exact: true }).waitFor({ state: "visible" });
+  await activateWithKeyboard(releasedAssessmentPage, "Start Bonus Assignment");
+  await releasedAssessmentPage
+    .getByText("Active Attempt destination", { exact: true })
+    .waitFor({ state: "visible" });
+  await releasedAssessmentPage.close();
 
-  await page.goto(`${origin}?mode=landing`);
-  await activateWithKeyboard(page, "Open Quiz");
-  await page.locator('[data-route-surface="assessmentOverview"]').waitFor({ state: "visible" });
-  assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  const overviewDueText = await page.locator("[data-assessment-decision-due]").textContent();
+  const quizPage = await activatePopupWithKeyboard(context, page, "Open Quiz", pageErrors);
+  await quizPage.locator('[data-route-surface="assessmentOverview"]').waitFor({ state: "visible" });
+  assert.deepEqual(await criticalOrSeriousViolations(quizPage), []);
+  const overviewDueText = await quizPage.locator("[data-assessment-decision-due]").textContent();
   assert.equal(overviewDueText, landingDueText);
-  await page.getByRole("status").filter({ hasText: "Cannot start" }).waitFor({ state: "visible" });
-  assert.equal(await page.getByRole("button", { name: /^Start /u }).count(), 0);
+  await quizPage
+    .getByRole("status")
+    .filter({ hasText: "Cannot start" })
+    .waitFor({ state: "visible" });
+  assert.equal(await quizPage.getByRole("button", { name: /^Start /u }).count(), 0);
+  await quizPage.close();
 
   await page.goto(`${origin}?mode=landing`);
   await page.getByRole("link", { name: "Your Courses", exact: true }).waitFor({ state: "visible" });
@@ -333,10 +369,11 @@ try {
   await page
     .getByRole("heading", { name: "Your courses", exact: true })
     .waitFor({ state: "visible" });
-  await activateWithKeyboard(page, "Open Course");
-  await page
+  const coursePage = await activatePopupWithKeyboard(context, page, "Open Course", pageErrors);
+  await coursePage
     .getByRole("heading", { name: "Biochemistry 301: Proteins and Peptides", exact: true })
     .waitFor({ state: "visible" });
+  await coursePage.close();
   assert.deepEqual(pageErrors, []);
 } finally {
   await context.close();

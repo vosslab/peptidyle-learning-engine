@@ -4,7 +4,7 @@ import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRe
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import { MAX_DISCOVERY_PAGE_SIZE } from "../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
-import { validateCanonicalQuestionIdSyntax } from "../question_id";
+import { validateCanonicalPublicId, validateCanonicalQuestionIdSyntax } from "../question_id";
 import { appendLibraryClassificationParameters } from "./library_classification_filter";
 import {
   BLOOM_COGNITIVE_PROCESSES,
@@ -36,6 +36,9 @@ const QUESTION_SEARCH_QUESTION_TYPES = [
   "hotspot",
 ] as const;
 const QUESTION_SEARCH_QUERY_FIELDS = [
+  "kind",
+  "membership",
+  "owner_account_id",
   "text",
   "author_names",
   "backends",
@@ -125,6 +128,21 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   }
   const parameters = new URLSearchParams();
   appendLibraryClassificationParameters(parameters, query);
+  parameters.set(
+    "kind",
+    questionSearchEnum(query.kind, ["questions", "pools", "both"], "Question Library kind"),
+  );
+  parameters.set(
+    "membership",
+    questionSearchEnum(query.membership, ["all", "noPool"], "Question Library membership"),
+  );
+  if (query.owner_account_id !== null) {
+    const ownerAccountId = validateCanonicalPublicId("account", query.owner_account_id);
+    if (ownerAccountId === null) {
+      throw new Error("Question Library owner_account_id must be a canonical Account ID");
+    }
+    parameters.set("owner_account_id", ownerAccountId);
+  }
   if (query.text !== null) {
     parameters.set(
       "text",
@@ -287,4 +305,13 @@ export function questionIdPath(questionId: string): string {
   if (canonicalQuestionId === null)
     throw new Error("Question ID must use canonical Crockford entry syntax");
   return `/api/questions/by-id/${encodeURIComponent(canonicalQuestionId)}`;
+}
+
+/** Serializes one canonical public ID for the authenticated Library kind lookup. */
+export function libraryObjectKindPath(publicId: string): string {
+  const canonicalPublicId = validateCanonicalQuestionIdSyntax(publicId);
+  if (canonicalPublicId === null) {
+    throw new Error("Library object ID must use canonical Crockford entry syntax");
+  }
+  return `/api/library/${encodeURIComponent(canonicalPublicId)}/kind`;
 }

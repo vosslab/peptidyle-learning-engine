@@ -201,7 +201,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             question_pool_library,
             question_library_store.clone(),
-            content_classification.clone(),
             question_library_objects.clone(),
         ))
         .merge(

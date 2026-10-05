@@ -37,7 +37,7 @@ export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
  * Course lifecycle and Blueprint parents are resolved from context, not this field.
  */
 export type RibbonTierTwoParentId =
-  | "searchQuestionLibrary"
+  | "browseQuestionLibrary"
   | "myDraftQuestions"
   | "myBlueprintCourses"
   | "allCoursework"
@@ -391,12 +391,12 @@ export const ROUTE_CONTRACT = [
   {
     id: "questionDetail",
     path: "/library/:questionId",
-    surface: "Published question detail",
+    surface: "Published Question or Question Pool detail",
     requiredUserRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
       tierOneArea: "questions",
-      tierTwoParent: "searchQuestionLibrary",
+      tierTwoParent: "browseQuestionLibrary",
     },
   },
   {

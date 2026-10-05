@@ -82,13 +82,19 @@ human review.
 | [![Screenshot preview of Assessment creation](screenshots/instructor/courses-assessments-assignment_creation.webp)](screenshots/instructor/courses-assessments-assignment_creation.webp)<br>Assessment creation<br>creation - laptop | [![Screenshot preview of Draft Assessment Questions](screenshots/instructor/courses-assessments-assignment_questions_draft.webp)](screenshots/instructor/courses-assessments-assignment_questions_draft.webp)<br>Draft Assessment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assessment Preview](screenshots/instructor/courses-assessments-assignment_delivery_check.webp)](screenshots/instructor/courses-assessments-assignment_delivery_check.webp)<br>Answer-free Assessment Preview<br>answer-free preview - laptop |
 | [![Screenshot preview of Released Assessment Settings](screenshots/instructor/courses-assessments-assignment_policies_released.webp)](screenshots/instructor/courses-assessments-assignment_policies_released.webp)<br>Released Assessment Settings<br>released - laptop<br>Featured |  |  |
 
+#### Course Assessment Editing
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Assessment Question and Pool picker](screenshots/instructor/courses-assessments-content-picker.webp)](screenshots/instructor/courses-assessments-content-picker.webp)<br>Assessment Question and Pool picker<br>Question and Pool picker with default results - laptop |  |  |
+
 ### Question Library
 
 #### Question Discovery
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Question Library](screenshots/instructor/questions-search-library_default.webp)](screenshots/instructor/questions-search-library_default.webp)<br>Question Library<br>default - laptop<br>Featured | [![Screenshot preview of Filtered Question Library](screenshots/instructor/questions-search-library_filtered.webp)](screenshots/instructor/questions-search-library_filtered.webp)<br>Filtered Question Library<br>filtered - laptop | [![Screenshot preview of Published Question detail](screenshots/instructor/questions-search-published_question_detail.webp)](screenshots/instructor/questions-search-published_question_detail.webp)<br>Published Question detail<br>published detail - laptop |
+| [![Screenshot preview of Question Library](screenshots/instructor/questions-search-library_default.webp)](screenshots/instructor/questions-search-library_default.webp)<br>Question Library<br>default - laptop<br>Featured | [![Screenshot preview of Filtered Question Library](screenshots/instructor/questions-search-library_filtered.webp)](screenshots/instructor/questions-search-library_filtered.webp)<br>Filtered Question Library<br>filtered - laptop | [![Screenshot preview of Published Question detail](screenshots/instructor/questions-browse-published_question_detail.webp)](screenshots/instructor/questions-browse-published_question_detail.webp)<br>Published Question detail<br>published detail - laptop |
 | [![Screenshot preview of Browse Question Library](screenshots/instructor/questions-browse-library_browse.webp)](screenshots/instructor/questions-browse-library_browse.webp)<br>Browse Question Library<br>browse overview - laptop |  |  |
 
 #### Question Pool Creation
@@ -97,13 +103,21 @@ human review.
 | --- | --- | --- |
 | [![Screenshot preview of Question Pool creation review](screenshots/instructor/questions-search-pool_creation_review.webp)](screenshots/instructor/questions-search-pool_creation_review.webp)<br>Question Pool creation review<br>selected Question review - laptop |  |  |
 
+#### Library Discovery
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Question Library mixed default](screenshots/instructor/questions-search-mixed_results.webp)](screenshots/instructor/questions-search-mixed_results.webp)<br>Question Library mixed default<br>mixed default - laptop | [![Screenshot preview of Question Library all Questions](screenshots/instructor/questions-search-all_questions.webp)](screenshots/instructor/questions-search-all_questions.webp)<br>Question Library all Questions<br>all Questions - laptop | [![Screenshot preview of Question Library Pools only](screenshots/instructor/questions-search-pools_only.webp)](screenshots/instructor/questions-search-pools_only.webp)<br>Question Library Pools only<br>Pools only - laptop |
+| [![Screenshot preview of Question Library Pool compact display](screenshots/instructor/questions-search-compact.webp)](screenshots/instructor/questions-search-compact.webp)<br>Question Library Pool compact display<br>Pool compact display - laptop | [![Screenshot preview of Question Library Pool list display](screenshots/instructor/questions-search-list.webp)](screenshots/instructor/questions-search-list.webp)<br>Question Library Pool list display<br>Pool list display - laptop | [![Screenshot preview of Question Library Pool visual-box display](screenshots/instructor/questions-search-visual.webp)](screenshots/instructor/questions-search-visual.webp)<br>Question Library Pool visual-box display<br>Pool visual-box display - laptop |
+| [![Screenshot preview of Question Library Question Pool detail](screenshots/instructor/questions-browse-pool_detail.webp)](screenshots/instructor/questions-browse-pool_detail.webp)<br>Question Library Question Pool detail<br>Question Pool detail - laptop |  |  |
+
 #### Generated Question Preview
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Answer-free WeBWorK generated example](screenshots/instructor/questions-search-webwork_generated_example.webp)](screenshots/instructor/questions-search-webwork_generated_example.webp)<br>Answer-free WeBWorK generated example<br>rendered WeBWorK example - laptop | [![Screenshot preview of HLA offspring genotype generated example](screenshots/instructor/questions-search-webwork_hla_genotype.webp)](screenshots/instructor/questions-search-webwork_hla_genotype.webp)<br>HLA offspring genotype generated example<br>HLA haplotype inheritance example - laptop | [![Screenshot preview of Monohybrid genotype matching generated example](screenshots/instructor/questions-search-webwork_monohybrid_matching.webp)](screenshots/instructor/questions-search-webwork_monohybrid_matching.webp)<br>Monohybrid genotype matching generated example<br>monohybrid genotype matching example - laptop |
-| [![Screenshot preview of X-linked offspring count table generated example](screenshots/instructor/questions-search-webwork_x_linked_counts.webp)](screenshots/instructor/questions-search-webwork_x_linked_counts.webp)<br>X-linked offspring count table generated example<br>X-linked offspring count table example - laptop | [![Screenshot preview of True or False Statements About DNA Structure generated example](screenshots/instructor/questions-search-webwork_dna_structure.webp)](screenshots/instructor/questions-search-webwork_dna_structure.webp)<br>True/False Statements About DNA Structure generated example<br>True/False Statements About DNA Structure generated example - laptop | [![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](screenshots/instructor/questions-search-webwork_meiosis_prophase.webp)](screenshots/instructor/questions-search-webwork_meiosis_prophase.webp)<br>Matching Meiosis Prophase I Stages to Descriptions generated example<br>Matching Meiosis Prophase I Stages to Descriptions generated example - laptop |
-| [![Screenshot preview of True or False Statements About Chi-Square Tests generated example](screenshots/instructor/questions-search-webwork_chi_square.webp)](screenshots/instructor/questions-search-webwork_chi_square.webp)<br>True/False Statements About Chi-Square Tests generated example<br>True/False Statements About Chi-Square Tests generated example - laptop | [![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](screenshots/instructor/questions-search-webwork_chromosome_shapes.webp)](screenshots/instructor/questions-search-webwork_chromosome_shapes.webp)<br>Matching Chromosome Shapes to Descriptions generated example<br>Matching Chromosome Shapes to Descriptions generated example - laptop |  |
+| [![Screenshot preview of Answer-free WeBWorK generated example](screenshots/instructor/questions-browse-webwork_generated_example.webp)](screenshots/instructor/questions-browse-webwork_generated_example.webp)<br>Answer-free WeBWorK generated example<br>rendered WeBWorK example - laptop | [![Screenshot preview of HLA offspring genotype generated example](screenshots/instructor/questions-browse-webwork_hla_genotype.webp)](screenshots/instructor/questions-browse-webwork_hla_genotype.webp)<br>HLA offspring genotype generated example<br>HLA haplotype inheritance example - laptop | [![Screenshot preview of Monohybrid genotype matching generated example](screenshots/instructor/questions-browse-webwork_monohybrid_matching.webp)](screenshots/instructor/questions-browse-webwork_monohybrid_matching.webp)<br>Monohybrid genotype matching generated example<br>monohybrid genotype matching example - laptop |
+| [![Screenshot preview of X-linked offspring count table generated example](screenshots/instructor/questions-browse-webwork_x_linked_counts.webp)](screenshots/instructor/questions-browse-webwork_x_linked_counts.webp)<br>X-linked offspring count table generated example<br>X-linked offspring count table example - laptop | [![Screenshot preview of True or False Statements About DNA Structure generated example](screenshots/instructor/questions-browse-webwork_dna_structure.webp)](screenshots/instructor/questions-browse-webwork_dna_structure.webp)<br>True/False Statements About DNA Structure generated example<br>True/False Statements About DNA Structure generated example - laptop | [![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](screenshots/instructor/questions-browse-webwork_meiosis_prophase.webp)](screenshots/instructor/questions-browse-webwork_meiosis_prophase.webp)<br>Matching Meiosis Prophase I Stages to Descriptions generated example<br>Matching Meiosis Prophase I Stages to Descriptions generated example - laptop |
+| [![Screenshot preview of True or False Statements About Chi-Square Tests generated example](screenshots/instructor/questions-browse-webwork_chi_square.webp)](screenshots/instructor/questions-browse-webwork_chi_square.webp)<br>True/False Statements About Chi-Square Tests generated example<br>True/False Statements About Chi-Square Tests generated example - laptop | [![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](screenshots/instructor/questions-browse-webwork_chromosome_shapes.webp)](screenshots/instructor/questions-browse-webwork_chromosome_shapes.webp)<br>Matching Chromosome Shapes to Descriptions generated example<br>Matching Chromosome Shapes to Descriptions generated example - laptop |  |
 
 #### Instructor Personal Theme Comparison
 
@@ -117,7 +131,7 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Instructor Profile](screenshots/instructor/default.webp)](screenshots/instructor/default.webp)<br>Instructor Profile<br>default profile - laptop |  |  |
+| [![Screenshot preview of Instructor Profile](screenshots/instructor/profile_preferences.webp)](screenshots/instructor/profile_preferences.webp)<br>Instructor Profile<br>default profile - laptop |  |  |
 
 #### Instructor Profile Visibility
 
@@ -146,6 +160,12 @@ human review.
 | | | |
 | --- | --- | --- |
 | [![Screenshot preview of Search Public Blueprint Courses](screenshots/instructor/courses-search-filtered_results.webp)](screenshots/instructor/courses-search-filtered_results.webp)<br>Search Public Blueprint Courses<br>filtered results - laptop |  |  |
+
+#### Blueprint Course Creation
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Blueprint Question picker](screenshots/instructor/courses-blueprint-question-picker.webp)](screenshots/instructor/courses-blueprint-question-picker.webp)<br>Blueprint Question picker<br>published Question picker with results - laptop |  |  |
 
 ### Assignments
 
@@ -364,7 +384,7 @@ human review.
 | studentHome | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
 | studentCourses | captured | student_course_list_laptop, student_course_list_tablet, student_course_list_phone, student_course_list_square, student_two_course_list_laptop, student_two_course_list_tablet, student_two_course_list_phone, student_two_course_list_square |
 | sysadminHome | captured | sysadmin_course_list |
-| profile | captured | instructor_default, student_profile_laptop, student_profile_tablet, student_profile_phone, student_profile_square |
+| profile | captured | instructor_profile_preferences, student_profile_laptop, student_profile_tablet, student_profile_phone, student_profile_square |
 | instructorProfile | captured | instructor_public_profile |
 | signIn | captured | public_sign_in_laptop, public_sign_in_phone |
 | pendingCourseInvitations | deferred | Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots. |
@@ -385,22 +405,22 @@ human review.
 | assessmentOverview | captured | student_unanswered_laptop, student_unanswered_tablet, student_unanswered_phone, student_unanswered_square, student_overview_history_laptop, student_overview_history_tablet, student_overview_history_phone, student_overview_history_square |
 | assessmentAttempt | captured | student_response_selected_laptop, student_response_selected_tablet, student_response_selected_phone, student_response_selected_square, student_resume_selected_laptop, student_resume_selected_tablet, student_resume_selected_phone, student_resume_selected_square, student_assessment_navigation_laptop, student_assessment_navigation_tablet, student_assessment_navigation_phone, student_assessment_navigation_square, student_question_unanswered_mc_laptop, student_question_answered_mc_laptop, student_question_unanswered_mc_tablet, student_question_answered_mc_tablet, student_question_unanswered_mc_phone, student_question_answered_mc_phone, student_question_unanswered_mc_square, student_question_answered_mc_square, student_question_unanswered_ma_laptop, student_question_answered_ma_laptop, student_question_unanswered_ma_tablet, student_question_answered_ma_tablet, student_question_unanswered_ma_phone, student_question_answered_ma_phone, student_question_unanswered_ma_square, student_question_answered_ma_square, student_question_unanswered_fib_laptop, student_question_answered_fib_laptop, student_question_unanswered_fib_tablet, student_question_answered_fib_tablet, student_question_unanswered_fib_phone, student_question_answered_fib_phone, student_question_unanswered_fib_square, student_question_answered_fib_square, student_question_unanswered_multi_fib_laptop, student_question_answered_multi_fib_laptop, student_question_unanswered_multi_fib_tablet, student_question_answered_multi_fib_tablet, student_question_unanswered_multi_fib_phone, student_question_answered_multi_fib_phone, student_question_unanswered_multi_fib_square, student_question_answered_multi_fib_square, student_question_unanswered_num_laptop, student_question_answered_num_laptop, student_question_unanswered_num_tablet, student_question_answered_num_tablet, student_question_unanswered_num_phone, student_question_answered_num_phone, student_question_unanswered_num_square, student_question_answered_num_square, student_question_unanswered_match_laptop, student_question_answered_match_laptop, student_question_unanswered_match_tablet, student_question_answered_match_tablet, student_question_unanswered_match_phone, student_question_answered_match_phone, student_question_unanswered_match_square, student_question_answered_match_square, student_question_unanswered_order_laptop, student_question_answered_order_laptop, student_question_unanswered_order_tablet, student_question_answered_order_tablet, student_question_unanswered_order_phone, student_question_answered_order_phone, student_question_unanswered_order_square, student_question_answered_order_square, student_question_unanswered_hotspot_laptop, student_question_answered_hotspot_laptop, student_question_unanswered_hotspot_tablet, student_question_answered_hotspot_tablet, student_question_unanswered_hotspot_phone, student_question_answered_hotspot_phone, student_question_unanswered_hotspot_square, student_question_answered_hotspot_square, student_question_unanswered_webwork_laptop, student_question_answered_webwork_laptop, student_question_unanswered_webwork_tablet, student_question_answered_webwork_tablet, student_question_unanswered_webwork_phone, student_question_answered_webwork_phone, student_question_unanswered_webwork_square, student_question_answered_webwork_square |
 | assessmentAttemptSummary | captured | student_latest_feedback_laptop, student_latest_feedback_tablet, student_latest_feedback_phone, student_latest_feedback_square, student_selected_history_laptop, student_selected_history_tablet, student_selected_history_phone, student_selected_history_square, student_submitted_laptop, student_submitted_tablet, student_submitted_phone, student_submitted_square |
-| library | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
+| library | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_library_mixed_results, instructor_library_all_questions, instructor_library_pools_only, instructor_library_compact, instructor_library_list, instructor_library_visual, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
 | libraryBrowse | captured | instructor_library_browse |
 | libraryWatchNotifications | deferred | The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
-| questionDetail | captured | instructor_published_question_detail, instructor_webwork_generated_example, instructor_webwork_hla_genotype, instructor_webwork_monohybrid_matching, instructor_webwork_x_linked_counts, instructor_webwork_dna_structure, instructor_webwork_meiosis_prophase, instructor_webwork_chi_square, instructor_webwork_chromosome_shapes, instructor_personal_theme_question_dark |
+| questionDetail | captured | instructor_published_question_detail, instructor_library_pool_detail, instructor_webwork_generated_example, instructor_webwork_hla_genotype, instructor_webwork_monohybrid_matching, instructor_webwork_x_linked_counts, instructor_webwork_dna_structure, instructor_webwork_meiosis_prophase, instructor_webwork_chi_square, instructor_webwork_chromosome_shapes, instructor_personal_theme_question_dark |
 | myQuestions | deferred | My Questions lists the Instructor's Published Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
 | starredQuestions | deferred | Starred lists the Instructor's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
 | questionDrafts | captured | instructor_draft_list |
 | questionDraftEditor | captured | instructor_saved_editor, instructor_publication_review |
-| blueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker |
+| blueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker, instructor_blueprint_question_picker_laptop |
 | publicBlueprintSearch | captured | instructor_filtered_results |
 | blueprintCourseDetail | captured | instructor_blueprint_detail |
 | assessmentsDueSoon | captured | instructor_assignments_due_soon_empty |
 | assessmentTemplates | captured | instructor_template_editor |
 | assessmentCreate | captured | instructor_assignment_creation |
 | assessmentWorkspaceOverview | deferred | Assessment editing uses the current single-page workspace. |
-| assessmentWorkspaceQuestions | captured | instructor_assignment_questions_draft |
+| assessmentWorkspaceQuestions | captured | instructor_assignment_questions_draft, instructor_assessment_content_picker_laptop |
 | assessmentWorkspacePolicies | captured | instructor_assignment_policies_released |
 | assessmentWorkspaceStudentView | captured | instructor_assignment_delivery_check |
 | gradebook | captured | instructor_gradebook |
@@ -412,13 +432,13 @@ human review.
 | Surface | Status | Evidence or reason |
 | --- | --- | --- |
 | tab:courses | deferred | The root route is only signed-in User Role resolution; current canonical captures use their role-owned home routes. |
-| tab:questions | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
+| tab:questions | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_library_mixed_results, instructor_library_all_questions, instructor_library_pools_only, instructor_library_compact, instructor_library_list, instructor_library_visual, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
 | tab:productAssessments | captured | instructor_assignments_due_soon_empty |
 | tab:coursework | captured | student_not_started_laptop, student_not_started_tablet, student_not_started_phone, student_not_started_square, student_in_progress_laptop, student_in_progress_tablet, student_in_progress_phone, student_in_progress_square, student_completed_laptop, student_completed_tablet, student_completed_phone, student_completed_square |
 | tab:grades | captured | student_scores_laptop, student_scores_tablet, student_scores_phone, student_scores_square |
 | tab:instructorAccounts | captured | sysadmin_accounts_initial, sysadmin_account_created, sysadmin_account_deactivated, sysadmin_account_validation |
 | tab:disciplines | deferred | The Sysadmin Disciplines tab requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
-| task:myBlueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker |
+| task:myBlueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker, instructor_blueprint_question_picker_laptop |
 | task:myActiveCourses | captured | instructor_course_list |
 | task:myInactiveCourses | captured | instructor_inactive_courses_list |
 | task:searchPublicBlueprintCourses | captured | instructor_filtered_results |
@@ -426,7 +446,7 @@ human review.
 | task:myDraftQuestions | captured | instructor_draft_list |
 | task:starred | deferred | Starred is an Instructor route to the current Account's Starred Questions; its rendered checkpoint awaits the next canonical Live Demo screenshot refresh. |
 | task:watched | deferred | Watched is an Instructor route to the private Watch inbox; its rendered checkpoint awaits the next canonical Live Demo replay. |
-| task:searchQuestionLibrary | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
+| task:searchQuestionLibrary | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, instructor_library_mixed_results, instructor_library_all_questions, instructor_library_pools_only, instructor_library_compact, instructor_library_list, instructor_library_visual, instructor_personal_theme_library_light, instructor_personal_theme_library_dark, student_denial_laptop, student_denial_tablet, student_denial_phone, student_denial_square |
 | task:browseQuestionLibrary | captured | instructor_library_browse |
 | task:assessmentsDueSoon | captured | instructor_assignments_due_soon_empty |
 | task:assessmentTemplates | captured | instructor_template_editor |
@@ -445,7 +465,7 @@ human review.
 | task:studentAttemptHistory | captured | student_course_attempt_history_laptop, student_course_attempt_history_tablet, student_course_attempt_history_phone, student_course_attempt_history_square |
 | task:studentLatestFeedback | captured | student_latest_feedback_laptop, student_latest_feedback_tablet, student_latest_feedback_phone, student_latest_feedback_square, student_selected_history_laptop, student_selected_history_tablet, student_selected_history_phone, student_selected_history_square, student_submitted_laptop, student_submitted_tablet, student_submitted_phone, student_submitted_square |
 | task:assessmentOverview | deferred | Assessment editing uses the current single-page workspace. |
-| task:assessmentQuestions | captured | instructor_assignment_questions_draft |
+| task:assessmentQuestions | captured | instructor_assignment_questions_draft, instructor_assessment_content_picker_laptop |
 | task:assessmentPolicies | captured | instructor_assignment_policies_released |
 | task:assessmentStudentView | captured | instructor_assignment_delivery_check |
 | task:gradeSettings | deferred | Grade Settings is not admitted by the current Live Demo capability registry. |

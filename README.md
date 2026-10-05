@@ -12,7 +12,7 @@ pilot is Fall 2026.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 <p align="center">
-  <img src="docs/screenshots/instructor/questions-search-webwork_generated_example.webp" width="920" alt="A published Genetics WeBWorK Question in the shared Question Library: Genetic Disorders from Descriptions, with its Question ID, author, backend, discipline, PGML format, and revision">
+  <img src="docs/screenshots/instructor/questions-browse-webwork_generated_example.webp" width="920" alt="A published Genetics WeBWorK Question in the shared Question Library: Genetic Disorders from Descriptions, with its Question ID, author, backend, discipline, PGML format, and revision">
 </p>
 <!-- screenshots:end -->
 

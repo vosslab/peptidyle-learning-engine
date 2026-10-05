@@ -7,10 +7,176 @@
 > September 29 entries are archived in [CHANGELOG-2026-09r.md](CHANGELOG-2026-09r.md).
 > September 28 entries are archived in [CHANGELOG-2026-09s.md](CHANGELOG-2026-09s.md).
 
-## 2026-10-04
+## 2026-10-05
 
 ### Behavior or Interface Changes
 
+- Named Instructor screenshots by visible PLE location and state: removed redundant laptop
+  suffixes from both picker filenames, renamed the Profile capture to `profile_preferences.webp`,
+  and removed shared-search implementation wording from Library result filenames and captions.
+  Question and Pool detail pages now belong to Browse Question Library in the Ribbon, breadcrumbs,
+  return links, and capture workflows. Browse initially presents categories without a false
+  no-matches message. Updated existing navigation checks and screenshot links; no permanent tests
+  were added. TypeScript, lint, formatting, 534 frontend checks, retained UI checks, and all
+  10,468 Python checks pass. Refreshed all 256 screenshots from a clean Demo, preserving 76
+  laptop-only Instructor captures; corpus replay and artifact checks pass. A one-time browser
+  probe also verifies initial Browse failure, retry, and recovery.
+
+- Corrected the shared-search drift audit findings: removed the obsolete standalone Pool-list
+  API/store/SQL/client path; enforced Instructor Pool ownership with a role-typed composite
+  foreign key and covering index; replaced shared synthetic Library fixtures with local inputs;
+  and corrected combined-Library labels. A second set of six independent audit passes completed.
+  Rust checks, all three connected acceptance lanes, and the clean-schema
+  Instructor/Student/Sysadmin ownership probe pass. The broader
+  Library Object result-contract design remains explicitly deferred.
+
+- Restored Human Guidance's laptop-only Instructor and Sysadmin screenshot scope. Removed
+  the Library phone capture, both square picker captures, and their unauthorized Python/Node
+  test exceptions. Regenerated the manifest, receipt, atlas, and galleries for the remaining
+  256 captures using their existing fresh images. Static artifact verification, 20 corpus
+  tests, 405 viewport/link checks, TypeScript, lint, and formatting pass.
+
+- Applied the permanent-test checklist to shared-search additions. Removed duplicate browser and
+  accessibility harnesses, repeated API/filter matrices, and generic decoder inventories instead
+  of retaining implementation proof as blocking tests. Net growth under `tests/` falls from
+  3,019 to 965 lines; Rust test additions fall by another 366 lines. Retained coverage owns the
+  session, real Library journey, exact pins/edit tokens, and database integrity once per boundary.
+  Requested screenshot scenes remain; documentation records one-time reviews separately.
+  Fast checks, the retained browser suite, live Library, connected database/SQL oracles,
+  documentation checks, and independent review pass.
+
+- Refreshed the complete repository screenshot corpus from a newly initialized Live Demo.
+  The picker capture now owns its Pool fixture, and the shared fixture helper invokes its
+  browser-side setup correctly. A live create/reuse check confirms exactly one fixture Pool;
+  TypeScript, lint, formatting, and corpus checks pass. All 259 captures are published;
+  live verification passes manifest closure, privacy, and artifact-integrity checks.
+
+- Shared search M16 completes the architecture guide, aligned documentation, one shared page-size
+  constant, and the refreshed screenshot corpus. Live captures fixed the Assessment picker's
+  dialog surface; publication, verification, accessibility, live Library, parity, and independent
+  review pass. The full aggregate passes 549 Node tests, 10,330 Python checks, and all three
+  real-service acceptance lanes after repairing stale policy and shared-ID test fixtures.
+  Temporary probes are removed; the separate Pool validation handoff remains open.
+
+- Shared search M15 passes independent usability and visual review, axe on all five surfaces,
+  and keyboard/paging checks. Compact now retains descriptions in every display mode, with a
+  permanent parity regression. Final review also restricts Pool Type text matching to the
+  approved Question-only grammar while preserving structured Pool Type filtering, verified
+  in fresh PostgreSQL. The complete offline and browser gates pass; temporary probes are
+  removed after retaining their evidence.
+- Shared search M14 replaces the separate Assessment Pool picker with one Question/Pool
+  content picker. Blueprint draft appends and Course explicit fork imports preserve their
+  existing workflows and exact concurrency tokens. Full frontend gates, independent review,
+  rebuilt real Blueprint/Course import journeys, and Library integration pass.
+- Shared search M13 moves the Question picker onto shared search while retaining exact pins,
+  inspection, and the ordered tray. Pool workflows constrain candidates by authoritative
+  classification, Type, and Backend, including eligible Questions already in another Pool.
+  The scoped Blueprint reader supplies required Pool eligibility. Full frontend/Rust/schema
+  gates, fresh PostgreSQL proof, browser eligibility checks, and independent review pass.
+- Shared search M12 unifies Question and Pool Library results with Both/no-Pool defaults, a
+  visible removable membership chip, Owner filtering, URL state, and all three displays. One
+  capped selection feeds kind-specific editors and preserves the untouched kind after saving.
+  The separate Pool panel is removed; Question-only pickers retain All Questions. Full frontend
+  gates, mixed live journeys, speed replay, and independent review pass.
+- Shared search M11 routes both Questions and Pools through `/library/{id}`, with object titles
+  in breadcrumbs and Pool links from discovery and the Watch inbox. Pool detail preserves
+  exact member credits and Instructor controls. Frontend gates, rebuilt live detail/retry
+  journeys, and independent review pass.
+- Shared search M10 combines Questions and Pools in one authorized database query, with kind,
+  membership, owner, global cursor paging, and strict tagged results. Kind lookup shares Library
+  visibility rules. Connected mixed/fork/filter/paging proofs and rebuilt Live Demo API/browser
+  checks pass. A measured function-local JIT correction reduces HTTP medians to 15.6-17.6 ms;
+  independent review is clean. The Library interface remains Questions-only until M12.
+- Shared search M9 calculates a required Pool collection license from exact member Revisions
+  on creation, member replacement, and forks. Manual Pool provenance is removed; member license
+  and authorship remain visible. All seven supported combinations, exact pins, downgrade, forks,
+  and internal-helper privileges pass fresh PostgreSQL proofs. Full Rust, schema, TypeScript,
+  and independent review pass.
+- Shared search M8 stores each Pool's Type and Backend from its first member, keeps that pair
+  immutable, and permits each Question only once. Creation, member edits, and forks enforce the
+  same rules. Full Rust/TypeScript gates, connected rejection/fork proofs, the rebuilt Live Demo,
+  and independent fixture/audit review pass. The live repair set was empty before and after.
+- Shared search M7 removes obsolete Pool authorship and attribution from the base schema and
+  SQL credit functions. Pool owner, source-Pool link, and member authorship remain intact;
+  manual license replacement remains M9. Fresh PostgreSQL lifecycle, schema, focused Rust,
+  and the full codebase checks pass. Current Rust/browser contracts already omitted these fields.
+- Shared search M5 gives Library Search, Browse, and Blueprint one responsive page shell.
+  Automatic URL/Browse searches leave directly; user searches and drafts warn before leaving;
+  Clear and Browse Start over reset that warning. Pool creation preserves the mounted search.
+  Full frontend and live Library gates, independent review, and desktop/narrow captures pass.
+- Shared search M4 moves Public Blueprint Course search onto the same state, controls, and
+  results as Library. Name and Tag remain local until one Search/Enter submission; filters
+  apply immediately, display changes make no request, and Clear returns to idle. The full
+  frontend gate, independent review, and current-source live Blueprint screenshot pass.
+
+### Fixes and Maintenance
+
+- The live Library API gate now checks global pagination separately from the eight known Pilot
+  Questions, which it locates by exact title. It no longer assumes the Pilot is the entire
+  Library. Assertion failures propagate correctly, and an exit handler restores the Question
+  used for archive/restore evidence. The API journey passes on the rebuilt demo.
+
+### Developer Tests and Notes
+
+- Planned a dedicated 31-file Question specification set with narrow responsibilities, existing
+  PLE terms, explicit field and operation rules, and one owning document per rule. The plan uses
+  the existing Rust QTI Package Maker for conversion work and records WASM as future direction.
+  A separate ten-file BiologyProblems.org set covers common source/import rules, the importer,
+  and six Course-specific inventories, Assessment mappings, and content gaps. Added explicit
+  Question import and Blueprint Course import API specifications; the complete planned set has
+  42 files, including the shared Blueprint Course import API document outside those folders.
+  Recorded Biochemistry and Genetics as complete source courses, and Molecular Biology,
+  Biostatistics, and Laboratory as partial courses, separately from pilot selection and PLE import status.
+  Recorded the syllabus Course color preferences and required each Course specification to map
+  them to PLE Themes. Added the user's magenta preference for Molecular Biology and teal-green
+  preference for Laboratory; their exact RGB values and Theme matches remain unspecified.
+  Proposed Ocean for Genetics, Grassland for Biostatistics, Magma for Biotechnology, and tentative
+  Tundra for Biochemistry; its lavender surfaces and green accents are only an approximate purple match.
+  Required content importing and Blueprint Course assembly through authenticated PLE APIs using
+  returned IDs. Source inspection found that current pilot creation already generates Question
+  and Blueprint IDs but calls database-backed routines directly, leaving the API path untested
+  by that loader.
+  [question_specs_documentation_plan.md](active_plans/active/question_specs_documentation_plan.md)
+  passes its focused Markdown link check; writing the specifications remains a separate task.
+- Audited the shared Library Object boundary across documentation, SQL search, API types,
+  browser rows, and Assessment selection. Recorded field-loss and filter inconsistencies plus
+  a proposed Question documentation structure in
+  [library_object_documentation_audit_2026_10_05.md](active_plans/audits/library_object_documentation_audit_2026_10_05.md).
+  The new report passes its link check. The full link check reports 404 passes and one older
+  audit with three links to renamed Pool files; this source audit changes no runtime behavior.
+- Documented the implemented shared-search boundary and the approved three-display rule.
+  Human Guidance and its generated checklist match at 1,196 bullets; the new checklist item
+  remains open until mixed Library and picker acceptance. Preliminary isolated-browser checks
+  found no search storage writes and confirmed late-response ordering.
+- M5 review corrected Browse reset leaving its warning armed and rendered Blueprint inputs
+  extending into the results column. Live browser checks now use semantic region/list locators
+  and a bounded page assertion: the current demo has 49 Questions, not an assumed 50.
+
+## 2026-10-04
+
+### Additions and New Features
+
+- Shared search M1 adds a content-defined request session with ordered responses, cursor paging,
+  exact retry, bounded selection, and disposal. Replacement searches clear stale rows and facet
+  counts; failed paging preserves the current page. Eight session regressions and the full
+  TypeScript, lint, formatting, and 544-test Node gate pass. Implementation and remaining gates
+  are tracked in [SHARED_SEARCH_IMPLEMENTATION.md](active_plans/reports/SHARED_SEARCH_IMPLEMENTATION.md).
+
+### Behavior or Interface Changes
+
+- Shared search M2 moves Library requests into the shared session. Typing stays local until
+  Search or Enter; facet counts follow the applied query. Focused browser checks and the full
+  codebase and fast UI gates pass.
+- Shared search M3 gives Library shared controls, results, display switching, selection, and
+  removable filter chips. Library filters and bulk editing have focused modules; Browse still
+  waits for exact filters, and successful bulk edits retain their confirmation while refreshing.
+  The obsolete row renderer is removed. The full frontend gate, independent review, import
+  boundary check, and rendered filter-layout inspection pass.
+- Shared search M6 records an immutable Pool owner for creation and every fork. Initial Course
+  adoption uses the assigned Instructor; later append and Apply use the authorized actor.
+  Connected PostgreSQL tests prove distinct adopter and co-Instructor ownership. They also
+  exposed and fixed Apply passing a Blueprint ID to the Course-specific Assessment save path.
+  Fresh schema/lifecycle checks and independent review pass.
 - Implemented the authorized repairs from the priority HG audit. Assessment score
   readers now share current-point handling for retired Pools; a fresh disposable
   PostgreSQL replay changed an existing Attempt from 2/2 to 1/1 after removal.
@@ -310,6 +476,12 @@
   code's required vetting decision remains an implementation gap.
 
 ### Developer Tests and Notes
+
+- Shared search M1/M2 independent review found no blocker; all 22 focused session/Library tests
+  passed. Integration review fixed obsolete cursor reuse after a failed page-size change and
+  kept UI callback errors outside transport retry handling. Library submit, Bloom filtering,
+  and Pool-task isolation browser checks pass. M2's broad browser gate remains open while a
+  Student navigation test failure is investigated.
 
 - Both guidance-format tests pass. The implementation checklist and its counts
   remain the pre-interview snapshot; no runtime compliance is claimed for the

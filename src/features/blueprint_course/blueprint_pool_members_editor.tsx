@@ -11,6 +11,7 @@ import { recognitionTitlesResource } from "../recognition_titles_load";
 import { MAX_REUSABLE_ENTRIES } from "./blueprint_course_model";
 import {
   QuestionPicker,
+  type QuestionPickerEligibility,
   type QuestionPickerSelection,
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
@@ -41,6 +42,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   const questionPoolId = initialPool.question_pool_id;
   const questionPoolEditNumber = initialPool.question_pool_edit_number;
   const [members, setMembers] = createSignal<PublishedQuestionRevisionTuple[]>();
+  const [poolEligibility, setPoolEligibility] = createSignal<QuestionPickerEligibility>();
   const [error, setError] = createSignal("");
   const recognition = recognitionTitlesResource(
     () => props.client,
@@ -84,6 +86,18 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
         );
         return;
       }
+      if (result.subjectUuid === null) {
+        setError(
+          "Pool classification is incomplete. Refresh the Blueprint Course before editing members.",
+        );
+        return;
+      }
+      setPoolEligibility({
+        disciplineUuid: result.disciplineUuid,
+        subjectUuid: result.subjectUuid,
+        questionType: result.questionType,
+        backend: result.backend,
+      });
       setMembers(
         initialPool.kind === "retained" && initialPool.members !== null
           ? initialPool.members
@@ -303,6 +317,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
         <QuestionPicker
           repository={props.pickerRepository}
           sources={props.pickerSources}
+          eligibility={poolEligibility()}
           mode="many"
           maximumSelection={Math.max(1, MAX_REUSABLE_ENTRIES - (members()?.length ?? 0))}
           trigger={trigger}

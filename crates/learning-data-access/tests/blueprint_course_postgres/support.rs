@@ -4,12 +4,19 @@ use super::*;
 use std::sync::OnceLock;
 
 pub(super) static INSTRUCTOR_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
+pub(super) static READER_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
 pub(super) static STUDENT_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
 
 pub(super) fn instructor_account_id() -> &'static str {
     INSTRUCTOR_ACCOUNT_ID
         .get()
         .expect("seeded Instructor Account")
+}
+
+pub(super) fn reader_account_id() -> &'static str {
+    READER_ACCOUNT_ID
+        .get()
+        .expect("seeded reader Instructor Account")
 }
 
 pub(super) fn student_account_id() -> &'static str {
@@ -20,7 +27,7 @@ pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
 
 impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
     fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError> {
-        const IDS: [&str; 8] = [
+        const IDS: [&str; 12] = [
             "8K3M-69Q1",
             "9K3M-09Q2",
             "7K3M-T9Q3",
@@ -29,6 +36,10 @@ impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
             "4K3M-D9Q6",
             "3K3M-S9Q7",
             "2K3M-49Q8",
+            "7K3M-19QX",
+            "7K3M-79QP",
+            "8K3M-99QX",
+            "3S8B-24DZ",
         ];
         let index = self.0.fetch_add(1, Ordering::SeqCst);
         IDS.get(index)
@@ -361,6 +372,8 @@ pub(super) async fn assert_immutable_child(
 
 pub(super) const SESSION: u128 = 0xb101;
 pub(super) const READER_SESSION: u128 = 0xb103;
+const READER_ACCOUNT_PREFIX: &str = "UBPFXR01";
+const STUDENT_ACCOUNT_PREFIX: &str = "UBPFXS01";
 // The canonical database baseline runs Unrelease against this database first;
 // public Question IDs are permanent, so this fixture keeps a separate ID.
 pub(super) const QUESTION: &str = "BPFX-Y001";
@@ -576,15 +589,41 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("private fixture role");
     let reader_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, user_role, created_at) \
-         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
+         VALUES ($1 || ple_private.crockford_checksum_character($1), \
+                 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
+    .bind(READER_ACCOUNT_PREFIX)
     .fetch_one(&mut *transaction)
     .await
     .expect("reader Instructor account");
+    READER_ACCOUNT_ID
+        .set(reader_id.clone())
+        .expect("seed reader Instructor Account once");
+    sqlx::query("INSERT INTO ple_private.instructor_profile (account_id, first_name, last_name, affiliation) VALUES ($1, 'Blueprint', 'Reader', 'Test University')")
+        .bind(&reader_id)
+        .execute(&mut *transaction)
+        .await
+        .expect("reader Instructor Profile");
+    sqlx::query("SET LOCAL ROLE ple_audit_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("reader audit owner");
+    sqlx::query("SELECT ple_audit.record_instructor_account_creation_event($1, $2)")
+        .bind(&reader_id)
+        .bind(&sysadmin_id)
+        .execute(&mut *transaction)
+        .await
+        .expect("Blueprint reader creation evidence");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("reader private fixture role");
     let student_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, user_role, created_at) \
-         VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
+         VALUES ($1 || ple_private.crockford_checksum_character($1), \
+                 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
+    .bind(STUDENT_ACCOUNT_PREFIX)
     .fetch_one(&mut *transaction)
     .await
     .expect("Student fixture");
@@ -775,14 +814,18 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("data Question Pool fixture role");
     sqlx::query(
         "INSERT INTO ple_data.question_pool (\
-             question_pool_id, question_pool_edit_number, created_at, \
-             title, description, content_discipline_id, content_subject_id, \
+             question_pool_id, owner_account_id, question_pool_edit_number, created_at, \
+             title, description, content_discipline_id, content_subject_id, question_type, backend, license, \
              interchangeability_attested_by_account_id, interchangeability_attested_at\
-         ) SELECT $1, 1, clock_timestamp(), \
+         ) SELECT $1, $2, 1, clock_timestamp(), \
                   'Blueprint fixture Pool', 'Blueprint fixture Pool description', \
-                  metadata.content_discipline_id, metadata.content_subject_id, \
+                  metadata.content_discipline_id, metadata.content_subject_id, revision.question_type, revision.backend, license.spdx_expression, \
                   $2, clock_timestamp() \
              FROM ple_data.published_question_metadata AS metadata \
+            JOIN ple_data.question_revision AS revision \
+               ON revision.published_question_id = metadata.published_question_id AND revision.revision_number = 1 \
+            JOIN ple_data.question_revision_license AS license \
+              ON license.published_question_id = metadata.published_question_id AND license.revision_number = 1 \
             WHERE metadata.published_question_id = $3",
     )
     .bind(QUESTION_POOL)
@@ -840,6 +883,24 @@ pub(super) async fn seed_if_needed(admin: &sqlx::postgres::PgPool) {
     .fetch_optional(&mut *transaction)
     .await
     .expect("discover existing Instructor fixture");
+    let reader: Option<String> = sqlx::query_scalar(
+        "SELECT account_id FROM ple_private.account \
+          WHERE account_id = $1 || ple_private.crockford_checksum_character($1) \
+            AND user_role = 'instructor'",
+    )
+    .bind(READER_ACCOUNT_PREFIX)
+    .fetch_optional(&mut *transaction)
+    .await
+    .expect("discover existing reader Instructor fixture");
+    let student: Option<String> = sqlx::query_scalar(
+        "SELECT account_id FROM ple_private.account \
+          WHERE account_id = $1 || ple_private.crockford_checksum_character($1) \
+            AND user_role = 'student'",
+    )
+    .bind(STUDENT_ACCOUNT_PREFIX)
+    .fetch_optional(&mut *transaction)
+    .await
+    .expect("discover existing Student fixture");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *transaction)
         .await
@@ -873,8 +934,12 @@ pub(super) async fn seed_if_needed(admin: &sqlx::postgres::PgPool) {
         .commit()
         .await
         .expect("discover existing fixture transaction commit");
-    if let Some(instructor) = instructor.filter(|_| complete_question) {
+    if let (Some(instructor), Some(reader), Some(student)) =
+        (instructor.filter(|_| complete_question), reader, student)
+    {
         INSTRUCTOR_ACCOUNT_ID.get_or_init(|| instructor);
+        READER_ACCOUNT_ID.get_or_init(|| reader);
+        STUDENT_ACCOUNT_ID.get_or_init(|| student);
     } else {
         seed(admin).await;
     }

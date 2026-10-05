@@ -47,7 +47,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns accepted Published Question Revisions and does not read Draft Questions.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` searches those same Published Question Revisions.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `list_authoring_drafts` returns the Instructor's Draft Questions outside the Question Library.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns published Question Pools and does not read Draft Questions.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns published Question Pools and does not read Draft Questions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Draft Questions use current state rather than immutable Revisions.
@@ -668,7 +668,7 @@
   - Verification pending: Neil requires one Question Type per Pool. Verify creation and member replacement before marking this implemented.
 - [ ] Question Pools are created from a Published Question and enter the Question Library immediately.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` requires each member to be an available Published Question and stores the Pool in that call.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that new Pool to the Instructor.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that new Pool to the Instructor.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Question Pool is an independently reusable Question Library object, designed to be forked often.
@@ -832,7 +832,7 @@
 - [ ] Question Pools also use the shared Question Library metadata required for publication.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool` stores one Discipline, one Subject, optional Topic and Subtopic, and Tags on each Question Pool.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` copies the first member Discipline and Subject onto the Question Pool and stores its Tags.
-  - Evidence (source): `src/api/decoders/question_pool_library.ts` `decodeQuestionPoolMetadata` requires that Discipline and Subject and accepts optional Topic, Subtopic, and Tags.
+  - Evidence (source): `src/api/decoders/question_pool_summary.ts` `decodeQuestionPoolMetadata` requires that Discipline and Subject and accepts optional Topic, Subtopic, and Tags.
   - Evidence (test): `tests/test_question_pool_metadata.mjs` `Question Pools use the shared Question Library metadata required for publication` decoded that shared metadata and refused a Pool that omitted Discipline or Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -858,7 +858,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns accepted Published Question Revisions and does not read Draft Questions.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` searches those same Published Question Revisions.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `list_authoring_drafts` returns the Instructor's Draft Questions outside the Question Library.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns published Question Pools and does not read Draft Questions.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns published Question Pools and does not read Draft Questions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
@@ -885,7 +885,7 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Instructors** should be able to select many Library objects and update shared metadata such as
   Discipline, Subject, Topic, Subtopic, Tags, or other search fields together.
-  - Evidence (source): `crates/server/src/question_bulk_metadata.rs` `question_bulk_metadata_router` updates Tags, Discipline, Subject, Topic, and Subtopic for many Published Questions. `crates/server/src/question_pool_bulk_metadata.rs` `question_pool_search_metadata_router` updates Topic, Subtopic, and Tags for many Question Pools, and `decode_patch` refuses Discipline and Subject. `schemas/base_schema/50_functions/question_pools.sql` `validate_question_pool_lineage_update` keeps the Discipline and Subject established by the first member and allows those Pool search fields only while Edit Number stays unchanged. `src/pages/library_pool_discovery.tsx` `updatePoolSelection` selects many Pools, and `src/components/question_pool_search_metadata_editor.tsx` `QuestionPoolSearchMetadataEditor` submits the Pool command.
+  - Evidence (source): `crates/server/src/question_bulk_metadata.rs` `question_bulk_metadata_router` updates Tags, Discipline, Subject, Topic, and Subtopic for many Published Questions. `crates/server/src/question_pool_bulk_metadata.rs` `question_pool_search_metadata_router` updates Topic, Subtopic, and Tags for many Question Pools, and `decode_patch` refuses Discipline and Subject. `schemas/base_schema/50_functions/question_pools.sql` `validate_question_pool_lineage_update` keeps the Discipline and Subject established by the first member and allows those Pool search fields only while Edit Number stays unchanged. `src/pages/library_bulk_actions.tsx` `LibraryBulkActions` partitions a mixed selection, and `src/components/question_pool_search_metadata_editor.tsx` `QuestionPoolSearchMetadataEditor` submits the Pool command.
   - Evidence (test): `crates/server/src/question_pool_bulk_metadata.rs` `instructors_select_many_library_objects_and_update_shared_search_metadata` posted two Question Pools, kept Edit Number 4, refused disciplineUuid before storage, concealed a Student session without a store call, and refused 1001 Pools while the cap stayed 1000. `crates/server/src/question_bulk_metadata.rs` `question_library_workflows_support_bulk_operations_for_many_questions` posted two Published Questions through the Question command. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -900,9 +900,9 @@
 
 - [ ] **Library Objects** use shared metadata for organization, search, filtering, and discovery.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters and searches Published Questions by Discipline, Subject, Topic, Subtopic, and Tags.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` filters and searches Question Pools by that same shared metadata.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters and searches Question Pools by that same shared metadata.
   - Evidence (source): `src/api/question_library_repository.ts` `questionSearchRequest` sends that metadata for Published Question discovery.
-  - Evidence (source): `src/api/question_pool_library_filter.ts` `questionPoolLibraryFilter` sends that metadata for Question Pool discovery.
+  - Evidence (source): `src/pages/question_library_search_definition.ts` sends classification filters for combined Question and Pool discovery.
   - Evidence (test): `tests/test_library_classification_search.mjs` `Library Objects use shared metadata for organization, search, filtering, and discovery` sent the shared metadata through both discovery requests and refused a Subject without its Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -922,7 +922,7 @@
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `published_question_metadata` stores the Published Question title, description, language, tags, and classification, and has no Course, Assessment, or textbook column.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool` stores the Question Pool title, description, tags, and classification, and has no Course, Assessment, or textbook column.
   - Evidence (source): `src/api/decoders/question_bulk_metadata.ts` `decodeQuestionBulkMetadataCurrent` accepts only the Published Question identity, edit number, tags, and classification.
-  - Evidence (source): `src/api/decoders/question_pool_library.ts` `decodeQuestionPoolMetadata` accepts only the Question Pool title, description, classification, and tags.
+  - Evidence (source): `src/api/decoders/question_pool_summary.ts` `decodeQuestionPoolMetadata` accepts only the Question Pool title, description, classification, and tags.
   - Evidence (test): `tests/test_library_classification_search.mjs` `Library metadata describes the Library Object rather than a Course Assessment or textbook` decoded that object metadata and refused a Course, Assessment, and textbook location.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -930,7 +930,7 @@
   vocabulary.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `published_question_metadata` stores content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, and tags on each Published Question.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool` stores content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, and tags on each Question Pool.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that Question Pool vocabulary and filters by Topic, Subtopic, and Tags.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Question Pool vocabulary and filters by Topic, Subtopic, and Tags.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters Published Questions by that same vocabulary.
   - Evidence (test): `tests/test_library_classification_search.mjs` `Library Objects share the Discipline Subject Topic Subtopic and Tag vocabulary` sent one Discipline, Subject, Topic, Subtopic, and the tag review through questionSearchRequest.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -941,7 +941,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` refuses a Question without a Discipline or a Subject and stores one of each.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns that Question's Discipline and Subject.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` copies that one Discipline and Subject onto the Question Pool.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that Pool's Discipline and Subject.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool's Discipline and Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
@@ -949,7 +949,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` publishes a Question with Topic and Subtopic absent, and publishes another with both present.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns those Question classifications.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a Question Pool with Topic and Subtopic absent.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that Pool classification.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
@@ -958,7 +958,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores a Question tag list, including none, and stores several tags.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns those Question tag lists.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a Question Pool with no tags and stores a different caller-chosen tag list.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns those Pool tag lists.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns those Pool tag lists.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Question Publication Validation requires Discipline and Subject before publication.
@@ -971,7 +971,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns that Question's Discipline, Subject, Topic, and Subtopic.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `content_topic_id` belongs to the Pool's Subject, and a Subtopic belongs to that Topic.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores the member Question's Discipline and Subject with Topic and Subtopic absent.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that Pool classification.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Questions and Question Pools retain their Library Object classification when used in an Assessment.
@@ -979,12 +979,12 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns that Question's Discipline, Subject, Topic, and Subtopic after the pin.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork` places a Question Pool on an Assessment by forking it.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_fork` copies the source Pool's Discipline, Subject, Topic, and Subtopic.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns the source Pool and the Assessment fork with that same classification.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the source Pool and the Assessment fork with that same classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Library classification supports searching, filtering, sorting, and bulk editing.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` searches and filters by Discipline, Subject, Topic, and Subtopic, and sorts the matching Questions by title or publication time.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` filters Question Pools by classification and returns them in Pool ID order.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters Question Pools by classification and sorts them together with Questions.
   - Evidence (source): `schemas/base_schema/50_functions/published_question_metadata_operations.sql` `bulk_replace_published_question_metadata` replaces Subject, Topic, and Subtopic for a selected set of Published Questions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -1082,7 +1082,7 @@
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_bloom` stores the Pool pair by question_pool_id.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` `attach_question_pool_bloom` stores that prepared Pool pair on the Question Pool.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` `correct_question_pool_bloom` updates the Pool pair without reading a member Question's Bloom classification.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns the Pool pair.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the Pool pair.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Bloom Classification is left blank when a Published Question or Question Pool enters the Question
@@ -1090,7 +1090,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` publishes a Question Revision and does not insert a Bloom row.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` creates a Question Pool and does not insert a Bloom row.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `load_question_library_revision` returns a null Bloom pair when that row is absent.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns a null Bloom pair when the Pool row is absent.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns a null Bloom pair when the Pool row is absent.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Bloom Classification may be NULL while awaiting AI assignment. Do not enforce a time limit.
@@ -1162,7 +1162,7 @@
   - Evidence (source): `src/components/question_watch_control.tsx` `QuestionWatchControl` shows Watch or Unwatch for that Instructor's own boolean.
   - Evidence (source): `src/components/question_pool_watch_control.tsx` `QuestionPoolWatchControl` shows Watch or Unwatch for that Instructor's own boolean.
   - Evidence (source): `src/pages/question_detail_page.tsx` `QuestionWatchControl` is on the Instructor Question surface.
-  - Evidence (source): `src/pages/library_pool_discovery.tsx` `QuestionPoolWatchControl` is on the Instructor Pool surface.
+  - Evidence (source): `src/pages/question_pool_detail.tsx` `QuestionPoolDetail` places `QuestionPoolWatchControl` on the Instructor Pool detail surface.
   - Evidence (test): `tests/test_question_watch_client.mjs` `Watch means subscription.` rendered Watch and Unwatch for Question 7K3M-79QP and Pool 3S8B-24DZ, subscribed and unsubscribed through the shipped Watch client, and rejected a Pool watcher count.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.

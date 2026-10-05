@@ -2,7 +2,6 @@
 
 import { Show, type JSX } from "solid-js";
 
-import { decodeQuestionId } from "../api/decoders/shared";
 import type { QuestionLibraryBrowseQuery, QuestionLibraryBrowseRow } from "./library_page_model";
 
 export function questionLink(row: QuestionLibraryBrowseRow): string {
@@ -36,17 +35,6 @@ export function selectedQuestionLibrarySort(value: string): QuestionLibraryBrows
   // ASVS 2.2.1: retain only the closed server-supported sort values at the UI boundary.
   if (value === "titleAscending" || value === "publishedNewest") return value;
   throw new Error("Question Library sort selection is invalid");
-}
-
-export function hasCanonicalPoolDeepLink(search: string): boolean {
-  const values = new URLSearchParams(search).getAll("pool");
-  if (values.length !== 1) return false;
-  try {
-    decodeQuestionId(values[0], "pool");
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export function RetainedSelectOption(props: {

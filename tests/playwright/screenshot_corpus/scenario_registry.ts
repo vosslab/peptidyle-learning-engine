@@ -1,7 +1,9 @@
 // The only executable mapping from manifest scenario IDs to visible browser workflows.
 
 import { INSTRUCTOR_SCENARIOS } from "./scenarios_instructor";
+import { INSTRUCTOR_PICKER_SCREEN_SCENARIOS } from "./scenarios_instructor_picker_screens";
 import { INSTRUCTOR_POOL_SCENARIOS } from "./scenarios_instructor_pools";
+import { INSTRUCTOR_SHARED_SEARCH_SCENARIOS } from "./scenarios_instructor_shared_search";
 import { INSTRUCTOR_TEMPLATE_SCENARIOS } from "./scenarios_instructor_templates";
 import { INSTRUCTOR_THEME_SAMPLE_SCENARIO } from "./scenarios_instructor_theme_samples";
 import { INSTRUCTOR_PERSONAL_THEME_SCENARIO } from "./scenarios_instructor_personal_theme";
@@ -18,7 +20,9 @@ import { SYSADMIN_SCENARIOS } from "./scenarios_sysadmin";
 export const SCREENSHOT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   ...PUBLIC_SCENARIOS,
   ...INSTRUCTOR_SCENARIOS,
+  ...INSTRUCTOR_PICKER_SCREEN_SCENARIOS,
   ...INSTRUCTOR_POOL_SCENARIOS,
+  ...INSTRUCTOR_SHARED_SEARCH_SCENARIOS,
   ...INSTRUCTOR_TEMPLATE_SCENARIOS,
   ...INSTRUCTOR_WEBWORK_SCENARIOS,
   ...STUDENT_ENTRY_SCENARIOS,

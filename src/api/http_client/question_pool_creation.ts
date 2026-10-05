@@ -18,7 +18,7 @@ import type {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import { decodeQuestionPoolText } from "../decoders/question_pool_library";
+import { decodeQuestionPoolText } from "../decoders/question_pool_summary";
 
 const CREATE_QUESTION_POOL_PATH = "/api/question-pools";
 

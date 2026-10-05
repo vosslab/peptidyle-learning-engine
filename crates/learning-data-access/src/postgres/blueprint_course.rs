@@ -8,9 +8,9 @@ use question_model::{
     AccountId, BlueprintCourseId, BlueprintEditNumber, BlueprintMetadataState,
     BlueprintRevisionNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse,
     CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId, QuestionRevisionNumber,
-    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
-    SaveBlueprintCourseReceipt,
+    PublishedQuestionRevisionTuple, QuestionBackend, QuestionPoolEditNumber, QuestionPoolId,
+    QuestionRevisionNumber, QuestionType, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintCourseReceipt,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -33,6 +33,29 @@ use decode::*;
 pub(in crate::postgres) use decode::{decode_revision_content, encode_content};
 
 pub(in crate::postgres) use classification::{classification_tags, decode_classification};
+
+fn decode_pool_question_type(value: &str) -> Result<QuestionType, StoreError> {
+    match value {
+        "multipleChoice" => Ok(QuestionType::MultipleChoice),
+        "multipleAnswer" => Ok(QuestionType::MultipleAnswer),
+        "fillInBlank" => Ok(QuestionType::FillInBlank),
+        "multipleFillInBlank" => Ok(QuestionType::MultipleFillInBlank),
+        "numeric" => Ok(QuestionType::Numeric),
+        "matching" => Ok(QuestionType::Matching),
+        "ordering" => Ok(QuestionType::Ordering),
+        "hotspot" => Ok(QuestionType::Hotspot),
+        _ => Err(invalid("Pool Question Type")),
+    }
+}
+
+fn decode_pool_backend(value: &str) -> Result<QuestionBackend, StoreError> {
+    match value {
+        "ple" => Ok(QuestionBackend::Ple),
+        "webwork" => Ok(QuestionBackend::Webwork),
+        "imathas" => Ok(QuestionBackend::Imathas),
+        _ => Err(invalid("Pool Backend")),
+    }
+}
 
 /// PostgreSQL Store for Blueprint lineages visible to active Instructors.
 #[derive(Clone)]
@@ -228,6 +251,21 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .map_err(map_sqlx_error)?;
         let question_pool_edit_number =
             QuestionPoolEditNumber::new(number as u64).map_err(|_| invalid("Pool Edit Number"))?;
+        let pool = rows.first().expect("nonempty Pool members");
+        let discipline_uuid = pool
+            .try_get("content_discipline_id")
+            .map_err(map_sqlx_error)?;
+        let subject_uuid = pool.try_get("content_subject_id").map_err(map_sqlx_error)?;
+        let question_type = decode_pool_question_type(
+            &pool
+                .try_get::<String, _>("question_type")
+                .map_err(map_sqlx_error)?,
+        )?;
+        let backend = decode_pool_backend(
+            &pool
+                .try_get::<String, _>("backend")
+                .map_err(map_sqlx_error)?,
+        )?;
         let members = rows
             .into_iter()
             .map(|row| {
@@ -249,6 +287,10 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         Ok(crate::StoredBlueprintPoolMembers {
             question_pool_id,
             question_pool_edit_number,
+            discipline_uuid,
+            subject_uuid,
+            question_type,
+            backend,
             members,
         })
     }

@@ -31,10 +31,7 @@ function targetLabel(value: LibraryWatchNotification): string {
 }
 
 function targetHref(value: LibraryWatchNotification): string {
-  if (value.targetKind === "question") {
-    return `/library/${encodeURIComponent(value.targetPublicId)}`;
-  }
-  return `/library?pool=${encodeURIComponent(value.targetPublicId)}`;
+  return `/library/${encodeURIComponent(value.targetPublicId)}`;
 }
 
 function inboxFailed(value: unknown): value is Error {

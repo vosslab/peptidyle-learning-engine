@@ -2,12 +2,36 @@
 
 ## Context
 
-Status: design proposal, not an implementation or completion claim.
+Status: shared search implementation complete through M16. Milestone gates and current evidence
+are tracked in [SHARED_SEARCH_IMPLEMENTATION.md](../reports/SHARED_SEARCH_IMPLEMENTATION.md).
+M1-M5 are verified: shared session, controls, responsive page layout, and leave-warning rules
+serve Library Search, Library Browse, and Blueprint search, with live and rendered evidence.
+M6 Pool ownership is verified across creation and fork paths with connected PostgreSQL evidence.
+M7 removes separate Pool Author storage and attribution; owner and source-Pool links remain.
+M8 enforces one Question per Pool and one immutable Type/Backend pair, verified through the
+rebuilt Live Demo, connected mutation/fork tests, and an independent audit.
+M9 calculates the required Pool license from exact member Revisions, removes manual provenance,
+and preserves member licenses, with full backend gates and independent review.
+M10 verifies the combined Library API, global paging, kind lookup, filter rules, and speed on a
+rebuilt Live Demo. M11 verifies shared Question/Pool detail links and both lookup/detail retries.
+M12 verifies mixed Library defaults, filters, displays, selection, live journeys, and speed.
+M13 verifies the shared Question picker and Pool eligibility. M14 verifies unified Assessment
+content selection and real Blueprint/Course import journeys. M15 accessibility, usability,
+visual, and speed reviews pass, including the Compact description correction. M16 full checks,
+real-service acceptance, screenshot publication/verification, and independent review passed
+before the subsequent test pruning and screenshot-scope correction. Focused follow-up gates
+passed; the aggregate component gates subsequently passed in separate invocations. The
+[independent drift audit](../reports/shared_search_drift_audit_2026_10_05.md) identified Pool
+owner-role, obsolete discovery, and shared fixture issues. Follow-up corrections are implemented
+and validated. The user deferred the broader Library Object result-contract
+redesign; this task remains focused on shared search and its screenshots.
+The separate Pool validation handoff remains open: mismatch warnings, release blocking,
+classification re-checks, unordered member storage, and the sortable member editor.
 
 The September 25 work remains in place: shared record displays, page layout, sorting and paging
-controls, and database queries that return one page of results. Individual search pages still
-assemble their filters and manage requests separately. Neil accepts that arrangement but sees
-value in sharing more of the page.
+controls, and database queries that return one page of results. At this plan's start, individual
+search pages assembled their filters and managed requests separately. The verified shared-page
+milestones above now replace that duplication for Library and Public Blueprint search.
 
 This proposal extends that work. Product behavior follows
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md). The earlier implementation is recorded in

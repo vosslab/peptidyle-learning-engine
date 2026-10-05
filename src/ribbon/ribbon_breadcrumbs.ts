@@ -74,6 +74,7 @@ function pageTrail(
   );
   const assessmentLabel = labels.assessmentTitle ?? "Assessment";
   const questionLabel = labels.questionTitle ?? "Question";
+  const libraryObjectLabel = labels.libraryObjectTitle ?? "Question";
 
   switch (routeState.route.id) {
     case "signIn":
@@ -121,6 +122,7 @@ function pageTrail(
     case "questionDrafts":
       return [page("My Draft Questions")];
     case "questionDetail":
+      return [page(libraryObjectLabel)];
     case "questionDraftEditor":
       return [page(questionLabel)];
     case "blueprintCourses":

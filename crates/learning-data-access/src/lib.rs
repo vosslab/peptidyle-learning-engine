@@ -267,7 +267,7 @@ pub use question_image_publication::{
     ClaimedQuestionImagePublication, PublicAssetPublicationStore,
 };
 pub use question_library::{
-    PublishedQuestionAvailability, PublishedQuestionLibraryEntry,
+    LibrarySearchEntry, PublishedQuestionAvailability, PublishedQuestionLibraryEntry,
     QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
     QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
     QuestionLibrarySearchSort, QuestionLibraryStore, QuestionLibraryTextField,
@@ -283,9 +283,7 @@ pub use question_pool_creation::{
     QuestionPoolCreationStore,
 };
 pub use question_pool_library::{
-    AssessmentQuestionPoolForkRecord, PublishedQuestionPool, QuestionPoolDiscoveryFilter,
-    QuestionPoolDiscoveryPage, QuestionPoolLibraryStore, QuestionPoolTextField,
-    QuestionPoolTextFilter, QuestionPoolTextTerm,
+    AssessmentQuestionPoolForkRecord, PublishedQuestionPool, QuestionPoolLibraryStore,
 };
 pub use question_pool_support::{QuestionPoolPleManagedSupport, QuestionPoolSupportStore};
 pub use question_source::{

@@ -39,6 +39,10 @@ pub struct BlueprintHistoryPageView {
 pub struct BlueprintPoolMembersView {
     pub question_pool_id: question_model::QuestionPoolId,
     pub question_pool_edit_number: question_model::QuestionPoolEditNumber,
+    pub discipline_uuid: uuid::Uuid,
+    pub subject_uuid: uuid::Uuid,
+    pub question_type: question_model::QuestionType,
+    pub backend: question_model::QuestionBackend,
     pub members: Vec<question_model::PublishedQuestionRevisionTuple>,
 }
 

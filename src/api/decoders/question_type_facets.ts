@@ -9,6 +9,7 @@ import type { QuestionSearchQuestionLicenseFacet } from "../../../generated/api/
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
 import type { QuestionSearchFacets } from "../../../generated/api/QuestionSearchFacets";
+import type { LibrarySearchCategoryCounts } from "../../../generated/api/LibrarySearchCategoryCounts";
 import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
 import type { QuestionSearchSubjectFacet } from "../../../generated/api/QuestionSearchSubjectFacet";
 import type { QuestionSearchTopicFacet } from "../../../generated/api/QuestionSearchTopicFacet";
@@ -241,6 +242,7 @@ function decodeBloomKnowledgeDimensionFacets(
 export function decodeQuestionSearchFacets(value: unknown, path: string): QuestionSearchFacets {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
+    "categories",
     "authorNames",
     "authorNamesTruncated",
     "backends",
@@ -258,6 +260,10 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     "bloomKnowledgeDimensions",
   ]);
   return {
+    categories: decodeLibrarySearchCategoryCounts(
+      field(record, "categories", path),
+      `${path}.categories`,
+    ),
     authorNames: decodeBoundedArray(
       field(record, "authorNames", path),
       `${path}.authorNames`,
@@ -331,5 +337,24 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       field(record, "bloomKnowledgeDimensions", path),
       `${path}.bloomKnowledgeDimensions`,
     ),
+  };
+}
+
+function decodeLibrarySearchCategoryCounts(
+  value: unknown,
+  path: string,
+): LibrarySearchCategoryCounts {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["questionsInNoPool", "questionsInPool", "pools"]);
+  return {
+    questionsInNoPool: decodeNonnegativeInteger(
+      field(record, "questionsInNoPool", path),
+      `${path}.questionsInNoPool`,
+    ),
+    questionsInPool: decodeNonnegativeInteger(
+      field(record, "questionsInPool", path),
+      `${path}.questionsInPool`,
+    ),
+    pools: decodeNonnegativeInteger(field(record, "pools", path), `${path}.pools`),
   };
 }

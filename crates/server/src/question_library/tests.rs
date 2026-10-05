@@ -362,11 +362,12 @@ impl ObjectStore for RecordingObjects {
 }
 
 struct PageOnlyLibrary {
-    page: PublishedQuestionLibraryEntry,
+    page: Vec<learning_data_access::LibrarySearchEntry>,
     catalog: Vec<PublishedQuestionLibraryEntry>,
     list_calls: AtomicUsize,
     search_calls: AtomicUsize,
     statistics_ids: Mutex<Vec<PublishedQuestionId>>,
+    statistics_calls: AtomicUsize,
     continuation: QuestionLibrarySearchCursorPosition,
 }
 
@@ -383,7 +384,7 @@ impl QuestionLibraryStore for PageOnlyLibrary {
         assert!(!request.authored_by_current_account);
         assert!(!request.used_in_current_account_courses);
         Ok(QuestionLibrarySearchPage {
-            items: vec![self.page.clone()],
+            items: self.page.clone(),
             next_position: Some(self.continuation.clone()),
             facets: empty_search_facets(),
         })
@@ -468,6 +469,7 @@ impl QuestionLibraryPageStatistics for PageOnlyLibrary {
         is_instructor: bool,
         question_ids: &[PublishedQuestionId],
     ) -> Result<std::collections::BTreeMap<PublishedQuestionId, QuestionStatistics>, Response> {
+        self.statistics_calls.fetch_add(1, Ordering::SeqCst);
         assert!(is_instructor);
         *self.statistics_ids.lock().expect("statistics ids") = question_ids.to_vec();
         Ok(std::collections::BTreeMap::new())
@@ -476,6 +478,8 @@ impl QuestionLibraryPageStatistics for PageOnlyLibrary {
 
 fn empty_search_facets() -> QuestionLibrarySearchFacets {
     QuestionLibrarySearchFacets {
+        categories: question_model::LibrarySearchCategoryCounts::default(),
+        question_backends: Vec::new(),
         author_names: Vec::new(),
         author_names_truncated: false,
         backends: Vec::new(),
@@ -579,13 +583,17 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
     let store = PageOnlyLibrary {
         continuation: QuestionLibrarySearchCursorPosition::TitleAscending {
             title: page_entry.question_title.clone(),
-            question_id: page_id.clone(),
+            public_id: page_id.as_str().parse().expect("Library ID"),
         },
-        page: page_entry,
+        page: vec![learning_data_access::LibrarySearchEntry::Question {
+            entry: Box::new(page_entry),
+            owner_account_id: question_model::AccountId::from_debug_serial(91),
+        }],
         catalog: vec![off_page_entry],
         list_calls: AtomicUsize::new(0),
         search_calls: AtomicUsize::new(0),
         statistics_ids: Mutex::new(Vec::new()),
+        statistics_calls: AtomicUsize::new(0),
     };
     let query = QuestionSearchRequest::try_from(
         Query::<QuestionSearchQuery>::try_from_uri(
@@ -620,8 +628,11 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
         .expect("page body");
     let page: QuestionSearchPage = serde_json::from_slice(&bytes).expect("existing page shape");
     assert_eq!(page.items.len(), 1);
-    assert_eq!(page.items[0].summary.question_id, page_id);
-    assert_eq!(page.items[0].evidence, QuestionStatistics::Unavailable);
+    let question_model::LibrarySearchResult::Question { question, .. } = &page.items[0] else {
+        panic!("Question-only request returned Pool");
+    };
+    assert_eq!(question.summary.question_id, page_id);
+    assert_eq!(question.evidence, QuestionStatistics::Unavailable);
     let decoded = paging::decode_position(&QuestionSearchRequest {
         cursor: page.next_cursor.clone(),
         ..query
@@ -691,3 +702,6 @@ async fn native_library_read_uses_current_title_and_description_without_a_new_re
             .is_err()
     );
 }
+
+#[path = "mixed_search_tests.rs"]
+mod mixed_search_tests;

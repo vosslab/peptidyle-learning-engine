@@ -13,9 +13,10 @@ use question_model::{
     BlueprintQuestionPoolContent, BlueprintRevisionContent, BlueprintRevisionNumber,
     BlueprintRevisionTuple, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
     CreateBlueprintCourseReceipt, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId, QuestionPoolSelectionRule,
-    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
-    ReusablePoolView, SaveBlueprintCourseReceipt,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend, QuestionPoolId,
+    QuestionPoolSelectionRule, QuestionType, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView,
+    SaveBlueprintCourseReceipt,
 };
 use serde::{Deserialize, Serialize};
 
@@ -562,6 +563,11 @@ pub struct RecognitionTitles {
 pub struct StoredBlueprintPoolMembers {
     pub question_pool_id: question_model::QuestionPoolId,
     pub question_pool_edit_number: question_model::QuestionPoolEditNumber,
+    /// Eligibility remains owned by the Pool even if a member is later reclassified.
+    pub discipline_uuid: uuid::Uuid,
+    pub subject_uuid: uuid::Uuid,
+    pub question_type: QuestionType,
+    pub backend: QuestionBackend,
     pub members: Vec<PublishedQuestionRevisionTuple>,
 }
 

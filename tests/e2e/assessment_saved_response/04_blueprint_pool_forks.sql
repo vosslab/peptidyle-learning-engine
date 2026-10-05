@@ -222,6 +222,13 @@ BEGIN
     IF stored_pool IS DISTINCT FROM fork_id OR source_pool IS DISTINCT FROM pool_id THEN
         RAISE EXCEPTION 'Blueprint stored a Pool other than the published Pool fork';
     END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool AS pool
+         WHERE pool.question_pool_id = fork_id
+           AND pool.owner_account_id = current_setting('ple.session_account_id')
+    ) THEN
+        RAISE EXCEPTION 'Blueprint-forked Question Pool did not retain the signed-in Instructor owner';
+    END IF;
     SELECT published.source_question_pool_id INTO published_source
       FROM ple_data.question_pool AS published
      WHERE published.question_pool_id = pool_id;

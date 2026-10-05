@@ -77,8 +77,8 @@ read projections. A Question projection carries its exact Revision's optional
 two-value Bloom Classification and independent classification Edit Number. A
 Pool projection carries the current Pool's own pair and classification Edit
 Number when present; member Question pairs never substitute. The `publishedQuestionRevisionTuple` field identifies the exact resolved Revision on an
-exact Question-detail route. `GET /api/question-pools` and
-`GET /api/question-pools/{questionPoolId}` are the product Pool reads. JSON
+exact Question-detail route. `GET /api/questions/search` discovers Questions and Pools together;
+`GET /api/question-pools/{questionPoolId}` reads a Pool detail. JSON
 carries sibling `questionPoolId` and `questionPoolEditNumber` fields; there
 is no Pool Pin wrapper. Exact immutable Question Revision pins remain
 `{ publishedQuestionId, revisionNumber }`.

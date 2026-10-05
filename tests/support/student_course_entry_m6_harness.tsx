@@ -154,8 +154,9 @@ export interface StudentCourseEntryM6Harness {
 /** Mounts production Student pages with controlled Course and Coursework projections. */
 export function mountStudentCourseEntryM6Harness(
   target: HTMLElement,
-  caseName: StudentCourseEntryCase,
+  caseName: StudentCourseEntryCase | null,
 ): StudentCourseEntryM6Harness {
+  const fixtureCase = caseName ?? "landing";
   const history = createMemoryHistory();
   history.set({
     value:
@@ -163,9 +164,11 @@ export function mountStudentCourseEntryM6Harness(
         ? "/student/courses/CI7K3M2QAZ"
         : caseName === "home"
           ? "/student"
-          : "/student/courses",
+          : caseName === null
+            ? window.location.pathname
+            : "/student/courses",
   });
-  const courses = coursesFor(caseName);
+  const courses = coursesFor(fixtureCase);
   const currentDecision = (): StudentAssessmentDecisionSummary => ({
     ...ASSESSMENT_DECISION,
   });
@@ -187,10 +190,10 @@ export function mountStudentCourseEntryM6Harness(
           questions: [],
         }),
       listLiveStudentAssessments: (courseInstanceId: string) => {
-        if (caseName === "landing") {
+        if (fixtureCase === "landing") {
           return Promise.resolve([currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT]);
         }
-        if (caseName === "home") {
+        if (fixtureCase === "home") {
           return Promise.resolve(
             courseInstanceId === COURSE_ONE.id ? [currentAssessment()] : [BONUS_ASSESSMENT],
           );

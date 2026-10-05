@@ -164,6 +164,21 @@ export async function enterInstructor(page: Page): Promise<void> {
   await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
 }
 
+export async function openInstructorLibraryBrowse(page: Page): Promise<void> {
+  const clear = page.getByRole("button", { name: "Clear all", exact: true });
+  if (await clear.isVisible()) await clear.click();
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Questions", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+    .getByRole("link", { name: "Browse Question Library", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Browse Question Library", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
+}
+
 export async function enterSysadmin(page: Page): Promise<void> {
   const setupFile = process.env["PLE_LOCAL_DEMO_TOTP_SETUP_FILE"];
   if (setupFile === undefined && !process.argv.includes("--headed")) {

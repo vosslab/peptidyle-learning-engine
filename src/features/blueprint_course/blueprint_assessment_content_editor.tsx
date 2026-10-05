@@ -11,16 +11,11 @@ import {
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
 import { assessmentPointValueDraft } from "../../assessment_point_value";
-import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import { createQuestionPoolLibraryClient } from "../../api/http_client/question_pool_library";
+import { createHttpApiClient } from "../../api/http_client";
+import { createQuestionLibraryRepository } from "../../api/question_library_repository";
+import { type QuestionPickerSource, type QuestionPickerSourceRepository } from "../question_picker";
 import {
-  QuestionPicker,
-  type QuestionPickerSource,
-  type QuestionPickerSourceRepository,
-} from "../question_picker";
-import {
-  appendPickedFixedEntries,
   appendPickedPool,
   removeReusableEntry,
   updateReusableDefaults,
@@ -29,9 +24,9 @@ import {
   updateReusableText,
 } from "./blueprint_course_model";
 import {
-  QuestionPoolPicker,
-  type QuestionPoolPickerSelection,
-} from "../question_pool_picker/question_pool_picker";
+  AssessmentContentPicker,
+  type AssessmentContentPickerSelection,
+} from "../assessment_content_picker";
 import { BlueprintPoolMembersEditor } from "./blueprint_pool_members_editor";
 import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedback_fields";
 import { RecordSequence } from "../../components/record_list/record_sequence";
@@ -52,7 +47,6 @@ export interface BlueprintAssessmentContentEditorProps {
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
-  readonly questionPoolClient?: QuestionPoolLibraryClient;
   readonly onChange: (content: BlueprintAssessmentContentInput, message: string) => void;
   readonly onInvalidDraftChange?: (invalid: boolean) => void;
 }
@@ -72,8 +66,7 @@ export function BlueprintAssessmentContentEditor(
   props: BlueprintAssessmentContentEditorProps,
 ): JSX.Element {
   const [editingTask, setEditingTask] = createSignal<"questions" | "properties">("questions");
-  const [fixedPickerOpen, setFixedPickerOpen] = createSignal(false);
-  const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
+  const [contentPickerOpen, setContentPickerOpen] = createSignal(false);
   const [memberPoolEntryId, setMemberPoolEntryId] = createSignal<string>();
   const [invalidMembers, setInvalidMembers] = createSignal(false);
   const [pointDrafts, setPointDrafts] = createSignal<Readonly<Record<string, string>>>({});
@@ -100,9 +93,8 @@ export function BlueprintAssessmentContentEditor(
     }
     return entries.map((entry, index) => ({ entry, index, id: entryIdentities[index]! }));
   });
-  const questionPoolClient = props.questionPoolClient ?? createQuestionPoolLibraryClient();
-  let fixedPickerTrigger: HTMLButtonElement | undefined;
-  let poolPickerTrigger: HTMLButtonElement | undefined;
+  const assessmentContentRepository = createQuestionLibraryRepository(createHttpApiClient());
+  let contentPickerTrigger: HTMLButtonElement | undefined;
   let editor: HTMLElement | undefined;
   onCleanup(() => props.onInvalidDraftChange?.(false));
 
@@ -271,31 +263,57 @@ export function BlueprintAssessmentContentEditor(
     recognition.remember(incoming);
   }
 
-  function confirmFixedQuestions(selection: Parameters<typeof appendPickedFixedEntries>[1]): void {
+  function confirmFixedQuestions(
+    selection: Extract<AssessmentContentPickerSelection, { kind: "questions" }>,
+  ): void {
     rememberTitles({
       questions: new Map(
-        selection.questions.map((question) => [question.questionId, question.row.questionTitle]),
+        selection.questions.map((question) => [
+          question.publishedQuestionRevisionTuple.publishedQuestionId,
+          question.title,
+        ]),
       ),
       pools: new Map(),
     });
-    const next = appendPickedFixedEntries(props.content, selection);
-    setFixedPickerOpen(false);
     appendEntries(
-      next,
-      `Added ${plural(selection.questionIds.length, "selected question")} as fixed entries. Continue arranging the content or save the Blueprint Course.`,
+      {
+        ...props.content,
+        entries: [
+          ...props.content.entries,
+          ...selection.questions.map((question) => ({
+            kind: "fixed" as const,
+            published_question_revision_tuple: question.publishedQuestionRevisionTuple,
+            points_possible: "1",
+            scoring_rule: "normal" as const,
+            question_attempt_limit: { maxAttempts: null },
+            question_attempt_time_limit: { kind: "unlimited" as const },
+          })),
+        ],
+      },
+      `Added ${plural(selection.questions.length, "selected question")} as fixed entries. Continue arranging the content or save the Blueprint Course.`,
     );
   }
 
-  function confirmQuestionPool(selection: QuestionPoolPickerSelection): void {
+  function confirmQuestionPool(
+    selection: Extract<AssessmentContentPickerSelection, { kind: "pool" }>,
+  ): void {
     rememberTitles({
       questions: new Map(),
       pools: new Map([[selection.questionPoolId, selection.title]]),
     });
-    setPoolPickerOpen(false);
     appendEntries(
       appendPickedPool(props.content, selection.questionPoolId, selection.questionPoolEditNumber),
       `Added ${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}), with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
     );
+  }
+
+  function confirmAssessmentContent(selection: AssessmentContentPickerSelection): void {
+    setContentPickerOpen(false);
+    if (selection.kind === "pool") {
+      confirmQuestionPool(selection);
+      return;
+    }
+    confirmFixedQuestions(selection);
   }
 
   return (
@@ -375,21 +393,11 @@ export function BlueprintAssessmentContentEditor(
               <button
                 type="button"
                 onClick={(event) => {
-                  fixedPickerTrigger = event.currentTarget;
-                  setFixedPickerOpen(true);
+                  contentPickerTrigger = event.currentTarget;
+                  setContentPickerOpen(true);
                 }}
               >
-                Add fixed questions
-              </button>
-              <button
-                type="button"
-                class="quiet-action"
-                onClick={(event) => {
-                  poolPickerTrigger = event.currentTarget;
-                  setPoolPickerOpen(true);
-                }}
-              >
-                Add a pool
+                Add Assessment content
               </button>
             </div>
           </Show>
@@ -730,25 +738,13 @@ export function BlueprintAssessmentContentEditor(
         />
       </div>
 
-      <Show when={fixedPickerOpen()}>
-        <QuestionPicker
-          repository={props.pickerRepository}
-          sources={props.pickerSources}
-          mode="many"
-          maximumSelection={1024}
-          trigger={fixedPickerTrigger}
-          title="Choose fixed Questions"
-          confirmLabel="Add fixed questions"
-          onConfirm={confirmFixedQuestions}
-          onCancel={() => setFixedPickerOpen(false)}
-        />
-      </Show>
-      <Show when={poolPickerOpen()}>
-        <QuestionPoolPicker
-          client={questionPoolClient}
-          trigger={poolPickerTrigger}
-          onConfirm={confirmQuestionPool}
-          onCancel={() => setPoolPickerOpen(false)}
+      <Show when={contentPickerOpen()}>
+        <AssessmentContentPicker
+          repository={assessmentContentRepository}
+          trigger={contentPickerTrigger}
+          maximumQuestionSelection={1000}
+          onConfirm={confirmAssessmentContent}
+          onCancel={() => setContentPickerOpen(false)}
         />
       </Show>
     </section>

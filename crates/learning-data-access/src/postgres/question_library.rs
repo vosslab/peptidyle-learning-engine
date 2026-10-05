@@ -1,5 +1,6 @@
 //! PostgreSQL implementation of the Instructor Question Library read boundary.
 
+mod mixed;
 mod search;
 
 use async_trait::async_trait;

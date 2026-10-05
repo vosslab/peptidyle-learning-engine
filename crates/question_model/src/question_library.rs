@@ -165,6 +165,13 @@ pub struct QuestionPoolId(String);
 
 define_public_id_type!(QuestionPoolId, "Question Pool ID");
 
+/// Public identity shared by the Question and Pool Library namespaces.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct LibraryObjectId(String);
+
+define_public_id_type!(LibraryObjectId, "Library object ID");
+
 /// Calculates the public checksum character for canonical-ID characters after
 /// separators and checksum positions have been excluded by the caller.
 ///
@@ -559,7 +566,7 @@ pub struct QuestionUseDetails {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchPage {
     /// At most the request's validated page size of context-free discovery rows.
-    pub items: Vec<QuestionSearchResult>,
+    pub items: Vec<crate::LibrarySearchResult>,
     /// Opaque continuation token, bound to the normalized query.
     pub next_cursor: Option<String>,
     /// Server-side facet counts; clients must not infer them from `items`.

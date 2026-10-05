@@ -734,6 +734,7 @@ test("hierarchy breadcrumbs keep ancestors and collapse only identical adjacent 
     assessmentTitle: "Problem Set 7",
     assessmentAttemptTitle: "Problem Set 7",
     questionTitle: "Catalytic triad",
+    libraryObjectTitle: "Catalytic triad",
     blueprintCourseTitle: "Molecular Biology Blueprint",
   };
   const selectedTaskIds = (model) =>
@@ -809,9 +810,9 @@ test("hierarchy breadcrumbs keep ancestors and collapse only identical adjacent 
   const question = trail("questionDetail", "instructor", labels);
   assert.deepEqual(
     question.breadcrumbs.map((item) => item.label),
-    ["Home", "Questions", "Search Question Library", "Catalytic triad"],
+    ["Home", "Questions", "Browse Question Library", "Catalytic triad"],
   );
-  assert.deepEqual(selectedTaskIds(question), ["searchQuestionLibrary"]);
+  assert.deepEqual(selectedTaskIds(question), ["browseQuestionLibrary"]);
 
   const library = trail("library", "instructor", {});
   const searchCrumb = library.breadcrumbs.find((item) => item.label === "Search Question Library");

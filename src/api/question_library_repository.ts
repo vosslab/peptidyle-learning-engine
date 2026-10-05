@@ -14,15 +14,15 @@ import {
 } from "./decoders/bloom_classification";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
+import { RECORD_PAGE_SIZES } from "../components/record_list/record_page_sizes";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
 import { isProductionQuestionBackend, PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 import {
-  QUESTION_LIBRARY_PAGE_SIZES,
   type QuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowseFacetAggregate,
-  type QuestionLibraryBrowsePage,
+  type LibrarySearchPage,
   type QuestionLibraryPageSize,
 } from "../pages/library_page_model";
 
@@ -30,7 +30,7 @@ function questionLibraryPageSize(
   pageSize: QuestionLibraryPageSize | undefined,
 ): QuestionLibraryPageSize {
   if (pageSize === undefined) return 50;
-  if (QUESTION_LIBRARY_PAGE_SIZES.includes(pageSize)) return pageSize;
+  if (RECORD_PAGE_SIZES.includes(pageSize)) return pageSize;
   throw new Error("Question Library page size must be 50, 100, or 250");
 }
 const CAPABILITIES = [
@@ -218,6 +218,9 @@ export function questionSearchRequest(
   pageSize?: QuestionLibraryPageSize,
 ): QuestionSearchRequest {
   return {
+    kind: query.kind,
+    membership: query.membership,
+    owner_account_id: query.ownerAccountId,
     text: query.search === "" ? null : query.search,
     ...libraryClassificationFilter(query),
     author_names: selectedPublicText(query.authorName),
@@ -252,20 +255,47 @@ export function createQuestionLibraryRepository(
       const search = questionSearchRequest(query, cursor, authorship, pageSize);
       const page = await client.searchQuestionLibrary(search);
       return {
-        items: page.items.map((item) => ({
-          displayId: item.summary.questionId,
-          publishedQuestionRevisionTuple: item.summary.publishedQuestionRevisionTuple,
-          questionTitle: item.summary.metadata.questionTitle,
-          summary: item.summary.metadata.questionDescription,
-          bloom: item.summary.bloom,
-          disciplineName: item.disciplineName,
-          disciplineIsRetired: item.disciplineIsRetired,
-          questionFormat: item.summary.questionFormat,
-          authors: item.summary.authorship.authors,
-          capabilities: item.summary.capabilities,
-          questionLicense: item.summary.metadata.questionLicense,
-          evidence: item.evidence,
-        })),
+        items: page.items.map((item) => {
+          if (item.kind === "pool") {
+            const pool = item.pool;
+            return {
+              kind: "pool" as const,
+              displayId: pool.questionPoolId,
+              title: pool.metadata.title,
+              description: pool.metadata.description,
+              ownerAccountId: pool.ownerAccountId,
+              memberCount: pool.memberCount,
+              questionType: pool.questionType,
+              backend: pool.backend,
+              license: pool.license,
+              disciplineName: pool.metadata.disciplineName,
+              disciplineIsRetired: pool.metadata.disciplineIsRetired,
+              tags: pool.metadata.tags,
+              bloom: pool.bloom,
+              questionPoolMetadataEditNumber: pool.questionPoolMetadataEditNumber,
+              questionPoolEditNumber: pool.questionPoolEditNumber,
+              subjectUuid: pool.metadata.subjectUuid,
+              topicUuid: pool.metadata.topicUuid,
+              subtopicUuid: pool.metadata.subtopicUuid,
+            };
+          }
+          const question = item.question;
+          return {
+            kind: "question" as const,
+            displayId: question.summary.questionId,
+            publishedQuestionRevisionTuple: question.summary.publishedQuestionRevisionTuple,
+            questionTitle: question.summary.metadata.questionTitle,
+            summary: question.summary.metadata.questionDescription,
+            bloom: question.summary.bloom,
+            disciplineName: question.disciplineName,
+            disciplineIsRetired: question.disciplineIsRetired,
+            questionFormat: question.summary.questionFormat,
+            authors: question.summary.authorship.authors,
+            capabilities: question.summary.capabilities,
+            questionLicense: question.summary.metadata.questionLicense,
+            evidence: question.evidence,
+          };
+        }),
         nextCursor: page.nextCursor,
         aggregates: facets(page),
         facetTruncation: {
@@ -274,7 +304,7 @@ export function createQuestionLibraryRepository(
           subjects: page.facets.subjectsTruncated,
           topics: page.facets.topicsTruncated,
         },
-      } satisfies QuestionLibraryBrowsePage;
+      } satisfies LibrarySearchPage;
     },
   };
 }

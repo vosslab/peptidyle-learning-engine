@@ -1431,8 +1431,8 @@ capped by the scan-row summary.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s Instructor list-density
 guidance and the Question Library scan-row regions in
-[library_browse_rows.tsx](../src/pages/library_browse_rows.tsx) and
-[library_browse_record_list.css](../src/pages/library_browse_record_list.css).
+[question_library_search_definition.ts](../src/pages/question_library_search_definition.ts) and
+[library_page.css](../src/pages/library_page.css).
 
 ### Reorder controls share mechanics, not workflow policy
 
@@ -1836,8 +1836,9 @@ not an immutable Revision history.
 **Consequence.** Student Work pins Question ID, Question Revision, Pool ID,
 and Pool Edit Number. Forks copy current members once. A Pool mismatch identifies failed
 requirements and prevents affected Assessment release until resolved; Assessments already
-released when a mismatch develops continue as-is. Current ordering, uniqueness, Author storage,
-and admission-only classification checks require implementation alignment. See
+released when a mismatch develops continue as-is. Per-Question uniqueness and removal of separate Pool Author storage are implemented. Current
+ordering and admission-only classification checks still require implementation alignment.
+A role-typed composite foreign key enforces Instructor ownership. See
 [QUESTION_MODEL.md](QUESTION_MODEL.md) for the complete product boundary and pending work.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications)
@@ -1870,12 +1871,50 @@ combined results; individual member matches do not expand Pool matches.
 **Why.** The Library should show reusable Pools without flooding results with their members.
 Member-inclusive search remains available when the Instructor needs individual Questions.
 
-**Consequence.** The combined query and shared interface are pending work, not completed
-behavior. Pool member pickers select Questions only and preserve all membership requirements.
-The Library display default does not make a Question in another Pool ineligible for membership.
-The plan is [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
+**Consequence.** The implemented Library uses one server union with global filtering, sorting,
+facets, and cursor paging. `/library/{id}` resolves object kind before mounting Question or Pool
+detail. The Question picker remains Question-only and preserves membership requirements; the
+Assessment content picker selects Questions or one Pool through the mixed Library definition. The
+Library display default does not make a Question in another Pool ineligible for membership.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-specifications)
+
+### Searches share session behavior
+
+**Decision.** Shared search behavior lives in `src/features/search/`. Each content definition
+supplies its typed query, decoder/API call, row identity, record description, filters, and orders.
+Text applies on Enter or Search; filters, sort, and page size apply immediately. Search state
+lasts only while the page or dialog is open.
+
+**Why.** Quoted phrases, exclusions, and field syntax pass through incomplete states while typed.
+Explicit submission gives each result count a clear cause. Shared request numbering prevents old
+responses from replacing newer results without mixing content-specific APIs or domain rules.
+
+**Consequence.** New queries clear rows, counts, and selection. Paging failures retain the current
+page and retry the exact failed request. Page-size changes preserve selection but reset cursors.
+Result kinds and Pool membership remain Library rules. The Question picker keeps its ordered tray
+outside shared search state: search Clear resets discovery, while its separate Clear selection
+action resets the tray. The Assessment content picker owns its Question-or-one-Pool selection rule.
+
+**Owner.** [search_session.ts](../src/features/search/search_session.ts)
+
+### Pool credit identifies its owner and source Pool
+
+**Decision.** Pool credit consists of its owner and, for a fork, its source-Pool link.
+The shared-search plan's calculated-license step removes the unused manual Pool provenance
+contract, including source text and source URL, alongside its manual license. Each member keeps
+the authorship, source information, and license of its exact pinned Question Revision.
+
+**Why.** HG names owner and source Pool as the Pool's credit fields. The current Rust and browser
+interfaces already follow that model; the remaining manual provenance functions exist only in SQL.
+Keeping a second Pool source description would preserve an unused competing credit contract.
+
+**Consequence.** The implementation removes author and attribution storage and the remaining
+provenance table and functions, while adding the calculated Pool license. Obsolete manual source
+fields leave with that table. Each member's exact Revision retains its own authorship, source, and
+license evidence.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-metadata)
 
 ### Library usage statistics are retained counters, not reconstructions
 

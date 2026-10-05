@@ -1,5 +1,5 @@
 // Instructor WeBWorK generated-example capture through the published Question Library.
-// Selector contract: the search field and result rows are owned by library_page.tsx; the
+// Selector contract: the Browse controls and result rows are owned by library_page.tsx; the
 // generated-example iframe is owned by question_detail_page.tsx and its document by WeBWorK.
 
 import type { Page } from "playwright";
@@ -11,14 +11,18 @@ import {
   type CaptureDeclaration,
   type ScenarioDefinition,
 } from "./scenario_types";
-import { enterInstructor, followCaptureLink } from "./visible_workflows";
+import {
+  enterInstructor,
+  followCaptureLink,
+  openInstructorLibraryBrowse,
+} from "./visible_workflows";
 
 const ANSWER_KEY_TEXT = /answer key|correct answer|correct feedback|private source/iu;
 
 interface GeneratedExample {
   readonly checkpoint: string;
   readonly title: string;
-  readonly search: string;
+  readonly subject: string;
   readonly prompt: string;
   readonly control: "input[type=radio]" | "select";
   readonly header?: string;
@@ -30,7 +34,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_generated_example",
     title: "Genetic Disorders from Descriptions",
-    search: "Genetic disorders",
+    subject: "Genetics",
     prompt: "",
     control: "input[type=radio]",
     state: "rendered WeBWorK example",
@@ -39,7 +43,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_hla_genotype",
     title: "Offspring HLA Genotypes (2 Markers, Black)",
-    search: "Offspring HLA",
+    subject: "DNA Profiling",
     prompt: "The mother has",
     control: "input[type=radio]",
     state: "HLA haplotype inheritance example",
@@ -48,7 +52,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_monohybrid_matching",
     title: "Matching Monohybrid Cross Genotypes to Phenotypes",
-    search: "Matching Monohybrid",
+    subject: "Genetics",
     prompt: "monohybrid crosses",
     control: "select",
     state: "monohybrid genotype matching example",
@@ -57,7 +61,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_x_linked_counts",
     title: "Parent Genotypes in X-Linked Recessive Crosses",
-    search: "Parent Genotypes in X-Linked",
+    subject: "Inheritance Genetics",
     prompt: "red-eyed (wildtype)",
     control: "input[type=radio]",
     header: "phenotype",
@@ -67,7 +71,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_dna_structure",
     title: "True/False Statements About DNA Structure",
-    search: "DNA Structure",
+    subject: "Molecular Biology",
     prompt: "DNA",
     control: "input[type=radio]",
     state: "True/False Statements About DNA Structure generated example",
@@ -76,7 +80,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_meiosis_prophase",
     title: "Matching Meiosis Prophase I Stages to Descriptions",
-    search: "Matching Meiosis Prophase",
+    subject: "Genetics",
     prompt: "stages of meiosis prophase I",
     control: "select",
     state: "Matching Meiosis Prophase I Stages to Descriptions generated example",
@@ -85,7 +89,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_chi_square",
     title: "True/False Statements About Chi-Square Tests",
-    search: "Chi-Square Tests",
+    subject: "Biostatistics",
     prompt: "chi-square",
     control: "input[type=radio]",
     state: "True/False Statements About Chi-Square Tests generated example",
@@ -94,7 +98,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
     checkpoint: "webwork_chromosome_shapes",
     title: "Matching Chromosome Shapes to Descriptions",
-    search: "Matching Chromosome Shapes",
+    subject: "Genetics",
     prompt: "categories of chromosome shape",
     control: "select",
     state: "Matching Chromosome Shapes to Descriptions generated example",
@@ -142,7 +146,8 @@ async function captureGeneratedExample(
   const page = session.page;
   try {
     await enterInstructor(page);
-    await page.getByLabel("Search published questions", { exact: true }).fill(example.search);
+    await openInstructorLibraryBrowse(page);
+    await page.getByRole("button", { name: new RegExp(`^${example.subject}`, "u") }).click();
     const result = page.locator(".record-list__row").filter({
       has: page.getByRole("heading", { name: example.title, exact: true }),
     });
@@ -165,7 +170,7 @@ function generatedExampleCapture(example: GeneratedExample): CaptureDeclaration 
     checkpoint: example.checkpoint,
     filenameStem: catalogScreenshotFilename(
       "questions",
-      "searchQuestionLibrary",
+      "browseQuestionLibrary",
       example.checkpoint,
     ),
     area: "question library",

@@ -5,11 +5,8 @@ import test from "node:test";
 import { build } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
-import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../src/pages/library_page_model.ts";
-
 import {
   MAX_QUESTION_PICKER_SELECTION_CAP,
-  QuestionPickerSession,
   inspectQuestionPickerRow,
   moveQuestionPickerSelection,
   questionPickerInspectionView,
@@ -91,159 +88,6 @@ test("picker enforces the shared bounded selection limit", () => {
     () => questionPickerSelection("many", MAX_QUESTION_PICKER_SELECTION_CAP, rows),
     /at most/,
   );
-});
-
-test("picker session drops a stale source response before publishing it", async () => {
-  let resolveQuestionLibrary;
-  const questionLibrary = new Promise((resolve) => {
-    resolveQuestionLibrary = resolve;
-  });
-  const states = [];
-  const session = new QuestionPickerSession(
-    {
-      search: async (request) => {
-        if (request.source.kind === "library") return await questionLibrary;
-        return {
-          items: [row("2R5X-E7YA", "Mine")],
-          aggregates: [],
-          nextCursor: null,
-          facetTruncation: noTruncation(),
-        };
-      },
-    },
-    (state) => states.push(state),
-  );
-  const first = session.reset({ kind: "library", label: "Question Library" }, { ...emptyQuery() });
-  const second = session.reset({ kind: "mine", label: "My questions" }, { ...emptyQuery() });
-  resolveQuestionLibrary({
-    items: [row("7K3M-79QP", "Stale")],
-    aggregates: [],
-    nextCursor: null,
-    facetTruncation: noTruncation(),
-  });
-  await Promise.all([first, second]);
-  assert.equal(states.at(-1)?.kind, "ready");
-  assert.equal(states.at(-1)?.rows[0]?.questionTitle, "Mine");
-});
-
-test("picker excludes deferred iMathAS rows from new selections", async () => {
-  const states = [];
-  const deferred = row("7K3M-79QP", "Deferred backend");
-  deferred.questionFormat = "imathas";
-  const session = new QuestionPickerSession(
-    {
-      search: async () => ({
-        items: [deferred],
-        aggregates: [],
-        nextCursor: null,
-        facetTruncation: noTruncation(),
-      }),
-    },
-    (state) => states.push(state),
-  );
-
-  await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
-  assert.equal(states.at(-1)?.kind, "empty");
-});
-
-test("picker selection remains ordered while a source and query change", async () => {
-  const selection = questionPickerSelection("many", 200, [
-    row("7K3M-79QP", "Preserved first"),
-    row("2R5X-E7YA", "Preserved second"),
-  ]);
-  const session = new QuestionPickerSession(
-    {
-      search: async (request) => ({
-        items: [row(request.source.kind === "library" ? "3S8B-24DZ" : "4T9C-C5EW")],
-        aggregates: [],
-        nextCursor: null,
-        facetTruncation: noTruncation(),
-      }),
-    },
-    () => undefined,
-  );
-  await session.reset(
-    { kind: "library", label: "Question Library" },
-    { ...emptyQuery(), search: "first" },
-  );
-  await session.reset(
-    { kind: "mine", label: "My questions" },
-    { ...emptyQuery(), search: "second" },
-  );
-  assert.deepEqual(selection.questionIds, ["7K3M-79QP", "2R5X-E7YA"]);
-});
-
-test("pagination failure retains loaded rows while external selection remains usable", async () => {
-  const states = [];
-  const selection = questionPickerSelection("many", 200, [row("7K3M-79QP")]);
-  const session = new QuestionPickerSession(
-    {
-      search: async (request) => {
-        if (request.cursor === null) {
-          return {
-            items: [row("2R5X-E7YA")],
-            aggregates: [],
-            nextCursor: "next",
-            facetTruncation: noTruncation(),
-          };
-        }
-        throw new Error("temporary source failure");
-      },
-    },
-    (state) => states.push(state),
-  );
-  await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
-  await session.loadNext();
-  assert.equal(states.at(-1)?.kind, "error");
-  assert.equal(states.at(-1)?.rows[0]?.displayId, "2R5X-E7YA");
-  assert.deepEqual(selection.questionIds, ["7K3M-79QP"]);
-});
-
-test("picker replaces one discovery page and forwards the Library page size", async () => {
-  const requests = [];
-  const states = [];
-  const session = new QuestionPickerSession(
-    {
-      search: async (request) => {
-        requests.push({ cursor: request.cursor, pageSize: request.pageSize });
-        if (request.pageSize === 100) {
-          return {
-            items: [row("7K3M-79QP", "Sized")],
-            aggregates: [],
-            nextCursor: null,
-            facetTruncation: noTruncation(),
-          };
-        }
-        if (request.cursor === null) {
-          return {
-            items: [row("2R5X-E7YA", "First page"), row("3S8B-24DZ", "Also first")],
-            aggregates: [],
-            nextCursor: "next",
-            facetTruncation: noTruncation(),
-          };
-        }
-        return {
-          items: [row("4T9C-C5EW", "Second page")],
-          aggregates: [],
-          nextCursor: null,
-          facetTruncation: noTruncation(),
-        };
-      },
-    },
-    (state) => states.push(state),
-  );
-  await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
-  await session.loadNext();
-  assert.equal(states.at(-1)?.rows.length, 1);
-  assert.equal(states.at(-1)?.rows[0]?.displayId, "4T9C-C5EW");
-  assert.equal(session.hasPrevious, true);
-  await session.loadPrevious();
-  assert.equal(states.at(-1)?.rows.length, 2);
-  assert.equal(session.hasPrevious, false);
-  await session.changePageSize(100);
-  assert.deepEqual(requests.at(-1), { cursor: null, pageSize: 100 });
-  assert.equal(states.at(-1)?.rows[0]?.displayId, "7K3M-79QP");
-  assert.equal(session.pageSize, 100);
 });
 
 function inspectionDetails() {
@@ -368,24 +212,3 @@ test("inspectQuestionPickerRow keeps the current selection and QuestionPickerIns
   assert.doesNotMatch(webworkHtml, /Add selected Questions/);
   assert.doesNotMatch(webworkHtml, /concealed/);
 });
-
-function emptyQuery() {
-  return {
-    ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-    search: "",
-    authorName: null,
-    backend: null,
-    tag: null,
-    subjects: [],
-    topics: [],
-    questionType: null,
-    capability: null,
-    questionLicense: null,
-    usedInMyCourses: null,
-    authorship: "any",
-  };
-}
-
-function noTruncation() {
-  return { authorNames: false, tags: false, subjects: false, topics: false };
-}

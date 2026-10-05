@@ -288,10 +288,12 @@ export function RecordSemanticContent(props: {
         )}
       </Show>
       <div class="record-list__content">
-        <h3 class="record-list__title">{props.content().title}</h3>
-        <Show when={props.content().description}>
-          {(description) => <p class="record-list__description">{description()}</p>}
-        </Show>
+        <div class="record-list__identity">
+          <h3 class="record-list__title">{props.content().title}</h3>
+          <Show when={props.content().description}>
+            {(description) => <p class="record-list__description">{description()}</p>}
+          </Show>
+        </div>
         <Show when={props.content().details.length > 0}>
           <div class="record-list__facts">
             <For each={props.content().details}>{(fact) => <RecordFactView fact={fact} />}</For>

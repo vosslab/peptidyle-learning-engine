@@ -12,7 +12,7 @@ import { NotFoundPage } from "./pages/contract_pages";
 import { AssessmentAttemptSummaryPage } from "./pages/assessment_attempt_summary_page";
 import { BrowseLibraryRoutePage, LibraryRoutePage } from "./pages/library_route_page";
 import { LibraryWatchNotificationsPage } from "./pages/library_watch_notifications_page";
-import { QuestionDetailPage } from "./pages/question_detail_page";
+import { LibraryObjectDetailPage } from "./pages/library_object_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { MyQuestionsPage } from "./pages/my_questions_page";
 import { StarredQuestionsPage } from "./pages/starred_questions_page";
@@ -101,7 +101,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   library: LibraryRoutePage,
   libraryBrowse: BrowseLibraryRoutePage,
   libraryWatchNotifications: LibraryWatchNotificationsPage,
-  questionDetail: QuestionDetailPage,
+  questionDetail: LibraryObjectDetailPage,
   myQuestions: MyQuestionsPage,
   starredQuestions: StarredQuestionsPage,
   questionDrafts: QuestionDraftsPage,

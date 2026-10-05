@@ -4,20 +4,18 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEntryId, AssessmentId, BloomClassificationEditNumber, BloomClassificationView,
-    BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
-    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolMetadataEditNumber,
-    QuestionRevisionNumber, QuestionSearchBloomCognitiveProcessFacet,
-    QuestionSearchBloomKnowledgeDimensionFacet, QuestionUsageTotals,
+    AccountId, AssessmentEntryId, AssessmentId, BloomClassificationEditNumber,
+    BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend, QuestionLicense,
+    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolMetadata, QuestionRevisionNumber,
+    QuestionType, QuestionUsageTotals,
 };
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    AssessmentQuestionPoolForkRecord, Cursor, DiscoveryPageRequest, PublishedQuestionPool,
-    QuestionPoolDiscoveryFilter, QuestionPoolDiscoveryPage, QuestionPoolLibraryStore,
-    QuestionPoolTextFilter, SessionTokenHash, StoreError,
+    AssessmentQuestionPoolForkRecord, PublishedQuestionPool, QuestionPoolLibraryStore,
+    SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -59,77 +57,6 @@ impl PostgresQuestionPoolLibraryStore {
 
 #[async_trait]
 impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
-    async fn list_published_question_pools(
-        &self,
-        session_token_hash: SessionTokenHash,
-        page: DiscoveryPageRequest,
-        filter: QuestionPoolDiscoveryFilter,
-        text: QuestionPoolTextFilter,
-    ) -> Result<QuestionPoolDiscoveryPage, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
-        if !filter.has_valid_structure() {
-            return Err(StoreError::InvalidRecord(
-                "Pool discovery hierarchy is invalid".into(),
-            ));
-        }
-        // ASVS 1.2.4: identity and closed Bloom predicates remain typed SQL bind parameters.
-        let rows = sqlx::query(
-            "SELECT * FROM ple_api.list_published_question_pools($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-        )
-        .bind(page.after.as_ref().map(Cursor::as_str))
-        .bind(i32::from(page.size.get()))
-        .bind(filter.discipline_uuid)
-        .bind(filter.subject_uuid)
-        .bind(filter.topic_uuid)
-        .bind(filter.subtopic_uuid)
-        .bind(filter.cross_discipline)
-        .bind(serde_json::to_value(&text.terms).map_err(|_| invalid("Pool text terms"))?)
-        .bind(text.tags)
-        .bind(filter.bloom_cognitive_process.map(BloomCognitiveProcess::as_str))
-        .bind(
-            filter
-                .bloom_knowledge_dimension
-                .map(BloomKnowledgeDimension::as_str),
-        )
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let first = rows
-            .first()
-            .ok_or_else(|| invalid("Question Pool discovery aggregates"))?;
-        let (cognitive_processes, knowledge_dimensions) = decode_bloom_facets(first)?;
-        let mut items = Vec::with_capacity(rows.len());
-        for row in &rows {
-            if row
-                .try_get::<Option<String>, _>("question_pool_id")
-                .map_err(map_sqlx_error)?
-                .is_some()
-            {
-                items.push(decode_summary(row)?);
-            }
-        }
-        let has_next = items.len() > usize::from(page.size.get());
-        items.truncate(usize::from(page.size.get()));
-        let next_cursor = has_next
-            .then(|| {
-                items
-                    .last()
-                    .map(|item| item.question_pool_id.to_string())
-                    .ok_or_else(|| invalid("Question Pool page"))
-            })
-            .transpose()?
-            .map(Cursor::parse)
-            .transpose()
-            .map_err(|_| invalid("Question Pool cursor"))?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(QuestionPoolDiscoveryPage {
-            items,
-            next_cursor,
-            cognitive_processes,
-            knowledge_dimensions,
-        })
-    }
-
     async fn load_current_published_question_pool(
         &self,
         session_token_hash: SessionTokenHash,
@@ -216,6 +143,10 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
             metadata: decode_metadata(first)?,
             assessment_entry_id: stored_entry,
             question_pool_id: pool_id,
+            owner_account_id: decode_owner_account_id(first)?,
+            question_type: decode_pool_question_type(first)?,
+            backend: decode_pool_backend(first)?,
+            license: decode_pool_license(first)?,
             question_pool_edit_number: edit_number,
             selection_count,
             bloom: decode_bloom(first)?,
@@ -262,70 +193,6 @@ impl PostgresQuestionPoolLibraryStore {
     }
 }
 
-fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySummary, StoreError> {
-    let question_pool_id = decode_pool_id(row, "question_pool_id")?;
-    let edit_number = decode_pool_edit_number(row)?;
-    let question_pool_metadata_edit_number = decode_pool_metadata_edit_number(row)?;
-    let member_count = u32::try_from(
-        row.try_get::<i32, _>("member_count")
-            .map_err(map_sqlx_error)?,
-    )
-    .ok()
-    .and_then(NonZeroU32::new)
-    .ok_or_else(|| invalid("Question Pool member count"))?;
-    Ok(QuestionPoolLibrarySummary {
-        metadata: decode_metadata(row)?,
-        question_pool_id,
-        question_pool_edit_number: edit_number,
-        question_pool_metadata_edit_number,
-        member_count,
-        bloom: decode_bloom(row)?,
-    })
-}
-
-fn decode_bloom_facets(
-    row: &sqlx::postgres::PgRow,
-) -> Result<
-    (
-        Vec<QuestionSearchBloomCognitiveProcessFacet>,
-        Vec<QuestionSearchBloomKnowledgeDimensionFacet>,
-    ),
-    StoreError,
-> {
-    let cognitive_counts = row
-        .try_get::<Vec<i64>, _>("bloom_cognitive_process_counts")
-        .map_err(map_sqlx_error)?;
-    let knowledge_counts = row
-        .try_get::<Vec<i64>, _>("bloom_knowledge_dimension_counts")
-        .map_err(map_sqlx_error)?;
-    if cognitive_counts.len() != BloomCognitiveProcess::ALL.len()
-        || knowledge_counts.len() != BloomKnowledgeDimension::ALL.len()
-    {
-        return Err(invalid("Question Pool Bloom counts"));
-    }
-    let cognitive_processes = BloomCognitiveProcess::ALL
-        .into_iter()
-        .zip(cognitive_counts)
-        .map(|(cognitive_process, count)| {
-            Ok(QuestionSearchBloomCognitiveProcessFacet {
-                cognitive_process,
-                count: u64::try_from(count).map_err(|_| invalid("Question Pool Bloom count"))?,
-            })
-        })
-        .collect::<Result<Vec<_>, StoreError>>()?;
-    let knowledge_dimensions = BloomKnowledgeDimension::ALL
-        .into_iter()
-        .zip(knowledge_counts)
-        .map(|(knowledge_dimension, count)| {
-            Ok(QuestionSearchBloomKnowledgeDimensionFacet {
-                knowledge_dimension,
-                count: u64::try_from(count).map_err(|_| invalid("Question Pool Bloom count"))?,
-            })
-        })
-        .collect::<Result<Vec<_>, StoreError>>()?;
-    Ok((cognitive_processes, knowledge_dimensions))
-}
-
 fn decode_pool_rows(
     rows: &[sqlx::postgres::PgRow],
     expected_id: &QuestionPoolId,
@@ -340,6 +207,10 @@ fn decode_pool_rows(
     }
     Ok(Some(PublishedQuestionPool {
         metadata: decode_metadata(first)?,
+        owner_account_id: decode_owner_account_id(first)?,
+        question_type: decode_pool_question_type(first)?,
+        backend: decode_pool_backend(first)?,
+        license: decode_pool_license(first)?,
         bloom: decode_bloom(first)?,
         members: decode_member_rows(rows, &pool_id, edit_number)?,
         question_pool_id: pool_id,
@@ -476,6 +347,51 @@ fn decode_pool_id(row: &sqlx::postgres::PgRow, column: &str) -> Result<QuestionP
         .map_err(|_| invalid("public Question Pool ID"))
 }
 
+fn decode_pool_question_type(row: &sqlx::postgres::PgRow) -> Result<QuestionType, StoreError> {
+    match row
+        .try_get::<String, _>("question_type")
+        .map_err(map_sqlx_error)?
+        .as_str()
+    {
+        "multipleChoice" => Ok(QuestionType::MultipleChoice),
+        "multipleAnswer" => Ok(QuestionType::MultipleAnswer),
+        "fillInBlank" => Ok(QuestionType::FillInBlank),
+        "multipleFillInBlank" => Ok(QuestionType::MultipleFillInBlank),
+        "numeric" => Ok(QuestionType::Numeric),
+        "matching" => Ok(QuestionType::Matching),
+        "ordering" => Ok(QuestionType::Ordering),
+        "hotspot" => Ok(QuestionType::Hotspot),
+        _ => Err(invalid("Question Pool Type")),
+    }
+}
+
+fn decode_pool_backend(row: &sqlx::postgres::PgRow) -> Result<QuestionBackend, StoreError> {
+    match row
+        .try_get::<String, _>("backend")
+        .map_err(map_sqlx_error)?
+        .as_str()
+    {
+        "ple" => Ok(QuestionBackend::Ple),
+        "webwork" => Ok(QuestionBackend::Webwork),
+        "imathas" => Ok(QuestionBackend::Imathas),
+        _ => Err(invalid("Question Pool Backend")),
+    }
+}
+
+fn decode_pool_license(row: &sqlx::postgres::PgRow) -> Result<QuestionLicense, StoreError> {
+    serde_json::from_value(serde_json::Value::String(
+        row.try_get("license").map_err(map_sqlx_error)?,
+    ))
+    .map_err(|_| invalid("Question Pool license"))
+}
+
+fn decode_owner_account_id(row: &sqlx::postgres::PgRow) -> Result<AccountId, StoreError> {
+    row.try_get::<String, _>("owner_account_id")
+        .map_err(map_sqlx_error)?
+        .parse()
+        .map_err(|_| invalid("Question Pool owner Account ID"))
+}
+
 fn decode_published_question_id(
     row: &sqlx::postgres::PgRow,
     column: &str,
@@ -497,19 +413,6 @@ fn decode_pool_edit_number(
         .map_err(|_| invalid("Question Pool Edit Number"))?,
     )
     .map_err(|_| invalid("Question Pool Edit Number"))
-}
-
-fn decode_pool_metadata_edit_number(
-    row: &sqlx::postgres::PgRow,
-) -> Result<QuestionPoolMetadataEditNumber, StoreError> {
-    QuestionPoolMetadataEditNumber::new(
-        u64::try_from(
-            row.try_get::<i64, _>("question_pool_metadata_edit_number")
-                .map_err(map_sqlx_error)?,
-        )
-        .map_err(|_| invalid("Question Pool metadata Edit Number"))?,
-    )
-    .map_err(|_| invalid("Question Pool metadata Edit Number"))
 }
 
 fn invalid(field: &str) -> StoreError {

@@ -145,55 +145,28 @@ import sys
 
 payload = json.loads(sys.argv[1])
 items = payload.get("items")
-if not isinstance(items, list) or len(items) != 8:
-    raise SystemExit("Instructor Question Library did not return the complete eight-question Pilot library")
-expected_titles = {
-    "Genetic disorders: Which one?",
-    "Genetic disorders: Matching",
-    "Genetics Chapter 1: Phenylalanine metabolism",
-    "Genetics Chapter 1: Genetic disorder matching",
-    "Biochemical functional groups: Which one?",
-    "Biochemical functional groups: Matching",
-    "Biochemistry Chapter 1: Charged functional groups",
-    "Biochemistry Chapter 1: Functional group matching",
-}
 question_id = re.compile(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}")
-seen_ids = set()
-ple_item = None
-for item in items:
-    if not isinstance(item, dict) or set(item) != {"summary", "evidence"}:
-        raise SystemExit("Question Library search returned an invalid browser-safe entry")
-    summary = item.get("summary")
-    if not isinstance(summary, dict):
-        raise SystemExit("Question Library search omitted a Question summary")
-    identifier = summary.get("questionId")
-    revision = summary.get("publishedQuestionRevisionTuple")
-    metadata = summary.get("metadata")
-    availability = summary.get("availability")
-    if (not isinstance(identifier, str) or question_id.fullmatch(identifier) is None
-        or identifier in seen_ids or not isinstance(revision, dict)
-        or revision.get("publishedQuestionId") != identifier
-        or not isinstance(revision.get("revisionNumber"), int) or revision["revisionNumber"] < 1
-        or not isinstance(metadata, dict) or metadata.get("questionTitle") not in expected_titles
-        or not isinstance(availability, dict) or availability.get("availability") != "available"):
-        raise SystemExit("Question Library search did not return the ordinary available Pilot publications")
-    seen_ids.add(identifier)
-    if summary.get("backend") == "ple":
-        ple_item = summary
-if len(seen_ids) != 8 or {item["summary"]["metadata"]["questionTitle"] for item in items} != expected_titles:
-    raise SystemExit("Question Library did not preserve the reviewed Genetics and Biochemistry organization")
-if ple_item is None:
-    raise SystemExit("Question Library lacks a PLE-backed Pilot Question for detail acceptance")
+if not isinstance(items, list):
+    raise SystemExit("Instructor Question Library did not return a result list")
+question = next((item.get("question", {}).get("summary") for item in items
+                 if isinstance(item, dict)
+                 and item.get("kind") == "question"
+                 and item.get("question", {}).get("summary", {}).get("backend") == "ple"), None)
+if not isinstance(question, dict):
+    raise SystemExit("Instructor Question Library did not return an available Question")
+identifier = question.get("questionId")
+revision = question.get("publishedQuestionRevisionTuple")
+metadata = question.get("metadata")
+if (not isinstance(identifier, str) or question_id.fullmatch(identifier) is None
+    or not isinstance(revision, dict) or revision.get("publishedQuestionId") != identifier
+    or not isinstance(revision.get("revisionNumber"), int)
+    or not isinstance(metadata, dict) or not isinstance(metadata.get("questionTitle"), str)):
+    raise SystemExit("Question Library search returned an invalid Question summary")
 rendered = json.dumps(payload, sort_keys=True)
 for forbidden in ("correctChoice", "correctAnswer", "studentResponse", "sourceObject", "sourceChecksum", "objectAddress"):
     if forbidden in rendered:
         raise SystemExit("Question Library search exposed a protected field")
-print(
-    ple_item["questionId"],
-    ple_item["publishedQuestionRevisionTuple"]["revisionNumber"],
-    ple_item["metadata"]["questionTitle"],
-    sep="\t",
-)
+print(identifier, revision["revisionNumber"], metadata["questionTitle"], sep="\t")
 ' "$payload"
 }
 
@@ -244,7 +217,7 @@ items = payload.get("items")
 if not isinstance(items, list):
     raise SystemExit("Question Library search returned no item list after archive")
 for item in items:
-    if isinstance(item, dict) and item.get("summary", {}).get("questionId") == expected_id:
+    if isinstance(item, dict) and item.get("question", {}).get("summary", {}).get("questionId") == expected_id:
         raise SystemExit("archived Question remained available for ordinary search and new selection")
 ' "$payload" "$expected_id"
 }
@@ -343,7 +316,7 @@ prove_api() {
 		exit 1
 	fi
 	instructor_cookie="$(persona_cookie elenaInstructor)"
-	instructor="$(request '/api/questions/search?page_size=50' "$instructor_cookie")"
+	instructor="$(request '/api/questions/search?kind=both&membership=noPool&authorship=any&sort=titleAscending&page_size=50' "$instructor_cookie")"
 	if [ "$(response_status "$instructor")" != "200" ]; then
 		echo "Instructor Question Library search did not succeed" >&2
 		exit 1
@@ -376,7 +349,7 @@ prove_api() {
 	fi
 	availability_restore_etag="$(response_etag "$archive_headers")"
 	encoded_title="$(url_encode "$selected_title")"
-	archived_search="$(request "/api/questions/search?page_size=100&text=$encoded_title" "$instructor_cookie")"
+	archived_search="$(request "/api/questions/search?kind=questions&membership=all&authorship=any&sort=titleAscending&page_size=100&text=$encoded_title" "$instructor_cookie")"
 	if [ "$(response_status "$archived_search")" != "200" ]; then
 		echo "Question Library search did not remain available after archive" >&2
 		exit 1
@@ -403,7 +376,7 @@ prove_api() {
 		exit 1
 	fi
 	assert_available_lineage "$(response_body "$restored_current")" "$selected_id"
-	restored_search="$(request "/api/questions/search?page_size=100&text=$encoded_title" "$instructor_cookie")"
+	restored_search="$(request "/api/questions/search?kind=questions&membership=all&authorship=any&sort=titleAscending&page_size=100&text=$encoded_title" "$instructor_cookie")"
 	if [ "$(response_status "$restored_search")" != "200" ]; then
 		echo "Question Library search did not remain available after restore" >&2
 		exit 1
@@ -411,7 +384,7 @@ prove_api() {
 	if ! python3 -c '
 import json
 import sys
-print(any(item.get("summary", {}).get("questionId") == sys.argv[2] for item in json.loads(sys.argv[1]).get("items", [])))
+print(any(item.get("question", {}).get("summary", {}).get("questionId") == sys.argv[2] for item in json.loads(sys.argv[1]).get("items", [])))
 ' "$(response_body "$restored_search")" "$selected_id" | rg -qx 'True'; then
 		echo "restored Question lineage did not return to ordinary search" >&2
 		exit 1

@@ -194,7 +194,6 @@ test(
         window.BloomClassificationWorkflow.mountBloomLibraryBrowse(target);
       });
       await page.getByRole("heading", { name: "Browse Question Library", exact: true }).waitFor();
-      await page.getByText("No published questions match these filters", { exact: true }).waitFor();
       await page.waitForFunction(() =>
         window.bloomLibrarySearches.some(
           (search) =>

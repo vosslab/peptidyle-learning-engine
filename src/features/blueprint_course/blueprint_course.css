@@ -422,3 +422,15 @@
   width: auto;
   max-width: 100%;
 }
+
+/* The shared toolbar may be narrower than the public search page's historical full width. */
+.shared-search-page__toolbar .blueprint-public-search__query {
+  display: grid;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.shared-search-page__toolbar .blueprint-public-search__query input {
+  box-sizing: border-box;
+  inline-size: 100%;
+}

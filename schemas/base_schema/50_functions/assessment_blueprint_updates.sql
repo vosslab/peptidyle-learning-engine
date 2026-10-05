@@ -178,7 +178,7 @@ DECLARE
     source record; assessment_row ple_data.assessment%ROWTYPE; course_row ple_data.course_instance%ROWTYPE;
     policy ple_data.assessment_policy_snapshot%ROWTYPE;
     values_json jsonb; entries_json jsonb := '[]'::jsonb; entry_json jsonb;
-    source_pool_id text; forked record;
+    source_pool_id text; actor_account_id text; forked record;
 BEGIN
     SELECT * INTO source FROM ple_api.load_assessment_blueprint_update(
         p_course_instance_id, p_assessment_id);
@@ -186,6 +186,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT * INTO course_row FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id;
+    actor_account_id := ple_api.current_session_account_id();
     SELECT * INTO assessment_row FROM ple_data.assessment
      WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_id;
     SELECT * INTO policy FROM ple_data.assessment_policy_snapshot
@@ -233,7 +234,7 @@ BEGIN
             SELECT question_pool_id INTO source_pool_id FROM ple_data.question_pool
              WHERE question_pool_id = entry_json ->> 'sourceQuestionPoolId';
             SELECT * INTO forked FROM ple_data.fork_question_pool_for_course_adoption(
-                entry_json ->> 'forkQuestionPoolId', source_pool_id);
+                entry_json ->> 'forkQuestionPoolId', source_pool_id, actor_account_id);
             -- Create the owned Entry and fork association without an intermediate
             -- Assessment edit. The one normal save below owns the complete edit.
             INSERT INTO ple_data.assessment_entry (
@@ -265,7 +266,7 @@ BEGIN
         END IF;
         entries_json := entries_json || jsonb_build_array(entry_json);
     END LOOP;
-    PERFORM ple_data.save_assessment(course_row.blueprint_course_id, assessment_row.assessment_id,
+    PERFORM ple_data.save_assessment(course_row.course_instance_id, assessment_row.assessment_id,
         p_expected_assessment_edit_number, values_json, entries_json);
 END
 $$;

@@ -80,7 +80,7 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Useful human-facing ID workflows include display, search, communication, and support.
   - Evidence (source): `src/pages/profile_account_id.tsx` `ProfileAccountId` shows a checksum-validated Account ID and copies that canonical value.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `questionDetails` places the Question ID on each library row.
+  - Evidence (source): `src/pages/question_library_search_definition.ts` `questionDetails` places the Question ID on each Library result.
   - Evidence (source): `src/api/question_library_repository.ts` `questionSearchRequest` forwards the search box text unchanged.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `QuestionTextQuery` treats a canonical Question ID as the exact library search identity.
   - Evidence (source): `src/pages/instructor_accounts_page.tsx` `accountContent` titles each Sysadmin Instructor Account row with that Account ID.
@@ -447,14 +447,14 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` refuses a Question without a Discipline or a Subject and stores one of each.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns that Question's Discipline and Subject.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` copies that one Discipline and Subject onto the Question Pool.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that Pool's Discipline and Subject.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool's Discipline and Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Topic** and **Subtopic** are optional for Library Objects.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` publishes a Question with Topic and Subtopic absent, and publishes another with both present.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns those Question classifications.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a Question Pool with Topic and Subtopic absent.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that Pool classification.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Courses retain the hierarchy because their classification supports Course organization, search,
@@ -552,7 +552,7 @@
   - Evidence (source): `src/api/library_classification_filter.ts` `libraryClassificationFilter` rejects a Subject without a Discipline.
   - Evidence (source): `crates/question_model/src/question_search.rs` `normalized` rejects a Subject without a Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` rejects a Subject, Topic, Subtopic, or cross-Discipline option whose parent is missing.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns no rows when a Subject is set without a Discipline.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns no rows when a Subject is set without a Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` rejects a Subject without a Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -574,12 +574,12 @@
   - Evidence (source): `src/components/library_classification_search.tsx` `LibraryClassificationSearch` shows Include this Subject across Disciplines only after a Subject is selected.
   - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` `BlueprintSearchClassification` shows that option only after a Subject is selected.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the selected Discipline when the option is off and both Disciplines when it is on.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns the selected Discipline when the option is off and both Disciplines when it is on.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the selected Discipline when the option is off and both Disciplines when it is on.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters Published Questions by classification and sorts that page.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` filters Question Pools by classification.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters Question Pools by classification.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` filters and sorts Public Blueprint Courses by classification and name.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns Course classification in long-name order.
   - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` shows that classification on the Course list.
@@ -603,7 +603,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores a Question with no tags and a Question with several tags.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns those Question tag lists.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a Question Pool with no tags and a Question Pool with several tags.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns those Pool tag lists.
+  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns those Pool tag lists.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.

@@ -9,7 +9,7 @@ import type { AssessmentQuestionPoolForkView } from "../../../generated/api/Asse
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
-import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
+import type { QuestionLibraryBrowseRepository } from "../library_page_model";
 import { PageFrame } from "../../components/page_frame";
 import { RecordSequence } from "../../components/record_list/record_sequence";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
@@ -21,16 +21,14 @@ import {
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { nextQuestionEditDirty } from "./assessment_workspace_questions_model";
 import {
-  QuestionPicker,
   type QuestionPickerProps,
-  type QuestionPickerSelection,
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
 } from "../../features/question_picker";
 import {
-  QuestionPoolPicker,
-  type QuestionPoolPickerSelection,
-} from "../../features/question_pool_picker/question_pool_picker";
+  AssessmentContentPicker,
+  type AssessmentContentPickerSelection,
+} from "../../features/assessment_content_picker";
 import { UnsavedChangesGuard } from "./unsaved_changes_guard";
 import {
   AssessmentBlueprintContentSummary,
@@ -72,7 +70,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
   readonly questionRevisionPreviewDocumentUrl: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
   readonly questionImageUrl: QuestionPickerProps["questionImageUrl"];
-  readonly questionPoolClient: QuestionPoolLibraryClient;
+  readonly assessmentContentRepository: QuestionLibraryBrowseRepository;
   readonly updatePoolSelectionCount: (
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
     selectionCount: number,
@@ -82,10 +80,11 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
     members: ReadonlyArray<PublishedQuestionRevisionTuple>,
   ) => Promise<void>;
   readonly remainingQuestionCapacity: Accessor<number>;
-  readonly addPublishedQuestions: (selection: QuestionPickerSelection) => void;
   readonly addQuestionsById: (value: string) => Promise<boolean>;
-  readonly poolImport: Accessor<QuestionPoolPickerSelection | undefined>;
-  readonly choosePool: (selection: QuestionPoolPickerSelection) => void;
+  readonly poolImport: Accessor<
+    Extract<AssessmentContentPickerSelection, { readonly kind: "pool" }> | undefined
+  >;
+  readonly chooseAssessmentContent: (selection: AssessmentContentPickerSelection) => void;
   readonly poolSelectionCount: Accessor<string>;
   readonly setPoolSelectionCount: Setter<string>;
   readonly poolPointsPerItem: Accessor<string>;
@@ -166,14 +165,13 @@ export function AssessmentWorkspaceQuestionsView(
     loadQuestionInspection,
     questionRevisionPreviewDocumentUrl,
     questionImageUrl,
-    questionPoolClient,
+    assessmentContentRepository,
     updatePoolSelectionCount,
     replacePoolMembers,
     remainingQuestionCapacity,
-    addPublishedQuestions,
     addQuestionsById,
     poolImport,
-    choosePool,
+    chooseAssessmentContent,
     poolSelectionCount,
     setPoolSelectionCount,
     poolPointsPerItem,
@@ -184,11 +182,9 @@ export function AssessmentWorkspaceQuestionsView(
     setPoolScoringRule,
     importPool,
   } = args;
-  const [questionPickerOpen, setQuestionPickerOpen] = createSignal(false);
+  const [assessmentContentPickerOpen, setAssessmentContentPickerOpen] = createSignal(false);
   const [questionIdBatch, setQuestionIdBatch] = createSignal("");
-  const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
-  let questionPickerTrigger: HTMLButtonElement | undefined;
-  let poolPickerTrigger: HTMLButtonElement | undefined;
+  let assessmentContentPickerTrigger: HTMLButtonElement | undefined;
 
   return (
     <PageFrame
@@ -420,31 +416,27 @@ export function AssessmentWorkspaceQuestionsView(
           <button
             type="button"
             class="primary-action"
-            ref={(element) => (questionPickerTrigger = element)}
+            ref={(element) => (assessmentContentPickerTrigger = element)}
             disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
-            onClick={() => setQuestionPickerOpen(true)}
+            onClick={() => setAssessmentContentPickerOpen(true)}
           >
-            Choose published Questions
+            Choose published Assessment content
           </button>
         </div>
-        <Show when={questionPickerOpen() && remainingQuestionCapacity() > 0}>
-          <QuestionPicker
-            repository={pickerRepository}
-            sources={pickerSources}
-            mode="many"
-            maximumSelection={remainingQuestionCapacity()}
-            trigger={questionPickerTrigger}
-            title="Choose published Questions"
-            confirmLabel="Add selected Questions"
-            instructions="Selected Questions are added to this Assessment in tray order and keep their exact Published Revisions. Inspect a Question before adding it. Cancel leaves the current Entries unchanged."
-            loadQuestionInspection={loadQuestionInspection}
-            questionRevisionPreviewDocumentUrl={questionRevisionPreviewDocumentUrl}
-            questionImageUrl={questionImageUrl}
+        <p class="assessment-editor-note">
+          Choose one published Question to add its exact Revision, or a reusable Question Pool to
+          stage its existing import workflow.
+        </p>
+        <Show when={assessmentContentPickerOpen() && remainingQuestionCapacity() > 0}>
+          <AssessmentContentPicker
+            repository={assessmentContentRepository}
+            trigger={assessmentContentPickerTrigger}
+            maximumQuestionSelection={remainingQuestionCapacity()}
             onConfirm={(selection) => {
-              setQuestionPickerOpen(false);
-              addPublishedQuestions(selection);
+              setAssessmentContentPickerOpen(false);
+              chooseAssessmentContent(selection);
             }}
-            onCancel={() => setQuestionPickerOpen(false)}
+            onCancel={() => setAssessmentContentPickerOpen(false)}
           />
         </Show>
       </section>
@@ -454,16 +446,6 @@ export function AssessmentWorkspaceQuestionsView(
           Importing creates an Assessment-owned fork. It does not change the reusable Question Pool.
           Later result pages stay available in the picker.
         </p>
-        <div class="assessment-editor-actions">
-          <button
-            type="button"
-            ref={(element) => (poolPickerTrigger = element)}
-            disabled={busy() || dirty() || needsReload()}
-            onClick={() => setPoolPickerOpen(true)}
-          >
-            Choose Question Pool
-          </button>
-        </div>
         <Show when={poolImport()}>
           {(selected) => (
             <p>
@@ -471,17 +453,6 @@ export function AssessmentWorkspaceQuestionsView(
               {selected().questionPoolEditNumber}), {selected().memberCount} published Questions.
             </p>
           )}
-        </Show>
-        <Show when={poolPickerOpen()}>
-          <QuestionPoolPicker
-            client={questionPoolClient}
-            trigger={poolPickerTrigger}
-            onConfirm={(selection) => {
-              setPoolPickerOpen(false);
-              choosePool(selection);
-            }}
-            onCancel={() => setPoolPickerOpen(false)}
-          />
         </Show>
         <fieldset disabled={busy() || dirty() || needsReload() || poolImport() === undefined}>
           <label class="assessment-editor-field">

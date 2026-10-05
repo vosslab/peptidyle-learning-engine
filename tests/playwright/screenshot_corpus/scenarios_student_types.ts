@@ -173,10 +173,11 @@ async function discover(page: Page, example: Example): Promise<QuestionSummary |
       response.status() === 200
     );
   });
-  await page.getByLabel("Search published questions").fill(example.title);
+  await page.getByLabel("Search Question Library").fill(example.title);
+  await page.getByLabel("Search Question Library").press("Enter");
   const search = decodeQuestionSearchPage(await (await loaded).json());
   const matches = search.items
-    .map((item) => item.summary)
+    .flatMap((item) => (item.kind === "question" ? [item.question.summary] : []))
     .filter(
       (summary) =>
         summary.metadata.questionTitle === example.title &&
@@ -354,11 +355,18 @@ async function prepare(
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
-    await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
-    const picker = page.getByRole("dialog", { name: "Choose published Questions", exact: true });
     for (const { example } of selected) {
-      await picker.getByLabel("Search questions", { exact: true }).fill(example.title);
-      await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Choose published Assessment content", exact: true })
+        .click();
+      const picker = page.getByRole("dialog", {
+        name: "Choose published Assessment content",
+        exact: true,
+      });
+      await picker
+        .getByLabel("Search published Assessment content", { exact: true })
+        .fill(example.title);
+      await picker.getByRole("button", { name: "Search", exact: true }).click();
       const choice = picker.getByRole("checkbox", {
         name: `Select ${example.title}`,
         exact: true,
@@ -368,9 +376,9 @@ async function prepare(
         throw new Error(`Exact published Question is unavailable for selection: ${example.title}`);
       }
       await choice.check();
+      await picker.getByRole("button", { name: "Add selected content", exact: true }).click();
+      await picker.waitFor({ state: "hidden" });
     }
-    await picker.getByRole("button", { name: "Add selected Questions", exact: true }).click();
-    await picker.waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page
       .getByText("Questions and order saved. Review Assessment Properties when you are ready.")

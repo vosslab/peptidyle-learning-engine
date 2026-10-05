@@ -1,8 +1,16 @@
 // Strict answer-free decoding for current Blueprint Assessment Pool membership.
 
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
+import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
+import type { QuestionType } from "../../../generated/api/QuestionType";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
-import { DecodeError, decodePositiveInteger, decodeRecord } from "../decoder";
+import {
+  DecodeError,
+  decodePositiveInteger,
+  decodeRecord,
+  decodeStringEnum,
+  decodeUuid,
+} from "../decoder";
 import {
   decodeBoundedArray,
   decodeQuestionId,
@@ -17,7 +25,15 @@ export function decodeBlueprintPoolMembersView(
 ): BlueprintPoolMembersView {
   // ASVS 1.5.2, 2.2.1/3: exact allowlisted shape, bounded unique Question IDs.
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "questionPoolEditNumber", "members"]);
+  requireOnlyFields(record, path, [
+    "questionPoolId",
+    "questionPoolEditNumber",
+    "disciplineUuid",
+    "subjectUuid",
+    "questionType",
+    "backend",
+    "members",
+  ]);
   const questionPoolId = decodeQuestionId(
     field(record, "questionPoolId", path),
     `${path}.questionPoolId`,
@@ -25,6 +41,30 @@ export function decodeBlueprintPoolMembersView(
   const questionPoolEditNumber = decodePositiveInteger(
     field(record, "questionPoolEditNumber", path),
     `${path}.questionPoolEditNumber`,
+  );
+  const disciplineUuid = decodeUuid(
+    field(record, "disciplineUuid", path),
+    `${path}.disciplineUuid`,
+  );
+  const subjectUuid = decodeUuid(field(record, "subjectUuid", path), `${path}.subjectUuid`);
+  const questionType = decodeStringEnum<QuestionType>(
+    field(record, "questionType", path),
+    `${path}.questionType`,
+    [
+      "multipleChoice",
+      "multipleAnswer",
+      "fillInBlank",
+      "multipleFillInBlank",
+      "numeric",
+      "matching",
+      "ordering",
+      "hotspot",
+    ],
+  );
+  const backend = decodeStringEnum<QuestionBackend>(
+    field(record, "backend", path),
+    `${path}.backend`,
+    ["ple", "webwork", "imathas"],
   );
   const members = decodeBoundedArray(
     field(record, "members", path),
@@ -49,6 +89,10 @@ export function decodeBlueprintPoolMembersView(
   return {
     questionPoolId,
     questionPoolEditNumber,
+    disciplineUuid,
+    subjectUuid,
+    questionType,
+    backend,
     members,
   };
 }

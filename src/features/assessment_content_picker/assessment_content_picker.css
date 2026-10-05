@@ -1,0 +1,40 @@
+.assessment-content-picker-dialog {
+  width: min(76rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  color: var(--ple-text);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.assessment-content-picker-dialog::backdrop {
+  background: rgb(13 29 46 / 0.58);
+}
+
+.assessment-content-picker-dialog__header,
+.assessment-content-picker-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+  justify-content: space-between;
+  align-items: start;
+}
+
+.assessment-content-picker-dialog__controls,
+.assessment-content-picker-dialog__results {
+  margin-block: var(--ple-space-3);
+}
+
+.assessment-content-picker-dialog__selection-copy {
+  align-self: center;
+}
+
+@media (max-width: 44rem) {
+  .assessment-content-picker-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+}

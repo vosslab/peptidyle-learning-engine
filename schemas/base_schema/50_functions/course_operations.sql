@@ -179,7 +179,8 @@ BEGIN
     VALUES (p_membership_id, created_course_instance_id, assigned, 'instructor', now_at);
     IF p_source_kind = 'adopted' THEN
         PERFORM ple_data.initialize_course_assessments(
-            created_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision_number, p_assessments
+            created_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision_number, p_assessments,
+            assigned
         );
     END IF;
     PERFORM ple_audit.record_course_instance_creation_event(

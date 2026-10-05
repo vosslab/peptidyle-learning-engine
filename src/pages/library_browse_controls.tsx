@@ -5,7 +5,7 @@ import { For, Show, type Accessor, type JSX } from "solid-js";
 
 import type {
   QuestionLibraryBrowseQuery,
-  QuestionLibraryBrowseState,
+  LibrarySearchState,
   QuestionLibraryFacetTruncation,
 } from "./library_page_model";
 
@@ -15,7 +15,7 @@ export interface LibraryBrowseControlsProps {
   readonly query: Accessor<QuestionLibraryBrowseQuery>;
   readonly hasExactBrowseFilters: () => boolean;
   readonly searchWithinResultsPath: () => string;
-  readonly browsingState: Accessor<QuestionLibraryBrowseState>;
+  readonly browsingState: Accessor<LibrarySearchState>;
   readonly browseFacets: (
     facet: BrowseFacet,
   ) => () => ReadonlyArray<{ readonly value: string; readonly count: number }>;

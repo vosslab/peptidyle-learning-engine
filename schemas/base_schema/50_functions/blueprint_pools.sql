@@ -54,7 +54,8 @@ END $$;
 CREATE FUNCTION ple_api.blueprint_pool_members(
     p_blueprint_course_id text, p_blueprint_assessment_id uuid, p_public_pool_id text, p_write boolean,
     p_expected_blueprint_revision_number bigint DEFAULT NULL, p_expected_pool_edit_number bigint DEFAULT NULL
-) RETURNS TABLE (question_pool_edit_number bigint, published_question_id text, question_revision_number integer)
+) RETURNS TABLE (question_pool_edit_number bigint, published_question_id text, question_revision_number integer,
+                 content_discipline_id uuid, content_subject_id uuid, question_type text, backend text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE course_row ple_data.blueprint_course%ROWTYPE; content_value jsonb; pin_id text;
@@ -91,7 +92,11 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Question Pool Edit Number is stale';
     END IF;
-    RETURN QUERY SELECT pool.question_pool_edit_number, member.published_question_id::text, member.question_revision_number
+    -- The Pool owns its fixed eligibility classification. Member Question metadata
+    -- may be reclassified later without changing this current Pool contract.
+    RETURN QUERY SELECT pool.question_pool_edit_number, member.published_question_id::text, member.question_revision_number,
+                        pool.content_discipline_id, pool.content_subject_id,
+                        pool.question_type::text, pool.backend::text
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_member AS member USING (question_pool_id)
       WHERE pool.question_pool_id = p_public_pool_id

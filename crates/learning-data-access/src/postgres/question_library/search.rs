@@ -1,9 +1,12 @@
 //! Typed PostgreSQL binding for bounded Question Library discovery.
 
-use question_model::{PublishedQuestionId, QuestionBackend, QuestionLicense, QuestionType};
+use question_model::{
+    LibraryQuestionMembership, LibrarySearchKind, PublishedQuestionId, QuestionBackend,
+    QuestionLicense, QuestionType,
+};
 use sqlx::Row;
 
-use super::{PostgresQuestionLibraryStore, decode_entry, invalid, map_sqlx_error};
+use super::{PostgresQuestionLibraryStore, invalid, map_sqlx_error};
 use crate::question_library::{
     QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
     QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
@@ -25,7 +28,7 @@ impl PostgresQuestionLibraryStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.search_question_library_entries(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, \
-                $15, $16, $17, $18, $19, $20, $21, $22, $23)",
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)",
         )
         .bind(
             request
@@ -54,6 +57,22 @@ impl PostgresQuestionLibraryStore {
         .bind(question_licenses(&request.question_licenses)?)
         .bind(request.used_in_current_account_courses)
         .bind(request.authored_by_current_account)
+        .bind(match request.kind {
+            LibrarySearchKind::Both => "both",
+            LibrarySearchKind::Questions => "questions",
+            LibrarySearchKind::Pools => "pools",
+        })
+        .bind(match request.membership {
+            LibraryQuestionMembership::NoPool => "no_pool",
+            LibraryQuestionMembership::All => "all",
+        })
+        .bind(
+            request
+                .owner_account_id
+                .as_ref()
+                .map(question_model::AccountId::as_str),
+        )
+        .bind(request.has_capability_filter)
         .bind(sort_name(request.sort))
         .bind(after_title(request.after.as_ref()))
         .bind(after_published_at(request.after.as_ref()))
@@ -74,19 +93,17 @@ impl PostgresQuestionLibraryStore {
         let limit = usize::from(request.page_size);
         let mut items = rows
             .iter()
-            .filter(|row| {
-                row.try_get::<Option<String>, _>("published_question_id")
-                    .map(|value| value.is_some())
-                    .unwrap_or(false)
-            })
-            .map(decode_entry)
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(super::mixed::decode_search_entry)
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
         let next_position = if items.len() > limit {
             items.truncate(limit);
             let item = items
                 .last()
                 .ok_or_else(|| invalid("Question Library page"))?;
-            Some(cursor_position(item, request.sort))
+            Some(cursor_position(item, request.sort)?)
         } else {
             None
         };
@@ -217,45 +234,48 @@ fn after_published_at(after: Option<&QuestionLibrarySearchCursorPosition>) -> Op
 
 fn after_id(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<&str> {
     match after {
-        Some(QuestionLibrarySearchCursorPosition::TitleAscending { question_id, .. })
-        | Some(QuestionLibrarySearchCursorPosition::PublishedNewest { question_id, .. }) => {
-            Some(question_id.as_str())
+        Some(QuestionLibrarySearchCursorPosition::TitleAscending { public_id, .. })
+        | Some(QuestionLibrarySearchCursorPosition::PublishedNewest { public_id, .. }) => {
+            Some(public_id.as_str())
         }
         None => None,
     }
 }
 
 fn cursor_position(
-    item: &crate::PublishedQuestionLibraryEntry,
+    item: &crate::LibrarySearchEntry,
     sort: QuestionLibrarySearchSort,
-) -> QuestionLibrarySearchCursorPosition {
-    let question_id = item
-        .published_question_revision_tuple
-        .published_question_id
-        .clone();
-    match sort {
+) -> Result<QuestionLibrarySearchCursorPosition, StoreError> {
+    let public_id = item
+        .public_id()
+        .parse()
+        .map_err(|_| invalid("Library cursor ID"))?;
+    Ok(match sort {
         QuestionLibrarySearchSort::TitleAscending => {
             QuestionLibrarySearchCursorPosition::TitleAscending {
-                title: item.question_title.clone(),
-                question_id,
+                title: item.title().to_owned(),
+                public_id,
             }
         }
         QuestionLibrarySearchSort::PublishedNewest => {
             QuestionLibrarySearchCursorPosition::PublishedNewest {
-                published_at_millis: item.published_at.as_unix_millis(),
-                question_id,
+                published_at_millis: item.sort_time().as_unix_millis(),
+                public_id,
             }
         }
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::PublishedQuestionId;
 
     fn request() -> QuestionLibrarySearchRequest {
         QuestionLibrarySearchRequest {
+            kind: LibrarySearchKind::Questions,
+            membership: LibraryQuestionMembership::All,
+            owner_account_id: None,
+            has_capability_filter: false,
             exact_question_id: None,
             text_terms: Vec::new(),
             author_names: Vec::new(),
@@ -285,7 +305,7 @@ mod tests {
         let mut query = request();
         query.after = Some(QuestionLibrarySearchCursorPosition::PublishedNewest {
             published_at_millis: 1,
-            question_id: PublishedQuestionId::from_random_identifier("P100000")
+            public_id: question_model::LibraryObjectId::from_random_identifier("P100000")
                 .expect("Question ID"),
         });
         assert!(validate_request(&query).is_err());

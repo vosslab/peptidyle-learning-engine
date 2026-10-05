@@ -97,16 +97,18 @@ unversioned.
 Question Pools use stable public identity plus current membership. HG defines membership
 as an unordered set of distinct Questions with exact Revision pins; editor sorting is display-only.
 The current SQL stores member positions and compares ordered arrays when saving. Its uniqueness
-constraint covers Question ID plus Revision, not Question ID alone. Both need alignment before
-claiming the unordered-set behavior is implemented. Saves compare-and-swap the Pool Edit Number. Assessment pool entries pin `question_pool_id` only. Student Work
+constraint permits each Question ID once per Pool, with one exact Revision pin. Ordered storage
+and save comparison still need alignment before claiming unordered-set behavior is implemented. Saves compare-and-swap the Pool Edit Number. Assessment pool entries pin `question_pool_id` only. Student Work
 (`question_pool_selection`) stores Pool ID plus the Pool Edit Number at
 issue, and selected items keep exact Question Revision pins so later Pool
 edits do not silently change already-issued work.
 
-Current Pool storage also retains Author data and admission-only Discipline/Subject checks.
-The intended owner-only metadata, compatible calculated license, Pool mismatch handling, and
-combined search rules are in [QUESTION_MODEL.md](QUESTION_MODEL.md). Generated
-[SCHEMA_TABLES.md](SCHEMA_TABLES.md) describes current SQL, not completion of those changes.
+Current Pool storage has an owner Account, immutable Type and Backend, and a calculated
+compatible license; separate Pool Author storage is removed. Library search combines Questions
+and Pools. A role-typed composite foreign key enforces Instructor ownership.
+Admission-only Discipline/Subject checks remain; mismatch handling, release blocking, and
+classification re-checks are pending. See [QUESTION_MODEL.md](QUESTION_MODEL.md) and generated
+[SCHEMA_TABLES.md](SCHEMA_TABLES.md) for the product boundary and current SQL.
 
 `question_pool.created_in_transaction` is an internal `xid8` marker with
 default `pg_current_xact_id()`. It replaces a timestamp-based heuristic when

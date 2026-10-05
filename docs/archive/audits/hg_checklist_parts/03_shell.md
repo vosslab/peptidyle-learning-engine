@@ -46,7 +46,7 @@
   - Evidence (source): `src/pages/gradebook_page.tsx` `Download CSV` places the score download with the Gradebook table.
   - Evidence (source): `src/pages/course_roster_page.tsx` `Remove course access` places the roster action in the student row.
   - Evidence (source): `src/pages/course_list_page.tsx` `Open Course` places the Course action in the Course record.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `label: "Open"` places the Question action in the Question record.
+  - Evidence (source): `src/pages/question_library_search_definition.ts` `questionLibraryContent` gives each Question result its `Open` action.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Identify the object and relevant context before an action that changes membership or stored
@@ -60,7 +60,7 @@
 - [ ] Use concise helper text near the control it explains. Present shared explanations once per
   relevant group and keep the main task information easy to scan.
   - Evidence (source): `src/pages/gradebook_page.tsx` `Export Assessment points` explains the Gradebook download once, beside those actions.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `question-library-bulk-help` explains the bulk actions once, inside that toolbar.
+  - Evidence (source): `src/pages/library_bulk_actions.tsx` `LibraryBulkActions` groups the selected-Question and selected-Pool metadata actions in one selection bar.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Avoid scattering related actions across page headers, menus, navigation, and content areas.
@@ -113,7 +113,7 @@
   - Evidence (source): `src/style.css` `:where(button)` and the text input rule use `--ple-radius-control`, and `.confirmation-dialog` uses that same control radius.
   - Evidence (source): `src/components/question_response_control_styles.ts` `choice-card` uses the control radius for an answer choice.
   - Evidence (source): `src/features/question_picker/question_picker.css` `.question-picker-dialog` uses `--ple-radius-inset`.
-  - Evidence (source): `src/features/question_pool_picker/question_pool_picker.css` `.question-pool-picker-dialog` uses `--ple-radius-inset`.
+  - Evidence (source): `src/features/assessment_content_picker/assessment_content_picker.css` `.assessment-content-picker-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/pages/course_instance_page.css` `.course-instance-blueprint-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/features/blueprint_course/blueprint_course.css` `.blueprint-course-create-dialog` uses `--ple-radius-inset`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -142,7 +142,7 @@
   - Evidence (source): `src/style.css` `input:not([type="radio"])` shares `--ple-radius-control` with select and textarea.
   - Evidence (source): `src/style.css` `.course-card` and `.question-card` share `--ple-radius-surface`.
   - Evidence (source): `src/features/question_picker/question_picker.css` `.question-picker-dialog` uses `--ple-radius-inset`.
-  - Evidence (source): `src/features/question_pool_picker/question_pool_picker.css` `.question-pool-picker-dialog` uses `--ple-radius-inset`.
+  - Evidence (source): `src/features/assessment_content_picker/assessment_content_picker.css` `.assessment-content-picker-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/pages/course_instance_page.css` `.course-instance-blueprint-dialog` uses `--ple-radius-inset`.
   - Evidence (source): `src/features/blueprint_course/blueprint_course.css` `.blueprint-course-create-dialog` uses `--ple-radius-inset`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -190,13 +190,13 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Dense pages should remain easy to scan.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` keeps each Published Question title and its facts on one record row.
+  - Evidence (source): `src/pages/question_library_search_definition.ts` `questionLibraryContent` supplies each Published Question title, summary, facts, and action as one `RecordList` record.
   - Evidence (source): `src/components/record_list/record_list.css` `record-list__facts` places those facts in a grid on the row.
   - Evidence (source): `src/pages/course_roster_page.tsx` `CourseRosterPage` keeps each Student, state, and action on one roster row.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Treat screen space as a limited resource. Prefer useful information over decorative whitespace.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` places each Published Question in the result region.
+  - Evidence (source): `src/features/search/search_results.tsx` `SearchResults` renders each Library result in its labeled result region.
   - Evidence (source): `src/pages/library_page.css` `library-browse-record-list__window` keeps desktop result rows on short block padding so the record text uses the row.
   - Evidence (source): `src/pages/course_roster_page.tsx` `CourseRosterPage` renders the Current roster in `src/pages/course_roster_page.css` `roster-section`, which sets no padding and no reserved block under the table.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -218,12 +218,12 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Avoid the modern dashboard style of large rounded cards, generous padding, and isolated islands of content.
   - Evidence (source): `src/pages/assessment_templates_page.css` `assessment-template-overview` places Your Templates and the editor in one workspace without card fill, radius, or shadow. `src/pages/assessment_templates_page.css` `assessment-template-editor-empty` leaves Choose a Template unpadded and square.
-  - Evidence (source): `src/pages/library_page.css` `question-library-controls-initial` keeps the opening search on the page without hero padding. `src/pages/library_page.css` `question-library-search-tips` leaves the tip text without a rounded shadow box. `src/pages/library_browse_record_list.css` `library-browse-record-list__window` keeps the result rows in a scroll region without a floating card.
+  - Evidence (source): `src/pages/library_page.css` `question-library-controls-initial` keeps the opening search on the page without hero padding, and `question-library-search-tips` leaves the tip text without a rounded shadow box. `src/features/search/search_results.tsx` `SearchResults` places the current page in the shared result region.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Use horizontal and vertical space efficiently without crowding information together. Related information should form clearly readable rows, columns, or groups.
   - Evidence (source): `src/pages/assessment_templates_page.css` `assessment-template-editor-empty` separates Choose a Template from its message. `src/pages/assessment_templates_page.css` `assessment-template-overview` stacks Your Templates as one column beside the editor.
-  - Evidence (source): `src/pages/library_page.css` `question-library-controls` keeps each classification name off its field. `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` stacks a Question title, description, facts, and action. `src/components/library_bloom_discovery.tsx` `question-library-bloom-report` places each count beside its name.
+  - Evidence (source): `src/pages/library_page.css` `question-library-controls` keeps each classification name off its field. `src/pages/question_library_search_definition.ts` `questionLibraryContent` supplies a Question title, description, facts, and action. `src/components/library_bloom_discovery.tsx` `question-library-bloom-report` places each count beside its name.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Size controls and content regions for their contents and task. Avoid unnecessarily tall panels, empty states, Question previews, and other fixed-height regions.
@@ -234,7 +234,7 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Keep the visual design compact, flat, information dense, and consistent across PLE.
   - Evidence (source): `src/pages/library_page.css` `question-pool-create-review-grid` and `src/components/question_pool_create_dialog.css` `question-pool-create-review-grid` use the same flat groups as Question Library browse.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` and `src/pages/course_roster_page.tsx` `CourseRosterPage` keep collection rows compact and unshadowed, with the shared action height.
+  - Evidence (source): `src/components/record_list/record_list.tsx` `RecordList` renders Library and roster collections with the shared record treatment, while `src/pages/question_library_search_definition.ts` supplies compact Library records.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Use compact rows, restrained corner rounding, and controls sized to their task.
@@ -302,7 +302,13 @@
 
 - [ ] Search prompts and search results are never stored permanently; keep database size and bloat under control.
   - Evidence (source): `src/components/search_result_display.tsx` `SearchResultDisplay` keeps display selection local, and `src/components/search_leave_guard.tsx` `SearchLeaveGuard` holds only a pending router event; neither writes browser or database storage.
-  - Verification pending: Source review finds no saved results, prompts, cursors, or display preference. A full storage/instrumentation audit is outside this priority repair.
+  - Evidence (runtime): `docs/active_plans/reports/SHARED_SEARCH_EPHEMERAL_CHECKS.md` records fresh-context Library and picker probes with empty localStorage, sessionStorage, and IndexedDB after search and display changes. Shared search state remains in memory.
+  - Verification pending: These probes cover the shared-search consumers; a full application storage audit remains separate.
+
+- [x] Every search offers three display sizes: Compact, List, and Visual boxes.
+  - Evidence (source): `src/features/search/search_results.tsx` `SearchResults` delegates the current rows and one content definition to the shared RecordList display modes.
+  - Evidence (test): `tests/playwright/e2e_live_demo_question_library_browser.mjs` `beforeDisplay` checks display changes without a new request and preserves visible descriptions.
+  - Evidence (runtime): `docs/active_plans/reports/SHARED_SEARCH_VISUAL_REVIEW.md` `Pass after correction` records mixed Question/Pool fields in all three modes, visible Compact descriptions, both pickers, and narrow Pool fit; the one-time accessibility review is recorded in `docs/active_plans/reports/SHARED_SEARCH_ACCESSIBILITY.md` `M15 scope and result`.
 
 - [ ] Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
   supporting keyboard, pointer, and touch interaction.

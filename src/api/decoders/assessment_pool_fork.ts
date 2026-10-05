@@ -2,16 +2,27 @@
 
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { AssessmentQuestionPoolSelectionCountReceipt } from "../../../generated/api/AssessmentQuestionPoolSelectionCountReceipt";
+import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
+import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
+import type { QuestionType } from "../../../generated/api/QuestionType";
 import {
   DecodeError,
   decodeNullable,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
+  decodeStringEnum,
   decodeUuid,
 } from "../decoder";
-import { decodeQuestionPoolMetadata, decodeQuestionPoolMemberView } from "./question_pool_library";
-import { decodeBoundedArray, decodeQuestionId, field, requireOnlyFields } from "./shared";
+import { decodeQuestionPoolMemberView } from "./question_pool_detail";
+import { decodeQuestionPoolMetadata } from "./question_pool_summary";
+import {
+  decodeAccountId,
+  decodeBoundedArray,
+  decodeQuestionId,
+  field,
+  requireOnlyFields,
+} from "./shared";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { ImportedAssessmentQuestionPoolFork } from "../assessment_pool_fork";
 import { decodeBloomClassificationView } from "./bloom_classification";
@@ -33,6 +44,10 @@ export function decodeAssessmentQuestionPoolForkView(
   requireOnlyFields(record, path, [
     "assessmentEntryId",
     "questionPoolId",
+    "ownerAccountId",
+    "questionType",
+    "backend",
+    "license",
     "questionPoolEditNumber",
     "selectionCount",
     "bloom",
@@ -63,6 +78,34 @@ export function decodeAssessmentQuestionPoolForkView(
       field(record, "questionPoolId", path),
       `${path}.questionPoolId`,
     ),
+    ownerAccountId: decodeAccountId(
+      field(record, "ownerAccountId", path),
+      `${path}.ownerAccountId`,
+    ),
+    questionType: decodeStringEnum<QuestionType>(
+      field(record, "questionType", path),
+      `${path}.questionType`,
+      [
+        "multipleChoice",
+        "multipleAnswer",
+        "fillInBlank",
+        "multipleFillInBlank",
+        "numeric",
+        "matching",
+        "ordering",
+        "hotspot",
+      ],
+    ),
+    backend: decodeStringEnum<QuestionBackend>(field(record, "backend", path), `${path}.backend`, [
+      "ple",
+      "webwork",
+      "imathas",
+    ]),
+    license: decodeStringEnum<QuestionLicense>(field(record, "license", path), `${path}.license`, [
+      "CC0-1.0",
+      "CC-BY-4.0",
+      "CC-BY-SA-4.0",
+    ]),
     questionPoolEditNumber: decodePositiveInteger(
       field(record, "questionPoolEditNumber", path),
       `${path}.questionPoolEditNumber`,

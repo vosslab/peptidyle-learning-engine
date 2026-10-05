@@ -19,6 +19,7 @@ import {
   enterInstructor,
   followCaptureLink,
   openInstructorCourse,
+  openInstructorLibraryBrowse,
   scrollTop,
 } from "./visible_workflows";
 
@@ -43,19 +44,6 @@ async function openInstructorProfile(page: Page): Promise<void> {
   await page.getByRole("heading", { level: 1, name: "Your profile", exact: true }).waitFor();
   await page.getByRole("heading", { level: 2, name: "Profile image", exact: true }).waitFor();
   await page.locator(".profile-thumbnail-placeholder").waitFor();
-}
-
-async function navigateInstructorLibraryBrowse(page: Page): Promise<void> {
-  await page
-    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
-    .getByRole("link", { name: "Questions", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Ribbon tasks", exact: true })
-    .getByRole("link", { name: "Browse Question Library", exact: true })
-    .click();
-  await page.getByRole("heading", { name: "Browse Question Library", exact: true }).waitFor();
-  await page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
 }
 
 async function openInstructorDraftList(page: Page): Promise<void> {
@@ -153,10 +141,10 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
 }
 
 async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
-  const session = await runtime.open("default");
+  const session = await runtime.open("profile_preferences");
   try {
     await openInstructorProfile(session.page);
-    await captureCheckpoint(runtime, "default", session);
+    await captureCheckpoint(runtime, "profile_preferences", session);
   } finally {
     await runtime.close(session);
   }
@@ -202,19 +190,21 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
   try {
     await enterInstructor(session.page);
     await captureCheckpoint(runtime, "library_default", session);
-    await session.page.getByLabel("Search published questions").fill("charged functional");
+    await session.page.getByLabel("Search Question Library").fill("charged functional");
+    await session.page.getByLabel("Search Question Library").press("Enter");
     await session.page
       .getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true })
       .waitFor();
     await captureCheckpoint(runtime, "library_filtered", session);
+    await openInstructorLibraryBrowse(session.page);
+    await captureCheckpoint(runtime, "library_browse", session);
+    await session.page.getByRole("button", { name: /^Biochemistry/u }).click();
     const result = session.page.locator(".record-list__row").filter({
       has: session.page.getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true }),
     });
     await followCaptureLink(session.page, result.getByRole("link", { name: "Open", exact: true }));
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await captureCheckpoint(runtime, "published_question_detail", session);
-    await navigateInstructorLibraryBrowse(session.page);
-    await captureCheckpoint(runtime, "library_browse", session);
   } finally {
     await runtime.close(session);
   }
@@ -317,7 +307,7 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
     await session.page
       .getByRole("button", { name: "Choose published Questions", exact: true })
       .click();
-    await session.page.getByRole("button", { name: "Search questions", exact: true }).click();
+    await session.page.getByRole("button", { name: "Search", exact: true }).click();
     await session.page.getByRole("heading", { name: "Current results", exact: true }).waitFor();
     await captureCheckpoint(runtime, "blueprint_question_picker", session);
   } finally {
@@ -342,10 +332,7 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
       .waitFor();
     await session.page.getByLabel("Blueprint Course name", { exact: true }).fill("Biochemistry");
     await session.page.getByRole("button", { name: "Search", exact: true }).click();
-    await session.page
-      .getByRole("status")
-      .filter({ hasText: /^[0-9,]+ Public Blueprint Courses? shown\.$/u })
-      .waitFor();
+    await session.page.getByText(/^[0-9,]+ shown on this page$/u).waitFor();
     await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
     await captureCheckpoint(runtime, "filtered_results", session);
   } finally {
@@ -368,15 +355,22 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
-    await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
-    const picker = page.getByRole("dialog", { name: "Choose published Questions", exact: true });
+    await page
+      .getByRole("button", { name: "Choose published Assessment content", exact: true })
+      .click();
+    const picker = page.getByRole("dialog", {
+      name: "Choose published Assessment content",
+      exact: true,
+    });
     // The dialog loads one library page on open. Search isolates the seeded published title.
-    await picker.getByLabel("Search questions", { exact: true }).fill(PUBLISHED_NATIVE_TITLE);
-    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+    await picker
+      .getByLabel("Search published Assessment content", { exact: true })
+      .fill(PUBLISHED_NATIVE_TITLE);
+    await picker.getByRole("button", { name: "Search", exact: true }).click();
     await picker
       .getByRole("checkbox", { name: `Select ${PUBLISHED_NATIVE_TITLE}`, exact: true })
       .check();
-    await picker.getByRole("button", { name: "Add selected Questions", exact: true }).click();
+    await picker.getByRole("button", { name: "Add selected content", exact: true }).click();
     await picker.waitFor({ state: "hidden" });
     await captureCheckpoint(runtime, "assignment_questions_draft", session);
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
@@ -558,7 +552,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         checkpoint: "published_question_detail",
         filenameStem: catalogScreenshotFilename(
           "questions",
-          "searchQuestionLibrary",
+          "browseQuestionLibrary",
           "published_question_detail",
         ),
         area: "question library",
@@ -604,7 +598,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     role: "instructor",
     captures: [
       {
-        checkpoint: "default",
+        checkpoint: "profile_preferences",
         area: "account",
         workflow: "profile preferences",
         state: "default profile",
@@ -614,9 +608,18 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       },
     ],
     viewportCoverage: viewportCoverage(["laptop"], {
-      tablet: { target: "default", reason: "Instructor laptop capture is the representative." },
-      phone: { target: "default", reason: "Instructor laptop capture is the representative." },
-      square: { target: "default", reason: "Instructor laptop capture is the representative." },
+      tablet: {
+        target: "profile_preferences",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      phone: {
+        target: "profile_preferences",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      square: {
+        target: "profile_preferences",
+        reason: "Instructor laptop capture is the representative.",
+      },
     }),
     run: instructorProfile,
   },

@@ -209,8 +209,9 @@ presentations whose native structure matches the task: `RecordList` for compact
 flat scans, `RecordSequence` for ordered records, `RecordTable` for labeled
 columns and row headers, `RecordOutlineList`/`RecordOutlineItem` for nested
 membership, and `RecordDetailList` for full reviews and comparisons. The
-components share loading, empty, and error states; pages keep fetching,
-selection, editing, paging, and persistence.
+components share loading, empty, and error states; their consumers own fetching,
+selection, editing, paging, and persistence. Search consumers delegate request and
+selection state to the shared search session described below.
 [record_family.css](../src/components/record_list/record_family.css) owns the
 shared collection states and table skin, including internal horizontal
 scrolling. Table consumers provide task-specific column proportions and minimum
@@ -225,7 +226,16 @@ page; client windowing is not part of the record list.
 
 This describes the existing shared presentation foundation. Current HG extends it to one
 combined Question-and-Pool search, with Pool-membership filters and an organized default.
-The combined query and shared search-page work remain pending; see
+Library Search, Library Browse, Public Blueprint search, the Question picker, and the Assessment
+content picker use
+the [shared search modules](../src/features/search/search_page.tsx) for request ordering, paging, selection,
+controls, result displays, and page layout. Content-specific definitions own query cleanup,
+filters, API calls, and row descriptions. Text applies on submit; display changes redraw the
+loaded page without a request. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md)
+for the implemented boundary. The combined Library query uses one globally paged Question/Pool
+server union. `/library/{id}` resolves the authorized object kind before dispatching to Question
+or Pool detail. The Question picker retains its ordered domain tray; the Assessment content picker
+selects Questions or one Pool through the mixed Library definition. See
 [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
 Pool editor sorting is display-only; the shared reorder component does not make Pool membership
 ordered. [QUESTION_MODEL.md](QUESTION_MODEL.md) lists related implementation gaps.

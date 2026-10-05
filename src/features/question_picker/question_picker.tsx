@@ -1,4 +1,4 @@
-// question_picker.tsx - accessible shared Question ID selector for Instructor workflows.
+// question_picker.tsx - shared-search Question selector for Instructor workflows.
 
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
@@ -6,51 +6,44 @@ import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionImageAssetId } from "../../../generated/api/QuestionImageAssetId";
 import type { QuestionImageUrlResolver } from "../../components/question_renderer";
-import type {
-  QuestionLibraryBrowseQuery,
-  QuestionLibraryBrowseRow,
-} from "../../pages/library_page_model";
-import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../../pages/library_page_model";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../../components/record_list/record_list";
-import { RecordPageControls } from "../../components/record_list/record_page_controls";
+import type { RecordListSelection } from "../../components/record_list/record_list";
 import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
+import type { QuestionLibraryBrowseRow } from "../../pages/library_page_model";
 import { RecordSequence } from "../../components/record_list/record_sequence";
+import { SearchControls } from "../search/search_controls";
+import { SearchResults } from "../search/search_results";
+import { SearchSelectionBar } from "../search/search_selection_bar";
+import { createSearchState } from "../search/search_state";
 import "./question_picker.css";
 import { QuestionPickerInspection } from "./question_picker_inspection";
 import {
-  QuestionPickerSession,
   inspectQuestionPickerRow,
   questionPickerInspectionView,
+  questionPickerSearchDefinition,
   questionPickerSelection,
   toggleQuestionPickerSelection,
+  type QuestionPickerEligibility,
   type QuestionPickerInspectionView,
   type QuestionPickerSelection,
   type QuestionPickerSelectionMode,
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
-  type QuestionPickerState,
 } from "./question_picker_model";
 
 export interface QuestionPickerProps {
   readonly repository: QuestionPickerSourceRepository;
   readonly sources: ReadonlyArray<QuestionPickerSource>;
   readonly mode: QuestionPickerSelectionMode;
-  /** Required per destination: each caller supplies its explicit selection cap. */
   readonly maximumSelection: number;
-  /** Reopened destination drafts retain their ordered selection. */
   readonly initialSelection?: QuestionPickerSelection;
   readonly onConfirm: (selection: QuestionPickerSelection) => void;
   readonly onCancel: () => void;
   readonly trigger: HTMLButtonElement | undefined;
   readonly confirmLabel?: string;
-  /** Optional destination-specific explanation of how picker selection proceeds. */
   readonly instructions?: string;
   readonly title?: string;
-  /** Loads answer-free Question Details. Absent callers keep selection without inspection. */
+  /** Pool-member contexts use the owning Pool's UUID, Type, and Backend before rows render. */
+  readonly eligibility?: QuestionPickerEligibility;
   readonly loadQuestionInspection?: (
     publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   ) => Promise<QuestionDetails>;
@@ -88,86 +81,21 @@ function sourceFromKey(
   return sources.find((source) => sourceKey(source) === key);
 }
 
-function questionResultContent(
-  row: QuestionLibraryBrowseRow,
-  onInspect: ((row: QuestionLibraryBrowseRow) => void) | undefined,
-): RecordContent {
-  return {
-    title: row.questionTitle,
-    description: row.summary,
-    details: [
-      {
-        kind: "questionId",
-        questionTitle: row.questionTitle,
-        displayId: row.displayId,
-      },
-      {
-        kind: "text",
-        label: "Revision",
-        value: String(row.publishedQuestionRevisionTuple.revisionNumber),
-      },
-    ],
-    actions:
-      onInspect === undefined
-        ? []
-        : [
-            {
-              id: "inspect",
-              kind: "command",
-              label: "Inspect",
-              onClick: () => onInspect(row),
-            },
-          ],
-  };
-}
-
-function selectedQuestionContent(
-  question: QuestionPickerSelection["questions"][number],
-): RecordContent {
-  return questionResultContent(question.row, undefined);
-}
-
 function selectedCopy(
   selection: QuestionPickerSelection,
   mode: QuestionPickerSelectionMode,
 ): string {
-  if (mode === "none") return "Browse questions and open a question for its full details.";
+  if (mode === "none") return "Browse Questions and inspect their details.";
   if (selection.questionIds.length === 0)
-    return "Select question results to prepare an ordered list.";
-  if (mode === "one") return `Selected ${selection.questions[0]?.row.questionTitle ?? "question"}.`;
-  return `${selection.questionIds.length} questions selected in order.`;
+    return "Select Question results to prepare an ordered list.";
+  if (mode === "one") return `Selected ${selection.questions[0]?.row.questionTitle ?? "Question"}.`;
+  return `${selection.questionIds.length} Questions selected in order.`;
 }
 
-function facetValues(
-  state: QuestionPickerState,
-  facet:
-    | "authorName"
-    | "backend"
-    | "tag"
-    | "questionType"
-    | "capability"
-    | "questionLicense"
-    | "evidence"
-    | "usedInMyCourses",
-): ReadonlyArray<{ readonly value: string; readonly count: number }> {
-  return state.aggregates.filter((aggregate) => aggregate.facet === facet);
-}
-
-/**
- * One native dialog with source, D1 filters, result selection, and an ordered
- * tray. Parents own destination persistence and receive public Question IDs only.
- */
+/** One native dialog retains its tray and inspection while shared search owns discovery state. */
 export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
-  const [source, setSource] = createSignal<QuestionPickerSource | undefined>(props.sources[0]);
-  const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
-    EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-  );
-  const [state, setState] = createSignal<QuestionPickerState>({
-    kind: "loading",
-    rows: [],
-    aggregates: [],
-    nextCursor: null,
-  });
+  const initialSource = props.sources[0];
+  if (initialSource === undefined) throw new Error("Question Picker needs at least one source.");
   const [selection, setSelection] = createSignal<QuestionPickerSelection>(
     questionPickerSelection(
       props.mode,
@@ -179,57 +107,31 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     selectedCopy(selection(), props.mode),
   );
   const [inspection, setInspection] = createSignal<PickerInspection>({ kind: "closed" });
-  const session = new QuestionPickerSession(props.repository, setState);
   let dialog!: HTMLDialogElement;
+  const search = createSearchState(
+    questionPickerSearchDefinition(props.repository, initialSource, props.eligibility, inspectRow),
+  );
 
   function updateSelection(next: QuestionPickerSelection): void {
     setSelection(next);
     setSelectionMessage(selectedCopy(next, props.mode));
   }
 
-  function resultRows(): ReadonlyArray<QuestionLibraryBrowseRow> {
-    const current = state();
-    return current.kind === "empty" ? [] : current.rows;
-  }
-
-  function hasNextPage(): boolean {
-    const current = state();
-    return current.kind === "ready" && current.nextCursor !== null;
-  }
-
-  function resultsState(): RecordListState {
-    const current = state();
-    if (current.kind === "loading" && resultRows().length === 0) return { kind: "loading" };
-    if (current.kind === "error" && resultRows().length === 0) {
-      return {
-        kind: "error",
-        title: "Question results could not load",
-        message:
-          "Your search, filters, and selected questions remain available. Try loading this source again.",
-        retry: () => void session.retry(),
-        retryLabel: "Retry source",
-      };
-    }
-    return { kind: "ready" };
-  }
-
-  function updateQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
-    setQuery((current) => ({ ...current, ...change }));
-  }
-
-  function loadCurrent(): void {
-    const currentSource = source();
-    if (currentSource === undefined) return;
-    void session.reset(currentSource, query());
+  function updateLibraryQuery(change: Record<string, string | null>): void {
+    void search.apply({
+      ...search.query(),
+      libraryQuery: { ...search.query().libraryQuery, ...change },
+    });
   }
 
   function selectSource(event: Event): void {
     const target = event.currentTarget;
     if (!(target instanceof HTMLSelectElement)) return;
-    const next = sourceFromKey(props.sources, target.value);
-    if (next === undefined) return;
-    setSource(next);
-    void session.reset(next, query());
+    const source = sourceFromKey(props.sources, target.value);
+    if (source === undefined) return;
+    updateSelection(questionPickerSelection(props.mode, props.maximumSelection, []));
+    search.clearSelection();
+    void search.apply({ ...search.query(), source });
   }
 
   function inspectionImageUrl(view: QuestionPickerInspectionView): QuestionImageUrlResolver {
@@ -261,7 +163,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
             : current,
         );
       },
-      () => {
+      () =>
         setInspection((current) =>
           current.kind !== "closed" && current.key === key
             ? {
@@ -270,19 +172,13 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                 message: "This Question could not be inspected. The Assessment is unchanged.",
               }
             : current,
-        );
-      },
+        ),
     );
   }
 
-  function inspectionMessage(): string | undefined {
-    const current = inspection();
-    return current.kind === "error" ? current.message : undefined;
-  }
-
-  function readyInspection(): Extract<PickerInspection, { readonly kind: "ready" }> | undefined {
-    const current = inspection();
-    return current.kind === "ready" ? current : undefined;
+  function pickerRows(): ReadonlyArray<QuestionLibraryBrowseRow> {
+    const current = search.state();
+    return current.kind === "empty" ? [] : current.rows;
   }
 
   function toggleRow(row: QuestionLibraryBrowseRow, checked: boolean): void {
@@ -296,11 +192,21 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           checked,
         ),
       );
+      search.select(row, checked);
     } catch (error: unknown) {
       setSelectionMessage(
-        error instanceof Error ? error.message : "That question could not be selected.",
+        error instanceof Error ? error.message : "That Question could not be selected.",
       );
     }
+  }
+
+  function selectedRows(): RecordListSelection<QuestionLibraryBrowseRow> | undefined {
+    if (props.mode === "none") return undefined;
+    return {
+      kind: props.mode === "one" ? "radio" : "checkbox",
+      selectedIds: () => new Set(selection().questionIds),
+      onChange: toggleRow,
+    };
   }
 
   function cancel(): void {
@@ -311,7 +217,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
 
   function confirm(): void {
     if (props.mode !== "none" && selection().questions.length === 0) {
-      setSelectionMessage("Select at least one question before continuing.");
+      setSelectionMessage("Select at least one Question before continuing.");
       return;
     }
     if (dialog.open) dialog.close();
@@ -319,11 +225,20 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     props.onConfirm(selection());
   }
 
-  onMount(() => {
-    const initial = source();
-    if (initial !== undefined) void session.reset(initial, query());
-  });
+  const facetValues = (
+    facet: string,
+  ): ReadonlyArray<{ readonly value: string; readonly count: number }> =>
+    (search.state().filterCounts ?? []).filter((item) => item.facet === facet);
+  const inspectionError = (): string | undefined => {
+    const current = inspection();
+    return current.kind === "error" ? current.message : undefined;
+  };
+  const readyInspection = (): Extract<PickerInspection, { readonly kind: "ready" }> | undefined => {
+    const current = inspection();
+    return current.kind === "ready" ? current : undefined;
+  };
 
+  onMount(() => void search.open(search.query()));
   onCleanup(() => {
     if (dialog.open) dialog.close();
   });
@@ -335,9 +250,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
       aria-describedby="question-picker-instructions"
       ref={(element) => {
         dialog = element;
-        queueMicrotask(() => {
-          dialog.showModal();
-        });
+        queueMicrotask(() => dialog.showModal());
       }}
       onCancel={(event) => {
         event.preventDefault();
@@ -347,10 +260,10 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
       <header class="question-picker-header">
         <div>
           <p class="eyebrow">Question selection</p>
-          <h2 id="question-picker-heading">{props.title ?? "Choose published questions"}</h2>
+          <h2 id="question-picker-heading">{props.title ?? "Choose published Questions"}</h2>
           <p id="question-picker-instructions">
             {props.instructions ??
-              "Choose a source, refine the current library result, then add questions in the order you want to use them."}
+              "Choose a source, refine the current Library result, then add Questions in the order you want to use them."}
           </p>
         </div>
         <button class="quiet-action" type="button" onClick={cancel}>
@@ -358,150 +271,145 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
         </button>
       </header>
 
-      <form
-        class="question-picker-controls"
-        onSubmit={(event) => {
-          event.preventDefault();
-          loadCurrent();
-        }}
+      <SearchControls
+        state={search}
+        textLabel="Search Questions"
+        textPlaceholder="Title, concept, or tag"
+        displayAriaLabel="Question result display"
       >
-        <label>
-          Question source
-          <select
-            value={source() === undefined ? "" : sourceKey(source()!)}
-            onChange={selectSource}
-          >
-            <For each={props.sources}>
-              {(candidate) => <option value={sourceKey(candidate)}>{candidate.label}</option>}
-            </For>
-          </select>
-        </label>
-        <label class="question-picker-search-control">
-          Search questions
-          <input
-            ref={(element) => queueMicrotask(() => element.focus())}
-            type="search"
-            value={query().search}
-            maxlength={256}
-            onInput={(event) => updateQuery({ search: event.currentTarget.value })}
-            placeholder="Title, concept, or tag"
-          />
-        </label>
-        <label>
-          Question Author
-          <select
-            value={query().authorName ?? ""}
-            onChange={(event) => updateQuery({ authorName: event.currentTarget.value || null })}
-          >
-            <option value="">All Question Authors</option>
-            <For each={facetValues(state(), "authorName")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Backend
-          <select
-            value={query().backend ?? ""}
-            onChange={(event) => updateQuery({ backend: event.currentTarget.value || null })}
-          >
-            <option value="">All backends</option>
-            <For each={facetValues(state(), "backend")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Question Type
-          <select
-            value={query().questionType ?? ""}
-            onChange={(event) => updateQuery({ questionType: event.currentTarget.value || null })}
-          >
-            <option value="">All Question Types</option>
-            <For each={facetValues(state(), "questionType")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Capability
-          <select
-            value={query().capability ?? ""}
-            onChange={(event) => updateQuery({ capability: event.currentTarget.value || null })}
-          >
-            <option value="">All capabilities</option>
-            <For each={facetValues(state(), "capability")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Question License
-          <select
-            value={query().questionLicense ?? ""}
-            onChange={(event) =>
-              updateQuery({ questionLicense: event.currentTarget.value || null })
-            }
-          >
-            <option value="">All Question Licenses</option>
-            <For each={facetValues(state(), "questionLicense")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          My course use
-          <select
-            value={query().usedInMyCourses ?? ""}
-            onChange={(event) =>
-              updateQuery({ usedInMyCourses: event.currentTarget.value || null })
-            }
-          >
-            <option value="">Any course use</option>
-            <For each={facetValues(state(), "usedInMyCourses")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Tag
-          <select
-            value={query().tag ?? ""}
-            onChange={(event) => updateQuery({ tag: event.currentTarget.value || null })}
-          >
-            <option value="">All tags</option>
-            <For each={facetValues(state(), "tag")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <button class="primary-action" type="submit" disabled={source() === undefined}>
-          Search questions
-        </button>
-      </form>
+        <div class="question-picker-filters">
+          <label>
+            Question source
+            <select value={sourceKey(search.query().source)} onChange={selectSource}>
+              <For each={props.sources}>
+                {(source) => <option value={sourceKey(source)}>{source.label}</option>}
+              </For>
+            </select>
+          </label>
+          <label>
+            Question Author
+            <select
+              value={search.query().libraryQuery.authorName ?? ""}
+              onChange={(event) =>
+                updateLibraryQuery({ authorName: event.currentTarget.value || null })
+              }
+            >
+              <option value="">All Question Authors</option>
+              <For each={facetValues("authorName")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label>
+            Backend
+            <select
+              value={search.query().libraryQuery.backend ?? ""}
+              disabled={props.eligibility !== undefined}
+              onChange={(event) =>
+                updateLibraryQuery({ backend: event.currentTarget.value || null })
+              }
+            >
+              <option value="">All backends</option>
+              <For each={facetValues("backend")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label>
+            Question Type
+            <select
+              value={search.query().libraryQuery.questionType ?? ""}
+              disabled={props.eligibility !== undefined}
+              onChange={(event) =>
+                updateLibraryQuery({ questionType: event.currentTarget.value || null })
+              }
+            >
+              <option value="">All Question Types</option>
+              <For each={facetValues("questionType")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label>
+            Capability
+            <select
+              value={search.query().libraryQuery.capability ?? ""}
+              onChange={(event) =>
+                updateLibraryQuery({ capability: event.currentTarget.value || null })
+              }
+            >
+              <option value="">All capabilities</option>
+              <For each={facetValues("capability")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label>
+            Tag
+            <select
+              value={search.query().libraryQuery.tag ?? ""}
+              onChange={(event) => updateLibraryQuery({ tag: event.currentTarget.value || null })}
+            >
+              <option value="">All tags</option>
+              <For each={facetValues("tag")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label>
+            My course use
+            <select
+              value={search.query().libraryQuery.usedInMyCourses ?? ""}
+              onChange={(event) =>
+                updateLibraryQuery({ usedInMyCourses: event.currentTarget.value || null })
+              }
+            >
+              <option value="">Any course use</option>
+              <For each={facetValues("usedInMyCourses")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label>
+            Question License
+            <select
+              value={search.query().libraryQuery.questionLicense ?? ""}
+              onChange={(event) =>
+                updateLibraryQuery({ questionLicense: event.currentTarget.value || null })
+              }
+            >
+              <option value="">All Question Licenses</option>
+              <For each={facetValues("questionLicense")}>
+                {(facet) => (
+                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                )}
+              </For>
+            </select>
+          </label>
+        </div>
+      </SearchControls>
 
       <p class="question-picker-status" role="status" aria-live="polite">
         {selectionMessage()}
       </p>
-
-      <Show when={state().kind === "error" && resultRows().length > 0}>
-        <section class="route-error" role="alert">
-          <h3>Question results could not load</h3>
-          <p>
-            Your search, filters, and selected questions remain available. Try loading this source
-            again.
-          </p>
-          <button class="primary-action" type="button" onClick={() => void session.retry()}>
-            Retry source
-          </button>
-        </section>
-      </Show>
       <Show when={inspection().kind === "loading"}>
         <p class="question-picker-status" role="status">
           Loading Question inspection...
         </p>
       </Show>
-      <Show when={inspectionMessage()}>
+      <Show when={inspectionError()}>
         {(message) => (
           <section class="route-error" role="alert">
             <h3>Question inspection unavailable</h3>
@@ -526,51 +434,44 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           />
         )}
       </Show>
+
       <section class="question-picker-results" aria-label="Question results">
         <h3>Current results</h3>
-        <RecordList
-          rows={resultRows()}
-          content={(row) =>
-            questionResultContent(
-              row,
-              props.loadQuestionInspection === undefined ? undefined : inspectRow,
-            )
-          }
-          selection={
-            props.mode === "none"
-              ? undefined
-              : {
-                  kind: props.mode === "one" ? "radio" : "checkbox",
-                  selectedIds: () => new Set(selection().questionIds),
-                  onChange: (row, checked) => toggleRow(row, checked),
-                }
-          }
-          recordId={(row) => row.displayId}
-          state={resultsState()}
+        <SearchResults
+          state={search}
           ariaLabel="Question results"
+          selection={selectedRows}
           emptyState={{
-            title: "No questions match this source and filter.",
+            title: "No Questions match this source and filter.",
             message: "Use a shorter search or choose a broader source.",
           }}
         />
-        <RecordPageControls
-          ariaLabel="Question result pages"
-          hasPrevious={session.hasPrevious}
-          hasNext={hasNextPage()}
-          loading={state().kind === "loading"}
-          onPrevious={() => void session.loadPrevious()}
-          onNext={() => void session.loadNext()}
-          pageSize={session.pageSize}
-          onPageSizeChange={(pageSize) => void session.changePageSize(pageSize)}
-        />
       </section>
-
       <Show when={props.mode !== "none"}>
+        <SearchSelectionBar
+          selectedCount={() => selection().questionIds.length}
+          loadedCount={() => pickerRows().length}
+          onSelectLoaded={() => pickerRows().forEach((row) => toggleRow(row, true))}
+          onClearSelection={() => {
+            updateSelection(questionPickerSelection(props.mode, props.maximumSelection, []));
+            search.clearSelection();
+          }}
+        />
         <section class="question-picker-tray" aria-labelledby="question-picker-tray-heading">
-          <h3 id="question-picker-tray-heading">Selected questions</h3>
+          <h3 id="question-picker-tray-heading">Selected Questions</h3>
           <RecordSequence
             rows={selection().questions}
-            content={selectedQuestionContent}
+            content={(question) => ({
+              title: question.row.questionTitle,
+              details: [
+                {
+                  kind: "questionId",
+                  questionTitle: question.row.questionTitle,
+                  displayId: question.questionId,
+                },
+              ],
+              actions: [],
+            })}
             renderBody={(question) => (
               <button
                 class="quiet-action"
@@ -604,7 +505,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           />
         </section>
       </Show>
-
       <footer class="question-picker-footer">
         <button class="quiet-action" type="button" onClick={cancel}>
           Cancel
@@ -615,7 +515,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           disabled={props.mode !== "none" && selection().questions.length === 0}
           onClick={confirm}
         >
-          {props.confirmLabel ?? "Use selected questions"}
+          {props.confirmLabel ?? "Use selected Questions"}
         </button>
       </footer>
     </dialog>

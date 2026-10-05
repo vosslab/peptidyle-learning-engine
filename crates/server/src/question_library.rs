@@ -44,6 +44,8 @@ const MAX_PAGE_SIZE: u16 = question_model::MAX_DISCOVERY_PAGE_SIZE as u16;
 const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
 mod classification;
+mod mixed_search;
+use mixed_search::search_question_library;
 mod facets;
 mod paging;
 mod query;
@@ -81,6 +83,10 @@ pub fn question_library_router(
 ) -> Router {
     Router::new()
         .route("/api/questions/search", get(search_questions))
+        .route(
+            "/api/library/{public_id}/kind",
+            get(mixed_search::library_object_kind),
+        )
         .route("/api/questions/by-id/{question_id}", get(resolve_question))
         .route(
             "/api/questions/by-id/{question_id}/detail",
@@ -159,114 +165,6 @@ async fn search_questions(
         query,
     )
     .await
-}
-
-/// One Question Library search after the session is known.
-///
-/// The opaque cursor is checked before any source read. Native Question source
-/// is resolved only for the store's returned page.
-async fn search_question_library<S, O>(
-    store: &S,
-    objects: &O,
-    session_hash: SessionTokenHash,
-    is_instructor: bool,
-    query: QuestionSearchRequest,
-) -> Response
-where
-    S: QuestionLibraryStore + QuestionLibraryPageStatistics,
-    O: ObjectStore,
-{
-    let after = match paging::decode_position(&query) {
-        Ok(after) => after,
-        Err(()) => {
-            return route_error(
-                StatusCode::BAD_REQUEST,
-                "Question Library continuation is invalid",
-            );
-        }
-    };
-    let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
-    let (exact_question_id, text_terms) = text_query.into_store_terms();
-    let page_size = query.page_size.unwrap_or(DEFAULT_PAGE_SIZE);
-    let request = QuestionLibrarySearchRequest {
-        exact_question_id,
-        text_terms,
-        author_names: query.author_names.clone(),
-        backends: eligible_backends(&query),
-        tags: query.tags.clone(),
-        subjects: query.subjects.clone(),
-        topics: query.topics.clone(),
-        discipline_uuid: query.discipline_uuid,
-        subject_uuid: query.subject_uuid,
-        topic_uuid: query.topic_uuid,
-        subtopic_uuid: query.subtopic_uuid,
-        cross_discipline: query.cross_discipline,
-        bloom_cognitive_process: query.bloom_cognitive_process,
-        bloom_knowledge_dimension: query.bloom_knowledge_dimension,
-        question_types: query.question_types.clone(),
-        question_licenses: query.question_licenses.clone(),
-        used_in_current_account_courses: query.used_in_my_courses
-            == question_model::QuestionSearchCourseUse::Used,
-        authored_by_current_account: query.authorship
-            == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
-        sort: match query.sort {
-            question_model::QuestionSearchSort::TitleAscending => {
-                QuestionLibrarySearchSort::TitleAscending
-            }
-            question_model::QuestionSearchSort::PublishedNewest => {
-                QuestionLibrarySearchSort::PublishedNewest
-            }
-        },
-        page_size,
-        after,
-    };
-    let search = match store
-        .search_published_question_library_entries(session_hash, request)
-        .await
-    {
-        Ok(search) => search,
-        Err(error) => return store_error_response(error),
-    };
-    let next_cursor = search
-        .next_position
-        .map(|position| paging::encode_position(position, &query));
-    let facets = facets::from_store(search.facets);
-    let summaries = match entries_to_summaries(objects, search.items).await {
-        Ok(summaries) => summaries,
-        Err(()) => {
-            return route_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Question Library unavailable",
-            );
-        }
-    };
-    let question_ids = summaries
-        .iter()
-        .map(|entry| entry.summary.question_id.clone())
-        .collect::<Vec<_>>();
-    let evidence = match store
-        .page_statistics(session_hash, is_instructor, &question_ids)
-        .await
-    {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-    crate::auth::no_store(
-        Json(QuestionSearchPage {
-            items: summaries
-                .iter()
-                .map(|entry| QuestionSearchResult {
-                    summary: entry.summary.clone(),
-                    discipline_name: entry.discipline.clone().unwrap_or_default(),
-                    discipline_is_retired: entry.discipline_is_retired,
-                    evidence: usage_statistics::evidence_for(&entry.summary.question_id, &evidence),
-                })
-                .collect(),
-            next_cursor,
-            facets,
-        })
-        .into_response(),
-    )
 }
 
 #[async_trait::async_trait]

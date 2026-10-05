@@ -184,7 +184,8 @@ END;
 $$;
 
 CREATE FUNCTION ple_data.append_course_assessments(
-    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb
+    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb,
+    p_pool_owner_account_id text
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -204,6 +205,10 @@ BEGIN
     PERFORM ple_data.validate_course_blueprint_adoption(
         p_blueprint_course_id, p_blueprint_revision_number, p_assessments
     );
+    IF p_pool_owner_account_id IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Course adoption Pool owner is unavailable';
+    END IF;
     FOR member IN SELECT value FROM jsonb_array_elements(p_assessments) LOOP
         -- Stable provenance makes a repeated append harmless, without touching
         -- the existing daughter copy's policies, release state, or Student Work.
@@ -277,7 +282,8 @@ BEGIN
             END IF;
             SELECT * INTO forked FROM ple_data.fork_question_pool_for_course_adoption(
                 entry_json ->> 'forkQuestionPoolId',
-                source_question_pool_id
+                source_question_pool_id,
+                p_pool_owner_account_id
             );
             IF (entry_json ->> 'selectionCount')::integer > (
                 SELECT count(*) FROM ple_data.question_pool_member AS member
@@ -320,7 +326,8 @@ END
 $$;
 
 CREATE FUNCTION ple_data.initialize_course_assessments(
-    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb
+    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb,
+    p_pool_owner_account_id text
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -329,7 +336,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, p_blueprint_course_id, p_blueprint_revision_number, p_assessments
+        p_course_instance_id, p_blueprint_course_id, p_blueprint_revision_number, p_assessments,
+        p_pool_owner_account_id
     );
 END
 $$;
@@ -404,7 +412,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint append must contain only newly added Assessments';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, blueprint.blueprint_course_id, p_saved_blueprint_revision_number, p_assessments
+        p_course_instance_id, blueprint.blueprint_course_id, p_saved_blueprint_revision_number, p_assessments,
+        ple_api.current_session_account_id()
     );
 END
 $$;

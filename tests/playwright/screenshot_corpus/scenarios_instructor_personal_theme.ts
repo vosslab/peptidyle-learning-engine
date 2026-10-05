@@ -138,7 +138,8 @@ async function openFilteredLibrary(page: Page): Promise<void> {
     .getByRole("link", { name: "Questions", exact: true })
     .click();
   await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
-  await page.getByLabel("Search published questions").fill("charged functional");
+  await page.getByLabel("Search Question Library").fill("charged functional");
+  await page.getByLabel("Search Question Library").press("Enter");
   await page.getByRole("heading", { name: PUBLISHED_QUESTION_TITLE, exact: true }).waitFor();
 }
 

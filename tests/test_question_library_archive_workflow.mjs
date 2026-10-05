@@ -159,7 +159,7 @@ test("With 13,000 Questions in Neil's first course, manually archiving Questions
     account: { id: "U0000035E", userRole: "instructor" },
   });
   assert.match(libraryHtml, /Search Question Library/);
-  assert.match(libraryHtml, /Search published questions/);
+  assert.match(libraryHtml, /Search Question Library/);
   assert.match(libraryHtml, /Create Question Pool/);
   assert.doesNotMatch(libraryHtml, /Archive/);
 

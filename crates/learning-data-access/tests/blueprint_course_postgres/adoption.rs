@@ -53,6 +53,36 @@ async fn assert_projection(
     appended_only: bool,
     adoption_revision: i64,
 ) {
+    let mut audit_transaction = audit_inspection
+        .begin()
+        .await
+        .expect("adoption audit inspection transaction");
+    sqlx::query("SET LOCAL ROLE ple_audit_owner")
+        .execute(&mut *audit_transaction)
+        .await
+        .expect("adoption audit inspection role");
+    // The audit owner has only an INSERT policy under FORCE RLS. As in the
+    // controlled tamper oracle, permit owner inspection only until rollback.
+    sqlx::query("ALTER TABLE ple_audit.course_instance_creation_event NO FORCE ROW LEVEL SECURITY")
+        .execute(&mut *audit_transaction)
+        .await
+        .expect("controlled audit owner inspection");
+    let expected_pool_owner: String = sqlx::query_scalar(
+        "SELECT assigned_instructor_account_id FROM ple_audit.course_instance_creation_event \
+         WHERE course_instance_id = $1 AND source_kind = 'adopted' \
+           AND blueprint_course_id = $2 AND blueprint_revision_number = $3",
+    )
+    .bind(course_id)
+    .bind(blueprint_course_id)
+    .bind(adoption_revision)
+    .fetch_one(&mut *audit_transaction)
+    .await
+    .expect("adoption audit projection");
+    audit_transaction
+        .rollback()
+        .await
+        .expect("restore forced audit RLS after inspection");
+
     let mut inspection = audit_inspection
         .begin()
         .await
@@ -203,6 +233,7 @@ WITH source_assessment AS (
                (source.entry #>> '{question_attempt_time_limit,graceSeconds}')::integer
            AND child.question_pool_id <> root.question_pool_id
            AND child.source_question_pool_id = root.question_pool_id
+           AND child.owner_account_id = $8
            AND child.interchangeability_attested_by_account_id =
                root.interchangeability_attested_by_account_id
            AND child.interchangeability_attested_at =
@@ -270,6 +301,7 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
     .bind(appended_only)
     .bind(source_content)
     .bind(prior_sources)
+    .bind(&expected_pool_owner)
     .fetch_one(&mut *inspection)
     .await
     .expect("relational adoption projection");
@@ -287,36 +319,6 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
         .await
         .expect("adoption inspection commit");
 
-    let mut audit_transaction = audit_inspection
-        .begin()
-        .await
-        .expect("adoption audit inspection transaction");
-    sqlx::query("SET LOCAL ROLE ple_audit_owner")
-        .execute(&mut *audit_transaction)
-        .await
-        .expect("adoption audit inspection role");
-    // The audit owner has only an INSERT policy under FORCE RLS. As in the
-    // controlled tamper oracle, permit owner inspection only until rollback.
-    sqlx::query("ALTER TABLE ple_audit.course_instance_creation_event NO FORCE ROW LEVEL SECURITY")
-        .execute(&mut *audit_transaction)
-        .await
-        .expect("controlled audit owner inspection");
-    let audit_matches: bool = sqlx::query_scalar(
-        "SELECT count(*) = 1 FROM ple_audit.course_instance_creation_event \
-         WHERE course_instance_id = $1 AND source_kind = 'adopted' \
-           AND blueprint_course_id = $2 AND blueprint_revision_number = $3",
-    )
-    .bind(course_id)
-    .bind(blueprint_course_id)
-    .bind(adoption_revision)
-    .fetch_one(&mut *audit_transaction)
-    .await
-    .expect("adoption audit projection");
-    assert!(audit_matches);
-    audit_transaction
-        .rollback()
-        .await
-        .expect("restore forced audit RLS after inspection");
     let forced: bool = sqlx::query_scalar(
         "SELECT relation.relforcerowsecurity FROM pg_catalog.pg_class relation \
          JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace \

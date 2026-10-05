@@ -9,21 +9,14 @@ import {
   createQuestionLibraryRepository,
   questionSearchRequest,
 } from "../src/api/question_library_repository.ts";
-import { questionPoolLibraryFilter } from "../src/api/question_pool_library_filter.ts";
 import { questionSearchPath } from "../src/api/question_search_query.ts";
-import {
-  BLOOM_COGNITIVE_PROCESSES,
-  BLOOM_KNOWLEDGE_DIMENSIONS,
-} from "../src/api/decoders/bloom_classification.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { createQuestionPoolLibraryClient } from "../src/api/http_client/question_pool_library.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeQuestionBulkMetadataCurrent } from "../src/api/decoders/question_bulk_metadata.ts";
 import { createQuestionBulkMetadataClient } from "../src/api/http_client/question_bulk_metadata.ts";
-import { decodeQuestionPoolMetadata } from "../src/api/decoders/question_pool_library.ts";
+import { decodeQuestionPoolMetadata } from "../src/api/decoders/question_pool_summary.ts";
 import { decodeQuestionSearchFacets } from "../src/api/decoders/question_type_facets.ts";
 import { decodeQuestionSearchPage } from "../src/api/decoders/question_library.ts";
-import { fastUiQuestionLibraryPage } from "./support/fast_ui_question_library_fixture.ts";
 import {
   recoverLibrarySearch,
   searchHandoffQuery,
@@ -32,7 +25,6 @@ import {
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-  QuestionLibraryBrowseSession,
   decodeQuestionLibraryBrowsePage,
   normalizeQuestionLibraryBrowseQuery,
 } from "../src/pages/library_page_model.ts";
@@ -43,7 +35,6 @@ import {
   myQuestionsPageSizePosition,
   myQuestionsPreviousPosition,
 } from "../src/pages/my_questions_model.ts";
-import { FAST_UI_QUESTION_LIBRARY_IDS } from "./support/fast_ui_question_library_fixture.ts";
 
 const identities = {
   discipline_uuid: "00000000-0000-0000-0000-000000000001",
@@ -86,6 +77,99 @@ function row() {
   };
 }
 
+function questionSearchPage() {
+  const questionId = "7K3M-79QP";
+  return {
+    items: [
+      {
+        kind: "question",
+        ownerAccountId: "U00000009",
+        question: {
+          summary: {
+            questionId,
+            publishedQuestionRevisionTuple: { publishedQuestionId: questionId, revisionNumber: 1 },
+            backend: "ple",
+            questionFormat: "pleQuestionJson",
+            questionType: "multipleChoice",
+            capabilities: ["clientRendering"],
+            metadata: {
+              questionTitle: "Peptide bond",
+              questionDescription: "Identify the atoms that form a peptide bond.",
+              tags: ["protein"],
+              questionLicense: "CC-BY-4.0",
+              questionCitation: null,
+              language: "en",
+            },
+            authorship: { authors: [{ displayName: "Ada Instructor", accountId: null }] },
+            availability: { availability: "available" },
+            publishedAt: 1_789_920_000_000,
+            bloom: null,
+          },
+          disciplineName: "Biochemistry",
+          disciplineIsRetired: false,
+          evidence: { state: "unavailable" },
+        },
+      },
+      {
+        kind: "pool",
+        pool: {
+          questionPoolId: "3S8B-24DZ",
+          ownerAccountId: "U00000009",
+          questionType: "multipleChoice",
+          backend: "ple",
+          license: "CC-BY-4.0",
+          questionPoolEditNumber: 1,
+          questionPoolMetadataEditNumber: 1,
+          metadata: {
+            title: "Protein structure practice Pool",
+            description: "Practice Questions about protein structure.",
+            disciplineUuid: identities.discipline_uuid,
+            disciplineName: "Biochemistry",
+            disciplineIsRetired: false,
+            subjectUuid: identities.subject_uuid,
+            topicUuid: null,
+            subtopicUuid: null,
+            tags: ["protein"],
+          },
+          memberCount: 1,
+          bloom: null,
+        },
+      },
+    ],
+    nextCursor: null,
+    facets: {
+      categories: { questionsInNoPool: 1, questionsInPool: 0, pools: 1 },
+      authorNames: [],
+      authorNamesTruncated: false,
+      backends: [],
+      tags: [{ tag: "protein", count: 2 }],
+      tagsTruncated: false,
+      subjects: [],
+      subjectsTruncated: false,
+      topics: [],
+      topicsTruncated: false,
+      questionTypes: [],
+      capabilities: [],
+      questionLicenses: [],
+      usedInMyCourses: { used: 0 },
+      bloomCognitiveProcesses: [
+        "Remember",
+        "Understand",
+        "Apply",
+        "Analyze",
+        "Evaluate",
+        "Create",
+      ].map((cognitiveProcess) => ({ cognitiveProcess, count: 0 })),
+      bloomKnowledgeDimensions: [
+        "Factual Knowledge",
+        "Conceptual Knowledge",
+        "Procedural Knowledge",
+        "Metacognitive Knowledge",
+      ].map((knowledgeDimension) => ({ knowledgeDimension, count: 0 })),
+    },
+  };
+}
+
 test("Library Objects share the Discipline Subject Topic Subtopic and Tag vocabulary", () => {
   const request = questionSearchRequest(query(), null);
   assert.equal(request.discipline_uuid, identities.discipline_uuid);
@@ -95,7 +179,7 @@ test("Library Objects share the Discipline Subject Topic Subtopic and Tag vocabu
   assert.deepEqual(request.tags, ["review"]);
 });
 
-test("Library Objects use shared metadata for organization, search, filtering, and discovery", () => {
+test("Library Objects use shared metadata for organization, search, and filtering", () => {
   const browse = query();
   const question = questionSearchRequest(browse, null);
   assert.equal(question.text, browse.search);
@@ -104,68 +188,25 @@ test("Library Objects use shared metadata for organization, search, filtering, a
   assert.equal(question.topic_uuid, identities.topic_uuid);
   assert.equal(question.subtopic_uuid, identities.subtopic_uuid);
   assert.deepEqual(question.tags, ["review"]);
-  const pool = questionPoolLibraryFilter({
-    discipline_uuid: identities.discipline_uuid,
-    subject_uuid: identities.subject_uuid,
-    topic_uuid: identities.topic_uuid,
-    subtopic_uuid: identities.subtopic_uuid,
-    cross_discipline: false,
-    text: "Pedigree Review",
-    tags: ["Review"],
-  });
-  assert.equal(pool.text, "pedigree review");
-  assert.equal(pool.discipline_uuid, identities.discipline_uuid);
-  assert.equal(pool.subject_uuid, identities.subject_uuid);
-  assert.equal(pool.topic_uuid, identities.topic_uuid);
-  assert.equal(pool.subtopic_uuid, identities.subtopic_uuid);
-  assert.deepEqual(pool.tags, ["review"]);
-  assert.throws(
-    () =>
-      questionPoolLibraryFilter({
-        discipline_uuid: null,
-        subject_uuid: identities.subject_uuid,
-        topic_uuid: null,
-        subtopic_uuid: null,
-        cross_discipline: false,
-      }),
-    /Library classification requires its selected parents/,
-  );
 });
 
 test("The Question Library is one global collection of Published Questions and Question Pools", async () => {
   const requests = [];
-  const questionPage = fastUiQuestionLibraryPage();
-  const poolPage = {
-    items: [],
-    nextCursor: null,
-    bloomFacets: {
-      cognitiveProcesses: BLOOM_COGNITIVE_PROCESSES.map((cognitiveProcess) => ({
-        cognitiveProcess,
-        count: 0,
-      })),
-      knowledgeDimensions: BLOOM_KNOWLEDGE_DIMENSIONS.map((knowledgeDimension) => ({
-        knowledgeDimension,
-        count: 0,
-      })),
-    },
-  };
+  const questionPage = questionSearchPage();
   const fetchImplementation = async (input) => {
     const url = new URL(String(input), "https://example.test");
     requests.push(url);
-    const body = url.pathname === "/api/question-pools" ? poolPage : questionPage;
-    return new Response(JSON.stringify(body), {
+    return new Response(JSON.stringify(questionPage), {
       headers: { "content-type": "application/json", "cache-control": "no-store" },
     });
   };
   const repository = createQuestionLibraryRepository(
     createHttpApiClient({ fetch: fetchImplementation }),
   );
-  const pools = createQuestionPoolLibraryClient({ fetch: fetchImplementation });
   const questions = await repository.search(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, null);
-  const poolsFound = await pools.listQuestionPools();
   assert.deepEqual(
     requests.map((url) => url.pathname),
-    ["/api/questions/search", "/api/question-pools"],
+    ["/api/questions/search"],
   );
   for (const url of requests) {
     assert.equal(url.pathname.includes("course"), false);
@@ -174,9 +215,7 @@ test("The Question Library is one global collection of Published Questions and Q
   assert.equal(requests[0].searchParams.has("used_in_my_courses"), false);
   assert.equal(requests[0].searchParams.get("authorship"), "any");
   assert.equal(questions.items.length, questionPage.items.length);
-  assert.equal(questions.items[0].displayId, questionPage.items[0].summary.questionId);
-  assert.equal(poolsFound.items.length, 0);
-  assert.equal(poolsFound.bloomFacets.cognitiveProcesses.length, BLOOM_COGNITIVE_PROCESSES.length);
+  assert.equal(questions.items[0].displayId, questionPage.items[0].question.summary.questionId);
 });
 
 test("Library metadata describes the Library Object rather than a Course Assessment or textbook", () => {
@@ -319,12 +358,41 @@ test("Library URL handoff and strict wire request retain hierarchy, filters, and
   assert.equal(parameters.get("bloom_knowledge_dimension"), "Procedural Knowledge");
   assert.equal(parameters.get("sort"), "publishedNewest");
   assert.equal(parameters.get("cursor"), "next-page");
+  assert.equal(parameters.get("kind"), "both");
+  assert.equal(parameters.get("membership"), "noPool");
+  assert.equal(
+    new URL(
+      questionSearchPath({
+        ...questionSearchRequest(restored, null),
+        owner_account_id: "U00000009",
+      }),
+      "https://example.test",
+    ).searchParams.get("owner_account_id"),
+    "U00000009",
+  );
   const empty = new URL(
     questionSearchPath(questionSearchRequest(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, null)),
     "https://example.test",
   ).searchParams;
   for (const field of Object.keys(identities)) assert.equal(empty.has(field), false);
   assert.equal(empty.get("sort"), "titleAscending");
+  assert.equal(empty.get("kind"), "both");
+  assert.equal(empty.get("membership"), "noPool");
+});
+
+test("Pools-only Library URLs retain text but clear Question-only predicates", () => {
+  const pools = searchHandoffQuery(
+    "?kind=pools&membership=all&search=protein&authorName=Ada&capability=clientRendering&usedInMyCourses=used",
+  );
+  const normalized = normalizeQuestionLibraryBrowseQuery(pools);
+  assert.equal(normalized.kind, "pools");
+  assert.equal(normalized.membership, "all");
+  assert.equal(normalized.search, "protein");
+  assert.equal(normalized.authorName, null);
+  assert.equal(normalized.capability, null);
+  assert.equal(normalized.usedInMyCourses, null);
+  assert.match(searchWithinResultsPath(normalized), /kind=pools/);
+  assert.match(searchWithinResultsPath(normalized), /membership=all/);
 });
 
 test("Library cascade clears descendants and cross mode without changing independent filters", () => {
@@ -354,6 +422,9 @@ test("Library request rejects malformed identities, incomplete chains, false boo
     { subject_uuid: null },
     { topic_uuid: null },
     { cross_discipline: "false" },
+    { kind: "unknown" },
+    { membership: "unknown" },
+    { owner_account_id: "not-an-account" },
     { hidden: true },
     { backends: ["imathas"] },
     { bloom_cognitive_process: "analyze" },
@@ -422,59 +493,9 @@ test("Library malformed URL recovery removes only the rejected strict options", 
   assert.equal(recoveredBloom.tag, "review");
 });
 
-test("Library continuation and Retry preserve identity and sort", async () => {
-  const requests = [];
-  let failNext = true;
-  const session = new QuestionLibraryBrowseSession(
-    {
-      search: async (value, cursor) => {
-        requests.push({ value, cursor });
-        if (cursor !== null && failNext) {
-          failNext = false;
-          throw new Error("temporary failure");
-        }
-        return {
-          items: [row()],
-          nextCursor: cursor === null ? "next-page" : null,
-          aggregates: [],
-          facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-        };
-      },
-    },
-    () => {},
-  );
-  await session.reset(query());
-  await session.loadNext();
-  assert.equal(session.state.kind, "error");
-  await session.retry();
-  assert.equal(session.state.kind, "ready");
-  assert.deepEqual(
-    requests.map((request) => libraryClassificationFilter(request.value)),
-    [identities, identities, identities],
-  );
-  assert.deepEqual(
-    requests.map((request) => request.cursor),
-    [null, "next-page", "next-page"],
-  );
-  assert.deepEqual(
-    requests.map((request) => request.value.sort),
-    ["publishedNewest", "publishedNewest", "publishedNewest"],
-  );
-  assert.deepEqual(
-    requests.map((request) => [
-      request.value.bloomCognitiveProcess,
-      request.value.bloomKnowledgeDimension,
-    ]),
-    [
-      ["Analyze", "Procedural Knowledge"],
-      ["Analyze", "Procedural Knowledge"],
-      ["Analyze", "Procedural Knowledge"],
-    ],
-  );
-});
-
 test("Bloom facet decoder requires all guide values in guide order, including zeros", () => {
   const facets = {
+    categories: { questionsInNoPool: 0, questionsInPool: 0, pools: 0 },
     authorNames: [],
     authorNamesTruncated: false,
     backends: [],
@@ -519,7 +540,7 @@ test("Bloom facet decoder requires all guide values in guide order, including ze
 });
 
 test("Question discovery decoder accepts 250 rows and rejects 251", () => {
-  const page = fastUiQuestionLibraryPage();
+  const page = questionSearchPage();
   const items = Array.from({ length: 250 }, () => page.items[0]);
   assert.equal(decodeQuestionSearchPage({ ...page, items }).items.length, 250);
   assert.throws(() => decodeQuestionSearchPage({ ...page, items: [...items, page.items[0]] }));
@@ -542,7 +563,7 @@ test("My Questions continues the authored library page", async () => {
   const client = {
     async searchQuestionLibrary(request) {
       requests.push(request);
-      const page = fastUiQuestionLibraryPage();
+      const page = questionSearchPage();
       return {
         ...page,
         items: page.items.slice(0, 1),
@@ -551,7 +572,7 @@ test("My Questions continues the authored library page", async () => {
     },
   };
   const first = await loadMyQuestions(client, { cursor: null, pageSize: 50 });
-  assert.equal(first.items[0].displayId, FAST_UI_QUESTION_LIBRARY_IDS[0]);
+  assert.equal(first.items[0].displayId, "7K3M-79QP");
   assert.equal(first.nextCursor, "next-page");
   const next = myQuestionsNextPosition(FIRST_MY_QUESTIONS_POSITION, first.nextCursor);
   const second = await loadMyQuestions(client, { cursor: next.inputCursor, pageSize: 100 });
@@ -647,6 +668,6 @@ test("My Questions continues the authored library page", async () => {
   assert.match(html, />Previous</);
   assert.match(html, />Next</);
   assert.match(html, /Records per page/);
-  assert.match(html, new RegExp(FAST_UI_QUESTION_LIBRARY_IDS[0]));
+  assert.match(html, /7K3M-79QP/);
   assert.doesNotMatch(html, /More Published Questions match/);
 });

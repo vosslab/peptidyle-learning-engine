@@ -384,7 +384,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
              clock_timestamp() + interval '3 hours', \
              600, 2, 'reject', 'new_variation', 'shuffled', \
              'after_submit', 'after_submit', 'after_submit', \
-             'after_submit', 'after_submit', 'after_submit', \
+             'after_submit', 'after_submit', \
              'regular_assignment')",
     )
     .fetch_one(&mut *tx)

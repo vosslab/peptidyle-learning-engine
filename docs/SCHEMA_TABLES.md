@@ -4588,8 +4588,13 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | question_pool_id | ple_data.question_family_id | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
+| owner_user_role | ple_data.user_role | NOT NULL |
 | question_pool_edit_number | bigint | NOT NULL |
 | question_pool_metadata_edit_number | bigint | NOT NULL |
+| question_type | ple_data.question_type | NOT NULL |
+| backend | ple_data.question_backend | NOT NULL |
+| license | ple_data.license_spdx | NOT NULL |
 | title | text | NOT NULL |
 | description | text | NOT NULL |
 | content_discipline_id | uuid | NOT NULL |
@@ -4610,6 +4615,7 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (question_pool_id)
+- CHECK owner_user_role: `(owner_user_role = 'instructor')`
 - CHECK question_pool_edit_number: `(question_pool_edit_number > 0)`
 - CHECK question_pool_metadata_edit_number: `(question_pool_metadata_edit_number > 0)`
 - CHECK title: `( title = btrim(title) AND char_length(title) BETWEEN 1 AND 512 AND title !~ '[[:cntrl:]]' )`
@@ -4621,6 +4627,7 @@ Constraints:
 
 Foreign keys:
 
+- (owner_account_id, owner_user_role) -> ple_private.account (account_id, user_role)
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 - (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
 - (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
@@ -4634,12 +4641,13 @@ Indexes:
 - question_pool_content_subject_id_content_topic_id_fk_idx (content_subject_id, content_topic_id)
 - question_pool_content_topic_id_content_subtopic_id_fk_idx (content_topic_id, content_subtopic_id)
 - question_pool_interchangeability_attested_by_account_id_fk_idx (interchangeability_attested_by_account_id)
+- question_pool_owner_account_id_owner_user_role_fk_idx (owner_account_id, owner_user_role)
 - question_pool_source_question_pool_id_fk_idx (source_question_pool_id)
 
 ### ple_data.question_pool_member
 
 - Role: current state
-- Comment: role: current state, deleted by Pool delete or member-list replace. Ordered distinct exact Published Question Revision pins; backend-neutral and intentionally no selected count.
+- Comment: role: current state, deleted by Pool delete or member-list replace. Ordered exact Published Question Revision pins, unique per Question within a Pool; intentionally no selected count.
 
 Columns:
 
@@ -4655,7 +4663,7 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (question_pool_id, member_position)
-- UNIQUE (question_pool_id, published_question_id, question_revision_number)
+- UNIQUE (question_pool_id, published_question_id)
 - CHECK member_position: `(member_position > 0)`
 - CHECK question_revision_number: `(question_revision_number > 0)`
 
@@ -4667,7 +4675,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_member_pkey UNIQUE (question_pool_id, member_position)
-- ple_data.question_pool_member_unique_0 UNIQUE (question_pool_id, published_question_id, question_revision_number)
+- ple_data.question_pool_member_unique_0 UNIQUE (question_pool_id, published_question_id)
 - question_pool_member_published_question_id_c92544b6_fk_idx (published_question_id, question_revision_number)
 
 ### ple_data.question_pool_star
@@ -4754,72 +4762,6 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_bloom_pkey UNIQUE (question_pool_id)
-
-### ple_data.question_pool_authorship
-
-- Role: current state
-- Comment: role: current state, Optional Pool-owned authorship, replaced when the Pool credit changes. HUMAN_GUIDANCE.md Question Pool metadata.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| question_pool_id | ple_data.question_family_id | NOT NULL |
-| author_position | integer | NOT NULL |
-| author_display_name | text | NOT NULL |
-| author_account_id | ple_data.account_id | NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (question_pool_id, author_position)
-- UNIQUE (question_pool_id, author_display_name)
-- CHECK author_position: `(author_position BETWEEN 1 AND 16)`
-- CHECK author_display_name: `( author_display_name = btrim(author_display_name) AND char_length(author_display_name) BETWEEN 1 AND 120 AND author_display_name !~ '[[:cntrl:]]' )`
-
-Foreign keys:
-
-- (question_pool_id) -> ple_data.question_pool (question_pool_id)
-- (author_account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_data.question_pool_authorship_pkey UNIQUE (question_pool_id, author_position)
-- ple_data.question_pool_authorship_unique_0 UNIQUE (question_pool_id, author_display_name)
-- question_pool_authorship_author_account_id_fk_idx (author_account_id)
-
-### ple_data.question_pool_provenance
-
-- Role: current state
-- Comment: role: current state, Optional Pool-owned license, attribution, and source information stored in one lifecycle row. HUMAN_GUIDANCE.md Question Pool metadata.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| question_pool_id | ple_data.question_family_id | NOT NULL |
-| attribution | text | NULL |
-| source_text | text | NULL |
-| source_url | text | NULL |
-| spdx_expression | ple_data.license_spdx | NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (question_pool_id)
-- CHECK attribution: `( attribution = btrim(attribution) AND char_length(attribution) BETWEEN 1 AND 4000 AND attribution !~ '[[:cntrl:]]' )`
-- CHECK source_text: `( source_text = btrim(source_text) AND char_length(source_text) BETWEEN 1 AND 4000 AND source_text !~ '[[:cntrl:]]' )`
-- CHECK source_url: `( source_url = btrim(source_url) AND char_length(source_url) BETWEEN 1 AND 2048 AND source_url !~ '[[:cntrl:]]' )`
-
-Foreign keys:
-
-- (question_pool_id) -> ple_data.question_pool (question_pool_id)
-
-Indexes:
-
-- ple_data.question_pool_provenance_pkey UNIQUE (question_pool_id)
 
 ## 20_tables/retention.sql
 

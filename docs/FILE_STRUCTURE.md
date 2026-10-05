@@ -150,6 +150,8 @@ src/
 |  +- blueprint_change_proposal/ Blueprint Course Change Proposal UI
 |  +- blueprint_forks/          Blueprint fork review and apply UI
 |  +- question_picker/          Published, non-archived Question selection UI
+|  +- assessment_content_picker/ Mixed Question-or-Pool Assessment selection UI
+|  +- search/                   Shared search session, controls, results, and page layout
 |  +- question_attempt/         Student Attempt interactions
 |  +- course_appearance/        Authorized Course appearance editing UI
 |  +- ple_question_json_authoring/ Native PLE Question JSON editor
@@ -170,6 +172,16 @@ existing detail review presentation,
 [assessment_blueprint_update_review.tsx](../src/pages/assessment_workspace/assessment_blueprint_update_review.tsx);
 the existing Question Editor owns its Review, Apply, and Cancel controls. The browser uses the
 existing Assessment release client rather than a separate update client.
+
+Library and Public Blueprint search definitions live in
+[question_library_search_definition.ts](../src/pages/question_library_search_definition.ts) and
+[blueprint_course_search_definition.ts](../src/pages/blueprint_course_search_definition.ts).
+They supply content-specific queries and row descriptions to
+the [shared search session](../src/features/search/search_session.ts); the shared modules own request
+and display behavior. The Question picker keeps its Question-only source and ordered-tray policy in
+[src/features/question_picker/](../src/features/question_picker/); the Assessment content picker reuses the mixed Library definition
+from [assessment_content_picker.tsx](../src/features/assessment_content_picker/assessment_content_picker.tsx). [library_object_detail_page.tsx](../src/pages/library_object_detail_page.tsx)
+resolves `/library/{id}` before mounting Question or Pool detail.
 
 [src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Generated declarations in
 `generated/api/` are derivative; modify their Rust source and regenerate rather

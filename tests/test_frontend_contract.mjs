@@ -526,8 +526,8 @@ test("Instructors can see the Star count and the Instructor Profiles behind Ques
     new URL("../src/pages/question_detail_page.tsx", import.meta.url),
     "utf8",
   );
-  const poolDiscovery = fs.readFileSync(
-    new URL("../src/pages/library_pool_discovery.tsx", import.meta.url),
+  const poolDetail = fs.readFileSync(
+    new URL("../src/pages/question_pool_detail.tsx", import.meta.url),
     "utf8",
   );
   const library = fs.readFileSync(
@@ -539,14 +539,14 @@ test("Instructors can see the Star count and the Instructor Profiles behind Ques
     /state\.session\.account\.userRole === "instructor"[\s\S]*<Show when=\{mayMutateLibrary\(\)\}>[\s\S]*<QuestionStarControl questionId=\{record\(\)\.summary\.questionId\} \/>/,
   );
   assert.match(
-    poolDiscovery,
-    /<Show when=\{props\.mayWatchPools\}>[\s\S]*<QuestionPoolStarControl poolId=\{value\(\)\.questionPoolId\} \/>/,
+    poolDetail,
+    /<Show when=\{mayMutateLibrary\(\)\}>[\s\S]*<QuestionPoolStarControl poolId=\{value\(\)\.questionPoolId\} \/>/,
   );
   assert.match(
     library,
     /const mayMutateLibrary = sessionScope\.account\.userRole === "instructor"/,
   );
-  assert.match(library, /mayWatchPools=\{mayMutateLibrary\}/);
+  assert.doesNotMatch(library, /mayWatchPools=/);
 
   const requests = [];
   const projection = {
@@ -750,6 +750,17 @@ test("UUIDs should never appear in visible content, navigation URLs, or copyable
   assert.equal(notification.actions.length, 1);
   assert.equal(notification.actions[0].href, "/library/7K3M-79QP");
   assert.equal(notification.actions[0].label, "Open Question");
+  const poolNotification = surfaces.notificationContent((timestamp) => String(timestamp))({
+    targetKind: "questionPool",
+    targetPublicId: "3S8B-24DZ",
+    occurredAt: 1700000000000,
+    eventKind: "membersChanged",
+    revisionNumber: 3,
+    forkedPublicId: null,
+    activityId: null,
+  });
+  assert.equal(poolNotification.actions[0].href, "/library/3S8B-24DZ");
+  assert.equal(poolNotification.actions[0].label, "Open Question Pool");
 });
 
 async function loadVisibleIdentitySurfaces() {

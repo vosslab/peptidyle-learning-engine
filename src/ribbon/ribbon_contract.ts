@@ -78,6 +78,8 @@ export interface RibbonContextLabels {
   readonly assessmentTitle?: string;
   readonly assessmentAttemptTitle?: string;
   readonly questionTitle?: string;
+  /** Resolved title for either kind admitted by the shared Library detail route. */
+  readonly libraryObjectTitle?: string;
   readonly blueprintCourseTitle?: string;
   readonly blueprintBreadcrumbParent?: BlueprintBreadcrumbParent;
 }

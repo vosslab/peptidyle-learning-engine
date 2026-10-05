@@ -189,7 +189,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
              'Title must survive policy save', 'before policy save', \
              NULL, NULL, NULL, 300, 1, 'reject', 'new_variation', 'shuffled', \
              'after_submit', 'after_submit', 'after_submit', \
-             'after_submit', 'after_submit', 'after_submit', 'quiz')",
+             'after_submit', 'after_submit', 'quiz')",
     )
     .fetch_one(&mut *tx)
     .await

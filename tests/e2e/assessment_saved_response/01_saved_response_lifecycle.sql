@@ -26,6 +26,9 @@ VALUES (:'question_id', pg_catalog.transaction_timestamp());
 INSERT INTO ple_data.question_revision (
     published_question_id, revision_number, backend, question_type, published_at
 ) VALUES (:'question_id', 1, 'ple', 'multipleChoice', pg_catalog.transaction_timestamp());
+INSERT INTO ple_data.question_revision_license (
+    published_question_id, revision_number, spdx_expression
+) VALUES (:'question_id', 1, 'CC0-1.0');
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Saved response', '', NULL,
     pg_catalog.transaction_timestamp() + interval '2 days',

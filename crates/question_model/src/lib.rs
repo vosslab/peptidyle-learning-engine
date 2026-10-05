@@ -55,6 +55,7 @@ pub mod generation;
 pub mod identity;
 /// Browser-safe retained Library discussion and impact activity vocabulary.
 pub mod library_discussion;
+pub mod library_search;
 /// Browser-safe, no-store Instructor samples of saved Assessment Question Pools.
 pub mod pool_preview;
 /// Browser-safe, attempt-presentation-scoped question contracts.
@@ -74,6 +75,11 @@ pub mod question_citation;
 pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
+pub use library_search::{
+    LibraryObjectKindResponse, LibraryQuestionMembership, LibrarySearchCategoryCounts,
+    LibrarySearchKind, LibrarySearchResult,
+};
+pub use question_library::LibraryObjectId;
 mod question_library_preview;
 /// Instructor-facing Question Library usage statistics JSON.
 pub mod question_library_statistics;
@@ -270,8 +276,7 @@ pub use crate::question_library::{
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{
     AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
-    QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolLibrarySummary,
-    QuestionPoolMemberView, QuestionPoolMetadata, QuestionPoolView,
+    QuestionPoolLibrarySummary, QuestionPoolMemberView, QuestionPoolMetadata, QuestionPoolView,
 };
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,

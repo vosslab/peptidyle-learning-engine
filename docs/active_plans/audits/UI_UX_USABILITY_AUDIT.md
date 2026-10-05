@@ -671,7 +671,7 @@ refresh follows.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
-- Priority: low; evidence: [default.png](../../screenshots/instructor/default.webp).
+- Priority: low; evidence: [default.png](../../screenshots/instructor/profile_preferences.webp).
 - Time zone is displayed as text, while named avatar cards with visible descriptions dominate the
   viewport. The capture establishes neither a time-zone editing action nor the current avatar
   selection; it cannot prove those capabilities absent elsewhere.

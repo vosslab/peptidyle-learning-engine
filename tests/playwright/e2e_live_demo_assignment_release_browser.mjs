@@ -70,7 +70,7 @@ try {
     name: "Choose the first reusable Questions",
     exact: true,
   });
-  await questionPicker.getByRole("button", { name: "Search questions", exact: true }).click();
+  await questionPicker.getByRole("button", { name: "Search", exact: true }).click();
   await questionPicker.getByRole("checkbox").first().check();
   await questionPicker.getByRole("button", { name: "Use selected Questions", exact: true }).click();
   await page.getByText("1 fixed Question selected in order.", { exact: true }).waitFor();
@@ -127,8 +127,13 @@ try {
   const assessmentIdentity = page.locator('dl[aria-label="Current Assessment"]');
   await assessmentIdentity.getByText(assessmentTitle, { exact: true }).waitFor();
   await assessmentIdentity.getByText("Unreleased", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
-  const questionResults = page.getByRole("list", { name: "Question results", exact: true });
+  await page
+    .getByRole("button", { name: "Choose published Assessment content", exact: true })
+    .click();
+  const questionResults = page.getByRole("list", {
+    name: "Published Assessment content",
+    exact: true,
+  });
   await questionResults.getByRole("listitem").nth(1).waitFor();
   const publishedQuestions = questionResults.getByRole("checkbox");
   const publishedQuestionCount = await publishedQuestions.count();
@@ -137,7 +142,7 @@ try {
   }
   await publishedQuestions.nth(0).check();
   await publishedQuestions.nth(1).check();
-  await page.getByRole("button", { name: "Add selected Questions", exact: true }).click();
+  await page.getByRole("button", { name: "Add selected content", exact: true }).click();
   await page.getByText(/exact revision pins?/iu).waitFor();
   const localEntryIds = await assessmentEntryIds(page);
   if (

@@ -28,6 +28,10 @@ fn import_request(
     exact_question_id: Option<question_model::PublishedQuestionId>,
 ) -> QuestionLibrarySearchRequest {
     QuestionLibrarySearchRequest {
+        kind: question_model::LibrarySearchKind::Questions,
+        membership: question_model::LibraryQuestionMembership::All,
+        owner_account_id: None,
+        has_capability_filter: false,
         exact_question_id,
         text_terms: vec![QuestionLibraryTextTerm {
             field: QuestionLibraryTextField::Any,
@@ -67,6 +71,11 @@ async fn insert_questions(
         .iter()
         .enumerate()
         .map(|(index, _)| Uuid::from_u128(object_base + index as u128))
+        .collect::<Vec<_>>();
+    let ownership_event_ids = question_ids
+        .iter()
+        .enumerate()
+        .map(|(index, _)| Uuid::from_u128(object_base + 0x0100_0000 + index as u128))
         .collect::<Vec<_>>();
     let mut transaction = admin.begin().await.expect("import fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
@@ -180,6 +189,20 @@ async fn insert_questions(
     .execute(&mut *transaction)
     .await
     .expect("import licenses");
+    sqlx::query(
+        "INSERT INTO ple_data.question_ownership_event (\
+             question_ownership_event_id, published_question_id, owner_account_id, \
+             recorded_by_account_id, event_kind, occurred_at\
+         ) SELECT event_id, question_id, $3, $3, 'initial', \
+                  '2026-09-25 12:00:00+00'::timestamptz \
+           FROM unnest($1::uuid[], $2::text[]) row(event_id, question_id)",
+    )
+    .bind(&ownership_event_ids)
+    .bind(question_ids)
+    .bind(instructor_account_id())
+    .execute(&mut *transaction)
+    .await
+    .expect("import initial ownership");
     transaction.commit().await.expect("import fixture commit");
 }
 
@@ -271,7 +294,12 @@ async fn question_library_search_filters_sort_and_bulk_edit_clean_a_large_import
         }
         let page_len = page.items.len();
         after = page.next_position;
-        matched.extend(page.items);
+        matched.extend(page.items.into_iter().map(|item| match item {
+            learning_data_access::LibrarySearchEntry::Question { entry, .. } => *entry,
+            learning_data_access::LibrarySearchEntry::Pool { .. } => {
+                panic!("Question-only import query returned Pool")
+            }
+        }));
         if after.is_none() || page_len == 0 {
             break;
         }
@@ -507,7 +535,7 @@ async fn question_library_syntax_narrows_a_large_library() {
     assert_eq!(narrowed.items.len(), 50);
     assert!(narrowed.next_position.is_some());
     assert!(narrowed.items.iter().all(|item| {
-        let title = item.question_title.to_ascii_lowercase();
+        let title = item.title().to_ascii_lowercase();
         title.contains("enzyme") && !title.contains("inhibitor")
     }));
     assert!(

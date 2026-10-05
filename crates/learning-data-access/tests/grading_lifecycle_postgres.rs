@@ -246,7 +246,7 @@ async fn make_attempt(
              clock_timestamp() + interval '2 hours', \
              60, 1, 'reject', 'reuse_variation', 'authored_order', \
              'after_submit', 'after_submit', 'after_submit', \
-             'after_submit', 'after_submit', 'after_submit', \
+             'after_submit', 'after_submit', \
              'regular_assignment')",
     )
     .fetch_one(&mut *tx)

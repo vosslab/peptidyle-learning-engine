@@ -45,7 +45,11 @@ export async function loadMyQuestions(
     "authoredByCurrentAccount",
   );
   return decodeQuestionLibraryBrowsePage(
-    await repository.search(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, request.cursor, request.pageSize),
+    await repository.search(
+      { ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, kind: "questions", membership: "all" },
+      request.cursor,
+      request.pageSize,
+    ),
   );
 }
 

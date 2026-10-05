@@ -3,19 +3,24 @@
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
-import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
+import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
-import { decodeQuestionPoolText } from "../api/decoders/question_pool_library";
+import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
+import { decodeQuestionPoolText } from "../api/decoders/question_pool_summary";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import {
   QuestionPicker,
   questionLibraryPickerRepository,
   questionLibraryPickerSources,
+  type QuestionPickerEligibility,
   type QuestionPickerSelection,
+  type QuestionPickerSourceRepository,
 } from "../features/question_picker";
 import {
+  questionPoolEligibilityForQuestion,
   questionPoolMemberTuples,
+  questionPoolStartingEligibility,
   questionPoolSourcePickerRepository,
   type QuestionPoolStartingQuestion,
 } from "./question_pool_create_model";
@@ -39,6 +44,7 @@ export interface QuestionPoolCreateDialogProps {
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
   readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
+  readonly getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"];
   /** Exact Published Question that fixes source-bound Pool membership and classification. */
   readonly startingQuestion?: QuestionPoolStartingQuestion;
   readonly onTaskPhaseChange: (active: boolean) => void;
@@ -53,6 +59,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     sourceBound ? { questionIds: [], questions: [] } : undefined,
   );
   const [attested, setAttested] = createSignal(false);
+  const [eligibility, setEligibility] = createSignal<QuestionPickerEligibility>();
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
   const [error, setError] = createSignal<string>();
@@ -61,11 +68,15 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     readonly questionPoolEditNumber: number;
   }>();
   let reviewHeading: HTMLHeadingElement | undefined;
-  const pickerRepository =
-    props.startingQuestion === undefined
-      ? questionLibraryPickerRepository(props.questionLibrary, props.questionLibrary)
-      : questionPoolSourcePickerRepository(props.questionLibrary, props.startingQuestion);
   const pickerSources = questionLibraryPickerSources(false);
+  const basePickerRepository = questionLibraryPickerRepository(
+    props.questionLibrary,
+    props.questionLibrary,
+  );
+  const pickerRepository = (): QuestionPickerSourceRepository =>
+    sourceBound && eligibility() !== undefined
+      ? questionPoolSourcePickerRepository(props.questionLibrary, eligibility()!)
+      : basePickerRepository;
 
   onMount(() => {
     if (!sourceBound) return;
@@ -73,11 +84,24 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     queueMicrotask(() => reviewHeading?.focus());
   });
 
-  function chooseAgain(): void {
+  async function chooseAgain(): Promise<void> {
     setAttested(false);
     setError(undefined);
-    setState("choosing");
-    props.onTaskPhaseChange(false);
+    try {
+      const startingQuestion = props.startingQuestion;
+      if (startingQuestion !== undefined) {
+        setEligibility(
+          await questionPoolStartingEligibility(
+            startingQuestion,
+            props.getCurrentQuestionBulkMetadata,
+          ),
+        );
+      }
+      setState("choosing");
+      props.onTaskPhaseChange(false);
+    } catch {
+      setError("Pool eligibility could not be loaded. Keep this review open and try again.");
+    }
   }
 
   function cancelSelection(): void {
@@ -90,13 +114,30 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     queueMicrotask(() => reviewHeading?.focus());
   }
 
-  function acceptSelection(next: QuestionPickerSelection): void {
-    setSelection(next);
-    setAttested(false);
-    setError(undefined);
-    setState("reviewing");
-    props.onTaskPhaseChange(true);
-    queueMicrotask(() => reviewHeading?.focus());
+  async function acceptSelection(next: QuestionPickerSelection): Promise<void> {
+    try {
+      if (!sourceBound && eligibility() === undefined) {
+        const first = next.questions[0];
+        if (first === undefined) throw new Error("Choose one Question to establish this Pool.");
+        setEligibility(
+          await questionPoolEligibilityForQuestion(
+            first.questionId,
+            props.getQuestionDetails,
+            props.getCurrentQuestionBulkMetadata,
+          ),
+        );
+      }
+      setSelection(next);
+      setAttested(false);
+      setError(undefined);
+      setState("reviewing");
+      props.onTaskPhaseChange(true);
+      queueMicrotask(() => reviewHeading?.focus());
+    } catch {
+      setError(
+        "The selected Question cannot establish Pool eligibility. Choose another published Question.",
+      );
+    }
   }
 
   async function createPool(): Promise<void> {
@@ -114,9 +155,30 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     setState("creating");
     setError(undefined);
     try {
+      let currentEligibility = eligibility();
+      if (currentEligibility === undefined) {
+        if (props.startingQuestion !== undefined) {
+          currentEligibility = await questionPoolStartingEligibility(
+            props.startingQuestion,
+            props.getCurrentQuestionBulkMetadata,
+          );
+        } else {
+          const first = selected.questions[0];
+          if (first === undefined) {
+            throw new Error("Choose one Question to establish this Pool.");
+          }
+          currentEligibility = await questionPoolEligibilityForQuestion(
+            first.questionId,
+            props.getQuestionDetails,
+            props.getCurrentQuestionBulkMetadata,
+          );
+        }
+      }
       const members = await questionPoolMemberTuples(
         selected,
         props.getQuestionDetails,
+        props.getCurrentQuestionBulkMetadata,
+        currentEligibility,
         props.startingQuestion,
       );
       const created = await props.questionPoolClient.createQuestionPool({
@@ -139,9 +201,10 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     <>
       <Show when={state() === "choosing"}>
         <QuestionPicker
-          repository={pickerRepository}
+          repository={pickerRepository()}
           sources={pickerSources}
-          mode="many"
+          eligibility={eligibility()}
+          mode={sourceBound || eligibility() !== undefined ? "many" : "one"}
           maximumSelection={
             sourceBound
               ? MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY - 1
@@ -160,7 +223,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
           }
           confirmLabel="Review selected Questions"
           trigger={undefined}
-          onConfirm={acceptSelection}
+          onConfirm={(next) => void acceptSelection(next)}
           onCancel={cancelSelection}
         />
       </Show>
@@ -302,7 +365,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   class="quiet-action"
                   type="button"
                   disabled={state() === "creating"}
-                  onClick={chooseAgain}
+                  onClick={() => void chooseAgain()}
                 >
                   {sourceBound ? "Add or change Questions" : "Choose different Questions"}
                 </button>{" "}

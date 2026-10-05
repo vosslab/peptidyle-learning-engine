@@ -278,6 +278,11 @@ default is Questions in no Pool plus Pools, reducing redundant member results; H
 retains "probably" for this preference. Filters can include individual member Questions.
 A directly added Assessment Question is a separate concept: it may also belong to a Pool.
 
+**Library result kind** is the search choice **Both**, **Questions**, or **Pools**.
+**Question membership** is the search choice **Questions in no Pool** or **All Questions**;
+it restricts Question rows and does not restrict Pool rows. These are Library-search terms, not
+Question or Pool metadata.
+
 **Starred Library Object** is an Instructor favorite and visible endorsement.
 Instructors can see Star counts and who Starred a Question or Pool.
 **Watched Library Object** is a subscription to in-app notifications about new
@@ -385,9 +390,11 @@ Every additional member has that same Discipline and Subject. Member Questions
 retain their own Topic, Subtopic, Tags, and other metadata; the Pool also has
 its own Title, Description, Topic/Subtopic, Tags, both Bloom dimensions, and optional
 support content. Search matches the Pool's own text and metadata, not its members'.
-The Pool identifies its owner and source Pool; it has no separate Author field.
+The **Pool owner** is the Account recorded when the Pool is created; a fork records its source
+Pool separately. A Pool has no separate Author field.
 Members retain their owners and authors. PLE calculates one compatible Pool license
-from member licenses and rejects incompatible combinations; member licenses remain intact.
+from exact member-Revision licenses and rejects incompatible combinations; that calculated value is
+the **calculated Pool license**. Member licenses remain intact.
 NC and ND content are deferred.
 
 **Pool mismatch** means the Pool no longer satisfies its current requirements. Show

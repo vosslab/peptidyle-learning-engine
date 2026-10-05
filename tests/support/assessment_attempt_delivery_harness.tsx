@@ -1,7 +1,7 @@
 // Mounts the shipped Student Assessment Attempt so one Course Assessment delivers a Question.
 
 import { type JSX } from "solid-js";
-import { MemoryRouter, Route, createMemoryHistory, useLocation } from "@solidjs/router";
+import { MemoryRouter, Route, createMemoryHistory } from "@solidjs/router";
 import { render } from "solid-js/web";
 
 import {
@@ -95,9 +95,11 @@ function deliveryApplicationApi(
 }
 
 function DeliveredAttempt(): JSX.Element {
-  const location = useLocation();
   return (
-    <RouteScopeProvider pathname={ATTEMPT_PATH} historyState={() => location.state}>
+    <RouteScopeProvider
+      pathname={ATTEMPT_PATH}
+      historyState={() => assessmentAttemptRouteState(assessmentAttemptRouteId(ATTEMPT_ID))}
+    >
       <AssessmentAttemptPage />
     </RouteScopeProvider>
   );

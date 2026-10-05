@@ -13,12 +13,13 @@ use question_model::{
 /// at this adapter boundary because they are not Question-source metadata.
 pub(super) fn from_store(facets: QuestionLibrarySearchFacets) -> QuestionSearchFacets {
     let mut capabilities = BTreeMap::<Capability, u64>::new();
-    for backend_facet in &facets.backends {
+    for backend_facet in &facets.question_backends {
         for capability in backend_capabilities(backend_facet.backend).declared() {
             *capabilities.entry(capability).or_default() += backend_facet.count;
         }
     }
     QuestionSearchFacets {
+        categories: facets.categories,
         author_names: facets.author_names,
         author_names_truncated: facets.author_names_truncated,
         backends: facets.backends,

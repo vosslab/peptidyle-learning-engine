@@ -353,6 +353,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   pages directly.
 - PLE does not store old search results for later restoration.
 - Search prompts and search results are never stored permanently; keep database size and bloat under control.
+- Every search offers three display sizes: Compact, List, and Visual boxes.
 - Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
   supporting keyboard, pointer, and touch interaction.
 - Keep essential information, primary actions, and current status visible in the main interface.

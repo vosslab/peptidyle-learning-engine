@@ -28,8 +28,24 @@ async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
         exact: true,
       })
       .waitFor();
-    await page.getByRole("button", { name: "Search questions", exact: true }).click();
-    const results = page.getByRole("region", { name: "Question results", exact: true });
+    const picker = page.getByRole("dialog", {
+      name: "Choose published Questions for this Pool",
+      exact: true,
+    });
+    await picker.getByLabel("Search Questions", { exact: true }).fill("Genetic disorders");
+    await picker.getByRole("button", { name: "Search", exact: true }).click();
+    const results = picker.getByRole("region", { name: "Question results", exact: true });
+    // The first visible selection establishes the Pool's eligibility, so this unbound picker
+    // deliberately offers one radio choice before it can offer interchangeable checkboxes.
+    await results.getByRole("radio").first().waitFor();
+    await results.getByRole("radio").first().check();
+    await page.getByRole("button", { name: "Review selected Questions", exact: true }).click();
+    await page
+      .getByRole("heading", { level: 1, name: "Create Question Pool", exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: "Choose different Questions", exact: true }).click();
+    await picker.getByLabel("Search Questions", { exact: true }).fill("");
+    await picker.getByRole("button", { name: "Search", exact: true }).click();
     await results.getByRole("checkbox").nth(1).waitFor();
     await results.getByRole("checkbox").first().check();
     await results.getByRole("checkbox").nth(1).check();

@@ -45,13 +45,13 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` explains the shared Published Question collection and shows Create a Draft Question only when mayMutateLibrary is true.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` describes the shared Published Question collection and gates Create a Draft Question on `mayMutateLibrary`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Similar pages should place similar actions in consistent locations.
   - Evidence (source): `src/components/record_list/record_list.tsx` `record-list__actions` places each record action after the title and facts.
   - Evidence (source): `src/pages/course_list_page.tsx` `Open Course` is the Course list open action in that shared slot.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `label: "Open"` is the Question Library open action in that same slot.
+  - Evidence (source): `src/pages/question_library_search_definition.ts` `questionLibraryContent` supplies the Question Library `Open` action in that same record.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Instructor pages should be composed around the teaching task rather than collections of padded components.
@@ -400,11 +400,11 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Results should make it easy to scan many Questions quickly.
-  - Evidence (source): `src/pages/library_browse_record_list.css` `library-browse-record-list__window` keeps the current result page in one scroll region.
+  - Evidence (source): `src/features/search/search_results.tsx` `SearchResults` keeps the current shared-search result page in one result region.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Results should show the information needed to judge relevance without opening each Question.
-  - Evidence (source): `src/pages/library_browse_rows.tsx` `questionDetails` shows authors, Discipline, Bloom, format when present, and the Question ID on each result.
+  - Evidence (source): `src/pages/question_library_search_definition.ts` `questionDetails` shows authors, Discipline, Bloom, format when present, and the Question ID on each result.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Search terms and active filters should remain visible while reviewing results.

@@ -168,6 +168,10 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Released Assessment Settings.** released - laptop.
 
+[![Screenshot preview of Assessment Question and Pool picker](../screenshots/instructor/courses-assessments-content-picker.webp)](../screenshots/instructor/courses-assessments-content-picker.webp)
+
+**Assessment Question and Pool picker.** Question and Pool picker with default results - laptop.
+
 [![Screenshot preview of Question Library](../screenshots/instructor/questions-search-library_default.webp)](../screenshots/instructor/questions-search-library_default.webp)
 
 **Question Library.** default - laptop.
@@ -176,7 +180,7 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Filtered Question Library.** filtered - laptop.
 
-[![Screenshot preview of Published Question detail](../screenshots/instructor/questions-search-published_question_detail.webp)](../screenshots/instructor/questions-search-published_question_detail.webp)
+[![Screenshot preview of Published Question detail](../screenshots/instructor/questions-browse-published_question_detail.webp)](../screenshots/instructor/questions-browse-published_question_detail.webp)
 
 **Published Question detail.** published detail - laptop.
 
@@ -188,35 +192,63 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Question Pool creation review.** selected Question review - laptop.
 
-[![Screenshot preview of Answer-free WeBWorK generated example](../screenshots/instructor/questions-search-webwork_generated_example.webp)](../screenshots/instructor/questions-search-webwork_generated_example.webp)
+[![Screenshot preview of Question Library mixed default](../screenshots/instructor/questions-search-mixed_results.webp)](../screenshots/instructor/questions-search-mixed_results.webp)
+
+**Question Library mixed default.** mixed default - laptop.
+
+[![Screenshot preview of Question Library all Questions](../screenshots/instructor/questions-search-all_questions.webp)](../screenshots/instructor/questions-search-all_questions.webp)
+
+**Question Library all Questions.** all Questions - laptop.
+
+[![Screenshot preview of Question Library Pools only](../screenshots/instructor/questions-search-pools_only.webp)](../screenshots/instructor/questions-search-pools_only.webp)
+
+**Question Library Pools only.** Pools only - laptop.
+
+[![Screenshot preview of Question Library Pool compact display](../screenshots/instructor/questions-search-compact.webp)](../screenshots/instructor/questions-search-compact.webp)
+
+**Question Library Pool compact display.** Pool compact display - laptop.
+
+[![Screenshot preview of Question Library Pool list display](../screenshots/instructor/questions-search-list.webp)](../screenshots/instructor/questions-search-list.webp)
+
+**Question Library Pool list display.** Pool list display - laptop.
+
+[![Screenshot preview of Question Library Pool visual-box display](../screenshots/instructor/questions-search-visual.webp)](../screenshots/instructor/questions-search-visual.webp)
+
+**Question Library Pool visual-box display.** Pool visual-box display - laptop.
+
+[![Screenshot preview of Question Library Question Pool detail](../screenshots/instructor/questions-browse-pool_detail.webp)](../screenshots/instructor/questions-browse-pool_detail.webp)
+
+**Question Library Question Pool detail.** Question Pool detail - laptop.
+
+[![Screenshot preview of Answer-free WeBWorK generated example](../screenshots/instructor/questions-browse-webwork_generated_example.webp)](../screenshots/instructor/questions-browse-webwork_generated_example.webp)
 
 **Answer-free WeBWorK generated example.** rendered WeBWorK example - laptop.
 
-[![Screenshot preview of HLA offspring genotype generated example](../screenshots/instructor/questions-search-webwork_hla_genotype.webp)](../screenshots/instructor/questions-search-webwork_hla_genotype.webp)
+[![Screenshot preview of HLA offspring genotype generated example](../screenshots/instructor/questions-browse-webwork_hla_genotype.webp)](../screenshots/instructor/questions-browse-webwork_hla_genotype.webp)
 
 **HLA offspring genotype generated example.** HLA haplotype inheritance example - laptop.
 
-[![Screenshot preview of Monohybrid genotype matching generated example](../screenshots/instructor/questions-search-webwork_monohybrid_matching.webp)](../screenshots/instructor/questions-search-webwork_monohybrid_matching.webp)
+[![Screenshot preview of Monohybrid genotype matching generated example](../screenshots/instructor/questions-browse-webwork_monohybrid_matching.webp)](../screenshots/instructor/questions-browse-webwork_monohybrid_matching.webp)
 
 **Monohybrid genotype matching generated example.** monohybrid genotype matching example - laptop.
 
-[![Screenshot preview of X-linked offspring count table generated example](../screenshots/instructor/questions-search-webwork_x_linked_counts.webp)](../screenshots/instructor/questions-search-webwork_x_linked_counts.webp)
+[![Screenshot preview of X-linked offspring count table generated example](../screenshots/instructor/questions-browse-webwork_x_linked_counts.webp)](../screenshots/instructor/questions-browse-webwork_x_linked_counts.webp)
 
 **X-linked offspring count table generated example.** X-linked offspring count table example - laptop.
 
-[![Screenshot preview of True or False Statements About DNA Structure generated example](../screenshots/instructor/questions-search-webwork_dna_structure.webp)](../screenshots/instructor/questions-search-webwork_dna_structure.webp)
+[![Screenshot preview of True or False Statements About DNA Structure generated example](../screenshots/instructor/questions-browse-webwork_dna_structure.webp)](../screenshots/instructor/questions-browse-webwork_dna_structure.webp)
 
 **True or False Statements About DNA Structure generated example.** True/False Statements About DNA Structure generated example - laptop.
 
-[![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](../screenshots/instructor/questions-search-webwork_meiosis_prophase.webp)](../screenshots/instructor/questions-search-webwork_meiosis_prophase.webp)
+[![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](../screenshots/instructor/questions-browse-webwork_meiosis_prophase.webp)](../screenshots/instructor/questions-browse-webwork_meiosis_prophase.webp)
 
 **Matching Meiosis Prophase I Stages to Descriptions generated example.** Matching Meiosis Prophase I Stages to Descriptions generated example - laptop.
 
-[![Screenshot preview of True or False Statements About Chi-Square Tests generated example](../screenshots/instructor/questions-search-webwork_chi_square.webp)](../screenshots/instructor/questions-search-webwork_chi_square.webp)
+[![Screenshot preview of True or False Statements About Chi-Square Tests generated example](../screenshots/instructor/questions-browse-webwork_chi_square.webp)](../screenshots/instructor/questions-browse-webwork_chi_square.webp)
 
 **True or False Statements About Chi-Square Tests generated example.** True/False Statements About Chi-Square Tests generated example - laptop.
 
-[![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](../screenshots/instructor/questions-search-webwork_chromosome_shapes.webp)](../screenshots/instructor/questions-search-webwork_chromosome_shapes.webp)
+[![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](../screenshots/instructor/questions-browse-webwork_chromosome_shapes.webp)](../screenshots/instructor/questions-browse-webwork_chromosome_shapes.webp)
 
 **Matching Chromosome Shapes to Descriptions generated example.** Matching Chromosome Shapes to Descriptions generated example - laptop.
 
@@ -232,7 +264,7 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Published Question detail using the Instructor personal Magma Theme in Dark mode.** Magma Dark published Question detail - laptop.
 
-[![Screenshot preview of Instructor Profile](../screenshots/instructor/default.webp)](../screenshots/instructor/default.webp)
+[![Screenshot preview of Instructor Profile](../screenshots/instructor/profile_preferences.webp)](../screenshots/instructor/profile_preferences.webp)
 
 **Instructor Profile.** default profile - laptop.
 
@@ -267,6 +299,10 @@ Generated from the current screenshot manifest. Images link to their full-size f
 [![Screenshot preview of Search Public Blueprint Courses](../screenshots/instructor/courses-search-filtered_results.webp)](../screenshots/instructor/courses-search-filtered_results.webp)
 
 **Search Public Blueprint Courses.** filtered results - laptop.
+
+[![Screenshot preview of Blueprint Question picker](../screenshots/instructor/courses-blueprint-question-picker.webp)](../screenshots/instructor/courses-blueprint-question-picker.webp)
+
+**Blueprint Question picker.** published Question picker with results - laptop.
 
 [![Screenshot preview of Editable Assessment Template](../screenshots/instructor/product-assessments-templates-template_editor.webp)](../screenshots/instructor/product-assessments-templates-template_editor.webp)
 

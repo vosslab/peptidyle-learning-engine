@@ -635,7 +635,7 @@
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
   - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentEntryInput` stores each Fixed Published Question or Question Pool in vector order.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `validate_blueprint_question_selection` rejects a new pin unless that Published Question is available.
-  - Evidence (source): `src/features/question_pool_picker/question_pool_picker.tsx` `QuestionPoolPicker` selects one published Question Pool and previews its membership.
+  - Evidence (source): `src/features/assessment_content_picker/assessment_content_picker.tsx` `AssessmentContentPicker` selects either one published Question Pool or configured fixed Questions before the existing Blueprint import path.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Blueprint Assessments have no deadlines, release dates, Student data, or other Course Instance settings.

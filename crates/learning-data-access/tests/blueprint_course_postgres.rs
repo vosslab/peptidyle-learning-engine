@@ -8,17 +8,16 @@ use std::sync::{
 };
 
 use learning_data_access::postgres::{
-    PostgresBlueprintCourseStore, PostgresCourseInstanceStore, PostgresQuestionLibraryStore,
-    PostgresQuestionPoolLibraryStore, lazy_pool,
+    PostgresBlueprintCourseStore, PostgresCourseInstanceStore, PostgresLiveAssessmentStore,
+    PostgresQuestionLibraryStore, lazy_pool,
 };
 use learning_data_access::{
-    BlueprintCourseStore, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
-    CourseInstanceStore, CreateCourseInstanceInput, DiscoveryPageRequest, DiscoveryPageSize,
-    QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
+    ApplyAssessmentBlueprintUpdateInput, BlueprintCourseStore, CourseInstanceCreationSource,
+    CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput,
+    LiveAssessmentStore, QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
     QuestionLibrarySearchRequest, QuestionLibrarySearchSort, QuestionLibraryStore,
-    QuestionLibraryTextField, QuestionLibraryTextTerm, QuestionPoolDiscoveryFilter,
-    QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
-    SessionTokenHash, StoreError, StoredBlueprintCourseContent,
+    QuestionLibraryTextField, QuestionLibraryTextTerm, SessionTokenHash, StoreError,
+    StoredBlueprintCourseContent,
 };
 use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
@@ -54,9 +53,6 @@ use blueprint_course_postgres_promotion::{discovery, promotion_boundary};
 #[path = "blueprint_course_postgres/lifecycle.rs"]
 mod blueprint_course_postgres_lifecycle;
 
-#[path = "blueprint_course_postgres/discovery.rs"]
-mod blueprint_course_postgres_discovery;
-
 #[path = "blueprint_course_postgres/question_library.rs"]
 mod blueprint_course_postgres_question_library;
 
@@ -65,3 +61,6 @@ mod blueprint_course_postgres_question_library_import;
 
 #[path = "blueprint_course_postgres/question_library_stewardship.rs"]
 mod blueprint_course_postgres_question_library_stewardship;
+
+#[path = "blueprint_course_postgres/blueprint_pool_members.rs"]
+mod blueprint_course_postgres_pool_members;

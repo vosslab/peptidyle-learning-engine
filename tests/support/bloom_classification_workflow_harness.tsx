@@ -377,6 +377,10 @@ function LibraryHost(): JSX.Element {
         },
       }}
       metadataClient={metadataClient()}
+      poolMetadataClient={{
+        updateQuestionPoolSearchMetadata: () =>
+          Promise.reject(new Error("Pool metadata editing is not under test.")),
+      }}
       classificationClient={classificationClient()}
       questionPoolClient={{
         createQuestionPool: () => Promise.reject(new Error("Pool creation is not under test.")),

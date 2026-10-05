@@ -48,6 +48,10 @@ pub(super) async fn load_pool_members(
             Json(BlueprintPoolMembersView {
                 question_pool_id: value.question_pool_id,
                 question_pool_edit_number: value.question_pool_edit_number,
+                discipline_uuid: value.discipline_uuid,
+                subject_uuid: value.subject_uuid,
+                question_type: value.question_type,
+                backend: value.backend,
                 members: value.members,
             })
             .into_response(),

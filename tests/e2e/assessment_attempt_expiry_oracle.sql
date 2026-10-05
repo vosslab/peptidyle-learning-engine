@@ -29,7 +29,7 @@ SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     pg_catalog.transaction_timestamp() + interval '2 days',
     NULL, 5, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'never', 'never', 'never',
+    'after_submit', 'after_submit', 'after_submit', 'never', 'never',
     'regular_assignment'
 ), 'hex') AS snapshot_id \gset
 

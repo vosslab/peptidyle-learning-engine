@@ -2,6 +2,8 @@
 
 use super::*;
 
+#[path = "lifecycle_co_instructor.rs"]
+mod co_instructor;
 #[path = "lifecycle_privacy.rs"]
 mod privacy;
 
@@ -12,7 +14,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
-    seed(&admin).await;
+    seed_if_needed(&admin).await;
     admin.close().await;
 
     let application_pool = lazy_pool(&application_url).expect("application fixture pool");
@@ -146,6 +148,56 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         )
         .await
         .expect("independently adopt the same Blueprint Revision");
+    // Create an adopted Course for the Blueprint creator, then make the other
+    // Instructor an active co-Instructor. The later Apply proof must use that
+    // co-Instructor's session, rather than the original creator's session.
+    let creator_adopted = instance_store
+        .create_course_instance(
+            token(),
+            CreateCourseInstanceInput {
+                classification: question_model::CourseClassification {
+                    discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                    subject_uuid: None,
+                    topic_uuid: None,
+                    subtopic_uuid: None,
+                    tags: Vec::new(),
+                },
+                source: CourseInstanceCreationSource::Adopted {
+                    blueprint_revision_tuple: question_model::BlueprintRevisionTuple {
+                        blueprint_course_id: blueprint_course_id.clone(),
+                        revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
+                    },
+                },
+                short_name: "COINSTR".into(),
+                long_name: "Co-Instructor Blueprint update proof".into(),
+                term: adoption_term.clone(),
+                assigned_instructor_account_id: None,
+            },
+            Default::default(),
+        )
+        .await
+        .expect("creator adopts a Course for co-Instructor update proof");
+    let creator_adopted_course_id = creator_adopted.course_instance.id.as_string();
+    let co_instructor_membership_id = id(0xb130);
+    let mut co_instructor_connection = PgConnection::connect(&application_url)
+        .await
+        .expect("co-Instructor application connection");
+    let mut co_instructor_transaction = co_instructor_connection
+        .begin()
+        .await
+        .expect("co-Instructor application transaction");
+    authenticate_application_transaction(&mut co_instructor_transaction).await;
+    sqlx::query("SELECT ple_api.add_course_instructor($1, $2, $3)")
+        .bind(co_instructor_membership_id)
+        .bind(&creator_adopted_course_id)
+        .bind(reader_account_id())
+        .execute(&mut *co_instructor_transaction)
+        .await
+        .expect("active co-Instructor membership");
+    co_instructor_transaction
+        .commit()
+        .await
+        .expect("co-Instructor membership commit");
     let public_to_private = transition_blueprint_availability(
         &application_url,
         &blueprint_course_id_sql,
@@ -397,7 +449,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         reader_summary.read_access,
         question_model::BlueprintCourseReadAccess::ActiveInstructor
     );
-    assert_eq!(reader_summary.total_adoptions, 2);
+    assert_eq!(reader_summary.total_adoptions, 3);
     assert_eq!(reader_summary.total_students_ever_enrolled, 1);
     assert_eq!(reader_summary.owner_display_name, "Blueprint Owner");
     let reader_view = reader_store
@@ -487,6 +539,14 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         no_op_replay, no_op,
         "Save replay returns its original receipt"
     );
+
+    co_instructor::assert_later_apply_uses_current_instructor(
+        application_pool.clone(),
+        pool_ids.clone(),
+        &creator_adopted_course_id,
+        co_instructor_membership_id,
+    )
+    .await;
 
     let retained_assessment = current_content.modules[0].assessments[0].blueprint_assessment_id;
     let retained_module = current_content.modules[0].blueprint_module_id;

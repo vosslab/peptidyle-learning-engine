@@ -202,6 +202,22 @@ SELECT question_pool_edit_number AS fairness_fork_edit, assessment_edit_number A
     :'fairness_assessment_id', '73000000-0000-0000-0000-000000000422', :'fairness_edit', 1,
     ARRAY[:'question_id'], ARRAY[1], true
   ) \gset
+SELECT set_config('ple.fairness_fork_edit', :'fairness_fork_edit', true);
+RESET ROLE;
+SET LOCAL ROLE ple_api_owner;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool
+         WHERE question_pool_id = current_setting('ple.fairness_fork_pool_id')
+           AND question_pool_edit_number = current_setting('ple.fairness_fork_edit')::bigint
+           AND license = 'CC0-1.0'
+    ) THEN
+        RAISE EXCEPTION 'Assessment Pool fork member replacement did not refresh the calculated license';
+    END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_app;
 
 -- Retiring the whole Pool leaves its Entry so issued work stays interpretable,
 -- but the current resolver assigns it zero earned and possible points.

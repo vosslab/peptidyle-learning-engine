@@ -107,10 +107,12 @@ Discipline/Subject mismatch, duplicate Questions, or another Pool constraint vio
 Block affected Assessment release until resolved. If a mismatch develops after release,
 that Assessment continues as-is. Preserve checks against edits that leave too few members.
 
-Implementation alignment remains pending: current SQL uses member positions, permits
-uniqueness by Question-and-Revision rather than Question alone, and treats classification
-as an admission-time check. Pool Author storage also remains. These are implementation
-gaps, not alternative product rules. The current plan is
+Implementation alignment: SQL enforces one copy of each Question per Pool and immutable Pool
+Question Type and Backend. Separate Pool Author storage has been removed. Pools identify their
+owner and source Pool, and calculate their required collection license from the exact member
+Revisions while retaining each member's license. The separate Pool-validation handoff remains open
+for mismatch warnings, release blocking, classification re-checks, unordered member storage, and a
+sortable member editor; these are not alternative product rules. The current status is
 [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
 
 ## Combined Question Library search
@@ -125,8 +127,9 @@ Text and metadata filters match a Pool's own values. Member-only matches do not 
 Pool match; including individual members exposes those Question results. Filtering,
 sorting, and paging apply to one combined server result set, not separately paged lists.
 Simple search and exploratory browsing use the shared spreadsheet-style results with
-compact, list, and image-focused displays. These rules guide the pending combined-search
-implementation; they do not certify the current separate query paths.
+compact, list, and image-focused displays. The implementation uses one server union with global
+filtering, sorting, facets, and cursor paging. `/library/{id}` resolves the authorized Library
+Object kind before presenting its Question or Pool detail view.
 
 ## Bloom classification
 

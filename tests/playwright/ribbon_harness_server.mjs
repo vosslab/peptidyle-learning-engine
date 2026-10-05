@@ -51,7 +51,12 @@ export async function mountRibbonHarness(page, bundle, pageErrors, consoleErrors
   }
 }
 
-export async function startHarnessServer(markup, stylesheet, additionalAssets = new Map()) {
+export async function startHarnessServer(
+  markup,
+  stylesheet,
+  additionalAssets = new Map(),
+  options = {},
+) {
   const fontAssets = new Map(
     browserFontUrlsFromStylesheet(stylesheet).map((fontUrl) => [
       fontUrl,
@@ -99,7 +104,7 @@ export async function startHarnessServer(markup, stylesheet, additionalAssets = 
       response.end(asset.body);
       return;
     }
-    if (pathname !== "/") {
+    if (pathname !== "/" && options.historyFallback !== true) {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("Not found");
       return;

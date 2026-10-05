@@ -7,11 +7,13 @@ rm -f *-crop.png
 
 FONT="/Users/vosslab/nsh/SLIDES/djot-slide-builder/assets/fonts/atkinson_hyperlegible_next/AtkinsonHyperlegibleNext-Bold.ttf"
 
-for img in *.webp; do
+IMAGE_LIST=$(ls *.webp | sort -R | head -n 50)
+
+for img in ${IMAGE_LIST}; do
   [[ "$img" == "stacked-screenshot.webp" ]] && continue
   name="${img%.webp}"
   magick "${img}" \
-    -crop 0x150+0+0 +repage \
+    -crop 0x250+0+0 +repage \
     -gravity north \
     -background white \
     -fill black \

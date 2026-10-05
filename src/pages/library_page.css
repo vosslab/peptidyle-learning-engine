@@ -300,10 +300,7 @@
   max-inline-size: 72rem;
 }
 
-.library-page.question-pool-task-active > .library-page__filters,
-.library-page.question-pool-task-active
-  > .library-page__results
-  > :not(.question-pool-create-host) {
+.library-page.question-pool-task-active > .shared-search-page {
   display: none;
 }
 
@@ -464,8 +461,7 @@
   font-weight: 700;
 }
 
-/* Filters and results stack on their own. A shared grid row would stretch the
-   filter column to the result window and leave a spacious hole between groups. */
+/* Library-owned filter and result content fill the shared search-page slots. */
 .library-page__filters,
 .library-page__results {
   display: flex;
@@ -475,41 +471,12 @@
   gap: var(--ple-section-gap);
 }
 
-.library-page > .library-page__filters > *,
-.library-page > .library-page__results > * {
+.library-page__filters > *,
+.library-page__results > * {
   margin-block: 0;
 }
 
 @media (min-width: 75rem) {
-  .page-frame__content.library-page {
-    display: grid;
-    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
-    column-gap: var(--ple-space-3);
-    align-items: start;
-  }
-
-  .library-page > .library-page__filters,
-  .library-page > .library-page__results {
-    grid-row: 1;
-    align-self: start;
-  }
-
-  .library-page > .library-page__filters {
-    grid-column: 1;
-  }
-
-  .library-page > .library-page__results {
-    grid-column: 2;
-  }
-
-  .page-frame__content.library-page.question-pool-task-active {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .library-page.question-pool-task-active > .library-page__results {
-    grid-column: 1;
-  }
-
   /* Keep bulk actions on one strip so two result rows stay in the 1280 by 800 viewport. */
   .library-page .question-library-bulk-toolbar {
     display: flex;
@@ -520,19 +487,26 @@
     margin-block: 0.35rem;
     padding-block: 0.3rem;
   }
+}
 
-  .library-page .library-browse-record-list__window .record-list__row--semantic {
-    padding-block: 0.2rem;
-  }
+/* Library filters are a full-width vertical group inside shared controls. */
+.library-page .library-search-filters {
+  display: grid;
+  flex: 1 1 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.7rem;
+  min-inline-size: 0;
+}
 
-  .library-page .library-browse-record-list__window .copyable-question-id {
-    flex-wrap: nowrap;
-  }
+.library-page .library-search-filters > label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ple-muted);
+  font-size: 0.78rem;
+  font-weight: 680;
+  min-inline-size: 0;
+}
 
-  .library-page .library-browse-record-list__window {
-    align-self: start;
-    /* 65vh is measured from the viewport top and continues past this row.
-       25.625rem leaves the region inside an 800px viewport with a third title visible. */
-    block-size: min(65vh, 33rem, calc(100dvh - 25.625rem));
-  }
+.library-page .library-search-filters select {
+  inline-size: 100%;
 }

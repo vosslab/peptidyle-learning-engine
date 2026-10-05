@@ -7,15 +7,16 @@
 
 use async_trait::async_trait;
 use question_model::{
-    BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
-    BloomKnowledgeDimension, ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    PublishedQuestionSharedMetadata, QuestionAuthorship, QuestionAvailability,
-    QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat, QuestionLicense,
-    QuestionSearchAuthorFacet, QuestionSearchBackendFacet,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionSearchCourseUseFacet, QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet,
-    QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionType, QuestionTypeFacet,
-    SourceObjectChecksum, Timestamp,
+    AccountId, BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
+    BloomKnowledgeDimension, LibraryObjectId, LibraryQuestionMembership,
+    LibrarySearchCategoryCounts, LibrarySearchKind, ObjectId, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QuestionAuthorship,
+    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
+    QuestionLicense, QuestionPoolLibrarySummary, QuestionSearchAuthorFacet,
+    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCourseUseFacet,
+    QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
+    QuestionSearchTopicFacet, QuestionType, QuestionTypeFacet, SourceObjectChecksum, Timestamp,
 };
 use uuid::Uuid;
 
@@ -139,17 +140,21 @@ pub enum QuestionLibrarySearchSort {
 pub enum QuestionLibrarySearchCursorPosition {
     TitleAscending {
         title: String,
-        question_id: PublishedQuestionId,
+        public_id: LibraryObjectId,
     },
     PublishedNewest {
         published_at_millis: i64,
-        question_id: PublishedQuestionId,
+        public_id: LibraryObjectId,
     },
 }
 
 /// Complete normalized filter plus bounded page selection for one store query.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionLibrarySearchRequest {
+    pub kind: LibrarySearchKind,
+    pub membership: LibraryQuestionMembership,
+    pub owner_account_id: Option<AccountId>,
+    pub has_capability_filter: bool,
     pub exact_question_id: Option<PublishedQuestionId>,
     pub text_terms: Vec<QuestionLibraryTextTerm>,
     pub author_names: Vec<String>,
@@ -175,8 +180,47 @@ pub struct QuestionLibrarySearchRequest {
 
 /// One selected bounded page and a typed continuation position for its final row.
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LibrarySearchEntry {
+    Question {
+        entry: Box<PublishedQuestionLibraryEntry>,
+        owner_account_id: AccountId,
+    },
+    Pool {
+        summary: Box<QuestionPoolLibrarySummary>,
+        created_at: Timestamp,
+    },
+}
+
+impl LibrarySearchEntry {
+    pub fn public_id(&self) -> &str {
+        match self {
+            Self::Question { entry, .. } => entry
+                .published_question_revision_tuple
+                .published_question_id
+                .as_str(),
+            Self::Pool { summary, .. } => summary.question_pool_id.as_str(),
+        }
+    }
+
+    pub fn title(&self) -> &str {
+        match self {
+            Self::Question { entry, .. } => &entry.question_title,
+            Self::Pool { summary, .. } => &summary.metadata.title,
+        }
+    }
+
+    pub fn sort_time(&self) -> Timestamp {
+        match self {
+            Self::Question { entry, .. } => entry.published_at,
+            Self::Pool { created_at, .. } => *created_at,
+        }
+    }
+}
+
+/// One selected bounded page and a typed continuation position for its final row.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionLibrarySearchPage {
-    pub items: Vec<PublishedQuestionLibraryEntry>,
+    pub items: Vec<LibrarySearchEntry>,
     pub next_position: Option<QuestionLibrarySearchCursorPosition>,
     /// Complete authorized-query aggregates, evaluated before cursor paging.
     pub facets: QuestionLibrarySearchFacets,
@@ -190,6 +234,9 @@ pub struct QuestionLibrarySearchPage {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionLibrarySearchFacets {
+    pub categories: LibrarySearchCategoryCounts,
+    /// Question-only backend counts used to derive capability facets.
+    pub question_backends: Vec<QuestionSearchBackendFacet>,
     pub author_names: Vec<QuestionSearchAuthorFacet>,
     pub author_names_truncated: bool,
     pub backends: Vec<QuestionSearchBackendFacet>,

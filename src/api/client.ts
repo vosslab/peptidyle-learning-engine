@@ -8,6 +8,7 @@ import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectKindResponse } from "../../generated/api/LibraryObjectKindResponse";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
@@ -68,7 +69,7 @@ import type { StudentQuestionDisplayDurationClient } from "./student_question_di
 import type { QuestionAvailabilityClient } from "./question_availability";
 import type { QuestionWatchClient } from "./question_watch";
 import type { QuestionStarClient } from "./question_star";
-import type { QuestionPoolLibraryClient } from "./question_pool_library";
+import type { QuestionPoolDetailClient } from "./question_pool_detail";
 import type { QuestionPoolCreationClient } from "./question_pool_creation";
 import type { QuestionPoolStewardshipClient } from "./question_pool_stewardship";
 import type { QuestionForkClient } from "./question_fork";
@@ -109,7 +110,7 @@ export interface ApiClient
     QuestionWatchClient,
     QuestionStarClient,
     QuestionForkClient,
-    QuestionPoolLibraryClient,
+    QuestionPoolDetailClient,
     QuestionPoolCreationClient,
     QuestionPoolStewardshipClient,
     BloomClassificationCorrectionClient,
@@ -167,6 +168,8 @@ export interface ApiClient
   readonly listQuestions: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
   /** Searches Question Library metadata with server-computed facets. */
   readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
+  /** Resolves the authorized Library object kind for the shared detail route. */
+  readonly getLibraryObjectKind: (publicId: string) => Promise<LibraryObjectKindResponse>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
   readonly resolveQuestion: (questionId: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */

@@ -30,23 +30,3 @@ CREATE POLICY question_pool_member_private_owner_lookup ON ple_data.question_poo
 
 CREATE POLICY question_pool_member_api_owner_lookup ON ple_data.question_pool_member
     FOR SELECT TO ple_api_owner USING (true);
-
-ALTER TABLE ple_data.question_pool_authorship ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.question_pool_authorship FORCE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.question_pool_provenance ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.question_pool_provenance FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY question_pool_authorship_data_owner_access ON ple_data.question_pool_authorship
-    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
-
-CREATE POLICY question_pool_provenance_data_owner_access ON ple_data.question_pool_provenance
-    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
-
-CREATE POLICY question_pool_authorship_api_owner_lookup ON ple_data.question_pool_authorship
-    FOR SELECT TO ple_api_owner USING (true);
-
-CREATE POLICY question_pool_provenance_api_owner_lookup ON ple_data.question_pool_provenance
-    FOR SELECT TO ple_api_owner USING (true);

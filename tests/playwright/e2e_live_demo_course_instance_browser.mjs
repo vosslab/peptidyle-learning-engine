@@ -39,7 +39,7 @@ try {
   await page.getByLabel("Blueprint Course long name").fill(blueprintTitle);
   await page.getByRole("button", { name: "Choose published Questions" }).click();
   await page.getByRole("heading", { name: "Choose the first reusable Questions" }).waitFor();
-  await page.getByRole("button", { name: "Search questions" }).click();
+  await page.getByRole("button", { name: "Search" }).click();
   await page
     .getByRole("dialog", { name: "Choose the first reusable Questions", exact: true })
     .getByRole("checkbox")

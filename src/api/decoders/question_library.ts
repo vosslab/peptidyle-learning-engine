@@ -11,6 +11,8 @@ import type { QuestionPoolAssessmentEntrySummary as QuestionPoolAssessmentEntry 
 
 import type { AssessmentSummary } from "../../../generated/api/AssessmentSummary";
 import type { QuestionSearchResult } from "../../../generated/api/QuestionSearchResult";
+import type { LibraryObjectKindResponse } from "../../../generated/api/LibraryObjectKindResponse";
+import type { LibrarySearchResult } from "../../../generated/api/LibrarySearchResult";
 import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse";
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
@@ -52,6 +54,7 @@ import {
   decodeBoundedArray,
   decodePublishedQuestionRevisionTuple,
   decodeQuestionAvailability,
+  decodeAccountId,
   decodeQuestionTitle,
   decodeCourseInstanceId,
   decodeIdentifier,
@@ -71,6 +74,7 @@ import {
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
 import { decodeQuestionStatistics } from "./question_statistics";
+import { decodeQuestionPoolLibrarySummary } from "./question_pool_summary";
 
 // Reuse the Question Library course import surface while course-term owns its decoding rules.
 export { decodeQuestionStatistics };
@@ -192,6 +196,46 @@ export function decodeQuestionSearchResult(value: unknown, path: string): Questi
       `${path}.disciplineIsRetired`,
     ),
     evidence: decodeQuestionStatistics(field(record, "evidence", path), `${path}.evidence`),
+  };
+}
+
+/** Strictly decodes one discriminated mixed Library page item. */
+export function decodeLibrarySearchResult(value: unknown, path: string): LibrarySearchResult {
+  const record = decodeRecord(value, path);
+  const resultKind = kind(record, path);
+  if (resultKind === "question") {
+    requireOnlyFields(record, path, ["kind", "question", "ownerAccountId"]);
+    return {
+      kind: "question",
+      question: decodeQuestionSearchResult(field(record, "question", path), `${path}.question`),
+      ownerAccountId: decodeAccountId(
+        field(record, "ownerAccountId", path),
+        `${path}.ownerAccountId`,
+      ),
+    };
+  }
+  if (resultKind === "pool") {
+    requireOnlyFields(record, path, ["kind", "pool"]);
+    return {
+      kind: "pool",
+      pool: decodeQuestionPoolLibrarySummary(field(record, "pool", path), `${path}.pool`),
+    };
+  }
+  throw new DecodeError(`${path}.kind`, "one of question, pool");
+}
+
+/** Strictly decodes the authorized kind hint used by the Library detail route. */
+export function decodeLibraryObjectKindResponse(
+  value: unknown,
+  path = "response",
+): LibraryObjectKindResponse {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["kind"]);
+  return {
+    kind: decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+      "question",
+      "questionPool",
+    ] as const),
   };
 }
 
@@ -319,7 +363,7 @@ export function decodeQuestionSearchPage(value: unknown, path = "response"): Que
       field(record, "items", path),
       `${path}.items`,
       MAX_QUESTION_SEARCH_PAGE_ITEMS,
-      decodeQuestionSearchResult,
+      decodeLibrarySearchResult,
     ),
     nextCursor: decodeNullable(
       field(record, "nextCursor", path),

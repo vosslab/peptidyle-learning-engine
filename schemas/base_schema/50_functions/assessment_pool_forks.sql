@@ -333,7 +333,9 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
 ) RETURNS TABLE (
     assessment_entry_id uuid,
     question_pool_id text,
+    owner_account_id text,
     question_pool_edit_number bigint,
+    question_type text, backend text, license text,
     selection_count integer,
     member_position integer,
     published_question_id text,
@@ -347,7 +349,9 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT entry.assessment_entry_id,
            pool.question_pool_id,
+           pool.owner_account_id::text,
            pool.question_pool_edit_number,
+           pool.question_type::text, pool.backend::text, pool.license::text,
            pool_entry.selection_count,
            member.member_position,
            member.published_question_id,

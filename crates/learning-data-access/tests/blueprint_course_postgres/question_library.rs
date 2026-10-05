@@ -3,7 +3,7 @@
 use super::*;
 
 const FIXTURE_ROWS: usize = 65;
-const FIXTURE_TITLE: &str = "P1 tied Question title";
+pub(super) const FIXTURE_TITLE: &str = "P1 tied Question title";
 const NONMATCHING_TAG: &str = "decoy outside tag";
 
 fn nonmatching_question_id() -> String {
@@ -12,8 +12,12 @@ fn nonmatching_question_id() -> String {
         .to_string()
 }
 
-fn request() -> QuestionLibrarySearchRequest {
+pub(super) fn request() -> QuestionLibrarySearchRequest {
     QuestionLibrarySearchRequest {
+        kind: question_model::LibrarySearchKind::Questions,
+        membership: question_model::LibraryQuestionMembership::All,
+        owner_account_id: None,
+        has_capability_filter: false,
         exact_question_id: None,
         text_terms: vec![QuestionLibraryTextTerm {
             field: QuestionLibraryTextField::Any,
@@ -42,7 +46,7 @@ fn request() -> QuestionLibrarySearchRequest {
     }
 }
 
-fn fixture_question_ids() -> Vec<String> {
+pub(super) fn fixture_question_ids() -> Vec<String> {
     let mut question_ids = (0..FIXTURE_ROWS)
         .map(|index| {
             question_model::PublishedQuestionId::from_random_identifier(format!("Q{index:06}"))
@@ -54,10 +58,13 @@ fn fixture_question_ids() -> Vec<String> {
     question_ids
 }
 
-async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool) {
+pub(super) async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool) {
     let question_ids = fixture_question_ids();
     let object_ids = (0..FIXTURE_ROWS)
         .map(|index| id(0xd100 + index as u128))
+        .collect::<Vec<_>>();
+    let ownership_event_ids = (0..FIXTURE_ROWS)
+        .map(|index| id(0xd200 + index as u128))
         .collect::<Vec<_>>();
     let mut transaction = admin
         .begin()
@@ -173,6 +180,20 @@ async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool) {
     .await
     .expect("Question Library licenses");
     sqlx::query(
+        "INSERT INTO ple_data.question_ownership_event (\
+             question_ownership_event_id, published_question_id, owner_account_id, \
+             recorded_by_account_id, event_kind, occurred_at\
+         ) SELECT event_id, question_id, $3, $3, 'initial', \
+                  '2026-09-25 12:00:00+00'::timestamptz \
+           FROM unnest($1::uuid[], $2::text[]) row(event_id, question_id)",
+    )
+    .bind(&ownership_event_ids)
+    .bind(&question_ids)
+    .bind(instructor_account_id())
+    .execute(&mut *transaction)
+    .await
+    .expect("Question Library initial ownership");
+    sqlx::query(
         "INSERT INTO ple_data.question_revision_bloom (\
              published_question_id, revision_number, cognitive_process, knowledge_dimension, \
              classification_edit_number\
@@ -190,7 +211,7 @@ async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool) {
         .expect("Question Library fixture commit");
 }
 
-async fn insert_nonmatching_question_library_row(admin: &sqlx::postgres::PgPool) {
+pub(super) async fn insert_nonmatching_question_library_row(admin: &sqlx::postgres::PgPool) {
     let question_id = nonmatching_question_id();
     let object_id = id(0xd1ff);
     let mut transaction = admin
@@ -298,6 +319,18 @@ async fn insert_nonmatching_question_library_row(admin: &sqlx::postgres::PgPool)
     .execute(&mut *transaction)
     .await
     .expect("nonmatching Question license");
+    sqlx::query(
+        "INSERT INTO ple_data.question_ownership_event (\
+             question_ownership_event_id, published_question_id, owner_account_id, \
+             recorded_by_account_id, event_kind, occurred_at\
+         ) VALUES ($1, $2, $3, $3, 'initial', '2026-09-25 12:00:00+00'::timestamptz)",
+    )
+    .bind(id(0xd2ff))
+    .bind(&question_id)
+    .bind(instructor_account_id())
+    .execute(&mut *transaction)
+    .await
+    .expect("nonmatching Question initial ownership");
     transaction
         .commit()
         .await
@@ -465,11 +498,7 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
         .items
         .iter()
         .chain(&second.items)
-        .map(|item| {
-            item.published_question_revision_tuple
-                .published_question_id
-                .as_str()
-        })
+        .map(|item| item.public_id())
         .collect::<Vec<_>>();
     assert_eq!(
         title_ids,
@@ -503,11 +532,7 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
         tag_narrowed
             .items
             .iter()
-            .map(|item| {
-                item.published_question_revision_tuple
-                    .published_question_id
-                    .as_str()
-            })
+            .map(|item| item.public_id())
             .collect::<Vec<_>>(),
         vec![outsider.as_str()],
         "one tag returns the nonmatching Question and no fixture Question"
@@ -529,7 +554,7 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
             QuestionLibrarySearchRequest {
                 after: Some(QuestionLibrarySearchCursorPosition::TitleAscending {
                     title: FIXTURE_TITLE.to_owned(),
-                    question_id: expected_ids[FIXTURE_ROWS - 1]
+                    public_id: expected_ids[FIXTURE_ROWS - 1]
                         .parse()
                         .expect("fixture Question ID"),
                 }),
@@ -577,11 +602,7 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
         .items
         .iter()
         .chain(&newest_second.items)
-        .map(|item| {
-            item.published_question_revision_tuple
-                .published_question_id
-                .as_str()
-        })
+        .map(|item| item.public_id())
         .collect::<Vec<_>>();
     assert_eq!(
         newest_ids,
@@ -640,23 +661,17 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
         .expect("excluded matching term");
     assert!(
         excluded.items.iter().all(|item| {
-            expected_ids.iter().all(|fixture_id| {
-                fixture_id
-                    != item
-                        .published_question_revision_tuple
-                        .published_question_id
-                        .as_str()
-            })
+            expected_ids
+                .iter()
+                .all(|fixture_id| fixture_id != item.public_id())
         }),
         "excluded matching term removes every matching fixture row"
     );
     assert!(
-        excluded.items.iter().any(|item| {
-            item.published_question_revision_tuple
-                .published_question_id
-                .as_str()
-                == nonmatching_question_id()
-        }),
+        excluded
+            .items
+            .iter()
+            .any(|item| { item.public_id() == nonmatching_question_id() }),
         "excluding the matching term keeps the nonmatching Question"
     );
     let excluded_empty = store
@@ -857,3 +872,6 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
     application.close().await;
     admin.close().await;
 }
+
+#[path = "question_library_mixed.rs"]
+mod mixed;

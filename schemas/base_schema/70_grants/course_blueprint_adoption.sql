@@ -20,13 +20,13 @@ GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_assessment_copy_source(text, bi
 
 SET LOCAL ROLE ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_data.append_course_assessments(text, text, bigint, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.append_course_assessments(text, text, bigint, jsonb, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.append_course_assessments(text, text, bigint, jsonb) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.append_course_assessments(text, text, bigint, jsonb, text) TO ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_data.initialize_course_assessments(text, text, bigint, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.initialize_course_assessments(text, text, bigint, jsonb, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.initialize_course_assessments(text, text, bigint, jsonb) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.initialize_course_assessments(text, text, bigint, jsonb, text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
@@ -43,4 +43,3 @@ REVOKE ALL ON FUNCTION ple_api.save_blueprint_course(text, bigint, bytea, jsonb,
 REVOKE ALL ON FUNCTION ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea, jsonb) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea, jsonb) TO ple_app;
-

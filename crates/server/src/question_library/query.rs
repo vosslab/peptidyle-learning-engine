@@ -17,6 +17,12 @@ use super::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 #[serde(deny_unknown_fields)]
 pub(super) struct QuestionSearchQuery {
     #[serde(default)]
+    kind: question_model::LibrarySearchKind,
+    #[serde(default)]
+    membership: question_model::LibraryQuestionMembership,
+    #[serde(default)]
+    owner_account_id: Option<question_model::AccountId>,
+    #[serde(default)]
     text: Option<String>,
     #[serde(default)]
     author_names: Vec<String>,
@@ -82,6 +88,9 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
             ));
         }
         QuestionSearchRequest {
+            kind: query.kind,
+            membership: query.membership,
+            owner_account_id: query.owner_account_id,
             text: query.text,
             author_names: query.author_names,
             backends: query.backends,

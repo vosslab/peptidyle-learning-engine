@@ -6,7 +6,10 @@ use uuid::Uuid;
 use crate::question_library::{PublishedQuestionId, QuestionBackend};
 use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
-use crate::{BloomCognitiveProcess, BloomKnowledgeDimension, Capability};
+use crate::{
+    AccountId, BloomCognitiveProcess, BloomKnowledgeDimension, Capability,
+    LibraryQuestionMembership, LibrarySearchCategoryCounts, LibrarySearchKind,
+};
 
 /// Maximum rows in one broad Question, Pool, or Blueprint discovery page.
 pub const MAX_DISCOVERY_PAGE_SIZE: u32 = 250;
@@ -170,6 +173,15 @@ pub struct QuestionSearchBloomKnowledgeDimensionFacet {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct QuestionSearchRequest {
+    /// Result kinds admitted before the global sort and page.
+    #[serde(default)]
+    pub kind: LibrarySearchKind,
+    /// Restricts Question rows by membership across every Pool, including forks.
+    #[serde(default)]
+    pub membership: LibraryQuestionMembership,
+    /// Current Question owner or immutable Pool owner.
+    #[serde(default)]
+    pub owner_account_id: Option<AccountId>,
     /// Optional full-text-like text query over Question Library summary metadata.
     pub text: Option<String>,
     /// Reviewed Question Author display names; any normalized name may match.
@@ -235,6 +247,15 @@ pub struct QuestionSearchRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct QuestionSearchFilter {
+    /// Result kinds admitted before the global sort and page.
+    #[serde(default)]
+    pub kind: LibrarySearchKind,
+    /// Restricts Question rows by membership across every Pool, including forks.
+    #[serde(default)]
+    pub membership: LibraryQuestionMembership,
+    /// Current Question owner or immutable Pool owner.
+    #[serde(default)]
+    pub owner_account_id: Option<AccountId>,
     pub text: Option<String>,
     pub author_names: Vec<String>,
     pub backends: Vec<QuestionBackend>,
@@ -274,6 +295,9 @@ impl QuestionSearchFilter {
     pub fn from_query(query: QuestionSearchRequest) -> Result<Self, QuestionSearchRequestError> {
         let query = query.normalized()?;
         Ok(Self {
+            kind: query.kind,
+            membership: query.membership,
+            owner_account_id: query.owner_account_id,
             text: query.text,
             author_names: query.author_names,
             backends: query.backends,
@@ -305,6 +329,9 @@ impl QuestionSearchFilter {
 impl From<QuestionSearchFilter> for QuestionSearchRequest {
     fn from(filter: QuestionSearchFilter) -> Self {
         Self {
+            kind: filter.kind,
+            membership: filter.membership,
+            owner_account_id: filter.owner_account_id,
             text: filter.text,
             author_names: filter.author_names,
             backends: filter.backends,
@@ -333,6 +360,9 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
 impl Default for QuestionSearchRequest {
     fn default() -> Self {
         Self {
+            kind: LibrarySearchKind::Questions,
+            membership: LibraryQuestionMembership::All,
+            owner_account_id: None,
             text: None,
             author_names: Vec::new(),
             backends: Vec::new(),
@@ -522,6 +552,8 @@ pub struct QuestionSearchQuestionLicenseFacet {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchFacets {
+    /// Matching categories before kind and membership selection.
+    pub categories: LibrarySearchCategoryCounts,
     /// Exact reviewed Question Author display-name counts.
     pub author_names: Vec<QuestionSearchAuthorFacet>,
     /// Whether additional matching Question Author names were omitted by the bound.

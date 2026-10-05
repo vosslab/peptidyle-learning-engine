@@ -34,7 +34,7 @@ test("declared routes select only Ribbon topology and task areas that exist", ()
     if (route.ribbon.tierTwoParent !== undefined) {
       assert.ok(
         [
-          "searchQuestionLibrary",
+          "browseQuestionLibrary",
           "myDraftQuestions",
           "myBlueprintCourses",
           "allCoursework",

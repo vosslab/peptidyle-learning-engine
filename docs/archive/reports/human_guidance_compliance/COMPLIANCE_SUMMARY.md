@@ -340,7 +340,7 @@ Two audit risks remain explicit:
 | `course_roster_pending_invitation.png`                        | Follow-up - generated implementation evidence needs a source-owned refresh                |
 | `saved_editor.png`                                                                | Follow-up - generated implementation evidence needs a source-owned refresh                |
 | `gradebook.png`                                                                      | Follow-up - generated implementation evidence needs a source-owned refresh                |
-| [default.png](../../../screenshots/instructor/default.webp)                                                                          | Follow-up - generated implementation evidence needs a source-owned refresh                |
+| [default.png](../../../screenshots/instructor/profile_preferences.webp)                                                                          | Follow-up - generated implementation evidence needs a source-owned refresh                |
 | `publication_review.png`                                                    | Follow-up - generated implementation evidence needs a source-owned refresh                |
 | `published_question_detail.png`                                      | Follow-up - generated implementation evidence needs a source-owned refresh                |
 | `published_question_result.png`                                                                                                     | Follow-up - generated implementation evidence needs a source-owned refresh                |

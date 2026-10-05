@@ -444,6 +444,9 @@ CREATE INDEX question_pool_content_topic_id_content_subtopic_id_fk_idx
 CREATE INDEX question_pool_interchangeability_attested_by_account_id_fk_idx
     ON ple_data.question_pool (interchangeability_attested_by_account_id);
 
+CREATE INDEX question_pool_owner_account_id_owner_user_role_fk_idx
+    ON ple_data.question_pool (owner_account_id, owner_user_role);
+
 CREATE INDEX question_pool_source_question_pool_id_fk_idx
     ON ple_data.question_pool (source_question_pool_id);
 
@@ -452,9 +455,6 @@ CREATE INDEX question_pool_member_published_question_id_c92544b6_fk_idx
 
 CREATE INDEX question_pool_member_statistics_published_question_id_fk_idx
     ON ple_data.question_pool_member_statistics (published_question_id);
-
-CREATE INDEX question_pool_authorship_author_account_id_fk_idx
-    ON ple_data.question_pool_authorship (author_account_id);
 
 CREATE INDEX question_pool_star_instructor_account_id_fk_idx
     ON ple_data.question_pool_star (instructor_account_id);

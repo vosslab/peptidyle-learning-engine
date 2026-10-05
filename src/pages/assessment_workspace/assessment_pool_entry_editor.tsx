@@ -8,6 +8,7 @@ import type { AssessmentQuestionPoolForkView } from "../../../generated/api/Asse
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import {
   QuestionPicker,
+  type QuestionPickerEligibility,
   type QuestionPickerProps,
   type QuestionPickerSelection,
   type QuestionPickerSource,
@@ -56,6 +57,16 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
   const [attested, setAttested] = createSignal(false);
   const [pickerOpen, setPickerOpen] = createSignal(false);
   let pickerTrigger: HTMLButtonElement | undefined;
+  const poolEligibility = (): QuestionPickerEligibility | undefined => {
+    const fork = props.fork;
+    if (fork === undefined) return undefined;
+    return {
+      disciplineUuid: fork.metadata.disciplineUuid,
+      subjectUuid: fork.metadata.subjectUuid,
+      questionType: fork.questionType,
+      backend: fork.backend,
+    };
+  };
 
   function submitSelectionCount(value: string): void {
     const selectionCount = Number(value);
@@ -228,6 +239,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                 <QuestionPicker
                   repository={props.pickerRepository}
                   sources={props.pickerSources}
+                  eligibility={poolEligibility()}
                   mode="one"
                   maximumSelection={1}
                   trigger={pickerTrigger}

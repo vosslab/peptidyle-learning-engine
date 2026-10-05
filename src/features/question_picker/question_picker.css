@@ -114,3 +114,24 @@
     grid-column: auto;
   }
 }
+
+.question-picker-dialog .question-picker-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  flex: 1 1 100%;
+  gap: var(--ple-layout-gap);
+}
+
+.question-picker-filters label {
+  display: grid;
+  gap: 0.3rem;
+  min-inline-size: 0;
+  color: var(--ple-muted);
+  font-size: 0.82rem;
+  font-weight: 680;
+}
+
+.question-picker-filters select {
+  inline-size: 100%;
+  min-inline-size: 0;
+}

@@ -1,5 +1,7 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
+import type { SearchState } from "../features/search/search_session";
+import type { RecordPageSize } from "../components/record_list/record_page_sizes";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import {
   EMPTY_LIBRARY_CLASSIFICATION_FILTER,
@@ -13,6 +15,8 @@ import type { PublishedQuestionRevisionTuple } from "../../generated/api/Publish
 import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { QuestionAuthor } from "../../generated/api/QuestionAuthor";
+import type { QuestionPoolMetadataEditNumber } from "../../generated/api/QuestionPoolMetadataEditNumber";
+import type { QuestionPoolEditNumber } from "../../generated/api/QuestionPoolEditNumber";
 import { decodeQuestionAuthorship } from "../api/question_authorship";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
@@ -35,6 +39,7 @@ import { decodeBloomClassificationView } from "../api/decoders/bloom_classificat
 
 /** A browser-safe current Question Library record. */
 export interface QuestionLibraryBrowseRow {
+  readonly kind: "question";
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
   /** Exact immutable revision selected by this browse result. */
@@ -58,6 +63,32 @@ export interface QuestionLibraryBrowseRow {
   /** Server-disclosed learning evidence for this exact immutable publication. */
   readonly evidence: QuestionStatistics;
 }
+
+/** A Pool row carries only Pool-owned facts; Question source fields never leak into this arm. */
+export interface QuestionLibraryPoolRow {
+  readonly kind: "pool";
+  readonly displayId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly ownerAccountId: string;
+  readonly memberCount: number;
+  readonly questionType: string;
+  readonly backend: string;
+  readonly license: string;
+  readonly disciplineName: string;
+  readonly disciplineIsRetired: boolean;
+  readonly tags: ReadonlyArray<string>;
+  readonly bloom: BloomClassificationView | null;
+  readonly questionPoolMetadataEditNumber: QuestionPoolMetadataEditNumber;
+  /** Current Pool membership/edit concurrency token for an import, distinct from metadata edits. */
+  readonly questionPoolEditNumber: QuestionPoolEditNumber;
+  readonly subjectUuid: string;
+  readonly topicUuid: string | null;
+  readonly subtopicUuid: string | null;
+}
+
+/** The Library alone admits both kinds. Pickers continue to use QuestionLibraryBrowseRow. */
+export type LibrarySearchRow = QuestionLibraryBrowseRow | QuestionLibraryPoolRow;
 
 /**
  * A presentation-ready, answer-free view of the server-owned discovery evidence.
@@ -83,6 +114,9 @@ export interface QuestionLibraryBrowseFacetAggregate {
 }
 
 export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter {
+  readonly kind: "both" | "questions" | "pools";
+  readonly membership: "noPool" | "all";
+  readonly ownerAccountId: string | null;
   readonly search: string;
   readonly authorName: string | null;
   readonly backend: string | null;
@@ -123,9 +157,12 @@ export interface QuestionLibraryBrowsePage {
   readonly facetTruncation: QuestionLibraryFacetTruncation;
 }
 
+export interface LibrarySearchPage extends Omit<QuestionLibraryBrowsePage, "items"> {
+  readonly items: ReadonlyArray<LibrarySearchRow>;
+}
+
 /** Shared discovery choices. The repository sends one of these sizes on each search. */
-export const QUESTION_LIBRARY_PAGE_SIZES = [50, 100, 250] as const;
-export type QuestionLibraryPageSize = (typeof QUESTION_LIBRARY_PAGE_SIZES)[number];
+export type QuestionLibraryPageSize = RecordPageSize;
 
 /** Cursor sequence for the current query and page size. The first page uses a null input cursor. */
 export interface QuestionLibraryBrowsePosition {
@@ -152,40 +189,16 @@ export interface QuestionLibraryBrowseRepository {
   ) => Promise<unknown>;
 }
 
-export type QuestionLibraryBrowseState =
-  | {
-      readonly kind: "initial";
-      readonly rows: readonly [];
-      readonly aggregates: readonly [];
-      readonly nextCursor: null;
-      readonly facetTruncation: QuestionLibraryFacetTruncation;
-    }
-  | {
-      readonly kind: "loading";
-      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
-      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
-      readonly nextCursor: string | null;
-      readonly facetTruncation: QuestionLibraryFacetTruncation;
-    }
-  | {
-      readonly kind: "ready";
-      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
-      readonly nextCursor: string | null;
-      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
-      readonly facetTruncation: QuestionLibraryFacetTruncation;
-    }
-  | {
-      readonly kind: "empty";
-      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
-      readonly facetTruncation: QuestionLibraryFacetTruncation;
-    }
-  | {
-      readonly kind: "error";
-      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
-      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
-      readonly nextCursor: string | null;
-      readonly facetTruncation: QuestionLibraryFacetTruncation;
-    };
+export interface QuestionLibraryFilterCounts {
+  readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
+  readonly facetTruncation: QuestionLibraryFacetTruncation;
+}
+
+export type QuestionLibraryBrowseState = SearchState<
+  QuestionLibraryBrowseRow,
+  QuestionLibraryFilterCounts
+>;
+export type LibrarySearchState = SearchState<LibrarySearchRow, QuestionLibraryFilterCounts>;
 
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
@@ -242,6 +255,7 @@ function stringList(value: unknown, path: string): ReadonlyArray<string> {
 
 function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   const authorKey = isRecord(value) && "authors" in value ? "authors" : "authorNames";
+  const kindKey = isRecord(value) && "kind" in value ? ["kind"] : [];
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
@@ -257,9 +271,13 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "disciplineName",
       "disciplineIsRetired",
       "evidence",
+      ...kindKey,
     ])
   ) {
     throw new Error(`${path} has an unexpected shape`);
+  }
+  if ("kind" in value && value["kind"] !== "question") {
+    throw new Error(`${path}.kind must be question`);
   }
   const rawDisplayId = boundedText(value["displayId"], `${path}.displayId`);
   const displayId = validateCanonicalQuestionIdSyntax(rawDisplayId);
@@ -282,6 +300,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     );
   }
   return {
+    kind: "question",
     displayId,
     publishedQuestionRevisionTuple,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
@@ -306,6 +325,83 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       `${path}.questionLicense`,
     ),
     evidence,
+  };
+}
+
+function decodePoolRow(value: unknown, path: string): QuestionLibraryPoolRow {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "backend",
+      "bloom",
+      "description",
+      "disciplineIsRetired",
+      "disciplineName",
+      "displayId",
+      "kind",
+      "license",
+      "memberCount",
+      "ownerAccountId",
+      "questionPoolMetadataEditNumber",
+      "questionPoolEditNumber",
+      "questionType",
+      "subjectUuid",
+      "subtopicUuid",
+      "tags",
+      "title",
+      "topicUuid",
+    ])
+  ) {
+    throw new Error(`${path} has an unexpected Pool row shape`);
+  }
+  if (value["kind"] !== "pool") throw new Error(`${path}.kind must be pool`);
+  const memberCount = value["memberCount"];
+  const editNumber = value["questionPoolMetadataEditNumber"];
+  const questionPoolEditNumber = value["questionPoolEditNumber"];
+  if (typeof memberCount !== "number" || !Number.isSafeInteger(memberCount) || memberCount < 0) {
+    throw new Error(`${path}.memberCount must be a non-negative safe integer`);
+  }
+  if (typeof editNumber !== "number" || !Number.isSafeInteger(editNumber) || editNumber < 1) {
+    throw new Error(`${path}.questionPoolMetadataEditNumber must be a positive integer`);
+  }
+  if (
+    typeof questionPoolEditNumber !== "number" ||
+    !Number.isSafeInteger(questionPoolEditNumber) ||
+    questionPoolEditNumber < 1
+  ) {
+    throw new Error(`${path}.questionPoolEditNumber must be a positive integer`);
+  }
+  return {
+    kind: "pool",
+    displayId: boundedText(value["displayId"], `${path}.displayId`),
+    title: boundedText(value["title"], `${path}.title`),
+    description: boundedText(value["description"], `${path}.description`, MAX_SUMMARY_LENGTH),
+    ownerAccountId: boundedText(value["ownerAccountId"], `${path}.ownerAccountId`),
+    memberCount,
+    questionType: boundedText(value["questionType"], `${path}.questionType`),
+    backend: boundedText(value["backend"], `${path}.backend`),
+    license: boundedText(value["license"], `${path}.license`),
+    disciplineName: boundedText(value["disciplineName"], `${path}.disciplineName`),
+    disciplineIsRetired:
+      typeof value["disciplineIsRetired"] === "boolean"
+        ? value["disciplineIsRetired"]
+        : ((): never => {
+            throw new Error(`${path}.disciplineIsRetired must be boolean`);
+          })(),
+    tags: stringList(value["tags"], `${path}.tags`),
+    bloom:
+      value["bloom"] === null
+        ? null
+        : decodeBloomClassificationView(value["bloom"], `${path}.bloom`),
+    questionPoolMetadataEditNumber: editNumber,
+    questionPoolEditNumber,
+    subjectUuid: boundedText(value["subjectUuid"], `${path}.subjectUuid`),
+    topicUuid:
+      value["topicUuid"] === null ? null : boundedText(value["topicUuid"], `${path}.topicUuid`),
+    subtopicUuid:
+      value["subtopicUuid"] === null
+        ? null
+        : boundedText(value["subtopicUuid"], `${path}.subtopicUuid`),
   };
 }
 
@@ -440,8 +536,33 @@ export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibrary
   };
 }
 
+/** Strictly decodes the mixed Library page while retaining the Question-only picker decoder. */
+export function decodeLibrarySearchPage(value: unknown): LibrarySearchPage {
+  const page = decodeQuestionLibraryBrowsePage({
+    ...(isRecord(value) ? value : {}),
+    items: [],
+  });
+  if (!isRecord(value) || !Array.isArray(value["items"])) {
+    throw new Error("Question Library response arrays are invalid");
+  }
+  if (value["items"].length > MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS) {
+    throw new Error("Question Library response arrays are invalid");
+  }
+  return {
+    ...page,
+    items: value["items"].map((item, index) => {
+      if (!isRecord(item)) throw new Error(`items[${index}] has an unexpected shape`);
+      if (item["kind"] === "pool") return decodePoolRow(item, `items[${index}]`);
+      return decodeRow(item, `items[${index}]`);
+    }),
+  };
+}
+
 export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   ...EMPTY_LIBRARY_CLASSIFICATION_FILTER,
+  kind: "both",
+  membership: "noPool",
+  ownerAccountId: null,
   search: "",
   authorName: null,
   backend: null,
@@ -461,10 +582,14 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
 export function normalizeQuestionLibraryBrowseQuery(
   query: QuestionLibraryBrowseQuery,
 ): QuestionLibraryBrowseQuery {
+  const poolsOnly = query.kind === "pools";
   return {
     ...libraryClassificationFilter(query),
+    kind: query.kind,
+    membership: poolsOnly ? "all" : query.membership,
+    ownerAccountId: query.ownerAccountId === null ? null : query.ownerAccountId.trim(),
     search: query.search.trim().replace(/\s+/g, " "),
-    authorName: query.authorName,
+    authorName: poolsOnly ? null : query.authorName,
     backend: query.backend,
     tag: query.tag,
     subjects: query.subjects.map((subject) => subject.trim().replace(/\s+/g, " ")),
@@ -472,211 +597,10 @@ export function normalizeQuestionLibraryBrowseQuery(
     bloomCognitiveProcess: query.bloomCognitiveProcess,
     bloomKnowledgeDimension: query.bloomKnowledgeDimension,
     questionType: query.questionType,
-    capability: query.capability,
+    capability: poolsOnly ? null : query.capability,
     questionLicense: query.questionLicense,
-    usedInMyCourses: query.usedInMyCourses,
-    authorship: query.authorship,
+    usedInMyCourses: poolsOnly ? null : query.usedInMyCourses,
+    authorship: poolsOnly ? "any" : query.authorship,
     sort: query.sort,
   };
-}
-
-interface QuestionLibraryPageRequest {
-  readonly retainRows: boolean;
-  readonly position: QuestionLibraryBrowsePosition;
-}
-
-/**
- * One current server page. Query, sort, and page-size changes start a new cursor
- * sequence. A completed response replaces rows; it does not accumulate earlier pages.
- *
- * A replacement query clears its old result rows while loading, but retains the
- * last server-computed aggregates until the replacement response arrives. This
- * keeps an already-selected native facet option present (and therefore selected)
- * through the asynchronous transition. Those retained counts describe the last
- * completed query only; the next completed response replaces them wholesale.
- */
-export class QuestionLibraryBrowseSession {
-  #generation = 0;
-  #query = EMPTY_QUESTION_LIBRARY_BROWSE_QUERY;
-  #position: QuestionLibraryBrowsePosition = FIRST_QUESTION_LIBRARY_BROWSE_POSITION;
-  #failedRequest: {
-    readonly cursor: string | null;
-    readonly request: QuestionLibraryPageRequest;
-  } | null = null;
-  #state: QuestionLibraryBrowseState = {
-    kind: "initial",
-    rows: [],
-    aggregates: [],
-    nextCursor: null,
-    facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-  };
-  #loading = false;
-  #queuedReset = false;
-
-  public constructor(
-    private readonly repository: QuestionLibraryBrowseRepository,
-    private readonly publish: (state: QuestionLibraryBrowseState) => void,
-  ) {}
-
-  public get state(): QuestionLibraryBrowseState {
-    return this.#state;
-  }
-
-  public get position(): QuestionLibraryBrowsePosition {
-    return this.#position;
-  }
-
-  public async reset(
-    query: QuestionLibraryBrowseQuery,
-    pageSize: QuestionLibraryPageSize = this.#position.pageSize,
-  ): Promise<void> {
-    this.#generation += 1;
-    this.#query = normalizeQuestionLibraryBrowseQuery(query);
-    this.#position = { pageSize, inputCursor: null, previousCursors: [] };
-    this.#failedRequest = null;
-    if (this.#loading) {
-      this.#queuedReset = true;
-      return;
-    }
-    await this.loadPage(
-      null,
-      {
-        retainRows: false,
-        position: this.#position,
-      },
-      this.#generation,
-    );
-  }
-
-  public async setPageSize(pageSize: QuestionLibraryPageSize): Promise<void> {
-    if (pageSize === this.#position.pageSize) return;
-    await this.reset(this.#query, pageSize);
-  }
-
-  public async retry(): Promise<void> {
-    const failed = this.#failedRequest;
-    if (this.#state.kind === "error" && this.#state.rows.length > 0 && failed !== null) {
-      await this.loadPage(failed.cursor, failed.request, this.#generation);
-      return;
-    }
-    this.#generation += 1;
-    this.#position = { ...this.#position, inputCursor: null, previousCursors: [] };
-    this.#failedRequest = null;
-    if (this.#loading) {
-      this.#queuedReset = true;
-      return;
-    }
-    await this.loadPage(null, { retainRows: false, position: this.#position }, this.#generation);
-  }
-
-  public async loadNext(): Promise<void> {
-    if (this.#loading || this.#state.kind !== "ready" || this.#state.nextCursor === null) {
-      return;
-    }
-    const cursor = this.#state.nextCursor;
-    await this.loadPage(
-      cursor,
-      {
-        retainRows: true,
-        position: {
-          pageSize: this.#position.pageSize,
-          inputCursor: cursor,
-          previousCursors: [...this.#position.previousCursors, this.#position.inputCursor],
-        },
-      },
-      this.#generation,
-    );
-  }
-
-  public async loadPrevious(): Promise<void> {
-    if (this.#loading || this.#position.previousCursors.length === 0) return;
-    const previousCursors = this.#position.previousCursors.slice(0, -1);
-    const cursor =
-      this.#position.previousCursors[this.#position.previousCursors.length - 1] ?? null;
-    await this.loadPage(
-      cursor,
-      {
-        retainRows: true,
-        position: {
-          pageSize: this.#position.pageSize,
-          inputCursor: cursor,
-          previousCursors,
-        },
-      },
-      this.#generation,
-    );
-  }
-
-  private setState(state: QuestionLibraryBrowseState): void {
-    this.#state = state;
-    this.publish(state);
-  }
-
-  private async loadPage(
-    cursor: string | null,
-    request: QuestionLibraryPageRequest,
-    generation: number,
-  ): Promise<void> {
-    if (this.#loading) {
-      return;
-    }
-    this.#loading = true;
-    const retainedRows = request.retainRows && this.#state.kind !== "empty" ? this.#state.rows : [];
-    // Replacement results must not transiently remove native select options.
-    // The aggregate values remain server-owned and are replaced, never merged,
-    // when the exact replacement query completes.
-    const retainedAggregates = this.#state.aggregates;
-    const retainedFacetTruncation = this.#state.facetTruncation;
-    const retainedCursor =
-      request.retainRows && this.#state.kind !== "empty" ? this.#state.nextCursor : null;
-    this.setState({
-      kind: "loading",
-      rows: retainedRows,
-      aggregates: retainedAggregates,
-      nextCursor: retainedCursor,
-      facetTruncation: retainedFacetTruncation,
-    });
-    try {
-      const page = decodeQuestionLibraryBrowsePage(
-        await this.repository.search(this.#query, cursor, request.position.pageSize),
-      );
-      if (generation !== this.#generation) {
-        return;
-      }
-      this.#position = request.position;
-      this.#failedRequest = null;
-      this.setState(
-        page.items.length === 0
-          ? {
-              kind: "empty",
-              aggregates: page.aggregates,
-              facetTruncation: page.facetTruncation,
-            }
-          : {
-              kind: "ready",
-              rows: page.items,
-              nextCursor: page.nextCursor,
-              aggregates: page.aggregates,
-              facetTruncation: page.facetTruncation,
-            },
-      );
-    } catch {
-      if (generation === this.#generation) {
-        this.#failedRequest = { cursor, request };
-        this.setState({
-          kind: "error",
-          rows: retainedRows,
-          aggregates: retainedAggregates,
-          nextCursor: retainedCursor,
-          facetTruncation: retainedFacetTruncation,
-        });
-      }
-    } finally {
-      this.#loading = false;
-      if (this.#queuedReset) {
-        this.#queuedReset = false;
-        void this.loadPage(null, { retainRows: false, position: this.#position }, this.#generation);
-      }
-    }
-  }
 }

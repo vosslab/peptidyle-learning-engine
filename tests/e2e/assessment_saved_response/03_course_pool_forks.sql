@@ -43,6 +43,36 @@ INSERT INTO ple_data.published_question_metadata (
     '73000000-0000-0000-0000-00000000cc02',
     pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp()
 );
+SELECT 'SVD2-' || ple_private.crockford_checksum_character('SVD2ABC') || 'ABC' AS duplicate_revisions_pool_id \gset
+SELECT 'SVT2-' || ple_private.crockford_checksum_character('SVT2ABC') || 'ABC' AS wrong_type_pool_id \gset
+SELECT 'SVB2-' || ple_private.crockford_checksum_character('SVB2ABC') || 'ABC' AS wrong_backend_pool_id \gset
+SELECT 'SVT3-' || ple_private.crockford_checksum_character('SVT3ABC') || 'ABC' AS wrong_type_question_id \gset
+SELECT 'SVB3-' || ple_private.crockford_checksum_character('SVB3ABC') || 'ABC' AS wrong_backend_question_id \gset
+INSERT INTO ple_data.published_question (published_question_id, availability, created_at)
+VALUES
+    (:'wrong_type_question_id', 'available', pg_catalog.transaction_timestamp()),
+    (:'wrong_backend_question_id', 'available', pg_catalog.transaction_timestamp());
+INSERT INTO ple_data.question_revision (published_question_id, revision_number, backend, question_type, published_at)
+VALUES
+    (:'question_id', 2, 'ple', 'multipleChoice', pg_catalog.transaction_timestamp()),
+    (:'wrong_type_question_id', 1, 'ple', 'fillInBlank', pg_catalog.transaction_timestamp()),
+    (:'wrong_backend_question_id', 1, 'webwork', 'multipleChoice', pg_catalog.transaction_timestamp());
+INSERT INTO ple_data.question_revision_license (
+    published_question_id, revision_number, spdx_expression
+) VALUES
+    (:'archived_question_id', 1, 'CC0-1.0'),
+    (:'replacement_question_id', 1, 'CC-BY-4.0'),
+    (:'question_id', 2, 'CC-BY-SA-4.0'),
+    (:'wrong_type_question_id', 1, 'CC0-1.0'),
+    (:'wrong_backend_question_id', 1, 'CC0-1.0');
+INSERT INTO ple_data.published_question_metadata (
+    published_question_id, question_title, question_description, language,
+    tags, content_discipline_id, content_subject_id, created_at, updated_at
+) VALUES
+    (:'wrong_type_question_id', 'Wrong type Pool question', 'A distinct type fixture member', 'en', ARRAY[]::text[],
+     '73000000-0000-0000-0000-00000000cc01', '73000000-0000-0000-0000-00000000cc02', pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp()),
+    (:'wrong_backend_question_id', 'Wrong backend Pool question', 'A distinct backend fixture member', 'en', ARRAY[]::text[],
+     '73000000-0000-0000-0000-00000000cc01', '73000000-0000-0000-0000-00000000cc02', pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp());
 SELECT 'SVP1-' || ple_private.crockford_checksum_character('SVP1ABC') || 'ABC' AS published_pool_id \gset
 SELECT 'SVF1-' || ple_private.crockford_checksum_character('SVF1ABC') || 'ABC' AS fork_pool_id \gset
 SELECT 'SVX1-' || ple_private.crockford_checksum_character('SVX1ABC') || 'ABC' AS missing_pool_id \gset
@@ -54,6 +84,26 @@ SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', :'instructor_id', true);
 SELECT set_config('ple.course_pool_archived_question_id', :'archived_question_id', true);
 SELECT set_config('ple.course_pool_rejected_pool_id', :'rejected_pool_id', true);
+SELECT set_config('ple.course_pool_question_id', :'question_id', true);
+SELECT set_config('ple.course_pool_replacement_question_id', :'replacement_question_id', true);
+SELECT set_config('ple.course_pool_duplicate_revisions_pool_id', :'duplicate_revisions_pool_id', true);
+SELECT set_config('ple.course_pool_wrong_type_pool_id', :'wrong_type_pool_id', true);
+SELECT set_config('ple.course_pool_wrong_backend_pool_id', :'wrong_backend_pool_id', true);
+SELECT set_config('ple.course_pool_wrong_type_question_id', :'wrong_type_question_id', true);
+SELECT set_config('ple.course_pool_wrong_backend_question_id', :'wrong_backend_question_id', true);
+RESET ROLE;
+SET LOCAL ROLE ple_data_owner;
+DO $$
+BEGIN
+    IF has_function_privilege('ple_app',
+           'ple_data.calculate_question_pool_license(text[],integer[])', 'EXECUTE')
+       OR has_function_privilege('ple_app',
+           'ple_data.current_question_pool_license(text)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'Internal Pool license calculation must remain behind authorized operations';
+    END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_app;
 DO $$
 BEGIN
     BEGIN
@@ -69,21 +119,77 @@ BEGIN
 END $$;
 SELECT question_pool_id AS created_pool_id, question_pool_edit_number AS created_pool_edit
   FROM ple_api.create_question_pool(
-    :'published_pool_id', ARRAY[:'question_id'], ARRAY[1], true,
+    :'published_pool_id', ARRAY[current_setting('ple.course_pool_question_id')], ARRAY[1], true,
     'Published pool', 'Published pool of one available question', ARRAY[]::text[]
 ) \gset
+SELECT set_config('ple.course_pool_created_pool_id', :'created_pool_id', true);
+DO $$
+BEGIN
+    IF (SELECT license FROM ple_api.read_current_published_question_pool(
+            current_setting('ple.course_pool_created_pool_id')
+        ) LIMIT 1) <> 'CC0-1.0' THEN
+        RAISE EXCEPTION 'Question Pool creation did not calculate the exact member license';
+    END IF;
+END $$;
+DO $$
+BEGIN
+    BEGIN
+        PERFORM * FROM ple_api.create_question_pool(current_setting('ple.course_pool_duplicate_revisions_pool_id'),
+            ARRAY[current_setting('ple.course_pool_question_id'), current_setting('ple.course_pool_question_id')], ARRAY[1, 2], true,
+            'Duplicate revision pool', 'Duplicate revision Pool description', ARRAY[]::text[]);
+        RAISE EXCEPTION 'two Revisions of one Question were accepted';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_api_owner;
+DO $$
+BEGIN
+    BEGIN
+        PERFORM * FROM ple_data.save_question_pool_members(current_setting('ple.course_pool_created_pool_id'), 1,
+            ARRAY[current_setting('ple.course_pool_question_id'), current_setting('ple.course_pool_wrong_type_question_id')], ARRAY[1, 1], true);
+        RAISE EXCEPTION 'member save accepted a mismatched Question Type';
+    EXCEPTION WHEN invalid_parameter_value THEN
+        IF SQLERRM <> 'Question Pool members must share the established Type and Backend' THEN RAISE; END IF;
+    END;
+    BEGIN
+        PERFORM * FROM ple_data.save_question_pool_members(current_setting('ple.course_pool_created_pool_id'), 1,
+            ARRAY[current_setting('ple.course_pool_question_id'), current_setting('ple.course_pool_wrong_backend_question_id')], ARRAY[1, 1], true);
+        RAISE EXCEPTION 'member save accepted a mismatched Question Backend';
+    EXCEPTION WHEN invalid_parameter_value THEN
+        IF SQLERRM <> 'Question Pool members must share the established Type and Backend' THEN RAISE; END IF;
+    END;
+    BEGIN
+        PERFORM * FROM ple_data.save_question_pool_members(current_setting('ple.course_pool_created_pool_id'), 1,
+            ARRAY[current_setting('ple.course_pool_question_id'), current_setting('ple.course_pool_question_id')], ARRAY[1, 2], true);
+        RAISE EXCEPTION 'member save accepted two Revisions of one Question';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_app;
 SELECT pool.question_pool_edit_number AS source_inspected_edit
-  FROM ple_api.resolve_current_published_question_pool(:'created_pool_id') AS pool \gset
+  FROM ple_api.resolve_current_published_question_pool(current_setting('ple.course_pool_created_pool_id')) AS pool \gset
 RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 SELECT question_pool_edit_number AS source_updated_edit
   FROM ple_data.save_question_pool_members(
-      :'created_pool_id', :'source_inspected_edit',
+      current_setting('ple.course_pool_created_pool_id'), :'source_inspected_edit',
       ARRAY[:'replacement_question_id'], ARRAY[1], true
   ) \gset
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool
+         WHERE question_pool_id = current_setting('ple.course_pool_created_pool_id')
+           AND license = 'CC-BY-4.0'
+    ) THEN
+        RAISE EXCEPTION 'Question Pool member replacement did not refresh the calculated license';
+    END IF;
+END $$;
 RESET ROLE;
 SET LOCAL ROLE ple_app;
-SELECT set_config('ple.course_pool_metadata_id', :'created_pool_id', true);
+SELECT set_config('ple.course_pool_metadata_id', current_setting('ple.course_pool_created_pool_id'), true);
 DO $$
 DECLARE
     pool_id text := current_setting('ple.course_pool_metadata_id');
@@ -92,7 +198,6 @@ DECLARE
     stale_rejected boolean := false;
     member_edit bigint;
     saved_hint text;
-    provenance_token bigint;
 BEGIN
     SELECT support.question_pool_metadata_edit_number INTO token
       FROM ple_api.read_question_pool_ple_managed_support(pool_id) AS support;
@@ -136,29 +241,12 @@ BEGIN
     END;
     IF NOT stale_rejected THEN RAISE EXCEPTION 'stale search metadata replacement was not rejected'; END IF;
 
-    SELECT ple_api.save_question_pool_provenance(
-        pool_id, saved_token, ARRAY['Oracle author'], NULL, 'CC-BY-4.0', NULL, NULL
-    ) INTO provenance_token;
-    IF provenance_token <> 4 THEN RAISE EXCEPTION 'provenance replacement did not advance token'; END IF;
-    stale_rejected := false;
-    BEGIN
-        PERFORM ple_api.save_question_pool_provenance(
-            pool_id, 3, ARRAY['Stale author'], NULL, 'CC0-1.0', NULL, NULL
-        );
-        RAISE EXCEPTION 'stale provenance replacement was accepted';
-    EXCEPTION WHEN serialization_failure THEN
-        stale_rejected := true;
-    END;
-    IF NOT stale_rejected THEN RAISE EXCEPTION 'stale provenance replacement was not rejected'; END IF;
-
     SELECT support.hint, support.question_pool_metadata_edit_number
       INTO saved_hint, token
       FROM ple_api.read_question_pool_ple_managed_support(pool_id) AS support;
     SELECT pool.question_pool_edit_number INTO member_edit
       FROM ple_api.resolve_current_published_question_pool(pool_id) AS pool;
-    SELECT provenance.question_pool_metadata_edit_number INTO provenance_token
-      FROM ple_api.read_question_pool_provenance(pool_id) AS provenance;
-    IF token <> 4 OR provenance_token <> 4 OR saved_hint <> 'current hint' OR member_edit <> 2 THEN
+    IF token <> 3 OR saved_hint <> 'current hint' OR member_edit <> 2 THEN
         RAISE EXCEPTION 'Pool metadata replacements changed membership or lost current state';
     END IF;
     RAISE NOTICE 'pool_metadata_replacements_use_separate_advancing_token';
@@ -200,9 +288,9 @@ SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', :'instructor_id', true);
 SELECT set_config('ple.course_pool_course_id', :'course_id', true);
 SELECT set_config('ple.course_pool_assessment_id', :'created_assessment_id', true);
-SELECT set_config('ple.course_pool_question_id', :'question_id', true);
+SELECT set_config('ple.course_pool_question_id', current_setting('ple.course_pool_question_id'), true);
 SELECT set_config('ple.course_pool_archived_question_id', :'archived_question_id', true);
-SELECT set_config('ple.course_pool_pool_id', :'created_pool_id', true);
+SELECT set_config('ple.course_pool_pool_id', current_setting('ple.course_pool_created_pool_id'), true);
 SELECT set_config('ple.course_pool_inspected_source_edit', :'source_inspected_edit', true);
 SELECT set_config('ple.course_pool_updated_source_edit', :'source_updated_edit', true);
 SELECT set_config('ple.course_pool_replacement_question_id', :'replacement_question_id', true);
@@ -414,6 +502,13 @@ BEGIN
     IF stored_pool IS DISTINCT FROM fork_id OR source_pool IS DISTINCT FROM pool_id THEN
         RAISE EXCEPTION 'Course Assessment stored a Pool other than the published Pool fork';
     END IF;
+    IF (
+        SELECT count(*) FROM ple_data.question_pool AS pool
+         WHERE pool.question_pool_id IN (pool_id, fork_id)
+           AND pool.owner_account_id = current_setting('ple.session_account_id')
+    ) <> 2 THEN
+        RAISE EXCEPTION 'created or Assessment-forked Question Pool did not retain the signed-in Instructor owner';
+    END IF;
     SELECT count(*), min(member.published_question_id), pool.question_pool_edit_number
       INTO source_member_count, source_member_question, source_member_edit
       FROM ple_data.question_pool AS pool
@@ -439,6 +534,17 @@ BEGIN
      WHERE member.question_pool_id = fork_id;
     IF member_count <> 1 OR member_question IS DISTINCT FROM replacement_question_id OR member_revision <> 1 THEN
         RAISE EXCEPTION 'fork membership was not the inspected-current available Question revision';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1
+          FROM ple_data.question_pool AS source
+          JOIN ple_data.question_pool AS fork
+            ON fork.question_pool_id = fork_id
+         WHERE source.question_pool_id = pool_id
+           AND (fork.question_type, fork.backend, fork.license)
+               = (source.question_type, source.backend, source.license)
+    ) THEN
+        RAISE EXCEPTION 'Assessment Pool fork did not calculate the source exact member Type, Backend, and license';
     END IF;
     IF EXISTS (
         SELECT 1 FROM ple_data.assessment_entry_pool AS pool_entry

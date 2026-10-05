@@ -18,6 +18,19 @@ function pageDocument() {
 </html>`;
 }
 
+async function waitForAttemptTitle(page, pageErrors) {
+  try {
+    await page.getByRole("heading", { name: "Membrane review", exact: true }).waitFor({
+      timeout: 5_000,
+    });
+  } catch (error) {
+    throw new Error(
+      `Assessment Attempt did not render: errors=${pageErrors.join(" | ")}; body=${await page.locator("body").innerText()}`,
+      { cause: error },
+    );
+  }
+}
+
 async function loadBundle() {
   const result = await build({
     bundle: true,
@@ -58,6 +71,8 @@ test("a course instance assessment delivers its question to the student", async 
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.setContent(pageDocument(), { waitUntil: "load" });
     await page.addScriptTag({ content: bundle });
     await page.evaluate((prompt) => {
@@ -65,7 +80,7 @@ test("a course instance assessment delivers its question to the student", async 
       window.AssessmentAttemptDelivery.mountAssessmentAttemptDelivery(target, prompt);
     }, PROMPT);
 
-    await page.getByRole("heading", { name: "Membrane review", exact: true }).waitFor();
+    await waitForAttemptTitle(page, pageErrors);
     await page.getByText("Weekly Assignment · Attempt 1", { exact: true }).waitFor();
     await page.getByText(PROMPT, { exact: true }).waitFor();
     const openAttemptText = await page.locator("#assessment-attempt").innerText();
@@ -91,6 +106,8 @@ test("an assessment attempt has a time limit", async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.setContent(pageDocument(), { waitUntil: "load" });
     await page.addScriptTag({ content: bundle });
     await page.evaluate(
@@ -106,7 +123,7 @@ test("an assessment attempt has a time limit", async () => {
         },
       },
     );
-    await page.getByRole("heading", { name: "Membrane review", exact: true }).waitFor();
+    await waitForAttemptTitle(page, pageErrors);
     await page.waitForFunction(() => {
       const text = document.querySelector('[role="timer"]')?.textContent ?? "";
       return text.includes("remaining") || text.includes("time limit");

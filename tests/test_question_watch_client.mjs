@@ -131,8 +131,8 @@ test("Watch means subscription.", async () => {
     new URL("../src/pages/question_detail_page.tsx", import.meta.url),
     "utf8",
   );
-  const poolDiscovery = fs.readFileSync(
-    new URL("../src/pages/library_pool_discovery.tsx", import.meta.url),
+  const poolDetail = fs.readFileSync(
+    new URL("../src/pages/question_pool_detail.tsx", import.meta.url),
     "utf8",
   );
   assert.match(
@@ -140,8 +140,8 @@ test("Watch means subscription.", async () => {
     /<Show when=\{mayMutateLibrary\(\)\}>[\s\S]*<QuestionWatchControl questionId=\{record\(\)\.summary\.questionId\} \/>/,
   );
   assert.match(
-    poolDiscovery,
-    /<Show when=\{props\.mayWatchPools\}>[\s\S]*<QuestionPoolWatchControl poolId=\{value\(\)\.questionPoolId\} \/>/,
+    poolDetail,
+    /<Show when=\{mayMutateLibrary\(\)\}>[\s\S]*<QuestionPoolWatchControl poolId=\{value\(\)\.questionPoolId\} \/>/,
   );
 
   const renderWatchSurfaces = await loadWatchSurfaceRenderer();

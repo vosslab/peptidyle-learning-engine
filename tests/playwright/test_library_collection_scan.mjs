@@ -57,7 +57,8 @@ test("large collections stay scannable rows with comparable fields", async () =>
     if (pageErrors.length > 0) {
       throw new Error(pageErrors.join("\n"));
     }
-    const list = page.getByRole("list", { name: "Published questions", exact: true });
+    const list = page.getByRole("list", { name: "Question Library results", exact: true });
+    await list.waitFor();
     assert.equal(
       await list.evaluate((element) => element.classList.contains("record-list--gallery")),
       false,

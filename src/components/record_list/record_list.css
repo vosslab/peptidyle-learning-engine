@@ -63,18 +63,14 @@
 }
 
 .record-list--compact .record-list__semantic-frame {
-  align-items: baseline;
-  column-gap: 0.9rem;
-  display: grid;
-  grid-template-columns: minmax(14rem, 1.2fr) minmax(18rem, 2fr) auto;
-}
-
-.record-list--compact .record-list__description {
-  display: none;
+  display: block;
 }
 
 .record-list--compact .record-list__content {
-  display: contents;
+  align-items: start;
+  column-gap: 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.2fr) minmax(0, 2fr) auto;
 }
 
 .record-list--compact .record-list__title,
@@ -92,16 +88,9 @@
 }
 
 @media (max-width: 760px) {
-  .record-list--compact .record-list__semantic-frame {
-    display: block;
-  }
-
   .record-list--compact .record-list__content {
-    display: block;
-  }
-
-  .record-list--compact .record-list__description {
-    display: none;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--ple-space-2);
   }
 }
 
@@ -158,6 +147,12 @@
 }
 
 .record-list__content {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--ple-space-2);
+}
+
+.record-list__identity {
   display: grid;
   min-inline-size: 0;
   gap: var(--ple-space-2);

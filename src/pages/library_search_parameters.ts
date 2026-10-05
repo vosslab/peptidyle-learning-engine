@@ -13,6 +13,7 @@ import {
   isBloomCognitiveProcess,
   isBloomKnowledgeDimension,
 } from "../api/decoders/bloom_classification";
+import { validateCanonicalPublicId } from "../question_id";
 
 /** Removes only rejected strict URL state while retaining valid Library options. */
 export function recoverLibrarySearch(search: string): string {
@@ -27,6 +28,19 @@ export function recoverLibrarySearch(search: string): string {
     librarySort(parameters);
   } catch {
     parameters.delete("sort");
+  }
+  for (const parse of [libraryKind, libraryMembership, libraryOwner]) {
+    try {
+      parse(parameters);
+    } catch {
+      parameters.delete(
+        parse === libraryKind
+          ? "kind"
+          : parse === libraryMembership
+            ? "membership"
+            : "ownerAccountId",
+      );
+    }
   }
   try {
     bloomCognitiveProcess(parameters);
@@ -59,6 +73,37 @@ function librarySort(parameters: URLSearchParams): QuestionLibraryBrowseQuery["s
   return value;
 }
 
+function oneParameter(parameters: URLSearchParams, name: string): string | undefined {
+  const values = parameters.getAll(name);
+  if (values.length > 1) throw new Error(`${name} must appear at most once`);
+  return values[0];
+}
+
+function libraryKind(parameters: URLSearchParams): QuestionLibraryBrowseQuery["kind"] {
+  const value = oneParameter(parameters, "kind") ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.kind;
+  if (value !== "both" && value !== "questions" && value !== "pools") {
+    throw new Error("Question Library kind is invalid");
+  }
+  return value;
+}
+
+function libraryMembership(parameters: URLSearchParams): QuestionLibraryBrowseQuery["membership"] {
+  const value =
+    oneParameter(parameters, "membership") ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.membership;
+  if (value !== "noPool" && value !== "all")
+    throw new Error("Question Library membership is invalid");
+  return value;
+}
+
+function libraryOwner(parameters: URLSearchParams): string | null {
+  const value = oneParameter(parameters, "ownerAccountId");
+  if (value === undefined) return null;
+  if (validateCanonicalPublicId("account", value) === null) {
+    throw new Error("Question Library owner is invalid");
+  }
+  return value;
+}
+
 function bloomCognitiveProcess(
   parameters: URLSearchParams,
 ): QuestionLibraryBrowseQuery["bloomCognitiveProcess"] {
@@ -86,6 +131,9 @@ export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
   return {
     ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
     ...parseLibraryClassificationParameters(parameters),
+    kind: libraryKind(parameters),
+    membership: libraryMembership(parameters),
+    ownerAccountId: libraryOwner(parameters),
     search: boundedValues(parameters, "search")[0] ?? "",
     subjects: boundedValues(parameters, "subjects"),
     topics: boundedValues(parameters, "topics"),
@@ -117,6 +165,11 @@ export function hasExactBrowseFilters(query: QuestionLibraryBrowseQuery): boolea
 export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): string {
   const parameters = new URLSearchParams();
   appendLibraryClassificationParameters(parameters, query);
+  if (query.kind !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.kind) parameters.set("kind", query.kind);
+  if (query.membership !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.membership) {
+    parameters.set("membership", query.membership);
+  }
+  if (query.ownerAccountId !== null) parameters.set("ownerAccountId", query.ownerAccountId);
   for (const subject of query.subjects) parameters.append("subjects", subject);
   for (const topic of query.topics) parameters.append("topics", topic);
   for (const field of [

@@ -13,21 +13,21 @@ SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease target', '',
     NULL, NULL, NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never',
+    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
 ), 'hex') AS target_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Statistics survivor', '',
     NULL, NULL, NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never',
+    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
 ), 'hex') AS survivor_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease lock race', '',
     NULL, NULL, NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never',
+    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
 ), 'hex') AS race_snapshot_id \gset
 

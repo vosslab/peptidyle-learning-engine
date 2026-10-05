@@ -1,8 +1,8 @@
 //! Browser-safe read models for reusable published Question Pools.
 //!
-//! These views expose exact immutable Pool and Question Revision pins for
-//! Instructor library and Assessment editing. They contain no source,
-//! ownership, Course, Student, or selection-result facts.
+//! These views expose the Pool owner, current Pool Edit, and exact immutable
+//! Question Revision pins for Instructor library and Assessment editing.
+//! They contain no Question source, Course, Student, or selection-result facts.
 
 use std::num::NonZeroU32;
 
@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
-    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
-    QuestionPoolMetadataEditNumber, QuestionSearchBloomCognitiveProcessFacet,
-    QuestionSearchBloomKnowledgeDimensionFacet, QuestionStatistics, ReusableQuestionView,
+    AccountId, AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
+    PublishedQuestionRevisionTuple, QuestionBackend, QuestionLicense, QuestionPoolEditNumber,
+    QuestionPoolId, QuestionPoolMetadataEditNumber, QuestionStatistics, QuestionType,
+    ReusableQuestionView,
 };
 
 /// Current Pool lineage metadata, independent of immutable membership Revisions.
@@ -40,6 +40,14 @@ pub struct QuestionPoolMetadata {
 pub struct QuestionPoolLibrarySummary {
     pub metadata: QuestionPoolMetadata,
     pub question_pool_id: QuestionPoolId,
+    /// Account that created or forked this Pool lineage.
+    pub owner_account_id: AccountId,
+    /// Immutable Type established by the first Pool member.
+    pub question_type: QuestionType,
+    /// Immutable Backend established by the first Pool member.
+    pub backend: QuestionBackend,
+    /// Calculated collection license; each member keeps its own exact Revision license.
+    pub license: QuestionLicense,
     /// Membership version used by Assessment and historical membership references.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Current mutable Pool metadata concurrency token.
@@ -48,28 +56,6 @@ pub struct QuestionPoolLibrarySummary {
     pub member_count: NonZeroU32,
     /// Exact Pool-owned Bloom Classification when assigned; member classifications do not substitute.
     pub bloom: Option<BloomClassificationView>,
-}
-
-/// Complete Bloom counts from the same filtered Pool discovery relation as one page.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionPoolBloomFacets {
-    /// All six Cognitive Process values in teaching-guide order, including zero counts.
-    pub cognitive_processes: Vec<QuestionSearchBloomCognitiveProcessFacet>,
-    /// All four Knowledge Dimension values in teaching-guide order, including zero counts.
-    pub knowledge_dimensions: Vec<QuestionSearchBloomKnowledgeDimensionFacet>,
-}
-
-/// Bounded Pool discovery page with whole-matching-set Bloom counts.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionPoolLibraryPage {
-    /// At most the caller's validated page size of current Pools.
-    pub items: Vec<QuestionPoolLibrarySummary>,
-    /// Opaque continuation bound to the complete normalized Pool query.
-    pub next_cursor: Option<String>,
-    /// Server-computed counts from all matching Pools, never the loaded page sample.
-    pub bloom_facets: QuestionPoolBloomFacets,
 }
 
 /// One ordered exact Question Revision in the current Pool membership.
@@ -91,6 +77,14 @@ pub struct QuestionPoolView {
     /// Current Pool metadata.
     pub metadata: QuestionPoolMetadata,
     pub question_pool_id: QuestionPoolId,
+    /// Account that created or forked this Pool lineage.
+    pub owner_account_id: AccountId,
+    /// Immutable Type established by the first Pool member.
+    pub question_type: QuestionType,
+    /// Immutable Backend established by the first Pool member.
+    pub backend: QuestionBackend,
+    /// Calculated collection license; each member keeps its own exact Revision license.
+    pub license: QuestionLicense,
     /// Current-state concurrency marker; not a historical membership object.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Exact Pool-owned Bloom Classification when assigned.
@@ -109,6 +103,14 @@ pub struct AssessmentQuestionPoolForkView {
     /// Stable Assessment Entry that owns this fork.
     pub assessment_entry_id: AssessmentEntryId,
     pub question_pool_id: QuestionPoolId,
+    /// Account that created or forked this Pool lineage.
+    pub owner_account_id: AccountId,
+    /// Immutable Type established by the first Pool member.
+    pub question_type: QuestionType,
+    /// Immutable Backend established by the first Pool member.
+    pub backend: QuestionBackend,
+    /// Calculated collection license; each member keeps its own exact Revision license.
+    pub license: QuestionLicense,
     /// Current-state concurrency marker for the Assessment-owned fork Pool.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Positive number of members selected for each future Assessment Attempt.

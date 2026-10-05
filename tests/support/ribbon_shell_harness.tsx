@@ -29,7 +29,17 @@ import type {
 } from "../../src/api/contracts";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
+import type { LibrarySearchResult } from "../../generated/api/LibrarySearchResult";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
+import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+} from "../../src/api/decoders/bloom_classification";
+import type {
+  QuestionBulkMetadataClient,
+  QuestionBulkMetadataUpdateRequest,
+} from "../../src/api/question_bulk_metadata";
 import type { UserRole } from "../../generated/api/UserRole";
 import { routeContractForPathname, type RouteId } from "../../src/route_contract";
 import { InstalledWasmFacadeProvider } from "../../src/wasm/context";
@@ -51,10 +61,6 @@ import type {
 } from "../../src/ribbon/ribbon_contract";
 import type { RibbonDestinationId } from "../../src/ribbon/ribbon_catalog";
 import { assignmentAttemptContext, courseRouteData } from "./route_scope_provider_fixtures";
-import {
-  FAST_UI_QUESTION_LIBRARY_SEED,
-  fastUiQuestionLibraryPage,
-} from "./fast_ui_question_library_fixture";
 import { materializeRibbonRoute, M6_RIBBON_FIXTURES } from "./ribbon_model_fixtures";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
@@ -194,6 +200,128 @@ function inspectionQuestionDetails(): QuestionDetails {
       ownCourses: [],
       ownCoursesTruncated: false,
     },
+  };
+}
+
+const PICKER_ANCHOR_QUESTION_ID = "7K3M-79QP";
+const PICKER_POOLED_QUESTION_ID = "2R5X-E7YA";
+type PickerQuestionResult = Extract<LibrarySearchResult, { kind: "question" }>;
+
+function pickerQuestion(questionId: string, title: string): PickerQuestionResult {
+  return {
+    kind: "question",
+    ownerAccountId: "U00000009",
+    question: {
+      summary: {
+        questionId,
+        publishedQuestionRevisionTuple: { publishedQuestionId: questionId, revisionNumber: 1 },
+        backend: "ple",
+        questionFormat: "pleQuestionJson",
+        questionType: "multipleChoice",
+        capabilities: ["clientRendering"],
+        metadata: {
+          questionTitle: title,
+          questionDescription: "A Question Library row for Pool selection evidence.",
+          tags: ["protein"],
+          questionLicense: "CC-BY-4.0",
+          questionCitation: null,
+          language: "en",
+        },
+        authorship: { authors: [{ displayName: "Fast UI harness", accountId: null }] },
+        availability: { availability: "available" },
+        publishedAt: 1_789_920_000_000,
+        bloom: null,
+      },
+      disciplineName: "Biochemistry",
+      disciplineIsRetired: false,
+      evidence: { state: "unavailable" },
+    },
+  };
+}
+
+/** Local Pool-picker inputs: one selected Question and one existing Pool member. */
+function pickerQuestionLibraryPage(
+  query: Pick<QuestionSearchRequest, "kind" | "membership">,
+): QuestionSearchPage {
+  const questions = [
+    pickerQuestion(PICKER_ANCHOR_QUESTION_ID, "Protein structure anchor Question"),
+    pickerQuestion(PICKER_POOLED_QUESTION_ID, "Protein structure pooled Question"),
+  ];
+  const pool: LibrarySearchResult = {
+    kind: "pool",
+    pool: {
+      questionPoolId: "3S8B-24DZ",
+      ownerAccountId: "U00000009",
+      questionType: "multipleChoice",
+      backend: "ple",
+      license: "CC-BY-4.0",
+      questionPoolEditNumber: 1,
+      questionPoolMetadataEditNumber: 1,
+      metadata: {
+        title: "Protein structure practice Pool",
+        description: "A Pool with one member Question.",
+        disciplineUuid: "00000000-0000-0000-0000-000000000001",
+        disciplineName: "Biochemistry",
+        disciplineIsRetired: false,
+        subjectUuid: "00000000-0000-0000-0000-000000000002",
+        topicUuid: null,
+        subtopicUuid: null,
+        tags: ["protein"],
+      },
+      memberCount: 1,
+      bloom: null,
+    },
+  };
+  const questionItems = query.membership === "noPool" ? questions.slice(0, 1) : questions;
+  return {
+    items: [
+      ...(query.kind === "pools" ? [] : questionItems),
+      ...(query.kind === "questions" ? [] : [pool]),
+    ],
+    nextCursor: null,
+    facets: {
+      categories: { questionsInNoPool: 1, questionsInPool: 1, pools: 1 },
+      authorNames: [],
+      authorNamesTruncated: false,
+      backends: [],
+      tags: [{ tag: "protein", count: 3 }],
+      tagsTruncated: false,
+      subjects: [],
+      subjectsTruncated: false,
+      topics: [],
+      topicsTruncated: false,
+      questionTypes: [],
+      capabilities: [],
+      questionLicenses: [],
+      usedInMyCourses: { used: 0 },
+      bloomCognitiveProcesses: BLOOM_COGNITIVE_PROCESSES.map((cognitiveProcess) => ({
+        cognitiveProcess,
+        count: 0,
+      })),
+      bloomKnowledgeDimensions: BLOOM_KNOWLEDGE_DIMENSIONS.map((knowledgeDimension) => ({
+        knowledgeDimension,
+        count: 0,
+      })),
+    },
+  };
+}
+
+function pickerQuestionDetails(
+  questionId: Parameters<OrdinaryBrowserApiClient["getQuestionDetails"]>[0],
+): QuestionDetails {
+  const title =
+    questionId === PICKER_ANCHOR_QUESTION_ID
+      ? "Protein structure anchor Question"
+      : questionId === PICKER_POOLED_QUESTION_ID
+        ? "Protein structure pooled Question"
+        : null;
+  if (title === null) throw new Error(`No Pool-picker Question exists for ${questionId}`);
+  const item = pickerQuestion(questionId, title);
+  return {
+    ...inspectionQuestionDetails(),
+    summary: item.question.summary,
+    disciplineName: item.question.disciplineName,
+    subjectName: "Protein structure",
   };
 }
 
@@ -348,8 +476,9 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       subtopics.push(item);
       return Promise.resolve(item);
     },
-    listBlueprintCourses: (): Promise<CursorPage<BlueprintCourseSummaryView>> =>
-      Promise.resolve({ items: [], nextCursor: null }),
+    listBlueprintCourses: (): Promise<CursorPage<BlueprintCourseSummaryView>> => {
+      return Promise.resolve({ items: [], nextCursor: null });
+    },
     getCourseInstance: (
       courseInstanceId: CourseInstanceView["courseInstance"]["id"],
     ): Promise<CourseInstanceView> => {
@@ -470,8 +599,35 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     },
     downloadCourseGradebook: (): Promise<Blob> =>
       Promise.resolve(new Blob(["roster_id\n"], { type: "text/csv" })),
-    searchQuestionLibrary: (): Promise<QuestionSearchPage> =>
-      Promise.resolve(fastUiQuestionLibraryPage()),
+    searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> => {
+      return Promise.resolve(pickerQuestionLibraryPage(query));
+    },
+    getQuestionDetails: (
+      questionId: Parameters<OrdinaryBrowserApiClient["getQuestionDetails"]>[0],
+    ): Promise<QuestionDetails> => Promise.resolve(pickerQuestionDetails(questionId)),
+    getCurrentQuestionBulkMetadata: (
+      questionIds: Parameters<QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"]>[0],
+    ): ReturnType<QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"]> =>
+      Promise.resolve(
+        questionIds.map((questionId) => ({
+          questionId,
+          metadataEditNumber: 1,
+          tags: ["protein"],
+          disciplineUuid: "00000000-0000-0000-0000-000000000001",
+          subjectUuid: "00000000-0000-0000-0000-000000000002",
+          topicUuid: null,
+          subtopicUuid: null,
+        })),
+      ),
+    updateQuestionBulkMetadata: (
+      request: QuestionBulkMetadataUpdateRequest,
+    ): ReturnType<QuestionBulkMetadataClient["updateQuestionBulkMetadata"]> =>
+      Promise.resolve(
+        request.selection.map((item) => ({
+          questionId: item.questionId,
+          metadataEditNumber: item.metadataEditNumber + 1,
+        })),
+      ),
     resolveQuestion: (): Promise<unknown> => Promise.resolve(inspectionQuestionDetails().summary),
     getQuestionLineage: (): Promise<unknown> =>
       Promise.resolve({
@@ -573,8 +729,6 @@ export interface RibbonShellHarness {
   readonly studentViewTransport: () => readonly string[];
   readonly seedAuthoringClassification: () => void;
   readonly vocabularyWrites: () => readonly string[];
-  readonly questionLibrarySeed: () => string;
-  readonly questionLibrarySeedRows: () => ReadonlyArray<{ id: string; title: string }>;
   readonly releaseSession: () => void;
   readonly releaseCourseScope: (courseInstanceId: string) => void;
   readonly throwFixtureContent: (value: boolean) => void;
@@ -794,12 +948,6 @@ export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness
     studentViewTransport: currentPresentation.studentViewTransport,
     seedAuthoringClassification: currentPresentation.seedAuthoringClassification,
     vocabularyWrites: currentPresentation.vocabularyWrites,
-    questionLibrarySeed: () => FAST_UI_QUESTION_LIBRARY_SEED,
-    questionLibrarySeedRows: () =>
-      fastUiQuestionLibraryPage().items.map((item) => ({
-        id: item.summary.questionId,
-        title: item.summary.metadata.questionTitle,
-      })),
     releaseSession: currentSession.release,
     releaseCourseScope: currentDeferredScopes.release,
     throwFixtureContent: setFixtureShouldThrow,

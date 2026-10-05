@@ -1,9 +1,11 @@
 // Stable source binding for creating one Question Pool from a Published Question.
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
+import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
+import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
+import type { QuestionPickerEligibility } from "../features/question_picker/question_picker_model";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
-import { decodeQuestionLibraryBrowsePage } from "../pages/library_page_model";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import type {
@@ -16,6 +18,8 @@ export interface QuestionPoolStartingQuestion {
   readonly questionTitle: string;
   readonly disciplineName: string;
   readonly subjectName: string;
+  readonly questionType: QuestionDetails["summary"]["questionType"];
+  readonly backend: QuestionDetails["summary"]["backend"];
 }
 
 function canonicalQuestionId(value: string): PublishedQuestionId {
@@ -24,6 +28,70 @@ function canonicalQuestionId(value: string): PublishedQuestionId {
     throw new Error("The selected Question is no longer a canonical Published Question.");
   }
   return questionId;
+}
+
+/** Resolves one selected Question into the authoritative eligibility anchor for a new Pool. */
+export async function questionPoolEligibilityForQuestion(
+  questionId: PublishedQuestionId,
+  getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>,
+  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+): Promise<QuestionPickerEligibility> {
+  const [details, metadata] = await Promise.all([
+    getQuestionDetails(questionId),
+    getCurrentQuestionBulkMetadata([questionId]),
+  ]);
+  const current = metadata[0];
+  if (
+    current === undefined ||
+    current.questionId !== questionId ||
+    details.summary.publishedQuestionRevisionTuple.publishedQuestionId !== questionId ||
+    details.summary.metadata.questionLicense === null
+  ) {
+    throw new Error("The selected Question cannot establish Pool eligibility.");
+  }
+  return {
+    disciplineUuid: current.disciplineUuid,
+    subjectUuid: current.subjectUuid,
+    questionType: details.summary.questionType,
+    backend: details.summary.backend,
+    excludedQuestionId: questionId,
+  };
+}
+
+/** Reads current classification UUIDs while retaining the source Question's immutable type and backend. */
+export async function questionPoolStartingEligibility(
+  startingQuestion: QuestionPoolStartingQuestion,
+  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+): Promise<QuestionPickerEligibility> {
+  const questionId = canonicalQuestionId(
+    startingQuestion.publishedQuestionRevisionTuple.publishedQuestionId,
+  );
+  const metadata = await getCurrentQuestionBulkMetadata([questionId]);
+  const current = metadata[0];
+  if (current === undefined || current.questionId !== questionId) {
+    throw new Error("The starting Question's current classification could not be loaded.");
+  }
+  return {
+    disciplineUuid: current.disciplineUuid,
+    subjectUuid: current.subjectUuid,
+    questionType: startingQuestion.questionType,
+    backend: startingQuestion.backend,
+    excludedQuestionId: questionId,
+  };
+}
+
+function sameEligibility(
+  metadata: PublishedQuestionSharedMetadata,
+  details: QuestionDetails,
+  eligibility: QuestionPickerEligibility,
+): boolean {
+  return (
+    metadata.disciplineUuid === eligibility.disciplineUuid &&
+    metadata.subjectUuid === eligibility.subjectUuid &&
+    details.summary.questionType === eligibility.questionType &&
+    details.summary.backend === eligibility.backend &&
+    details.summary.metadata.questionLicense !== null
+  );
 }
 
 function exactStartingRevision(
@@ -42,79 +110,74 @@ function exactStartingRevision(
 async function latestSelectedRevisions(
   selection: QuestionPickerSelection,
   getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>,
-  startingQuestion?: QuestionPoolStartingQuestion,
+  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+  eligibility: QuestionPickerEligibility,
 ): Promise<ReadonlyArray<PublishedQuestionRevisionTuple>> {
   return await Promise.all(
     selection.questions.map(async (selected) => {
       const questionId = canonicalQuestionId(selected.questionId);
-      if (questionId === startingQuestion?.publishedQuestionRevisionTuple.publishedQuestionId) {
-        throw new Error("The starting Question is already fixed at the first Pool position.");
-      }
-      const detail = await getQuestionDetails(questionId);
-      const publishedQuestionRevisionTuple = detail.summary.publishedQuestionRevisionTuple;
-      if (publishedQuestionRevisionTuple.publishedQuestionId !== questionId) {
-        throw new Error("The selected Question did not resolve to its current published Revision.");
-      }
+      const [detail, metadata] = await Promise.all([
+        getQuestionDetails(questionId),
+        getCurrentQuestionBulkMetadata([questionId]),
+      ]);
+      const current = metadata[0];
       if (
-        startingQuestion !== undefined &&
-        (detail.disciplineName !== startingQuestion.disciplineName ||
-          detail.subjectName !== startingQuestion.subjectName)
+        current === undefined ||
+        current.questionId !== questionId ||
+        detail.summary.publishedQuestionRevisionTuple.publishedQuestionId !== questionId ||
+        !sameEligibility(current, detail, eligibility)
       ) {
-        throw new Error("Every Pool Question must share the starting Discipline and Subject.");
+        throw new Error(
+          "Every Pool Question must share the Pool's Discipline, Subject, Type, and Backend.",
+        );
       }
-      return publishedQuestionRevisionTuple;
+      return detail.summary.publishedQuestionRevisionTuple;
     }),
   );
 }
 
-/** Pins the exact starting Revision first, then resolves additional current selections in order. */
+/** Pins an optional exact starting Revision first and rechecks every added Question's eligibility. */
 export async function questionPoolMemberTuples(
   selection: QuestionPickerSelection,
   getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>,
+  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+  eligibility: QuestionPickerEligibility,
   startingQuestion?: QuestionPoolStartingQuestion,
 ): Promise<ReadonlyArray<PublishedQuestionRevisionTuple>> {
-  const additional = await latestSelectedRevisions(selection, getQuestionDetails, startingQuestion);
-  if (startingQuestion === undefined) return additional;
-  return [exactStartingRevision(startingQuestion), ...additional];
+  const additional = await latestSelectedRevisions(
+    selection,
+    getQuestionDetails,
+    getCurrentQuestionBulkMetadata,
+    eligibility,
+  );
+  return startingQuestion === undefined
+    ? additional
+    : [exactStartingRevision(startingQuestion), ...additional];
 }
 
-/**
- * Reuses the Question Library picker while fixing its source-bound Subject and
- * retaining only rows from the starting Question's Discipline.
- */
+/** Source-bound Pool discovery has the same authoritative eligibility on every request. */
 export function questionPoolSourcePickerRepository(
   library: QuestionLibraryBrowseRepository,
-  startingQuestion: QuestionPoolStartingQuestion,
+  eligibility: QuestionPickerEligibility,
 ): QuestionPickerSourceRepository {
   return {
     async search(request): Promise<unknown> {
       if (request.source.kind !== "library" && request.source.kind !== "sharedLibrary") {
         throw new Error("Choose the Question Library source for this Pool.");
       }
-      const seenCursors = new Set<string>();
-      let cursor = request.cursor;
-      for (;;) {
-        if (cursor !== null) {
-          if (seenCursors.has(cursor)) {
-            throw new Error("Question Library paging repeated a continuation.");
-          }
-          seenCursors.add(cursor);
-        }
-        const raw = await library.search(
-          { ...request.query, subjects: [startingQuestion.subjectName] },
-          cursor,
-        );
-        const page = decodeQuestionLibraryBrowsePage(raw);
-        const items = page.items.filter(
-          (row) =>
-            row.disciplineName === startingQuestion.disciplineName &&
-            row.displayId !== startingQuestion.publishedQuestionRevisionTuple.publishedQuestionId,
-        );
-        if (items.length > 0 || page.nextCursor === null) {
-          return { ...page, items };
-        }
-        cursor = page.nextCursor;
-      }
+      return await library.search(
+        {
+          ...request.query,
+          kind: "questions",
+          membership: "all",
+          discipline_uuid: eligibility.disciplineUuid,
+          subject_uuid: eligibility.subjectUuid,
+          questionType: eligibility.questionType,
+          backend: eligibility.backend,
+        },
+        request.cursor,
+        request.pageSize,
+      );
     },
   };
 }

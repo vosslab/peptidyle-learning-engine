@@ -178,11 +178,14 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
         questionPoolClient={applicationApi.client}
         questionLibrary={questionLibrary}
         getQuestionDetails={applicationApi.client.getQuestionDetails}
+        getCurrentQuestionBulkMetadata={applicationApi.client.getCurrentQuestionBulkMetadata}
         startingQuestion={{
           publishedQuestionRevisionTuple: props.detail.summary.publishedQuestionRevisionTuple,
           questionTitle: props.detail.summary.metadata.questionTitle,
           disciplineName: props.detail.disciplineName,
           subjectName: props.detail.subjectName,
+          questionType: props.detail.summary.questionType,
+          backend: props.detail.summary.backend,
         }}
         onTaskPhaseChange={() => undefined}
         onClose={closeCreation}
@@ -474,7 +477,7 @@ export function QuestionDetailPage(): JSX.Element {
       clearRouteScopeLabels(publication);
       return;
     }
-    publishRouteScopeLabels(publication, { questionTitle: title });
+    publishRouteScopeLabels(publication, { libraryObjectTitle: title });
   }
   onMount(() => {
     publication = routeScopePublication();
@@ -492,8 +495,8 @@ export function QuestionDetailPage(): JSX.Element {
       title={detail()?.summary.metadata.questionTitle ?? "Question"}
       eyebrow="Question Library"
     >
-      <A class="quiet-link" href="/library">
-        Return to question library
+      <A class="quiet-link" href="/library/browse">
+        Return to Browse Question Library
       </A>
       <Suspense
         fallback={

@@ -3,6 +3,7 @@ import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectKindResponse } from "../../../generated/api/LibraryObjectKindResponse";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
 import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
@@ -26,7 +27,11 @@ import type {
   UpdateInstructorPersonalThemeInput,
 } from "../profile_settings";
 import type { StudentQuestionAttempt } from "../contracts";
-import { questionIdPath, questionSearchPath } from "../question_search_query";
+import {
+  libraryObjectKindPath,
+  questionIdPath,
+  questionSearchPath,
+} from "../question_search_query";
 import {
   decodeAssessmentAttempt,
   decodeStudentAssessmentDetail,
@@ -35,6 +40,7 @@ import {
   decodeQuestionDetails,
   decodeQuestionLineageView,
   decodeQuestionSearchPage,
+  decodeLibraryObjectKindResponse,
   decodeCourseAppearanceView,
   decodeCourseThemeUpdate,
   decodeCourseBannerUpdate,
@@ -503,6 +509,7 @@ export function createResponseClient(
   | "fetchProfileAvatarImage"
   | "listQuestions"
   | "searchQuestionLibrary"
+  | "getLibraryObjectKind"
   | "resolveQuestion"
   | "getQuestionDetails"
   | "getCourseAppearanceView"
@@ -559,6 +566,13 @@ export function createResponseClient(
         basePath,
         questionSearchPath(query),
         decodeQuestionSearchPage,
+      ),
+    getLibraryObjectKind: (publicId: string): Promise<LibraryObjectKindResponse> =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        libraryObjectKindPath(publicId),
+        decodeLibraryObjectKindResponse,
       ),
     resolveQuestion: (questionId: string): Promise<QuestionSummary> => {
       const path = questionIdPath(questionId);
