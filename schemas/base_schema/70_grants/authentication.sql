@@ -15,6 +15,8 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.enforce_account_authentication_ema
     ple_private.resolve_active_authenticated_session(bytea),
     ple_private.create_authenticated_session(uuid, text, bytea, bigint),
     ple_private.revoke_authenticated_session(bytea),
+    ple_private.prepare_email_authentication_challenge(text),
+    ple_private.commit_email_authentication_challenge(uuid, text, bytea, bytea, bigint),
     ple_private.consume_email_authentication_challenge(uuid, bytea, bytea),
     ple_private.consume_passkey_authentication(uuid, bytea, bytea),
     ple_private.provision_sysadmin_totp_credential(text, text, bytea, bytea),
@@ -27,6 +29,8 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.enforce_account_authentication_ema
 GRANT EXECUTE ON FUNCTION ple_private.resolve_active_authenticated_session(bytea),
     ple_private.create_authenticated_session(uuid, text, bytea, bigint),
     ple_private.revoke_authenticated_session(bytea),
+    ple_private.prepare_email_authentication_challenge(text),
+    ple_private.commit_email_authentication_challenge(uuid, text, bytea, bytea, bigint),
     ple_private.consume_email_authentication_challenge(uuid, bytea, bytea),
     ple_private.consume_passkey_authentication(uuid, bytea, bytea),
     ple_private.provision_sysadmin_totp_credential(text, text, bytea, bytea),
@@ -41,6 +45,8 @@ SET LOCAL ROLE ple_api_owner;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.resolve_and_install_session(bytea),
     ple_api.create_authenticated_session(uuid, text, bytea, bigint),
     ple_api.revoke_authenticated_session(bytea),
+    ple_api.prepare_email_authentication_challenge(text),
+    ple_api.commit_email_authentication_challenge(uuid, text, bytea, bytea, bigint),
     ple_api.consume_email_authentication_challenge(uuid, bytea, bytea),
     ple_api.consume_passkey_authentication(uuid, bytea, bytea),
     ple_api.provision_sysadmin_totp_credential(text, text, bytea, bytea),
@@ -53,6 +59,8 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_api.resolve_and_install_session(bytea),
 GRANT EXECUTE ON FUNCTION ple_api.resolve_and_install_session(bytea),
     ple_api.create_authenticated_session(uuid, text, bytea, bigint),
     ple_api.revoke_authenticated_session(bytea),
+    ple_api.prepare_email_authentication_challenge(text),
+    ple_api.commit_email_authentication_challenge(uuid, text, bytea, bytea, bigint),
     ple_api.consume_email_authentication_challenge(uuid, bytea, bytea),
     ple_api.consume_passkey_authentication(uuid, bytea, bytea),
     ple_api.provision_sysadmin_totp_credential(text, text, bytea, bytea),
@@ -75,4 +83,3 @@ REVOKE ALL ON FUNCTION ple_api.sweep_expired_authentication_growth(timestamptz) 
 
 GRANT EXECUTE ON FUNCTION ple_api.sweep_expired_authentication_growth(timestamptz)
     TO ple_course_retention_executor;
-

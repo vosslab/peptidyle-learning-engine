@@ -23,7 +23,7 @@ The browser needs focused, answer-free operations:
 | Display one Question | Answer-free presentation and the Student's current saved response |
 | Save a response | Attempt, position, and a saved acknowledgement |
 | Submit Assessment | Whole-Attempt submitted acknowledgement |
-| Read a disclosed result | Only result and feedback currently allowed by policy |
+| Read a submitted result | Scores after automatic grading; correct answers under the selected visibility setting. Optional Question Feedback timing is deferred. |
 
 Responses containing Student Work are `no-store`. The browser does not receive
 Account IDs, private Student-record IDs, Answer Keys, private grading inputs,
@@ -48,7 +48,7 @@ Student opens one Question at a time and saves complete responses
               +----------+----------+
                          |
                          v
-the whole Attempt is submitted once; policy controls disclosure
+the whole Attempt is submitted once; scores appear after automatic grading
 ```
 
 Reloading or reconnecting resumes the same open Attempt with its fixed deadline
@@ -130,15 +130,16 @@ that evidence into another Student action or lifecycle family.
 
 The Question Backend may evaluate a complete saved response before the whole
 Attempt is submitted. PLE stores the immutable credit fraction returned by the
-backend. It does not expose a Student-visible grading outcome until submission
-and the applicable disclosure point.
+backend. The Student sees scores once submission and automatic grading complete,
+without a separate disclosure condition for scores.
 
 Scores use the current point value for each Assessment Question and the stored
 credit fraction. A point-value edit can change the calculated score but does
-not regrade the response or change the fraction.
+not regrade the response or change the fraction. Whole-Pool removal excludes
+its earned and possible points from every Attempt.
 
-No browser or Instructor grading, Retry, regrading, result-replacement, or
-grading-job action is part of this contract. If a real backend needs deferred
+No browser or Instructor grading, Retry, or grading-job action is part of this
+contract. Native JSON regrading and result replacement remain deferred under HG. If a real backend needs deferred
 technical completion, it remains an internal adapter concern and cannot create
 a second product lifecycle.
 

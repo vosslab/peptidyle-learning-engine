@@ -456,7 +456,7 @@ async fn correct_question_revision_bloom(
             Some(published_question_revision_tuple) => published_question_revision_tuple,
             None => return concealed(),
         };
-    // ASVS 8.2.1/8.3.1: only an active vetted Instructor reaches correction;
+    // ASVS 8.2.1/8.3.1: only an active Instructor reaches correction;
     // a Sysadmin retains the read-only Library surface and receives concealment.
     let session_hash = match instructor_session_hash(&state, &headers).await {
         Ok(value) => value,

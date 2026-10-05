@@ -11,7 +11,6 @@ import { enterSysadmin, scrollTop } from "./visible_workflows";
 
 // Unique per run so replays on the same stack can create a fresh Account.
 const CREATED_EMAIL = `screenshot.instructor.${String(Date.now())}@live-demo.invalid`;
-const VERIFIED_INSTRUCTOR_DISPLAY_NAME = "Screenshot Instructor";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
@@ -74,11 +73,13 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await page.getByLabel("Instructor Authentication Email").fill("");
     await captureCheckpoint(runtime, "account_validation", session);
     await page.getByLabel("Instructor Authentication Email").fill(CREATED_EMAIL);
-    await page
-      .getByLabel("Verified Instructor Display Name")
-      .fill(VERIFIED_INSTRUCTOR_DISPLAY_NAME);
+    await page.getByLabel("First name", { exact: true }).fill("Screenshot");
+    await page.getByLabel("Last name", { exact: true }).fill("Instructor");
+    await page.getByLabel("Affiliation", { exact: true }).fill("PLE Live Demo");
     await page.getByRole("button", { name: "Create Instructor Account", exact: true }).click();
-    await page.getByText("Instructor Account created.", { exact: true }).waitFor();
+    await page
+      .getByText("Instructor Account created, but setup email could not be sent.", { exact: true })
+      .waitFor();
     const newest = page
       .getByRole("list", { name: "Instructor Accounts", exact: true })
       .getByRole("listitem")

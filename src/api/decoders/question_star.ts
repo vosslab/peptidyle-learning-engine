@@ -11,6 +11,7 @@ import {
   decodeRecord,
 } from "../decoder";
 import { decodeQuestionId, field, requireOnlyFields } from "./shared";
+import { validateCanonicalPublicId } from "../../question_id";
 import type {
   QuestionStarProjection,
   QuestionStarredInstructor,
@@ -18,29 +19,33 @@ import type {
   StarredQuestionSummary,
 } from "../question_star";
 
-const MAX_VERIFIED_INSTRUCTOR_DISPLAY_NAME_SCALARS = 200;
+const MAX_INSTRUCTOR_DISPLAY_NAME_SCALARS = 200;
 const CONTROL_CHARACTER = /[\p{Cc}]/u;
 
-function decodeVerifiedInstructorDisplayName(value: unknown, path: string): string {
+function decodeInstructorDisplayName(value: unknown, path: string): string {
   const displayName = decodeNonemptyString(value, path);
   if (
     displayName !== displayName.trim() ||
     CONTROL_CHARACTER.test(displayName) ||
-    Array.from(displayName).length > MAX_VERIFIED_INSTRUCTOR_DISPLAY_NAME_SCALARS
+    Array.from(displayName).length > MAX_INSTRUCTOR_DISPLAY_NAME_SCALARS
   ) {
-    throw new DecodeError(path, "one verified Instructor display name");
+    throw new DecodeError(path, "one Instructor display name");
   }
   return displayName;
 }
 
 function decodeStarredInstructor(value: unknown, path: string): QuestionStarredInstructor {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["displayName"]);
+  requireOnlyFields(record, path, ["displayName", "accountId"]);
+  const accountId = field(record, "accountId", path);
+  if (typeof accountId !== "string" || validateCanonicalPublicId("account", accountId) === null)
+    throw new DecodeError(`${path}.accountId`, "a canonical Instructor Account ID");
   return {
-    displayName: decodeVerifiedInstructorDisplayName(
+    displayName: decodeInstructorDisplayName(
       field(record, "displayName", path),
       `${path}.displayName`,
     ),
+    accountId,
   };
 }
 

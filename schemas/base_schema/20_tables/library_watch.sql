@@ -4,8 +4,8 @@
 SET LOCAL ROLE ple_data_owner;
 
 -- Private in-app Watch notifications for Question Library Objects.
--- This dedicated Watch outbox has exactly two target kinds and the four Human
--- Guidance event kinds. It is not a generic event bus and never delivers email.
+-- This dedicated Watch outbox has exactly two target kinds and the retained
+-- Human Guidance event kinds. It is not a generic event bus and never delivers email.
 -- One recipient row is the notification; reads JOIN recipient to event.
 CREATE TABLE ple_data.library_watch_event (
     event_id uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid(),
@@ -30,8 +30,6 @@ CREATE TABLE ple_data.library_watch_event (
             AND forked_public_id IS NULL AND activity_id IS NULL)
         OR (event_kind = 'fork' AND revision_number IS NOT NULL
             AND forked_public_id IS NOT NULL AND activity_id IS NULL)
-        OR (event_kind = 'improvement_thread' AND revision_number IS NOT NULL
-            AND forked_public_id IS NULL AND activity_id IS NOT NULL)
         OR (event_kind = 'impact_notice' AND forked_public_id IS NULL
             AND activity_id IS NOT NULL)
     )

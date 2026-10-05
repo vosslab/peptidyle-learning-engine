@@ -7,6 +7,7 @@ import {
   decodeBlueprintCourseView,
   decodeBlueprintMetadataState,
 } from "../src/api/decoders/blueprint_course.ts";
+import { publicBlueprintContent } from "../src/pages/blueprint_course_search_result.ts";
 import {
   ApiProtocolError,
   BlueprintCourseConflictError,
@@ -27,10 +28,61 @@ const classification = {
 const FOUR_MIB = 4 * 1_024 * 1_024;
 const SIXTEEN_MIB = 16 * 1_024 * 1_024;
 
+test("public Blueprint results show the owner display name as the author", () => {
+  const course = {
+    total_adoptions: 4,
+    total_students_ever_enrolled: 12,
+    star_count: 7,
+    watcher_count: 3,
+    last_edited_at_millis: 1_728_000_000_000,
+    id: "BPABCDEFGJ",
+    short_name: "Genetics",
+    long_name: "Genetics sequence",
+    availability: "public",
+    blueprint_edit_number: "1",
+    classification,
+    current_revision_tuple: { blueprintCourseId: "BPABCDEFGJ", revisionNumber: "1" },
+    read_access: "active_instructor",
+    owner_account_id: "U00000009",
+    owner_display_name: "Elena Rivera",
+    owner_affiliation: "Roosevelt University",
+  };
+  const decoded = decodeBlueprintCoursePage({ items: [course], nextCursor: null }).items[0];
+  assert.equal(decoded.owner_display_name, "Elena Rivera");
+  const content = publicBlueprintContent(decoded, "return-token", new Map(), () => {});
+  const author = content.details.find(
+    (detail) => detail.kind === "instructorProfile" && detail.label === "Author",
+  );
+  assert.equal(author?.displayName, decoded.owner_display_name);
+  assert.equal(author?.accountId, decoded.owner_account_id);
+  assert.equal(
+    content.details.find((detail) => detail.kind === "text" && detail.label === "Stars")?.value,
+    "7",
+  );
+  assert.equal(
+    content.details.find((detail) => detail.kind === "text" && detail.label === "Institution")
+      ?.value,
+    decoded.owner_affiliation,
+  );
+  assert.equal(
+    content.details.find((detail) => detail.kind === "text" && detail.label === "Watches")?.value,
+    "3",
+  );
+  assert.throws(() =>
+    decodeBlueprintCoursePage({
+      items: [{ ...course, owner_display_name: " Elena" }],
+      nextCursor: null,
+    }),
+  );
+});
+
 test("Blueprint discovery decoder accepts 250 rows and rejects 251", () => {
   const item = {
     total_adoptions: 0,
     total_students_ever_enrolled: 0,
+    star_count: 0,
+    watcher_count: 0,
+    last_edited_at_millis: 1_728_000_000_000,
     id: "BPABCDEFGJ",
     short_name: "Genetics",
     long_name: "Genetics sequence",
@@ -45,6 +97,9 @@ test("Blueprint discovery decoder accepts 250 rows and rejects 251", () => {
     },
     current_revision_tuple: { blueprintCourseId: "BPABCDEFGJ", revisionNumber: "1" },
     read_access: "active_instructor",
+    owner_account_id: "U00000009",
+    owner_display_name: "Elena Rivera",
+    owner_affiliation: "Roosevelt University",
   };
   const items = Array.from({ length: 250 }, () => item);
   assert.equal(decodeBlueprintCoursePage({ items, nextCursor: null }).items.length, 250);
@@ -75,7 +130,6 @@ function contentInput() {
         assessmentQuestionOrderRule: "authoredOrder",
       },
       student_feedback_release_rule: {
-        score: "after_submit",
         per_item_correctness: "after_submit",
         submitted_response: "after_submit",
         question_answer: "never",

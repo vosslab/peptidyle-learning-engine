@@ -74,21 +74,25 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                assessment_attempt.assessment_attempt_number,
                policy.due_at,
                policy.closes_at,
+               -- The Attempt snapshot preserves issued content and grading.
+               -- Disclosure settings remain current so an Instructor can release
+               -- Quiz/Exam answers when a Student never completes the Assessment.
                jsonb_build_object(
-                   'score', policy.feedback_score,
-                   'per_item_correctness', policy.feedback_per_item_correctness,
-                   'submitted_response', policy.feedback_submitted_response,
-                   'question_answer', policy.feedback_question_answer,
-                   'question_answer_explanation', policy.feedback_question_answer_explanation,
-                   'class_statistics', policy.feedback_class_statistics,
-                   'hints', policy.feedback_hints,
-                   'worked_solutions', policy.feedback_worked_solutions
+                   'per_item_correctness', disclosure_policy.feedback_per_item_correctness,
+                   'submitted_response', disclosure_policy.feedback_submitted_response,
+                   'question_answer', disclosure_policy.feedback_question_answer,
+                   'question_answer_explanation', disclosure_policy.feedback_question_answer_explanation,
+                   'class_statistics', disclosure_policy.feedback_class_statistics,
+                   'hints', disclosure_policy.feedback_hints,
+                   'worked_solutions', disclosure_policy.feedback_worked_solutions
                ) AS feedback_rule
           FROM ple_private.assessment_attempt AS assessment_attempt
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = assessment_attempt.assessment_id
           JOIN ple_data.assessment_policy_snapshot AS policy
             ON policy.assessment_policy_snapshot_id = assessment_attempt.assessment_policy_snapshot_id
+          JOIN ple_data.assessment_policy_snapshot AS disclosure_policy
+            ON disclosure_policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
          WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
            AND EXISTS (
                SELECT 1 FROM ple_private.assessment_submission AS submission
@@ -177,14 +181,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
               ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
             CROSS JOIN LATERAL ple_private.score_recorded_credit(
                 result.normalized_credit, snapshot.scoring_rule,
-                coalesce(
-                    (SELECT question.points_possible
-                       FROM ple_data.assessment_entry_question AS question
-                      WHERE question.assessment_entry_id = issued.assessment_entry_id),
-                    (SELECT pool.points_per_item
-                       FROM ple_data.assessment_entry_pool AS pool
-                      WHERE pool.assessment_entry_id = issued.assessment_entry_id),
-                    snapshot.points
+                ple_private.current_assessment_entry_points(
+                    issued.assessment_entry_id, snapshot.points
                 )
             ) AS score
            WHERE issued.assessment_attempt_id = owned.assessment_attempt_id
@@ -259,27 +257,24 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        )
        AND ple_api.course_student_work_is_ordinarily_visible(p_course_instance_id)
        AND (
-           ple_private.student_assessment_score_is_released(
-               policy.feedback_score, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-           OR ple_private.student_assessment_score_is_released(
+           submission.submitted_at IS NOT NULL
+           OR ple_private.student_assessment_feedback_is_released(
                policy.feedback_per_item_correctness, submission.submitted_at,
                policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
            )
-           OR ple_private.student_assessment_score_is_released(
+           OR ple_private.student_assessment_feedback_is_released(
                policy.feedback_submitted_response, submission.submitted_at,
                policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
            )
-           OR ple_private.student_assessment_score_is_released(
+           OR ple_private.student_assessment_feedback_is_released(
                policy.feedback_question_answer, submission.submitted_at,
                policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
            )
-           OR ple_private.student_assessment_score_is_released(
+           OR ple_private.student_assessment_feedback_is_released(
                policy.feedback_question_answer_explanation, submission.submitted_at,
                policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
            )
-           OR ple_private.student_assessment_score_is_released(
+           OR ple_private.student_assessment_feedback_is_released(
                policy.feedback_class_statistics, submission.submitted_at,
                policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
            )

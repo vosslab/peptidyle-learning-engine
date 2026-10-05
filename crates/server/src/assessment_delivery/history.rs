@@ -14,7 +14,7 @@ use domain::{
         AssessmentPolicySource, EffectiveAssessmentPolicy, EffectiveAssessmentPolicyValue,
     },
     student_feedback_release::{
-        evaluate_allowed_student_feedback_release, gate_quiz_exam_answers_for_current_cohort,
+        apply_all_students_completed_timing, evaluate_allowed_student_feedback_release,
         project_disclosed_support, project_student_feedback,
         score_current_student_feedback_release,
     },
@@ -125,12 +125,11 @@ pub(crate) fn history_decision(
         evidence.evaluated_at,
         evidence.submitted_at,
     );
-    // ASVS 8.2.3 and 8.3.1: Quiz and Exam answer fields require the
-    // database-authorized current-Course cohort decision; browser state cannot
-    // weaken this field-level gate.
-    gate_quiz_exam_answers_for_current_cohort(
+    // ASVS 2.2.2 and 2.3.1: only an explicitly configured all-Students timing
+    // uses this database-authorized current-Course completion decision.
+    apply_all_students_completed_timing(
         decision,
-        evidence.assessment_type,
+        evidence.feedback_rule,
         evidence.all_students_completed,
     )
 }
@@ -452,12 +451,10 @@ mod tests {
     }
 
     #[test]
-    fn score_and_correctness_remain_independent() {
-        let mut evidence = evidence();
-        evidence.feedback_rule.score = StudentFeedbackReleaseTiming::Never;
-        let history = project_history(&evidence);
+    fn submitted_current_grading_always_discloses_score() {
+        let history = project_history(&evidence());
 
-        assert!(history.score.is_none());
+        assert!(history.score.is_some());
         assert_eq!(history.questions[0].feedback.correctness, Some(false));
     }
 
@@ -483,13 +480,14 @@ mod tests {
     }
 
     #[test]
-    fn quiz_answer_release_uses_the_current_course_cohort_decision() {
+    fn quiz_answer_release_uses_current_course_completion_only_when_configured() {
         let mut evidence = evidence();
         evidence.assessment_type = AssessmentType::Quiz;
         evidence.all_students_completed = false;
-        evidence.feedback_rule.question_answer = StudentFeedbackReleaseTiming::AfterSubmit;
+        evidence.feedback_rule.question_answer =
+            StudentFeedbackReleaseTiming::AfterAllStudentsComplete;
         evidence.feedback_rule.question_answer_explanation =
-            StudentFeedbackReleaseTiming::AfterSubmit;
+            StudentFeedbackReleaseTiming::AfterAllStudentsComplete;
 
         let waiting = history_decision(&evidence);
 
@@ -500,6 +498,14 @@ mod tests {
         let released = history_decision(&evidence);
         assert!(released.question_answer);
         assert!(released.question_answer_explanation);
+
+        evidence.all_students_completed = false;
+        evidence.feedback_rule.question_answer = StudentFeedbackReleaseTiming::AfterSubmit;
+        evidence.feedback_rule.question_answer_explanation =
+            StudentFeedbackReleaseTiming::AfterSubmit;
+        let instructor_override = history_decision(&evidence);
+        assert!(instructor_override.question_answer);
+        assert!(instructor_override.question_answer_explanation);
     }
 
     #[test]

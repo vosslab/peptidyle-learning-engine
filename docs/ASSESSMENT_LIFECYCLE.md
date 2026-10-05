@@ -17,7 +17,7 @@ Draft Question
   -> render one Question at a time
   -> save complete Question responses while the Attempt is open
   -> submit the whole Assessment Attempt
-  -> disclose grading and feedback according to Assessment policy
+  -> show scores after automatic grading; apply the chosen correct-answer setting
   -> retain, archive, and ultimately delete FERPA-protected Student records
 ```
 
@@ -26,6 +26,11 @@ response. It cannot choose the Student, Course, Assessment, Question Revision,
 Pool ID, Pool Edit Number, Question Backend, backend state, score, feedback
 policy, or retention action. The server derives those facts from authenticated
 context and stored relationships.
+
+Optional Question Feedback timing remains deferred in HG. It does not control
+score availability. Post-issue content edits follow
+[HG's limits](HUMAN_GUIDANCE.md#assessment-content-edits-after-issue), including
+removal of a bad Pool's earned and possible points from every Attempt.
 
 ## Related identities and owners
 
@@ -71,8 +76,8 @@ that Assessment.
 
 Assessment is the generic product object. Its Assessment Type is one of:
 
-- Regular Assignment
-- Practice Question Assignment
+- Weekly Assignment
+- Unit Review Assignment
 - Bonus Assignment
 - Quiz
 - Exam
@@ -87,7 +92,7 @@ a Course or Blueprint. It contains no Questions or Question Pools.
 
 A Course Instance Assessment starts Unreleased. The Instructor configures its
 Questions, Pool selections, point values, instructions, timing, Attempt limit,
-late behavior, and feedback behavior, then runs the automated, interactive
+late behavior, and submission/correct-answer visibility, then runs the automated, interactive
 Assessment Release Validation. Validation explains missing, invalid, or
 unreasonable values; it checks Questions, point values, Attempt/time limits,
 date order, a due date at least 24 hours in the future, and a due date no later
@@ -140,7 +145,7 @@ same open Attempt and its saved responses. These actions do not start a new
 Attempt or extend its deadline. Attempt limits and whether another Attempt may
 start are Assessment policy.
 
-Regular Assignment defaults support repeated work toward success, including an
+Weekly Assignment defaults support repeated work toward success, including an
 unlimited-Attempt default. When more than one Attempt is submitted, the highest
 Assessment Attempt score is the Student's Assessment score.
 
@@ -201,13 +206,12 @@ deferred-completion state, or generalized grading receipt.
 
 ## Disclose results and feedback
 
-After Assessment Attempt submission, authorized readers may see only the result
-and correct-answer material allowed by Assessment policy. Practice Question
-Assignments use the same submission boundary and show the correct answer
-immediately after submission. Optional Question Feedback is shown when the
-Question Backend provides it and does not use Assessment correct-answer
-disclosure settings. The browser never submits a score, correctness assertion,
-Answer Key, or component weight.
+After Assessment Attempt submission and automatic grading, Students see their
+Question scores and Assessment total. Correct answers follow the Instructor's
+selected visibility setting; Unit Review Assignments default to showing them
+immediately after submission. Optional Question Feedback timing and its relation
+to correct-answer visibility remain deferred in HG. The browser never submits a
+score, correctness assertion, Answer Key, or component weight.
 
 ## Question Backend boundary
 

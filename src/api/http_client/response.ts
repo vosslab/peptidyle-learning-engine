@@ -15,6 +15,7 @@ import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId
 import type { ApiClient } from "../client";
 import type {
   ProfileAvatarView,
+  InstructorProfileView,
   ProfileImageCropInput,
   SelectProvidedProfileAvatarInput,
 } from "../profile_avatar";
@@ -53,6 +54,7 @@ import {
 } from "../decoders/profile_settings";
 import {
   decodeProfileAvatarView,
+  decodeInstructorProfileView,
   decodeProfileImageCropInput,
   decodeSelectProvidedProfileAvatarInput,
 } from "../decoders/profile_avatar";
@@ -268,6 +270,22 @@ async function profileAvatar(
   return decodeProfileAvatarView(await boundedResponseJson(response, path));
 }
 
+async function instructorProfile(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  accountId: string,
+): Promise<InstructorProfileView> {
+  const path = `/api/instructor-profiles/${encodedId(accountId)}`;
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    headers: { accept: "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeInstructorProfileView(await boundedResponseJson(response, path));
+}
+
 async function selectProvidedProfileAvatar(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -479,6 +497,7 @@ export function createResponseClient(
   | "updateDisplayModePreference"
   | "updateInstructorPersonalTheme"
   | "getProfileAvatar"
+  | "getInstructorProfile"
   | "selectProvidedProfileAvatar"
   | "replaceProfileAvatarImage"
   | "fetchProfileAvatarImage"
@@ -512,6 +531,8 @@ export function createResponseClient(
     updateInstructorPersonalTheme: (input) =>
       saveInstructorPersonalTheme(fetchImplementation, basePath, input),
     getProfileAvatar: () => profileAvatar(fetchImplementation, basePath),
+    getInstructorProfile: (accountId) =>
+      instructorProfile(fetchImplementation, basePath, accountId),
     selectProvidedProfileAvatar: (input) =>
       selectProvidedProfileAvatar(fetchImplementation, basePath, input),
     replaceProfileAvatarImage: (image, crop) =>

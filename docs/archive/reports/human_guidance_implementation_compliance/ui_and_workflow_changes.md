@@ -23,20 +23,19 @@ interfaces. Open readings are recorded once in
 
 ## Open readings in this area
 
-Interface design has 24 open rows.
+Interface design has 23 open rows.
 
 - Positions 103 and 114 ask whether the shipped task ribbons and the precision field
   console already meet the broad design sentences.
 - Position 154 asks whether the role badge stays immediately left of the logo, or
   follows the later top bar order.
-- Positions 215 and 225 ask whether a private Profile image must appear on other
+- Positions 224 and 234 ask whether a private Profile image must appear on other
   people's screens.
-- Positions 269 and 270 ask whether Blueprint results and sorts must grow fields the
-  summary view does not have.
-- Positions 317 through 327 are the Question Library search notes, including hover
+- Position 279 asks whether Blueprint sorts must add Stars, Watches, and last edit.
+- Positions 326 through 336 are the Question Library search notes, including hover
   preview, a new tab, advanced-search comparisons, and a Question ID poster.
-- Position 388 asks whether the Student guidance line is a heading or a new surface.
-- Positions 460, 466, 470, 472, and 475 are the Sysadmin menu, approval, settings,
+- Position 397 asks whether the Student guidance line is a heading or a new surface.
+- Positions 469, 475, 479, 481, and 484 are the Sysadmin menu, approval, settings,
   secondary navigation, and the unlocked Ribbon layout.
 
-Interface design: 345 verified, 24 open, 4 not applicable.
+Interface design: 355 verified, 23 open, 4 not applicable.

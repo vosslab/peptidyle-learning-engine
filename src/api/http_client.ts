@@ -45,7 +45,6 @@ import {
   createContentDisciplineAdministrationClient,
 } from "./http_client/content_classification";
 import { createCourseStudentWorkRecoveryClient } from "./http_client/course_student_work_recovery";
-import { createLibraryDiscussionClient } from "./http_client/library_discussion";
 import { createLibraryWatchNotificationClient } from "./http_client/library_watch_notification";
 import { createBloomClassificationCorrectionClient } from "./http_client/bloom_classification";
 
@@ -103,7 +102,6 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createContentClassificationClient(fetchImplementation, basePath),
     createContentDisciplineAdministrationClient(fetchImplementation, basePath),
     createCourseStudentWorkRecoveryClient(fetchImplementation, basePath),
-    createLibraryDiscussionClient(fetchImplementation, basePath),
     createLibraryWatchNotificationClient(fetchImplementation, basePath),
     createBloomClassificationCorrectionClient(fetchImplementation, basePath),
     responses,

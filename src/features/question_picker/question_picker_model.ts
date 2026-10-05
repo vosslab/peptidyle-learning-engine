@@ -327,7 +327,10 @@ function reusableQuestionLibraryRow(item: {
     disciplineName: item.disciplineName,
     disciplineIsRetired: item.disciplineIsRetired,
     questionFormat: summary.questionFormat,
-    authorNames: summary.authorship.authors.map((author) => author.displayName),
+    authors: summary.authorship.authors.map((author) => ({
+      displayName: author.displayName,
+      accountId: null,
+    })),
     capabilities: summary.capabilities,
     questionLicense: summary.metadata.questionLicense,
     evidence,

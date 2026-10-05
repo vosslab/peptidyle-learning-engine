@@ -4,7 +4,7 @@ import type { Page } from "playwright";
 
 import type { DisplayMode } from "../../../generated/api/DisplayMode";
 import type { Theme } from "../../../generated/api/Theme";
-import { choosePersona, courseCard, COURSE_TITLE } from "./visible_workflows";
+import { choosePersona, courseCard, COURSE_TITLE, followCaptureLink } from "./visible_workflows";
 
 export interface DocumentAppearance {
   readonly theme: Theme;
@@ -67,7 +67,7 @@ export async function openSeededCourseAppearance(page: Page): Promise<string> {
   if (courseInstanceId === null || courseInstanceId.length === 0) {
     throw new Error(`Seeded Course ${COURSE_TITLE} has no stable record ID.`);
   }
-  await course.getByRole("link", { name: "Open Course", exact: true }).click();
+  await followCaptureLink(page, course.getByRole("link", { name: "Open Course", exact: true }));
   await page.locator('[data-route-surface="courseInstance"]').waitFor();
   await page.getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true }).waitFor();
   await page
@@ -124,7 +124,7 @@ export async function openSeededCourseWorkspace(
   await tabs.getByRole("link", { name: "Courses", exact: true }).click();
   await page.locator('[data-route-surface="courses"]').waitFor();
   const course = courseCard(page, COURSE_TITLE);
-  await course.getByRole("link", { name: "Open Course", exact: true }).click();
+  await followCaptureLink(page, course.getByRole("link", { name: "Open Course", exact: true }));
   await page.locator('[data-route-surface="courseInstance"]').waitFor();
   await page.getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true }).waitFor();
   await assertDocumentAppearance(page, expected);

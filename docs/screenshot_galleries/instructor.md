@@ -236,6 +236,10 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Instructor Profile.** default profile - laptop.
 
+[![Screenshot preview of Instructor Profile](../screenshots/instructor/public_profile.webp)](../screenshots/instructor/public_profile.webp)
+
+**Instructor Profile.** active Instructor Profile - laptop.
+
 [![Screenshot preview of Private Question drafts](../screenshots/instructor/questions-drafts-draft_list.webp)](../screenshots/instructor/questions-drafts-draft_list.webp)
 
 **Private Question drafts.** draft list - laptop.

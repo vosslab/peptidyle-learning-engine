@@ -6,10 +6,10 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
+    AuthenticationEmail, CreateInstructorAccountInput, CreatedInstructorAccount,
     DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountList,
-    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
-    InstructorIdentityVettingDecisionId, ProvidedAvatarId, SessionTokenHash, StoreError,
+    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary, ProvidedAvatarId,
+    SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the deliberate Sysadmin-only Instructor Accounts surface.
@@ -53,26 +53,6 @@ impl PostgresInstructorAccountStore {
 
 #[async_trait]
 impl InstructorAccountStore for PostgresInstructorAccountStore {
-    async fn complete_instructor_identity_vetting(
-        &self,
-        token: SessionTokenHash,
-        input: CompleteInstructorIdentityVettingInput,
-    ) -> Result<InstructorIdentityVettingDecisionId, StoreError> {
-        input.validate()?;
-        let mut tx = self.begin(token).await?;
-        // ASVS 8.2.1 and 8.3.1: PostgreSQL derives the active Sysadmin from
-        // the installed session; this adapter supplies no actor or role field.
-        let decision_id: uuid::Uuid =
-            sqlx::query_scalar("SELECT ple_api.complete_instructor_identity_vetting($1, $2)")
-                .bind(input.normalized_email)
-                .bind(input.verified_instructor_display_name)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(InstructorIdentityVettingDecisionId::from_uuid(decision_id))
-    }
-
     async fn list_instructor_accounts(
         &self,
         token: SessionTokenHash,
@@ -140,23 +120,57 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         &self,
         token: SessionTokenHash,
         input: CreateInstructorAccountInput,
-    ) -> Result<InstructorAccountSummary, StoreError> {
+    ) -> Result<CreatedInstructorAccount, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
         let account_id = sqlx::query_scalar(
             "SELECT account_id \
-             FROM ple_api.create_instructor_account($1, $2)",
+             FROM ple_api.create_instructor_account($1, $2, $3, $4)",
         )
         .bind(input.normalized_email)
-        .bind(input.vetting_decision_id.as_uuid())
+        .bind(input.first_name)
+        .bind(input.last_name)
+        .bind(input.affiliation)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
         let record = summary_for_account(&mut tx, account_id)
             .await?
             .ok_or(StoreError::NotFound)?;
+        let delivery_email = sqlx::query_scalar::<_, String>(
+            "SELECT ple_api.instructor_setup_email_destination($1)",
+        )
+        .bind(record.id.as_string())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let setup_email_destination = AuthenticationEmail::parse(&delivery_email)
+            .map_err(|_| invalid("Instructor Authentication Email"))?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(record)
+        Ok(CreatedInstructorAccount {
+            account: record,
+            setup_email_destination,
+        })
+    }
+
+    async fn instructor_setup_email_destination(
+        &self,
+        token: SessionTokenHash,
+        account_id: AccountId,
+    ) -> Result<AuthenticationEmail, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let delivery_email = sqlx::query_scalar::<_, String>(
+            "SELECT ple_api.instructor_setup_email_destination($1)",
+        )
+        .bind(account_id.as_string())
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let destination = AuthenticationEmail::parse(&delivery_email)
+            .map_err(|_| invalid("Instructor Authentication Email"))?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(destination)
     }
 
     async fn deactivate_instructor_account(

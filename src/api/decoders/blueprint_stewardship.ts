@@ -50,7 +50,7 @@ export function decodeBlueprintStarredInstructors(
         /[\p{Cc}]/u.test(displayName) ||
         Array.from(displayName).length > 200
       )
-        throw new DecodeError(`${path}.displayName`, "one verified Instructor display name");
+        throw new DecodeError(`${path}.displayName`, "one Instructor display name");
       return { displayName };
     },
   );

@@ -12,7 +12,8 @@ use learning_data_access::{
         PostgresAccountTimeZoneStore, PostgresArchivedStudentWorkRecoveryStore,
         PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
         PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
-        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
+        PostgresAuthenticationCeremonyStore, PostgresAuthoringDraftStore,
+        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
         PostgresBulkQuestionPoolSearchMetadataStore, PostgresContentClassificationStore,
         PostgresCourseBannerStore, PostgresCourseBlueprintPublicationStore,
@@ -21,7 +22,7 @@ use learning_data_access::{
         PostgresCourseRosterStore, PostgresCourseThemeStore, PostgresDraftQuestionImageStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
         PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
-        PostgresLibraryDiscussionStore, PostgresLibraryWatchNotificationStore,
+        PostgresLibraryImpactNoticeStore, PostgresLibraryWatchNotificationStore,
         PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
         PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionForkStore, PostgresQuestionImageDeliveryStore,
@@ -37,7 +38,8 @@ use question_model::QuestionRendererVersion;
 
 use crate::auth::{
     AuthenticationStores, CookieTransport, ProductionBrowserBoundary, SessionConfig,
-    live_demo_mfa_router, live_demo_router, session_router, sysadmin_totp_router,
+    email_code_router, live_demo_mfa_router, live_demo_router, session_router,
+    sysadmin_totp_router,
 };
 
 #[path = "composition_live_demo.rs"]
@@ -68,6 +70,12 @@ pub async fn production_router_from_env() -> Result<Router> {
         .map_err(anyhow::Error::msg)
         .context("could not configure API readiness checks")?;
     let sessions = Arc::new(PostgresSessionStore::new(pool.clone()));
+    let email_ceremonies = Arc::new(PostgresAuthenticationCeremonyStore::new(pool.clone()));
+    let instructor_setup_email = Arc::new(instructor_setup_email_delivery_from_env()?);
+    let email_code_delivery = instructor_setup_email.is_configured().then(|| {
+        Arc::clone(&instructor_setup_email)
+            as Arc<dyn crate::instructor_setup_email_delivery::InstructorSetupEmailDelivery>
+    });
     let sysadmin_totp = local_sysadmin_totp_store_from_env(pool.clone())?;
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
     let question_bulk_metadata = PostgresBulkPublishedQuestionMetadataStore::new(pool.clone());
@@ -81,7 +89,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
     let question_stars = PostgresQuestionStarStore::new(pool.clone());
     let question_watches = PostgresQuestionWatchStore::new(pool.clone());
-    let library_discussions = PostgresLibraryDiscussionStore::new(pool.clone());
+    let library_impact_notices = PostgresLibraryImpactNoticeStore::new(pool.clone());
     let library_watch_notifications = PostgresLibraryWatchNotificationStore::new(pool.clone());
     let blueprint_stewardship = PostgresBlueprintStewardshipStore::new(pool.clone());
     let course_themes = PostgresCourseThemeStore::new(pool.clone());
@@ -136,7 +144,18 @@ pub async fn production_router_from_env() -> Result<Router> {
                 Arc::clone(&sessions),
                 sysadmin_totp,
             ));
-            session_router(Arc::clone(&sessions), session_config)
+            let router = session_router(Arc::clone(&sessions), session_config);
+            let router = if let Some(delivery) = email_code_delivery {
+                router.merge(email_code_router(
+                    Arc::clone(&email_ceremonies),
+                    Arc::clone(&sessions),
+                    delivery,
+                    session_config,
+                ))
+            } else {
+                router
+            };
+            router
                 .merge(live_demo_mfa_router(
                     Arc::clone(&authentication_stores),
                     live_demo_config_from_env()?,
@@ -144,11 +163,24 @@ pub async fn production_router_from_env() -> Result<Router> {
                 ))
                 .merge(sysadmin_totp_router(authentication_stores, session_config))
         }
-        None => session_router(Arc::clone(&sessions), session_config).merge(live_demo_router(
-            Arc::clone(&sessions),
-            live_demo_config_from_env()?,
-            session_config,
-        )),
+        None => {
+            let router = session_router(Arc::clone(&sessions), session_config);
+            let router = if let Some(delivery) = email_code_delivery {
+                router.merge(email_code_router(
+                    email_ceremonies,
+                    Arc::clone(&sessions),
+                    delivery,
+                    session_config,
+                ))
+            } else {
+                router
+            };
+            router.merge(live_demo_router(
+                Arc::clone(&sessions),
+                live_demo_config_from_env()?,
+                session_config,
+            ))
+        }
     };
     let router = Router::new()
         .merge(readiness_router)
@@ -216,9 +248,9 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             question_watches,
         ))
-        .merge(crate::library_discussion::library_discussion_router(
+        .merge(crate::library_discussion::library_impact_notice_router(
             Arc::clone(&sessions),
-            library_discussions,
+            library_impact_notices,
         ))
         .merge(
             crate::library_watch_notification::library_watch_notification_router(
@@ -269,6 +301,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::instructor_account::instructor_account_router(
             Arc::clone(&sessions),
             instructor_accounts,
+            instructor_setup_email,
         ))
         .merge(crate::profile_avatar::profile_avatar_router(
             Arc::clone(&sessions),
@@ -532,6 +565,30 @@ fn course_retention_notification_delivery_from_env()
     }
 }
 
+fn instructor_setup_email_delivery_from_env()
+-> Result<crate::instructor_setup_email_delivery::InstructorSetupEmailDeliveryAdapter> {
+    let url = optional_env("PLE_INSTRUCTOR_SETUP_SMTP_URL");
+    let from = optional_env("PLE_INSTRUCTOR_SETUP_FROM");
+    let origin = optional_env("PLE_BROWSER_ORIGIN");
+    instructor_setup_email_delivery(url, from, origin)
+}
+
+fn instructor_setup_email_delivery(
+    url: Option<String>,
+    from: Option<String>,
+    origin: Option<String>,
+) -> Result<crate::instructor_setup_email_delivery::InstructorSetupEmailDeliveryAdapter> {
+    match (url, from, origin) {
+        (None, None, _) => Ok(crate::instructor_setup_email_delivery::InstructorSetupEmailDeliveryAdapter::not_configured()),
+        (Some(url), Some(from), Some(origin)) => crate::instructor_setup_email_delivery::InstructorSetupEmailDeliveryAdapter::smtp(&url, &from, &origin)
+            .map_err(anyhow::Error::msg)
+            .context("could not configure Instructor setup email delivery"),
+        _ => bail!(
+            "Instructor setup email delivery requires PLE_INSTRUCTOR_SETUP_SMTP_URL, PLE_INSTRUCTOR_SETUP_FROM, and PLE_BROWSER_ORIGIN"
+        ),
+    }
+}
+
 fn optional_env(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|value| !value.is_empty())
 }
@@ -785,6 +842,17 @@ mod tests {
             self.0.lock().expect("test store lock").remove(&token_hash);
             Ok(())
         }
+    }
+
+    #[test]
+    fn browser_origin_does_not_require_an_email_provider() {
+        let delivery = super::instructor_setup_email_delivery(
+            None,
+            None,
+            Some("https://localhost:8443".to_owned()),
+        )
+        .expect("email delivery is optional");
+        assert!(!delivery.is_configured());
     }
 
     #[tokio::test]

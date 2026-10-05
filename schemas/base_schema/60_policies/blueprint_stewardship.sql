@@ -38,6 +38,15 @@ CREATE POLICY blueprint_course_watch_data_owner_access
     ON ple_data.blueprint_course_watch FOR ALL TO ple_data_owner
     USING (true) WITH CHECK (true);
 
+-- Public Blueprint discovery runs under ple_api_owner and projects only
+-- aggregate counts. Browser-facing ple_app receives neither policy nor table
+-- privileges for the individual Star or Watch facts.
+CREATE POLICY blueprint_course_star_api_aggregate_read
+    ON ple_data.blueprint_course_star FOR SELECT TO ple_api_owner USING (true);
+
+CREATE POLICY blueprint_course_watch_api_aggregate_read
+    ON ple_data.blueprint_course_watch FOR SELECT TO ple_api_owner USING (true);
+
 SET LOCAL ROLE ple_private_owner;
 
 CREATE POLICY account_blueprint_watch_notification_data_read ON ple_private.account
@@ -61,4 +70,3 @@ CREATE POLICY blueprint_course_watch_notification_data_materialization_insert
 CREATE POLICY blueprint_course_watch_notification_data_read
     ON ple_private.blueprint_course_watch_notification FOR SELECT TO ple_data_owner
     USING (true);
-

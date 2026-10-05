@@ -706,6 +706,7 @@ mod tests {
                         "Fixture Author".to_string(),
                     )
                     .expect("valid Question Author"),
+                    account_id: None,
                 }])
                 .expect("valid Question Authorship"),
                 availability: QuestionAvailability::Available,

@@ -500,9 +500,9 @@ RETURNS TABLE(course_instance_id text, course_short_name text, course_long_name 
               instructor_display_name text, term_starts_on date, term_ends_on date)
 LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     -- ASVS 8.2.2/8.2.3/14.2.6: self-only invitations reveal the assigned
-    -- Instructor's verified display name and Course term, never roster identities.
+    -- Instructor's public display name and Course term, never roster identities.
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
-           ple_private.verified_instructor_display_name(
+           ple_private.instructor_display_name(
                pending_invitation.inviting_instructor_account_id
            ),
            course.term_starts_on, course.term_ends_on

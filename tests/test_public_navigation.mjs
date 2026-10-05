@@ -114,6 +114,7 @@ const CANONICAL_ROUTE_IDS = {
   draftQuestionId: UUID_ROUTE_ID,
   proposalId: UUID_ROUTE_ID,
   membershipId: UUID_ROUTE_ID,
+  accountId: "U00000009",
 };
 
 function fillRoute(path, overrides = {}) {

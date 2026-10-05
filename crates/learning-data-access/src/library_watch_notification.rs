@@ -31,10 +31,6 @@ pub enum LibraryWatchActivity {
         source_revision_number: u64,
         forked_public_id: PublishedQuestionId,
     },
-    ImprovementThread {
-        creation_revision_number: u64,
-        thread_id: Uuid,
-    },
     ImpactNotice {
         affected_revision_number: Option<u64>,
         impact_notice_id: Uuid,

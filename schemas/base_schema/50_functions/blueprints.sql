@@ -182,7 +182,7 @@ BEGIN
                 'questionVariationRule',
                 'assessmentQuestionOrderRule'
             ]) OR NOT ple_data.blueprint_content_has_exact_keys(feedback_value, ARRAY[
-                'score', 'per_item_correctness', 'submitted_response',
+                'per_item_correctness', 'submitted_response',
                 'question_answer', 'question_answer_explanation', 'class_statistics',
                 'hints', 'worked_solutions'
             ]) THEN

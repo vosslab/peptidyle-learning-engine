@@ -119,6 +119,12 @@ human review.
 | --- | --- | --- |
 | [![Screenshot preview of Instructor Profile](screenshots/instructor/default.webp)](screenshots/instructor/default.webp)<br>Instructor Profile<br>default profile - laptop |  |  |
 
+#### Instructor Profile Visibility
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Instructor Profile](screenshots/instructor/public_profile.webp)](screenshots/instructor/public_profile.webp)<br>Instructor Profile<br>active Instructor Profile - laptop |  |  |
+
 ### Question Authoring
 
 #### Publication
@@ -181,8 +187,8 @@ human review.
 | | | |
 | --- | --- | --- |
 | [![Screenshot preview of Student Course Progress](screenshots/student/laptop/course_progress.webp)](screenshots/student/laptop/course_progress.webp)<br>Student Course Progress<br>completed Attempts and score status - laptop<br>Featured | [![Screenshot preview of Student Course Progress on a tablet](screenshots/student/tablet/course_progress.webp)](screenshots/student/tablet/course_progress.webp)<br>Student Course Progress on a tablet<br>completed Attempts and score status - tablet | [![Screenshot preview of Student Course Progress on a phone](screenshots/student/phone/course_progress.webp)](screenshots/student/phone/course_progress.webp)<br>Student Course Progress on a phone<br>completed Attempts and score status - phone |
-| [![Screenshot preview of Student Course Progress on a square](screenshots/student/square/course_progress.webp)](screenshots/student/square/course_progress.webp)<br>Student Course Progress on a square<br>completed Attempts and score status - square | [![Screenshot preview of Student Progress when an Attempt has no released score](screenshots/student/laptop/course_progress_unreleased.webp)](screenshots/student/laptop/course_progress_unreleased.webp)<br>Student Progress when an Attempt has no released score<br>Attempts with no released score - laptop | [![Screenshot preview of Student Progress when an Attempt has no released score on a tablet](screenshots/student/tablet/course_progress_unreleased.webp)](screenshots/student/tablet/course_progress_unreleased.webp)<br>Student Progress when an Attempt has no released score on a tablet<br>Attempts with no released score - tablet |
-| [![Screenshot preview of Student Progress when an Attempt has no released score on a phone](screenshots/student/phone/course_progress_unreleased.webp)](screenshots/student/phone/course_progress_unreleased.webp)<br>Student Progress when an Attempt has no released score on a phone<br>Attempts with no released score - phone | [![Screenshot preview of Student Progress when an Attempt has no released score on a square](screenshots/student/square/course_progress_unreleased.webp)](screenshots/student/square/course_progress_unreleased.webp)<br>Student Progress when an Attempt has no released score on a square<br>Attempts with no released score - square |  |
+| [![Screenshot preview of Student Course Progress on a square](screenshots/student/square/course_progress.webp)](screenshots/student/square/course_progress.webp)<br>Student Course Progress on a square<br>completed Attempts and score status - square | [![Screenshot preview of Student Progress with an active Attempt](screenshots/student/laptop/course_progress_unreleased.webp)](screenshots/student/laptop/course_progress_unreleased.webp)<br>Student Progress with an active Attempt<br>active Attempt awaiting submission - laptop | [![Screenshot preview of Student Progress with an active Attempt on a tablet](screenshots/student/tablet/course_progress_unreleased.webp)](screenshots/student/tablet/course_progress_unreleased.webp)<br>Student Progress with an active Attempt on a tablet<br>active Attempt awaiting submission - tablet |
+| [![Screenshot preview of Student Progress with an active Attempt on a phone](screenshots/student/phone/course_progress_unreleased.webp)](screenshots/student/phone/course_progress_unreleased.webp)<br>Student Progress with an active Attempt on a phone<br>active Attempt awaiting submission - phone | [![Screenshot preview of Student Progress with an active Attempt on a square](screenshots/student/square/course_progress_unreleased.webp)](screenshots/student/square/course_progress_unreleased.webp)<br>Student Progress with an active Attempt on a square<br>active Attempt awaiting submission - square |  |
 
 ### Grades
 
@@ -359,12 +365,13 @@ human review.
 | studentCourses | captured | student_course_list_laptop, student_course_list_tablet, student_course_list_phone, student_course_list_square, student_two_course_list_laptop, student_two_course_list_tablet, student_two_course_list_phone, student_two_course_list_square |
 | sysadminHome | captured | sysadmin_course_list |
 | profile | captured | instructor_default, student_profile_laptop, student_profile_tablet, student_profile_phone, student_profile_square |
+| instructorProfile | captured | instructor_public_profile |
 | signIn | captured | public_sign_in_laptop, public_sign_in_phone |
 | pendingCourseInvitations | deferred | Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots. |
 | studentCourseInvitations | captured | student_invitation_index_laptop, student_invitation_index_tablet, student_invitation_index_phone, student_invitation_index_square |
 | studentCourseInvitation | captured | student_invitation_detail_laptop, student_invitation_detail_tablet, student_invitation_detail_phone, student_invitation_detail_square |
 | studentCourseLanding | captured | student_course_landing_laptop, student_course_landing_tablet, student_course_landing_phone, student_course_landing_square |
-| studentCourseProgress | captured | student_course_progress_laptop, student_course_progress_tablet, student_course_progress_phone, student_course_progress_square, student_course_progress_unreleased_laptop, student_course_progress_unreleased_tablet, student_course_progress_unreleased_phone, student_course_progress_unreleased_square |
+| studentCourseProgress | captured | student_course_progress_laptop, student_course_progress_tablet, student_course_progress_phone, student_course_progress_square, student_course_progress_in_progress_laptop, student_course_progress_in_progress_tablet, student_course_progress_in_progress_phone, student_course_progress_in_progress_square |
 | studentResponseStats | captured | student_response_stats_laptop, student_response_stats_tablet, student_response_stats_phone, student_response_stats_square |
 | studentDueSoon | captured | student_course_due_soon_laptop, student_course_due_soon_tablet, student_course_due_soon_phone, student_course_due_soon_square |
 | studentCompleted | captured | student_course_completed_laptop, student_course_completed_tablet, student_course_completed_phone, student_course_completed_square |

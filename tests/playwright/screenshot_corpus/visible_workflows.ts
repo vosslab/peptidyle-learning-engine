@@ -1,6 +1,6 @@
 // visible_workflows.ts - reusable visible application actions for browser tests and captures.
 
-import type { Locator, Page } from "playwright";
+import type { Dialog, Locator, Page } from "playwright";
 
 import { localDemoAuthenticationCode } from "./local_demo_authenticator";
 
@@ -43,6 +43,47 @@ export function courseworkRow(page: Page, title: string = ASSIGNMENT_TITLE): Loc
   });
 }
 
+/**
+ * Traverses a rendered capture link. Record-list entries open in a separate tab in the product;
+ * capture reuses its dedicated Page after verifying the rendered same-origin, noopener destination.
+ * This records navigation to the UI-provided URL, not a click or new-tab behavior assertion.
+ * RecordList and Question Library browser lanes own that interaction behavior.
+ */
+export async function followCaptureLink(page: Page, link: Locator): Promise<void> {
+  await link.waitFor();
+  const [href, target, rel] = await Promise.all([
+    link.getAttribute("href"),
+    link.getAttribute("target"),
+    link.getAttribute("rel"),
+  ]);
+  if (href === null || href.length === 0) throw new Error("Capture link has no rendered href.");
+  if (target !== "_blank") {
+    await link.click();
+    return;
+  }
+  if (rel !== "noopener") throw new Error("Capture new-tab link must use rel=noopener.");
+  const destination = new URL(href, page.url());
+  if (destination.origin !== new URL(page.url()).origin) {
+    throw new Error("Capture new-tab link must stay on the Live Demo origin.");
+  }
+  let unexpectedDialog = false;
+  const allowCaptureExit = (dialog: Dialog): void => {
+    if (dialog.type() === "beforeunload") void dialog.accept();
+    else {
+      unexpectedDialog = true;
+      void dialog.dismiss();
+    }
+  };
+  // Capture traversal deliberately leaves this page; normal new-tab clicks do not.
+  page.on("dialog", allowCaptureExit);
+  try {
+    await page.goto(destination.href, { waitUntil: "commit" });
+  } finally {
+    page.off("dialog", allowCaptureExit);
+  }
+  if (unexpectedDialog) throw new Error("Unexpected dialog during capture traversal.");
+}
+
 export async function openAllStudentCoursework(page: Page): Promise<void> {
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
@@ -62,7 +103,7 @@ export async function openInstructorCourse(
   await courses.click();
   await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
   const card = courseCard(page, title);
-  await card.getByRole("link", { name: "Open Course", exact: true }).click();
+  await followCaptureLink(page, card.getByRole("link", { name: "Open Course", exact: true }));
   await page.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
 }
 
@@ -76,7 +117,7 @@ export async function openStudentCourse(page: Page, title: string = COURSE_TITLE
   await openStudentCourseList(page);
   const card = courseCard(page, title);
   await card.waitFor();
-  await card.getByRole("link", { name: "Open Course", exact: true }).click();
+  await followCaptureLink(page, card.getByRole("link", { name: "Open Course", exact: true }));
   await studentCourseHeading(page, title).waitFor();
 }
 
@@ -104,7 +145,7 @@ export const ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_
 export async function openStudentAssignment(page: Page): Promise<void> {
   const card = assignmentCard(page);
   // The card verb is Open, Resume, or Review depending on prior replays; the link is the same.
-  await card.getByRole("link").first().click();
+  await followCaptureLink(page, card.getByRole("link").first());
   await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
   await page.getByRole("button", { name: ASSESSMENT_ENTRY_BUTTON }).waitFor();
 }
@@ -114,7 +155,7 @@ export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> 
   const card = assignmentCard(page);
   // The overview auto-resumes an active Attempt when its activeAttemptId loads, so the landing
   // action leads to the Attempt surface without requiring a transient overview button.
-  await card.getByRole("link").first().click();
+  await followCaptureLink(page, card.getByRole("link").first());
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
 }
 

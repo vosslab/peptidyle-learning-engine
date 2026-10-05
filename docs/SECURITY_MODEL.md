@@ -35,7 +35,9 @@ reads are limited to the exact Course relationship.
 
 A Sysadmin administers the platform but has no ambient Course membership or
 FERPA access. Support access to Student records is deliberate, narrowly scoped,
-and recorded. Creating or configuring a Course does not silently give the
+and recorded, and a Sysadmin initiates it under their own authority without
+Instructor approval. Much of the functionality beyond Instructor Account
+creation is deferred until concrete needs are established. Creating or configuring a Course does not silently give the
 Sysadmin an Instructor relationship.
 
 ### Future Course roles
@@ -66,7 +68,7 @@ the authorized workspace.
 
 Publication validates server-held source and creates or advances a stable
 Published Question lineage with immutable Question Revisions. Published
-answer-free content may be discovered by vetted Instructors. Private source,
+answer-free content may be discovered by Instructors. Private source,
 Answer Keys, grading inputs, workspace identifiers, and credentials remain
 private.
 
@@ -128,8 +130,10 @@ incorrect without being sent to a backend. Repeating submission is idempotent. A
 submission, responses and credit fractions are immutable.
 
 Protected Attempt routes return only the answer-free presentation, saved-state
-information, the Student's response, authoritative timing, and results or
-feedback permitted by policy. They never return Answer Keys, private grading
+information, the Student's response, authoritative timing, and scores after
+submission and automatic grading. Correct answers follow the selected visibility
+setting; optional Question Feedback timing remains deferred in HG. These routes
+do not expose private Answer Keys, private grading
 inputs, backend credentials, worker state, or raw provider output.
 
 ## Assessment Unrelease
@@ -143,7 +147,7 @@ Failure leaves both state and Student Work unchanged.
 ## Blueprint boundary
 
 Private Blueprints are owner-only and cannot be adopted. Public Blueprints are
-visible to vetted Instructors and adoptable. Archived Blueprints are read-only,
+visible to Instructors and adoptable. Archived Blueprints are read-only,
 excluded from ordinary discovery and new adoption, available only through
 explicit archived inclusion, and forkable.
 

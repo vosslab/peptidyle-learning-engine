@@ -106,7 +106,7 @@ Sysadmin role and issues a session only after it atomically consumes one
 unused, short-lived, Account- and browser-bound TOTP attestation. Stored roles
 and relationships still decide every authorization result.
 
-Priya has her own ordinary vetted Instructor Account and private authoring
+Priya has her own ordinary active Instructor Account and private authoring
 workspace, initially without Course Membership or Blueprint access. She can
 participate in multi-Instructor Blueprint collaboration through the ordinary
 sharing and Proposal workflows; selecting her identity grants no collaboration

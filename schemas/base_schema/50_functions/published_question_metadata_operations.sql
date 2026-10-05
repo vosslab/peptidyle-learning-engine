@@ -43,9 +43,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Bulk Published Question metadata requires an active Instructor';
     END IF;
-    IF ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+    IF ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Bulk Published Question metadata requires a vetted Instructor';
+            MESSAGE = 'Bulk Published Question metadata requires an active Instructor';
     END IF;
     IF jsonb_array_length(p_selection) NOT BETWEEN 1 AND 1000
        OR EXISTS (
@@ -239,4 +239,3 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.bulk_replace_published_question_metadata(
         p_selection, p_patch)
 $$;
-

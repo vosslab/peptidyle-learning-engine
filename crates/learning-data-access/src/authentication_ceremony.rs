@@ -7,6 +7,7 @@
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use objects::Sha256Checksum;
 use question_model::{AccountId, Timestamp, UserRole};
 use uuid::Uuid;
@@ -71,6 +72,73 @@ impl EmailAuthenticationChallengeId {
     /// Returns the private-storage identifier.
     pub fn as_uuid(self) -> Uuid {
         self.0
+    }
+}
+
+/// A 256-bit one-use code delivered only by the configured mail adapter.
+///
+/// It has no serialization implementation, and its debug form deliberately
+/// omits the credential.  The browser supplies its textual form only to the
+/// bounded email-code completion endpoint.
+#[derive(Clone, PartialEq, Eq)]
+pub struct EmailAuthenticationCode([u8; 32]);
+
+impl EmailAuthenticationCode {
+    /// Generates one opaque code from the operating-system CSPRNG.
+    pub fn generate() -> Result<Self, getrandom::Error> {
+        let mut value = [0_u8; 32];
+        getrandom::fill(&mut value)?;
+        Ok(Self(value))
+    }
+
+    /// Parses exactly the URL-safe unpadded representation this type emits.
+    pub fn parse(value: &str) -> Option<Self> {
+        let decoded = URL_SAFE_NO_PAD.decode(value).ok()?;
+        let value: [u8; 32] = decoded.try_into().ok()?;
+        Some(Self(value))
+    }
+
+    /// Returns the fixed representation for the trusted SMTP adapter.
+    pub fn as_text(&self) -> String {
+        URL_SAFE_NO_PAD.encode(self.0)
+    }
+
+    /// Computes the only form persisted by the authentication store.
+    pub fn hash(&self) -> AuthenticationSecretHash {
+        AuthenticationSecretHash::compute(&self.0)
+    }
+}
+
+impl std::fmt::Debug for EmailAuthenticationCode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("EmailAuthenticationCode([redacted])")
+    }
+}
+
+/// Private provider work prepared for an email-code sign-in request.
+#[derive(Clone, PartialEq, Eq)]
+pub struct PreparedEmailAuthentication {
+    /// Validated private destination for the configured mail adapter.
+    pub destination: crate::AuthenticationEmail,
+}
+
+/// Private result of a bounded email-code start request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EmailAuthenticationStart {
+    /// An active Account was eligible when the provider work was prepared.
+    Eligible(PreparedEmailAuthentication),
+    /// A mail-equivalent but unusable response for an unknown or inactive address.
+    Covered(PreparedEmailAuthentication),
+    /// The shared rate limit declined delivery for this request.
+    RateLimited,
+}
+
+impl std::fmt::Debug for PreparedEmailAuthentication {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PreparedEmailAuthentication")
+            .field("destination", &"[redacted]")
+            .finish()
     }
 }
 
@@ -222,6 +290,27 @@ impl std::fmt::Debug for Passkey {
 /// existing-Account facts to the route that will create a `SessionStore` record.
 #[async_trait]
 pub trait AuthenticationCeremonyStore: Send + Sync {
+    /// Starts a bounded browser-bound sign-in ceremony without exposing whether
+    /// an address owns an active Student or Instructor Account.
+    async fn start_email_authentication_challenge(
+        &self,
+        email: crate::AuthenticationEmail,
+        code: EmailAuthenticationCode,
+        browser_binding_hash: AuthenticationSecretHash,
+        lifetime: AuthenticationCeremonyLifetime,
+    ) -> Result<EmailAuthenticationStart, StoreError>;
+
+    /// Commits one provider-accepted eligible code. Older codes change only
+    /// here, after SMTP accepted the replacement message.
+    async fn commit_email_authentication_challenge(
+        &self,
+        challenge: EmailAuthenticationChallengeId,
+        email: crate::AuthenticationEmail,
+        proof_hash: AuthenticationSecretHash,
+        browser_binding_hash: AuthenticationSecretHash,
+        lifetime: AuthenticationCeremonyLifetime,
+    ) -> Result<bool, StoreError>;
+
     /// Atomically consumes an eligible email proof and returns its Account.
     async fn consume_email_authentication_challenge(
         &self,
@@ -458,5 +547,15 @@ mod tests {
         let value = AuthenticationSecretHash::compute(b"one-time credential proof");
         assert_eq!(value.as_bytes().len(), 32);
         assert_eq!(format!("{value:?}"), "AuthenticationSecretHash([redacted])");
+    }
+
+    #[test]
+    fn email_authentication_code_is_fixed_width_and_redacted() {
+        let code = EmailAuthenticationCode::generate().expect("CSPRNG code");
+        let text = code.as_text();
+        assert_eq!(text.len(), 43);
+        assert_eq!(EmailAuthenticationCode::parse(&text), Some(code.clone()));
+        assert!(EmailAuthenticationCode::parse("not a code").is_none());
+        assert_eq!(format!("{code:?}"), "EmailAuthenticationCode([redacted])");
     }
 }

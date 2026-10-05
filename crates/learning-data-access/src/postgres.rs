@@ -49,6 +49,8 @@ mod assessment_workspace_save;
 #[cfg(feature = "postgres")]
 mod attempt_expiry;
 #[cfg(feature = "postgres")]
+mod authentication_ceremony;
+#[cfg(feature = "postgres")]
 mod authoring;
 #[cfg(feature = "postgres")]
 mod bloom_preparation;
@@ -176,6 +178,8 @@ pub use assessment_template::PostgresAssessmentTemplateStore;
 #[cfg(feature = "postgres")]
 pub use attempt_expiry::PostgresAssessmentAttemptExpirySweepStore;
 #[cfg(feature = "postgres")]
+pub use authentication_ceremony::PostgresAuthenticationCeremonyStore;
+#[cfg(feature = "postgres")]
 pub use authoring::PostgresAuthoringDraftStore;
 #[cfg(feature = "postgres")]
 pub use bloom_preparation::PostgresBloomClassificationPreparationStore;
@@ -207,7 +211,7 @@ pub use instructor_account::PostgresInstructorAccountStore;
 #[cfg(feature = "postgres")]
 pub use invitation_export::PostgresInvitationExportStore;
 #[cfg(feature = "postgres")]
-pub use library_discussion::PostgresLibraryDiscussionStore;
+pub use library_discussion::PostgresLibraryImpactNoticeStore;
 #[cfg(feature = "postgres")]
 pub use library_watch_notification::PostgresLibraryWatchNotificationStore;
 #[cfg(feature = "postgres")]

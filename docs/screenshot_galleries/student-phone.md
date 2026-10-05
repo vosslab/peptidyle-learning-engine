@@ -28,9 +28,9 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Student Course Progress on a phone.** completed Attempts and score status - phone.
 
-[![Screenshot preview of Student Progress when an Attempt has no released score on a phone](../screenshots/student/phone/course_progress_unreleased.webp)](../screenshots/student/phone/course_progress_unreleased.webp)
+[![Screenshot preview of Student Progress with an active Attempt on a phone](../screenshots/student/phone/course_progress_unreleased.webp)](../screenshots/student/phone/course_progress_unreleased.webp)
 
-**Student Progress when an Attempt has no released score on a phone.** Attempts with no released score - phone.
+**Student Progress with an active Attempt on a phone.** active Attempt awaiting submission - phone.
 
 [![Screenshot preview of Student Scores on a phone](../screenshots/student/phone/grades-scores-scores.webp)](../screenshots/student/phone/grades-scores-scores.webp)
 

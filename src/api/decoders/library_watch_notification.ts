@@ -24,7 +24,6 @@ const EVENT_KINDS = [
   "revision",
   "membersChanged",
   "fork",
-  "improvementThread",
   "impactNotice",
 ] as const satisfies ReadonlyArray<LibraryWatchEventKind>;
 
@@ -101,14 +100,6 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
     case "fork":
       if (revisionNumber === null || forkedPublicId === null || activityId !== null) {
         throw new DecodeError(path, "a fork event with source Revision and fork evidence only");
-      }
-      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
-    case "improvementThread":
-      if (revisionNumber === null || forkedPublicId !== null || activityId === null) {
-        throw new DecodeError(
-          path,
-          "an improvement-thread event with creation Revision and thread ID",
-        );
       }
       return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
     case "impactNotice":

@@ -73,9 +73,11 @@ owning implementation contracts rather than defining product meaning here.
 **User Role**: **Student**, **Instructor**, or **Sysadmin**. A person needing
 more than one User Role uses separate Accounts.
 
-**Instructor** is a Sysadmin-vetted user who teaches Courses and can discover,
-reuse, create, fork, and publish Questions. All vetted Instructors have the
+**Instructor** is a user who teaches Courses and can discover,
+reuse, create, fork, and publish Questions. All Instructors have the
 same product capabilities; Course membership scopes private Course access.
+Vetting happens outside PLE before Account creation. There is no separate
+Verified Instructor role, status, or permission tier.
 
 **Student** is a user who enrolls in Course Instances and completes Coursework.
 Student Accounts persist across Courses and semesters. Institutional email is
@@ -84,7 +86,8 @@ required and Student email addresses are immutable.
 **Sysadmin** administers PLE, vets Instructors, creates Accounts, and provides
 scoped support. Sysadmin Accounts require higher security than other Accounts.
 Students and Instructors authenticate with passkeys or email codes, without
-passwords. Email authentication is not yet configured for the Live Demo.
+passwords. The Live Demo uses its seeded entry unless an SMTP provider is
+configured; real inbox acceptance remains an installation check.
 
 **Account State** describes Account access. Instructor Account deactivation
 preserves authored content, Course relationships, and history. Reactivation
@@ -263,17 +266,16 @@ actions reserved for critical flaws.
 Published Question from ordinary discovery/new selection while preserving
 exact Revision evidence already used by Assessments and Student Work.
 
-**Question Library** is the global collection and vetted-Instructor discovery
+**Question Library** is the global collection and Instructor discovery
 and reuse surface for Published Questions and Question Pools. **Library Object**
 means either of those published objects. Drafts are excluded. Private Course
 use does not make a Library Object private. Students access Question content
 through authorized Coursework rather than Library discovery.
 
 **Starred Library Object** is an Instructor favorite and visible endorsement.
-Vetted Instructors can see Star counts and who Starred a Question or Pool.
+Instructors can see Star counts and who Starred a Question or Pool.
 **Watched Library Object** is a subscription to in-app notifications about new
-Question Revisions, Pool member-list changes, forks, improvement threads, and
-impact notices. Watch lists remain
+Question Revisions, Pool member-list changes, forks, and impact notices. Watch lists remain
 private. Students and anonymous users receive neither Instructor identity
 lists nor Watch information. Stars and Watches are not Student Work.
 
@@ -301,25 +303,25 @@ or content-Revision history. Read projections carry the pair and that Edit
 Number together; a Pool never derives its pair from member Questions.
 
 A **Bloom correction** is one complete-pair, exact-Revision compare-and-swap
-command. The active vetted Instructor supplies both dimensions and the expected
+command. The active Instructor supplies both dimensions and the expected
 Bloom Classification Edit Number; a stale number is refused before no-op
 handling. A current no-op retains the number and a changed pair advances it.
 The correction does not create content history. It is available to any active
-vetted Instructor with current exact Library read access, not only the author
+Instructor with current exact Library read access, not only the author
 or owner; Sysadmins retain read-only Library access.
 Teaching interpretation belongs in [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE.md).
 
 **Hints**, **Question Feedback**, and **Worked Solutions** are optional
 PLE-managed support content on Questions or Pools, attached where they apply.
 Hints and Worked Solutions have their own disclosure settings. Question
-Feedback follows its disclosure rules and is separate from correct-answer
-disclosure and the Grading Outcome. These are distinct from backend-generated
+Feedback is separate content from correct answers and the Grading Outcome;
+its timing and relationship to correct-answer visibility remain deferred. These are distinct from backend-generated
 interaction feedback, including when similar material exists in WeBWorK source.
 
 **Backend-generated interaction feedback** is transient unless the Backend
 provides a robust preservation method. PLE does not extract or reconstruct it
-from source or output. Optional feedback is shown when the Backend provides it,
-without its own delayed-release state or use of correct-answer disclosure settings.
+from source or output. This describes who produces and preserves the content;
+optional Question Feedback timing remains deferred in HG.
 
 ## Native PLE Question JSON
 
@@ -403,7 +405,7 @@ and no Students, Student Work, dates, time zones, or relative schedules.
 The Blueprint lifecycle is:
 
 - **Private**: owner-only and not adoptable;
-- **Public**: visible to vetted Instructors and adoptable; or
+- **Public**: visible to Instructors and adoptable; or
 - **Archived**: read-only, excluded from ordinary discovery and new adoption,
   available through explicit archived inclusion, and forkable.
 
@@ -478,7 +480,7 @@ It includes Blueprint metadata and ordered Assessments, their reusable settings,
 and ordered Published Question and Question Pool entries. Export/import must reproduce
 the same complete Course content and structure.
 
-**Starred Blueprint Course** is a visible Instructor endorsement; vetted
+**Starred Blueprint Course** is a visible Instructor endorsement;
 Instructors can see the count and who Starred it. **Watched Blueprint Course**
 is a private Instructor subscription to Revision and important-change
 notifications. Both belong to the Blueprint lineage across Revisions, and
@@ -616,21 +618,22 @@ Weekly Assignments support regular learning and default to unlimited Attempts.
 They reinforce current learning and may introduce new topics. Unit Review
 Assignments provide focused review of covered material and may carry a small
 number of points or extra credit. They use the same whole-Attempt submission
-boundary as other Assessments and show the correct answer immediately after
-submission.
+boundary as other Assessments and default to showing the correct answer
+immediately after submission.
 Bonus Assignments are optional extra credit, worth zero points possible, and
 add earned points directly to the grade. Quizzes assess recent material; Exams
 are individual assessments associated with scheduled exam periods. Both allow
 one Assessment Attempt and may use more restrictive settings.
 
 Weekly and Bonus Assignments rarely show the correct answer but show the
-Student response and correctness. Quizzes and Exams withhold correct answers
-until all Students in the Course complete it. Completion means Student
+Student response and correctness. Quizzes and Exams default to withholding
+correct answers until all Students in the Course complete the Assessment;
+Instructors can change that setting. Completion means Student
 submission or automatic submission on expiration, regardless of correctness
-or score. Response, correctness, correct-answer, and support-content disclosure
-remain distinct settings. Optional Question Feedback is separate from the
-correct answer and Grading Outcome; backend-provided feedback does not use
-the Assessment's correct-answer gate or its own delayed-release state.
+or score. Scores have no withholding or separate posting control. Viewing
+submissions and correct answers has separate availability settings. Optional
+Question Feedback timing, including its relationship to correct-answer visibility,
+remains deferred in HG; this document does not select a timing rule.
 
 ## Attempts, responses, and scoring
 
@@ -673,12 +676,15 @@ Question rules as Student submission. Interaction checks expiration, and
 background processing ensures submission even after the Student leaves.
 
 **Grading Outcome** is the immutable **credit fraction** returned by the
-Question Backend for a complete response it evaluates. PLE stores it unchanged.
+Question Backend for a complete response it evaluates. PLE stores it unchanged under the current grading model; Native JSON regrading
+is deferred in HG.
 An unanswered Question's zero contribution requires no Backend evaluation.
 
 **Assessment score** is calculated from stored credit fractions and current
 Assessment Question point values. A point change recalculates scores without
-backend interaction or regrading.
+backend interaction or regrading. Removing a whole Pool excludes its earned and
+possible points from every Attempt. Question scores and the Assessment total
+are visible after submission and automatic grading, without a posting step.
 
 When an Assessment has multiple submitted Attempts, the highest Assessment
 Attempt score is the Student's Assessment score. PLE uses Question points rather
@@ -721,7 +727,7 @@ changing identity. It creates no Student Work, Attempts, submissions, or grades.
 
 **Ribbon** is persistent role-specific navigation. **Breadcrumbs** form the
 permanent row below it, showing human-readable names and preserving Course
-context. **Profile menu** owns Profile settings, account settings, and Sign Out.
+context. **Profile menu** contains Profile settings and Sign Out.
 The Profile avatar appears at the upper right.
 
 **Avatar Gallery** is the PLE-provided avatar collection available to all
@@ -741,8 +747,8 @@ honest empty states and an obvious first action where applicable. Required
 Instructor destinations remain visible but unavailable while their target page
 is incomplete. Other unimplemented future capabilities are not shown as usable
 controls.
-The complete Student and Sysadmin Ribbon task layouts do not have locked-in
-designs yet.
+HG defines the Student Ribbon task layout. The complete Sysadmin Ribbon layout
+remains unsettled.
 
 ## Retention
 

@@ -96,7 +96,9 @@ export function InstructorAccountsPage(): JSX.Element {
     },
   );
   const [email, setEmail] = createSignal("");
-  const [verifiedInstructorDisplayName, setVerifiedInstructorDisplayName] = createSignal("");
+  const [firstName, setFirstName] = createSignal("");
+  const [lastName, setLastName] = createSignal("");
+  const [affiliation, setAffiliation] = createSignal("");
   const [reasonByAccountId, setReasonByAccountId] = createSignal<Record<string, string>>({});
   const [busyAccountIds, setBusyAccountIds] = createSignal<ReadonlySet<string>>(new Set());
   const [creating, setCreating] = createSignal(false);
@@ -198,41 +200,43 @@ export function InstructorAccountsPage(): JSX.Element {
     event.preventDefault();
     if (creating()) return;
     const normalizedEmail = email().trim().toLowerCase();
-    const displayName = verifiedInstructorDisplayName().trim();
     if (normalizedEmail.length < 3 || normalizedEmail.length > 320) {
       setError("Enter a normalized Instructor Authentication Email within its allowed length.");
       return;
     }
+    const setup = [firstName(), lastName(), affiliation()];
     if (
-      displayName.length === 0 ||
-      [...displayName].length > 200 ||
-      displayName !== verifiedInstructorDisplayName() ||
-      /[\p{Cc}]/u.test(displayName)
+      setup.some((value) => !value.length || value !== value.trim() || /[\p{Cc}]/u.test(value)) ||
+      [...firstName()].length > 100 ||
+      [...lastName()].length > 100 ||
+      [...affiliation()].length > 300
     ) {
-      setError(
-        "Enter a trimmed, control-free verified Instructor display name within 200 characters.",
-      );
+      setError("Enter a trimmed first name, last name, and affiliation.");
       return;
     }
     setCreating(true);
     setError(null);
     try {
-      const vetting = await runtime.client.completeInstructorIdentityVetting({
-        normalizedEmail,
-        verifiedInstructorDisplayName: displayName,
-      });
       const created = await runtime.client.createInstructorAccount({
         normalizedEmail,
-        vettingDecisionId: vetting.vettingDecisionId,
+        firstName: firstName(),
+        lastName: lastName(),
+        affiliation: affiliation(),
       });
       mutate((current) => {
         if (current === undefined) return current;
-        const accounts = [created, ...current.accounts];
+        const accounts = [created.account, ...current.accounts];
         return { ...current, accounts };
       });
       setEmail("");
-      setVerifiedInstructorDisplayName("");
-      setAnnouncement("Instructor Account created.");
+      setFirstName("");
+      setLastName("");
+      setAffiliation("");
+      setAnnouncement(
+        created.setupEmailSent
+          ? "Instructor Account created and setup email sent."
+          : "Instructor Account created, but setup email could not be sent.",
+      );
     } catch {
       // ASVS 5.2.4: never reflect submitted email or a transport/server body.
       setError(
@@ -284,6 +288,24 @@ export function InstructorAccountsPage(): JSX.Element {
       setAnnouncement(`Instructor Account ${account.id} reactivated.`);
     } catch {
       setError(failureCopy());
+    } finally {
+      setAccountBusy(account.id, false);
+    }
+  }
+
+  async function resendSetupEmail(account: InstructorAccountSummary): Promise<void> {
+    if (busyAccountIds().has(account.id)) return;
+    setAccountBusy(account.id, true);
+    setError(null);
+    try {
+      const sent = await runtime.client.sendInstructorSetupEmail(account.id);
+      setAnnouncement(
+        sent
+          ? "Setup email sent."
+          : "Setup email could not be sent. Check mail delivery settings and try again.",
+      );
+    } catch {
+      setError("The setup email could not be sent. Check mail delivery settings and try again.");
     } finally {
       setAccountBusy(account.id, false);
     }
@@ -350,6 +372,14 @@ export function InstructorAccountsPage(): JSX.Element {
               onClick={() => requestDeactivation(account())}
             >
               {busyAccountIds().has(account().id) ? "Updating..." : "Deactivate Instructor Account"}
+            </button>
+            <button
+              class="quiet-action"
+              type="button"
+              disabled={busyAccountIds().has(account().id)}
+              onClick={() => void resendSetupEmail(account())}
+            >
+              Send setup email again
             </button>
           </section>
         </Show>
@@ -440,16 +470,42 @@ export function InstructorAccountsPage(): JSX.Element {
             required
           />
         </label>
-        <label for="instructor-account-verified-display-name">
-          Verified Instructor Display Name
+        <label for="instructor-account-first-name">
+          First name
           <input
-            id="instructor-account-verified-display-name"
-            name="verifiedInstructorDisplayName"
+            id="instructor-account-first-name"
+            name="firstName"
             type="text"
-            value={verifiedInstructorDisplayName()}
-            onInput={(event) => setVerifiedInstructorDisplayName(event.currentTarget.value)}
+            value={firstName()}
+            onInput={(event) => setFirstName(event.currentTarget.value)}
             autocomplete="off"
-            maxlength={200}
+            maxlength={100}
+            required
+          />
+        </label>
+        <label for="instructor-account-last-name">
+          Last name
+          <input
+            id="instructor-account-last-name"
+            name="lastName"
+            type="text"
+            value={lastName()}
+            onInput={(event) => setLastName(event.currentTarget.value)}
+            autocomplete="off"
+            maxlength={100}
+            required
+          />
+        </label>
+        <label for="instructor-account-affiliation">
+          Affiliation
+          <input
+            id="instructor-account-affiliation"
+            name="affiliation"
+            type="text"
+            value={affiliation()}
+            onInput={(event) => setAffiliation(event.currentTarget.value)}
+            autocomplete="organization"
+            maxlength={300}
             required
           />
         </label>

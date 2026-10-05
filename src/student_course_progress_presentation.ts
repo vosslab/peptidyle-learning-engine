@@ -27,7 +27,8 @@ export function studentAssessmentScoreStateLabel(
 ): string {
   const score = assessment.assessmentScore;
   if (score === undefined) {
-    return assessment.assessmentAttemptCount === 0 ? "Not started" : "Score not released";
+    if (assessment.assessmentAttemptCount === 0) return "Not started";
+    return assessment.submittedAssessmentAttemptCount === 0 ? "In progress" : "Score pending";
   }
   if (score.pointsPossible === 0) return "Released score · bonus points";
   return score.pointsEarned >= score.pointsPossible ? "Perfect score" : "Below 100%";

@@ -42,8 +42,9 @@ and service-capability boundaries are in
 
 ## Sysadmin
 
-- A Sysadmin performs platform operations and creates approved Instructor
-  Accounts through the bounded account-creation operation.
+- A Sysadmin performs platform operations and creates Instructor Accounts
+  through the bounded account-creation operation after vetting occurs outside
+  PLE.
 - Sysadmin authentication requires stronger protection than ordinary Accounts,
   such as TOTP in addition to the primary login path.
 - A Sysadmin does not receive Course Membership merely by being Sysadmin and

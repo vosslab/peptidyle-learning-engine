@@ -47,7 +47,7 @@ pub struct LiveStudentCourseInvitationSummary {
     pub short_name: String,
     /// Descriptive Course Instance name for headings and lists.
     pub long_name: String,
-    /// Server-verified display name of the Course's assigned Instructor.
+    /// Public display name of the Course's assigned Instructor.
     pub instructor_display_name: String,
     /// Inclusive Course calendar dates, available before accepting the invitation.
     pub term: CourseTerm,

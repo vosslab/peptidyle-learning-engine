@@ -39,7 +39,6 @@ test("new Blueprint Assessment working state keeps answer-bearing feedback priva
     emptyReusableContent("regular_assignment").defaults.student_feedback_release_rule;
 
   assert.deepEqual(feedback, {
-    score: "after_submit",
     per_item_correctness: "after_submit",
     submitted_response: "after_submit",
     question_answer: "never",

@@ -88,17 +88,26 @@ BEGIN
        OR ARRAY(SELECT key FROM jsonb_object_keys(feedback_rules) AS key ORDER BY key)
             <> ARRAY[
                 'class_statistics', 'hints', 'per_item_correctness', 'question_answer',
-                'question_answer_explanation', 'score',
-                'submitted_response', 'worked_solutions'
+                'question_answer_explanation', 'submitted_response', 'worked_solutions'
             ]::text[]
        OR EXISTS (
             SELECT 1
               FROM jsonb_each(feedback_rules) AS feedback(key, value)
              WHERE jsonb_typeof(value) <> 'string'
                 OR value #>> '{}' NOT IN (
-                    'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
+                    'during_attempt', 'after_submit', 'after_due', 'after_close',
+                    'after_all_students_complete', 'never'
                 )
        ) THEN
+       RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Assessment Template settings are invalid';
+    END IF;
+    -- ASVS 2.2.1-2.2.2: only answer disclosure may wait for the Course cohort.
+    IF (feedback_rules ->> 'per_item_correctness') = 'after_all_students_complete'
+       OR (feedback_rules ->> 'submitted_response') = 'after_all_students_complete'
+       OR (feedback_rules ->> 'class_statistics') = 'after_all_students_complete'
+       OR (feedback_rules ->> 'hints') = 'after_all_students_complete'
+       OR (feedback_rules ->> 'worked_solutions') = 'after_all_students_complete' THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Template settings are invalid';
     END IF;
@@ -149,7 +158,6 @@ BEGIN
                        WHEN 'authored_order' THEN 'authoredOrder' ELSE 'shuffled' END
                ),
                'studentFeedbackReleaseRule', jsonb_build_object(
-                   'score', policy.feedback_score,
                    'per_item_correctness', policy.feedback_per_item_correctness,
                    'submitted_response', policy.feedback_submitted_response,
                    'question_answer', policy.feedback_question_answer,
@@ -236,7 +244,6 @@ BEGIN
             WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END::ple_data.question_variation_rule,
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
             WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END::ple_data.question_order_rule,
-        (feedback_rules ->> 'score')::ple_data.feedback_release,
         (feedback_rules ->> 'per_item_correctness')::ple_data.feedback_release,
         (feedback_rules ->> 'submitted_response')::ple_data.feedback_release,
         (feedback_rules ->> 'question_answer')::ple_data.feedback_release,
@@ -318,7 +325,6 @@ BEGIN
             WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END::ple_data.question_variation_rule,
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
             WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END::ple_data.question_order_rule,
-        (feedback_rules ->> 'score')::ple_data.feedback_release,
         (feedback_rules ->> 'per_item_correctness')::ple_data.feedback_release,
         (feedback_rules ->> 'submitted_response')::ple_data.feedback_release,
         (feedback_rules ->> 'question_answer')::ple_data.feedback_release,

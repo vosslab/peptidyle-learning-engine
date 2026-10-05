@@ -37,7 +37,6 @@ function savedPolicyWorkspace() {
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
-      score: "after_submit",
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
       question_answer: "after_submit",
@@ -66,7 +65,6 @@ function baseAssessmentPolicy() {
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
-      score: "after_submit",
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
       question_answer: "after_submit",

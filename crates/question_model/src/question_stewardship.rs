@@ -31,8 +31,6 @@ pub enum QuestionStewardshipEvent {
         source_question: PublishedQuestionId,
         fork_revision_tuple: PublishedQuestionRevisionTuple,
     },
-    /// An improvement thread has activity for the named Question lineage.
-    ImprovementThreadActivity { question: PublishedQuestionId },
     /// A maintained impact notice concerns the named Question lineage.
     ImpactNotice { question: PublishedQuestionId },
 }
@@ -47,9 +45,7 @@ impl QuestionStewardshipEvent {
             Self::ForkPublished {
                 source_question, ..
             } => source_question,
-            Self::ImprovementThreadActivity { question } | Self::ImpactNotice { question } => {
-                question
-            }
+            Self::ImpactNotice { question } => question,
         }
     }
 }

@@ -154,8 +154,9 @@ export function StudentCourseProgressPage(): JSX.Element {
                 submitted Attempt.
               </p>
               <p class="student-course-progress__disclosure">
-                Every released Coursework item remains listed. Attempts with no released score are
-                marked "Score not released"; completion and a perfect score are separate.
+                Every released Coursework item remains listed. A submitted Attempt is marked "Score
+                pending" only while automatic grading finishes; completion and a perfect score are
+                separate.
               </p>
               <RecordList
                 ariaLabel="Coursework progress"

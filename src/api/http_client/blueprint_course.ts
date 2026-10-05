@@ -99,8 +99,12 @@ function pagePath(
   if (publicOnly && includeArchived) {
     throw new ApiProtocolError("Public Blueprint Course search cannot include Archived courses");
   }
-  if (!(["name", "adoptions", "students"] as const).includes(sort)) {
-    throw new ApiProtocolError("Blueprint Course sort must be name, adoptions, or students");
+  if (
+    !(["name", "adoptions", "students", "stars", "watches", "recentEdits"] as const).includes(sort)
+  ) {
+    throw new ApiProtocolError(
+      "Blueprint Course sort must be name, stars, watches, adoptions, students, or recentEdits",
+    );
   }
   if (tag !== tag.trim() || /\p{Cc}/u.test(tag) || Array.from(tag).length > 120) {
     throw new ApiProtocolError(

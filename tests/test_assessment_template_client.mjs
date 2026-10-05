@@ -21,7 +21,6 @@ function template(assessmentTemplateEditNumber = "1") {
         assessmentQuestionOrderRule: "authoredOrder",
       },
       studentFeedbackReleaseRule: {
-        score: "after_submit",
         per_item_correctness: "after_due",
         submitted_response: "after_submit",
         question_answer: "never",
@@ -55,7 +54,6 @@ function workspace(editNumber = "3") {
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
-      score: "after_submit",
       per_item_correctness: "after_due",
       submitted_response: "after_submit",
       question_answer: "never",

@@ -8,8 +8,8 @@ use question_model::{
 };
 
 use super::{
-    StudentFeedbackReleaseDecision, evaluate_student_feedback_release,
-    gate_quiz_exam_answers_for_current_cohort, project_disclosed_support, project_student_feedback,
+    StudentFeedbackReleaseDecision, apply_all_students_completed_timing,
+    evaluate_student_feedback_release, project_disclosed_support, project_student_feedback,
     project_student_response_inspection_feedback, score_current_student_feedback_release,
 };
 use crate::effective_assessment_properties::{
@@ -22,7 +22,7 @@ fn stamp(value: i64) -> Timestamp {
 }
 
 #[test]
-fn quiz_and_exam_answers_wait_for_every_current_student() {
+fn all_students_completed_timing_waits_only_when_configured() {
     let released = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
@@ -34,49 +34,34 @@ fn quiz_and_exam_answers_wait_for_every_current_student() {
         worked_solutions: true,
     };
 
-    for assessment_type in [AssessmentType::Quiz, AssessmentType::Exam] {
-        let waiting = gate_quiz_exam_answers_for_current_cohort(released, assessment_type, false);
-        assert!(!waiting.question_answer);
-        assert!(!waiting.question_answer_explanation);
-        assert!(waiting.score);
-        assert!(waiting.per_item_correctness);
-        assert!(waiting.submitted_response);
-        assert!(waiting.class_statistics);
-        assert_eq!(
-            gate_quiz_exam_answers_for_current_cohort(released, assessment_type, true),
-            released
-        );
-    }
-}
-
-#[test]
-fn ordinary_assessment_answer_release_does_not_use_the_cohort_gate() {
-    let released = StudentFeedbackReleaseDecision {
-        score: false,
-        per_item_correctness: false,
-        submitted_response: false,
-        question_answer: true,
-        question_answer_explanation: true,
-        class_statistics: false,
-        hints: false,
-        worked_solutions: false,
+    let cohort_rule = StudentFeedbackReleaseRule {
+        question_answer: StudentFeedbackReleaseTiming::AfterAllStudentsComplete,
+        question_answer_explanation: StudentFeedbackReleaseTiming::AfterAllStudentsComplete,
+        ..Default::default()
     };
+    let waiting = apply_all_students_completed_timing(released, cohort_rule, false);
+    assert!(!waiting.question_answer);
+    assert!(!waiting.question_answer_explanation);
+    assert!(waiting.score);
+    assert!(waiting.per_item_correctness);
+    assert!(waiting.submitted_response);
+    assert!(waiting.class_statistics);
+    assert_eq!(
+        apply_all_students_completed_timing(released, cohort_rule, true),
+        released
+    );
 
-    for assessment_type in [
-        AssessmentType::RegularAssignment,
-        AssessmentType::PracticeQuestionAssignment,
-        AssessmentType::BonusAssignment,
-    ] {
-        assert_eq!(
-            gate_quiz_exam_answers_for_current_cohort(released, assessment_type, false),
-            released
-        );
-    }
+    let mut instructor_override = cohort_rule;
+    instructor_override.question_answer = StudentFeedbackReleaseTiming::AfterSubmit;
+    instructor_override.question_answer_explanation = StudentFeedbackReleaseTiming::AfterSubmit;
+    assert_eq!(
+        apply_all_students_completed_timing(released, instructor_override, false),
+        released
+    );
 }
 
 fn rule() -> StudentFeedbackReleaseRule {
     StudentFeedbackReleaseRule {
-        score: StudentFeedbackReleaseTiming::DuringAttempt,
         per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
         submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
         question_answer: StudentFeedbackReleaseTiming::AfterClose,
@@ -123,7 +108,7 @@ fn independent_fields_follow_their_own_timings() {
     assert_eq!(
         decision,
         StudentFeedbackReleaseDecision {
-            score: true,
+            score: false,
             per_item_correctness: false,
             submitted_response: false,
             question_answer: false,
@@ -496,8 +481,9 @@ fn hints_and_worked_solutions_use_their_own_disclosure_settings() {
     );
     assert!(answer.is_none() || answer.expect("feedback").question_answer.is_none());
 
-    let waiting =
-        gate_quiz_exam_answers_for_current_cohort(after_submit, AssessmentType::Quiz, false);
+    let mut cohort_rule = rule();
+    cohort_rule.question_answer = StudentFeedbackReleaseTiming::AfterAllStudentsComplete;
+    let waiting = apply_all_students_completed_timing(after_submit, cohort_rule, false);
     assert!(waiting.worked_solutions);
     assert!(!waiting.hints);
     assert!(!waiting.question_answer);

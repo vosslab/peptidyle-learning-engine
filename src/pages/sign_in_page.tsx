@@ -14,6 +14,11 @@ import {
   seededDemoRole,
   seededDemoRoleLabel,
 } from "./live_demo_auth_model";
+import {
+  EMAIL_CODE_LENGTH,
+  emailCodeCompletionFailure,
+  emailCodeStartFailure,
+} from "./email_code_sign_in_model";
 import "./live_demo_auth.css";
 
 type SeededDemoState =
@@ -32,6 +37,17 @@ type SeededDemoState =
       readonly submitting: boolean;
       readonly failed: boolean;
     }
+  | { readonly kind: "unavailable" }
+  | { readonly kind: "error" };
+
+type EmailCodeState =
+  | { readonly kind: "ready" }
+  | { readonly kind: "requesting" }
+  | { readonly kind: "codeEntry"; readonly challengeId: string }
+  | { readonly kind: "completing"; readonly challengeId: string }
+  | { readonly kind: "invalidEmail" }
+  | { readonly kind: "invalidCode"; readonly challengeId: string }
+  | { readonly kind: "completionError"; readonly challengeId: string }
   | { readonly kind: "unavailable" }
   | { readonly kind: "error" };
 
@@ -57,13 +73,39 @@ function pendingSysadminTotpFailed(state: SeededDemoState): boolean {
   return state.kind === "pendingSysadminTotp" && state.failed;
 }
 
+function emailCodeChallengeId(state: EmailCodeState): string | undefined {
+  return state.kind === "codeEntry" ||
+    state.kind === "completing" ||
+    state.kind === "invalidCode" ||
+    state.kind === "completionError"
+    ? state.challengeId
+    : undefined;
+}
+
+function emailCodeSubmitting(state: EmailCodeState): boolean {
+  return state.kind === "requesting" || state.kind === "completing";
+}
+
 /** Renders deployment-gated seeded-demo entry for the ordinary session boundary. */
 export function SignInPage(): JSX.Element {
   const runtime = useApplicationApi();
   const session = useSessionBootstrap();
   const navigate = useNavigate();
   const [seededDemo, setSeededDemo] = createSignal<SeededDemoState>({ kind: "loading" });
+  const [emailCode, setEmailCode] = createSignal<EmailCodeState>({ kind: "ready" });
   let retry: HTMLButtonElement | undefined;
+  let emailCodeInput: HTMLInputElement | undefined;
+
+  async function navigateAfterAuthentication(): Promise<void> {
+    await session.retry();
+    const currentSession = session.state();
+    navigate(
+      currentSession.kind === "authenticated" &&
+        currentSession.session.account.userRole === "instructor"
+        ? "/library"
+        : "/",
+    );
+  }
 
   async function loadSeededDemoAccounts(): Promise<void> {
     setSeededDemo({ kind: "loading" });
@@ -98,19 +140,58 @@ export function SignInPage(): JSX.Element {
         });
         return;
       }
-      await session.retry();
-      const currentSession = session.state();
-      navigate(
-        currentSession.kind === "authenticated" &&
-          currentSession.session.account.userRole === "instructor"
-          ? "/library"
-          : currentSession.kind === "authenticated" &&
-              currentSession.session.account.userRole === "student"
-            ? "/"
-            : "/",
-      );
+      await navigateAfterAuthentication();
     } catch {
       setSeededDemo({ kind: "ready", response });
+    }
+  }
+
+  async function startEmailCodeSignIn(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (emailCodeSubmitting(emailCode())) return;
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const email = new FormData(form).get("email");
+    if (typeof email !== "string") return;
+    setEmailCode({ kind: "requesting" });
+    try {
+      const started = await runtime.client.startEmailCodeSignIn(email.trim());
+      setEmailCode({ kind: "codeEntry", challengeId: started.challengeId });
+      queueMicrotask(() => emailCodeInput?.focus());
+    } catch (error: unknown) {
+      const failure = emailCodeStartFailure(error);
+      if (failure === "unavailable") {
+        setEmailCode({ kind: "unavailable" });
+        return;
+      }
+      setEmailCode(failure === "invalidEmail" ? { kind: "invalidEmail" } : { kind: "error" });
+    }
+  }
+
+  async function completeEmailCodeSignIn(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const challengeId = emailCodeChallengeId(emailCode());
+    if (challengeId === undefined || emailCodeSubmitting(emailCode())) return;
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const code = new FormData(form).get("code");
+    if (typeof code !== "string") return;
+    setEmailCode({ kind: "completing", challengeId });
+    try {
+      await runtime.client.completeEmailCodeSignIn(challengeId, code.trim());
+      await navigateAfterAuthentication();
+    } catch (error: unknown) {
+      const failure = emailCodeCompletionFailure(error);
+      if (failure === "unavailable") {
+        setEmailCode({ kind: "unavailable" });
+        return;
+      }
+      setEmailCode(
+        failure === "invalidCode"
+          ? { kind: "invalidCode", challengeId }
+          : { kind: "completionError", challengeId },
+      );
+      queueMicrotask(() => emailCodeInput?.focus());
     }
   }
 
@@ -144,10 +225,94 @@ export function SignInPage(): JSX.Element {
   return (
     <PageFrame
       routeSurface="signIn"
-      eyebrow="Live demo"
-      title="Explore Peptidyle Learning Engine"
-      lede="Select a seeded Account to explore the current disposable demonstration."
+      eyebrow="Sign in"
+      title="Sign in to Peptidyle Learning Engine"
+      lede="Students and Instructors can use a code sent to their email address."
     >
+      <section class="auth-panel email-code-panel" aria-labelledby="email-code-heading">
+        <h2 id="email-code-heading">Sign in with email</h2>
+        <Show
+          when={emailCodeChallengeId(emailCode()) === undefined}
+          fallback={
+            <form class="auth-form" onSubmit={(event) => void completeEmailCodeSignIn(event)}>
+              <p class="field-help">Enter the code from your email to finish signing in.</p>
+              <label>
+                Email code
+                <input
+                  ref={(element) => {
+                    emailCodeInput = element;
+                  }}
+                  name="code"
+                  inputmode="text"
+                  autocomplete="one-time-code"
+                  maxlength={EMAIL_CODE_LENGTH}
+                  pattern={`[A-Za-z0-9_-]{${EMAIL_CODE_LENGTH}}`}
+                  required
+                  disabled={emailCodeSubmitting(emailCode())}
+                />
+              </label>
+              <button
+                class="quiet-action"
+                type="submit"
+                disabled={emailCodeSubmitting(emailCode())}
+              >
+                Verify code and sign in
+              </button>
+              <Show when={emailCode().kind === "invalidCode"}>
+                <p class="inline-error" role="alert">
+                  That code could not be verified. Request a new code and try again.
+                </p>
+              </Show>
+              <Show when={emailCode().kind === "completionError"}>
+                <p class="inline-error" role="alert">
+                  Sign-in could not be completed. Try again in a moment.
+                </p>
+              </Show>
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={emailCodeSubmitting(emailCode())}
+                onClick={() => setEmailCode({ kind: "ready" })}
+              >
+                Use another email address
+              </button>
+            </form>
+          }
+        >
+          <form class="auth-form" onSubmit={(event) => void startEmailCodeSignIn(event)}>
+            <p class="field-help">We will send a code if this email can sign in.</p>
+            <label>
+              Email address
+              <input
+                name="email"
+                type="email"
+                autocomplete="email"
+                maxlength="320"
+                required
+                disabled={emailCodeSubmitting(emailCode())}
+              />
+            </label>
+            <button class="quiet-action" type="submit" disabled={emailCodeSubmitting(emailCode())}>
+              Send email code
+            </button>
+            <Show when={emailCode().kind === "invalidEmail"}>
+              <p class="inline-error" role="alert">
+                Enter a valid email address.
+              </p>
+            </Show>
+            <Show when={emailCode().kind === "unavailable"}>
+              <p class="inline-error" role="alert">
+                Email sign-in is unavailable for this installation.
+              </p>
+            </Show>
+            <Show when={emailCode().kind === "error"}>
+              <p class="inline-error" role="alert">
+                Email sign-in could not be started. Try again in a moment.
+              </p>
+            </Show>
+          </form>
+        </Show>
+      </section>
       <Show
         when={seededDemo().kind !== "unavailable"}
         fallback={

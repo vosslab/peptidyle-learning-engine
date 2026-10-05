@@ -106,8 +106,8 @@ Course Change Proposals show proposed differences to the receiving owner and do
 not directly change daughter Courses.
 
 Public and Archived Blueprint detail supports visible Stars and private
-Watches. Star counts and the vetted Instructors who Starred are visible to
-vetted Instructors; Watch membership is visible only to the watcher. Adoption
+Watches. Star counts and the active Instructors who Starred are visible to
+active Instructors; Watch membership is visible only to the watcher. Adoption
 and forking do not create either relationship.
 
 ## Student Attempt boundary

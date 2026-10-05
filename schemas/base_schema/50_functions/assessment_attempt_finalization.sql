@@ -66,14 +66,8 @@ BEGIN
             ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           CROSS JOIN LATERAL ple_private.score_recorded_credit(
               result.normalized_credit, snapshot.scoring_rule,
-              coalesce(
-                  (SELECT question.points_possible
-                     FROM ple_data.assessment_entry_question AS question
-                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
-                  (SELECT pool.points_per_item
-                     FROM ple_data.assessment_entry_pool AS pool
-                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
-                  snapshot.points
+              ple_private.current_assessment_entry_points(
+                  issued.assessment_entry_id, snapshot.points
               )
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
@@ -306,14 +300,8 @@ BEGIN
             ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           CROSS JOIN LATERAL ple_private.score_recorded_credit(
               result.normalized_credit, snapshot.scoring_rule,
-              coalesce(
-                  (SELECT question.points_possible
-                     FROM ple_data.assessment_entry_question AS question
-                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
-                  (SELECT pool.points_per_item
-                     FROM ple_data.assessment_entry_pool AS pool
-                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
-                  snapshot.points
+              ple_private.current_assessment_entry_points(
+                  issued.assessment_entry_id, snapshot.points
               )
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
@@ -413,16 +401,9 @@ BEGIN
         ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
       CROSS JOIN LATERAL ple_private.score_recorded_credit(
           result.normalized_credit, snapshot.scoring_rule,
-              coalesce(
-                  (SELECT question.points_possible
-                     FROM ple_data.assessment_entry_question AS question
-                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
-                  (SELECT pool.points_per_item
-                     FROM ple_data.assessment_entry_pool AS pool
-                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
-                  snapshot.points
-              )
+          ple_private.current_assessment_entry_points(
+              issued.assessment_entry_id, snapshot.points
+          )
       ) AS score
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
 END $$;
-

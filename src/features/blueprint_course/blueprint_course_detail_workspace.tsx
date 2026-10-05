@@ -154,7 +154,7 @@ export function BlueprintCourseDetailWorkspace(
     publishRouteScopeNavigation(activePublication, {});
   }
   const blueprintCollection = (): { readonly href: string; readonly label: string } =>
-    blueprintDetailCollectionLink(current()?.view.read_access, null);
+    blueprintDetailCollectionLink(current()?.view.read_access);
   createEffect(() => {
     const view = current()?.view;
     if (view !== undefined) publishBlueprintNavigation();

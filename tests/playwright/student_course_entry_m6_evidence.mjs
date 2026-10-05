@@ -288,7 +288,7 @@ try {
     state: "visible",
   });
   await newestAttempt.getByText("Closed", { exact: true }).waitFor({ state: "visible" });
-  await newestAttempt.getByText("Score not released", { exact: true }).waitFor({
+  await newestAttempt.getByText("Score pending", { exact: true }).waitFor({
     state: "visible",
   });
   await newestAttempt.getByRole("button", { name: "Review Attempt", exact: true }).waitFor();

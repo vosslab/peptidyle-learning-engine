@@ -546,6 +546,7 @@ async fn stored_library_entry(
         used_in_current_account_courses: false,
         authorship: QuestionAuthorship::new(vec![QuestionAuthor {
             display_name: QuestionAuthorDisplayName::new("Ada".to_string()).expect("author"),
+            account_id: None,
         }])
         .expect("authorship"),
         authored_by_current_account: false,

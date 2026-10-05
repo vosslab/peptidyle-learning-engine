@@ -62,6 +62,49 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
 
+.record-list--compact .record-list__semantic-frame {
+  align-items: baseline;
+  column-gap: 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.2fr) minmax(18rem, 2fr) auto;
+}
+
+.record-list--compact .record-list__description {
+  display: none;
+}
+
+.record-list--compact .record-list__content {
+  display: contents;
+}
+
+.record-list--compact .record-list__title,
+.record-list--compact .record-list__facts,
+.record-list--compact .record-list__actions {
+  margin: 0;
+}
+
+.record-list--compact .record-list__facts {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.record-list--poster .record-list__row {
+  min-height: 11rem;
+}
+
+@media (max-width: 760px) {
+  .record-list--compact .record-list__semantic-frame {
+    display: block;
+  }
+
+  .record-list--compact .record-list__content {
+    display: block;
+  }
+
+  .record-list--compact .record-list__description {
+    display: none;
+  }
+}
+
 .record-list--gallery .record-list__row--semantic {
   grid-column: auto;
   border: 1px solid var(--ple-border);

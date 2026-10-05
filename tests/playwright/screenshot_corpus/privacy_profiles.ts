@@ -129,13 +129,19 @@ const PROTECTED_RESPONSE_KEYS = new Set([
   "pointsearned",
   "pointspossible",
 ]);
-const FEEDBACK_RELEASE_TIMINGS = new Set(["never", "after_submit", "after_close"]);
+const FEEDBACK_RELEASE_TIMINGS = new Set([
+  "never",
+  "after_submit",
+  "after_due",
+  "after_close",
+  "after_all_students_complete",
+]);
 
 function normalizedKey(key: string): string {
   return key.replace(/[^a-z0-9]/giu, "").toLowerCase();
 }
 
-function protectedKey(value: unknown, allowedKeys: ReadonlySet<string>): string | undefined {
+export function protectedKey(value: unknown, allowedKeys: ReadonlySet<string>): string | undefined {
   if (Array.isArray(value)) {
     for (const item of value) {
       const match = protectedKey(item, allowedKeys);

@@ -1,7 +1,7 @@
-//! Vetted-Instructor Question Star HTTP boundary.
+//! Active-Instructor Question Star HTTP boundary.
 //!
 //! This route exposes only an Instructor's own Star state plus an aggregate
-//! count and approved public display identities. It has no Watch read path and
+//! count and public display identities. It has no Watch read path and
 //! serializes no account identifier, email, credential, source, or Student fact.
 
 use std::sync::Arc;
@@ -55,7 +55,7 @@ struct SetStarInput {
     starred: bool,
 }
 
-/// Browser-safe Star state. This is a closed projection: only active vetted
+/// Browser-safe Star state. This is a closed projection: only active
 /// Instructor display names can be included, never durable Account identity.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,12 +69,14 @@ struct StarResponse {
 #[serde(rename_all = "camelCase")]
 struct StarredInstructorResponse {
     display_name: String,
+    account_id: String,
 }
 
 impl From<QuestionStarredInstructor> for StarredInstructorResponse {
     fn from(value: QuestionStarredInstructor) -> Self {
         Self {
             display_name: value.display_name,
+            account_id: value.account_id.to_string(),
         }
     }
 }

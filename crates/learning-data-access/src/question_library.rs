@@ -251,7 +251,7 @@ pub trait QuestionLibraryStore: Send + Sync {
 
     /// Corrects both Bloom dimensions for one exact Revision through the
     /// classification-owned compare-and-swap number. PostgreSQL authorizes the
-    /// active vetted Instructor and checks stale state before accepting a no-op.
+    /// active Instructor and checks stale state before accepting a no-op.
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
@@ -264,7 +264,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     /// Loads one bounded, all-or-none current shared-metadata snapshot.
     ///
     /// The database returns only available accepted Published Question
-    /// lineages for an active vetted Instructor, in canonical Question-ID
+    /// lineages for an active Instructor, in canonical Question-ID
     /// order. Any unavailable target conceals the whole selection.
     async fn load_current_published_question_shared_metadata(
         &self,

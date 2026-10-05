@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use crate::{SessionTokenHash, StoreError, StoredBlueprintRevision};
 
-/// One direct fork readable by the caller, with its verified owning Instructor name.
+/// One direct fork readable by the caller, with its public owning Instructor name.
 /// Private children of another Instructor never appear, including to the source owner.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredKnownBlueprintFork {

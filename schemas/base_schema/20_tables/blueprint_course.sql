@@ -268,9 +268,8 @@ CREATE TABLE ple_data.blueprint_course_star (
 );
 
 
--- A Watch is private: there is deliberately no watcher count, list, or
--- identity projection. C409/C423 own the separately authorized Star
--- projection and the in-app notification projection.
+-- A Watch is private: no watcher identity or list is projected. Public
+-- Blueprint discovery may expose an aggregate Watch count for comparison.
 CREATE TABLE ple_data.blueprint_course_watch (
     blueprint_course_id ple_data.blueprint_course_id NOT NULL
         REFERENCES ple_data.blueprint_course (blueprint_course_id),

@@ -103,15 +103,6 @@ fn watch_activity(
                 forked_public_id: question_id(forked_public_id, "Library Watch fork ID")?,
             })
         }
-        ("improvement_thread", Some(creation_revision_number), None, Some(thread_id)) => {
-            Ok(LibraryWatchActivity::ImprovementThread {
-                creation_revision_number: positive_u64(
-                    creation_revision_number,
-                    "Library Watch creation Revision number",
-                )?,
-                thread_id,
-            })
-        }
         ("impact_notice", affected_revision_number, None, Some(impact_notice_id)) => {
             Ok(LibraryWatchActivity::ImpactNotice {
                 affected_revision_number: affected_revision_number
@@ -198,7 +189,6 @@ mod tests {
 
     #[test]
     fn watch_activity_accepts_each_complete_variant() {
-        let thread_id = uuid::Uuid::from_u128(1);
         let notice_id = uuid::Uuid::from_u128(2);
         assert_eq!(
             watch_activity("revision".to_owned(), Some(1), None, None),
@@ -232,18 +222,6 @@ mod tests {
             Ok(LibraryWatchActivity::Fork {
                 source_revision_number: 2,
                 forked_public_id: "1234-H567".parse().expect("fixture ID should be valid"),
-            })
-        );
-        assert_eq!(
-            watch_activity(
-                "improvement_thread".to_owned(),
-                Some(3),
-                None,
-                Some(thread_id),
-            ),
-            Ok(LibraryWatchActivity::ImprovementThread {
-                creation_revision_number: 3,
-                thread_id,
             })
         );
         assert_eq!(

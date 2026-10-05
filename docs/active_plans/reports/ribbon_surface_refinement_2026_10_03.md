@@ -31,10 +31,10 @@ between before and after, desktop and phone, and light and dark. These renders
 use the current application shell, synthetic Course data, and production themes.
 They are local review artifacts, not a publication or a replacement corpus.
 
-- [Course light](ribbon_surface_refinement_2026_10_03/final_1280_light.png)
-- [Course dark](ribbon_surface_refinement_2026_10_03/final_1280_dark.png)
-- [Roster light](ribbon_surface_refinement_2026_10_03/roster_1280_light.png)
-- [Roster phone dark](ribbon_surface_refinement_2026_10_03/roster_393_dark.png)
+- [Course dark](ribbon_surface_refinement_2026_10_03/live_course_dark.webp)
+- [Library light](ribbon_surface_refinement_2026_10_03/live_library_light.webp)
+- [Roster light](ribbon_surface_refinement_2026_10_03/live_roster_light.webp)
+- [Student phone](ribbon_surface_refinement_2026_10_03/live_student_phone.webp)
 
 The [curved-tab reference](https://www.geeksforgeeks.org/javascript/how-to-make-curved-active-tab-in-navigation-menu-using-html-css-javascript/)
 informs the negative-space transition. Its proportions, palette, and code are

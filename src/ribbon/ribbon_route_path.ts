@@ -11,6 +11,7 @@ import {
   parseDraftQuestionId,
   parseQuestionRouteId,
 } from "../navigation/public_route";
+import { validateCanonicalPublicId } from "../question_id";
 import {
   ROUTE_CONTRACT,
   routeContractForPathname,
@@ -33,6 +34,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   draftQuestionId: parseDraftQuestionId,
   blueprintCourseId: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
+  accountId: (value) => validateCanonicalPublicId("account", value),
 };
 
 function routeForId(routeId: string): RouteContract | undefined {

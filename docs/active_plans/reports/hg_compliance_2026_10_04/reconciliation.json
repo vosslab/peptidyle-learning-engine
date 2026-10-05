@@ -1,0 +1,747 @@
+{
+  "source_sha256": "7e6676929036d0408259a2f8fb9e2a4bf4daf4b6027d13431b319a05d9ed3519",
+  "old_bullets": 1146,
+  "current_bullets": 1177,
+  "added_or_reworded": [
+    "All **Instructors** have the same product capabilities.",
+    "Once admitted to PLE, all Instructors are equal; there is no separate Verified Instructor role or status.",
+    "A **Sysadmin** vets an Instructor before creating their Account; vetting happens outside PLE.",
+    "PLE has no Instructor approval workflow or approval status.",
+    "A **Sysadmin** creates an Instructor Account with an email address, first name, last name, and affiliation.",
+    "PLE sends a setup email to that address so the Instructor can set up their Account.",
+    "Sysadmins should be reluctant to get involved in content.",
+    "A Sysadmin can initiate support repairs under their own administrative authority; no Instructor permission or grant is required.",
+    "Tooltips provide brief text; hover previews add too much overhead and slow the interface.",
+    "Opening a list item opens it in a new browser tab or window, including search results and Assessments in an Assessment list.",
+    "Ribbon navigation stays in the current tab. Buttons perform their stated action.",
+    "Confirm before navigation discards an existing search and its results; leave empty search pages directly.",
+    "PLE does not store old search results for later restoration.",
+    "Search prompts and search results are never stored permanently; keep database size and bloat under control.",
+    "The role badge is always in the upper left, just right of the logo.",
+    "Instructor Profiles are public within PLE to everyone with an Account, including Students.",
+    "Instructor Profile images appear when viewing Question authors, curators, and other Instructor representations; Profile images do not have a separate permissions mechanism.",
+    "Public Blueprint Course search supports sorting by Stars, Watches, Adoptions, number of students having taken the course, and most recent edit, plus other relevant search metadata.",
+    "Number of students having taken the course is an aggregate count, not identifiable Student records.",
+    "Opening a Blueprint Course search result opens a new tab or window, leaving the search, filters, sort, and scroll position in the original tab.",
+    "Instructors sometimes explore and sometimes know what they are looking for; the search interface should support both.",
+    "Instructors can begin exploring or searching directly in the shared spreadsheet-style interface, like Google Sheets with filters.",
+    "Simple search returns the same advanced spreadsheet-style results, with the entered search and filters available for further refinement.",
+    "The modular spreadsheet-style interface supports compact, list, and movie-poster-style boxes; the display mode names are not settled.",
+    "Image-focused boxes can help Instructors find visual Questions.",
+    "Opening a Question list item opens a new tab or window, preserving the search and its position in the original tab.",
+    "The interface should show options by priority without overwhelming new users.",
+    "Reddit's multiple display modes are a reference for the shared interface.",
+    "OER Commons has a simple search worth considering and image-focused boxes useful for finding visual content: https://oercommons.org/",
+    "MovieLens is a reference for tiered filters: https://movielens.org/explore/",
+    "IMDb has a well-designed advanced search page: https://www.imdb.com/search/title/",
+    "Google advanced search is a user-friendly design reference: https://www.google.com/advanced_search",
+    "PubMed is clean but not obvious to use: https://pubmed.ncbi.nlm.nih.gov/advanced/",
+    "eBay is dated but may be a useful comparison: https://www.ebay.com/sch/ebayadvsearch",
+    "**Scores**: Shows the Student's automatically graded Coursework scores across their enrolled Courses as soon as each Attempt is submitted and graded.",
+    "**Response Stats**: Shows statistics about the Student's responses in submitted Attempts across Coursework, subject to per-Question feedback rules.",
+    "Progress should keep Coursework visible while an Attempt is in progress and show its score once the Attempt is submitted and graded.",
+    "**Response Stats** should show actual Student response outcomes from submitted Attempts across Assessment Types, subject to per-Question feedback rules.",
+    "Question scores and the Assessment total are visible once the Attempt is submitted and graded; optional Question Feedback timing remains deferred.",
+    "Sysadmins create Instructor Accounts only after vetting the Instructor outside PLE.",
+    "Sysadmins control existing Instructor access through deactivation and reactivation.",
+    "Public IDs are intended for content creators (Instructors) and for Sysadmins providing Instructor support.",
+    "Here the public refers to Instructor users and Sysadmins.",
+    "Published Questions are available to all **Instructors**.",
+    "Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.",
+    "Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.",
+    "Question Pools are available to all **Instructors**.",
+    "Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.",
+    "Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.",
+    "**Published Questions** and Question Pools are available to all **Instructors**.",
+    "PLE is not social media or an online forum.",
+    "Use **Change Proposals** as the Instructor-facing term for proposed content changes.",
+    "Stars follow the GitHub model: Instructors can Star or unstar content, see its Star count, and see who Starred content they can access.",
+    "Use **Stars** and **who Starred** rather than a separate \"endorsement list\" concept.",
+    "**Instructors** can see the star count and which **Instructors** starred a Published Question or Question Pool.",
+    "The structure of Blueprint Courses is very similar to GitHub repositories, with the PLE-specific differences described in this guidance.",
+    "Public Blueprint Courses are visible and reusable by every **Instructor**.",
+    "Public Blueprint Courses and their Revision history are visible to all **Instructors**.",
+    "Archived Blueprint Courses and their Revision history remain visible to all **Instructors**.",
+    "**Instructors** can see who Starred a Blueprint Course and its Star count.",
+    "**Instructors** can add, remove, and reorder Published Questions and Question Pools, subject to the post-issue limits below.",
+    "Once an Assessment has been issued to a Student, only a limited set of content edits should be allowed.",
+    "Instructors can change the points of each Question or Question Pool and change the order of Questions.",
+    "Instructors can remove an individual Question from an Assessment's Question Pool only if it has not been issued to any Student in that Assessment.",
+    "If a Question Pool is bad, Instructors can remove the whole Pool from the Assessment and exclude its earned and possible points from every Attempt. Err on the side of caution; fairness to all Students takes precedence.",
+    "I would probably allow completely removing a standalone Question from the Assessment.",
+    "If a Question or Question Pool is completely removed from an Assessment, its earned and possible points must be removed from all Attempts, including existing Attempts, for fairness to all Students.",
+    "Assessment Unrelease remains the destructive reset described below: it deletes all Student Work and permits normal editing before a new release.",
+    "Unit Review Assignments use the same whole-Attempt submission boundary as every other Assessment and default to showing the correct answer immediately after that Assessment Attempt is submitted.",
+    "Use the Blackboard Ultra model of separate availability and timing settings for viewing submissions and correct answers. Optional Question Feedback timing remains undecided.",
+    "Question scores and the total Assessment score are visible as soon as the Attempt is submitted and automatically graded.",
+    "Instructors cannot hide or delay these scores. PLE has no separate score-posting step, and score visibility does not depend on other Students completing the Assessment.",
+    "The Assessment-type release behaviors below are defaults that Instructors can change.",
+    "**Unit Review Assignments** default to showing correct answers immediately after Assessment Attempt submission.",
+    "**Quizzes** and **Exams** default to showing correct answers after all **Students** in the Course have completed the Assessment.",
+    "Waiting for all Students to complete a Quiz is a necessary evil. If a Student goes AWOL, the Instructor can change the correct-answer setting; Quizzes require more Instructor attention.",
+    "Quizzes and Exams do not disclose correct answers until the selected release condition is met.",
+    "Question Feedback is optional; its display timing and relationship to correct-answer visibility are deferred pending review of its use in PLE.",
+    "For a flawed Question, the usual remedy is to set its point value to zero in the Assessment.",
+    "Only the owner may correct a Native JSON Question, following the Published Question revision rules. An Instructor using someone else's Question can set its Assessment point value to zero.",
+    "A bad WeBWorK Question requires a revision, so setting its Assessment point value to zero is the remedy for affected work."
+  ],
+  "removed_or_reworded": [
+    {
+      "status": "x",
+      "bullet": "All vetted **Instructors** have the same product capabilities.",
+      "prior_notes": [
+        "- Evidence (source): `crates/server/src/question_library.rs` `instructor_session_hash` authorizes only shared `UserRole::Instructor`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "A **Sysadmin** vets an Instructor's real identity before creating the Instructor Account.",
+      "prior_notes": [
+        "- Evidence (source): `crates/server/src/instructor_account.rs` `complete_instructor_identity_vetting` records the Sysadmin's completed identity check before account creation.",
+        "- Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `ple_private.require_completed_instructor_identity_vetting` rejects creation unless that decision matches the candidate email.",
+        "- Evidence (test): `crates/learning-data-access/src/instructor_account.rs` `create_instructor_account_requires_a_completed_vetting_decision` drives `CreateInstructorAccountInput` and rejects a create request that omits the decision."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "The role badge is always in the upper left, just left of the logo.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does the later desktop top bar, which places the logo before the role badge, replace this sentence?",
+        "- Mismatch: One reading keeps the badge immediately left of the logo at every width. The other follows the later top bar: logo, product name, then badge on laptop, tablet, and desktop, and logo then badge on phones with the product name omitted."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must public Blueprint search add Stars, Watches, and most recent edit as sorts, or are name, adoptions, and students the relevant sorts?",
+        "- Mismatch: `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` sorts by name, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no stars, watches, or last-edit field. One reading adds those sorts. The other reads \"such as\" as examples and keeps the three shipped sorts."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Opening a result and returning should preserve the Instructor's search, filters, sort, and scroll position.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` restores the saved query, tag, classification, sort, cursor, and scroll.",
+        "- Evidence (source): `src/pages/blueprint_course_search_return_state.ts` `saveBlueprintSearchReturnState` keeps that search snapshot for the same session.",
+        "- Evidence (test): `tests/test_blueprint_search_return.mjs` `takeBlueprintSearchReturnState` returns the saved snapshot once to the same session."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Search should begin with a prominent search box, similar to Google Search.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/library_page.tsx` `LibraryPage` starts in `initial` state and applies `question-library-controls-initial` to the single `Search published questions` entry.",
+        "- Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` confirmed idle Search makes no fetch and shows neither filters nor result rows; the temporary harness and landing screenshot were removed after the accepted proof."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "The initial Search page should stay simple and focus attention on entering a search.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders filters and results only outside `initial` state, while `changeQuery` begins the current Search after input.",
+        "- Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` confirmed the initial single-entry landing, then filters and 50 loaded results after entering `genetics`; the temporary harness and screenshots were removed after the accepted proof."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Search should assume the Instructor has some idea what they want to find.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/library_page.tsx` search input placeholder `Title or concept` directs a known-item search."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Search results should switch to a dense, information-rich layout.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/library_browse_rows.tsx` `LibraryBrowseRows` shows the published Question list only after Search leaves initial.",
+        "- Evidence (source): `src/components/record_list/record_list.tsx` `RecordList` keeps those results on the semantic list unless a caller asks for gallery."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Should opening a result and returning preserve the Instructor's search and position.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library restore the Instructor's search and scroll after opening a result, or is that still an open design choice?",
+        "- Mismatch: `src/pages/library_page_model.ts` `takeQuestionLibraryReturnState` already restores one saved query and scroll position. One reading treats that as required. The other keeps this sentence as an open question beside the hover-preview and new-tab note, so Human Guidance has not locked the requirement."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "we should offer some hover preview and open items in a new browser tab by default",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Should a Question Library result show a hover preview and open in a new browser tab by default?",
+        "- Mismatch: Question links open in the same tab and have no hover preview. One reading requires both. The other treats the sentence as an unsettled design note rather than a requirement."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Advanced Search considerations:",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this bullet require a separate advanced-search mode, or does it only introduce the comparison notes that follow?",
+        "- Mismatch: Question Library has one search box plus filters. One reading requires another advanced-search mode. The other treats the bullet as a heading for the notes below."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Simple and advanced searches could use the same search box, but we should seriously consider advanced search versus simple search interfaces forms.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Should simple and advanced Question Library search share one box, or use separate forms?",
+        "- Mismatch: `src/pages/library_page.tsx` `LibraryPage` uses one search box. One reading keeps that box. The other asks for a separate advanced form. Human Guidance says to consider both."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "The interface should be minimal, show options by priority, not overwhelming to new users;",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this require a new minimal advanced-search form, or does the existing simple Search page already satisfy it?",
+        "- Mismatch: The initial Search page is one search box. One reading asks for a further prioritized advanced form. The other treats the sentence as a design note under Advanced Search considerations."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Movie Lens as a tiered filter system https://movielens.org/explore/",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library filters copy the MovieLens tiered explore layout?",
+        "- Mismatch: No MovieLens-style explore layout is shipped. One reading requires that layout. The other treats the link as a comparison note, not a requirement to copy the product."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "IMDB advanced search page is wel designed, https://www.imdb.com/search/title/ but questions would not be displayed as movie posters",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy the IMDb advanced title search, while keeping Questions off poster cards?",
+        "- Mismatch: Results use a semantic list rather than posters. One reading requires an IMDb-style advanced form. The other treats the sentence as a comparison note."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Google advanced image search is more user friendly design https://www.google.com/advanced_search",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy Google advanced search?",
+        "- Mismatch: No Google advanced-search form is shipped. One reading requires that form. The other treats the link as a comparison note."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Pubmed is clean, but not obvious to use https://pubmed.ncbi.nlm.nih.gov/advanced/",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy the PubMed advanced-search page?",
+        "- Mismatch: No PubMed advanced form is shipped. One reading requires that page. The other treats the link as a comparison note."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Ebay is dated, but perhaps a useful comparison https://www.ebay.com/sch/ebayadvsearch",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy eBay advanced search?",
+        "- Mismatch: No eBay advanced-search form is shipped. One reading requires that form. The other treats the link as a comparison note."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Should Question IDs have a preview image/movie poster style?",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Should a Question ID in search results include a preview image, or stay text?",
+        "- Mismatch: `src/components/copyable_question_id.tsx` `CopyableQuestionId` shows the text Question ID. One reading adds a poster image. The other keeps the text ID."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Scores**: Shows the Student's released Coursework scores across their enrolled Courses.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/student_course_grades_page.tsx` `StudentScoresPage`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Response Stats**: Shows statistics about the Student's responses across Coursework, subject to Student-visible score and per-Question feedback rules.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/student_course_response_stats_page.tsx` `ResponseStatsRecord`.",
+        "- Evidence (test): `crates/browser-api-contract/src/student_course_response_stats.rs` `contract_contains_only_disclosed_counts_and_exact_question_revision`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Progress should keep Coursework visible when it has Attempts but no released score, clearly marked **Score not released**.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/student_course_progress_page.tsx` `StudentCourseProgressPage` and `src/student_course_progress_presentation.ts` `studentAssessmentScoreStateLabel`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Response Stats** should show actual Student response outcomes across Assessment Types, subject to Student-visible score and per-Question feedback rules.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/student_course_response_stats_page.tsx` `ResponseStatsRecord`.",
+        "- Evidence (test): `crates/browser-api-contract/src/student_course_response_stats.rs` `contract_contains_only_disclosed_counts_and_exact_question_revision`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Scores and feedback should appear where the Coursework settings allow them.",
+      "prior_notes": [
+        "- Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_history` applies the server-owned feedback-release decision before projecting scores and per-Question feedback; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` renders only the released fields present in that projection."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Sysadmins approve Instructors before they receive Instructor capabilities.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/instructor_accounts_page.tsx` `createAccount` completes Instructor identity vetting and then creates the account with that decision id.",
+        "- Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `require_completed_instructor_identity_vetting` rejects account creation unless that decision is completed for the same email, and `create_instructor_account` calls it before the account insert."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Instructor approval status should be easy to find and change.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Is Instructor approval the completed pre-account vetting decision, with later access changed only by deactivate and reactivate, or a distinct Account status a Sysadmin can find and change after creation?",
+        "- Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` exposes active, deactivated, and closed lifecycle state, and `schemas/base_schema/20_tables/account.sql` `instructor_identity_vetting_decision` stores a completed vetting decision that is not an Account state. One reading keeps approval as that immutable decision and changes access only through deactivate and reactivate. The other adds a separate post-creation approval status. Human Guidance asks for a status that is easy to find and change, and it also says a Sysadmin approves an Instructor before that Account receives Instructor capabilities."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "System-wide settings should have their own area, separate from user and Course administration.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Which implemented installation-wide settings must Sysadmins view or change, and which source-of-truth boundary owns each?",
+        "- Mismatch: One reading requires a Sysadmin page for the installation-wide settings that already exist. The other requires no settings page until those settings and their source-of-truth boundary are identified. `src/ribbon/ribbon_catalog.ts` has no system-settings destination, so the current catalog cannot choose."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Public IDs are intended for content creators (vetted Instructors) and for Sysadmins providing Instructor support.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/library_page_model.ts` `displayId` requires a canonical Question ID on Instructor library records.",
+        "- Evidence (source): `crates/server/src/instructor_account.rs` `list_instructor_accounts` lists Instructor Account IDs only for a Sysadmin session."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Here the public refers to vetted Instructor users and Sysadmins.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/library_page_model.ts` `displayId` is the Question ID Instructors read and open in the library.",
+        "- Evidence (source): `crates/server/src/instructor_account.rs` `list_instructor_accounts` is the Sysadmin Account ID lookup, guarded by `sysadmin_session_hash`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Published Questions are available to all vetted **Instructors**.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Watching a Published Question drives in-app notifications for new Revisions, forks, improvement threads, and impact notices.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_watch_revision_event` records a Published Question Revision, and `snapshot_library_watch_event_recipients` delivers that event to the Question's current Watchers.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_watch_fork_event` records a Published Question fork, and `enqueue_library_watch_thread_event` records an improvement thread for that watched Question.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_impact_event` records an impact notice for that watched Question.",
+        "- Evidence (source): `src/pages/library_watch_notifications_page.tsx` `eventLabel` names New Revision, New public fork, Improvement thread activity, and Impact notice activity in the Watch inbox.",
+        "- Evidence (test): `tests/test_library_watch_notification_client.mjs` `Library Watch inbox returns every discriminated event shape privately` decoded a Published Question Revision, fork, improvement thread, and impact notice through the shipped Watch client. `crates/server/src/library_watch_notification.rs` `every_watch_activity_serializes_to_the_stable_wire_shape` serialized those four Question activities. No Live Demo stack was started. No PostgreSQL proof was run."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Question Pools are available to all vetted **Instructors**.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.",
+        "- Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Watching a Question Pool drives in-app notifications for membership edits, forks, improvement threads, and impact notices.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_pool_watch_members_changed_event` records a Pool membership edit for current Watchers.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_pool_watch_fork_event` records a Pool fork for current Watchers.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_thread_event` records an improvement thread for a watched Pool.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_impact_event` records an impact notice for a watched Pool.",
+        "- Evidence (source): `crates/learning-data-access/src/postgres/library_watch_notification.rs` `MembersChanged` reads that membership edit into the private Watch inbox and `require_pool_membership_target` refuses it for a Published Question.",
+        "- Evidence (source): `src/pages/library_watch_notifications_page.tsx` `membersChanged` labels the inbox row Membership edit.",
+        "- Evidence (test): `tests/test_library_watch_notification_client.mjs` `Library Watch inbox returns every discriminated event shape privately` decoded a Question Pool membersChanged notification with Edit Number 5 through the shipped Watch client, and rejected a membership edit aimed at a Published Question. watch_activity_accepts_each_complete_variant accepted members_changed for a Pool and rejected it for a Question. every_watch_activity_serializes_to_the_stable_wire_shape serialized membersChanged. No Live Demo stack was started. No PostgreSQL proof was run."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Published Questions** and Question Pools are available to all vetted **Instructors**.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `create_instructor_account` creates an Instructor Account only after completed Instructor identity vetting.",
+        "- Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_is_instructor` recognizes that active Instructor role.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `question_library_entries` returns available Published Questions to an active Instructor or Sysadmin and does not filter by author or Course.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns Question Pools to an active Instructor or Sysadmin and does not filter by author or Course.",
+        "- Evidence (source): `crates/server/src/question_library.rs` `library_reader_session_hash` admits an Instructor session to Question search and conceals a Student session.",
+        "- Evidence (source): `crates/server/src/question_pool_library.rs` `library_reader` admits an Instructor session to Question Pool discovery and conceals a Student session.",
+        "- Evidence (test): `crates/server/src/question_library/tests.rs` `question_search_resolves_native_source_only_for_the_returned_page` searches as an Instructor and requires the author and Course filters to stay off."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published Question or Question Pool.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `verified_instructor_display_name` returns the display name from the completed Instructor identity vetting decision.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `read_current_question_star` sets star_count to the active endorsers whose vetted display name is present, the same names the list returns.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_pool_stewardship.sql` `read_current_question_pool_star` sets star_count to the active endorsers whose vetted display name is present, the same names the list returns.",
+        "- Evidence (source): `crates/server/src/question_stewardship.rs` `read_star` returns that Question projection only after `instructor_session_hash`.",
+        "- Evidence (source): `crates/server/src/question_pool_stewardship.rs` `read_star` returns that Pool projection only after `instructor_session_hash`.",
+        "- Evidence (source): `src/pages/question_detail_page.tsx` `QuestionStarControl` shows the count and names when `mayMutateLibrary` admits the Instructor role.",
+        "- Evidence (source): `src/pages/library_page.tsx` `mayMutateLibrary` is the Instructor role and is passed to Pool discovery as `mayWatchPools`.",
+        "- Evidence (source): `src/pages/library_pool_discovery.tsx` `QuestionPoolStarControl` shows the Pool count and names on that Instructor surface.",
+        "- Evidence (test): `tests/test_frontend_contract.mjs` `Vetted Instructors can see the star count and which vetted Instructors starred a Published Question or Question Pool.` rendered star count 2 and the names Ada Lopez and Grace Hopper for Question 7K3M-79QP and Pool 3S8B-24DZ through the shipped Star controls and HTTP client."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Watching a Published Question drives in-app notifications for new Revisions, forks, improvement threads, and impact notices.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_watch_revision_event` records a Published Question Revision, and `snapshot_library_watch_event_recipients` delivers that event to the Question's current Watchers.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_watch_fork_event` records a Published Question fork, and `enqueue_library_watch_thread_event` records an improvement thread for that watched Question.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_impact_event` records an impact notice for that watched Question.",
+        "- Evidence (source): `src/pages/library_watch_notifications_page.tsx` `eventLabel` names New Revision, New public fork, Improvement thread activity, and Impact notice activity in the Watch inbox.",
+        "- Evidence (test): `tests/test_library_watch_notification_client.mjs` `Library Watch inbox returns every discriminated event shape privately` decoded a Published Question Revision, fork, improvement thread, and impact notice through the shipped Watch client. `crates/server/src/library_watch_notification.rs` `every_watch_activity_serializes_to_the_stable_wire_shape` serialized those four Question activities. No Live Demo stack was started. No PostgreSQL proof was run.",
+        "- Owner: earlier Human Guidance occurrence of this bullet."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Watching a Question Pool drives in-app notifications for membership edits, forks, improvement threads, and impact notices.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_pool_watch_members_changed_event` records a Pool membership edit for current Watchers.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_question_pool_watch_fork_event` records a Pool fork for current Watchers.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_thread_event` records an improvement thread for a watched Pool.",
+        "- Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_impact_event` records an impact notice for a watched Pool.",
+        "- Evidence (source): `crates/learning-data-access/src/postgres/library_watch_notification.rs` `MembersChanged` reads that membership edit into the private Watch inbox and `require_pool_membership_target` refuses it for a Published Question.",
+        "- Evidence (source): `src/pages/library_watch_notifications_page.tsx` `membersChanged` labels the inbox row Membership edit.",
+        "- Evidence (test): `tests/test_library_watch_notification_client.mjs` `Library Watch inbox returns every discriminated event shape privately` decoded a Question Pool membersChanged notification with Edit Number 5 through the shipped Watch client, and rejected a membership edit aimed at a Published Question. watch_activity_accepts_each_complete_variant accepted members_changed for a Pool and rejected it for a Question. every_watch_activity_serializes_to_the_stable_wire_shape serialized membersChanged. No Live Demo stack was started. No PostgreSQL proof was run.",
+        "- Owner: earlier Human Guidance occurrence of this bullet."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Public Blueprint Courses are visible and reusable by every vetted **Instructor**.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` returns a Public Blueprint to any active Instructor.",
+        "- Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` accepts that Public Blueprint as a daughter Course Instance source.",
+        "- Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` had a non-owner Instructor list, load, and adopt the Public Blueprint. The disposable PostgreSQL database baseline required this ignored test and exited 0."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Public Blueprint Courses and their Revision history are visible to all vetted **Instructors**.",
+      "prior_notes": [
+        "- Evidence (runtime): `schemas/base_schema/50_functions/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Revision and metadata facts. Accepted Public-history proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Archived Blueprint Courses and their Revision history remain visible to all vetted **Instructors**.",
+      "prior_notes": [
+        "- Evidence (runtime): `schemas/base_schema/50_functions/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/blueprint_stewardship.sql` `verified_instructor_display_name` is required for the viewer and for each listed Instructor, and `read_current_blueprint_course_star` returns the Star count.",
+        "- Evidence (source): `src/features/blueprint_course/blueprint_stewardship.tsx` `Instructors who Starred this Blueprint` lists those names beside the Star count."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Instructors** can add, remove, and reorder Published Questions and Question Pools.",
+      "prior_notes": [
+        "- Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` supplies Question addition, Pool import, and mixed-entry move/remove controls; `schemas/base_schema/50_functions/assessment_operations.sql` `ple_api.save_assessment` reaches `schemas/base_schema/50_functions/assessments.sql` `ple_data.replace_assessment_entries` through authorized Instructor persistence.",
+        "- Evidence (runtime): accepted actual-server/private bundled-main browser proof at `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` added both kinds, reordered the Pool across a Fixed Question, removed Fixed B and then the Pool, and saved/reloaded their absence from current content. Private retired IDs and the old Pool Revision remained; source Pool JSON was unchanged, and reimport created distinct fork entry/Pool IDs. Student direct real HTTP returned 404 without current-state change; browser error arrays were empty. Artifact: `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`. This does not establish Student Work history, full Live Demo, authentication/TLS, or WeBWorK delivery."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Unit Review Assignments use the same whole-Attempt submission boundary as every other Assessment and show the correct answer immediately after that Assessment Attempt is submitted.",
+      "prior_notes": [
+        "- Evidence (source): `crates/server/src/assessment_delivery/submission.rs` `finalize_assessment_attempt` finalizes the whole Assessment Attempt and does not branch on Assessment Type. `crates/question_model/src/assessment_activity_rules.rs` `for_assessment_type` releases the Unit Review correct answer after that Attempt is submitted.",
+        "- Evidence (test): `crates/question_model/src/assessment_activity_rules.rs` `practice_defaults_release_the_answer_without_an_explanation` checks that after-submit answer."
+      ]
+    },
+    {
+      "status": " ",
+      "bullet": "Quizzes may use more restrictive Attempt and collaboration settings than Weekly Assignments.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this require a distinct collaboration control, or only the more restrictive Quiz Attempt limit?",
+        "- Mismatch: One reading: a Quiz already defaults to one Assessment Attempt while a Weekly Assignment stays unlimited, and Human Guidance names no other collaboration control. The other reading: Quizzes need a separate collaboration setting that can be stricter than a Weekly Assignment."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Unit Review Assignments** show correct answers immediately after Assessment Attempt submission.",
+      "prior_notes": [
+        "- Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `for_assessment_type` releases the Unit Review correct answer after that Attempt is submitted. `src/features/blueprint_course/blueprint_course_model.ts` `defaultDefaults` uses the same after-submit timing.",
+        "- Evidence (test): `crates/question_model/src/assessment_activity_rules.rs` `practice_defaults_release_the_answer_without_an_explanation` checks that after-submit answer."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "**Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.",
+      "prior_notes": [
+        "- Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `current_student_cohort_completed_assessment` is true only when the Assessment exists and every current Student has a submission. `crates/server/src/assessment_delivery/history.rs` `project_released_content` offers a WeBWorK correct-answer review only when `history_decision` releases the answer. `src/pages/assessment_attempt_summary_page.tsx` `OpaqueWebworkPreviewFrame` shows that review."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Until then, Quizzes and Exams do not disclose correct answers.",
+      "prior_notes": [
+        "- Evidence (source): `crates/domain/src/student_feedback_release.rs` `gate_quiz_exam_answers_for_current_cohort` withholds Quiz and Exam answers while any current Student is unfinished. `crates/server/src/webwork_document_route.rs` `permitted_answer_revision_tuple` returns no answer document unless that decision releases the answer. `src/pages/assessment_attempt_summary_page.tsx` `OpaqueWebworkPreviewFrame` renders only when review is available."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Optional Question Feedback is shown when the Question Backend provides it.",
+      "prior_notes": [
+        "- Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.",
+        "- Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies provided native feedback without answer disclosure."
+      ]
+    },
+    {
+      "status": "x",
+      "bullet": "Question Feedback does not use Assessment correct-answer disclosure settings.",
+      "prior_notes": [
+        "- Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` has no Question Feedback timing field; `crates/domain/src/student_feedback_release.rs` `project_student_feedback` projects supplied feedback independently while `StudentFeedbackReleaseDecision` continues to gate correct answer and explanation."
+      ]
+    }
+  ],
+  "prior_open_records": [
+    {
+      "bullet": "All fields, identifiers, domain concepts, and terminology in the PostgreSQL database structure, Rust code, TypeScript code, JSON/API contracts, Terminology Contract, and Human Guidance are in alignment.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does alignment mean the Terminology Contract and its registered cross-boundary surfaces use the same product terms, or must every column, Rust field, JSON key, and label be proven identical?",
+        "- Mismatch: `docs/TERMINOLOGY_CONTRACT.md` `Human-facing identifiers` names the public identity terms, and `tests/test_semantic_contract_registry.py` `test_semantic_contract_registry_points_at_native_coverage` checks registered surfaces. One reading treats that contract as the alignment. The other requires a whole-repository comparison Human Guidance does not bound."
+      ]
+    },
+    {
+      "bullet": "Design around what users need to find and do.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Do the shipped task ribbons and record pages already design around what users find and do, or does this sentence still require a separate usability study?",
+        "- Mismatch: `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` places Instructor Courses, Questions, and Assessments in the top bar, and `src/components/record_list/record_list.css` `.record-list__title` makes the record title the prominent fact. One reading treats those task surfaces as the design. The other treats the sentence as a whole-product usability outcome with no pass rule in Human Guidance."
+      ]
+    },
+    {
+      "bullet": "Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Is the precision field console the one visual philosophy for the whole interface, or does Human Guidance still require a separate philosophy choice?",
+        "- Mismatch: `docs/UI_DESIGN_GUIDE.md` `precision field console` names one philosophy, and `src/style.css` `--ple-radius-surface` is a shared shell token. One reading treats that console as the chosen philosophy carried by the shell and record lists. The other treats the entire interface as an acceptance Human Guidance has not locked."
+      ]
+    },
+    {
+      "bullet": "The role badge is always in the upper left, just left of the logo.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does the later desktop top bar, which places the logo before the role badge, replace this sentence?",
+        "- Mismatch: One reading keeps the badge immediately left of the logo at every width. The other follows the later top bar: logo, product name, then badge on laptop, tablet, and desktop, and logo then badge on phones with the product name omitted."
+      ]
+    },
+    {
+      "bullet": "The current avatar or Profile image appears consistently anywhere PLE represents that user.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: When another screen represents a user, must it show that user's private Profile image, or only the provided gallery avatar while the private image stays on that user's own Profile?",
+        "- Mismatch: `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` shows the signed-in Account's Profile image or provided avatar. `src/pages/instructor_accounts_page.tsx` `providedAvatarId` shows another Account's gallery avatar and not a private Profile image. One reading shows the private image everywhere a user is represented. The other keeps the private image on that user's own Profile and uses the provided avatar, or no image, on other screens.",
+        "- Owner: 03_shell.md / Profile avatar interface (first occurrence; identical requirement and status)."
+      ]
+    },
+    {
+      "bullet": "The current avatar or Profile image appears consistently anywhere PLE represents that user.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: When another screen represents a user, must it show that user's private Profile image, or only the provided gallery avatar while the private image stays on that user's own Profile?",
+        "- Mismatch: `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` shows the signed-in Account's Profile image or provided avatar. `src/pages/instructor_accounts_page.tsx` `providedAvatarId` shows another Account's gallery avatar and not a private Profile image. One reading shows the private image everywhere a user is represented. The other keeps the private image on that user's own Profile and uses the provided avatar, or no image, on other screens.",
+        "- Owner: 03_shell.md / Profile avatar interface (first occurrence; identical requirement and status)."
+      ]
+    },
+    {
+      "bullet": "Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must public Blueprint search add Stars, Watches, and most recent edit as sorts, or are name, adoptions, and students the relevant sorts?",
+        "- Mismatch: `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` sorts by name, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no stars, watches, or last-edit field. One reading adds those sorts. The other reads \"such as\" as examples and keeps the three shipped sorts."
+      ]
+    },
+    {
+      "bullet": "Should opening a result and returning preserve the Instructor's search and position.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library restore the Instructor's search and scroll after opening a result, or is that still an open design choice?",
+        "- Mismatch: `src/pages/library_page_model.ts` `takeQuestionLibraryReturnState` already restores one saved query and scroll position. One reading treats that as required. The other keeps this sentence as an open question beside the hover-preview and new-tab note, so Human Guidance has not locked the requirement."
+      ]
+    },
+    {
+      "bullet": "we should offer some hover preview and open items in a new browser tab by default",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Should a Question Library result show a hover preview and open in a new browser tab by default?",
+        "- Mismatch: Question links open in the same tab and have no hover preview. One reading requires both. The other treats the sentence as an unsettled design note rather than a requirement."
+      ]
+    },
+    {
+      "bullet": "Advanced Search considerations:",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this bullet require a separate advanced-search mode, or does it only introduce the comparison notes that follow?",
+        "- Mismatch: Question Library has one search box plus filters. One reading requires another advanced-search mode. The other treats the bullet as a heading for the notes below."
+      ]
+    },
+    {
+      "bullet": "Simple and advanced searches could use the same search box, but we should seriously consider advanced search versus simple search interfaces forms.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Should simple and advanced Question Library search share one box, or use separate forms?",
+        "- Mismatch: `src/pages/library_page.tsx` `LibraryPage` uses one search box. One reading keeps that box. The other asks for a separate advanced form. Human Guidance says to consider both."
+      ]
+    },
+    {
+      "bullet": "The interface should be minimal, show options by priority, not overwhelming to new users;",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this require a new minimal advanced-search form, or does the existing simple Search page already satisfy it?",
+        "- Mismatch: The initial Search page is one search box. One reading asks for a further prioritized advanced form. The other treats the sentence as a design note under Advanced Search considerations."
+      ]
+    },
+    {
+      "bullet": "Movie Lens as a tiered filter system https://movielens.org/explore/",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library filters copy the MovieLens tiered explore layout?",
+        "- Mismatch: No MovieLens-style explore layout is shipped. One reading requires that layout. The other treats the link as a comparison note, not a requirement to copy the product."
+      ]
+    },
+    {
+      "bullet": "IMDB advanced search page is wel designed, https://www.imdb.com/search/title/ but questions would not be displayed as movie posters",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy the IMDb advanced title search, while keeping Questions off poster cards?",
+        "- Mismatch: Results use a semantic list rather than posters. One reading requires an IMDb-style advanced form. The other treats the sentence as a comparison note."
+      ]
+    },
+    {
+      "bullet": "Google advanced image search is more user friendly design https://www.google.com/advanced_search",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy Google advanced search?",
+        "- Mismatch: No Google advanced-search form is shipped. One reading requires that form. The other treats the link as a comparison note."
+      ]
+    },
+    {
+      "bullet": "Pubmed is clean, but not obvious to use https://pubmed.ncbi.nlm.nih.gov/advanced/",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy the PubMed advanced-search page?",
+        "- Mismatch: No PubMed advanced form is shipped. One reading requires that page. The other treats the link as a comparison note."
+      ]
+    },
+    {
+      "bullet": "Ebay is dated, but perhaps a useful comparison https://www.ebay.com/sch/ebayadvsearch",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Must Question Library search copy eBay advanced search?",
+        "- Mismatch: No eBay advanced-search form is shipped. One reading requires that form. The other treats the link as a comparison note."
+      ]
+    },
+    {
+      "bullet": "Should Question IDs have a preview image/movie poster style?",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Should a Question ID in search results include a preview image, or stay text?",
+        "- Mismatch: `src/components/copyable_question_id.tsx` `CopyableQuestionId` shows the text Question ID. One reading adds a poster image. The other keeps the text ID."
+      ]
+    },
+    {
+      "bullet": "Guidance about the student interface",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this bullet require a Student guidance surface, or does it only introduce the Student interface rules that follow?",
+        "- Mismatch: One reading treats the bullet as the heading for the Student rules that follow. The other would require a separate Student guidance surface that Human Guidance does not describe."
+      ]
+    },
+    {
+      "bullet": "The Sysadmin menu should make Accounts, Instructors, Courses, and system configuration easy to find.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does system configuration need its own menu destination now, or is the menu complete while installation-wide settings remain an open inventory?",
+        "- Mismatch: `src/pages/role_home_pages.tsx` `SysadminHomePage` reaches Instructor Accounts and installation Courses, and `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` includes `instructorAccounts`, `courses`, and `disciplines`, while no system-configuration destination exists. One reading adds that destination once system-wide settings are identified. The other treats Accounts, Instructors, and Courses as the findable menu until a setting exists."
+      ]
+    },
+    {
+      "bullet": "Instructor approval status should be easy to find and change.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Is Instructor approval the completed pre-account vetting decision, with later access changed only by deactivate and reactivate, or a distinct Account status a Sysadmin can find and change after creation?",
+        "- Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` exposes active, deactivated, and closed lifecycle state, and `schemas/base_schema/20_tables/account.sql` `instructor_identity_vetting_decision` stores a completed vetting decision that is not an Account state. One reading keeps approval as that immutable decision and changes access only through deactivate and reactivate. The other adds a separate post-creation approval status. Human Guidance asks for a status that is easy to find and change, and it also says a Sysadmin approves an Instructor before that Account receives Instructor capabilities."
+      ]
+    },
+    {
+      "bullet": "System-wide settings should have their own area, separate from user and Course administration.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Which implemented installation-wide settings must Sysadmins view or change, and which source-of-truth boundary owns each?",
+        "- Mismatch: One reading requires a Sysadmin page for the installation-wide settings that already exist. The other requires no settings page until those settings and their source-of-truth boundary are identified. `src/ribbon/ribbon_catalog.ts` has no system-settings destination, so the current catalog cannot choose."
+      ]
+    },
+    {
+      "bullet": "Rare installation and configuration tasks should remain available through secondary navigation.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this require a secondary Ribbon row now, or does reachability from the Sysadmin home satisfy it while the complete Ribbon layout stays unlocked?",
+        "- Mismatch: `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_TWO` has no Sysadmin destinations, and `src/pages/role_home_pages.tsx` `SysadminHomePage` still links Disciplines, Library activity, and scoped roster support. `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` already includes `instructorAccounts` and `disciplines` as primary tasks. One reading adds a secondary Ribbon row for rare tasks. The other keeps those tasks on the Sysadmin home until Human Guidance locks the complete Sysadmin Ribbon layout."
+      ]
+    },
+    {
+      "bullet": "The complete Sysadmin Ribbon task layout does not have a locked-in design yet.",
+      "prior_notes": [
+        "- Reason: HG: no locked-in design.",
+        "- Mismatch: no complete Sysadmin Ribbon task layout can be verified until the design is locked."
+      ]
+    },
+    {
+      "bullet": "An object without a public ID uses a native UUID primary key, or a composite natural key when it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Are Theme and provided-avatar vocabulary tokens objects that must use native UUID primary keys, or durable vocabulary keys that keep their text identifiers?",
+        "- Mismatch: Question Revisions use the composite key published_question_id plus revision_number, and Attempts use a UUID. `schemas/base_schema/20_tables/theme.sql` `theme_id` and `schemas/base_schema/20_tables/profile_media.sql` `provided_avatar_id` are text vocabulary keys. `schemas/base_schema/20_tables/account.sql` `canonical_public_id` is the public-ID reservation key and is outside this bullet. One reading is that Theme and provided-avatar tokens are durable vocabulary keys, matching Theme IDs that stay stable when a display name or colors change. The other is that both are objects without a public ID and must use native UUID primary keys. Human Guidance states both the key rule and durable Theme IDs, and it does not say whether a vocabulary token is an object."
+      ]
+    },
+    {
+      "bullet": "Use the simplest term that accurately describes what the value represents.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Do Id, Tuple, and Reference already name the identity values, or must every remaining value still be judged for the simplest term?",
+        "- Mismatch: `crates/question_model/src/question_library.rs` `PublishedQuestionRevisionTuple` and `crates/adapters/webwork/src/lib/source_object_id.rs` `WebworkQuestionSourceBinding` use Tuple and Binding. One reading treats Id, Tuple, and Binding as the simplest accurate terms. The other requires a review of every remaining identifier, which Human Guidance does not list."
+      ]
+    },
+    {
+      "bullet": "Quizzes may use more restrictive Attempt and collaboration settings than Weekly Assignments.",
+      "prior_notes": [
+        "- Reason: product decision still unclear",
+        "- Question: Does this require a distinct collaboration control, or only the more restrictive Quiz Attempt limit?",
+        "- Mismatch: One reading: a Quiz already defaults to one Assessment Attempt while a Weekly Assignment stays unlimited, and Human Guidance names no other collaboration control. The other reading: Quizzes need a separate collaboration setting that can be stricter than a Weekly Assignment."
+      ]
+    }
+  ]
+}

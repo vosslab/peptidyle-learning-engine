@@ -27,6 +27,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   requirements.
 - This section overrides implementation language elsewhere in this document until an item is moved
   out of this section.
+- Much of the Sysadmin functionality beyond creating Instructor Accounts is deferred until concrete needs are established. I know more will be needed, but what is needed is still unproven.
+- System-wide settings are deferred; the settings themselves have not been defined.
+- System-wide settings should have their own area, separate from user and Course administration.
+- Regrading submitted responses after a Native JSON answer-key correction is deferred for now; I would probably still defer this.
+- When implemented, regrading replaces the previous grading result rather than keeping old grading results. Changing the answer key back runs grading again.
+- The decision about when optional Question Feedback is shown is deferred until I better understand how feedback is used in PLE.
 - all automated daemon backends are deferred until final server location
 - all automated AI/LLM backends are deferred until final server location
 - AI-backed Bloom classification is desired but deferred until a later release.
@@ -128,8 +134,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Account**: A global PLE user account with exactly one User Role.
 - **User Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
-- **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates Accounts, and provides scoped administrative support.
-- **Instructor**: An approved user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
+- **Sysadmin**: A PLE administrator who manages the system, creates Accounts after outside vetting, and provides scoped administrative support.
+- **Instructor**: A user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
 - **Student**: A user who enrolls in **Course Instances** and completes Coursework.
 
 ### Course vocabulary
@@ -167,7 +173,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Question Pool**: A published **Library Object** containing interchangeable **Published Questions** from which PLE selects Questions for a **Student**.
 - **Question Backend**: The component responsible for a Question's rendering, interaction, response handling, grading, feedback, and backend-specific state.
 - **Question Type**: Author-declared educational metadata describing the Question's interaction type, such as MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT.
-- **Question Library**: The global collection of **Published Questions** and **Question Pools** available to vetted **Instructors**.
+- **Question Library**: The global collection of **Published Questions** and **Question Pools** available to **Instructors**.
 - **Library Object**: A **Published Question** or **Question Pool** in the **Question Library**.
 - **Question Image Asset**: A still image bound to an exact **Question Revision**. Current kinds
   are PNG, JPEG, and WebP.
@@ -208,8 +214,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Instructor role
 
-- All vetted **Instructors** have the same product capabilities.
-- A **Sysadmin** vets an Instructor's real identity before creating the Instructor Account.
+- All **Instructors** have the same product capabilities.
+- Once admitted to PLE, all Instructors are equal; there is no separate Verified Instructor role or status.
+- A **Sysadmin** vets an Instructor before creating their Account; vetting happens outside PLE.
+- PLE has no Instructor approval workflow or approval status.
+- A **Sysadmin** creates an Instructor Account with an email address, first name, last name, and affiliation.
+- PLE sends a setup email to that address so the Instructor can set up their Account.
 - Course membership determines which private Course records an Instructor may use.
 - **Instructors** can search and browse the global **Question Library**.
 - **Instructors** can browse the content of Public and Archived **Blueprint Courses**.
@@ -243,11 +253,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A **Sysadmin** has full administrative authority over PLE.
 - Sysadmins vet **Instructors** and create Instructor Accounts.
 - Sysadmins can help Instructors repair Courses, Students, and content.
+- Sysadmins should be reluctant to get involved in content.
 - The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.
 - Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.
 - **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
 - A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
 - Sysadmin support access should be limited to that support task and recorded for audit.
+- A Sysadmin can initiate support repairs under their own administrative authority; no Instructor permission or grant is required.
 - Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
 
 ### Future Course roles
@@ -324,6 +336,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Use progressive disclosure to keep common tasks compact while making supporting details easy
   to find.
 - Use tooltips for brief supplementary explanations, available on hover and keyboard focus.
+- Tooltips provide brief text; hover previews add too much overhead and slow the interface.
+- Opening a list item opens it in a new browser tab or window, including search results and
+  Assessments in an Assessment list.
+- Ribbon navigation stays in the current tab. Buttons perform their stated action.
+- Confirm before navigation discards an existing search and its results; leave empty search
+  pages directly.
+- PLE does not store old search results for later restoration.
+- Search prompts and search results are never stored permanently; keep database size and bloat under control.
 - Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
   supporting keyboard, pointer, and touch interaction.
 - Keep essential information, primary actions, and current status visible in the main interface.
@@ -333,7 +353,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Role badges
 
-- The role badge is always in the upper left, just left of the logo.
+- The role badge is always in the upper left, just right of the logo.
 - **Sysadmin** uses tomato red as its role color.
 - **Instructor** uses teal green as its role color.
 - **Student** uses lavender purple as its role color.
@@ -428,6 +448,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The same avatar gallery collection is available to all User Roles.
 - The current avatar or Profile image appears consistently anywhere PLE represents that user.
 
+#### Instructor Profile visibility
+
+- Instructor Profiles are public within PLE to everyone with an Account, including Students.
+- Instructor Profile images appear when viewing Question authors, Question Pool owners, and other Instructor
+  representations; Profile images do not have a separate permissions mechanism.
+
 #### Student avatars
 
 - **Students** select avatars from the PLE-provided avatar gallery collection and cannot upload Profile images.
@@ -503,11 +529,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Search results should use a compact, information-rich layout that supports scanning and comparison.
 - Results should show Course name, classification, author, institution, and useful usage or
   stewardship signals directly in the result list to support scanning and comparison.
-- Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.
+- Public Blueprint Course search supports sorting by Stars, Watches, Adoptions, number of students
+  having taken the course, and most recent edit, plus other relevant search metadata.
+- Number of students having taken the course is an aggregate count, not identifiable Student records.
 - Search terms, active filters, and the selected sort should remain visible while reviewing results.
 - Clearing or changing part of a search should be quick.
-- Opening a result and returning should preserve the Instructor's search, filters, sort, and scroll
-  position.
+- Opening a Blueprint Course search result opens a new tab or window, leaving the search,
+  filters, sort, and scroll position in the original tab.
 - A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
 
 ##### Blueprint Course editing interface
@@ -556,29 +584,35 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ##### Search Question Library interface
 
 - **Search Question Library** helps Instructors find specific Questions in a large library.
-- Search should begin with a prominent search box, similar to Google Search.
-- The initial Search page should stay simple and focus attention on entering a search.
-- Search should assume the Instructor has some idea what they want to find.
+- Instructors sometimes explore and sometimes know what they are looking for; the search interface
+  should support both.
+- Instructors can begin exploring or searching directly in the shared spreadsheet-style interface,
+  like Google Sheets with filters.
+- Simple search returns the same advanced spreadsheet-style results, with the entered search and
+  filters available for further refinement.
+- The modular spreadsheet-style interface supports compact, list, and movie-poster-style boxes;
+  the display mode names are not settled.
+- Image-focused boxes can help Instructors find visual Questions.
 - Question Library search should work well with ordinary words by default.
 - Instructors should not need to learn search syntax to use Search Question Library.
-- Search results should switch to a dense, information-rich layout.
 - Results should make it easy to scan many Questions quickly.
 - Results should show the information needed to judge relevance without opening each Question.
 - Search terms and active filters should remain visible while reviewing results.
 - Clearing or changing part of a search should be quick.
-- Should opening a result and returning preserve the Instructor's search and position.
-  - we should offer some hover preview and open items in a new browser tab by default
-- Advanced Search considerations:
-  - Simple and advanced searches could use the same search box, but we should seriously consider
-    advanced search versus simple search interfaces forms.
-  - The interface should be minimal, show options by priority, not overwhelming to new users;
-  - Movie Lens as a tiered filter system https://movielens.org/explore/
-  - IMDB advanced search page is wel designed, https://www.imdb.com/search/title/ but questions
-    would not be displayed as movie posters
-  - Google advanced image search is more user friendly design https://www.google.com/advanced_search
-  - Pubmed is clean, but not obvious to use https://pubmed.ncbi.nlm.nih.gov/advanced/
-  - Ebay is dated, but perhaps a useful comparison https://www.ebay.com/sch/ebayadvsearch
-  - Should Question IDs have a preview image/movie poster style?
+- Opening a Question list item opens a new tab or window, preserving the search and its position
+  in the original tab.
+- The interface should show options by priority without overwhelming new users.
+
+##### Question Library design references
+
+- Reddit's multiple display modes are a reference for the shared interface.
+- OER Commons has a simple search worth considering and image-focused boxes useful for finding
+  visual content: https://oercommons.org/
+- MovieLens is a reference for tiered filters: https://movielens.org/explore/
+- IMDb has a well-designed advanced search page: https://www.imdb.com/search/title/
+- Google advanced search is a user-friendly design reference: https://www.google.com/advanced_search
+- PubMed is clean but not obvious to use: https://pubmed.ncbi.nlm.nih.gov/advanced/
+- eBay is dated but may be a useful comparison: https://www.ebay.com/sch/ebayadvsearch
 
 ##### Search Question Library filters
 
@@ -696,8 +730,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
     - **Active Attempt**: I want a quick return to an Assessment with a running clock. Keep it visible but disabled when no Attempt's clock is running.
 
   - **Grades**
-    - **Scores**: Shows the Student's released Coursework scores across their enrolled Courses.
-    - **Response Stats**: Shows statistics about the Student's responses across Coursework, subject to Student-visible score and per-Question feedback rules.
+    - **Scores**: Shows the Student's automatically graded Coursework scores across their enrolled Courses as soon as each Attempt is submitted and graded.
+    - **Response Stats**: Shows statistics about the Student's responses in submitted Attempts across Coursework, subject to per-Question feedback rules.
     - **Attempt History**: Shows the Student's previous Assessment Attempts across their enrolled Courses and provides access to review them when permitted.
     - **Latest Feedback**: Provides quick access to the most recent feedback available to the Student across their enrolled Courses. It remains visible but disabled when no feedback is available.
 
@@ -717,9 +751,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course invitations should show the Course name and relevant Instructor and term information before the Student accepts the invitation.
 - Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
 - Coursework lists should make due dates, Type, and completion status easy to scan.
-- Progress should keep Coursework visible when it has Attempts but no released score, clearly marked **Score not released**.
+- Progress should keep Coursework visible while an Attempt is in progress and show its score once the Attempt is submitted and graded.
 - Submitted work should remain distinct from a perfect score; **Completed** means at least one submitted Attempt.
-- **Response Stats** should show actual Student response outcomes across Assessment Types, subject to Student-visible score and per-Question feedback rules.
+- **Response Stats** should show actual Student response outcomes from submitted Attempts across Assessment Types, subject to per-Question feedback rules.
 - Measured Question display time should be labeled as approximate **time shown with the Question**, with its sample count. It does not measure attention or effort and does not affect grades.
 - Keep Coursework entries compact in height so Students can scan several items at once.
 - Keep essential Coursework information and the main action visible, with fuller access and timing details available through progressive disclosure.
@@ -756,7 +790,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Student Coursework review interface
 
-- Scores and feedback should appear where the Coursework settings allow them.
+- Question scores and the Assessment total are visible once the Attempt is submitted and graded; optional Question Feedback timing remains deferred.
 - Completed Coursework should remain easy to find and review.
 - Group each reviewed Question's number, result, points, recorded response, and permitted feedback
   into a compact, clearly separated unit.
@@ -770,12 +804,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Account lists should support searching, filtering, and scanning large numbers of users.
 - User pages should clearly show role, account status, and other important administrative information.
 - Sysadmins create accounts and manage account access.
-- Sysadmins approve Instructors before they receive Instructor capabilities.
-- Instructor approval status should be easy to find and change.
+- Sysadmins create Instructor Accounts only after vetting the Instructor outside PLE.
+- Sysadmins control existing Instructor access through deactivation and reactivation.
 - Sysadmins should be able to find and inspect Courses across the installation.
 - Course administration should show the Instructor and important Course status information.
 - Sysadmins should manage Courses through Sysadmin interfaces and capabilities.
-- System-wide settings should have their own area, separate from user and Course administration.
 - Everyday navigation should emphasize frequently used administrative tasks.
 - Rare installation and configuration tasks should remain available through secondary navigation.
 - High-consequence administrative actions should have a visually distinct area.
@@ -792,8 +825,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Human-facing public IDs
 
-- Public IDs are intended for content creators (vetted Instructors) and for Sysadmins providing Instructor support.
-- Here the public refers to vetted Instructor users and Sysadmins.
+- Public IDs are intended for content creators (Instructors) and for Sysadmins providing Instructor support.
+- Here the public refers to Instructor users and Sysadmins.
 - Human-facing public IDs should be short, opaque, and easy to communicate.
 - Human-facing public IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
 - A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
@@ -1130,7 +1163,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Published Question specifications
 
 - A Published Question is an immutable-revision Question available for reuse through the Question Library.
-- Published Questions are available to all vetted **Instructors**.
+- Published Questions are available to all **Instructors**.
 
 #### Published Question identity specifications
 
@@ -1169,8 +1202,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Published forks retain source attribution.
 - Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
 - Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
-- Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
-  threads, and impact notices.
+- Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.
 
 #### Published Question behavior specifications
 
@@ -1187,8 +1219,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Pool contents should represent reasonably interchangeable assessments of the intended learning.
 - Question Pools may contain Questions from any Question Backend.
 - Question Pools are created from a Published Question and enter the Question Library immediately.
-- A Question Pool is an independently reusable Question Library object.
-- Question Pools are available to all vetted **Instructors**.
+- A Question Pool is an independently reusable Question Library object, designed to be forked often.
+  The Instructor who owns it is its owner.
+- Question Pools are available to all **Instructors**.
 - A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID.
 - A Question Pool is a current ordered list of exact Published Question Revisions plus its
   metadata. Saving the list re-attests interchangeability and advances the Pool's Edit Number;
@@ -1208,8 +1241,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
-- Watching a Question Pool drives in-app notifications for membership edits, forks, improvement
-  threads, and impact notices.
+- Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
 
 #### Question Pool metadata
 
@@ -1232,7 +1264,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
 - The Question Library is one global collection of Published Questions and Question Pools.
 - Draft Questions are not part of the Question Library.
-- **Published Questions** and Question Pools are available to all vetted **Instructors**.
+- **Published Questions** and Question Pools are available to all **Instructors**.
 - **Students** access Question content through their Coursework rather than through the Question Library.
 - Question Library content remains discoverable when used by a private **Course Instance**.
 - With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
@@ -1291,15 +1323,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Question Library stewardship specifications
 
 - Question Library stewardship should use a GitHub-like model.
+- PLE is not social media or an online forum.
+- Use **Change Proposals** as the Instructor-facing term for proposed content changes.
+- Stars follow the GitHub model: Instructors can Star or unstar content, see its Star count, and see who Starred content they can access.
+- Use **Stars** and **who Starred** rather than a separate "endorsement list" concept.
 - Published Questions and Question Pools can be starred and watched.
 - Star means favorite and visible endorsement.
-- Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published
+- **Instructors** can see the star count and which **Instructors** starred a Published
   Question or Question Pool.
 - Watch means subscription.
-- Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
-  threads, and impact notices.
-- Watching a Question Pool drives in-app notifications for membership edits, forks, improvement
-  threads, and impact notices.
+- Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.
+- Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
 - An **Instructor's** watch list remains private.
 - **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
 
@@ -1334,10 +1368,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Blueprint Course specifications
 
 - **Blueprint Courses** are reusable course definitions for building **Course Instances**.
+- The structure of Blueprint Courses is very similar to GitHub repositories, with the PLE-specific differences described in this guidance.
 - Blueprint Courses are a similar concept as LibreTexts' ADAPT alpha courses.
 - Blueprint Courses have no **Students**, deadlines, or other teaching-specific delivery settings.
 - Blueprint Courses do not contain dates or relative schedules.
-- Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
+- Public Blueprint Courses are visible and reusable by every **Instructor**.
 - Blueprint Courses contain only **Published Questions** and published **Question Pools**.
 - An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
 - Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
@@ -1350,7 +1385,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Instructors may develop and use Private Blueprint Courses without publishing them.
 - Private Blueprint Courses cannot be adopted to create daughter **Course Instances**.
 - Making a Blueprint Course Public adds it to the shared Blueprint Course collection.
-- Public Blueprint Courses and their Revision history are visible to all vetted **Instructors**.
+- Public Blueprint Courses and their Revision history are visible to all **Instructors**.
 - Public Blueprint Courses can be adopted to create daughter Course Instances.
 - A Public Blueprint Course with no adoptions may return to Private.
 - A Public Blueprint Course with one or more adoptions remains Public.
@@ -1359,7 +1394,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Archived Blueprint Course specifications
 
 - Archived Blueprint Courses are read-only and no longer actively maintained.
-- Archived Blueprint Courses and their Revision history remain visible to all vetted **Instructors**.
+- Archived Blueprint Courses and their Revision history remain visible to all **Instructors**.
 - Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
 - Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
 - Archived Blueprint Courses can be forked.
@@ -1385,8 +1420,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Sysadmins exclusively control the Promoted flag.
 - **Instructors** can Star or Watch Public and Archived Blueprint Courses.
 - A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
-- Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.
-- Watching a Blueprint Course is private.
+- **Instructors** can see who Starred a Blueprint Course and its Star count.
+- Blueprint Course Watches follow the GitHub repository model.
 - Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
 - Forking or adopting a Blueprint Course does not automatically Star or Watch it.
 - Stars and Watches belong to the Blueprint Course across all of its Revisions.
@@ -1534,8 +1569,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   as its source.
 - A forked Question Pool can be changed independently without changing its source Question Pool.
 - Published Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
-- **Instructors** can add, remove, and reorder Published Questions and Question Pools.
+- **Instructors** can add, remove, and reorder Published Questions and Question Pools, subject to the post-issue limits below.
 - Assessment Question-order randomization is called **Randomize question order**.
+
+#### Assessment content edits after issue
+
+- Once an Assessment has been issued to a Student, only a limited set of content edits should be allowed.
+- Instructors can change the points of each Question or Question Pool and change the order of Questions.
+- Instructors can remove an individual Question from an Assessment's Question Pool only if it has not been issued to any Student in that Assessment.
+- If a Question Pool is bad, Instructors can remove the whole Pool from the Assessment and exclude its earned and possible points from every Attempt. Err on the side of caution; fairness to all Students takes precedence.
+- I would probably allow completely removing a standalone Question from the Assessment.
+- If a Question or Question Pool is completely removed from an Assessment, its earned and possible points must be removed from all Attempts, including existing Attempts, for fairness to all Students.
+- Assessment Unrelease remains the destructive reset described below: it deletes all Student Work and permits normal editing before a new release.
 
 ### Assessment type specifications
 
@@ -1552,11 +1597,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Unit Review Assignments** provide focused review or study-guide practice using material already covered.
 - Unit Review Assignments may be worth a small number of points or a small amount of extra credit.
 - Unit Review Assignments use the same whole-Attempt submission boundary as every other
-  Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
+  Assessment and default to showing the correct answer immediately after that Assessment Attempt is submitted.
 - **Bonus Assignments** provide optional extra credit.
 - Bonus Assignments are worth zero points possible and add earned points directly to the grade.
 - **Quizzes** assess understanding of recent material.
-- Quizzes may use more restrictive Attempt and collaboration settings than Weekly Assignments.
 - **Exams** are individual assessments associated with scheduled exam periods.
 - Exams may use more restrictive Attempt, timing, availability, and feedback settings.
 - Quizzes and Exams allow one Assessment Attempt.
@@ -1621,17 +1665,21 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Assessment answer and feedback disclosure
 
 - Assessment disclosure settings remain separate and independently configurable.
+- Use the Blackboard Ultra model of separate availability and timing settings for viewing submissions and correct answers. Optional Question Feedback timing remains undecided.
+- Question scores and the total Assessment score are visible as soon as the Attempt is submitted and automatically graded.
+- Instructors cannot hide or delay these scores. PLE has no separate score-posting step, and score visibility does not depend on other Students completing the Assessment.
+- The Assessment-type release behaviors below are defaults that Instructors can change.
 - **Weekly Assignments** and **Bonus Assignments** should rarely show the correct answer.
 - Regular and Bonus Assignments show the **Student's** response and whether it was correct or incorrect.
-- **Unit Review Assignments** show correct answers immediately after Assessment Attempt
+- **Unit Review Assignments** default to showing correct answers immediately after Assessment Attempt
   submission.
-- **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
+- **Quizzes** and **Exams** default to showing correct answers after all **Students** in the Course have completed the Assessment.
+- Waiting for all Students to complete a Quiz is a necessary evil. If a Student goes AWOL, the Instructor can change the correct-answer setting; Quizzes require more Instructor attention.
 - A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
   PLE submits it automatically.
 - Assessment Attempt completion does not depend on correctness or score.
-- Until then, Quizzes and Exams do not disclose correct answers.
-- Optional Question Feedback is shown when the Question Backend provides it.
-- Question Feedback does not use Assessment correct-answer disclosure settings.
+- Quizzes and Exams do not disclose correct answers until the selected release condition is met.
+- Question Feedback is optional; its display timing and relationship to correct-answer visibility are deferred pending review of its use in PLE.
 
 #### Assessment unrelease
 
@@ -1721,5 +1769,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - For the pilot, grade export uses CSV or TSV only and exports point-based Assessment scores.
 - The Instructor handles Course-level weighting or percentage calculations in the home LMS.
 - Changing Question point values recalculates affected Assessment scores.
+- For a flawed Question, the usual remedy is to set its point value to zero in the Assessment.
+- Only the owner may correct a Native JSON Question, following the Published Question revision rules. An Instructor using someone else's Question can set its Assessment point value to zero.
+- A bad WeBWorK Question requires a revision, so setting its Assessment point value to zero is the remedy for affected work.
 - Score recalculation does not require another Question Backend interaction.
 - Score recalculation does not change the stored Question grading outcome.

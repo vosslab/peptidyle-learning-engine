@@ -90,8 +90,9 @@ SELECT record.object_address::text
   FROM ple_private.account AS account
   JOIN ple_private.account_avatar AS avatar ON avatar.account_id = account.account_id
   JOIN ple_data.profile_image_delivery AS delivery ON delivery.profile_image_id = avatar.profile_image_id
-  JOIN ple_private.object_record AS record ON record.object_id = delivery.object_id
- WHERE account.display_name = '$persona' AND avatar.profile_image_id = '$image'")"
+  JOIN ple_private.object_record AS record ON record.object_record_id = delivery.object_record_id
+ WHERE ple_private.instructor_display_name(account.account_id) = '$persona'
+   AND avatar.profile_image_id = '$image'")"
     python3 -c '
 import json, sys
 value=json.loads(sys.argv[1]); image=sys.argv[2]
@@ -136,10 +137,12 @@ prepare_image
 
 first_upload="$(upload "$instructor_cookie")"; require_status "Instructor image upload" "$first_upload" 200
 first_image="$(image_id "$(body "$first_upload")")"
-assert_exact_record 'Elena Rivera' "$first_image"
+assert_exact_record 'Elena Martinez' "$first_image"
 instructor_delivery="$(request "/api/profile/avatar/profile-images/$first_image/delivery" "$instructor_cookie" POST '{}')"
 require_status "Instructor self delivery" "$instructor_delivery" 200
-concealed "$(request "/api/profile/avatar/profile-images/$first_image/delivery" "$sysadmin_cookie" POST '{}')"
+student_delivery="$(request "/api/profile/avatar/profile-images/$first_image/delivery" "$student_cookie" POST '{}')"
+require_status "Student delivery of public Instructor Profile image" "$student_delivery" 200
+concealed "$(request "/api/profile/avatar/profile-images/$first_image/delivery" '' POST '{}')"
 
 second_upload="$(upload "$instructor_cookie")"; require_status "Instructor replacement upload" "$second_upload" 200
 second_image="$(image_id "$(body "$second_upload")")"

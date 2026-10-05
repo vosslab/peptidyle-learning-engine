@@ -53,9 +53,9 @@ Before adding a datum:
 
 | Class | Examples | Browser boundary | Retention |
 | --- | --- | --- | --- |
-| Published answer-free content | Published Question metadata, safe prompt content, authorized Question Image Renditions | Vetted Instructor discovery or authorized Student delivery; not anonymous by default | Independent of Course Student-record retention |
+| Published answer-free content | Published Question metadata, safe prompt content, authorized Question Image Renditions | Active Instructor discovery or authorized Student delivery; not anonymous by default | Independent of Course Student-record retention |
 | Private authoring content | Draft Question source, import archive, private preview, Answer Key | Authorized Instructor authoring only | Workspace policy; publication creates independent immutable content |
-| Blueprint content | Blueprint metadata and immutable Revisions | Private owner-only; Public to vetted Instructors; Archived only through explicit inclusion | Independent of Course Student-record retention |
+| Blueprint content | Blueprint metadata and immutable Revisions | Private owner-only; Public to active Instructors; Archived only through explicit inclusion | Independent of Course Student-record retention |
 | Blueprint update and proposal data | Source and receiving Blueprint references, canonical differences, and acceptance decision | Daughter Course co-Instructors for Course updates; receiving Blueprint owner for Change Proposals | Retained with the Blueprint/Course relationship; never grants FERPA access |
 | Course teaching content | Course metadata, Assessment definitions, Questions, settings | Current Course relationships | Remains after FERPA-protected Student records are deleted |
 | Protected Student record | Membership history, Attempt/state, response, score/credit, timing/accommodations/activity, feedback, issued selection, interpretation evidence, analytics, linkable opaque ID | The Student or equal co-Instructors for that Course; scoped support only | Notice, archive from normal interfaces, recovery period, permanent deletion |
@@ -129,9 +129,9 @@ Student records.
 
 ## Shared content is not automatically public
 
-A Published Question may be discoverable to vetted Instructors while its
+A Published Question may be discoverable to active Instructors while its
 source, Answer Key, grading inputs, and backend state remain private. Likewise,
-a Public Blueprint is available to vetted Instructors but not anonymous users
+a Public Blueprint is available to active Instructors but not anonymous users
 or Students. "Published" and "Public" describe exact product audiences, not an
 open internet access rule.
 

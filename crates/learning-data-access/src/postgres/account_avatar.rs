@@ -9,8 +9,8 @@ use uuid::Uuid;
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork,
-    FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageId, ProvidedAvatarId,
-    SelectableProvidedAvatarId, SessionTokenHash, StoreError,
+    FinalizedAccountProfileImage, InstructorProfile, PreparedAccountProfileImage, ProfileImageId,
+    ProvidedAvatarId, SelectableProvidedAvatarId, SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -148,6 +148,53 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         .transpose()
     }
 
+    async fn read_instructor_profile(
+        &self,
+        token: SessionTokenHash,
+        account_id: &question_model::AccountId,
+    ) -> Result<InstructorProfile, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let row = sqlx::query(
+            "SELECT display_name, avatar_kind, provided_avatar_id, profile_image_id \
+             FROM ple_api.read_instructor_profile($1)",
+        )
+        .bind(account_id.as_str())
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let display_name: String = row.try_get("display_name").map_err(map_sqlx_error)?;
+        let avatar_kind: Option<String> = row.try_get("avatar_kind").map_err(map_sqlx_error)?;
+        let avatar = match avatar_kind.as_deref() {
+            Some("provided") => Some(AccountAvatar::Provided(ProvidedAvatarId::parse(
+                row.try_get::<Option<String>, _>("provided_avatar_id")
+                    .map_err(map_sqlx_error)?
+                    .ok_or_else(|| {
+                        StoreError::InvalidRecord("Instructor Profile avatar id".to_owned())
+                    })?,
+            )?)),
+            Some("profile-image") => Some(AccountAvatar::ProfileImage(ProfileImageId::from_uuid(
+                row.try_get::<Option<Uuid>, _>("profile_image_id")
+                    .map_err(map_sqlx_error)?
+                    .ok_or_else(|| {
+                        StoreError::InvalidRecord("Instructor Profile image id".to_owned())
+                    })?,
+            ))),
+            None => None,
+            _ => {
+                return Err(StoreError::InvalidRecord(
+                    "Instructor Profile avatar kind".to_owned(),
+                ));
+            }
+        };
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(InstructorProfile {
+            account_id: account_id.clone(),
+            display_name,
+            avatar,
+        })
+    }
+
     async fn select_provided_account_avatar(
         &self,
         token: SessionTokenHash,
@@ -178,7 +225,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
             .map_err(|_| StoreError::InvalidRecord("profile image is too large".to_owned()))?;
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT work_id, profile_image_id, object_id \
+            "SELECT work_id, profile_image_id, object_record_id AS object_id \
              FROM ple_api.prepare_account_profile_image($1,$2,$3,$4)",
         )
         .bind(profile_image_id.as_uuid())
@@ -231,7 +278,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
     ) -> Result<AccountProfileImageDeleteWork, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT delete_work_id, profile_image_id, object_id \
+            "SELECT delete_work_id, profile_image_id, object_record_id AS object_id \
              FROM ple_api.prepare_account_profile_image_deletion($1)",
         )
         .bind(put_work_id)
@@ -312,7 +359,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
     ) -> Result<FinalizedAccountProfileImage, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT profile_image_id, object_id, retired_delete_work_id, \
+            "SELECT profile_image_id, object_record_id AS object_id, retired_delete_work_id, \
                     retired_profile_image_id, retired_object_id \
              FROM ple_api.finalize_account_profile_image($1)",
         )
@@ -367,6 +414,24 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         let mut tx = self.begin(token).await?;
         let object_id = sqlx::query_scalar::<_, Option<Uuid>>(
             "SELECT ple_api.resolve_current_account_profile_image($1)",
+        )
+        .bind(profile_image_id.as_uuid())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(ObjectId::from_uuid(object_id))
+    }
+
+    async fn resolve_instructor_profile_image(
+        &self,
+        token: SessionTokenHash,
+        profile_image_id: ProfileImageId,
+    ) -> Result<ObjectId, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let object_id = sqlx::query_scalar::<_, Option<Uuid>>(
+            "SELECT ple_api.resolve_instructor_profile_image($1)",
         )
         .bind(profile_image_id.as_uuid())
         .fetch_one(&mut *tx)

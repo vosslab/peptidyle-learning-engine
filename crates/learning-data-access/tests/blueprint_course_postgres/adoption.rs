@@ -141,7 +141,6 @@ WITH source_assessment AS (
                WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END
            AND snapshot.assessment_question_order_rule::text = CASE source.content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}'
                WHEN 'authoredOrder' THEN 'authored_order' WHEN 'shuffled' THEN 'shuffled' END
-           AND snapshot.feedback_score::text = source.content #>> '{defaults,student_feedback_release_rule,score}'
            AND snapshot.feedback_per_item_correctness::text = source.content #>> '{defaults,student_feedback_release_rule,per_item_correctness}'
            AND snapshot.feedback_submitted_response::text = source.content #>> '{defaults,student_feedback_release_rule,submitted_response}'
            AND snapshot.feedback_question_answer::text = source.content #>> '{defaults,student_feedback_release_rule,question_answer}'

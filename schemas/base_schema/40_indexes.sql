@@ -10,6 +10,9 @@ CREATE INDEX instructor_personal_theme_account_id_instructor_user_role_fk_idx
 CREATE INDEX instructor_personal_theme_theme_id_fk_idx
     ON ple_private.instructor_personal_theme (theme_id);
 
+CREATE INDEX instructor_profile_account_id_instructor_user_role_fk_idx
+    ON ple_private.instructor_profile (account_id, instructor_user_role);
+
 CREATE INDEX email_authentication_challenge_active_token_idx
 ON ple_private.email_authentication_challenge (token_hash, expires_at) WHERE consumed_at IS NULL;
 
@@ -59,12 +62,6 @@ CREATE INDEX question_star_instructor_collection_idx
 
 CREATE INDEX question_watch_instructor_collection_idx
     ON ple_data.question_watch(instructor_account_id, watched_at DESC, published_question_id);
-
-CREATE INDEX library_improvement_thread_object_idx
-    ON ple_data.library_improvement_thread(object_kind, public_object_id, created_at, library_improvement_thread_id);
-
-CREATE INDEX library_improvement_post_thread_idx
-    ON ple_data.library_improvement_post(library_improvement_thread_id, created_at, post_id);
 
 CREATE INDEX library_impact_notice_object_idx
     ON ple_data.library_impact_notice(object_kind, public_object_id, created_at DESC, impact_notice_id);
@@ -244,12 +241,6 @@ CREATE INDEX instructor_account_creation_event_created_by_sy_4138130d_fk_idx
 CREATE INDEX instructor_account_creation_event_created_instr_838b23f7_fk_idx
     ON ple_audit.instructor_account_creation_event (created_instructor_account_id, created_instructor_user_role);
 
-CREATE INDEX instructor_account_creation_event_instructor_id_2eefdbbf_fk_idx
-    ON ple_audit.instructor_account_creation_event (instructor_identity_vetting_decision_id);
-
-CREATE INDEX instructor_identity_vetting_decision_completed__5e383e9f_fk_idx
-    ON ple_audit.instructor_identity_vetting_decision (completed_by_sysadmin_account_id, completed_by_sysadmin_user_role);
-
 CREATE INDEX object_cleanup_receipt_object_cleanup_manifest__f9f85e91_fk_idx
     ON ple_audit.object_cleanup_receipt (object_cleanup_manifest_id, disposition);
 
@@ -407,15 +398,6 @@ CREATE INDEX library_impact_notice_cancelled_by_account_id_fk_idx
 
 CREATE INDEX library_impact_notice_created_by_account_id_fk_idx
     ON ple_data.library_impact_notice (created_by_account_id);
-
-CREATE INDEX library_improvement_post_author_account_id_fk_idx
-    ON ple_data.library_improvement_post (author_account_id);
-
-CREATE INDEX library_improvement_thread_created_by_account_id_fk_idx
-    ON ple_data.library_improvement_thread (created_by_account_id);
-
-CREATE INDEX library_improvement_thread_resolved_by_account_id_fk_idx
-    ON ple_data.library_improvement_thread (resolved_by_account_id);
 
 CREATE INDEX profile_image_delivery_object_record_id_fk_idx
     ON ple_data.profile_image_delivery (object_record_id);

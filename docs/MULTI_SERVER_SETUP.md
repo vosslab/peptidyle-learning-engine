@@ -39,7 +39,7 @@ Instructor membership; it does not create a privileged owner row. A Student
 can read only that Student's records in an enrolled course. A private workspace
 is not a course or Question Library. The Question Library exposes only reviewed,
 answer-free Question Search Results: every non-archived Published Question is
-discoverable to a vetted Instructor and ordinarily selectable.
+discoverable to an active Instructor and ordinarily selectable.
 
 Institution names, roster identifiers, display labels, provider identifiers,
 renderer IDs, and similar fields are metadata for display, audit, provenance,

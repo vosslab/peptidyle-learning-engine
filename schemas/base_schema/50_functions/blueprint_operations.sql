@@ -468,6 +468,10 @@ DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
     boolean, boolean, boolean, text, text, bigint, text, text, integer,
     uuid, uuid, uuid, uuid, boolean
 );
+DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
+    boolean, boolean, boolean, text, text, bigint, text, text, integer,
+    uuid, uuid, uuid, uuid, boolean, text
+);
 
 CREATE FUNCTION ple_api.list_blueprint_courses(
     p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
@@ -479,7 +483,9 @@ CREATE FUNCTION ple_api.list_blueprint_courses(
 RETURNS TABLE (
     blueprint_course_id text, short_name text, long_name text, availability text,
     blueprint_edit_number bigint, current_blueprint_revision_number bigint, is_owner boolean,
-    total_adoptions bigint, total_students_ever_enrolled bigint,
+    owner_account_id text, owner_display_name text, owner_affiliation text,
+    total_adoptions bigint, total_students_ever_enrolled bigint, star_count bigint, watcher_count bigint,
+    last_edited_at_millis bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 )
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
@@ -489,7 +495,7 @@ BEGIN
     -- ASVS 2.2.1/3: reject contradictory visibility and unbounded pages.
     IF p_limit < 1 OR p_limit > 251 OR (p_public_only AND p_include_archived)
        OR length(p_query) > 256
-       OR p_sort NOT IN ('name', 'adoptions', 'students')
+       OR p_sort NOT IN ('name', 'adoptions', 'students', 'stars', 'watches', 'recentEdits')
        OR (p_after_long_name IS NULL) <> (p_after_blueprint_course_id IS NULL)
        OR (p_sort = 'name' AND p_after_count IS NOT NULL)
        OR (p_sort <> 'name' AND
@@ -529,6 +535,10 @@ BEGIN
            course.long_name, course.availability::text AS availability, course.blueprint_edit_number,
            course.current_blueprint_revision_number::bigint AS current_blueprint_revision_number,
            course.owner_account_id = ple_api.current_session_account_id() AS is_owner,
+           course.owner_account_id::text AS owner_account_id,
+           ple_private.instructor_display_name(course.owner_account_id::text)
+               AS owner_display_name,
+           ple_private.instructor_affiliation(course.owner_account_id::text) AS owner_affiliation,
            (SELECT count(*) FROM (
                 SELECT adoption.course_instance_id
                   FROM ple_data.course_instance AS adoption
@@ -557,6 +567,23 @@ BEGIN
                      WHERE source.blueprint_course_id = course.blueprint_course_id
               ) AS adopted_course ON adopted_course.course_instance_id = adoption.course_instance_id)
               AS total_students_ever_enrolled,
+           (SELECT count(*)::bigint
+              FROM ple_data.blueprint_course_star AS star
+             WHERE star.blueprint_course_id = course.blueprint_course_id) AS star_count,
+           (SELECT count(*)::bigint
+              FROM ple_data.blueprint_course_watch AS watch
+             WHERE watch.blueprint_course_id = course.blueprint_course_id) AS watcher_count,
+           (EXTRACT(EPOCH FROM GREATEST(
+                course.created_at,
+                COALESCE((SELECT max(revision.saved_at)
+                            FROM ple_data.blueprint_course_revision AS revision
+                           WHERE revision.blueprint_course_id = course.blueprint_course_id),
+                         course.created_at),
+                COALESCE((SELECT max(event.occurred_at)
+                            FROM ple_data.blueprint_metadata_event AS event
+                           WHERE event.blueprint_course_id = course.blueprint_course_id),
+                         course.created_at)
+            )) * 1000)::bigint AS last_edited_at_millis,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags
       FROM ple_data.blueprint_course AS course
@@ -598,10 +625,28 @@ BEGIN
              OR (matched.total_students_ever_enrolled = p_after_count
                  AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
                      (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'stars' AND
+            (matched.star_count < p_after_count
+             OR (matched.star_count = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'watches' AND
+            (matched.watcher_count < p_after_count
+             OR (matched.watcher_count = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'recentEdits' AND
+            (matched.last_edited_at_millis < p_after_count
+             OR (matched.last_edited_at_millis = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
      ORDER BY
        CASE WHEN p_sort = 'name' THEN matched.long_name END COLLATE "C" ASC,
        CASE WHEN p_sort = 'adoptions' THEN matched.total_adoptions END DESC,
        CASE WHEN p_sort = 'students' THEN matched.total_students_ever_enrolled END DESC,
+       CASE WHEN p_sort = 'stars' THEN matched.star_count END DESC,
+       CASE WHEN p_sort = 'watches' THEN matched.watcher_count END DESC,
+       CASE WHEN p_sort = 'recentEdits' THEN matched.last_edited_at_millis END DESC,
        matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C"
      LIMIT p_limit;
 END

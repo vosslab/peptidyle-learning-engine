@@ -10,13 +10,11 @@ VALUES
     (:'instructor_id', 'instructor', pg_catalog.transaction_timestamp()),
     (:'student_id', 'student', pg_catalog.transaction_timestamp()),
     (:'sysadmin_id', 'sysadmin', pg_catalog.transaction_timestamp());
-
-SET LOCAL ROLE ple_audit_owner;
-SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
-    'saved-response-instructor@example.test', 'Saved Response Instructor', :'sysadmin_id'
-) AS instructor_vetting_decision_id \gset
-SELECT ple_audit.record_instructor_account_creation_event(
-    :'instructor_id', :'sysadmin_id', :'instructor_vetting_decision_id'
+INSERT INTO ple_private.instructor_profile (
+    account_id, first_name, last_name, affiliation, created_at, updated_at
+) VALUES (
+    :'instructor_id', 'Saved', 'Instructor', 'Test University',
+    pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp()
 );
 
 SET LOCAL ROLE ple_data_owner;
@@ -33,7 +31,7 @@ SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     pg_catalog.transaction_timestamp() + interval '2 days',
     NULL, 1800, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'never', 'never', 'never',
+    'after_submit', 'after_submit', 'after_submit', 'never', 'never',
     'regular_assignment'
 ), 'hex') AS snapshot_id \gset
 

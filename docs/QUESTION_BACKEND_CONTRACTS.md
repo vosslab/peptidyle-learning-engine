@@ -24,7 +24,7 @@ PLE owns:
 - response-saving and whole-Assessment submission;
 - storage of the backend's immutable credit fraction;
 - score calculation from current Assessment Question point values;
-- feedback-disclosure policy; and
+- correct-answer visibility and the eventual optional Question Feedback timing rule; and
 - FERPA retention.
 
 PLE treats a backend's presentation and state as opaque. It must not inspect
@@ -41,7 +41,7 @@ labels; PLE does not infer it from rendered controls.
 | Save response | PLE stores a complete typed native response or bounded opaque backend response while the Attempt is open. |
 | Evaluate | The backend interprets the exact response and state and returns an immutable credit fraction plus protected feedback. |
 | Submit Assessment | PLE submits the whole Attempt and finalizes all saved responses together as Student Work. |
-| Disclose | PLE exposes only the result and feedback allowed by Assessment policy. |
+| Disclose | Scores appear when the Attempt is submitted and automatically graded. Correct answers follow the selected visibility setting; optional Question Feedback timing remains deferred in HG. |
 | Fail | Unsupported, invalid, or unavailable backend work does not become an incorrect Student response. |
 
 A complete response may be evaluated before the whole Assessment Attempt is
@@ -49,8 +49,9 @@ submitted, but saving it creates no Student-visible grading outcome. PLE stores
 the backend's credit fraction without reinterpretation. A point-value change
 recalculates the score and never regrades the response.
 
-PLE has no public grading job, pending-result lifecycle, Retry action, regrading
-operation, result replacement, or generic grading receipt. When PLE requests a
+PLE has no public grading job, pending-result lifecycle, Retry action, or generic
+grading receipt. Native JSON regrading and result replacement are deferred under
+HG, rather than permanently excluded by this contract. When PLE requests a
 grading outcome, the Question Backend returns it without a deferred grading
 state. If it cannot return the credit fraction, that processing does not
 complete.
@@ -130,7 +131,8 @@ does not extract answer evaluators or reconstruct backend feedback. Hints,
 Worked Solutions, explanation, score, and recorded response remain independent.
 
 The completed-history answer decision authorizes each document fetch, including
-the current-Course completion gate for Quiz and Exam answers. PLE repeats that
+the Instructor-selected correct-answer condition. Waiting for all Students to
+complete a Quiz or Exam is a changeable default, not a mandatory backend rule. PLE repeats that
 authorization immediately after rendering and discards output if access or
 disclosure has changed. The browser receives only an optional
 `backendAnswerReview: "available"` marker and derives a fixed authorized route.
@@ -153,12 +155,12 @@ Account, Assessment, Attempt, or grading model. No backend is presented as
 available until its real composition and connected acceptance are complete.
 
 H5P is not a current PLE Question Backend. Its placeholder schema, adapter,
-DTO, API, and workspace seams were removed. Future H5P delivery is blocked
-until Human Guidance's recorded product question fixes the first supported
-content type and exact pinned library versions, authoritative terminal xAPI
-event/score semantics, and whether scoreless activities are non-assessment
-only. A later approved H5P backend must satisfy this document's ownership and
-evidence rules; it does not inherit a dormant implementation claim.
+DTO, API, and workspace seams were removed. HG defers H5P; it does not settle
+its future content types, library packaging, terminal xAPI events, or handling
+of scoreless activities. Resolve the necessary product and engineering choices
+when that backend is resumed, following HG and the dependency policy. These are
+not current implementation requirements or decisions attributed to Neil. A later
+H5P backend must satisfy this document's ownership and evidence rules.
 
 ## Retained evidence
 

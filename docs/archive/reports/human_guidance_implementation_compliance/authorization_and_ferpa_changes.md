@@ -23,11 +23,11 @@ readings are recorded once in
 
 ## Open readings in this area
 
-- Position 466 asks whether Instructor approval is the completed vetting decision,
+- Position 475 asks whether Instructor approval is the completed vetting decision,
   with later access changed only by deactivate and reactivate, or a separate
   post-creation Account status.
-- Positions 460, 470, and 472 ask where system configuration, installation-wide
+- Positions 469, 479, and 481 ask where system configuration, installation-wide
   settings, and rare configuration tasks belong. No empty settings page was added.
-- Position 475 leaves only the complete Sysadmin Ribbon task layout unlocked.
+- Position 484 leaves only the complete Sysadmin Ribbon task layout unlocked.
 
 Accounts and roles: 44 verified, 0 open, 8 not applicable.

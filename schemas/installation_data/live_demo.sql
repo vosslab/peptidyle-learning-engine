@@ -439,9 +439,12 @@ BEGIN
               WHERE course_instance_id = v_course_instance_id),
             NULL,
             1800, NULL, 'accept', 'new_variation', 'authored_order',
-            'after_submit', 'after_submit', 'after_submit',
-            'never', 'never', 'never',
-            'practice_question_assignment'
+            p_feedback_per_item_correctness => 'after_submit',
+            p_feedback_submitted_response => 'after_submit',
+            p_feedback_question_answer => 'never',
+            p_feedback_question_answer_explanation => 'never',
+            p_feedback_class_statistics => 'never',
+            p_assessment_type => 'practice_question_assignment'
         )
     ) RETURNING assessment_id INTO new_assessment_id;
     INSERT INTO ple_data.assessment_entry (

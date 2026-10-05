@@ -33,7 +33,7 @@ BEGIN
            WHERE account_id = account.account_id
            ORDER BY occurred_at DESC, event_id DESC LIMIT 1
       ) AS state_event ON state_event.state = 'active'
-     WHERE ple_private.verified_instructor_display_name(account.account_id) IS NOT NULL;
+     WHERE ple_private.instructor_display_name(account.account_id) IS NOT NULL;
     RETURN NEW;
 END
 $$;
@@ -129,26 +129,6 @@ AFTER INSERT ON ple_data.question_pool
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_pool_watch_fork_event();
 
 
-
--- A Watch event records the birth of the retained thread. Replies, post edits,
--- and thread lifecycle changes remain visible in the activity view.
-CREATE FUNCTION ple_data.enqueue_library_watch_thread_event()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number, activity_id, occurred_at
-    ) VALUES (
-        NEW.object_kind, NEW.public_object_id, 'improvement_thread',
-        NEW.creation_revision_number, NEW.library_improvement_thread_id, NEW.created_at
-    );
-    RETURN NEW;
-END
-$$;
-
-CREATE TRIGGER library_improvement_thread_enqueues_watch_notification
-AFTER INSERT ON ple_data.library_improvement_thread
-FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_library_watch_thread_event();
 
 CREATE FUNCTION ple_data.enqueue_library_watch_impact_event()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER

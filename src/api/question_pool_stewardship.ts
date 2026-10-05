@@ -2,12 +2,13 @@
 
 import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 
-/** One immutable vetted public name, never an Account or Profile ID. */
+/** One active Instructor shown in an Instructor-only Star list. */
 export interface QuestionPoolStarredInstructor {
   readonly displayName: string;
+  readonly accountId: string;
 }
 
-/** Public endorsement facts available only to an authorized vetted Instructor. */
+/** Public endorsement facts available only to an authorized active Instructor. */
 export interface QuestionPoolStarProjection {
   readonly starCount: number;
   readonly viewerHasStarred: boolean;

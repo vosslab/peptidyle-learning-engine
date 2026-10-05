@@ -11,6 +11,7 @@ use learning_data_access::SessionTokenHash;
 use super::{SESSION_COOKIE_NAME, SESSION_TOKEN_BYTES, SessionConfig};
 
 const PENDING_MFA_COOKIE_NAME: &str = "ple_pending_mfa";
+const PENDING_EMAIL_COOKIE_NAME: &str = "ple_pending_email";
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct SessionToken(pub(super) [u8; SESSION_TOKEN_BYTES]);
@@ -119,10 +120,41 @@ pub(super) fn clear_pending_mfa_cookie(config: SessionConfig) -> Cookie<'static>
         .build()
 }
 
+/// Builds the short-lived browser binding for one email-code ceremony.
+/// ASVS 3.3.1, 3.3.3, 3.3.4, and 6.3.1: the code cannot be replayed by a
+/// second browser because this host-only HttpOnly capability stays separate.
+pub(super) fn pending_email_cookie(
+    token: &PendingMfaToken,
+    config: SessionConfig,
+) -> Cookie<'static> {
+    Cookie::build((
+        wire_cookie_name(PENDING_EMAIL_COOKIE_NAME, config),
+        token.encode(),
+    ))
+    .path("/")
+    .http_only(true)
+    .secure(config.secure())
+    .same_site(config.same_site())
+    .max_age(cookie::time::Duration::seconds(10 * 60))
+    .build()
+}
+
+/// Clears the browser-only email-code binding after completion.
+pub(super) fn clear_pending_email_cookie(config: SessionConfig) -> Cookie<'static> {
+    Cookie::build((wire_cookie_name(PENDING_EMAIL_COOKIE_NAME, config), ""))
+        .path("/")
+        .http_only(true)
+        .secure(config.secure())
+        .same_site(config.same_site())
+        .max_age(cookie::time::Duration::ZERO)
+        .build()
+}
+
 pub(super) fn wire_cookie_name(name: &'static str, _config: SessionConfig) -> &'static str {
     match name {
         SESSION_COOKIE_NAME => "__Host-ple_session",
         PENDING_MFA_COOKIE_NAME => "__Host-ple_pending_mfa",
+        PENDING_EMAIL_COOKIE_NAME => "__Host-ple_pending_email",
         _ => name,
     }
 }
@@ -147,6 +179,23 @@ pub(super) fn presented_pending_mfa_token(cookie_header: Option<&str>) -> Option
         .filter_map(Result::ok)
         .filter_map(|cookie| {
             (cookie.name() == "__Host-ple_pending_mfa")
+                .then(|| PendingMfaToken::decode(cookie.value()))
+                .flatten()
+        });
+    let token = tokens.next()?;
+    if tokens.next().is_some() {
+        return None;
+    }
+    Some(token)
+}
+
+pub(super) fn presented_pending_email_token(
+    cookie_header: Option<&str>,
+) -> Option<PendingMfaToken> {
+    let mut tokens = Cookie::split_parse(cookie_header?)
+        .filter_map(Result::ok)
+        .filter_map(|cookie| {
+            (cookie.name() == "__Host-ple_pending_email")
                 .then(|| PendingMfaToken::decode(cookie.value()))
                 .flatten()
         });

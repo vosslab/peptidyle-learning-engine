@@ -47,6 +47,20 @@ Chromium and Firefox:
 ./devel/setup_playwright.sh
 ```
 
+## Instructor setup email
+
+Instructor creation works without a configured email provider and reports that the
+setup email was not sent. Configure `PLE_INSTRUCTOR_SETUP_SMTP_URL` and
+`PLE_INSTRUCTOR_SETUP_FROM` to enable setup notices and ordinary email-code sign-in.
+The SMTP URL must use `smtps` or `smtp` with `tls=required`. The setup link uses
+the same HTTPS `PLE_BROWSER_ORIGIN` as the browser session boundary.
+
+Keep provider credentials in the installation's private environment configuration.
+The setup notice points to `/sign-in`; the sign-in code is short-lived and bound
+to the browser that requested it. The seeded Live Demo entry remains available
+when email delivery is unconfigured. Local capture tests verify the application
+flow; a configured provider and real inbox are needed to verify external delivery.
+
 ## Initialize a database
 
 The DDL-only base manifest is [schemas/base_schema/install.sql](../schemas/base_schema/install.sql).
@@ -91,7 +105,7 @@ cargo tools installation-data provision
 ```
 
 The Genetics Blueprint will have eleven ordered topic Assessments and be reusable
-by vetted Instructors when Public. `--without-live-demo` will omit only the
+by active Instructors when Public. `--without-live-demo` will omit only the
 fictional Live Demo teaching graph. `provision` will run content publication and
 the database-owned Live Demo graph, then create cross-system Student Work and
 grading effects through their owning product paths. `apply` will remain the

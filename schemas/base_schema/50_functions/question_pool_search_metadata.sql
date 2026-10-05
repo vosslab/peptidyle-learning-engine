@@ -29,9 +29,9 @@ BEGIN
             MESSAGE = 'Question Pool search metadata requires an active Instructor';
     END IF;
     IF ple_api.current_session_account_id() IS NULL
-       OR ple_private.verified_instructor_display_name(ple_api.current_session_account_id()) IS NULL THEN
+       OR ple_private.instructor_display_name(ple_api.current_session_account_id()) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Question Pool search metadata requires a vetted Instructor';
+            MESSAGE = 'Question Pool search metadata requires an active Instructor';
     END IF;
     IF jsonb_array_length(p_selection) NOT BETWEEN 1 AND 1000
        OR EXISTS (

@@ -137,7 +137,7 @@ const SEMANTIC_RECORDS: ReadonlyArray<SemanticRecord> = [
     id: "student-score",
     title: "Week 2 Coursework",
     description: "Your submitted work is ready for review.",
-    status: "Score not released",
+    status: "Score pending",
     editDisabled: false,
   },
 ];

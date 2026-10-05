@@ -32,13 +32,6 @@ export type LibraryWatchNotification =
       readonly activityId: null;
     })
   | (LibraryWatchNotificationBase & {
-      readonly eventKind: "improvementThread";
-      /** Creation Revision and exact retained thread. */
-      readonly revisionNumber: number;
-      readonly forkedPublicId: null;
-      readonly activityId: string;
-    })
-  | (LibraryWatchNotificationBase & {
       readonly eventKind: "impactNotice";
       /** The affected Revision can be absent; activityId is the exact retained notice. */
       readonly revisionNumber: number | null;

@@ -228,7 +228,7 @@ $$;
 
 -- This is a distinct, closed identity projection rather than an expansion of
 -- C409's Star aggregate. It establishes the viewer and Blueprint visibility
--- predicates before consulting immutable vetting evidence, and returns only
+-- predicates before reading active Instructor display names, and returns only
 -- a display name for each currently active Instructor endorser. In particular
 -- it contains no Account/email/avatar/Course/substitute/Profile/Watch join.
 -- ASVS 8.2.1 and 8.3.1: viewer and disclosed endorser authorization derive
@@ -248,9 +248,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Blueprint Course Star identities require an active Instructor Account';
     END IF;
-    IF ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+    IF ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Blueprint Course Star identities require a vetted Instructor Account';
+            MESSAGE = 'Blueprint Course Star identities require an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
@@ -261,7 +261,7 @@ BEGIN
     END IF;
 
     RETURN QUERY
-    SELECT ple_private.verified_instructor_display_name(star.instructor_account_id)
+    SELECT ple_private.instructor_display_name(star.instructor_account_id)
       FROM ple_data.blueprint_course_star AS star
       JOIN ple_private.account AS account
         ON account.account_id = star.instructor_account_id
@@ -274,8 +274,8 @@ BEGIN
            LIMIT 1
       ) AS state_event ON state_event.state = 'active'
      WHERE star.blueprint_course_id = p_blueprint_course_id_number
-       AND ple_private.verified_instructor_display_name(star.instructor_account_id) IS NOT NULL
-     ORDER BY ple_private.verified_instructor_display_name(star.instructor_account_id) COLLATE "C";
+       AND ple_private.instructor_display_name(star.instructor_account_id) IS NOT NULL
+     ORDER BY ple_private.instructor_display_name(star.instructor_account_id) COLLATE "C";
 END
 $$;
 

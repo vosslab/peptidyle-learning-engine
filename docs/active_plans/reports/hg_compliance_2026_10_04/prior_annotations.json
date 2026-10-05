@@ -1,0 +1,895 @@
+[
+  {
+    "prior_status": "N/A",
+    "bullet": "Read and learn the core principles in docs/REPO_STYLE.md",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Prefer the smallest coherent design that meets actual requirements and known failure modes.",
+    "prior_annotations": [
+      "- Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Complexity must earn its place.",
+    "prior_annotations": [
+      "- Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Time should be used efficiently. Agents and tokens are cheap; wall time is not.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Hard work should be broken into small, independently completable tasks.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Write plans in plain, concrete language. Use technical terms when they add precision.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Prioritize positive prompting. Phrase instructions as concrete actions such as \"Do X\" or \"Use Y\".",
+    "prior_annotations": [
+      "- Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Name only the tools and responsibilities needed for the assigned task. Positive prompting plus omission keeps agent instructions focused on the intended actions.",
+    "prior_annotations": [
+      "- Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Small LMs may interpret negative instructions as actions to perform. State the desired behavior directly, including when assigning responsibilities to agents.",
+    "prior_annotations": [
+      "- Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Long local operations must be robust and informative: keep going through imperfect state where useful, recover gracefully, and tell me what is happening while I wait. I am impatient.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Classify one-time checks separately from permanent tests.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Robust means the software continues to function despite imperfect inputs, data, state, or behavior.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Plans should be finishable by the manager and subagents without additional human interaction.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Prefer more small, independently verifiable milestones over a few large milestones.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Fix the design that causes a problem rather than adding a workaround for its symptom.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Prefer durable long-term fixes when the additional cost is justified.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Prefer adaptable boundaries and simple domain concepts over speculative edge-case machinery.",
+    "prior_annotations": [
+      "- Reason: not separately testable or individually closable product behavior; it remains a binding review constraint on implementation choices."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Add product states, workflows, background processing, and recovery mechanisms only for a demonstrated product or Question Backend need.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Stay focused on the requested work. Complete the required work and avoid adding unplanned functionality.",
+    "prior_annotations": [
+      "- Reason: agent instruction, not implemented PLE product behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Use the pre-production state to improve foundational schemas, contracts, and abstractions whenever that produces a stronger long-term system.",
+    "prior_annotations": [
+      "- Reason: repository process guidance; it makes no current PLE product behavior claim."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.",
+    "prior_annotations": [
+      "- Decision: The one-time adversarial and current-worktree proof was removed after validation; the durable audit command is the regression boundary."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Give variables for distinct concepts distinct names. For example, `qti_package_upload_file`, `qti_package_archive`, `qti_package_extracted_image`, `question_image_asset`, `question_image_rendition`, and `object_id` name different roles.",
+    "prior_annotations": [
+      "- Reason: authoring guidance with examples; it makes no separately closable product behavior claim."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Use the clearest variable name, including a longer name when it better expresses the value; name length has no runtime cost.",
+    "prior_annotations": [
+      "- Reason: authoring guidance; it makes no separately closable product behavior claim."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Adaptability should be a focus so the software can evolve as requirements and insights change.",
+    "prior_annotations": [
+      "- Reason: future development-direction guidance; it makes no current PLE product behavior claim."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.",
+    "prior_annotations": [
+      "- Decision: PyPI declarations use one `>=` floor each, and `aws-sdk-s3` resolves the recorded current 1.147.0 release; no frozen AWS release is permitted. This declaration-and-resolution audit does not duplicate the separate workspace build gate, whose upstream Smithy failure remains an open build report. TypeScript retains its documented temporary upstream compatibility cap."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.",
+    "prior_annotations": [
+      "- Reason: conditional future implementation option; it makes no current PLE product behavior claim."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "All fields, identifiers, domain concepts, and terminology in the PostgreSQL database structure, Rust code, TypeScript code, JSON/API contracts, Terminology Contract, and Human Guidance are in alignment.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does alignment mean the Terminology Contract and its registered cross-boundary surfaces use the same product terms, or must every column, Rust field, JSON key, and label be proven identical?",
+      "- Mismatch: `docs/TERMINOLOGY_CONTRACT.md` `Human-facing identifiers` names the public identity terms, and `tests/test_semantic_contract_registry.py` `test_semantic_contract_registry_points_at_native_coverage` checks registered surfaces. One reading treats that contract as the alignment. The other requires a whole-repository comparison Human Guidance does not bound."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "A fresh production installation includes the complete Live Demo by default.",
+    "prior_annotations": [
+      "- Decision: The default installation command is `installation-data provision`, with no opt-out flag. It installs the Live Demo teaching graph, including Course BCHM 301, and then converges its Student activity. The Live Demo launcher was not started."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "The Genetics Blueprint Course from BiologyProblems.org ships as the example course.",
+    "prior_annotations": [
+      "- Decision: Default installation publishes the bundled Genetics Blueprint and makes that retained example Public. A fresh run minted a new Blueprint ID, kept the name Genetics / Fall Genetics, and recorded 9 topics and 41 canonical Questions."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "All Podman content on the Mac-Studio-36G machine belongs to this project.",
+    "prior_annotations": [
+      "- Reason: human ownership statement about a named machine, not implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.",
+    "prior_annotations": [
+      "- Reason: human authorization statement, not implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).",
+    "prior_annotations": [
+      "- Reason: human-owned project priority, not implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Email is not configured for the Live Demo yet; use the visible seeded-role entry for demo access.",
+    "prior_annotations": [
+      "- Decision: One-time runtime proof observed five personas, a seeded POST session, and an email-start request with no delivery, 404, and no cookie; it was removed rather than retained as a permanent test. The word \"yet\" leaves a future Live Demo email path unlocked, and no retired URL is a permanent contract."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Potential future user roles are **Course Observers**, **Student Observers**, and **Graders**.",
+    "prior_annotations": [
+      "- Reason: explicitly future product possibility, not current implementation behavior."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "**Sysadmin** accounts should require higher security than other accounts, like TOTP authentication",
+    "prior_annotations": [
+      "- Decision: C15 closes only this higher-security row. The actual-server transport was loopback HTTP, not deployed TLS; full Live Demo authentication or broader Sysadmin authority is not claimed."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "A **Sysadmin** has full administrative authority over PLE.",
+    "prior_annotations": [
+      "- Decision: Human Guidance defines this authority as platform administration for an active Sysadmin, separate from FERPA Course records and from scoped repair."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Sysadmins can help Instructors repair Courses, Students, and content.",
+    "prior_annotations": [
+      "- Decision: Repair help is an Instructor-issued, one-hour, audited read of one Student roster entry, one Course, or one Course Assessment. It does not grant Course membership or an edit."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.",
+    "prior_annotations": [
+      "- Reason: human ownership statement, not an implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.",
+    "prior_annotations": [
+      "- Reason: human ownership and approval statement, not an implementation requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "PLE may eventually support **Course Observer**, **Student Observer**, and **Grader** roles.",
+    "prior_annotations": [
+      "- Reason: explicitly future product possibility, not current implementation behavior."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "**Course Observers** are read-only participants with access to Course content and non-FERPA aggregate information.",
+    "prior_annotations": [
+      "- Reason: future-role design detail, not a current implemented role requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "**Student Observers** are read-only participants with authorized access to a particular Student's Course information.",
+    "prior_annotations": [
+      "- Reason: future-role design detail, not a current implemented role requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "**Graders** are not currently needed because Assessment grading is automatic.",
+    "prior_annotations": [
+      "- Reason: explicitly current product-scope decision, not an implementation behavior claim."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Course authorization should remain adaptable enough to add these relationships later.",
+    "prior_annotations": [
+      "- Reason: explicitly future design flexibility, not a current implementation behavior claim."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Design around what users need to find and do.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Do the shipped task ribbons and record pages already design around what users find and do, or does this sentence still require a separate usability study?",
+      "- Mismatch: `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` places Instructor Courses, Questions, and Assessments in the top bar, and `src/components/record_list/record_list.css` `.record-list__title` makes the record title the prominent fact. One reading treats those task surfaces as the design. The other treats the sentence as a whole-product usability outcome with no pass rule in Human Guidance."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Avoid scattering related actions across page headers, menus, navigation, and content areas.",
+    "prior_annotations": [
+      "- Decision: Profile and Sign out stay together in the Profile menu. Ribbon tabs and Ribbon tasks do not repeat Sign out, and page modules do not render a second Sign out control. Page actions stay beside the content they change."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Is the precision field console the one visual philosophy for the whole interface, or does Human Guidance still require a separate philosophy choice?",
+      "- Mismatch: `docs/UI_DESIGN_GUIDE.md` `precision field console` names one philosophy, and `src/style.css` `--ple-radius-surface` is a shared shell token. One reading treats that console as the chosen philosophy carried by the shell and record lists. The other treats the entire interface as an acceptance Human Guidance has not locked."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Rounded corners generally feel softer, friendlier, and more contemporary.",
+    "prior_annotations": [
+      "- Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Rounding also helps users visually distinguish discrete objects from the surrounding page.",
+    "prior_annotations": [
+      "- Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Design Instructor and **Sysadmin** workflows for laptop browsers, using a 1280 by 800 viewport as the layout target.",
+    "prior_annotations": [
+      "- Decision: retained viewport-target evidence supports this equivalent design-target rewrite, not whole-product usability or all staff workflows."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Optimize large collections for scanning, searching, filtering, and comparison.",
+    "prior_annotations": [
+      "- Decision: A large Question Library is scanned as semantic record rows that keep the title, Question ID, discipline, and author together. Search, tag, Question type, license, and title sort run on 13,000 Questions. Excluding one term narrows 12,000 enzyme Questions to 6,000."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Reordering must also have a precise keyboard-accessible method.",
+    "prior_annotations": [
+      "- Decision: The one-time seven-surface keyboard-control inventory passed and was removed rather than becoming a permanent implementation-inventory test. Drag-and-drop is checked on its own bullet."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "UUIDs should never appear in visible content, navigation URLs, or copyable links.",
+    "prior_annotations": [
+      "- Decision: The later rule uses a UUID Id in routes and JSON for an object without a public ID. Visible text and clipboard copies stay free of that UUID."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "The role badge is always in the upper left, just left of the logo.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does the later desktop top bar, which places the logo before the role badge, replace this sentence?",
+      "- Mismatch: One reading keeps the badge immediately left of the logo at every width. The other follows the later top bar: logo, product name, then badge on laptop, tablet, and desktop, and logo then badge on phones with the product name omitted."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "The current avatar or Profile image appears consistently anywhere PLE represents that user.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: When another screen represents a user, must it show that user's private Profile image, or only the provided gallery avatar while the private image stays on that user's own Profile?",
+      "- Mismatch: `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` shows the signed-in Account's Profile image or provided avatar. `src/pages/instructor_accounts_page.tsx` `providedAvatarId` shows another Account's gallery avatar and not a private Profile image. One reading shows the private image everywhere a user is represented. The other keeps the private image on that user's own Profile and uses the provided avatar, or no image, on other screens."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "The current avatar or Profile image appears consistently anywhere PLE represents that user.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: When another screen represents a user, must it show that user's private Profile image, or only the provided gallery avatar while the private image stays on that user's own Profile?",
+      "- Mismatch: `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` shows the signed-in Account's Profile image or provided avatar. `src/pages/instructor_accounts_page.tsx` `providedAvatarId` shows another Account's gallery avatar and not a private Profile image. One reading shows the private image everywhere a user is represented. The other keeps the private image on that user's own Profile and uses the provided avatar, or no image, on other screens."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "The Instructor interface should make frequent teaching tasks fast and easy to find.",
+    "prior_annotations": [
+      "- Decision: Frequent teaching tasks are the Instructor Courses, Questions, and Assessments groups. Those tasks are linked. Teaching Operations, Blueprint Updates, Course Setup, and Grade Settings stay future destinations and are not usable links."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Results should show Course name, classification, author, institution, and useful usage or stewardship signals directly in the result list to support scanning and comparison.",
+    "prior_annotations": [
+      "- Decision: Institution stays off the result. Human Guidance also requires one global installation with no institution boundaries, and the summary has no institution field."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must public Blueprint search add Stars, Watches, and most recent edit as sorts, or are name, adoptions, and students the relevant sorts?",
+      "- Mismatch: `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` sorts by name, adoptions, and students. `crates/question_model/src/blueprint_course.rs` `BlueprintCourseSummaryView` has no stars, watches, or last-edit field. One reading adds those sorts. The other reads \"such as\" as examples and keeps the three shipped sorts."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Should opening a result and returning preserve the Instructor's search and position.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must Question Library restore the Instructor's search and scroll after opening a result, or is that still an open design choice?",
+      "- Mismatch: `src/pages/library_page_model.ts` `takeQuestionLibraryReturnState` already restores one saved query and scroll position. One reading treats that as required. The other keeps this sentence as an open question beside the hover-preview and new-tab note, so Human Guidance has not locked the requirement."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "we should offer some hover preview and open items in a new browser tab by default",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Should a Question Library result show a hover preview and open in a new browser tab by default?",
+      "- Mismatch: Question links open in the same tab and have no hover preview. One reading requires both. The other treats the sentence as an unsettled design note rather than a requirement."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Advanced Search considerations:",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does this bullet require a separate advanced-search mode, or does it only introduce the comparison notes that follow?",
+      "- Mismatch: Question Library has one search box plus filters. One reading requires another advanced-search mode. The other treats the bullet as a heading for the notes below."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Simple and advanced searches could use the same search box, but we should seriously consider advanced search versus simple search interfaces forms.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Should simple and advanced Question Library search share one box, or use separate forms?",
+      "- Mismatch: `src/pages/library_page.tsx` `LibraryPage` uses one search box. One reading keeps that box. The other asks for a separate advanced form. Human Guidance says to consider both."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "The interface should be minimal, show options by priority, not overwhelming to new users;",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does this require a new minimal advanced-search form, or does the existing simple Search page already satisfy it?",
+      "- Mismatch: The initial Search page is one search box. One reading asks for a further prioritized advanced form. The other treats the sentence as a design note under Advanced Search considerations."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Movie Lens as a tiered filter system https://movielens.org/explore/",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must Question Library filters copy the MovieLens tiered explore layout?",
+      "- Mismatch: No MovieLens-style explore layout is shipped. One reading requires that layout. The other treats the link as a comparison note, not a requirement to copy the product."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "IMDB advanced search page is wel designed, https://www.imdb.com/search/title/ but questions would not be displayed as movie posters",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must Question Library search copy the IMDb advanced title search, while keeping Questions off poster cards?",
+      "- Mismatch: Results use a semantic list rather than posters. One reading requires an IMDb-style advanced form. The other treats the sentence as a comparison note."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Google advanced image search is more user friendly design https://www.google.com/advanced_search",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must Question Library search copy Google advanced search?",
+      "- Mismatch: No Google advanced-search form is shipped. One reading requires that form. The other treats the link as a comparison note."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Pubmed is clean, but not obvious to use https://pubmed.ncbi.nlm.nih.gov/advanced/",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must Question Library search copy the PubMed advanced-search page?",
+      "- Mismatch: No PubMed advanced form is shipped. One reading requires that page. The other treats the link as a comparison note."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Ebay is dated, but perhaps a useful comparison https://www.ebay.com/sch/ebayadvsearch",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Must Question Library search copy eBay advanced search?",
+      "- Mismatch: No eBay advanced-search form is shipped. One reading requires that form. The other treats the link as a comparison note."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Should Question IDs have a preview image/movie poster style?",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Should a Question ID in search results include a preview image, or stay text?",
+      "- Mismatch: `src/components/copyable_question_id.tsx` `CopyableQuestionId` shows the text Question ID. One reading adds a poster image. The other keeps the text ID."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Search syntax should help expert users quickly narrow a very large Question Library.",
+    "prior_annotations": [
+      "- Decision: Expert text such as `enzyme -inhibitor` becomes an included term and an excluded term. On 12,000 Questions that match enzyme, excluding inhibitor leaves 6,000, and that store search finished within 15 seconds."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Guidance about the student interface",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does this bullet require a Student guidance surface, or does it only introduce the Student interface rules that follow?",
+      "- Mismatch: One reading treats the bullet as the heading for the Student rules that follow. The other would require a separate Student guidance surface that Human Guidance does not describe."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Coursework lists may provide filters for **Weekly Assignments**, **Unit Review Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.",
+    "prior_annotations": [
+      "- Reason: Human Guidance permits these Type filters and does not require a Coursework list to offer them."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Sysadmin interface work is LOW, LOW priority and can be done on an as-needed basis.",
+    "prior_annotations": [
+      "- Reason: audited human-owned work priority and scheduling guidance, not a claim about implemented PLE behavior. The following Sysadmin capability requirements remain binding."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "The Sysadmin menu should make Accounts, Instructors, Courses, and system configuration easy to find.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does system configuration need its own menu destination now, or is the menu complete while installation-wide settings remain an open inventory?",
+      "- Mismatch: `src/pages/role_home_pages.tsx` `SysadminHomePage` reaches Instructor Accounts and installation Courses, and `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_ONE` includes `instructorAccounts`, `courses`, and `disciplines`, while no system-configuration destination exists. One reading adds that destination once system-wide settings are identified. The other treats Accounts, Instructors, and Courses as the findable menu until a setting exists."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Instructor approval status should be easy to find and change.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Is Instructor approval the completed pre-account vetting decision, with later access changed only by deactivate and reactivate, or a distinct Account status a Sysadmin can find and change after creation?",
+      "- Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` exposes active, deactivated, and closed lifecycle state, and `schemas/base_schema/20_tables/account.sql` `instructor_identity_vetting_decision` stores a completed vetting decision that is not an Account state. One reading keeps approval as that immutable decision and changes access only through deactivate and reactivate. The other adds a separate post-creation approval status. Human Guidance asks for a status that is easy to find and change, and it also says a Sysadmin approves an Instructor before that Account receives Instructor capabilities."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Sysadmins should manage Courses through Sysadmin interfaces and capabilities.",
+    "prior_annotations": [
+      "- Decision: Human Guidance assigns Sysadmins creation of a Course Instance for an Instructor who teaches it. Retention transitions stay with the background process."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "System-wide settings should have their own area, separate from user and Course administration.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Which implemented installation-wide settings must Sysadmins view or change, and which source-of-truth boundary owns each?",
+      "- Mismatch: One reading requires a Sysadmin page for the installation-wide settings that already exist. The other requires no settings page until those settings and their source-of-truth boundary are identified. `src/ribbon/ribbon_catalog.ts` has no system-settings destination, so the current catalog cannot choose."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Rare installation and configuration tasks should remain available through secondary navigation.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does this require a secondary Ribbon row now, or does reachability from the Sysadmin home satisfy it while the complete Ribbon layout stays unlocked?",
+      "- Mismatch: `src/ribbon/ribbon_schema.ts` `PRODUCT_TIER_TWO` has no Sysadmin destinations, and `src/pages/role_home_pages.tsx` `SysadminHomePage` still links Disciplines, Library activity, and scoped roster support. `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` already includes `instructorAccounts` and `disciplines` as primary tasks. One reading adds a secondary Ribbon row for rare tasks. The other keeps those tasks on the Sysadmin home until Human Guidance locks the complete Sysadmin Ribbon layout."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "The complete Sysadmin Ribbon task layout does not have a locked-in design yet.",
+    "prior_annotations": [
+      "- Reason: HG: no locked-in design.",
+      "- Mismatch: no complete Sysadmin Ribbon task layout can be verified until the design is locked."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.",
+    "prior_annotations": [
+      "- Decision: One canonical public ID is the value stored in PostgreSQL, held by the Rust type, sent as JSON, placed in routes, used in object-storage paths, mixed into the object-id hash, written to the retention log, and shown in the browser. Human-entry normalization stays on the entry functions."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Preserve the canonical ID exactly across system boundaries.",
+    "prior_annotations": [
+      "- Decision: The canonical public ID leaves Rust as the same string that JSON, object storage, the object-id hash, the retention log, browser routes, Profile, and PostgreSQL keep. A boundary rejects a lowercase or bad-checksum value instead of translating it."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.",
+    "prior_annotations": [
+      "- Decision: Typed JSON, browser routes, and Profile display return the canonical public ID unchanged. Human-entry normalization stays on the entry functions. PostgreSQL stores a supplied canonical Account ID as that same string, and the other public-ID domains accept only that exact text. This does not inventory object storage, hashes, or logs."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Store, transmit, display, copy, and generate only the canonical form.",
+    "prior_annotations": [
+      "- Decision: Generators and JSON emit only the canonical public ID. Strict parsers reject a lowercase or bad-checksum value, so it is not stored or transmitted as the typed ID. Profile shows and copies only a canonical Account ID. This does not inventory every storage, URL, log, or hash surface."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Validate the public-ID syntax and embedded checksum before database lookup or resolution.",
+    "prior_annotations": [
+      "- Decision: Each public-ID route parses the canonical syntax and checksum before it calls a Store. A bad checksum is concealed, and the database is not contacted."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "An object without a public ID uses a native UUID primary key, or a composite natural key when it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Are Theme and provided-avatar vocabulary tokens objects that must use native UUID primary keys, or durable vocabulary keys that keep their text identifiers?",
+      "- Mismatch: Question Revisions use the composite key published_question_id plus revision_number, and Attempts use a UUID. `schemas/base_schema/20_tables/theme.sql` `theme_id` and `schemas/base_schema/20_tables/profile_media.sql` `provided_avatar_id` are text vocabulary keys. `schemas/base_schema/20_tables/account.sql` `canonical_public_id` is the public-ID reservation key and is outside this bullet. One reading is that Theme and provided-avatar tokens are durable vocabulary keys, matching Theme IDs that stay stable when a display name or colors change. The other is that both are objects without a public ID and must use native UUID primary keys. Human Guidance states both the key rule and durable Theme IDs, and it does not say whether a vocabulary token is an object."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Use Reference for a genuine indirect, scoped, or external locator.",
+    "prior_annotations": [
+      "- Decision: Reference names an indirect, scoped, or external locator. Current object identities are Ids and Tuples. A WeBWorK source location is a Binding, which is the accurate term, so no Reference type is added."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Use the simplest term that accurately describes what the value represents.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Do Id, Tuple, and Reference already name the identity values, or must every remaining value still be judged for the simplest term?",
+      "- Mismatch: `crates/question_model/src/question_library.rs` `PublishedQuestionRevisionTuple` and `crates/adapters/webwork/src/lib/source_object_id.rs` `WebworkQuestionSourceBinding` use Tuple and Binding. One reading treats Id, Tuple, and Binding as the simplest accurate terms. The other requires a review of every remaining identifier, which Human Guidance does not list."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Internal UUIDs never substitute for or appear as public identities.",
+    "prior_annotations": [
+      "- Decision: A public ID stays the canonical public string. Account, Course, Assessment, Blueprint, and Question types reject an internal UUID in Rust and JSON. The Account table rejects it. Profile does not show it. An object-record UUID may sit beside a public ID and does not replace it."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).",
+    "prior_annotations": [
+      "- Decision: Closed vocabularies are one enum, and every table keeps a clock. Support repair resource class is ple_data.support_repair_resource_class on the capability and its audit event. Source style rules, including clocks, report no findings."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Be conservative about creating revisions.",
+    "prior_annotations": [
+      "- Decision: A fresh one-time PostgreSQL probe exercised `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_question_revision` and verified title and description metadata changes make no Revision, an unchanged source is rejected without a partial write, a changed source creates the next Revision, and two serialized sessions admit only one successor. Tags, subject, and topic have no persisted metadata fields yet; the probe asserts that present absence rather than inventing a field-level behavior. The probe is temporary and will be removed, not cited as permanent evidence."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.",
+    "prior_annotations": [
+      "- Reason: Automated abandoned-Draft cleanup is an explicitly optional future capability; HG sets no clock or durations."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "External URLs used by native JSON Questions are explicitly recorded and reviewable.",
+    "prior_annotations": [
+      "- Decision: A one-time parser proof accepted all five then-supported resource kinds and legacy omission, while rejecting invalid and duplicate URLs; remote script resources have since been removed from the closed kind set."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Approved external dependencies may initially load from recorded CDN sources.",
+    "prior_annotations": [
+      "- Reason: Author Questions do not support remote script resources; the recorded rdkit dependency is served from PLE."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "iMathAS and H5P are desired secondary Question Backends governed by Deferred product behavior.",
+    "prior_annotations": [
+      "- Reason: Human Guidance explicitly defers both Backends, so they are desired product behavior rather than current implementation requirements. Current production Backends are PLE and WeBWorK."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "H5P owns its runtime, interactions, state, and scoring.",
+    "prior_annotations": [
+      "- Reason: H5P is desired but explicitly deferred and is not a current implementation requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "iMathAS owns its rendering and evaluation.",
+    "prior_annotations": [
+      "- Reason: iMathAS is desired but explicitly deferred and is not a current implementation requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Imported backend source may be transformed into the form PLE stores and manages.",
+    "prior_annotations": [
+      "- Reason: Optional transformation does not require a current backend-import behavior."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "PLE uses the same basic interface for every Question Backend, each backend handles its own internal details.",
+    "prior_annotations": [
+      "- Decision: The production Question Backends are PLE and WeBWorK. Deferred iMathAS and H5P stay outside this interface. Both production backends issue and grade through one adapter interface, and each adapter keeps its source, renderer, and response details."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.",
+    "prior_annotations": [
+      "- Decision: A large import is cleaned by narrowing the Question Library and applying one bulk metadata command to the sorted selection. The shipped command accepts at most 1,000 Questions, so the first sorted thousand are cleaned and the remaining imported Questions stay unchanged."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "AI assigns the initial Bloom Classification using a daemon after publication.",
+    "prior_annotations": [
+      "- Reason: Deferred product behavior overrides this implementation language. Initial Bloom Classification is deferred with the AI backend, AI-backed Bloom classification is deferred until a later release, and automated daemon backends are deferred until a final server location. Publication does not start a daemon."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.",
+    "prior_annotations": [
+      "- Decision: The Deferred section keeps AI assignment, and Bloom does not block publication or Library entry. Shipped classification uses the guide's six Cognitive Process and four Knowledge Dimension values, and Library search shows each value's teaching meaning."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Question Library stewardship should use a GitHub-like model.",
+    "prior_annotations": [
+      "- Decision: The GitHub-like model is a private Watch plus retained improvement threads and impact notices. Creating either activity delivers it to the current watchers. Stars, forks, and Pool membership edits stay on their own bullets."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Blueprint Courses are a similar concept as LibreTexts' ADAPT alpha courses.",
+    "prior_annotations": [
+      "- Reason: This comparison provides human-oriented product context, not an implemented PLE behavior."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "It should be obvious when a Course Instance is based on an older Blueprint Revision.",
+    "prior_annotations": [
+      "- Decision: This read-only notice makes a stale daughter obvious. It does not offer, review, approve, or apply a Blueprint update."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.",
+    "prior_annotations": [
+      "- Decision: This negative invariant remains separate from the verified Course-review workflow; it does not claim direct-Assessments or all Student Work."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.",
+    "prior_annotations": [
+      "- Reason: This explicitly optional future capability does not require implemented behavior."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.",
+    "prior_annotations": [
+      "- Decision: This duplicate course-view indication does not implement the separate Blueprint update offer, review, approval, or apply workflow."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.",
+    "prior_annotations": [
+      "- Decision: This negative invariant remains separate from the verified Course-review workflow; it does not claim direct-Assessments or all Student Work."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "A Blueprint Course might be `Biochemistry` / `Upper-Level Introductory Biochemistry`.",
+    "prior_annotations": [
+      "- Reason: This is an illustrative name example, not an implementation requirement."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)`.",
+    "prior_annotations": [
+      "- Reason: This is an illustrative name example, not an implementation requirement."
+    ]
+  },
+  {
+    "prior_status": " ",
+    "bullet": "Quizzes may use more restrictive Attempt and collaboration settings than Weekly Assignments.",
+    "prior_annotations": [
+      "- Reason: product decision still unclear",
+      "- Question: Does this require a distinct collaboration control, or only the more restrictive Quiz Attempt limit?",
+      "- Mismatch: One reading: a Quiz already defaults to one Assessment Attempt while a Weekly Assignment stays unlimited, and Human Guidance names no other collaboration control. The other reading: Quizzes need a separate collaboration setting that can be stricter than a Weekly Assignment."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Course Instance Assessments have an Assessment Type, Questions, Question Pools, point values, and points possible.",
+    "prior_annotations": [
+      "- Decision: The prior Quiz Attempt-limit 3-to-5 runtime wording is retired. The current ignored PostgreSQL fixture still needs an actual acceptance rerun; this source evidence does not manufacture one."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and PLE submits it automatically.",
+    "prior_annotations": [
+      "- Decision: The accepted composition uses the type-independent submission authority. Quiz/Exam worker finalization was not directly run."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "A Question Backend may evaluate a response before Assessment submission when needed for its interaction.",
+    "prior_annotations": [
+      "- Decision: Human Guidance permits early evaluation when a Question Backend interaction needs it. Current native Questions and WeBWorK do not need evaluation before whole-Attempt submission. WeBWorK hides check-answers, and a complete native response is graded only when submission asks for an outcome. Saving acknowledges the response without a credit fraction."
+    ]
+  },
+  {
+    "prior_status": "N/A",
+    "bullet": "Attempt time limits help **Students** develop an accurate sense of expected working speed.",
+    "prior_annotations": [
+      "- Reason: audited pedagogical purpose, not a separately testable PLE behavior or demonstrated learning effect. The preceding time-limit/default/override/accommodation requirements remain binding implementation requirements."
+    ]
+  },
+  {
+    "prior_status": "x",
+    "bullet": "Student Work keeps each saved response as finalized with the submitted Attempt and the grading outcome returned by the Question Backend.",
+    "prior_annotations": [
+      "- Decision: This is current persistence-source evidence, not a fresh connected/backend receipt. The retired SQL oracle and legacy Assignment transport shell are not current runtime proof."
+    ]
+  }
+]

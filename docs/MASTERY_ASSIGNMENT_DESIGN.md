@@ -8,7 +8,7 @@ Assessment Types plus independently configurable Assessment settings.
 ## Teaching intent
 
 PLE treats repeated work as continued learning rather than an exception. A
-Regular Assignment defaults to unlimited Attempts, and an Instructor may
+Weekly Assignment defaults to unlimited Attempts, and an Instructor may
 configure other Assessment Types to allow repetition. A Student can practice
 toward a perfect score when the Assessment settings allow it.
 
@@ -37,14 +37,13 @@ transition; no nested product lifecycle is introduced.
 Assessment Type provides defaults but does not lock the settings. Instructors
 can change settings without changing Type.
 
-- Regular Assignments are practice for current learning and default to unlimited
+- Weekly Assignments are practice for current learning and default to unlimited
   Attempts.
-- Practice Question Assignments provide focused review, use the same submission
-  boundary as other Assessments, and show the correct answer immediately after
+- Unit Review Assignments provide focused review, use the same submission
+  boundary as other Assessments, and default to showing the correct answer immediately after
   the whole Assessment Attempt is submitted.
 - Bonus Assignments provide optional extra credit, are worth zero points
   possible, and add earned points directly to the grade.
-- Quizzes may use more restrictive Attempt and collaboration settings.
 - Exams may use more restrictive Attempt, timing, availability, and feedback
   settings.
 
@@ -76,7 +75,10 @@ When several Attempts are submitted, the highest Assessment Attempt score is
 the Student's Assessment score. PLE uses Question point values directly and
 does not add separate Question weights, Grade Categories, weighted categories,
 a Course Grade Scheme, or Course percentage calculations. Pilot grade export
-uses CSV or TSV point data.
+uses CSV or TSV point data. Scores are visible after submission and automatic
+grading without a separate posting step. Removing a whole Pool excludes its
+earned and possible points from every Attempt. Native JSON regrading remains
+deferred under HG.
 
 ## Feedback boundary
 
@@ -84,10 +86,10 @@ Saving a complete response changes only the working response and does not
 disclose a grading outcome. Whole-Assessment submission is the ordinary
 grading-disclosure boundary.
 
-Practice Question Assignments show the correct answer immediately after the
-whole Assessment Attempt is submitted. Optional Question Feedback is shown
-when the Question Backend provides it and does not use Assessment correct-answer
-disclosure settings.
+Unit Review Assignments default to showing the correct answer immediately after
+the whole Assessment Attempt is submitted. Instructors can change correct-answer
+visibility. Optional Question Feedback timing and its relationship to answer
+visibility remain deferred in HG.
 
 ## Student View
 

@@ -9,7 +9,7 @@ A Blueprint Course is reusable Course content with no Students, dates, time
 zones, or relative schedules. It is created Private with Revision 1. A changed
 explicit Save creates the next immutable Revision; a no-op creates none.
 
-Private is owner-only and cannot be adopted. Public is visible to vetted
+Private is owner-only and cannot be adopted. Public is visible to active
 Instructors and adoptable. Archived is read-only, omitted from ordinary
 discovery and new adoption, available only through explicit archived inclusion,
 and forkable.

@@ -64,7 +64,7 @@ function decodeInvitationSummary(value: unknown, path: string): LiveStudentCours
     Array.from(instructorDisplayName).length > 200 ||
     /[\p{Cc}]/u.test(instructorDisplayName)
   ) {
-    throw new DecodeError(`${path}.instructorDisplayName`, "one verified Instructor display name");
+    throw new DecodeError(`${path}.instructorDisplayName`, "one Instructor display name");
   }
   return {
     id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),

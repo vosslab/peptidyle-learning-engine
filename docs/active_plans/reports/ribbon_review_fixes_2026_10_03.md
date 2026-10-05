@@ -66,13 +66,11 @@ without adding decorative cards to fill the viewport.
 
 Representative controlled evidence:
 
-- [Interactive before/after comparison](ribbon_review_fixes_2026_10_03/index.html)
-- [Before light](ribbon_review_fixes_2026_10_03/before/final_sheet_light_0.png)
-- [After light](ribbon_review_fixes_2026_10_03/after/final_sheet_light_0.png)
-- [After dark](ribbon_review_fixes_2026_10_03/after/final_sheet_dark_0.png)
-- [Narrow Course page](ribbon_review_fixes_2026_10_03/after/page_grass_light_320.png)
-- [Live narrow Course](ribbon_review_fixes_2026_10_03/after/live_course_320_dark.png)
-- [Live narrow Blueprint](ribbon_review_fixes_2026_10_03/after/live_blueprint_393_dark.png)
+- [index.html](ribbon_review_fixes_2026_10_03/index.html)
+- [Gradebook before](ribbon_review_fixes_2026_10_03/before/courses-gradebook-gradebook.webp)
+- [Gradebook after](ribbon_review_fixes_2026_10_03/after/courses-gradebook-gradebook.webp)
+- [Library before](ribbon_review_fixes_2026_10_03/before/questions-browse-library_browse.webp)
+- [Library after](ribbon_review_fixes_2026_10_03/after/questions-browse-library_browse.webp)
 - [Blueprint before](ribbon_review_fixes_2026_10_03/before/courses-blueprint-blueprint_detail.webp)
 - [Blueprint after](ribbon_review_fixes_2026_10_03/after/courses-blueprint-blueprint_detail.webp)
 - [Instructor crop stack](../../screenshots/instructor/stacked-screenshot.webp)

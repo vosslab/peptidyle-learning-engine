@@ -2,13 +2,16 @@
 
 ## Status
 
-Proposed specification for a supported PLE Email Delivery Backend.
+Proposed specification for an optional Gmail API Email Delivery Backend.
 
-This document does not claim that Gmail delivery, email-code authentication, OAuth setup commands,
-or connected email acceptance exist today. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains the
-product authority, [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns PLE vocabulary, and
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) owns Account, Course enrollment, roster import, and Course
-Invitation behavior.
+PLE already implements SMTP-backed, browser-bound email-code authentication and
+Instructor setup notices. An external provider configuration and real-inbox
+acceptance remain pending. This document does not claim that the Gmail API
+adapter, its OAuth setup commands, or Gmail connected-delivery acceptance exist
+today. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains the product authority,
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns PLE vocabulary, and
+[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) owns Account, Course enrollment,
+roster import, and Course Invitation behavior.
 
 The Gmail API backend is intended to support small PLE installations without requiring a paid
 email-delivery service. It may begin as the backend for a Pilot deployment, but its design is
@@ -42,7 +45,8 @@ delivery boundary is sufficient to preserve that option.
 
 The backend does not create Accounts from arbitrary email addresses. Student Account creation and
 Student Authentication Email assignment remain part of Course enrollment. Instructor
-Account creation remains a vetted Sysadmin operation.
+Instructor Account creation follows outside-PLE vetting and the bounded
+Sysadmin account-creation operation.
 
 ## Architectural boundary
 

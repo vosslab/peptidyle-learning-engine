@@ -1,16 +1,35 @@
 # Unresolved or ambiguous items
 
-Every open checklist row is listed once. Positions are the 0-based generator
+The 2026-10-03 audit's open checklist rows are listed below. Positions are the 0-based generator
 positions in the
 [checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md).
 No choice here authorizes new product behavior.
+
+## Decisions from the interview
+
+- The ongoing interview has also settled Profile visibility, Blueprint sorting,
+  shared spreadsheet search and display modes, tooltips, list-item navigation,
+  confirmation before discarding searches, and removal of Student collaboration.
+  System-wide settings are deferred. The old questions below are historical audit
+  readings, not a current list of unanswered questions. See
+  [HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](../../../active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
+  for decisions, reasons, expressed commitment, and remaining investigations.
+- On 2026-10-04, Neil resolved former position 475: a Sysadmin vets the Instructor
+  outside PLE before creating an Account with an email address. PLE sends
+  the setup email. Deactivation and reactivation control later access.
+- This is now a confirmed implementation gap, not an open product decision.
+  `src/pages/instructor_accounts_page.tsx` calls `completeInstructorIdentityVetting`
+  before `createInstructorAccount`, whose input requires `vettingDecisionId`.
+  Remove the PLE vetting requirement and verify the creation-to-setup-email flow.
+- The checklist and counts below refer to the pre-interview guidance. Reconcile
+  their evidence with the settled decisions before claiming current compliance.
 
 The documentation-pass report still names a Student Ribbon unlock. Current Human
 Guidance unlocks only the complete Sysadmin Ribbon task layout.
 
 ## Unlocked design
 
-- Position 475. The complete Sysadmin Ribbon task layout does not have a locked-in
+- Position 484. The complete Sysadmin Ribbon task layout does not have a locked-in
   design yet. Reason: HG: no locked-in design. Neighboring Sysadmin bullets stay
   separate questions.
 
@@ -23,12 +42,12 @@ Guidance unlocks only the complete Sysadmin Ribbon task layout.
   One reading treats `Human-facing identifiers` and
   `test_semantic_contract_registry_points_at_native_coverage` as that alignment.
   The other requires a whole-repository comparison Human Guidance does not bound.
-- Position 529. An object without a public ID uses a UUID or a parent composite key.
+- Position 538. An object without a public ID uses a UUID or a parent composite key.
   Question: are Theme and provided-avatar tokens objects that need UUID primary keys,
   or durable vocabulary keys that keep text identifiers? Revisions use a composite
   key and Attempts use a UUID. `theme_id` and `provided_avatar_id` are text keys.
   One reading migrates those keys to UUIDs. The other keeps the vocabulary text.
-- Position 537. Use the simplest term that accurately describes the value. Question:
+- Position 546. Use the simplest term that accurately describes the value. Question:
   do Id, Tuple, and Reference already name identity values, or must every remaining
   value be judged? `PublishedQuestionRevisionTuple` and
   `WebworkQuestionSourceBinding` use Tuple and Binding. One reading treats those
@@ -54,7 +73,7 @@ Guidance unlocks only the complete Sysadmin Ribbon task layout.
   `src/style.css` shares `--ple-radius-surface`. One reading treats that console as
   the choice carried by the shell and record lists. The other treats the entire
   interface as an acceptance Human Guidance has not locked.
-- Positions 215 and 225. The same avatar sentence appears twice. Question: when
+- Positions 224 and 234. The same avatar sentence appears twice. Question: when
   another screen represents a user, must it show that user's private Profile image,
   or only the provided gallery avatar? `RibbonAccountAvatar` shows the signed-in
   Account's image. Instructor Accounts uses `providedAvatarId` for another Account
@@ -63,14 +82,7 @@ Guidance unlocks only the complete Sysadmin Ribbon task layout.
 
 ## Blueprint discovery
 
-- Position 269. Results should show Course name, classification, author, institution,
-  and usage or stewardship signals. Question: must results add author and institution,
-  or do name, classification, adoptions, and students satisfy the list while
-  institution stays out? `publicBlueprintContent` shows the shipped fields.
-  `BlueprintCourseSummaryView` has no author or institution field. Human Guidance
-  also says one global installation has no institution boundaries. One reading adds
-  the two fields. The other does not invent an institution.
-- Position 270. Public Blueprint search should sort by relevant fields such as Stars,
+- Position 279. Public Blueprint search should sort by relevant fields such as Stars,
   Watches, Adoptions, Students, and most recent edit. Question: must search add
   Stars, Watches, and most recent edit, or are name, adoptions, and students the
   relevant sorts? `PublicBlueprintSearchPage` sorts by those three.
@@ -83,59 +95,54 @@ Guidance unlocks only the complete Sysadmin Ribbon task layout.
 These indented notes stay open. Restore of a saved Question Library query already
 exists and does not by itself decide the "Should" sentence.
 
-- Position 317. Should opening a result and returning preserve search and position?
+- Position 326. Should opening a result and returning preserve search and position?
   One reading requires that restore. The other keeps the sentence as an open design
   note. `takeQuestionLibraryReturnState` already restores one saved query and scroll
   position.
-- Position 318. Hover preview and open in a new tab by default. One reading requires
+- Position 327. Hover preview and open in a new tab by default. One reading requires
   both. The other treats the sentence as an unsettled note. Links open in the same
   tab and have no hover preview.
-- Position 319. Advanced Search considerations. One reading requires another search
+- Position 328. Advanced Search considerations. One reading requires another search
   mode. The other treats the bullet as a heading for the notes below. The Library
   has one search box plus filters.
-- Position 320. One shared search box, or separate simple and advanced forms? One
+- Position 329. One shared search box, or separate simple and advanced forms? One
   reading keeps the single box in `LibraryPage`. The other asks for a separate form.
   Human Guidance says to consider both.
-- Position 321. A minimal interface that shows options by priority. One reading asks
+- Position 330. A minimal interface that shows options by priority. One reading asks
   for a further advanced form. The other treats the sentence as a design note. The
   initial Search page is one search box.
-- Position 322. MovieLens as a tiered filter. One reading requires that layout. The
+- Position 331. MovieLens as a tiered filter. One reading requires that layout. The
   other treats the link as a comparison note.
-- Position 323. IMDb advanced search, without movie-poster Questions. One reading
+- Position 332. IMDb advanced search, without movie-poster Questions. One reading
   requires that form. The other treats the sentence as a comparison note. Results
   use a semantic list.
-- Position 324. Google advanced search. One reading requires that form. The other
+- Position 333. Google advanced search. One reading requires that form. The other
   treats the link as a comparison note.
-- Position 325. PubMed advanced search. One reading requires that page. The other
+- Position 334. PubMed advanced search. One reading requires that page. The other
   treats the link as a comparison note.
-- Position 326. eBay advanced search. One reading requires that form. The other
+- Position 335. eBay advanced search. One reading requires that form. The other
   treats the link as a comparison note.
-- Position 327. Should a Question ID include a preview image? One reading adds a
+- Position 336. Should a Question ID include a preview image? One reading adds a
   poster. The other keeps the text ID. `CopyableQuestionId` shows the text ID.
 
 ## Student and Sysadmin
 
-- Position 388. Guidance about the student interface. Question: does this require a
+- Position 397. Guidance about the student interface. Question: does this require a
   Student guidance surface, or does it only introduce the Student rules that follow?
   The bullet names no Student-facing behavior. One reading treats it as a heading.
   The other would require a guidance surface Human Guidance does not describe.
-- Position 460. The Sysadmin menu should make Accounts, Instructors, Courses, and
+- Position 469. The Sysadmin menu should make Accounts, Instructors, Courses, and
   system configuration easy to find. Question: does system configuration need its own
   destination now, or is the menu complete while installation-wide settings remain an
   open inventory? Instructor Accounts and Courses are reachable. No system-configuration
   destination exists. One reading adds that destination. The other waits for the
   inventory.
-- Position 466. Instructor approval status should be easy to find and change.
-  Question: is approval the completed pre-account vetting decision, with later access
-  changed only by deactivate and reactivate, or a distinct Account status after
-  creation? The page exposes active, deactivated, and closed. Vetting is stored
-  separately. One reading keeps that. The other adds a post-creation approval control.
-- Position 470. System-wide settings should have their own area. Question: which
+- Position 479. System-wide settings should have their own area. Question: which
   implemented installation-wide settings must Sysadmins view or change, and which
   boundary owns each? No system-settings destination exists. One reading requires a
   page for actual platform settings. The other requires no page until those settings
   are identified.
-- Position 472. Rare installation and configuration tasks should remain available
+- Position 481. Rare installation and configuration tasks should remain available
   through secondary navigation. Question: does this require a secondary Ribbon row
   now, or does the Sysadmin home satisfy it while the complete layout stays unlocked?
   `PRODUCT_TIER_TWO` has no Sysadmin destinations. The Sysadmin home still links
@@ -144,7 +151,7 @@ exists and does not by itself decide the "Should" sentence.
 
 ## Assessments
 
-- Position 1019. Quizzes may use more restrictive Attempt and collaboration settings
+- Position 1028. Quizzes may use more restrictive Attempt and collaboration settings
   than Weekly Assignments. Question: does this require a distinct collaboration
   control, or only the more restrictive Quiz Attempt limit? One reading keeps the
   Quiz default of one Attempt. The other adds a collaboration setting Human Guidance

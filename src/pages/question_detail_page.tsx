@@ -1,13 +1,6 @@
 // question_detail_page.tsx - safe current Question Details and Question Revision lineage View.
 
-import {
-  A,
-  createAsync,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "@solidjs/router";
+import { A, createAsync, useLocation, useNavigate, useParams } from "@solidjs/router";
 import {
   createEffect,
   createResource,
@@ -41,8 +34,8 @@ import {
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import { QuestionWatchControl } from "../components/question_watch_control";
-import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionStarControl } from "../components/question_star_control";
+import { InstructorProfileLink } from "../components/instructor_profile_link";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { QuestionResponsePreviewControl } from "../components/question_response_preview";
 import { parseQuestionRouteId } from "../navigation/public_route";
@@ -51,12 +44,6 @@ import {
   usePublishRouteScopeLabels,
   useRouteScopePublication,
 } from "../ribbon/route_scope_context";
-import {
-  parseQuestionLibraryReturnToken,
-  questionLibraryReturnPath,
-  refreshQuestionLibraryReturnState,
-  QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
-} from "./library_page_model";
 import { QuestionStatisticsPanel, QuestionUsePanel } from "./question_statistics_panel";
 import "./question_detail_page.css";
 
@@ -451,13 +438,6 @@ export function QuestionDetailPage(): JSX.Element {
   let publication: ReturnType<typeof routeScopePublication> | undefined;
   const params = useParams();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const libraryReturnToken = (): string | null =>
-    parseQuestionLibraryReturnToken(searchParams[QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]);
-  const libraryReturnHref = (): string => {
-    const token = libraryReturnToken();
-    return token === null ? "/library" : questionLibraryReturnPath(token);
-  };
   const mayMutateLibrary = (): boolean => {
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.userRole === "instructor";
@@ -512,7 +492,7 @@ export function QuestionDetailPage(): JSX.Element {
       title={detail()?.summary.metadata.questionTitle ?? "Question"}
       eyebrow="Question Library"
     >
-      <A class="quiet-link" href={libraryReturnHref()}>
+      <A class="quiet-link" href="/library">
         Return to question library
       </A>
       <Suspense
@@ -594,9 +574,19 @@ export function QuestionDetailPage(): JSX.Element {
                   <div>
                     <dt>Authors</dt>
                     <dd>
-                      {record()
-                        .summary.authorship.authors.map((author) => author.displayName)
-                        .join(", ")}
+                      {record().summary.authorship.authors.map((author, index) => (
+                        <>
+                          {index > 0 ? ", " : ""}
+                          <Show when={author.accountId} fallback={author.displayName}>
+                            {(accountId) => (
+                              <InstructorProfileLink
+                                accountId={accountId()}
+                                displayName={author.displayName}
+                              />
+                            )}
+                          </Show>
+                        </>
+                      ))}
                     </dd>
                   </div>
                   <div>
@@ -666,12 +656,8 @@ export function QuestionDetailPage(): JSX.Element {
                             })
                         }
                         onCurrent={setCorrectedBloom}
-                        onConflictCurrent={() =>
-                          refreshQuestionLibraryReturnState(libraryReturnToken())
-                        }
-                        onAccepted={(_bloom, changed) => {
-                          if (changed) refreshQuestionLibraryReturnState(libraryReturnToken());
-                        }}
+                        onConflictCurrent={() => undefined}
+                        onAccepted={() => undefined}
                       />
                     </Show>
                   )}
@@ -699,7 +685,6 @@ export function QuestionDetailPage(): JSX.Element {
               </section>
               <QuestionStatisticsPanel evidence={record().evidence} />
               <QuestionUsePanel usage={record().usage} />
-              <LibraryDiscussionPanel kind="question" publicId={record().summary.questionId} />
               <Show when={mayMutateLibrary()}>
                 <QuestionArchiveControl
                   client={applicationApi.client}

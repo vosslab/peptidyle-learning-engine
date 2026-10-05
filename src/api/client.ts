@@ -16,6 +16,7 @@ import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate"
 import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
 import type {
   ProfileAvatarView,
+  InstructorProfileView,
   ProfileImageCropInput,
   SelectProvidedProfileAvatarInput,
 } from "./profile_avatar";
@@ -81,9 +82,9 @@ import type {
   ContentDisciplineAdministrationClient,
 } from "./content_classification";
 import type { CourseStudentWorkRecoveryClient } from "./course_student_work_recovery";
-import type { LibraryDiscussionClient } from "./library_discussion";
 import type { LibraryWatchNotificationClient } from "./library_watch_notification";
 import type { BloomClassificationCorrectionClient } from "./bloom_classification";
+import type { EmailCodeClient } from "./email_code";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -112,7 +113,6 @@ export interface ApiClient
     QuestionPoolCreationClient,
     QuestionPoolStewardshipClient,
     BloomClassificationCorrectionClient,
-    LibraryDiscussionClient,
     LibraryWatchNotificationClient,
     AssessmentStudentViewClient,
     AssessmentTemplateClient,
@@ -121,7 +121,8 @@ export interface ApiClient
     QuestionPoolSupportClient,
     ContentClassificationClient,
     ContentDisciplineAdministrationClient,
-    CourseStudentWorkRecoveryClient {
+    CourseStudentWorkRecoveryClient,
+    EmailCodeClient {
   /** Reads only the authenticated Account's role-neutral Profile settings. */
   readonly getProfile: () => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's Account Settings preference. */
@@ -138,6 +139,8 @@ export interface ApiClient
   ) => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's currently selected avatar. */
   readonly getProfileAvatar: () => Promise<ProfileAvatarView>;
+  /** Reads the narrow public-within-PLE Profile of one Instructor. */
+  readonly getInstructorProfile: (accountId: string) => Promise<InstructorProfileView>;
   /** Selects one validated PLE-provided avatar for the authenticated Account. */
   readonly selectProvidedProfileAvatar: (input: SelectProvidedProfileAvatarInput) => Promise<void>;
   /** Replaces the authenticated Instructor or Sysadmin Account's profile image. */
@@ -145,7 +148,7 @@ export interface ApiClient
     image: Blob,
     crop: ProfileImageCropInput,
   ) => Promise<ProfileAvatarView>;
-  /** Fetches the authenticated Account's current protected profile-image rendition. */
+  /** Fetches a signed-in viewer's authorized Instructor Profile image rendition. */
   readonly fetchProfileAvatarImage: (profileImageId: string) => Promise<Blob>;
   readonly listPendingCourseInvitations: (
     cursor?: string,

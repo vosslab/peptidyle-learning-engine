@@ -261,7 +261,7 @@ export function createQuestionLibraryRepository(
           disciplineName: item.disciplineName,
           disciplineIsRetired: item.disciplineIsRetired,
           questionFormat: item.summary.questionFormat,
-          authorNames: item.summary.authorship.authors.map((author) => author.displayName),
+          authors: item.summary.authorship.authors,
           capabilities: item.summary.capabilities,
           questionLicense: item.summary.metadata.questionLicense,
           evidence: item.evidence,

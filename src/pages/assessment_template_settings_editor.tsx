@@ -11,7 +11,6 @@ import type {
 import { assessmentTypeHasOneAttempt } from "./assessment_template_settings_model";
 
 const FEEDBACK_FIELDS = [
-  ["score", "Score"],
   ["per_item_correctness", "Per-item correctness"],
   ["submitted_response", "Submitted response"],
   ["question_answer", "Question Answer"],
@@ -26,6 +25,7 @@ const FEEDBACK_TIMINGS = [
   ["after_submit", "After submit"],
   ["after_due", "After due"],
   ["after_close", "After close"],
+  ["after_all_students_complete", "After all Students complete"],
   ["never", "Never"],
 ] as const satisfies ReadonlyArray<readonly [StudentFeedbackReleaseTiming, string]>;
 
@@ -168,7 +168,15 @@ export function AssessmentTemplateSettingsEditor(
                   )
                 }
               >
-                <For each={FEEDBACK_TIMINGS}>
+                <For
+                  each={
+                    field === "question_answer" || field === "question_answer_explanation"
+                      ? FEEDBACK_TIMINGS
+                      : FEEDBACK_TIMINGS.filter(
+                          ([value]) => value !== "after_all_students_complete",
+                        )
+                  }
+                >
                   {([value, timingLabel]) => <option value={value}>{timingLabel}</option>}
                 </For>
               </select>

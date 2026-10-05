@@ -13,6 +13,7 @@ import {
   type CourseInstanceRouteId,
 } from "./public_route";
 import { routeContractForPathname, type RibbonScope, type RouteContract } from "../route_contract";
+import { validateCanonicalPublicId } from "../question_id";
 import { assessmentAttemptRouteStateFromHistory } from "./assessment_attempt_route";
 
 export type DeclaredRouteScope = RibbonScope;
@@ -25,7 +26,8 @@ export type RouteParamName =
   | "questionId"
   | "draftQuestionId"
   | "blueprintCourseId"
-  | "proposalId";
+  | "proposalId"
+  | "accountId";
 
 /**
  * `undefined` means the pathname did not match this declared route. A valid
@@ -60,6 +62,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   draftQuestionId: parseDraftQuestionId,
   blueprintCourseId: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
+  accountId: (value) => validateCanonicalPublicId("account", value),
 };
 
 function isRouteParamName(value: string): value is RouteParamName {

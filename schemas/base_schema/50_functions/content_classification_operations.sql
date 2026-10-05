@@ -12,9 +12,9 @@ BEGIN
     END IF;
     actor_id := ple_api.current_session_account_id();
     IF actor_id IS NULL OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+       OR ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Content classification requires a vetted active Instructor or active Sysadmin';
+            MESSAGE = 'Content classification requires an active Instructor or active Sysadmin';
     END IF;
     RETURN actor_id;
 END
@@ -23,9 +23,9 @@ $$;
 
 
 -- ASVS 8.1.1/8.2.1/8.3.1: global vocabulary reads require an installed active
--- Instructor or Sysadmin session, not an attributed, vetted identity. They expose
+-- Instructor or Sysadmin session, not a Profile identity. They expose
 -- no Course membership, Student work, or other FERPA data. Mutations retain the
--- vetted-identity guard above; installation publishers receive no special bypass.
+-- active-Instructor/Profile guard above; installation publishers receive no special bypass.
 CREATE FUNCTION ple_private.require_content_classification_reader()
 RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$

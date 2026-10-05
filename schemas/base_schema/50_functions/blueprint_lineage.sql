@@ -28,7 +28,7 @@ BEGIN
        OR NOT ple_private.is_canonical_prefixed_public_id(p_source_blueprint_course_id, 'BP')
        OR v_actor IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(v_actor) IS NULL THEN
+       OR ple_private.instructor_display_name(v_actor) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Blueprint Course is unavailable';
     END IF;
@@ -45,7 +45,7 @@ BEGIN
     SELECT child.blueprint_course_id::text, child.short_name, child.long_name,
            child.availability::text, child.current_blueprint_revision_number::bigint,
            ancestry.source_blueprint_revision_number::bigint,
-           ple_private.verified_instructor_display_name(child.owner_account_id)
+           ple_private.instructor_display_name(child.owner_account_id)
       FROM ple_data.blueprint_course_fork AS ancestry
       JOIN ple_data.blueprint_course AS child
         ON child.blueprint_course_id = ancestry.blueprint_course_id

@@ -70,6 +70,10 @@ impl From<QuestionAuthorDisplayName> for String {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionAuthor {
     pub display_name: QuestionAuthorDisplayName,
+    /// The active PLE Instructor Profile that this immutable credit explicitly
+    /// names, when the source supplied one. External attribution remains
+    /// display-name-only.
+    pub account_id: Option<crate::AccountId>,
 }
 
 /// Ordered immutable Question Authorship snapshot for one Published Question Revision.
@@ -132,10 +136,12 @@ mod tests {
         let ada = QuestionAuthor {
             display_name: QuestionAuthorDisplayName::new(" Ada Lovelace ".into())
                 .expect("valid display name"),
+            account_id: None,
         };
         let grace = QuestionAuthor {
             display_name: QuestionAuthorDisplayName::new("Grace Hopper".into())
                 .expect("valid display name"),
+            account_id: None,
         };
         assert_eq!(
             QuestionAuthorship::new(vec![ada.clone(), grace])
@@ -151,6 +157,7 @@ mod tests {
             .map(|position| QuestionAuthor {
                 display_name: QuestionAuthorDisplayName::new(format!("Question Author {position}"))
                     .expect("bounded display name"),
+                account_id: None,
             })
             .collect();
         assert!(QuestionAuthorship::new(sixteen_authors).is_ok());

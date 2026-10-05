@@ -264,6 +264,7 @@ fn command(workspace: WorkspaceId) -> NewQuestionLineagePublicationCommand {
         question_authorship: QuestionAuthorship::new(vec![QuestionAuthor {
             display_name: QuestionAuthorDisplayName::new("Ada Lovelace".to_string())
                 .expect("reviewed Question Author"),
+            account_id: None,
         }])
         .expect("bounded Question Authorship"),
         initial_shared_tags: Vec::new(),

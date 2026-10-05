@@ -4,12 +4,12 @@ import type { AccountId } from "../../../generated/api/AccountId";
 import type { ApiClient } from "../client";
 import type { InstructorAccountBrowse, InstructorAccountClient } from "../instructor_account";
 import {
-  decodeCompleteInstructorIdentityVettingInput,
+  decodeCreatedInstructorAccount,
   decodeCreateInstructorAccountInput,
   decodeDeactivateInstructorAccountInput,
   decodeInstructorAccount,
   decodeInstructorAccountList,
-  decodeInstructorIdentityVettingReceipt,
+  decodeInstructorSetupEmailResponse,
   isCanonicalAccountId,
 } from "../decoders/instructor_account";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -94,25 +94,21 @@ export function createInstructorAccountClient(
         decodeInstructorAccountList,
         { method: "POST", body: instructorAccountBrowseBody(browse), status: 200 },
       ),
-    completeInstructorIdentityVetting: (input) =>
-      instructorAccountJson(
-        fetchImplementation,
-        basePath,
-        "/api/instructor-identity-vetting-decisions",
-        decodeInstructorIdentityVettingReceipt,
-        {
-          method: "POST",
-          body: decodeCompleteInstructorIdentityVettingInput(input),
-          status: 201,
-        },
-      ),
     createInstructorAccount: (input) =>
       instructorAccountJson(
         fetchImplementation,
         basePath,
         "/api/instructor-accounts",
-        decodeInstructorAccount,
+        decodeCreatedInstructorAccount,
         { method: "POST", body: decodeCreateInstructorAccountInput(input), status: 201 },
+      ),
+    sendInstructorSetupEmail: (accountId) =>
+      instructorAccountJson(
+        fetchImplementation,
+        basePath,
+        `${accountPath(accountId)}/send-setup-email`,
+        decodeInstructorSetupEmailResponse,
+        { method: "POST", status: 200 },
       ),
     deactivateInstructorAccount: (accountId, input) =>
       instructorAccountJson(

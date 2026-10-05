@@ -48,6 +48,7 @@ async function loadArchiveWorkflowRenderer() {
           const router = {
             location: libraryLocation,
             navigatorFactory: () => () => undefined,
+            beforeLeave: { subscribe: () => () => undefined },
             get pendingTarget() {
               return undefined;
             },

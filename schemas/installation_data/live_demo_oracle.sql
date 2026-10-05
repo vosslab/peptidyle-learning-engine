@@ -104,9 +104,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo fictional identities are not active';
     END IF;
-    IF ple_private.verified_instructor_display_name(elena)
+    IF ple_private.instructor_display_name(elena)
            IS DISTINCT FROM 'Elena Martinez'
-       OR ple_private.verified_instructor_display_name(priya)
+       OR ple_private.instructor_display_name(priya)
            IS DISTINCT FROM 'Priya Shah' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Instructor vetted identity is incomplete';

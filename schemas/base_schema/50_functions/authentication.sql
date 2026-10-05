@@ -155,6 +155,114 @@ AS $$
        AND account.user_role IN ('student', 'instructor')
 $$;
 
+-- Starts one normal email-code sign-in ceremony.  The route deliberately
+-- treats a NULL result exactly like successful delivery so it cannot reveal
+-- whether an address belongs to an active Account.
+CREATE FUNCTION ple_private.prepare_email_authentication_challenge(
+    p_normalized_email text
+)
+RETURNS TABLE (delivery_email text, eligible boolean) LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private, ple_data
+AS $$
+DECLARE
+    v_now timestamptz := pg_catalog.transaction_timestamp();
+    v_window timestamptz;
+    v_account_id text;
+    v_delivery_email text;
+    v_rate_key_hash bytea;
+BEGIN
+    -- ASVS 2.2.1 and 2.2.2: validate the closed credential shape before a
+    -- lookup or rate-limit write. The Rust boundary repeats these limits.
+    IF p_normalized_email IS NULL
+       OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
+       OR p_normalized_email <> lower(btrim(p_normalized_email))
+    THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid email authentication challenge input';
+    END IF;
+    v_rate_key_hash := sha256(convert_to(p_normalized_email, 'UTF8'));
+    v_window := date_trunc('hour', v_now)
+        + (floor(extract(minute FROM v_now) / 10) * interval '10 minutes');
+    -- ASVS 2.4.1: every address, including an unknown one, gets the same
+    -- database-authoritative five-request ten-minute budget.
+    INSERT INTO ple_private.authentication_rate_limit (
+        scope, key_hash, window_started_at, consumed_attempts
+    ) VALUES ('email', v_rate_key_hash, v_window, 1)
+    ON CONFLICT (scope, key_hash, window_started_at) DO UPDATE
+        SET consumed_attempts = ple_private.authentication_rate_limit.consumed_attempts + 1,
+            updated_at = v_now
+        WHERE ple_private.authentication_rate_limit.consumed_attempts < 5;
+    IF NOT FOUND THEN RETURN QUERY SELECT NULL::text, false; RETURN; END IF;
+    SELECT account.account_id, email.delivery_email
+      INTO v_account_id, v_delivery_email
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account ON account.account_id = email.account_id
+      JOIN LATERAL (
+          SELECT state.state FROM ple_private.account_state_event AS state
+          WHERE state.account_id = account.account_id
+          ORDER BY state.occurred_at DESC, state.event_id DESC LIMIT 1
+      ) AS current_state ON current_state.state = 'active'
+     WHERE email.normalized_email = p_normalized_email
+       AND account.user_role IN ('student', 'instructor')
+     FOR UPDATE OF account;
+    -- ASVS 6.2.1 and 6.3.3: issue a non-persisted cover code through the
+    -- same provider path for an unknown or inactive address.  This avoids a
+    -- provider-failure status or timing oracle while creating no credential.
+    IF NOT FOUND THEN RETURN QUERY SELECT p_normalized_email, false; RETURN; END IF;
+    RETURN QUERY SELECT v_delivery_email, true;
+END
+$$;
+
+-- Commits a provider-accepted code. Older codes remain usable if SMTP fails.
+CREATE FUNCTION ple_private.commit_email_authentication_challenge(
+    p_challenge_id uuid, p_normalized_email text, p_proof_hash bytea,
+    p_browser_binding_hash bytea, p_lifetime_seconds bigint
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private, ple_data
+AS $$
+DECLARE
+    v_now timestamptz := pg_catalog.transaction_timestamp();
+    v_account_id text;
+    v_rate_key_hash bytea;
+BEGIN
+    IF p_challenge_id IS NULL OR p_normalized_email IS NULL
+       OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
+       OR p_normalized_email <> lower(btrim(p_normalized_email))
+       OR pg_catalog.octet_length(p_proof_hash) <> 32
+       OR pg_catalog.octet_length(p_browser_binding_hash) <> 32
+       OR p_lifetime_seconds NOT BETWEEN 1 AND 600 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid email authentication challenge input';
+    END IF;
+    SELECT account.account_id INTO v_account_id
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account ON account.account_id = email.account_id
+      JOIN LATERAL (
+          SELECT state.state FROM ple_private.account_state_event AS state
+          WHERE state.account_id = account.account_id
+          ORDER BY state.occurred_at DESC, state.event_id DESC LIMIT 1
+      ) AS current_state ON current_state.state = 'active'
+     WHERE email.normalized_email = p_normalized_email
+       AND account.user_role IN ('student', 'instructor')
+     FOR UPDATE OF account;
+    IF NOT FOUND THEN RETURN false; END IF;
+    v_rate_key_hash := sha256(convert_to(p_normalized_email, 'UTF8'));
+    -- Only the newest provider-accepted normal sign-in code remains usable.
+    UPDATE ple_private.email_authentication_challenge
+       SET consumed_at = v_now
+     WHERE target_account_id = v_account_id
+       AND purpose = 'sign_in' AND consumed_at IS NULL;
+    INSERT INTO ple_private.email_authentication_challenge (
+        challenge_id, token_hash, browser_binding_hash, email_rate_limit_key_hash,
+        email, purpose, target_account_id, created_at, expires_at
+    ) VALUES (
+        p_challenge_id, p_proof_hash, p_browser_binding_hash, v_rate_key_hash,
+        p_normalized_email, 'sign_in', v_account_id, v_now,
+        v_now + p_lifetime_seconds * interval '1 second'
+    );
+    RETURN true;
+END
+$$;
+
 CREATE FUNCTION ple_private.consume_passkey_authentication(
     p_ceremony_id uuid, p_credential_id_hash bytea, p_browser_binding_hash bytea
 )
@@ -460,6 +568,24 @@ LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.consume_email_authentication_challenge(
     p_challenge_id, p_proof_hash, p_browser_binding_hash
+) $$;
+
+CREATE FUNCTION ple_api.prepare_email_authentication_challenge(
+    p_normalized_email text
+)
+RETURNS TABLE (delivery_email text, eligible boolean) LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT * FROM ple_private.prepare_email_authentication_challenge(p_normalized_email) $$;
+
+CREATE FUNCTION ple_api.commit_email_authentication_challenge(
+    p_challenge_id uuid, p_normalized_email text, p_proof_hash bytea,
+    p_browser_binding_hash bytea, p_lifetime_seconds bigint
+)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT ple_private.commit_email_authentication_challenge(
+    p_challenge_id, p_normalized_email, p_proof_hash,
+    p_browser_binding_hash, p_lifetime_seconds
 ) $$;
 
 CREATE FUNCTION ple_api.consume_passkey_authentication(

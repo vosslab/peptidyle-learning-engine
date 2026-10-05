@@ -28,9 +28,9 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Student Course Progress on a tablet.** completed Attempts and score status - tablet.
 
-[![Screenshot preview of Student Progress when an Attempt has no released score on a tablet](../screenshots/student/tablet/course_progress_unreleased.webp)](../screenshots/student/tablet/course_progress_unreleased.webp)
+[![Screenshot preview of Student Progress with an active Attempt on a tablet](../screenshots/student/tablet/course_progress_unreleased.webp)](../screenshots/student/tablet/course_progress_unreleased.webp)
 
-**Student Progress when an Attempt has no released score on a tablet.** Attempts with no released score - tablet.
+**Student Progress with an active Attempt on a tablet.** active Attempt awaiting submission - tablet.
 
 [![Screenshot preview of Student Scores on a tablet](../screenshots/student/tablet/grades-scores-scores.webp)](../screenshots/student/tablet/grades-scores-scores.webp)
 

@@ -123,7 +123,7 @@ pub struct BulkPublishedQuestionMetadataResult {
     pub metadata_edit_number: u64,
 }
 
-/// One active-vetted-Instructor atomic metadata command.
+/// One active-Instructor atomic metadata command.
 #[async_trait]
 pub trait BulkPublishedQuestionMetadataStore: Send + Sync {
     /// Replaces or clears only the closed shared metadata fields for every selected Question.

@@ -1,4 +1,4 @@
-//! Vetted-Instructor Blueprint Course stewardship HTTP boundary.
+//! Active-Instructor Blueprint Course stewardship HTTP boundary.
 //!
 //! This surface deliberately separates public Star aggregate facts from the
 //! caller's private Watch state. It exposes no Account identity, email,
@@ -389,7 +389,7 @@ async fn instructor_session_hash(
     .await
     {
         // ASVS 8.2.1--8.3.1: role derives only from the server session; the
-        // Store independently enforces an active vetted-Instructor predicate.
+        // Store independently enforces the active-Instructor predicate.
         Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(

@@ -136,6 +136,14 @@ test("tiered screenshot filenames use explicit aliases for every catalog task", 
         assert.match(capture.filenameStem, /^theme(?:_sample)?-[a-z0-9-]+$/u);
         continue;
       }
+      if (
+        scenario.id === "student_progress_response_stats_history" &&
+        capture.filenameStem === "course_progress_unreleased"
+      ) {
+        // This published asset name predates the clarified in-progress checkpoint and remains
+        // stable for links to the reviewed screenshot.
+        continue;
+      }
       assert.ok(
         prefixes.some((prefix) => capture.filenameStem.startsWith(prefix)),
         `${scenario.id}:${capture.checkpoint} has an unknown Tier 1/Tier 2 filename prefix`,

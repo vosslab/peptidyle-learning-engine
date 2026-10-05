@@ -555,7 +555,6 @@ mod tests {
             },
         };
         let disclosure = StudentFeedbackReleaseRule {
-            score: StudentFeedbackReleaseTiming::DuringAttempt,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
@@ -572,9 +571,9 @@ mod tests {
             statistics_shown: false,
         };
         for (moment, expected) in [
-            (PreviewDisclosureMoment::Now, flags(true, false)),
-            (PreviewDisclosureMoment::Due, flags(true, false)),
-            (PreviewDisclosureMoment::Close, flags(true, true)),
+            (PreviewDisclosureMoment::Now, flags(false, false)),
+            (PreviewDisclosureMoment::Due, flags(false, false)),
+            (PreviewDisclosureMoment::Close, flags(false, true)),
         ] {
             assert_eq!(
                 project_preview_student_feedback_release(

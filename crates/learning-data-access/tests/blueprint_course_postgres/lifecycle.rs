@@ -399,6 +399,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     assert_eq!(reader_summary.total_adoptions, 2);
     assert_eq!(reader_summary.total_students_ever_enrolled, 1);
+    assert_eq!(reader_summary.owner_display_name, "Blueprint Owner");
     let reader_view = reader_store
         .load_blueprint_course(reader_token(), blueprint_course_id.clone())
         .await

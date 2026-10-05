@@ -37,6 +37,7 @@ import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionSearchResult } from "./question_library";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import {
+  decodeAccountId,
   decodeBoundedArray,
   decodeCursor,
   decodePublishedQuestionRevisionTuple,
@@ -538,6 +539,9 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
   requireOnlyFields(record, path, [
     "total_adoptions",
     "total_students_ever_enrolled",
+    "star_count",
+    "watcher_count",
+    "last_edited_at_millis",
     "id",
     "short_name",
     "long_name",
@@ -546,6 +550,9 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     "classification",
     "current_revision_tuple",
     "read_access",
+    "owner_account_id",
+    "owner_display_name",
+    "owner_affiliation",
   ]);
   const totalAdoptions = decodeSafeInteger(
     field(record, "total_adoptions", path),
@@ -555,10 +562,28 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     field(record, "total_students_ever_enrolled", path),
     `${path}.total_students_ever_enrolled`,
   );
-  if (totalAdoptions < 0 || totalStudents < 0)
+  const starCount = decodeSafeInteger(field(record, "star_count", path), `${path}.star_count`);
+  const watcherCount = decodeSafeInteger(
+    field(record, "watcher_count", path),
+    `${path}.watcher_count`,
+  );
+  const lastEditedAtMillis = decodeSafeInteger(
+    field(record, "last_edited_at_millis", path),
+    `${path}.last_edited_at_millis`,
+  );
+  if (
+    totalAdoptions < 0 ||
+    totalStudents < 0 ||
+    starCount < 0 ||
+    watcherCount < 0 ||
+    lastEditedAtMillis < 0
+  )
     throw new DecodeError(path, "nonnegative Blueprint popularity totals");
   return {
     total_adoptions: totalAdoptions,
+    star_count: starCount,
+    watcher_count: watcherCount,
+    last_edited_at_millis: lastEditedAtMillis,
     classification: decodeCourseClassification(
       field(record, "classification", path),
       `${path}.classification`,
@@ -580,7 +605,35 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       "blueprint_course_owner",
       "active_instructor",
     ]),
+    owner_account_id: decodeAccountId(
+      field(record, "owner_account_id", path),
+      `${path}.owner_account_id`,
+    ),
+    owner_display_name: ownerDisplayName(
+      field(record, "owner_display_name", path),
+      `${path}.owner_display_name`,
+    ),
+    owner_affiliation: ownerAffiliation(
+      field(record, "owner_affiliation", path),
+      `${path}.owner_affiliation`,
+    ),
   };
+}
+
+function ownerDisplayName(value: unknown, path: string): string {
+  const decoded = decodeNonemptyString(value, path);
+  if (decoded !== decoded.trim() || /[\p{Cc}]/u.test(decoded) || Array.from(decoded).length > 200) {
+    throw new DecodeError(path, "a Blueprint owner display name");
+  }
+  return decoded;
+}
+
+function ownerAffiliation(value: unknown, path: string): string {
+  const decoded = decodeNonemptyString(value, path);
+  if (decoded !== decoded.trim() || /[\p{Cc}]/u.test(decoded) || Array.from(decoded).length > 300) {
+    throw new DecodeError(path, "a Blueprint owner institution");
+  }
+  return decoded;
 }
 
 function modules(value: unknown, path: string): Array<BlueprintModuleView> {
@@ -756,7 +809,7 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     /[\p{Cc}]/u.test(ownerDisplayName) ||
     Array.from(ownerDisplayName).length > 200
   ) {
-    throw new DecodeError(`${path}.ownerDisplayName`, "one verified Instructor display name");
+    throw new DecodeError(`${path}.ownerDisplayName`, "one Instructor display name");
   }
   return {
     id: blueprintCourseId(field(record, "id", path), `${path}.id`),

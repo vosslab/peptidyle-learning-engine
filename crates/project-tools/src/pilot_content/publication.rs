@@ -178,6 +178,7 @@ async fn publish_plan(
     let authorship = QuestionAuthorship::new(vec![QuestionAuthor {
         display_name: QuestionAuthorDisplayName::new(plan.source_project_author)
             .map_err(|_| anyhow::anyhow!("Pilot source author is invalid"))?,
+        account_id: None,
     }])
     .map_err(|_| anyhow::anyhow!("Pilot source authorship is invalid"))?;
     let license = pilot_license(&plan.source_project_content_license)?;

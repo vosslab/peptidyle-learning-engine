@@ -7,3 +7,4 @@
 \ir assessment_saved_response/04_blueprint_pool_forks.sql
 \ir assessment_saved_response/05_student_history_privacy.sql
 \ir assessment_saved_response/06_question_watch_access.sql
+\ir assessment_saved_response/07_assessment_fairness.sql

@@ -148,6 +148,7 @@ def parse_args() -> argparse.Namespace:
 	operations.add_argument("-d", "--diff", dest="operation", action="store_const", const="diff")
 	operations.add_argument("-c", "--consistency", dest="operation", action="store_const", const="consistency")
 	operations.add_argument("-g", "--gate", dest="operation", metavar="PART")
+	operations.add_argument("-e", "--evidence", dest="operation", action="store_const", const="evidence")
 	operations.add_argument("-s", "--splice", dest="splice_part", metavar="PART")
 	return parser.parse_args()
 
@@ -487,6 +488,39 @@ def final_checklist_problems() -> list[str]:
 
 
 #============================================
+def verified_evidence_problems(statuses: list[tuple[str, str, list[str]]]) -> list[str]:
+	"""Require locating evidence, and observed evidence for runtime-required bullets."""
+	problems: list[str] = []
+	for status, bullet_text, status_lines in statuses:
+		if status != "x":
+			continue
+		evidence = [line for line in status_lines if EVIDENCE_PATTERN.match(line)]
+		if not evidence:
+			problems.append(f"Verified bullet lacks Evidence (kind): {bullet_text}")
+		elif any(not evidence_has_locator(line) for line in evidence):
+			problems.append(f"Evidence lacks a real backticked repository path and stable symbol: {bullet_text}")
+		if needs_runtime_or_test(bullet_text) and not any(
+			EVIDENCE_PATTERN.match(line).group(1) in ("runtime", "test") for line in evidence
+		):
+			problems.append(f"Verified runtime-required bullet lacks runtime or test evidence: {bullet_text}")
+	return problems
+
+
+#============================================
+def evidence() -> None:
+	"""Apply verified-bullet evidence rules to the assembled checklist."""
+	if not CHECKLIST_PATH.exists():
+		print(f"Checklist is missing: {CHECKLIST_PATH}")
+		raise SystemExit(1)
+	problems = verified_evidence_problems(checklist_statuses(CHECKLIST_PATH))
+	for problem in problems:
+		print(problem)
+	if problems:
+		raise SystemExit(1)
+	print(f"Assembled checklist evidence passes: {CHECKLIST_PATH}")
+
+
+#============================================
 def gate(part_name: str) -> None:
 	"""Validate one exact audit part and its status/evidence contract."""
 	part_path = trusted_part_path(part_name)
@@ -503,15 +537,8 @@ def gate(part_name: str) -> None:
 	statuses = checklist_statuses(part_path)
 	if len(statuses) != len(expected_bullets):
 		problems.append("Every Human Guidance bullet must carry exactly one [x], [ ], or N/A status.")
-	for index, (status, bullet_text, status_lines) in enumerate(statuses):
-		if status == "x":
-			evidence = [line for line in status_lines if EVIDENCE_PATTERN.match(line)]
-			if not evidence:
-				problems.append(f"Verified bullet lacks Evidence (kind): {bullet_text}")
-			elif any(not evidence_has_locator(line) for line in evidence):
-				problems.append(f"Evidence lacks a real backticked repository path and stable symbol: {bullet_text}")
-			if needs_runtime_or_test(bullet_text) and not any(EVIDENCE_PATTERN.match(line).group(1) in ("runtime", "test") for line in evidence):
-				problems.append(f"Verified runtime-required bullet lacks runtime or test evidence: {bullet_text}")
+	problems.extend(verified_evidence_problems(statuses))
+	for status, bullet_text, status_lines in statuses:
 		if status == " " and not any(
 			(line.startswith("- Mismatch:") and line[11:].strip()) or
 			(line.startswith("- Verification pending:") and line[23:].strip())
@@ -619,6 +646,8 @@ def main() -> None:
 		diff()
 	elif args.operation == "consistency":
 		consistency()
+	elif args.operation == "evidence":
+		evidence()
 	else:
 		gate(args.operation)
 

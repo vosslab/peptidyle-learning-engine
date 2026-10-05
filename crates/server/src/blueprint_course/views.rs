@@ -54,6 +54,12 @@ pub(super) fn summary_view(
             revision_number: record.current_revision_number,
         },
         read_access: record.read_access,
+        owner_account_id: record.owner_account_id,
+        owner_display_name: record.owner_display_name,
+        owner_affiliation: record.owner_affiliation,
+        star_count: record.star_count,
+        watcher_count: record.watcher_count,
+        last_edited_at_millis: record.last_edited_at_millis,
     }
 }
 pub(super) async fn content_modules(

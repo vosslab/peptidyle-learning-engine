@@ -125,18 +125,13 @@ BEGIN
          WHERE account_id = priya;
     END IF;
 
-    SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
-        'elena.martinez@live-demo.invalid', 'Elena Martinez', sysadmin_id
-    ) INTO decision;
-    PERFORM ple_audit.record_instructor_account_creation_event(
-        elena, sysadmin_id, decision
-    );
-    SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
-        'priya.shah@live-demo.invalid', 'Priya Shah', sysadmin_id
-    ) INTO decision;
-    PERFORM ple_audit.record_instructor_account_creation_event(
-        priya, sysadmin_id, decision
-    );
+    INSERT INTO ple_private.instructor_profile (account_id, first_name, last_name, affiliation)
+    VALUES
+        (elena, 'Elena', 'Martinez', 'Peptidyle Learning Engine'),
+        (priya, 'Priya', 'Shah', 'Peptidyle Learning Engine')
+    ON CONFLICT (account_id) DO NOTHING;
+    PERFORM ple_audit.record_instructor_account_creation_event(elena, sysadmin_id);
+    PERFORM ple_audit.record_instructor_account_creation_event(priya, sysadmin_id);
 
     INSERT INTO ple_private.authoring_workspace (
         authoring_workspace_id, owner_account_id, created_at

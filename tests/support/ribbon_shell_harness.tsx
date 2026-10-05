@@ -170,7 +170,7 @@ function inspectionQuestionDetails(): QuestionDetails {
         questionCitation: null,
         language: "en",
       },
-      authorship: { authors: [{ displayName: "Ada Instructor" }] },
+      authorship: { authors: [{ displayName: "Ada Instructor", accountId: null }] },
       availability: { availability: "available" },
       publishedAt: 1_700_000_000_000,
       bloom: null,
@@ -482,8 +482,6 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     getQuestionStar: (): Promise<unknown> =>
       Promise.resolve({ starCount: 0, viewerHasStarred: false, starredInstructors: [] }),
     getQuestionWatch: (): Promise<unknown> => Promise.resolve({ watching: false }),
-    getLibraryDiscussion: (): Promise<unknown> =>
-      Promise.resolve({ viewerMayManage: false, threads: [], impactNotices: [] }),
   };
   // The current-source App reaches the typed query subset above plus the
   // read-only Instructor Student View methods. The Course Instance surface

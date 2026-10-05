@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, Sha256Checksum};
 pub use question_model::ProfileImageId;
-use question_model::{ObjectId, avatar_catalog_generated::PROVIDED_AVATAR_CATALOG};
+use question_model::{AccountId, ObjectId, avatar_catalog_generated::PROVIDED_AVATAR_CATALOG};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -94,6 +94,16 @@ pub enum AccountAvatar {
     ProfileImage(ProfileImageId),
 }
 
+/// The small public representation of an Instructor available to every signed-in Account.
+///
+/// It intentionally excludes authentication, Student, Course, and Account-settings facts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstructorProfile {
+    pub account_id: AccountId,
+    pub display_name: String,
+    pub avatar: Option<AccountAvatar>,
+}
+
 /// A prepared object-store put for the authenticated Account's next Profile image.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PreparedAccountProfileImage {
@@ -163,6 +173,12 @@ pub trait AccountAvatarGallery: Send + Sync {
         &self,
         token: SessionTokenHash,
     ) -> Result<Option<AccountAvatar>, StoreError>;
+    /// Reads one active Instructor's public Profile for any signed-in Account.
+    async fn read_instructor_profile(
+        &self,
+        token: SessionTokenHash,
+        account_id: &AccountId,
+    ) -> Result<InstructorProfile, StoreError>;
     /// Selects a validated PLE-provided avatar for the authenticated Account.
     async fn select_provided_account_avatar(
         &self,
@@ -224,6 +240,12 @@ pub trait AccountAvatarGallery: Send + Sync {
     ) -> Result<FinalizedAccountProfileImage, StoreError>;
     /// Resolves an authorized current self-owned Profile image to its object identity.
     async fn resolve_current_account_profile_image(
+        &self,
+        token: SessionTokenHash,
+        profile_image_id: ProfileImageId,
+    ) -> Result<ObjectId, StoreError>;
+    /// Resolves an active Instructor's current Profile image for a signed-in viewer.
+    async fn resolve_instructor_profile_image(
         &self,
         token: SessionTokenHash,
         profile_image_id: ProfileImageId,

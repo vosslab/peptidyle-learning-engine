@@ -9,6 +9,17 @@
   background: transparent;
   box-shadow: none;
 }
+
+.search-result-display {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0.35rem;
+}
+
+.search-result-display > span {
+  font-weight: 600;
+}
 .library-browse-record-list__window:focus-visible {
   outline: 2px solid var(--ple-focus);
   outline-offset: 2px;

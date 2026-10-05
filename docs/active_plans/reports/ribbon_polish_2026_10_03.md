@@ -20,10 +20,8 @@ Controlled comparisons use the actual application shell with synthetic Course da
 production theme tokens. The resulting dark view gives the open folder clear emphasis;
 the light view has more room around labels and a quieter horizontal boundary.
 
-- [Desktop light](ribbon_polish_2026_10_03/final_1280_light.png)
-- [Desktop dark](ribbon_polish_2026_10_03/final_1280_dark.png)
-- [Phone light](ribbon_polish_2026_10_03/final_393_light.png)
-- [Phone dark](ribbon_polish_2026_10_03/final_393_dark.png)
+Desktop light, desktop dark, phone light, and phone dark renders were reviewed
+from the current shell. Those preview files are not stored beside this report.
 
 ## Verification
 

@@ -28,9 +28,9 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Student Course Progress on a square.** completed Attempts and score status - square.
 
-[![Screenshot preview of Student Progress when an Attempt has no released score on a square](../screenshots/student/square/course_progress_unreleased.webp)](../screenshots/student/square/course_progress_unreleased.webp)
+[![Screenshot preview of Student Progress with an active Attempt on a square](../screenshots/student/square/course_progress_unreleased.webp)](../screenshots/student/square/course_progress_unreleased.webp)
 
-**Student Progress when an Attempt has no released score on a square.** Attempts with no released score - square.
+**Student Progress with an active Attempt on a square.** active Attempt awaiting submission - square.
 
 [![Screenshot preview of Student Scores on a square](../screenshots/student/square/grades-scores-scores.webp)](../screenshots/student/square/grades-scores-scores.webp)
 

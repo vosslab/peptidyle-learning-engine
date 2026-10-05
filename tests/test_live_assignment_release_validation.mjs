@@ -50,7 +50,6 @@ function createdWorkspace(
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
-      score: "never",
       per_item_correctness: "never",
       submitted_response: "never",
       question_answer: "never",

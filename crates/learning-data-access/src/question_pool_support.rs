@@ -41,7 +41,7 @@ impl QuestionPoolPleManagedSupport {
     }
 }
 
-/// Active-vetted-Instructor read and replacement of one Pool's support texts.
+/// Active-Instructor read and replacement of one Pool's support texts.
 #[async_trait]
 pub trait QuestionPoolSupportStore: Send + Sync {
     /// Reads the Pool texts without member Question or Student Work fields.

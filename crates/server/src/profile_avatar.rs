@@ -23,7 +23,7 @@ use objects::{
     image_validation::{MAX_STILL_IMAGE_BYTES, ProfileImageCrop, normalized_profile_image_webp},
     s3::S3ObjectStore,
 };
-use question_model::{ObjectId, ProfileImageId, Timestamp, UserRole};
+use question_model::{AccountId, ObjectId, ProfileImageId, Timestamp, UserRole};
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
@@ -57,6 +57,10 @@ pub fn profile_avatar_router(
             "/api/profile/avatar/profile-images/{image}/delivery",
             axum::routing::post(deliver_profile_image),
         )
+        .route(
+            "/api/instructor-profiles/{account_id}",
+            get(read_instructor_profile),
+        )
         .with_state(RouteState {
             sessions,
             avatars,
@@ -67,6 +71,14 @@ pub fn profile_avatar_router(
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CurrentAvatar {
+    avatar: Option<AvatarChoice>,
+}
+
+/// The public-within-PLE Instructor profile omits Account settings, email, and Course data.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstructorProfileResponse {
+    display_name: String,
     avatar: Option<AvatarChoice>,
 }
 
@@ -115,6 +127,37 @@ async fn read_avatar(State(state): State<RouteState>, headers: HeaderMap) -> Res
         Ok(avatar) => crate::auth::no_store(
             Json(CurrentAvatar {
                 avatar: avatar.map(Into::into),
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn read_instructor_profile(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(raw_account_id): Path<String>,
+) -> Response {
+    // ASVS 8.2.1, 8.2.2, 8.3.1: the server validates the route identifier and
+    // the database derives the signed-in viewer before selecting the narrow Profile projection.
+    let account_id = match raw_account_id.parse::<AccountId>() {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let session = match self_session(&state, &headers).await {
+        Ok(session) => session,
+        Err(response) => return *response,
+    };
+    match state
+        .avatars
+        .read_instructor_profile(session.token, &account_id)
+        .await
+    {
+        Ok(profile) => crate::auth::no_store(
+            Json(InstructorProfileResponse {
+                display_name: profile.display_name,
+                avatar: profile.avatar.map(Into::into),
             })
             .into_response(),
         ),
@@ -347,12 +390,9 @@ async fn deliver_profile_image(
         Ok(session) => session,
         Err(response) => return *response,
     };
-    if !matches!(session.role, UserRole::Instructor | UserRole::Sysadmin) {
-        return concealed();
-    }
     let object = match state
         .avatars
-        .resolve_current_account_profile_image(session.token, profile_image_id)
+        .resolve_instructor_profile_image(session.token, profile_image_id)
         .await
     {
         Ok(object) => object,

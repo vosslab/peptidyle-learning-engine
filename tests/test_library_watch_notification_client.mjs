@@ -51,29 +51,11 @@ test("Library Watch inbox returns every discriminated event shape privately", as
           {
             targetKind: "questionPool",
             targetPublicId: questionId,
-            eventKind: "improvementThread",
-            revisionNumber: 4,
-            forkedPublicId: null,
-            activityId: "00000000-0000-4000-8000-000000000001",
-            occurredAt: 1_750_000_000_002,
-          },
-          {
-            targetKind: "questionPool",
-            targetPublicId: questionId,
             eventKind: "impactNotice",
             revisionNumber: null,
             forkedPublicId: null,
             activityId: "00000000-0000-4000-8000-000000000002",
             occurredAt: 1_750_000_000_003,
-          },
-          {
-            targetKind: "question",
-            targetPublicId: questionId,
-            eventKind: "improvementThread",
-            revisionNumber: 6,
-            forkedPublicId: null,
-            activityId: "00000000-0000-4000-8000-000000000011",
-            occurredAt: 1_750_000_000_005,
           },
           {
             targetKind: "question",
@@ -122,29 +104,11 @@ test("Library Watch inbox returns every discriminated event shape privately", as
     {
       targetKind: "questionPool",
       targetPublicId: questionId,
-      eventKind: "improvementThread",
-      revisionNumber: 4,
-      forkedPublicId: null,
-      activityId: "00000000-0000-4000-8000-000000000001",
-      occurredAt: 1_750_000_000_002,
-    },
-    {
-      targetKind: "questionPool",
-      targetPublicId: questionId,
       eventKind: "impactNotice",
       revisionNumber: null,
       forkedPublicId: null,
       activityId: "00000000-0000-4000-8000-000000000002",
       occurredAt: 1_750_000_000_003,
-    },
-    {
-      targetKind: "question",
-      targetPublicId: questionId,
-      eventKind: "improvementThread",
-      revisionNumber: 6,
-      forkedPublicId: null,
-      activityId: "00000000-0000-4000-8000-000000000011",
-      occurredAt: 1_750_000_000_005,
     },
     {
       targetKind: "question",
@@ -160,7 +124,7 @@ test("Library Watch inbox returns every discriminated event shape privately", as
     notifications
       .filter((notification) => notification.targetKind === "question")
       .map((notification) => notification.eventKind),
-    ["revision", "fork", "improvementThread", "impactNotice"],
+    ["revision", "fork", "impactNotice"],
   );
   assert.equal(new URL(requests[0].url).pathname, "/api/library/watch-notifications");
   assert.equal(new URL(requests[0].url).searchParams.get("limit"), "25");
@@ -225,15 +189,6 @@ test("Library Watch inbox rejects cross-kind evidence and recipient facts", () =
           notification.eventKind = "fork";
           notification.forkedPublicId = questionId;
           notification.activityId = "00000000-0000-4000-8000-000000000003";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "improvementThread";
         }),
       ),
     DecodeError,

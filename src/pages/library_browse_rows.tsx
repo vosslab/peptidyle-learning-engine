@@ -1,7 +1,7 @@
 // library_browse_rows.tsx - one selectable Question Library scan for the current page.
 
 import { A } from "@solidjs/router";
-import { Show, onCleanup, onMount, type JSX, type ParentProps } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, type JSX, type ParentProps } from "solid-js";
 
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import {
@@ -11,13 +11,13 @@ import {
   type RecordListSelection,
   type RecordListState,
 } from "../components/record_list/record_list";
+import {
+  SearchResultDisplay,
+  type SearchResultDisplayMode,
+} from "../components/search_result_display";
 import { buildRoutePath } from "../ribbon/ribbon_route_path";
 import { questionLink, webworkFormatLabel } from "./library_page_helpers";
-import {
-  QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
-  type QuestionLibraryBrowseRow,
-  type QuestionLibraryBrowseState,
-} from "./library_page_model";
+import type { QuestionLibraryBrowseRow, QuestionLibraryBrowseState } from "./library_page_model";
 import "./library_browse_record_list.css";
 
 const DRAFT_QUESTIONS_PATH = buildRoutePath("questionDrafts", {});
@@ -35,8 +35,6 @@ export interface LibraryBrowseRowsProps {
   readonly onSelectLoaded: () => void;
   readonly onClearSelection: () => void;
   readonly onOpenMetadataEditor: () => void;
-  readonly returnTokenFor: (row: QuestionLibraryBrowseRow) => string;
-  readonly onSaveReturnState: (token: string) => void;
 }
 
 function recordId(row: QuestionLibraryBrowseRow): string {
@@ -64,11 +62,9 @@ function recordListState(
 
 function questionDetails(row: QuestionLibraryBrowseRow): ReadonlyArray<RecordFact> {
   const details: RecordFact[] = [
-    {
-      kind: "text",
-      label: "Authors",
-      value: row.authorNames.length > 0 ? row.authorNames.join(", ") : "None",
-    },
+    row.authors.length > 0
+      ? { kind: "questionAuthors", label: "Authors", authors: row.authors }
+      : { kind: "text", label: "Authors", value: "None" },
     { kind: "text", label: "Discipline", value: row.disciplineName },
   ];
   if (row.disciplineIsRetired) {
@@ -95,10 +91,10 @@ function questionDetails(row: QuestionLibraryBrowseRow): ReadonlyArray<RecordFac
 
 export function LibraryBrowseRows(props: ParentProps<LibraryBrowseRowsProps>): JSX.Element {
   let windowElement: HTMLDivElement | undefined;
+  const [presentation, setPresentation] = createSignal<SearchResultDisplayMode>("compact");
 
   function questionContent(row: QuestionLibraryBrowseRow): RecordContent {
     const summary = row.summary.trim();
-    const returnToken = props.returnTokenFor(row);
     return {
       title: row.questionTitle,
       description: summary.length > 0 ? summary : undefined,
@@ -108,23 +104,8 @@ export function LibraryBrowseRows(props: ParentProps<LibraryBrowseRowsProps>): J
           id: "open",
           kind: "link",
           label: "Open",
-          href: questionLink(row, returnToken),
+          href: questionLink(row),
           title: `Open ${row.questionTitle}`,
-          onFollow: (event): void => {
-            if (
-              event.button !== 0 ||
-              event.metaKey ||
-              event.ctrlKey ||
-              event.shiftKey ||
-              event.altKey
-            ) {
-              return;
-            }
-            const token = new URL(event.currentTarget.href).searchParams.get(
-              QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
-            );
-            if (token !== null) props.onSaveReturnState(token);
-          },
         },
       ],
     };
@@ -225,6 +206,11 @@ export function LibraryBrowseRows(props: ParentProps<LibraryBrowseRowsProps>): J
       </Show>
       {props.children}
       <Show when={props.browseState().kind !== "initial"}>
+        <SearchResultDisplay
+          ariaLabel="Question result display"
+          mode={presentation}
+          onChange={setPresentation}
+        />
         <div
           class="library-browse-record-list__window"
           role="region"
@@ -238,6 +224,7 @@ export function LibraryBrowseRows(props: ParentProps<LibraryBrowseRowsProps>): J
             rows={props.displayedRows()}
             content={questionContent}
             recordId={recordId}
+            presentation={presentation()}
             selection={listSelection()}
             state={recordListState(props.browseState(), props.onRetry)}
             ariaLabel="Published questions"

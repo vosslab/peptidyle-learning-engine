@@ -116,7 +116,7 @@ pub struct InstallationCourseInspection {
     pub lifecycle_state: CourseInstanceLifecycleState,
     /// Student-data retention state, without enrollment counts.
     pub retention_lifecycle_state: CourseRetentionLifecycleState,
-    /// Verified display names of the active Instructors. Empty when none are recorded.
+    /// Public display names of the active Instructors. Empty when none are recorded.
     pub instructor_display_names: Vec<String>,
 }
 

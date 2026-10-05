@@ -92,7 +92,7 @@ pub struct BulkQuestionPoolSearchMetadataResult {
     pub question_pool_metadata_edit_number: QuestionPoolMetadataEditNumber,
 }
 
-/// One active-vetted-Instructor command for many Question Pools.
+/// One active-Instructor command for many Question Pools.
 #[async_trait]
 pub trait BulkQuestionPoolSearchMetadataStore: Send + Sync {
     /// Replaces Topic, Subtopic, and Tags, advancing each selected Pool metadata token once.

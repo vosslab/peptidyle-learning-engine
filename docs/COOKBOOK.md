@@ -121,14 +121,16 @@ source source_me.sh && python3 launchers/send_invitations.py \
   output-email/ple-invitations.json --send --limit 1
 ```
 
-Remain at the Mac and verify Mail.app's Sent mailbox. The current Live Demo intentionally has no
-email-code authentication adapter, so this rehearsal proves export and real delivery but not the
-recipient's authentication or invitation claim. Configure and accept the real email-code path
-before treating end-to-end signup and claim as launch-ready.
+Remain at the Mac and verify Mail.app's Sent mailbox. The current Live Demo has
+browser-bound email-code authentication when SMTP is configured. This rehearsal
+proves invitation export and one delivery only; separately verify the sign-in
+code in the recipient's inbox before treating that external provider path as
+accepted.
 
 ## Known gaps
 
-- Configure and accept passwordless email authentication before claiming that a newly invited,
-  non-seeded Student can sign in and claim a Course Invitation.
+- Configure an external provider and verify inbox delivery for passwordless
+  email authentication before claiming that a newly invited, non-seeded Student
+  can sign in and claim a Course Invitation.
 - Verify broader PG/PGML compatibility beyond the reviewed Chapter 1 MC and MATCH sources before
   expanding the adapter claim.

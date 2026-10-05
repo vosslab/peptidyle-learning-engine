@@ -43,7 +43,7 @@ export function fastUiQuestionLibraryPage(): QuestionSearchPage {
           questionCitation: null,
           language: "en",
         },
-        authorship: { authors: [{ displayName: "Fast UI fixture" }] },
+        authorship: { authors: [{ displayName: "Fast UI fixture", accountId: null }] },
         availability: { availability: "available" },
         publishedAt: 1_789_920_000_000,
         bloom: null,

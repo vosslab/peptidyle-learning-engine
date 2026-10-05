@@ -81,8 +81,8 @@ mod support_capability;
 pub use account_appearance::{AccountAppearance, AccountAppearanceStore};
 pub use account_avatar::{
     AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork,
-    FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageId, ProvidedAvatarId,
-    SelectableProvidedAvatarId,
+    FinalizedAccountProfileImage, InstructorProfile, PreparedAccountProfileImage, ProfileImageId,
+    ProvidedAvatarId, SelectableProvidedAvatarId,
 };
 pub use account_time_zone::AccountTimeZoneStore;
 pub use assessment_attempt::{
@@ -137,10 +137,11 @@ pub use attempt_expiry::{
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
     AuthenticationSecretHash, EmailAuthenticationChallenge, EmailAuthenticationChallengeId,
-    EmailAuthenticationPurpose, MAX_AUTHENTICATION_CEREMONY_SECONDS, Passkey, PasskeyCeremonyId,
-    PasskeyId, PasswordlessLoginMethod, PendingSysadminTotpAttestation, SysadminTotpAttestationId,
-    SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
-    passwordless_primary_account,
+    EmailAuthenticationCode, EmailAuthenticationPurpose, EmailAuthenticationStart,
+    MAX_AUTHENTICATION_CEREMONY_SECONDS, Passkey, PasskeyCeremonyId, PasskeyId,
+    PasswordlessLoginMethod, PendingSysadminTotpAttestation, PreparedEmailAuthentication,
+    SysadminTotpAttestationId, SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore,
+    SysadminTotpVerificationReservation, passwordless_primary_account,
 };
 pub use authentication_email::{
     AuthenticationEmail, AuthenticationEmailError, EmailDomain, MAX_AUTHENTICATION_EMAIL_BYTES,
@@ -222,19 +223,17 @@ pub(crate) use imathas_question_backend_session::{
     ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendStateCipherStorageParts,
 };
 pub use instructor_account::{
-    CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
-    DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountList,
-    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
-    InstructorIdentityVettingDecisionId,
+    CreateInstructorAccountInput, CreatedInstructorAccount, DeactivateInstructorAccountInput,
+    InstructorAccountBrowse, InstructorAccountList, InstructorAccountState, InstructorAccountStore,
+    InstructorAccountSummary,
 };
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
 };
 pub use library_discussion::{
-    LibraryDiscussionStore, LibraryDiscussionTarget, LibraryDiscussionView, LibraryImpactNotice,
-    LibraryImpactNoticeLifecycle, LibraryImprovementPost, LibraryImprovementThread,
-    LibraryImprovementThreadLifecycle,
+    LibraryImpactNotice, LibraryImpactNoticeLifecycle, LibraryImpactNoticeStore,
+    LibraryObjectTarget,
 };
 pub use library_watch_notification::{
     LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,

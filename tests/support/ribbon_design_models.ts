@@ -67,6 +67,7 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
 ];
 
 const CANONICAL_PARAMS = {
+  accountId: "U00000009",
   courseInstanceId: "CI7K3M2QAZ",
   assessmentId: "A9D2RX5AF",
   assessmentAttemptId: "00000000-0000-0000-0000-000000000001",

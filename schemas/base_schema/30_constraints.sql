@@ -1,12 +1,5 @@
 -- Late and circular foreign keys.
 
-SET LOCAL ROLE ple_audit_owner;
-
-ALTER TABLE ple_audit.instructor_account_creation_event
-    ADD CONSTRAINT instructor_account_creation_event_vetting_decision_id_fkey
-    FOREIGN KEY (instructor_identity_vetting_decision_id)
-    REFERENCES ple_audit.instructor_identity_vetting_decision (decision_id);
-
 SET LOCAL ROLE ple_data_owner;
 
 SET LOCAL ROLE ple_private_owner;

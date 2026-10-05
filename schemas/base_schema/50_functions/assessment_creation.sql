@@ -43,11 +43,12 @@ BEGIN
         'shuffled'::ple_data.question_order_rule,
         'after_submit'::ple_data.feedback_release,
         'after_submit'::ple_data.feedback_release,
-        'after_submit'::ple_data.feedback_release,
         CASE WHEN p_assessment_type IN ('practice_question_assignment', 'quiz', 'exam')
-             THEN 'after_submit' ELSE 'never' END::ple_data.feedback_release,
+             THEN CASE WHEN p_assessment_type IN ('quiz', 'exam')
+                       THEN 'after_all_students_complete' ELSE 'after_submit' END
+             ELSE 'never' END::ple_data.feedback_release,
         CASE WHEN p_assessment_type IN ('quiz', 'exam')
-             THEN 'after_submit' ELSE 'never' END::ple_data.feedback_release,
+             THEN 'after_all_students_complete' ELSE 'never' END::ple_data.feedback_release,
         'never'::ple_data.feedback_release,
         p_assessment_type::ple_data.assessment_type
     );

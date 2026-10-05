@@ -72,6 +72,18 @@ persona_cookie() {
 	local persona="$1" gateway port headers cookie
 	gateway="$(service_id gateway)"
 	port="$(gateway_port)"
+	if [ "$persona" = morganSysadmin ]; then
+		local setup_file="${PLE_LOCAL_DEMO_TOTP_SETUP_FILE:-$repository_root/local_stack_state/live_demo_browser/workspace/morgan-totp-setup-uri}"
+		(
+			set -e
+			local ca_file
+			ca_file="$(mktemp "${TMPDIR:-/tmp}/ple-morgan-ca.XXXXXX")"
+			trap 'rm -f -- "$ca_file"' EXIT
+			podman exec "$gateway" cat /data/caddy/pki/authorities/local/root.crt > "$ca_file"
+			python3 tests/e2e/e2e_live_demo_session.py "$port" "$setup_file" --ca-file "$ca_file"
+		)
+		return
+	fi
 	headers="$(podman exec "$gateway" curl --silent --show-error --insecure --max-time 12 \
 		--dump-header - --output /dev/null --header "Host: localhost:$port" \
 		--header "Origin: https://localhost:$port" --header 'Content-Type: application/json' \
@@ -99,10 +111,12 @@ assert_list() {
 	python3 -c '
 import json, re, sys
 page=json.loads(sys.argv[1])
-if not isinstance(page,dict) or set(page)!={"accounts","displayTimeZone"}:
+if not isinstance(page,dict) or set(page)!={"accounts","displayTimeZone","nextCursor"}:
 	raise SystemExit("Instructor Account list envelope is not closed")
 if not isinstance(page["displayTimeZone"],str) or not page["displayTimeZone"]:
 	raise SystemExit("Instructor Account list lacks its Sysadmin viewer zone")
+if page["nextCursor"] is not None and (not isinstance(page["nextCursor"],str) or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",page["nextCursor"])):
+    raise SystemExit("Instructor Account list cursor is malformed")
 items=page["accounts"]
 if not isinstance(items,list) or not items:
     raise SystemExit("Instructor Account list is not a nonempty array")
@@ -118,15 +132,25 @@ for item in items:
 ' "$1"
 }
 
-active_signed_in_instructor_account_id() {
+seeded_elena_instructor_account_id() {
+	local entry
+	entry="$(rg --no-messages '^PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=U[0-9A-HJKMNP-TV-Z]{8}$' "$runtime_environment_path" || true)"
+	if [ "$(printf '%s\n' "$entry" | sed '/^$/d' | wc -l | tr -d '[:space:]')" != "1" ]; then
+		echo "Live Demo does not declare one seeded Elena Instructor Account" >&2
+		exit 1
+	fi
+	printf '%s\n' "${entry#PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=}"
+}
+
+assert_active_listed_account() {
 	python3 -c '
-import json, re, sys
-page=json.loads(sys.argv[1]); items=page["accounts"]
-matches=[item.get("id") for item in items if isinstance(item,dict) and item.get("state")=="active" and isinstance(item.get("lastSuccessfulSignIn"),int) and isinstance(item.get("id"),str) and re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",item["id"])]
-if len(matches) != 1:
-    raise SystemExit("Live Demo did not retain one observable active Instructor session")
-print(matches[0])
-' "$1"
+import json, sys
+
+page = json.loads(sys.argv[1])
+account_id = sys.argv[2]
+if not any(item.get("id") == account_id and item.get("state") == "active" for item in page["accounts"]):
+    raise SystemExit("Live Demo did not list the active seeded Elena Instructor Account")
+' "$1" "$2"
 }
 
 assert_summary() {
@@ -142,18 +166,16 @@ if value.get("state") != expected_state or value.get("lastSuccessfulSignIn") is 
 ' "$1" "$2" "$3"
 }
 
-assert_vetting_receipt() {
+assert_created_account() {
 	python3 -c '
-import json, re, sys
-receipt=json.loads(sys.argv[1])
-if not isinstance(receipt, dict) or set(receipt) != {"vettingDecisionId"}:
-    raise SystemExit("Instructor identity vetting receipt is not closed")
-vetting_decision_id=receipt["vettingDecisionId"]
-if not isinstance(vetting_decision_id, str) or not re.fullmatch(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", vetting_decision_id
-):
-    raise SystemExit("Instructor identity vetting receipt is not an opaque UUID")
-print(vetting_decision_id)
+import json, sys
+
+value = json.loads(sys.argv[1])
+if set(value) != {"account", "setupEmailSent"}:
+    raise SystemExit("Instructor Account creation response is not closed")
+if value["setupEmailSent"] is not False:
+    raise SystemExit("unconfigured Live Demo unexpectedly reported setup-email delivery")
+print(json.dumps(value["account"]))
 ' "$1"
 }
 
@@ -169,24 +191,7 @@ instructor_account_count_for_email() {
 
 assert_no_instructor_account_for_email() {
 	if [ "$(instructor_account_count_for_email "$1")" != "0" ]; then
-		echo "Rejected vetting did not prevent Instructor capability creation" >&2
-		exit 1
-	fi
-}
-
-assert_creation_audit_link() {
-	local email="$1" decision="$2" postgres output
-	postgres="$(service_id postgres)"
-	output="$(podman exec "$postgres" sh -lc \
-		'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh \
-		"SELECT CASE WHEN count(*) = 1 THEN 'instructor_creation_vetting_audit_link' END
-           FROM ple_audit.instructor_account_creation_event AS event
-           JOIN ple_private.account_authentication_email AS email
-             ON email.account_id = event.created_instructor_account_id
-          WHERE email.normalized_email = '$email'
-            AND event.vetting_decision_id = '$decision'::uuid")"
-	if [ "$(printf '%s\n' "$output" | sed -n '/^instructor_creation_vetting_audit_link$/p')" != "instructor_creation_vetting_audit_link" ]; then
-		echo "Instructor Account creation did not retain its completed vetting audit link" >&2
+		echo "Invalid Instructor setup created an Account" >&2
 		exit 1
 	fi
 }
@@ -228,8 +233,6 @@ instructor_preservation_snapshot() {
           JOIN instructor ON instructor.account_id = blueprint.owner_account_id) AS authored_blueprints,
         (SELECT count(*) FROM ple_data.question_ownership_event AS ownership
           JOIN instructor ON instructor.account_id = ownership.owner_account_id) AS authored_questions,
-        (SELECT count(*) FROM ple_data.course_instance AS course
-          JOIN instructor ON instructor.account_id = course.assigned_instructor_account_id) AS assigned_courses,
         (SELECT count(*) FROM ple_data.course_membership AS membership
           JOIN instructor ON instructor.account_id = membership.account_id
          WHERE membership.role = 'instructor') AS instructor_memberships,
@@ -246,7 +249,6 @@ SELECT json_build_object(
     'authoredWorkspaces', authored_workspaces,
     'authoredBlueprints', authored_blueprints,
     'authoredQuestions', authored_questions,
-    'assignedCourses', assigned_courses,
     'instructorMemberships', instructor_memberships,
     'courseCreationHistory', course_creation_history,
     'rosterHistory', roster_history,
@@ -261,7 +263,7 @@ import json, sys
 before, after = (json.loads(value) for value in sys.argv[1:])
 required = (
     "authoredWorkspaces", "authoredBlueprints", "authoredQuestions",
-    "assignedCourses", "instructorMemberships", "courseCreationHistory", "rosterHistory",
+    "instructorMemberships", "courseCreationHistory", "rosterHistory",
 )
 if set(before) != set(after) or set(before) != set(required) | {"stateEvents"}:
     raise SystemExit("Instructor preservation snapshot shape changed")
@@ -275,7 +277,7 @@ if not isinstance(before["stateEvents"], int) or after["stateEvents"] != before[
 }
 
 prove_service() {
-	local sysadmin_cookie instructor_cookie student_cookie listed existing_account_id created created_account_id deactivated reactivated preservation_before preservation_after missing_email invalid_email mismatched_email approved_email mismatched_decision approved_decision repeated_decision vetting
+	local sysadmin_cookie instructor_cookie student_cookie listed existing_account_id created created_account_id deactivated reactivated preservation_before preservation_after missing_email approved_email
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -286,11 +288,7 @@ prove_service() {
 	assert_concealed "$(request '/api/instructor-accounts/U0/deactivate' "$sysadmin_cookie" POST '{"reason":"bounded"}')"
 	assert_concealed "$(request '/api/instructor-accounts/not-an-id/reactivate' "$sysadmin_cookie" POST '{}')"
 	assert_concealed "$(request '/api/instructor-accounts/UZZZZZZZZ/reactivate' "$sysadmin_cookie" POST '{}')"
-	assert_concealed "$(request '/api/instructor-identity-vetting-decisions' "$student_cookie" POST '{"normalizedEmail":"student-cannot-vet@example.invalid","verifiedInstructorDisplayName":"Student Cannot Vet"}')"
-	# C10: platform account administration is Sysadmin-only. These are durable
-	# authorization boundaries, not a proxy for the internal approval workflow.
-	assert_concealed "$(request '/api/instructor-identity-vetting-decisions' "$instructor_cookie" POST '{"normalizedEmail":"instructor-cannot-vet@example.invalid","verifiedInstructorDisplayName":"Instructor Cannot Vet"}')"
-	assert_concealed "$(request '/api/instructor-accounts' "$instructor_cookie" POST '{"normalizedEmail":"instructor-cannot-create@example.invalid","vettingDecisionId":"00000000-0000-4000-8000-000000000001"}')"
+	assert_concealed "$(request '/api/instructor-accounts' "$instructor_cookie" POST '{"normalizedEmail":"instructor-cannot-create@example.invalid","firstName":"Instructor","lastName":"Cannot Create","affiliation":"Example"}')"
 
 	listed="$(request '/api/instructor-accounts' "$sysadmin_cookie")"
 	if [ "$(response_status "$listed")" != "200" ]; then
@@ -298,64 +296,25 @@ prove_service() {
 		exit 1
 	fi
 	assert_list "$(response_body "$listed")"
-	existing_account_id="$(active_signed_in_instructor_account_id "$(response_body "$listed")")"
+	existing_account_id="$(seeded_elena_instructor_account_id)"
+	assert_active_listed_account "$(response_body "$listed")" "$existing_account_id"
 
-	# Permanent C18 authorization contract: a rejected request must leave no
-	# Instructor capability behind. If this fails, repair the creation
-	# validation/transaction boundary; do not loosen these denial assertions.
+	# Required setup fields are validated atomically before Account creation.
 	missing_email="m18-missing-${RANDOM}${RANDOM}@example.invalid"
 	if [ "$(response_status "$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$missing_email\"}")")" != "422" ]; then
-		echo "Instructor creation without completed vetting was not denied" >&2
+		echo "Instructor creation without required setup fields was not denied" >&2
 		exit 1
 	fi
 	assert_no_instructor_account_for_email "$missing_email"
 
-	invalid_email="m18-invalid-${RANDOM}${RANDOM}@example.invalid"
-	if [ "$(response_status "$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$invalid_email\",\"vettingDecisionId\":\"00000000-0000-4000-8000-000000000001\"}")")" != "422" ]; then
-		echo "Instructor creation with an invalid vetting decision was not denied" >&2
-		exit 1
-	fi
-	assert_no_instructor_account_for_email "$invalid_email"
-
-	mismatched_email="m18-mismatch-${RANDOM}${RANDOM}@example.invalid"
-	vetting="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"m18-vetted-${RANDOM}${RANDOM}@example.invalid\",\"verifiedInstructorDisplayName\":\"M18 Vetted Instructor\"}")"
-	if [ "$(response_status "$vetting")" != "201" ]; then
-		echo "Active Sysadmin could not record completed Instructor identity vetting" >&2
-		exit 1
-	fi
-	mismatched_decision="$(assert_vetting_receipt "$(response_body "$vetting")")"
-	if [ "$(response_status "$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$mismatched_email\",\"vettingDecisionId\":\"$mismatched_decision\"}")")" != "422" ]; then
-		echo "Instructor creation with a mismatched vetting decision was not denied" >&2
-		exit 1
-	fi
-	assert_no_instructor_account_for_email "$mismatched_email"
-
 	approved_email="m18-approved-${RANDOM}${RANDOM}@example.invalid"
-	vetting="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"verifiedInstructorDisplayName\":\"M18 Approved Instructor\"}")"
-	if [ "$(response_status "$vetting")" != "201" ]; then
-		echo "Active Sysadmin could not record completed Instructor identity vetting" >&2
-		exit 1
-	fi
-	approved_decision="$(assert_vetting_receipt "$(response_body "$vetting")")"
-	vetting="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"verifiedInstructorDisplayName\":\"M18 Approved Instructor\"}")"
-	if [ "$(response_status "$vetting")" != "201" ]; then
-		echo "Repeated completed Instructor identity vetting was not idempotent" >&2
-		exit 1
-	fi
-	repeated_decision="$(assert_vetting_receipt "$(response_body "$vetting")")"
-	if [ "$approved_decision" != "$repeated_decision" ]; then
-		echo "Completed Instructor identity vetting did not retain one immutable decision" >&2
-		exit 1
-	fi
-
-	created="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"vettingDecisionId\":\"$approved_decision\"}")"
+	created="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"firstName\":\"M18\",\"lastName\":\"Instructor\",\"affiliation\":\"Example University\"}")"
 	if [ "$(response_status "$created")" != "201" ]; then
-		echo "Active Sysadmin could not create an Instructor Account from completed vetting" >&2
+		echo "Active Sysadmin could not create an Instructor Account" >&2
 		exit 1
 	fi
-	created_account_id="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["id"])' "$(response_body "$created")")"
-	assert_summary "$(response_body "$created")" "$created_account_id" active
-	assert_creation_audit_link "$approved_email" "$approved_decision"
+	created_account_id="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["account"]["id"])' "$(response_body "$created")")"
+	assert_summary "$(assert_created_account "$(response_body "$created")")" "$created_account_id" active
 
 	deactivated="$(request "/api/instructor-accounts/$created_account_id/deactivate" "$sysadmin_cookie" POST '{"reason":"Live demo access review"}')"
 	if [ "$(response_status "$deactivated")" != "200" ]; then

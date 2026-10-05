@@ -226,7 +226,7 @@ async fn correct_pool_bloom(
         Some(value) => value,
         None => return concealed(),
     };
-    // ASVS 8.2.1/8.3.1: correction is available to every active vetted
+    // ASVS 8.2.1/8.3.1: correction is available to every active
     // Instructor and never to the read-only Sysadmin Pool surface.
     let token = match instructor(&state, &headers).await {
         Ok(value) => value,

@@ -113,6 +113,7 @@ async fn publish_validated_with_context(
     let authorship = QuestionAuthorship::new(vec![QuestionAuthor {
         display_name: QuestionAuthorDisplayName::new(manifest.course.author.clone())
             .map_err(|_| anyhow::anyhow!("curriculum source author is invalid"))?,
+        account_id: None,
     }])
     .map_err(|_| anyhow::anyhow!("curriculum source authorship is invalid"))?;
     let license = serde_json::from_value::<QuestionLicense>(serde_json::Value::String(

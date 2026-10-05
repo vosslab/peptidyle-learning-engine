@@ -42,7 +42,7 @@ pub struct BlueprintPoolMembersView {
     pub members: Vec<question_model::PublishedQuestionRevisionTuple>,
 }
 
-/// One readable direct fork and its verified owning Instructor display name.
+/// One readable direct fork and its public owning Instructor display name.
 /// No Account identity, hidden-child count, or source-owner exception is exposed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]

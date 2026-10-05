@@ -41,6 +41,31 @@ BEGIN
     END IF;
 END $$;
 
+-- Assessment content rules need only this aggregate fact, never Student Work.
+-- Keep the private Attempt table unreadable to the Assessment authoring role.
+CREATE FUNCTION ple_private.assessment_has_started_attempts(p_assessment_id text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_private AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM ple_private.assessment_attempt AS attempt
+         WHERE attempt.assessment_id = $1
+    )
+$$;
+
+CREATE FUNCTION ple_private.assessment_question_has_been_issued(
+    p_assessment_id text, p_published_question_id text
+) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_private AS $$
+    SELECT EXISTS (
+        SELECT 1
+          FROM ple_private.issued_question AS issued
+          JOIN ple_private.assessment_attempt AS attempt
+            ON attempt.assessment_attempt_id = issued.assessment_attempt_id
+         WHERE attempt.assessment_id = $1
+           AND issued.published_question_id = $2
+    )
+$$;
+
 CREATE FUNCTION ple_private.assert_current_student_assessment_attempt(
     p_assessment_attempt_id uuid
 ) RETURNS ple_private.assessment_attempt LANGUAGE plpgsql SECURITY DEFINER

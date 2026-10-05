@@ -1,8 +1,9 @@
 // Browser boundary for the reviewed Question Authorship wire contract.
 
 import type { QuestionAuthorship } from "../../generated/api/QuestionAuthorship";
-import { DecodeError, decodeArray, decodeRecord, decodeString } from "./decoder";
+import { DecodeError, decodeArray, decodeNullable, decodeRecord, decodeString } from "./decoder";
 import { field, requireOnlyFields } from "./decoders/shared";
+import { decodeAccountId } from "./decoders/shared";
 
 const MAX_QUESTION_AUTHORS = 16;
 const MAX_QUESTION_AUTHOR_DISPLAY_NAME_SCALARS = 120;
@@ -28,7 +29,7 @@ export function parseReviewedQuestionAuthorship(text: string): QuestionAuthorshi
   ) {
     return null;
   }
-  return { authors: displayNames.map((displayName) => ({ displayName })) };
+  return { authors: displayNames.map((displayName) => ({ displayName, accountId: null })) };
 }
 
 /** Validates a publication command before it crosses the HTTP boundary. */
@@ -51,12 +52,20 @@ export function decodeQuestionAuthorship(value: unknown, path: string): Question
     `${path}.authors`,
     (entry, entryPath) => {
       const author = decodeRecord(entry, entryPath);
-      requireOnlyFields(author, entryPath, ["displayName"]);
+      requireOnlyFields(author, entryPath, ["displayName", "accountId"]);
       return {
         displayName: decodeString(
           field(author, "displayName", entryPath),
           `${entryPath}.displayName`,
         ),
+        accountId:
+          author["accountId"] === undefined
+            ? null
+            : decodeNullable(
+                field(author, "accountId", entryPath),
+                `${entryPath}.accountId`,
+                decodeAccountId,
+              ),
       };
     },
   );

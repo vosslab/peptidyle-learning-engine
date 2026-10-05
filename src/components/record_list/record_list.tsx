@@ -3,9 +3,11 @@ import { For, Show, createMemo, createUniqueId, type Accessor, type JSX } from "
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { CopyableQuestionId } from "../copyable_question_id";
 import { CourseClassificationSummary } from "../course_classification_summary";
+import { InstructorProfileLink } from "../instructor_profile_link";
 import { RibbonIcon } from "../../ribbon/ribbon_icon";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { CourseClassification } from "../../../generated/api/CourseClassification";
+import type { QuestionAuthor } from "../../../generated/api/QuestionAuthor";
 
 import {
   RecordCollectionStateView,
@@ -35,7 +37,18 @@ export type RecordFact =
     }
   | { readonly kind: "assessmentType"; readonly value: AssessmentType }
   | { readonly kind: "questionId"; readonly questionTitle: string; readonly displayId: string }
-  | { readonly kind: "courseClassification"; readonly value: CourseClassification };
+  | { readonly kind: "courseClassification"; readonly value: CourseClassification }
+  | {
+      readonly kind: "instructorProfile";
+      readonly accountId: string;
+      readonly displayName: string;
+      readonly label?: string;
+    }
+  | {
+      readonly kind: "questionAuthors";
+      readonly authors: ReadonlyArray<QuestionAuthor>;
+      readonly label?: string;
+    };
 
 export type RecordMedia = {
   readonly src: string;
@@ -92,8 +105,8 @@ export type RecordListProps<Row> = {
   /** Bounded caller-owned body under the shared identity. */
   readonly renderBody?: (row: Accessor<Row>) => JSX.Element;
   readonly selection?: RecordListSelection<Row>;
-  /** Shared List/Gallery presentation for ordinary image records. */
-  readonly presentation?: "list" | "gallery";
+  /** Shared discovery presentation; callers own the local, non-persistent choice. */
+  readonly presentation?: "compact" | "list" | "gallery" | "poster";
   readonly state: RecordListState;
   readonly ariaLabel: string;
   readonly emptyState: RecordListEmptyState;
@@ -108,7 +121,7 @@ function RecordFactView(props: { readonly fact: RecordFact }): JSX.Element {
         return <time datetime={props.fact.dateTime}>{props.fact.value}</time>;
       case "link":
         return (
-          <a href={props.fact.href} onClick={props.fact.onFollow}>
+          <a href={props.fact.href} target="_blank" rel="noopener" onClick={props.fact.onFollow}>
             {props.fact.label}
           </a>
         );
@@ -131,6 +144,31 @@ function RecordFactView(props: { readonly fact: RecordFact }): JSX.Element {
         );
       case "courseClassification":
         return <CourseClassificationSummary value={props.fact.value} />;
+      case "instructorProfile":
+        return (
+          <InstructorProfileLink
+            accountId={props.fact.accountId}
+            displayName={props.fact.displayName}
+          />
+        );
+      case "questionAuthors":
+        return (
+          <For each={props.fact.authors}>
+            {(author, index) => (
+              <>
+                {index() > 0 ? ", " : ""}
+                <Show when={author.accountId} fallback={author.displayName}>
+                  {(accountId) => (
+                    <InstructorProfileLink
+                      accountId={accountId()}
+                      displayName={author.displayName}
+                    />
+                  )}
+                </Show>
+              </>
+            )}
+          </For>
+        );
     }
   };
 
@@ -143,12 +181,20 @@ function RecordFactView(props: { readonly fact: RecordFact }): JSX.Element {
     >
       <Show
         when={
-          (props.fact.kind === "text" || props.fact.kind === "time") &&
+          (props.fact.kind === "text" ||
+            props.fact.kind === "time" ||
+            props.fact.kind === "instructorProfile" ||
+            props.fact.kind === "questionAuthors") &&
           props.fact.label !== undefined
         }
       >
         <span class="record-list__fact-label">
-          {props.fact.kind === "text" || props.fact.kind === "time" ? props.fact.label : ""}
+          {props.fact.kind === "text" ||
+          props.fact.kind === "time" ||
+          props.fact.kind === "instructorProfile" ||
+          props.fact.kind === "questionAuthors"
+            ? props.fact.label
+            : ""}
         </span>
       </Show>
       {content()}
@@ -189,6 +235,8 @@ function RecordActionControl(props: { readonly action: Accessor<RecordAction> })
           "primary-link": link().primary === true,
         }}
         href={link().href}
+        target="_blank"
+        rel="noopener"
         title={link().title}
         ref={(element) => link().ref?.(element)}
         onClick={(event) => link().onFollow?.(event)}
@@ -320,7 +368,12 @@ export function RecordList<Row>(props: RecordListProps<Row>): JSX.Element {
     >
       <div
         class="record-list record-list--semantic"
-        classList={{ "record-list--gallery": props.presentation === "gallery" }}
+        classList={{
+          "record-list--compact": props.presentation === "compact",
+          "record-list--gallery":
+            props.presentation === "gallery" || props.presentation === "poster",
+          "record-list--poster": props.presentation === "poster",
+        }}
         role="list"
         aria-label={props.ariaLabel}
       >

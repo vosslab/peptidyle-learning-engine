@@ -102,7 +102,7 @@ pub struct AssessmentQuestionPoolForkRecord {
 #[async_trait]
 pub trait QuestionPoolLibraryStore: Send + Sync {
     /// Lists every published Pool lineage, including child forks, in stable
-    /// public-ID order under an active vetted Instructor session.
+    /// public-ID order under an active Instructor session.
     async fn list_published_question_pools(
         &self,
         session_token_hash: SessionTokenHash,

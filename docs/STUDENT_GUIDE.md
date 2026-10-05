@@ -29,8 +29,8 @@ no complete saved response remains visibly unanswered, receives zero credit,
 and counts as incorrect without being sent to the Question Backend. When
 several Attempts are submitted, the highest score is used. Unit Review
 Assignments show the correct answer immediately after submission. Optional
-Question Feedback is shown when the backend provides it and does not use the
-Assessment's correct-answer disclosure setting.
+Question Feedback may be provided by the backend. Its timing remains deferred
+in Human Guidance and is not specified here.
 
 The server owns timing and Course access, and the Question Backend owns
 rendering, response interpretation, grading, feedback, and opaque backend

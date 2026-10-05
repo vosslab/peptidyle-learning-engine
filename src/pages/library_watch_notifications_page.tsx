@@ -21,8 +21,6 @@ function eventLabel(value: LibraryWatchNotification): string {
       return "Membership edit";
     case "fork":
       return "New public fork";
-    case "improvementThread":
-      return "Improvement thread activity";
     case "impactNotice":
       return "Impact notice activity";
   }

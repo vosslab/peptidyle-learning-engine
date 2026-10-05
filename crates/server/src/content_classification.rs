@@ -527,7 +527,7 @@ async fn reader_token(
         .map(|value| value.to_str().ok())
         .collect::<Option<Vec<_>>>()
         .map(|values| values.join("; "));
-    // ASVS 8.2.1: trusted session role only; SQL rechecks active/vetted authority.
+    // ASVS 8.2.1: trusted session role only; SQL rechecks active-role authority.
     match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
         Ok(session)
             if matches!(

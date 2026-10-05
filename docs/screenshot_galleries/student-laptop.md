@@ -28,9 +28,9 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 **Student Course Progress.** completed Attempts and score status - laptop.
 
-[![Screenshot preview of Student Progress when an Attempt has no released score](../screenshots/student/laptop/course_progress_unreleased.webp)](../screenshots/student/laptop/course_progress_unreleased.webp)
+[![Screenshot preview of Student Progress with an active Attempt](../screenshots/student/laptop/course_progress_unreleased.webp)](../screenshots/student/laptop/course_progress_unreleased.webp)
 
-**Student Progress when an Attempt has no released score.** Attempts with no released score - laptop.
+**Student Progress with an active Attempt.** active Attempt awaiting submission - laptop.
 
 [![Screenshot preview of Student Scores](../screenshots/student/laptop/grades-scores-scores.webp)](../screenshots/student/laptop/grades-scores-scores.webp)
 

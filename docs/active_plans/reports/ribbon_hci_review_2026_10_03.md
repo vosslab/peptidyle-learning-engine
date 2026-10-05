@@ -23,8 +23,7 @@ The six 1280 x 800 originals were:
 
 The supplied state renders were:
 
-- [320 px grass light Course page](ribbon_state_contrast_2026_10_03/page_grass_light_320.png)
-- [1280 px tundra dark Course page](ribbon_state_contrast_2026_10_03/page_tundra_dark_1280.png)
+- [state contrast review](ribbon_state_contrast_2026_10_03/index.html)
 
 The sources show a continuous Tier 1 bar, a square Tier 2 row joined to the content surface when selected, and a permanent breadcrumb row. They include light and dark states and a narrow Course page. These are static visual evidence, not browser behavior or participant evidence.
 
@@ -44,7 +43,7 @@ The sources show a continuous Tier 1 bar, a square Tier 2 row joined to the cont
 
 **Priority:** High. **Confidence:** High for the observed condition; medium for task delay because no participants were observed.
 
-**Observed fact.** In the [320 px grass light capture](ribbon_state_contrast_2026_10_03/page_grass_light_320.png), both Ribbon rows contain partially clipped labels at their edges. Small arrow-like fragments appear, but the capture does not make scroll state or additional choices obvious. `Courses` and `My Active Courses` remain readable.
+**Observed fact.** In the [state contrast review](ribbon_state_contrast_2026_10_03/index.html), both Ribbon rows contain partially clipped labels at their edges. Small arrow-like fragments appear, but the capture does not make scroll state or additional choices obvious. `Courses` and `My Active Courses` remain readable.
 
 **Judgment.** An instructor arriving on a Course detail page can recognize the current route, but may not discover a neighboring Course destination without trying horizontal scrolling. This creates a recall burden where the Ribbon should support recognition, particularly when changing Course lists or collections.
 
@@ -74,7 +73,7 @@ justify adding a destination or selecting an unrelated parent.
 
 **Priority:** Medium. **Confidence:** High for inspected themes; limited for themes not directly inspected.
 
-**Observed fact.** In the [desktop dark render](ribbon_state_contrast_2026_10_03/page_tundra_dark_1280.png), selected curved `Courses` emerges from the Tier 1 bar and selected square `My Active Courses` joins the page surface. The analogous selection appears in the [narrow light render](ribbon_state_contrast_2026_10_03/page_grass_light_320.png). Original Course, Blueprint, roster, and Question Library pages retain this geometry while themes vary.
+**Observed fact.** In the [state contrast review](ribbon_state_contrast_2026_10_03/index.html), selected curved `Courses` emerges from the Tier 1 bar and selected square `My Active Courses` joins the page surface. The same selection appears on the narrow light render described there. Original Course, Blueprint, roster, and Question Library pages retain this geometry while themes vary.
 
 **Judgment.** This is a material strength. Different tab shapes and surface relationships give Tier 1 and Tier 2 distinct meanings without card-like controls, and current location is normally available at a glance. Contrast must remain an explicit surface relationship, never a subtle border or curve that vanishes in a theme.
 

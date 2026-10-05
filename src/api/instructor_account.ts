@@ -31,21 +31,17 @@ export interface InstructorAccountList {
   readonly nextCursor: AccountId | null;
 }
 
-/** Sysadmin-only fact recorded before a separate Instructor Account creation. */
-export interface CompleteInstructorIdentityVettingInput {
-  readonly normalizedEmail: string;
-  readonly verifiedInstructorDisplayName: string;
-}
-
-/** Opaque receipt; it is never an Account identity or browser projection. */
-export interface InstructorIdentityVettingReceipt {
-  readonly vettingDecisionId: string;
-}
-
 /** Create input is sent once and is never reflected by any browser-safe DTO. */
 export interface CreateInstructorAccountInput {
   readonly normalizedEmail: string;
-  readonly vettingDecisionId: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly affiliation: string;
+}
+
+export interface CreatedInstructorAccount {
+  readonly account: InstructorAccountSummary;
+  readonly setupEmailSent: boolean;
 }
 
 export interface DeactivateInstructorAccountInput {
@@ -58,12 +54,10 @@ export interface InstructorAccountClient {
   readonly findInstructorAccounts: (
     browse: InstructorAccountBrowse,
   ) => Promise<InstructorAccountList>;
-  readonly completeInstructorIdentityVetting: (
-    input: CompleteInstructorIdentityVettingInput,
-  ) => Promise<InstructorIdentityVettingReceipt>;
   readonly createInstructorAccount: (
     input: CreateInstructorAccountInput,
-  ) => Promise<InstructorAccountSummary>;
+  ) => Promise<CreatedInstructorAccount>;
+  readonly sendInstructorSetupEmail: (accountId: AccountId) => Promise<boolean>;
   readonly deactivateInstructorAccount: (
     accountId: AccountId,
     input: DeactivateInstructorAccountInput,

@@ -25,6 +25,8 @@ use serde::Serialize;
 
 #[path = "auth/browser_boundary.rs"]
 mod browser_boundary;
+#[path = "auth/email_code.rs"]
+mod email_code;
 #[path = "auth/live_demo.rs"]
 mod live_demo;
 #[path = "auth/session_cookie.rs"]
@@ -38,6 +40,7 @@ pub(crate) use browser_boundary::{
 };
 #[cfg(test)]
 use browser_boundary::{normalize_production_cookies, origin_matches};
+pub use email_code::email_code_router;
 pub use live_demo::{
     SeededDemoAccount, SeededDemoConfig, SeededDemoPersona, live_demo_mfa_router, live_demo_router,
 };

@@ -383,14 +383,17 @@ async function studentAttemptHistory(runtime: ScenarioRuntime): Promise<void> {
   }
 }
 
-async function studentProgressWithoutReleasedScore(runtime: ScenarioRuntime): Promise<void> {
+async function studentProgressWithActiveAttempt(runtime: ScenarioRuntime): Promise<void> {
   for (const viewport of ["laptop", "tablet", "phone", "square"] as const) {
-    const session = await runtime.open(`course_progress_unreleased_${viewport}`);
+    const session = await runtime.open(`course_progress_in_progress_${viewport}`);
     try {
       await choosePersona(session.page, "Jack Nguyen");
       await openCourseProgress(session.page);
-      await session.page.getByText("Score not released", { exact: true }).waitFor();
-      await captureCheckpoint(runtime, `course_progress_unreleased_${viewport}`, session);
+      await session.page
+        .getByRole("list", { name: "Coursework progress", exact: true })
+        .getByText("In progress", { exact: true })
+        .waitFor();
+      await captureCheckpoint(runtime, `course_progress_in_progress_${viewport}`, session);
     } finally {
       await runtime.close(session);
     }
@@ -475,20 +478,22 @@ export const STUDENT_PROGRESS_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Attempt review opened from Latest Feedback",
       }),
       ...directViewportCaptures({
-        checkpoint: "course_progress_unreleased_laptop",
+        checkpoint: "course_progress_in_progress_laptop",
+        // Preserve the published asset path used by historical audit links.
+        filenameStem: "course_progress_unreleased",
         area: "courses",
         workflow: "Course Progress",
-        state: "Attempts with no released score",
+        state: "active Attempt awaiting submission",
         viewport: "laptop",
         privacyProfile: "student_self",
-        caption: "Student Progress when an Attempt has no released score",
+        caption: "Student Progress with an active Attempt",
       }),
     ],
     viewportCoverage: viewportCoverage(["laptop", "tablet", "phone", "square"], {}),
     run: async (runtime): Promise<void> => {
       await studentProgressAndStats(runtime);
       await studentAttemptHistory(runtime);
-      await studentProgressWithoutReleasedScore(runtime);
+      await studentProgressWithActiveAttempt(runtime);
     },
   },
 ];

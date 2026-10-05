@@ -1,6 +1,7 @@
 import type {
   ProfileAvatar,
   ProfileAvatarView,
+  InstructorProfileView,
   ProfileImageCropInput,
   SelectProvidedProfileAvatarInput,
 } from "../profile_avatar";
@@ -83,6 +84,26 @@ export function decodeProfileAvatarView(value: unknown, path = "response"): Prof
   requireOnlyFields(record, path, ["avatar"]);
   const avatar = field(record, "avatar", path);
   return { avatar: avatar === null ? null : decodeAvatar(avatar, `${path}.avatar`) };
+}
+
+/** Rejects private Account fields from the public-within-PLE Instructor Profile. */
+export function decodeInstructorProfileView(
+  value: unknown,
+  path = "response",
+): InstructorProfileView {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["displayName", "avatar"]);
+  const displayName = decodeString(field(record, "displayName", path), `${path}.displayName`);
+  if (
+    displayName.length === 0 ||
+    displayName.length > 200 ||
+    displayName !== displayName.trim() ||
+    /[\p{Cc}]/u.test(displayName)
+  ) {
+    throw new DecodeError(`${path}.displayName`, "a bounded Instructor display name");
+  }
+  const avatar = field(record, "avatar", path);
+  return { avatar: avatar === null ? null : decodeAvatar(avatar, `${path}.avatar`), displayName };
 }
 
 export function decodeSelectProvidedProfileAvatarInput(

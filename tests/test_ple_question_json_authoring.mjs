@@ -182,7 +182,7 @@ function publicationSummary(backend = "ple") {
       questionCitation: null,
       language: "en-US",
     },
-    authorship: { authors: [{ displayName: "Fixture Instructor" }] },
+    authorship: { authors: [{ accountId: null, displayName: "Fixture Instructor" }] },
     availability: { availability: "available" },
     publishedAt: 1786000000000,
     bloom: {

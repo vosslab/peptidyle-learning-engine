@@ -92,7 +92,6 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
       assessmentQuestionOrderRule: "shuffled",
     },
     student_feedback_release_rule: {
-      score: "after_submit",
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
       question_answer:

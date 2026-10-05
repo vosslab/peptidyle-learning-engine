@@ -116,7 +116,7 @@ metadata changes do not create Blueprint Revisions.
 The lifecycle state belongs to the Blueprint lineage:
 
 - Private: owner-only and unavailable for adoption;
-- Public: visible to vetted Instructors and available for adoption; or
+- Public: visible to Instructors and available for adoption; or
 - Archived: read-only, excluded from ordinary discovery and new adoption, but
   discoverable through explicit archived inclusion and forkable.
 

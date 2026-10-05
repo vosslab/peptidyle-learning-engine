@@ -6,9 +6,6 @@ Human Guidance rule.
 The rows that still look like conflicts are two-sided readings. They are recorded in
 [unresolved_or_ambiguous_items.md](unresolved_or_ambiguous_items.md):
 
-- Public Blueprint results name author and institution, while Human Guidance also says
-  one global installation has no institution boundaries. The summary view has neither
-  field. Results show Course name, classification, adoptions, and students.
 - Public Blueprint sorts name Stars, Watches, and most recent edit. Those are not
   summary fields. The shipped sorts are name, adoptions, and students.
 - Avatar text says the current image appears anywhere a user is represented. The Ribbon
@@ -18,6 +15,9 @@ The rows that still look like conflicts are two-sided readings. They are recorde
 Corrected behavior that earlier reviews treated as a conflict, and that the checklist
 now verifies, includes these patterns:
 
+- Public Blueprint results show the owner's verified display name as Author.
+  Position 278 is decided. Institution stays off the row because one global
+  installation has no institution boundaries.
 - Support repair is an Instructor-issued, one-hour, audited read of one Student roster
   entry, one Course, or one Course Assessment. It does not grant membership or edit
   the record.

@@ -2,12 +2,12 @@
 //!
 //! This boundary intentionally names neither an Account nor a User Role.
 //! PostgreSQL derives both from the installed session and returns only the
-//! current caller's state, public aggregate, and the approved public display
+//! current caller's state, public aggregate, and public display
 //! identities. It never returns an Account identifier, email, credential,
 //! Watch state, or Student fact.
 
 use async_trait::async_trait;
-use question_model::PublishedQuestionId;
+use question_model::{AccountId, PublishedQuestionId};
 
 use crate::{DiscoveryPageRequest, Page, SessionTokenHash, StoreError};
 
@@ -18,15 +18,16 @@ pub struct QuestionStarProjection {
     pub viewer_has_starred: bool,
     /// Current number of active Instructor endorsements for this lineage.
     pub star_count: u64,
-    /// Vetted active Instructor identities that visibly endorsed this lineage.
+    /// Active Instructor display identities that visibly endorsed this lineage.
     pub starred_instructors: Vec<QuestionStarredInstructor>,
 }
 
-/// One approved public identity in a Question Star endorsement projection.
+/// One public identity in a Question Star endorsement projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionStarredInstructor {
-    /// Canonical public display name; no account identity or contact data.
+    /// Canonical public display name with its canonical Profile route identity.
     pub display_name: String,
+    pub account_id: AccountId,
 }
 
 /// One Published Question in the authenticated Instructor's personal collection.

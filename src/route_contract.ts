@@ -88,6 +88,7 @@ export interface RouteContract {
     | "courseAppearance"
     | "signIn"
     | "profile"
+    | "instructorProfile"
     | "courseRoster"
     | "instructorAccounts"
     | "contentDisciplines"
@@ -193,6 +194,13 @@ export const ROUTE_CONTRACT = [
     id: "profile",
     path: "/profile",
     surface: "Authenticated Account profile",
+    requiredUserRoles: ["student", "instructor", "sysadmin"],
+    ribbon: { scope: "product", tierOneArea: "account" },
+  },
+  {
+    id: "instructorProfile",
+    path: "/instructors/:accountId",
+    surface: "Signed-in Account view of an Instructor Profile",
     requiredUserRoles: ["student", "instructor", "sysadmin"],
     ribbon: { scope: "product", tierOneArea: "account" },
   },

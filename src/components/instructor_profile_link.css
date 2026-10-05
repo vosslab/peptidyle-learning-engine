@@ -1,0 +1,24 @@
+/* instructor_profile_link.css - compact public Instructor identity treatment. */
+
+.instructor-profile-link {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--ple-space-1);
+}
+
+.instructor-profile-avatar {
+  align-items: center;
+  background: var(--ple-surface-soft);
+  border-radius: 50%;
+  display: inline-flex;
+  height: 1.5rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 1.5rem;
+}
+
+.instructor-profile-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}

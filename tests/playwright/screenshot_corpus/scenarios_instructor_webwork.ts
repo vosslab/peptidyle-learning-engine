@@ -11,7 +11,7 @@ import {
   type CaptureDeclaration,
   type ScenarioDefinition,
 } from "./scenario_types";
-import { enterInstructor } from "./visible_workflows";
+import { enterInstructor, followCaptureLink } from "./visible_workflows";
 
 const ANSWER_KEY_TEXT = /answer key|correct answer|correct feedback|private source/iu;
 
@@ -146,7 +146,7 @@ async function captureGeneratedExample(
     const result = page.locator(".record-list__row").filter({
       has: page.getByRole("heading", { name: example.title, exact: true }),
     });
-    await result.getByRole("link", { name: "Open", exact: true }).click();
+    await followCaptureLink(page, result.getByRole("link", { name: "Open", exact: true }));
     await page.getByRole("heading", { level: 1, name: example.title, exact: true }).waitFor();
     await page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await renderedAnswerFreePreview(page, example);

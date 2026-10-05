@@ -245,7 +245,6 @@ test("Student View, Template, Pool Preview, accommodation, and availability reje
         assessmentQuestionOrderRule: "authoredOrder",
       },
       studentFeedbackReleaseRule: {
-        score: "after_submit",
         per_item_correctness: "after_due",
         submitted_response: "after_submit",
         question_answer: "never",
@@ -315,7 +314,6 @@ test("Assessment Summary, Gradebook, and Due Soon reject leftover courseId", () 
     title: "Protein structure",
     entries: [],
     studentFeedbackReleaseRule: {
-      score: "after_submit",
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
       question_answer: "never",

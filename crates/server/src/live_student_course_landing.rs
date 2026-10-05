@@ -191,7 +191,7 @@ async fn list_pending_invitations(State(state): State<RouteState>, headers: Head
         Err(response) => return *response,
     };
     // ASVS 2.2.2: the trusted persistence boundary derives the current Student
-    // and returns only the public Course Instance ID, names, verified Instructor
+    // and returns only the public Course Instance ID, names, public Instructor
     // display name, and Course term.
     match state
         .landing

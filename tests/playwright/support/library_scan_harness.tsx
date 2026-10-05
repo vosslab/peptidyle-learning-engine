@@ -16,7 +16,7 @@ const rows: readonly QuestionLibraryBrowseRow[] = [
     disciplineName: "Biology",
     disciplineIsRetired: false,
     questionFormat: "pleQuestionJson",
-    authorNames: ["Ada Lovelace"],
+    authors: [{ displayName: "Ada Lovelace", accountId: null }],
     capabilities: [],
     questionLicense: "CC-BY-4.0",
     evidence: { state: "unavailable" },
@@ -30,7 +30,7 @@ const rows: readonly QuestionLibraryBrowseRow[] = [
     disciplineName: "Chemistry",
     disciplineIsRetired: false,
     questionFormat: "pleQuestionJson",
-    authorNames: ["Marie Curie"],
+    authors: [{ displayName: "Marie Curie", accountId: null }],
     capabilities: [],
     questionLicense: "CC-BY-4.0",
     evidence: { state: "unavailable" },
@@ -69,8 +69,6 @@ function LibraryScan(): JSX.Element {
       onSelectLoaded={() => undefined}
       onClearSelection={() => undefined}
       onOpenMetadataEditor={() => undefined}
-      returnTokenFor={() => "00000000-0000-4000-8000-000000000001"}
-      onSaveReturnState={() => undefined}
     />
   );
 }

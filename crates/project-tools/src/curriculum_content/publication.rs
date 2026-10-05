@@ -372,6 +372,7 @@ fn curriculum_authorship(manifest: &Manifest) -> Result<QuestionAuthorship> {
     QuestionAuthorship::new(vec![QuestionAuthor {
         display_name: QuestionAuthorDisplayName::new(manifest.course.author.clone())
             .map_err(|_| anyhow::anyhow!("curriculum source author is invalid"))?,
+        account_id: None,
     }])
     .map_err(|_| anyhow::anyhow!("curriculum source authorship is invalid"))
 }

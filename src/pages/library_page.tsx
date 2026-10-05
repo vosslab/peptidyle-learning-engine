@@ -1,6 +1,6 @@
 // library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
-import { useLocation, useNavigate, useSearchParams } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import { LibraryBloomDiscovery } from "../components/library_bloom_discovery";
@@ -10,7 +10,6 @@ import { RecordSortControl } from "../components/record_list/record_sort_control
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
-import type { LibraryDiscussionClient } from "../api/library_discussion";
 import type { BloomClassificationCorrectionClient } from "../api/bloom_classification";
 import { LibraryPoolDiscovery } from "./library_pool_discovery";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
@@ -36,6 +35,7 @@ import {
   RetainedSelectOption,
 } from "./library_page_helpers";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
+import { SearchLeaveGuard } from "../components/search_leave_guard";
 import {
   searchHandoffQuery,
   hasExactBrowseFilters,
@@ -46,13 +46,6 @@ import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   NO_QUESTION_LIBRARY_FACET_TRUNCATION,
   QuestionLibraryBrowseSession,
-  clampQuestionLibraryReturnScrollTop,
-  createQuestionLibraryReturnToken,
-  parseQuestionLibraryReturnToken,
-  questionLibraryReturnPath,
-  saveQuestionLibraryReturnState,
-  takeQuestionLibraryReturnState,
-  QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
   type QuestionLibraryPageSize,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowseFacetAggregate,
@@ -69,7 +62,6 @@ export interface LibraryPageProps {
   readonly classificationClient: import("../api/content_classification").ContentClassificationClient;
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly poolLibraryClient?: QuestionPoolLibraryClient &
-    LibraryDiscussionClient &
     BloomClassificationCorrectionClient &
     QuestionPoolSearchMetadataClient &
     QuestionPoolSupportClient;
@@ -87,12 +79,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const hasInitialPoolDeepLink = hasCanonicalPoolDeepLink(location.search);
-  const [searchParams] = useSearchParams();
-  const returnToken = parseQuestionLibraryReturnToken(
-    searchParams[QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER],
-  );
-  const takenReturnState = takeQuestionLibraryReturnState(sessionScope, returnToken);
-  const returnState = takenReturnState?.origin === props.mode ? takenReturnState : null;
   // Catch only URL parsing at the route boundary; transport validation remains strict.
   function routeHandoff(search: string): QuestionLibraryBrowseQuery | null {
     try {
@@ -102,31 +88,19 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     }
   }
   const initialHandoffQuery = routeHandoff(location.search);
-  const [invalidLinkOptions, setInvalidLinkOptions] = createSignal(
-    returnState === null && initialHandoffQuery === null,
-  );
+  const [invalidLinkOptions, setInvalidLinkOptions] = createSignal(initialHandoffQuery === null);
   const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
-    returnState?.query ?? initialHandoffQuery ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+    initialHandoffQuery ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   );
-  const [state, setState] = createSignal<QuestionLibraryBrowseState>(
-    returnState !== null && !returnState.refreshOnReturn
-      ? returnState.browseState
-      : {
-          kind: "initial",
-          rows: [],
-          aggregates: [],
-          nextCursor: null,
-          facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-        },
-  );
-  const [scrollTop, setScrollTop] = createSignal(returnState?.scrollTop ?? 0);
-  const [pageSize, setPageSize] = createSignal<QuestionLibraryPageSize>(
-    returnState?.position.pageSize ?? 50,
-  );
-  const [previousCursorCount, setPreviousCursorCount] = createSignal(
-    returnState?.position.previousCursors.length ?? 0,
-  );
-  const [libraryWindow, setLibraryWindow] = createSignal<HTMLDivElement>();
+  const [state, setState] = createSignal<QuestionLibraryBrowseState>({
+    kind: "initial",
+    rows: [],
+    aggregates: [],
+    nextCursor: null,
+    facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+  });
+  const [pageSize, setPageSize] = createSignal<QuestionLibraryPageSize>(50);
+  const [previousCursorCount, setPreviousCursorCount] = createSignal(0);
   const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(new Set());
   const [questionTitles, setQuestionTitles] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [selectionNotice, setSelectionNotice] = createSignal<string | null>(null);
@@ -140,8 +114,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [questionPoolCreateOpen, setQuestionPoolCreateOpen] = createSignal(false);
   const [questionPoolTaskActive, setQuestionPoolTaskActive] = createSignal(false);
   const [poolDiscoveryOpened, setPoolDiscoveryOpened] = createSignal(hasInitialPoolDeepLink);
-  let pendingScrollRestore = returnState?.scrollTop ?? null;
-  const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, (next) => {
     setState(next);
     setPageSize(session.position.pageSize);
@@ -150,13 +122,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
 
   createEffect(() => {
     const routeSearch = location.search;
-    if (returnState !== null) return;
     const handoffQuery = routeHandoff(routeSearch);
     setInvalidLinkOptions(handoffQuery === null);
     if (handoffQuery === null || props.mode !== "search") return;
     if (!hasExactBrowseFilters(handoffQuery)) return;
     setQuery(handoffQuery);
-    setScrollTop(0);
     void session.reset(handoffQuery);
   });
 
@@ -228,7 +198,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     setUpdateResults(null);
     const next = { ...query(), ...change };
     setQuery(next);
-    setScrollTop(0);
     void session.reset(next);
   }
 
@@ -317,52 +286,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     void session.reset(query());
   }
 
-  function returnTokenFor(row: QuestionLibraryBrowseRow): string {
-    const existing = questionReturnTokens.get(row.displayId);
-    if (existing !== undefined) return existing;
-    const token = createQuestionLibraryReturnToken();
-    questionReturnTokens.set(row.displayId, token);
-    return token;
-  }
-
-  function saveReturnState(token: string): void {
-    const current = session.state;
-    saveQuestionLibraryReturnState(
-      sessionScope,
-      props.mode,
-      token,
-      query(),
-      current,
-      scrollTop(),
-      session.position,
-    );
-    // The source history entry receives the same route token, so browser Back
-    // and the visible detail-page return link select the same saved view.
-    history.replaceState(history.state, "", questionLibraryReturnPath(token));
-  }
-
-  createEffect(() => {
-    const windowElement = libraryWindow();
-    const current = state();
-    if (windowElement === undefined || pendingScrollRestore === null || current.kind !== "ready") {
-      return;
-    }
-    const restored = clampQuestionLibraryReturnScrollTop(
-      pendingScrollRestore,
-      windowElement.scrollHeight,
-      windowElement.clientHeight,
-    );
-    windowElement.scrollTop = restored;
-    setScrollTop(restored);
-    pendingScrollRestore = null;
-  });
-
   onMount(() => {
-    if (returnState !== null && !returnState.refreshOnReturn) {
-      session.restore(returnState.query, returnState.browseState, returnState.position);
-    } else if (returnState !== null) {
-      void session.reset(returnState.query, returnState.position.pageSize);
-    } else if (props.mode === "browse" && !invalidLinkOptions()) {
+    if (props.mode === "browse" && !invalidLinkOptions()) {
       void session.reset(query());
     }
   });
@@ -766,17 +691,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             selectedIds={selectedIds}
             editorBusy={editorBusy}
             browseState={state}
-            setLibraryWindow={setLibraryWindow}
-            onScroll={(nextScrollTop) => {
-              setScrollTop(nextScrollTop);
-            }}
+            setLibraryWindow={() => undefined}
+            onScroll={() => undefined}
             onRetry={() => void session.retry()}
             onUpdateSelection={updateSelection}
             onSelectLoaded={selectLoadedQuestions}
             onClearSelection={clearSelection}
             onOpenMetadataEditor={() => void openMetadataEditor()}
-            returnTokenFor={returnTokenFor}
-            onSaveReturnState={saveReturnState}
           >
             <Show when={mayMutateLibrary && questionPoolCreateOpen()}>
               <div class="question-pool-create-host">
@@ -848,6 +769,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </Show>
         </div>
       </Show>
+      <SearchLeaveGuard hasSearch={() => state().kind !== "initial"} />
     </PageFrame>
   );
 }

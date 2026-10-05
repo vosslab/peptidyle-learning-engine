@@ -4,6 +4,29 @@ SET LOCAL ROLE ple_private_owner;
 
 
 
+-- Current Assessment points deliberately remain mutable so a zero-point
+-- correction rescales retained credit without another backend call.  A
+-- retired Entry is a whole-Pool removal and therefore contributes neither
+-- earned nor possible points to every historical and future Attempt.
+CREATE FUNCTION ple_private.current_assessment_entry_points(
+    p_assessment_entry_id uuid,
+    p_snapshot_points numeric
+) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT CASE WHEN entry.availability = 'retired' THEN 0::numeric
+                ELSE coalesce(question.points_possible, pool_entry.points_per_item, $2)
+           END
+      FROM ple_data.assessment_entry AS entry
+      LEFT JOIN ple_data.assessment_entry_question AS question
+        ON question.assessment_entry_id = entry.assessment_entry_id
+      LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+        ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+     WHERE entry.assessment_entry_id = $1
+$$;
+
+
+
 -- Applies current Assessment Entry points to retained backend credit.  The
 -- stable Entry identifier remains present after a released Assessment save,
 -- including when an Entry is retired, so historical Student Work continues
@@ -151,4 +174,3 @@ BEGIN
         receipt_id, course_instance_id_value, result_id, p_recorded_at, calculated_checksum
     );
 END $$;
-

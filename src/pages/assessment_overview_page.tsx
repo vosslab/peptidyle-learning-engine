@@ -51,7 +51,7 @@ function previousAttemptContent(
         label: "Score",
         value:
           attempt.score === undefined
-            ? "Score not released"
+            ? "Score pending"
             : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`,
       },
     ],

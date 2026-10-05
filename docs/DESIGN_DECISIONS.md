@@ -110,8 +110,8 @@ copied as an Unreleased Course Instance Assessment.
 
 ### Current state is not a hidden revision family
 
-**Decision.** Published Questions, published Question Pools, and Blueprint
-Courses have immutable Revision families. Draft Questions, Course Instances,
+**Decision.** Published Questions and Blueprint Courses have immutable Revision
+families. Question Pools, Draft Questions, Course Instances,
 Assessments, Attempts, Student Work, names, and lifecycle metadata use current
 state. Edit Numbers are concurrency controls, not historical content.
 
@@ -204,34 +204,33 @@ make staff changes unsafe.
 The server and database rederive the exact Account, Course relationship,
 Student record, and operation predicate.
 
-### Verified Instructor Display Name is a vetting-time endorsement attribute
+### Instructor Profiles are visible within PLE
 
-**Decision.** A bounded, server-controlled Verified Instructor Display Name is
-captured only during real identity vetting and Account creation. It is not
-self-editable, a Profile field, a directory entry, or a general Account
-projection. An active Instructor may receive it only when viewing the vetted
-Instructor Star list for a Published Question or the vetted Instructor Star
-list for a Public or Archived Blueprint Course. Either projection contains no
-email, UUID, Account reference, avatar, Course information, or substitute
-identifier.
+**Decision.** Everyone with a PLE Account can view Instructor Profiles, including
+Students viewing Question authors or Question Pool owners. Instructor Profile images follow
+that visibility without a separate permissions mechanism. Instructor vetting
+happens before Account creation, outside PLE's Account setup workflow.
 
-**Why.** Human Guidance requires vetted Instructors to see which vetted
-Instructors endorsed a Published Question, but does not authorize an identity
-directory or a mutable public Profile.
+**Why.** Human Guidance explicitly makes Instructor Profiles public within PLE.
+Star lists do not define the audience for an Instructor's identity.
 
-**Consequence.** C17/C18 establish the only write path. C370's authorized
-Question projection and C856's authorized Blueprint projection may join that
-controlled attribute only for an active Instructor on their respective
-Published-Question or Public/Archived-Blueprint Star lists. A self-Star or
-count route without exact verified names is interim evidence and cannot close
-C371. Students, anonymous callers, inactive Accounts, Watch surfaces, and every
-other surface receive neither the name nor a substitute identifier.
+**Consequence.** Remove the former Star-list-only identity rule and its unsupported
+locked-name requirement. Existing implementations of those restrictions need
+reconciliation; this decision does not claim they have already changed. Watch
+lists remain private, and viewing a Profile does not expose Student records.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#instructor-profile-visibility).
 
 ### Sysadmin is platform administration, not ambient FERPA access
 
 **Decision.** Sysadmins manage platform configuration and operations but do not
 automatically read Course Student records. Support access is deliberate,
-scoped, and recorded.
+scoped, and recorded. A Sysadmin initiates repairs under their own authority;
+no Instructor-issued permission or approval is required.
+
+Much of the Sysadmin workflow beyond Instructor Account creation remains deferred
+until concrete needs are established. The authority rule does not authorize
+speculative support tools or make their implementation a current requirement.
 
 **Why.** Operational privilege and educational-record access have different
 purposes.
@@ -390,10 +389,11 @@ C319 and C876-C879 implement it in the active
 
 ### Bulk metadata editing is an all-or-none current-state command
 
-**Decision.** An active vetted Instructor may update selected Published Questions' global `tags`,
-`subject`, and `topic` together. These are the currently defined shared search metadata fields.
-The command replaces only fields explicitly present in its closed patch; an empty tag list or a
-null subject/topic intentionally clears that field. It never edits source, answer, grading,
+**Decision.** An active Instructor may update selected Published Questions' global Tags,
+Discipline, Subject, Topic, and Subtopic together.
+The command replaces only fields explicitly present in its closed patch. An empty tag list or
+null Topic/Subtopic clears that optional field; Discipline and Subject remain required.
+It never edits source, answer, grading,
 feedback, assets, backend, Question Type, authorship, ownership, availability, or a Question
 Revision.
 
@@ -437,24 +437,24 @@ and discoverable with retired status on existing references. Exact inheritance
 and copying may retain an already referenced retired value. New use requires an
 active value, and shared row locks serialize that check against retirement.
 
-### Library improvement activity is retained
+### Content stewardship follows Human Guidance
 
-**Decision.** Active vetted Instructors may create, read, reply to, and edit
-their own text-only improvement-thread posts for available Questions and Pools.
-Question owners and Sysadmins administer Question thread state and impact
-notices; Pool administration is Sysadmin-only. Resolved threads and cancelled
-impact notices remain retained current records.
+**Decision.** PLE is not an online forum or social-media system. Sysadmins should
+be reluctant to intervene in teaching content. Existing Question owner revisions,
+forks, and Blueprint Course Change Proposals follow Human Guidance.
 
-**Why.** Reusable teaching content needs a visible stewardship conversation and
-durable impact history without exposing Watch subscribers or inventing a second
-content Revision system.
+**Why.** References to GitHub-like stewardship do not authorize a general
+discussion system or routine Sysadmin moderation of Pool content.
 
-**Consequence.** Threads target a stable Library Object and record the exact
-Revision current at creation. Impact notices may name one existing affected
-Revision. Sysadmins use a read-only Library mode for ordinary content controls
-while retaining the explicit administration actions above. The source core does
-not close private Watch delivery: final review, major-milestone SQL/browser
-proof, and four-event notification acceptance remain pending.
+**Consequence.** The former general retained-thread system is withdrawn. This
+does not settle who may author or administer Pool impact notices: the current
+Sysadmin-only path is not certified, and PLE does not invent a Pool-owner role.
+Existing impact-notice behavior needs separate reconciliation. The intended
+Question Change Proposal workflow needs clarification in the interview; this
+decision does not extend it to Pools.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-stewardship-specifications)
+and the [interview follow-up](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md).
 
 ### Public Question and Pool IDs are checked human references
 
@@ -535,8 +535,9 @@ row in [API_CONTRACTS.md](API_CONTRACTS.md).
 **Decision.** Correct-answer review is one private renderer operation over the
 exact retained Question Revision and Attempt seed. It accepts no Student
 response and returns transient backend-owned HTML through completed-history
-authorization. The same answer decision, including current-Course completion
-for Quizzes and Exams, runs before and after rendering.
+authorization. The same Instructor-selected correct-answer condition runs before and after
+rendering. Waiting for all Students to complete Quizzes and Exams is a default
+that Instructors can change.
 
 **Why.** PLE owns disclosure and WeBWorK owns answer presentation. Correct answers
 must not pull independently controlled responses, explanations, Hints, Worked
@@ -555,8 +556,10 @@ the issued document and immutable Student Work remain intact.
 
 ### Native PLE Question JSON stays deliberately small
 
-**Decision.** Native PLE Question JSON is private, unpublished, unversioned,
-strictly validated, and static. It supports the eight named native Question
+**Decision.** The Native PLE Question JSON format is an internal, unpublished
+specification without format versions. Native Questions still follow ordinary
+Draft, publication, and immutable Question Revision rules. The format is strictly
+validated and static. It supports the eight named native Question
 types in Human Guidance. Author JavaScript is isolated and untrusted; grading
 is server-side.
 
@@ -751,10 +754,15 @@ Guidance remains the product authority.
 
 ## Blueprint Courses
 
+Blueprint Courses follow a model very similar to GitHub repositories. Revisions,
+forks, Change Proposals, Stars, and Watches provide familiar concepts; HG defines
+their PLE behavior and the differences for adoption into teaching Course Instances.
+The analogy does not authorize every GitHub feature.
+
 ### Blueprints use Private, Public, and Archived lifecycle states
 
 **Decision.** Creation and forks start Private. Private is owner-only and
-cannot be adopted. Public is visible to vetted Instructors and adoptable.
+cannot be adopted. Public is visible to Instructors and adoptable.
 Archived is read-only, excluded from ordinary discovery and new adoption,
 visible only through explicit archived inclusion, and forkable.
 
@@ -812,7 +820,7 @@ the complete reusable content tree: module labels, module and Assessment structu
 each Blueprint Assessment's settings, Questions, and Pools. Current short and long names participate
 as metadata. No separate per-unit JSON baseline or public comparison-state vocabulary is persisted.
 
-Viewing and comparison follow ordinary Blueprint visibility for both fork and source: every vetted
+Viewing and comparison follow ordinary Blueprint visibility for both fork and source: every
 Instructor may view Public and Archived Blueprints; explicit Archived inclusion governs discovery,
 not permission to view a known Course. Private Blueprints are owner-only on either side. Ownership
 controls the fork's apply mutation. The Instructor explicitly selects which displayed changes to
@@ -857,23 +865,22 @@ Revisions through this canonical representation.
 
 ### Blueprint Stars and Watches belong to the lineage
 
-**Decision.** Vetted Instructors may Star or Watch Public and Archived
-Blueprint Courses. Stars are visible endorsements; Watch state is private and
-drives notifications about Revisions and other important changes. Forking or
+**Decision.** Instructors may Star or Watch Public and Archived
+Blueprint Courses. Stars follow the GitHub model for saving useful content,
+showing a count, and seeing who Starred content the viewer can access. Watches follow the GitHub repository model and drive notifications about
+Revisions and other important changes. Search can compare aggregate Watch counts. Forking or
 adopting does not automatically Star or Watch.
 
-**Why.** Endorsement and notification choices apply to a Blueprint lineage;
+**Why.** Star and notification choices apply to a Blueprint lineage;
 adoption and forking are separate Course-creation decisions.
 
 **Consequence.** Stars and Watches follow the Blueprint lineage across all of
 its Revisions. They are not copied into a fork or daughter Course. C409 owns
 Star/unstar/count and private self Watch/unwatch state plus Revision, publish,
-archive, and restore Watch fan-out; it returns no Starred-by names. C856 alone
-may project exact Verified Instructor Display Names, and only to an active
-vetted Instructor viewing the Star list of a Public or Archived Blueprint.
-That projection excludes email, UUID, Account reference, avatar, Course and
-substitute identifiers, all Watch identities/state, client-side lookup, and
-Profile links.
+archive, and restore Watch fan-out. Instructors can see who starred a Blueprint;
+this does not restrict the visibility of Instructor Profiles elsewhere in PLE.
+Personal subscription controls remain private; aggregate Watch counts support
+Blueprint search. Search results do not expose watcher identities.
 
 ## Assessments and Student Work
 
@@ -915,7 +922,10 @@ gave a different response or requiring regrading.
 
 **Consequence.** PLE has no ordinary regrading, grading Retry, mutable result,
 or scoring-freshness lifecycle. A current point-value edit recalculates scores
-from stored fractions.
+from stored fractions. Removed Assessment entries contribute neither earned
+nor possible points to any Attempt. Native JSON regrading remains deferred
+under HG; the current immutable-result implementation does not override that
+future decision.
 
 ### Highest Attempt and point-only scoring
 
@@ -1228,23 +1238,20 @@ enforce score and correctness disclosure.
 the Student route and catalog contracts,
 and the Attempt review disclosure contract.
 
-### Student Progress separates release from completion
+### Student Progress distinguishes completion from score
 
-**Decision.** Progress distinguishes no Attempts, Attempts without a released
-and disclosed score, and released scores below or at 100%. An Assessment with
-Attempts but no released/disclosed score remains visible as **Score not
-released** and is not classified as below 100%. A submitted Attempt is
-completion; it does not imply a perfect score. PLE calculates no weighted
-Course grade.
+**Decision.** Progress distinguishes no Attempts, in-progress Attempts, and
+submitted and graded Attempts with scores below or at 100%. Question scores
+and the Assessment total are visible as soon as submission and automatic grading
+complete. A submitted Attempt is completion; it does not imply a perfect score.
+PLE calculates no weighted Course grade.
 
-**Why.** A useful Progress view must preserve work that has not produced a
-Student-visible score and must not imply hidden correctness or conflate
-completion with perfection.
+**Why.** Progress must distinguish unfinished work from completed work without
+withholding automatically graded scores or confusing completion with perfection.
 
-**Consequence.** API projections apply disclosure before returning scores or
-aggregates. Progress may show Attempt and activity information for a score not
-released state, but it shows no withheld score. Completed Coursework means at
-least one submitted Attempt.
+**Consequence.** There is no score-release control, separate posting step, or
+"Score not released" state. Completed Coursework means at least one submitted
+Attempt. Correct-answer visibility remains separate from score visibility.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
 [API_CONTRACTS.md](API_CONTRACTS.md), and the Student Progress API contract.
@@ -1255,8 +1262,8 @@ least one submitted Attempt.
 separately identified Course section. Within a Course, aggregate the signed-in
 Student's saved outcomes from eligible submitted Assessments across Assessment
 types, grouping by the exact immutable Published Question Revision. Do not
-merge counts between Courses. Include an outcome only when the Assessment
-score and per-Question correctness are both released.
+merge counts between Courses. Include outcomes from submitted, graded Attempts;
+there is no separate score-release condition.
 
 **Why.** Response Stats should describe real recorded Question outcomes, not
 estimated or synthetic results. The all-Course page retains Course context,
@@ -1264,8 +1271,8 @@ while each Course section includes relevant outcomes across Assessment types.
 
 **Consequence.** The existing Course-scoped API reports actual outcome counts
 and, when recorded, measured approximate time shown with the Question. It
-applies disclosure before aggregation and exposes no cohort data or unreleased
-correctness.
+exposes the Student's recorded outcomes without disclosing correct-answer content
+before the selected answer-visibility condition permits it. It exposes no cohort data.
 
 **Owner.** [API_CONTRACTS.md](API_CONTRACTS.md), the Student Response Stats
 reader, and its Student page.
@@ -1410,7 +1417,9 @@ and their composition boundary in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md).
 compare items without opening each one, plus the main action. Human Guidance
 names those facts for each collection. Question Library scans keep description,
 authors, classification, and the exact Question ID on the row. Public Blueprint
-scans keep classification and the usage counts the search already returns.
+scans include Course name, classification, author, institution, and useful usage
+or stewardship signals as HG requires. Existing API fields do not cap the
+required result content.
 
 **Why.** Repeated records need a compact, comparable decision surface rather
 than a compressed detail page.
@@ -1471,9 +1480,9 @@ Its discriminator is generic absence, a closed `ProvidedAvatarId` catalog, or
 a self-owned Profile image. The server derives `/api/profile/avatar*` from the
 signed-in Account; callers do not supply an Account identifier. Students may
 select only a provided avatar and are denied image upload. Instructors and
-Sysadmins may select a provided avatar or add their own Profile image. Image
-delivery is self-only: Human Guidance does not settle a broader Profile-image
-privacy audience.
+Sysadmins may select a provided avatar or add their own Profile image. Instructor
+Profile images are visible to everyone with a PLE Account, with no separate image
+permissions mechanism. Self-owned editing does not imply self-only viewing.
 
 **Why.** The same selected-or-generic avatar must represent each user
 consistently, while the allowed choice differs by User Role. A single
@@ -1523,9 +1532,8 @@ provided-avatar catalog and reusable picker contributor. C819 owns role-neutral
 Profile Settings authorization; C820 owns the real `/profile` route and page
 integration. The catalog and picker may be completed before those routes, but
 no C40 Human Guidance bullet closes until C819 and C820 make Student selection
-discoverable in real Profile Settings. Staff cross-Account Profile-image
-delivery remains an explicit Human Guidance product question; the default is
-self-only delivery.
+discoverable in real Profile Settings. Instructor Profile-image viewing follows
+HG's public-within-PLE Instructor Profile rule.
 
 Use temporary generator, schema, fresh-install, and unknown-ID checks while
 building the catalog. Retain a permanent test only if it satisfies every
@@ -1675,7 +1683,7 @@ path into educational-record authority.
 
 **Consequence.** The notifier capability claims one receipt at a time with a
 lease and `SKIP LOCKED`, derives the current eligible recipient and current
-verified Instructor destination on every claim rather than storing an address
+verified email destination for that Instructor on every claim rather than storing an address
 snapshot or offering generic Account lookup, and cannot create a second send
 for the same identity. A receipt starts with `next_attempt_at =
 due_at`. At one evaluated timestamp, a claim requires the action still be due,
@@ -1862,7 +1870,8 @@ usage statistics"; schema in `schemas/base_schema/20_tables/statistics.sql`.
 
 **Decision.** Student Work, sessions, events, Courses, and Accounts use a
 full-precision `timestamptz` creation clock. Published Questions, Question
-Pools, Blueprint Courses, their Revisions, Draft Questions, and usage
+Pools, Published Question Revisions, Blueprint Courses and their Revisions,
+Draft Questions, and usage
 statistics use a `date`.
 
 **Why.** Ordering and audit need sub-day precision. Authored content and
@@ -1957,7 +1966,10 @@ that owner; they do not create nested Theme scopes.
 
 ## Unresolved decisions
 
-The complete Sysadmin Ribbon layout is unresolved. Product documentation should
+The complete Sysadmin Ribbon layout is unresolved. HG's Deferred section and
+the [interview follow-up](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
+track other deferred or unsettled decisions; this section is not an exhaustive
+list. Product documentation should
 not turn hypothetical capabilities, tunable FERPA retention intervals, or
 speculative failure machinery into additional unresolved product questions.
 

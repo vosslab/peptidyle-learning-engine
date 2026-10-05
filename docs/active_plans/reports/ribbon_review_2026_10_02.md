@@ -73,21 +73,16 @@ The final current-source routed-shell previews use synthetic Course data and the
 theme tokens. They verify paint and layout, separately from real-service capture and preference
 persistence:
 
-- [Desktop light](ribbon_review_2026_10_02/final_1280_light.png)
-- [Desktop dark](ribbon_review_2026_10_02/final_1280_dark.png)
-- [Phone light](ribbon_review_2026_10_02/final_393_light.png)
-- [Phone dark](ribbon_review_2026_10_02/final_393_dark.png)
+Desktop light, desktop dark, phone light, and phone dark previews were reviewed
+from the current shell. Those preview files are not stored beside this report.
 
 The inactive proof used a new empty Course created through the Instructor UI. The existing
 retention function advanced that review-owned Course to its inactive cutoff. No Students were
 enrolled in it. Direct loads verified all three Instructor Course routes against the real API.
 These ancestry captures precede the final connected-tab styling above.
 
-- [inactive_1280_light.png](ribbon_review_2026_10_02/inactive_1280_light.png)
-- [inactive_1280_dark.png](ribbon_review_2026_10_02/inactive_1280_dark.png)
-- [inactive_320_light.png](ribbon_review_2026_10_02/inactive_320_light.png)
-- [inactive_393_dark.png](ribbon_review_2026_10_02/inactive_393_dark.png)
-- [review.json](ribbon_review_2026_10_02/review.json)
+The inactive desktop and phone captures are not stored beside this report.
+The recorded review data is in [review.json](ribbon_review_2026_10_02/review.json).
 
 The earlier ancestry review confirms the inactive ancestor,
 compact Course name on narrow screens, and stable row spacing. At 320px the breadcrumb trail

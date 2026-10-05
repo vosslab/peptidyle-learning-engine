@@ -10,7 +10,6 @@ export function decodeStudentFeedbackReleaseRule(
 ): StudentFeedbackReleaseRule {
   const record = decodeRecord(value, path);
   const fields = [
-    "score",
     "per_item_correctness",
     "submitted_response",
     "question_answer",
@@ -26,10 +25,10 @@ export function decodeStudentFeedbackReleaseRule(
       "after_submit",
       "after_due",
       "after_close",
+      "after_all_students_complete",
       "never",
     ] as const);
   return {
-    score: decodeTiming("score"),
     per_item_correctness: decodeTiming("per_item_correctness"),
     submitted_response: decodeTiming("submitted_response"),
     question_answer: decodeTiming("question_answer"),

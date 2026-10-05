@@ -19,6 +19,7 @@ import {
   assignmentCard,
   choosePersona,
   enterInstructor,
+  followCaptureLink,
   openAllStudentCoursework,
   openInstructorCourse,
   openStudentCourse,
@@ -149,7 +150,16 @@ async function questionLibrary(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Questions", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
+  const libraryHeading = page.getByRole("heading", {
+    name: "Search Question Library",
+    exact: true,
+  });
+  const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
+  await Promise.race([libraryHeading.waitFor(), leaveSearch.waitFor()]);
+  if (await leaveSearch.isVisible()) {
+    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+  }
+  await libraryHeading.waitFor();
 }
 
 /** Observe answer-free metadata from a real visible search; no API writes or private-source reads. */
@@ -234,7 +244,13 @@ async function publish(page: Page, example: Example): Promise<void> {
   if (example.format === undefined || example.prompt === undefined)
     throw new Error(`Installed publication missing: ${example.title}`);
   await page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
-  await page.getByRole("heading", { name: "My Draft Questions", exact: true }).waitFor();
+  const draftHeading = page.getByRole("heading", { name: "My Draft Questions", exact: true });
+  const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
+  await Promise.race([draftHeading.waitFor(), leaveSearch.waitFor()]);
+  if (await leaveSearch.isVisible()) {
+    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+  }
+  await draftHeading.waitFor();
   await page.getByRole("button", { name: "New Draft Question", exact: true }).click();
   await page.getByLabel("Question Title", { exact: true }).fill(example.title);
   await page.getByLabel("Student-facing prompt", { exact: true }).fill(example.prompt);
@@ -293,6 +309,17 @@ async function prepare(
         throw new Error(`Publication did not become discoverable: ${example.title}`);
       selected.push({ example, summary });
     }
+    await page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Courses", exact: true })
+      .click();
+    const courseListHeading = page.getByRole("heading", { name: "My Active Courses", exact: true });
+    const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
+    await Promise.race([courseListHeading.waitFor(), leaveSearch.waitFor()]);
+    if (await leaveSearch.isVisible()) {
+      await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+    }
+    await courseListHeading.waitFor();
     await openInstructorCourse(page);
     const assessmentList = page.getByRole("list", { name: "Assessments", exact: true });
     await assessmentList.waitFor();
@@ -395,25 +422,37 @@ async function readQuestion(
 }
 
 /** Follows the visible Student Course action without guessing from intermediate route timing. */
-async function openOrResumePracticeAssignment(page: Page, card: Locator): Promise<void> {
+async function openOrResumePracticeAssignment(page: Page, card: Locator): Promise<boolean> {
   const action = card.getByRole("link", {
-    name: /^(Open|Resume) Unit Review Assignment$/u,
+    name: /^(Open|Resume|Review) Unit Review Assignment$/u,
   });
   const open = card.getByRole("link", { name: `Open ${PRACTICE_LABEL}`, exact: true });
   const resume = card.getByRole("link", { name: `Resume ${PRACTICE_LABEL}`, exact: true });
+  const review = card.getByRole("link", { name: `Review ${PRACTICE_LABEL}`, exact: true });
   await action.first().waitFor();
-  const [canOpen, canResume] = await Promise.all([open.isVisible(), resume.isVisible()]);
-  if (canOpen === canResume) {
+  const [canOpen, canResume, canReview] = await Promise.all([
+    open.isVisible(),
+    resume.isVisible(),
+    review.isVisible(),
+  ]);
+  if (Number(canOpen) + Number(canResume) + Number(canReview) !== 1) {
     throw new Error("Student Course card must expose exactly one Open or Resume action.");
   }
   if (canOpen) {
-    await open.click();
+    await followCaptureLink(page, open);
     await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
     await page.getByRole("button", { name: `Start ${PRACTICE_LABEL}`, exact: true }).click();
   } else {
-    await resume.click();
+    if (canResume) {
+      await followCaptureLink(page, resume);
+    } else {
+      await followCaptureLink(page, review);
+      await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
+      return false;
+    }
   }
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
+  return true;
 }
 
 async function waitForControl(session: CaptureSession, example: Example): Promise<void> {
@@ -654,11 +693,14 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       await choosePersona(session.page, "Mary Okafor");
       await openStudentCourse(session.page);
       await openAllStudentCoursework(session.page);
-      await openOrResumePracticeAssignment(
-        session.page,
-        assignmentCard(session.page, workflowTitle),
-      );
-      await exerciseHotspot(session.page, input);
+      if (
+        await openOrResumePracticeAssignment(
+          session.page,
+          assignmentCard(session.page, workflowTitle),
+        )
+      ) {
+        await exerciseHotspot(session.page, input);
+      }
     } finally {
       await runtime.close(session);
     }

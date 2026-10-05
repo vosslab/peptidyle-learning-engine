@@ -187,7 +187,6 @@ test("Policy save retains normalized Entries and the current availability and cl
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
-      score: "never",
       per_item_correctness: "never",
       submitted_response: "never",
       question_answer: "never",
@@ -218,7 +217,6 @@ test("Policy save retains normalized Entries and the current availability and cl
   assert.equal(saved.attemptLimit, 2);
   assert.equal(saved.lateWorkRule, "accept");
   assert.equal(saved.studentFeedbackReleaseRule.question_answer, "after_due");
-  assert.equal(saved.studentFeedbackReleaseRule.score, "never");
 });
 
 test("Assessment Properties scoring changes only the chosen fixed Question points", () => {

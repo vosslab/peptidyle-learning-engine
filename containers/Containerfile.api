@@ -18,21 +18,16 @@ WORKDIR /build
 # runtime image.
 ENV CARGO_BUILD_JOBS=1
 
-# Copy manifests first so dependency compilation caches independently of source
-# edits. Without this split, every source change rebuilds every dependency.
+# Rust sources and embedded assets define the compilation cache. Runtime-only
+# SQL and course content are copied into the migrator image after compilation.
 COPY Cargo.toml Cargo.lock ./
 COPY crates crates
 # The server embeds exactly the reviewed current RDKit JS/WASM pair at compile
 # time. Keep these two source files in the builder context, not the runtime image.
 COPY assets/author-content-dependencies/rdkit/RDKit_minimal.js assets/author-content-dependencies/rdkit/RDKit_minimal.wasm assets/author-content-dependencies/rdkit/
 # SQLx embeds the forward-migration directory in the server binary. The
-# database-migrator target also packages the canonical base manifest from this
-# explicit source instead of relying on a developer's wider working tree.
-COPY schemas/base_schema schemas/base_schema
-COPY schemas/installation_data schemas/installation_data
+# database-migrator target packages runtime SQL separately below.
 COPY schemas/migrations schemas/migrations
-COPY content/genetics content/genetics
-COPY content/pilot content/pilot
 
 # --locked fails the build if Cargo.lock would need to change, which is what
 # makes a container build reproducible rather than "whatever resolved today".
@@ -97,11 +92,11 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 USER peptidyle
 COPY --from=database-migrator-builder /build/target/release/project-tools /usr/local/bin/ple-database-tools
-COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/base_schema /opt/ple/schemas/base_schema
-COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/installation_data /opt/ple/schemas/installation_data
+COPY --chown=peptidyle:peptidyle schemas/base_schema /opt/ple/schemas/base_schema
+COPY --chown=peptidyle:peptidyle schemas/installation_data /opt/ple/schemas/installation_data
 COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/migrations /opt/ple/schemas/migrations
-COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/content/genetics /opt/ple/content/genetics
-COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/content/pilot /opt/ple/content/pilot
+COPY --chown=peptidyle:peptidyle content/genetics /opt/ple/content/genetics
+COPY --chown=peptidyle:peptidyle content/pilot /opt/ple/content/pilot
 HEALTHCHECK NONE
 ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 

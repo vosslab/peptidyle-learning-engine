@@ -98,8 +98,8 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
              snapshot.available_at, snapshot.due_at, snapshot.closes_at, \
              snapshot.assessment_attempt_time_limit_seconds, snapshot.assessment_attempt_limit, \
              snapshot.late_work_rule, snapshot.question_variation_rule, \
-             snapshot.assessment_question_order_rule, snapshot.feedback_score, \
-             snapshot.feedback_per_item_correctness, snapshot.feedback_submitted_response, \
+             snapshot.assessment_question_order_rule, snapshot.feedback_per_item_correctness, \
+             snapshot.feedback_submitted_response, \
              snapshot.feedback_question_answer, snapshot.feedback_question_answer_explanation, \
              snapshot.feedback_class_statistics, assessment.assessment_type, \
              snapshot.feedback_hints, snapshot.feedback_worked_solutions) \

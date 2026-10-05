@@ -32,6 +32,12 @@ pub enum BlueprintCourseListSort {
     Adoptions,
     /// My Blueprint Courses with the most enrolled Students first.
     Students,
+    /// Public Blueprint Courses with the most visible Instructor Stars first.
+    Stars,
+    /// Public Blueprint Courses with the most private Watch subscriptions first.
+    Watches,
+    /// Public Blueprint Courses most recently edited first.
+    RecentEdits,
 }
 
 impl BlueprintCourseListSort {
@@ -40,6 +46,9 @@ impl BlueprintCourseListSort {
             Self::Name => "name",
             Self::Adoptions => "adoptions",
             Self::Students => "students",
+            Self::Stars => "stars",
+            Self::Watches => "watches",
+            Self::RecentEdits => "recentEdits",
         }
     }
 }
@@ -59,6 +68,21 @@ pub enum BlueprintCourseListCursorPosition {
     },
     Students {
         count: u64,
+        long_name: String,
+        blueprint_course_id: BlueprintCourseId,
+    },
+    Stars {
+        count: u64,
+        long_name: String,
+        blueprint_course_id: BlueprintCourseId,
+    },
+    Watches {
+        count: u64,
+        long_name: String,
+        blueprint_course_id: BlueprintCourseId,
+    },
+    RecentEdits {
+        edited_at_millis: i64,
         long_name: String,
         blueprint_course_id: BlueprintCourseId,
     },
@@ -142,6 +166,18 @@ pub struct StoredBlueprintCourseSummary {
     pub total_adoptions: u64,
     /// Students counted once per adopted Course Instance, including ended memberships.
     pub total_students_ever_enrolled: u64,
+    /// Account ID of the Blueprint Course owner.
+    pub owner_account_id: question_model::AccountId,
+    /// Public display name of the Blueprint Course owner.
+    pub owner_display_name: String,
+    /// Institution supplied for the Blueprint Course owner's public Profile.
+    pub owner_affiliation: String,
+    /// Visible Instructor Stars across this Blueprint Course lineage.
+    pub star_count: u64,
+    /// Private Watch subscriptions counted without exposing watcher identities.
+    pub watcher_count: u64,
+    /// The most recent content or metadata edit on this Blueprint Course lineage.
+    pub last_edited_at_millis: i64,
 }
 
 /// Exact immutable Blueprint Revision content, including after lineage archive.

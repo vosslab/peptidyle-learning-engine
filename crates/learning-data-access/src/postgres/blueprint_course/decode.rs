@@ -1,8 +1,9 @@
 //! Row decode helpers for Blueprint Course summaries, content, and metadata.
 
 use question_model::{
-    BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, BlueprintEditNumber,
-    BlueprintMetadataState, BlueprintRevisionNumber, BlueprintRevisionTuple, Timestamp,
+    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess,
+    BlueprintEditNumber, BlueprintMetadataState, BlueprintRevisionNumber, BlueprintRevisionTuple,
+    Timestamp,
 };
 use serde_json::Value;
 use sqlx::Row;
@@ -42,7 +43,55 @@ pub(super) fn decode_summary(
                 .map_err(map_sqlx_error)?,
         )?,
         read_access: read_access(row.try_get("is_owner").map_err(map_sqlx_error)?),
+        owner_account_id: AccountId::new(
+            row.try_get::<String, _>("owner_account_id")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Blueprint owner Account ID"))?,
+        owner_display_name: owner_display_name(
+            row.try_get("owner_display_name").map_err(map_sqlx_error)?,
+        )?,
+        owner_affiliation: owner_affiliation(
+            row.try_get("owner_affiliation").map_err(map_sqlx_error)?,
+        )?,
+        star_count: u64::try_from(
+            row.try_get::<i64, _>("star_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Blueprint Star count"))?,
+        watcher_count: u64::try_from(
+            row.try_get::<i64, _>("watcher_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Blueprint Watch count"))?,
+        last_edited_at_millis: row
+            .try_get("last_edited_at_millis")
+            .map_err(map_sqlx_error)?,
     })
+}
+
+fn owner_display_name(value: Option<String>) -> Result<String, StoreError> {
+    let Some(value) = value else {
+        return Err(invalid("Blueprint owner display name"));
+    };
+    let scalars = value.chars().count();
+    if value != value.trim() || !(1..=200).contains(&scalars) || value.chars().any(char::is_control)
+    {
+        return Err(invalid("Blueprint owner display name"));
+    }
+    Ok(value)
+}
+
+fn owner_affiliation(value: Option<String>) -> Result<String, StoreError> {
+    let Some(value) = value else {
+        return Err(invalid("Blueprint owner affiliation"));
+    };
+    let scalars = value.chars().count();
+    if value != value.trim() || !(1..=300).contains(&scalars) || value.chars().any(char::is_control)
+    {
+        return Err(invalid("Blueprint owner affiliation"));
+    }
+    Ok(value)
 }
 
 pub(super) fn decode_course(

@@ -461,7 +461,6 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                             question_model::AssessmentQuestionOrderRule::AuthoredOrder,
                     },
                     student_feedback_release_rule: StudentFeedbackReleaseRule {
-                        score: question_model::StudentFeedbackReleaseTiming::DuringAttempt,
                         per_item_correctness:
                             question_model::StudentFeedbackReleaseTiming::AfterSubmit,
                         submitted_response: question_model::StudentFeedbackReleaseTiming::AfterDue,
@@ -549,6 +548,32 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .fetch_one(&mut *transaction)
     .await
     .expect("Instructor account");
+    let sysadmin_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, user_role, created_at) \
+         VALUES ('U00000009', 'sysadmin', pg_catalog.transaction_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("vetting Sysadmin");
+    sqlx::query("INSERT INTO ple_private.instructor_profile (account_id, first_name, last_name, affiliation) VALUES ($1, 'Blueprint', 'Owner', 'Test University')")
+        .bind(&instructor_id)
+        .execute(&mut *transaction)
+        .await
+        .expect("Instructor Profile");
+    sqlx::query("SET LOCAL ROLE ple_audit_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("vetting audit owner");
+    sqlx::query("SELECT ple_audit.record_instructor_account_creation_event($1, $2)")
+        .bind(&instructor_id)
+        .bind(&sysadmin_id)
+        .execute(&mut *transaction)
+        .await
+        .expect("Blueprint owner creation evidence");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("private fixture role");
     let reader_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, user_role, created_at) \
          VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",

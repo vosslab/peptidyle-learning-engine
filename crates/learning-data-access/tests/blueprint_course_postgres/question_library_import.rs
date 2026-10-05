@@ -196,26 +196,25 @@ async fn vet_seeded_instructor(admin: &sqlx::postgres::PgPool) {
     .fetch_one(&mut *transaction)
     .await
     .expect("vetting Sysadmin");
+    sqlx::query("INSERT INTO ple_private.instructor_profile (account_id, first_name, last_name, affiliation) VALUES ($1, 'Bulk', 'Instructor', 'Test University')")
+        .bind(instructor_account_id())
+        .execute(&mut *transaction)
+        .await
+        .expect("Instructor Profile");
     sqlx::query("SET LOCAL ROLE ple_audit_owner")
         .execute(&mut *transaction)
         .await
         .expect("vetting audit owner");
-    let decision_id: Uuid = sqlx::query_scalar(
-        "SELECT ple_audit.record_completed_instructor_identity_vetting_decision(\
-             'bulk-import-instructor@example.test', 'Bulk Import Instructor', $1)",
-    )
-    .bind(&sysadmin_id)
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("Instructor vetting decision");
-    sqlx::query("SELECT ple_audit.record_instructor_account_creation_event($1, $2, $3)")
+    sqlx::query("SELECT ple_audit.record_instructor_account_creation_event($1, $2)")
         .bind(instructor_account_id())
         .bind(&sysadmin_id)
-        .bind(decision_id)
         .execute(&mut *transaction)
         .await
         .expect("Instructor creation evidence");
-    transaction.commit().await.expect("vetting commit");
+    transaction
+        .commit()
+        .await
+        .expect("Instructor fixture commit");
 }
 
 #[tokio::test]

@@ -4,6 +4,10 @@
   grid-column: 1 / -1;
 }
 
+.email-code-panel {
+  max-width: 36rem;
+}
+
 .live-demo-persona-list {
   display: grid;
   gap: var(--ple-space-2);

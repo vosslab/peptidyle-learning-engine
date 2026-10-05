@@ -7,7 +7,7 @@ CREATE FUNCTION ple_private.question_library_entries(
     p_require_available boolean DEFAULT true
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
-    question_title text, question_description text, author_names text[],
+    question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
@@ -56,6 +56,27 @@ BEGIN
            metadata.question_title, metadata.question_description,
            ARRAY(SELECT authorship.author_display_name
                FROM ple_data.question_revision_authorship AS authorship
+              WHERE authorship.published_question_id = revision.published_question_id
+                AND authorship.revision_number = revision.revision_number
+              ORDER BY authorship.author_position)::text[],
+           ARRAY(SELECT CASE
+                       WHEN account.user_role = 'instructor'
+                        AND state.state = 'active'
+                        AND ple_private.instructor_display_name(authorship.author_account_id::text)
+                            IS NOT NULL
+                         THEN authorship.author_account_id::text
+                       ELSE NULL
+                     END
+               FROM ple_data.question_revision_authorship AS authorship
+               LEFT JOIN ple_private.account AS account
+                 ON account.account_id = authorship.author_account_id
+               LEFT JOIN LATERAL (
+                   SELECT event.state
+                     FROM ple_private.account_state_event AS event
+                    WHERE event.account_id = authorship.author_account_id
+                    ORDER BY event.occurred_at DESC, event.event_id DESC
+                    LIMIT 1
+               ) AS state ON true
               WHERE authorship.published_question_id = revision.published_question_id
                 AND authorship.revision_number = revision.revision_number
               ORDER BY authorship.author_position)::text[],
@@ -119,7 +140,7 @@ SELECT lineage.published_question_id, revision.revision_number AS latest_questio
 CREATE FUNCTION ple_api.list_question_library_entries()
 RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
-    question_title text, question_description text, author_names text[],
+    question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
@@ -160,7 +181,7 @@ CREATE FUNCTION ple_private.search_question_library_entries(
     p_limit integer
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
-    question_title text, question_description text, author_names text[],
+    question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
@@ -419,7 +440,7 @@ CREATE FUNCTION ple_api.search_question_library_entries(
     p_after_title text, p_after_published_at_millis bigint, p_after_question_id text, p_limit integer
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
-    question_title text, question_description text, author_names text[],
+    question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
@@ -443,7 +464,7 @@ $$;
 CREATE FUNCTION ple_api.load_question_library_revision(p_published_question_id text, p_revision_number integer)
 RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
-    question_title text, question_description text, author_names text[],
+    question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
@@ -471,9 +492,9 @@ BEGIN
     actor_id := ple_api.current_session_account_id();
     IF actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+       OR ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Current Published Question metadata requires a vetted Instructor';
+            MESSAGE = 'Current Published Question metadata requires an active Instructor';
     END IF;
     IF p_question_ids IS NULL
        OR cardinality(p_question_ids) NOT BETWEEN 1 AND 1000

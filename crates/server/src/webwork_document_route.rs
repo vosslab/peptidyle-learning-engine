@@ -365,6 +365,8 @@ mod tests {
             question_model::AssessmentType::Exam,
         ] {
             evidence.assessment_type = assessment_type;
+            evidence.feedback_rule.question_answer =
+                question_model::StudentFeedbackReleaseTiming::AfterAllStudentsComplete;
             evidence.all_students_completed = false;
             assert!(permitted_answer_revision_tuple(&evidence, 1).is_none());
             evidence.all_students_completed = true;
@@ -373,6 +375,9 @@ mod tests {
             evidence.all_students_completed = false;
             assert!(permitted_answer_revision_tuple(&evidence, 1).is_none());
         }
+        evidence.feedback_rule.question_answer =
+            question_model::StudentFeedbackReleaseTiming::AfterSubmit;
+        assert!(permitted_answer_revision_tuple(&evidence, 1).is_some());
         evidence.all_students_completed = true;
         evidence.feedback_rule.question_answer =
             question_model::StudentFeedbackReleaseTiming::Never;

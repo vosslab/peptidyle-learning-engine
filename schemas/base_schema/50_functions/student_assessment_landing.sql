@@ -117,11 +117,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
            started.submitted_assessment_attempt_count,
            activity.latest_activity_at,
            CASE WHEN grade_evidence.points_earned IS NOT NULL
-                     AND ple_private.student_assessment_score_is_released(
-                         score_policy.feedback_score,
-                         assessment_score_submission.submitted_at,
-                         score_policy.due_at, score_policy.closes_at, p_now
-                     )
+                     AND assessment_score_submission.submitted_at IS NOT NULL
                 THEN grade_evidence.assessment_attempt_id = assessment_attempt.assessment_attempt_id
                 ELSE NULL END,
            coalesce(resumable.can_resume_assessment_attempt, false),
@@ -132,18 +128,10 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                 ELSE coalesce(evidence.question_count, 0)::bigint
            END,
            CASE WHEN grade_evidence.points_earned IS NOT NULL
-                     AND ple_private.student_assessment_score_is_released(
-                         score_policy.feedback_score,
-                         assessment_score_submission.submitted_at,
-                         score_policy.due_at, score_policy.closes_at, p_now
-                     )
+                     AND assessment_score_submission.submitted_at IS NOT NULL
                 THEN grade_evidence.points_earned ELSE NULL END,
            CASE WHEN grade_evidence.points_possible IS NOT NULL
-                     AND ple_private.student_assessment_score_is_released(
-                         score_policy.feedback_score,
-                         assessment_score_submission.submitted_at,
-                         score_policy.due_at, score_policy.closes_at, p_now
-                     )
+                     AND assessment_score_submission.submitted_at IS NOT NULL
                 THEN grade_evidence.points_possible ELSE NULL END,
            resumable.assessment_attempt_id,
            resumable.started_at,
@@ -170,7 +158,6 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
       LEFT JOIN LATERAL (
           SELECT candidate.course_instance_id, candidate.assessment_attempt_id, policy.assessment_title,
                  candidate.assessment_attempt_number,
-                 policy.feedback_score,
                  policy.assessment_attempt_time_limit_seconds,
                  policy.due_at, policy.closes_at
             FROM ple_private.assessment_attempt AS candidate

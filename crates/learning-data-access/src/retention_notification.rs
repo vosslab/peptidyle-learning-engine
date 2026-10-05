@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::StoreError;
 
-/// A database-verified Instructor delivery destination.  Only C847's claim
+/// A database-selected active-Instructor delivery destination. Only C847's claim
 /// procedure constructs this type; delivery code cannot substitute a raw
 /// recipient string.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +43,7 @@ impl VerifiedCourseRetentionNotificationDestination {
 
 /// One database-selected recipient and receipt lease for a retention notice.
 ///
-/// The destination is a verified Instructor delivery destination returned only
+/// The destination is an active-Instructor delivery destination returned only
 /// to the dedicated notifier capability; it is not an Account lookup result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedCourseRetentionNotification {

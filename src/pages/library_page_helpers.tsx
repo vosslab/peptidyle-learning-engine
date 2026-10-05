@@ -3,16 +3,10 @@
 import { Show, type JSX } from "solid-js";
 
 import { decodeQuestionId } from "../api/decoders/shared";
-import {
-  QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
-  type QuestionLibraryBrowseQuery,
-  type QuestionLibraryBrowseRow,
-} from "./library_page_model";
+import type { QuestionLibraryBrowseQuery, QuestionLibraryBrowseRow } from "./library_page_model";
 
-export function questionLink(row: QuestionLibraryBrowseRow, returnToken: string): string {
-  return `/library/${encodeURIComponent(row.displayId)}?${new URLSearchParams({
-    [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: returnToken,
-  }).toString()}`;
+export function questionLink(row: QuestionLibraryBrowseRow): string {
+  return `/library/${encodeURIComponent(row.displayId)}`;
 }
 
 export function questionTypeLabel(value: string): string {

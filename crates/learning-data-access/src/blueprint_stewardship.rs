@@ -2,7 +2,7 @@
 //!
 //! A Blueprint Course ID, rather than a Revision Tuple, is the
 //! durable identity. The closed store surface exposes only the caller's own
-//! Star and private Watch state, the approved Star aggregate, and the
+//! Star and private Watch state, the public Star aggregate, and the
 //! caller's own immutable Watch-event records.
 
 use async_trait::async_trait;
@@ -13,16 +13,16 @@ use crate::{SessionTokenHash, StoreError};
 /// Browser-safe Star facts for one Blueprint Course lineage.
 ///
 /// This deliberately has no endorser identity. C856 adds the separately
-/// authorized Verified Instructor Display Name projection.
+/// authorized active-Instructor display-name projection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BlueprintCourseStarProjection {
     pub viewer_has_starred: bool,
     pub star_count: u64,
 }
 
-/// One approved identity in the separately authorized Blueprint Star list.
+/// One public identity in the separately authorized Blueprint Star list.
 ///
-/// This intentionally carries only the immutable vetted display name. It is
+/// This intentionally carries only the active Instructor's display name. It is
 /// neither an Account/Profile projection nor a directory entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintCourseStarredInstructor {
@@ -71,7 +71,7 @@ pub trait BlueprintStewardshipStore: Send + Sync {
         starred: bool,
     ) -> Result<BlueprintCourseStarProjection, StoreError>;
 
-    /// Lists only active vetted Instructors' immutable display names for one
+    /// Lists only active Instructors' display names for one
     /// Public or Archived Blueprint Course. It returns no Account, email,
     /// avatar, Course, substitute identifier, Profile, or Watch fact.
     async fn blueprint_course_starred_instructors(

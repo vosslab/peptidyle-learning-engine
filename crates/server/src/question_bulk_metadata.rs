@@ -1,4 +1,4 @@
-//! Active-vetted-Instructor bulk shared-metadata command.
+//! Active-Instructor bulk shared-metadata command.
 //!
 //! The browser can replace or clear only shared search metadata on a bounded
 //! selection of Published Questions.  It cannot carry source, Revision,

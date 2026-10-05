@@ -94,7 +94,11 @@ export async function chooseSeededIdentity(page: Page, name: RegExp): Promise<vo
 
 export async function chooseSeededIdentityAtSignIn(page: Page, name: RegExp): Promise<void> {
   await expect(
-    page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "Sign in to Peptidyle Learning Engine",
+      exact: true,
+    }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: new RegExp(`Assume the role of .*${name.source}`, "i") })
@@ -162,7 +166,11 @@ export async function signOutVisible(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("menuitem", { name: "Sign Out", exact: true }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "Sign in to Peptidyle Learning Engine",
+      exact: true,
+    }),
   ).toBeVisible();
 }
 

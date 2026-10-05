@@ -9,6 +9,7 @@ import {
   decodeString,
 } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
+import { validateCanonicalPublicId } from "../../question_id";
 import type {
   QuestionPoolStarProjection,
   QuestionPoolStarredInstructor,
@@ -17,7 +18,10 @@ import type {
 
 function decodeStarredInstructor(value: unknown, path: string): QuestionPoolStarredInstructor {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["displayName"]);
+  requireOnlyFields(record, path, ["displayName", "accountId"]);
+  const accountId = field(record, "accountId", path);
+  if (typeof accountId !== "string" || validateCanonicalPublicId("account", accountId) === null)
+    throw new DecodeError(`${path}.accountId`, "a canonical Instructor Account ID");
   const displayName = decodeString(field(record, "displayName", path), `${path}.displayName`);
   // Canonical SQL btrim(text) strips ASCII spaces only. Preserve valid NBSP
   // and all other approved non-control Unicode scalars without normalization.
@@ -28,9 +32,9 @@ function decodeStarredInstructor(value: unknown, path: string): QuestionPoolStar
     /[\p{Cc}]/u.test(displayName) ||
     Array.from(displayName).length > 200
   ) {
-    throw new DecodeError(`${path}.displayName`, "one verified Instructor display name");
+    throw new DecodeError(`${path}.displayName`, "one Instructor display name");
   }
-  return { displayName };
+  return { displayName, accountId };
 }
 
 /** ASVS 15.3.1: reject substitute identities and every Watch field. */

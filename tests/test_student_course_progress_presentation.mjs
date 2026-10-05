@@ -31,7 +31,7 @@ test("Course Progress preserves Attempt activity and completion when the score i
     latestActivityAt: 1_786_000_000_000,
   });
 
-  assert.equal(studentAssessmentScoreStateLabel(assessment), "Score not released");
+  assert.equal(studentAssessmentScoreStateLabel(assessment), "Score pending");
   assert.equal(studentAssessmentActivityLabel(assessment), "Latest Attempt 2 in progress");
   assert.match(studentAssessmentScoreDescription(assessment), /1 submitted Attempt/);
   assert.equal(completedStudentAssessmentCount([assessment]), 1);

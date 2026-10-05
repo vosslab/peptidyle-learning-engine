@@ -20,6 +20,9 @@ ALTER TABLE ple_private.account_appearance FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.instructor_personal_theme ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.instructor_personal_theme FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE ple_private.instructor_profile ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.instructor_profile FORCE ROW LEVEL SECURITY;
+
 CREATE POLICY account_private_owner_access ON ple_private.account
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
@@ -35,6 +38,9 @@ CREATE POLICY account_appearance_private_owner_access ON ple_private.account_app
 CREATE POLICY instructor_personal_theme_private_owner_access ON ple_private.instructor_personal_theme
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
+CREATE POLICY instructor_profile_private_owner_access ON ple_private.instructor_profile
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+
 CREATE POLICY account_api_owner_access ON ple_private.account
     FOR SELECT TO ple_api_owner USING (true);
 
@@ -47,18 +53,8 @@ ALTER TABLE ple_audit.instructor_account_creation_event ENABLE ROW LEVEL SECURIT
 
 ALTER TABLE ple_audit.instructor_account_creation_event FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE ple_audit.instructor_identity_vetting_decision ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_audit.instructor_identity_vetting_decision FORCE ROW LEVEL SECURITY;
-
 CREATE POLICY instructor_account_creation_event_audit_owner_insert
     ON ple_audit.instructor_account_creation_event FOR INSERT TO ple_audit_owner WITH CHECK (true);
 
 CREATE POLICY instructor_account_creation_event_audit_owner_read
     ON ple_audit.instructor_account_creation_event FOR SELECT TO ple_audit_owner USING (true);
-
-CREATE POLICY instructor_identity_vetting_decision_audit_owner_insert
-    ON ple_audit.instructor_identity_vetting_decision FOR INSERT TO ple_audit_owner WITH CHECK (true);
-
-CREATE POLICY instructor_identity_vetting_decision_audit_owner_read
-    ON ple_audit.instructor_identity_vetting_decision FOR SELECT TO ple_audit_owner USING (true);

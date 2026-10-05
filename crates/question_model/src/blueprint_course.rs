@@ -176,6 +176,18 @@ pub struct BlueprintCourseSummaryView {
     pub total_adoptions: u64,
     /// Students counted once per adopted Course Instance, including ended memberships.
     pub total_students_ever_enrolled: u64,
+    /// Account ID of the Blueprint Course owner.
+    pub owner_account_id: crate::AccountId,
+    /// Public display name of the Blueprint Course owner. This is the public author.
+    pub owner_display_name: String,
+    /// Institution supplied for the Blueprint Course owner's public Profile.
+    pub owner_affiliation: String,
+    /// Visible Instructor Stars across this Blueprint Course lineage.
+    pub star_count: u64,
+    /// Watch subscriptions counted without exposing watcher identities.
+    pub watcher_count: u64,
+    /// The most recent content or metadata edit on this Blueprint Course lineage.
+    pub last_edited_at_millis: i64,
 }
 
 /// Safe current Blueprint Course View of one complete BlueprintCourse tree.
@@ -385,6 +397,7 @@ mod tests {
                 authorship: QuestionAuthorship::new(vec![QuestionAuthor {
                     display_name: QuestionAuthorDisplayName::new("Ada Lovelace".to_string())
                         .expect("valid Question Author"),
+                    account_id: None,
                 }])
                 .expect("valid Question Authorship"),
                 availability: QuestionAvailability::Available,

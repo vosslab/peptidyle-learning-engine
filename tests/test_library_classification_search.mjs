@@ -35,8 +35,6 @@ import {
   QuestionLibraryBrowseSession,
   decodeQuestionLibraryBrowsePage,
   normalizeQuestionLibraryBrowseQuery,
-  saveQuestionLibraryReturnState,
-  takeQuestionLibraryReturnState,
 } from "../src/pages/library_page_model.ts";
 import {
   FIRST_MY_QUESTIONS_POSITION,
@@ -424,7 +422,7 @@ test("Library malformed URL recovery removes only the rejected strict options", 
   assert.equal(recoveredBloom.tag, "review");
 });
 
-test("Library continuation, Retry and detail return preserve identity and sort", async () => {
+test("Library continuation and Retry preserve identity and sort", async () => {
   const requests = [];
   let failNext = true;
   const session = new QuestionLibraryBrowseSession(
@@ -473,13 +471,6 @@ test("Library continuation, Retry and detail return preserve identity and sort",
       ["Analyze", "Procedural Knowledge"],
     ],
   );
-  const scope = {};
-  const token = "00000000-0000-0000-0000-000000000099";
-  saveQuestionLibraryReturnState(scope, "search", token, query(), session.state, 224);
-  const returned = takeQuestionLibraryReturnState(scope, token);
-  assert.deepEqual(returned.query, query());
-  assert.equal(returned.scrollTop, 224);
-  assert.deepEqual(returned.browseState, session.state);
 });
 
 test("Bloom facet decoder requires all guide values in guide order, including zeros", () => {

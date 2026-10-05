@@ -1,19 +1,19 @@
-//! Connected GitHub-like Library stewardship through the shipped Watch inbox.
+//! Connected Library impact-notice delivery through the shipped Watch inbox.
 
 use learning_data_access::postgres::{
-    PostgresLibraryDiscussionStore, PostgresLibraryWatchNotificationStore,
+    PostgresLibraryImpactNoticeStore, PostgresLibraryWatchNotificationStore,
     PostgresQuestionWatchStore,
 };
 use learning_data_access::{
-    LibraryDiscussionStore, LibraryDiscussionTarget, LibraryWatchActivity, LibraryWatchInboxStore,
+    LibraryImpactNoticeStore, LibraryObjectTarget, LibraryWatchActivity, LibraryWatchInboxStore,
     QuestionWatchStore,
 };
 use question_model::LibraryObjectKind;
 
 use super::*;
 
-fn question_target() -> LibraryDiscussionTarget {
-    LibraryDiscussionTarget {
+fn question_target() -> LibraryObjectTarget {
+    LibraryObjectTarget {
         kind: LibraryObjectKind::Question,
         public_id: QUESTION.parse().expect("fixture Question ID"),
     }
@@ -32,31 +32,30 @@ async fn vet_seeded_instructor(admin: &sqlx::postgres::PgPool) {
     .fetch_one(&mut *transaction)
     .await
     .expect("vetting Sysadmin");
+    sqlx::query("INSERT INTO ple_private.instructor_profile (account_id, first_name, last_name, affiliation) VALUES ($1, 'Library', 'Instructor', 'Test University')")
+        .bind(instructor_account_id())
+        .execute(&mut *transaction)
+        .await
+        .expect("Instructor Profile");
     sqlx::query("SET LOCAL ROLE ple_audit_owner")
         .execute(&mut *transaction)
         .await
         .expect("vetting audit owner");
-    let decision_id: Uuid = sqlx::query_scalar(
-        "SELECT ple_audit.record_completed_instructor_identity_vetting_decision(\
-             'library-stewardship-instructor@example.test', 'Library Stewardship Instructor', $1)",
-    )
-    .bind(&sysadmin_id)
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("Instructor vetting decision");
-    sqlx::query("SELECT ple_audit.record_instructor_account_creation_event($1, $2, $3)")
+    sqlx::query("SELECT ple_audit.record_instructor_account_creation_event($1, $2)")
         .bind(instructor_account_id())
         .bind(&sysadmin_id)
-        .bind(decision_id)
         .execute(&mut *transaction)
         .await
         .expect("Instructor creation evidence");
-    transaction.commit().await.expect("vetting commit");
+    transaction
+        .commit()
+        .await
+        .expect("Instructor fixture commit");
 }
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance runtime"]
-async fn question_library_stewardship_delivers_threads_and_notices_to_a_watcher() {
+async fn question_library_impact_notice_reaches_a_watcher() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
     super::blueprint_course_postgres_support::seed_if_needed(&admin).await;
@@ -72,16 +71,8 @@ async fn question_library_stewardship_delivers_threads_and_notices_to_a_watcher(
         .expect("Question Watch");
     assert!(projection.watching);
 
-    let discussion = PostgresLibraryDiscussionStore::new(application.clone());
-    let thread_id = discussion
-        .create_improvement_thread(
-            token(),
-            &target,
-            "The prompt should name the enzyme and the inhibitor.",
-        )
-        .await
-        .expect("improvement thread");
-    let notice_id = discussion
+    let notices = PostgresLibraryImpactNoticeStore::new(application.clone());
+    let notice_id = notices
         .create_impact_notice(
             token(),
             &target,
@@ -90,37 +81,12 @@ async fn question_library_stewardship_delivers_threads_and_notices_to_a_watcher(
         )
         .await
         .expect("impact notice");
-    let view = discussion
-        .library_discussion_view(token(), &target)
-        .await
-        .expect("discussion view");
-    assert!(view.threads.iter().any(|thread| {
-        thread.thread_id == thread_id
-            && thread
-                .posts
-                .iter()
-                .any(|post| post.body == "The prompt should name the enzyme and the inhibitor.")
-    }));
-    assert!(view.impact_notices.iter().any(|notice| {
-        notice.impact_notice_id == notice_id
-            && notice.body == "Revision 1 uses an outdated inhibitor concentration."
-    }));
 
     let inbox = PostgresLibraryWatchNotificationStore::new(application);
     let notifications = inbox
         .library_watch_notifications(token(), 20)
         .await
         .expect("Watch inbox");
-    assert!(notifications.iter().any(|notification| {
-        notification.target_public_id == target.public_id
-            && matches!(
-                notification.activity,
-                LibraryWatchActivity::ImprovementThread {
-                    thread_id: delivered,
-                    ..
-                } if delivered == thread_id
-            )
-    }));
     assert!(notifications.iter().any(|notification| {
         notification.target_public_id == target.public_id
             && matches!(

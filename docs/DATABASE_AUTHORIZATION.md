@@ -48,12 +48,12 @@ compatibility workflow merely because job infrastructure exists.
   relationship.
 - A Blueprint Course's owner alone saves its content and changes its Private,
   Public, or Archived lifecycle state.
-- Vetted Instructors may discover Public Blueprints and may explicitly include
+- Active Instructors may discover Public Blueprints and may explicitly include
   Archived Blueprints in read-only discovery; Private is owner-only.
 - Current co-Instructors of a daughter Course decide whether to apply offered
   changes to its existing Assessments. Automatic creation of a newly added
   Blueprint Assessment does not grant the Blueprint owner Course access.
-- Any vetted Instructor may create a Blueprint Course Change Proposal; only
+- Any active Instructor may create a Blueprint Course Change Proposal; only
   the receiving Blueprint owner accepts changes into a new Revision.
 - A Sysadmin user role is not ambient Course membership or FERPA authority.
   Support access is deliberate, scoped, and recorded.

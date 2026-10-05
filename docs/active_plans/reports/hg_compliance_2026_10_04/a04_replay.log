@@ -1,0 +1,516 @@
+psql:/workspace/schemas/base_schema/00_roles.sql:230: WARNING:  no privileges were granted for "pg_catalog"
+psql:/workspace/schemas/base_schema/00_roles.sql:469: WARNING:  no privileges were granted for "ple_private"
+psql:/workspace/schemas/base_schema/40_indexes.sql:7: NOTICE:  identifier "instructor_personal_theme_account_id_instructor_user_role_fk_idx" will be truncated to "instructor_personal_theme_account_id_instructor_user_role_fk_id"
+psql:/workspace/schemas/base_schema/50_functions/blueprint_operations.sql:470: NOTICE:  function ple_api.list_blueprint_courses(pg_catalog.bool,pg_catalog.bool,pg_catalog.bool,text,text,pg_catalog.int8,text,text,pg_catalog.int4,uuid,uuid,uuid,uuid,pg_catalog.bool) does not exist, skipping
+psql:/workspace/schemas/base_schema/50_functions/blueprint_operations.sql:474: NOTICE:  function ple_api.list_blueprint_courses(pg_catalog.bool,pg_catalog.bool,pg_catalog.bool,text,text,pg_catalog.int8,text,text,pg_catalog.int4,uuid,uuid,uuid,uuid,pg_catalog.bool,text) does not exist, skipping
+psql:/workspace/schemas/base_schema/50_functions/corrections.sql:48: NOTICE:  identifier "forced_question_correction_assessment_attempt_target_is_immutable" will be truncated to "forced_question_correction_assessment_attempt_target_is_immutab"
+psql:/workspace/schemas/base_schema/60_policies/assessment_attempt_presentation.sql:25: NOTICE:  identifier "question_attempt_presentation_asset_binding_private_owner_access" will be truncated to "question_attempt_presentation_asset_binding_private_owner_acces"
+psql:/workspace/schemas/base_schema/60_policies/assessment_attempt_presentation.sql:27: NOTICE:  identifier "question_attempt_presentation_image_rendition_private_owner_access" will be truncated to "question_attempt_presentation_image_rendition_private_owner_acc"
+psql:/workspace/schemas/base_schema/70_grants/question_stewardship.sql:10: WARNING:  no privileges were granted for "account"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "tableoid" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "cmax" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "xmax" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "cmin" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "xmin" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "ctid" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "blueprint_course_fork_id" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "blueprint_course_id" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "source_blueprint_course_id" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "source_blueprint_revision_number" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "forked_at" of relation "blueprint_course_fork"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "tableoid" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "cmax" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "xmax" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "cmin" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "xmin" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "ctid" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "actor_account_id" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "request_checksum" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "blueprint_course_id" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "source_blueprint_course_id" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "source_blueprint_revision_number" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "blueprint_edit_number" of relation "blueprint_course_fork_receipt"
+psql:/workspace/schemas/base_schema/70_grants/blueprint_lineage.sql:22: WARNING:  no privileges could be revoked for column "accepted_at" of relation "blueprint_course_fork_receipt"
+schema install finished
+BEGIN
+SET CONSTRAINTS
+SET
+INSERT 0 3
+SET
+ record_instructor_account_creation_event 
+------------------------------------------
+ 
+(1 row)
+
+SET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+INSERT 0 1
+INSERT 0 1
+SET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+RESET
+SET
+INSERT 0 1
+SET
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+RESET
+ set_config 
+------------
+ released
+(1 row)
+
+ set_config 
+------------
+ saved
+(1 row)
+
+      set_config       
+-----------------------
+ {"choice": "bilayer"}
+(1 row)
+
+      set_config       
+-----------------------
+ {"choice": "bilayer"}
+(1 row)
+
+ set_config 
+------------
+ saved
+(1 row)
+
+        set_config         
+---------------------------
+ {"choice": "cholesterol"}
+(1 row)
+
+        set_config         
+---------------------------
+ {"choice": "cholesterol"}
+(1 row)
+
+ set_config 
+------------
+ true
+(1 row)
+
+ set_config 
+------------
+ expired
+(1 row)
+
+        set_config         
+---------------------------
+ {"choice": "cholesterol"}
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ true
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/01_saved_response_lifecycle.sql:262: NOTICE:  save_student_assessment_attempt_response replaced_open_response commit_student_assessment_attempt_finalization graded_without_instructor
+SET
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+SET
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+RESET
+SET
+INSERT 0 1
+INSERT 0 1
+SET
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+RESET
+ set_config 
+------------
+ saved
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ 0
+(1 row)
+
+ set_config 
+------------
+ 2
+(1 row)
+
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/01_saved_response_lifecycle.sql:390: NOTICE:  unanswered_question_omitted_from_backend_work
+COMMIT
+BEGIN
+SET
+INSERT 0 1
+SET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+ set_config 
+------------
+ UVSV0001C
+(1 row)
+
+ set_config 
+------------
+ BPVS00000W
+(1 row)
+
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/02_blueprint_visibility.sql:98: NOTICE:  visibility_does_not_grant_editing_authority
+COMMIT
+BEGIN
+SET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+RESET
+SET
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ SVQ1-7ABC
+(1 row)
+
+ set_config 
+------------
+ SVY1-WABC
+(1 row)
+
+DO
+RESET
+SET
+RESET
+SET
+ set_config 
+------------
+ SVP1-FABC
+(1 row)
+
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/03_course_pool_forks.sql:165: NOTICE:  pool_metadata_replacements_use_separate_advancing_token
+RESET
+SET
+RESET
+SET
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ CISV000007
+(1 row)
+
+ set_config 
+------------
+ ASVR0002E
+(1 row)
+
+ set_config 
+------------
+ SVR1-4XYZ
+(1 row)
+
+ set_config 
+------------
+ SVQ1-7ABC
+(1 row)
+
+ set_config 
+------------
+ SVP1-FABC
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ 2
+(1 row)
+
+ set_config 
+------------
+ SVQ2-6ABC
+(1 row)
+
+ set_config 
+------------
+ SVF1-8ABC
+(1 row)
+
+ set_config 
+------------
+ SVX1-DABC
+(1 row)
+
+                                                                                                                                                                                                                                                                                                                                                       set_config                                                                                                                                                                                                                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"due_at": null, "closes_at": null, "available_at": null, "feedback_hints": "never", "feedback_score": "after_submit", "late_work_rule": "reject", "assessment_title": "Course pool assessment", "assessment_instructions": "Instructions for the course pool assessment", "question_variation_rule": "new_variation", "assessment_attempt_limit": null, "feedback_question_answer": "never", "feedback_class_statistics": "never", "feedback_worked_solutions": "never", "feedback_submitted_response": "after_submit", "feedback_per_item_correctness": "after_submit", "assessment_question_order_rule": "shuffled", "feedback_question_answer_explanation": "never", "assessment_attempt_time_limit_seconds": null}
+(1 row)
+
+ set_config 
+------------
+ 1
+(1 row)
+
+ set_config 
+------------
+ ASVR0000F
+(1 row)
+
+DO
+RESET
+SET
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/03_course_pool_forks.sql:452: NOTICE:  course_instance_contains_only_published_questions_and_published_pools
+COMMIT
+BEGIN
+SET
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ BPVP00000T
+(1 row)
+
+ set_config 
+------------
+ SVR1-4XYZ
+(1 row)
+
+ set_config 
+------------
+ SVQ1-7ABC
+(1 row)
+
+ set_config 
+------------
+ SVP1-FABC
+(1 row)
+
+ set_config 
+------------
+ SVQ2-6ABC
+(1 row)
+
+ set_config 
+------------
+ SVB1-XABC
+(1 row)
+
+DO
+RESET
+SET
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/04_blueprint_pool_forks.sql:240: NOTICE:  blueprint_courses_contain_only_published_questions_and_published_pools
+COMMIT
+BEGIN
+SET
+INSERT 0 2
+SET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+RESET
+SET
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+ set_config 
+------------
+ USSV0001H
+(1 row)
+
+ set_config 
+------------
+ USSV00022
+(1 row)
+
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ CISV000007
+(1 row)
+
+ set_config 
+------------
+ CISV000016
+(1 row)
+
+ set_config 
+------------
+ ASVR0000F
+(1 row)
+
+              set_config              
+--------------------------------------
+ 73000000-0000-0000-0000-000000000001
+(1 row)
+
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/05_student_history_privacy.sql:190: NOTICE:  ferpa_access_follows_course_membership_and_student_ownership
+COMMIT
+BEGIN
+SET
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+ set_config 
+------------
+ USSV00009
+(1 row)
+
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+ set_config 
+------------
+ SVR1-4XYZ
+(1 row)
+
+ set_config 
+------------
+ SVP1-FABC
+(1 row)
+
+DO
+psql:/workspace/tests/e2e/assessment_saved_response/06_question_watch_access.sql:75: NOTICE:  students_and_anonymous_users_do_not_receive_instructor_identity_lists_or_watch_information
+COMMIT
+BEGIN
+SET CONSTRAINTS
+SET
+SET
+ set_config 
+------------
+ UVSV0000A
+(1 row)
+
+psql:/workspace/docs/active_plans/reports/hg_compliance_2026_10_04/a04_retired_pool_score_probe.sql:29: ERROR:  Assessment Release blocked: due_date_required
+CONTEXT:  PL/pgSQL function validate_assessment_release(text,timestamp with time zone,boolean) line 10 at RAISE
+SQL statement "SELECT ple_data.validate_assessment_release(
+        assessment_row.assessment_id, transaction_timestamp(), true
+    )"
+PL/pgSQL function ple_data.release_assessment(text,text,bigint) line 31 at PERFORM
+SQL function "release_assessment" statement 1

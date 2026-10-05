@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Permanent C853 acceptance: Question Star names are a narrow vetted-Instructor
+# Permanent C853 acceptance: Question Star names are a narrow active-Instructor
 # disclosure. A regression could expose an Account identity or let an anonymous,
 # Student, inactive, or non-Published caller discover Star activity. If this fails,
 # repair the authorization/projection boundary; do not weaken concealment or add
@@ -64,7 +64,7 @@ podman exec --env PGPASSWORD="$database_password" "$postgres_name" \
     -f /workspace/schemas/base_schema/install.sql >/dev/null
 
 # The Sysadmin, Student, and inactive Instructor are role fixtures. The sole
-# active Star actor is created through the C17/C18 HTTP vetting/account flow.
+# active Star actor is created through the ordinary Sysadmin Account setup flow.
 podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -c "
     SET ROLE ple_private_owner;
     INSERT INTO ple_private.account(account_id, user_role, created_at) VALUES
@@ -169,17 +169,14 @@ podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$databas
       ('00000000-0000-0000-0000-00000000c834', '00000000-0000-0000-0000-00000000c833', 'deactivated', clock_timestamp(), 'C853 isolated inactive fixture');
 " >/dev/null
 
-# C17: the Sysadmin independently vets an exact bounded display name.
+# Sysadmins provide the Account setup fields after outside vetting. PLE has no
+# vetting endpoint or approval status.
 email="c853-${$}@example.edu"
-vetted="$(request POST /api/instructor-identity-vetting-decisions "$sysadmin_cookie" "{\"normalizedEmail\":\"$email\",\"verifiedInstructorDisplayName\":\"C853 Verified Instructor\"}")"
-require_status "Instructor identity vetting" "$vetted" 201
-vetting_decision_id="$(python3 -c 'import json, re, sys; value=json.loads(sys.argv[1]); assert set(value)=={"vettingDecisionId"}; vetting_decision_id=value["vettingDecisionId"]; assert re.fullmatch(r"[0-9a-f-]{36}", vetting_decision_id); print(vetting_decision_id)' "$(body "$vetted")")"
-
-# C18: the vetted identity becomes the active Instructor Account that acts.
-created="$(request POST /api/instructor-accounts "$sysadmin_cookie" "{\"normalizedEmail\":\"$email\",\"vettingDecisionId\":\"$vetting_decision_id\"}")"
+active_instructor_name="C853 Active Instructor"
+created="$(request POST /api/instructor-accounts "$sysadmin_cookie" "{\"normalizedEmail\":\"$email\",\"firstName\":\"C853\",\"lastName\":\"Active Instructor\",\"affiliation\":\"PLE test\"}")"
 require_status "Instructor Account creation" "$created" 201
 active_account_id="$(podman exec "$postgres_name" psql -XAt -U postgres -d "$database" -c "SELECT account_id FROM ple_private.account_authentication_email WHERE normalized_email = '$email'")"
-[[ "$active_account_id" =~ ^[0-9a-f-]{36}$ ]] || fail "C18 did not create one Instructor Account"
+[[ "$active_account_id" =~ ^[0-9a-f-]{36}$ ]] || fail "Account setup did not create one Instructor Account"
 active_cookie="$(new_session "$active_account_id")"
 
 # The only Question fixtures are source state. The checksum-valid non-Published
@@ -205,12 +202,12 @@ podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$databas
 
 # C370 action must travel over authenticated HTTP; no SQL shortcut creates a Star.
 starred="$(request PUT "/api/questions/by-id/$published_question/stewardship/star" "$active_cookie" '{"starred":true}')"
-require_status "active vetted Instructor Star" "$starred" 200
-python3 -c 'import json, sys; value=json.loads(sys.argv[1]); expected={"starCount":1,"viewerHasStarred":True,"starredInstructors":[{"displayName":"C853 Verified Instructor"}]}; assert value == expected, value' "$(body "$starred")" || fail "Star action did not return the closed vetted-name projection"
+require_status "active Instructor Star" "$starred" 200
+python3 -c 'import json, sys; value=json.loads(sys.argv[1]); expected={"starCount":1,"viewerHasStarred":True,"starredInstructors":[{"displayName":sys.argv[2]}]}; assert value == expected, value' "$(body "$starred")" "$active_instructor_name" || fail "Star action did not return the closed active-Instructor name projection"
 
 visible="$(request GET "/api/questions/by-id/$published_question/stewardship/star" "$active_cookie")"
 require_status "active Instructor Star disclosure" "$visible" 200
-python3 -c 'import json, sys; value=json.loads(sys.argv[1]); expected={"starCount":1,"viewerHasStarred":True,"starredInstructors":[{"displayName":"C853 Verified Instructor"}]}; assert value == expected, value' "$(body "$visible")" || fail "Star disclosure was not the exact closed projection"
+python3 -c 'import json, sys; value=json.loads(sys.argv[1]); expected={"starCount":1,"viewerHasStarred":True,"starredInstructors":[{"displayName":sys.argv[2]}]}; assert value == expected, value' "$(body "$visible")" "$active_instructor_name" || fail "Star disclosure was not the exact closed projection"
 
 anonymous="$(request GET "/api/questions/by-id/$published_question/stewardship/star")"
 student="$(request GET "/api/questions/by-id/$published_question/stewardship/star" "$student_cookie")"

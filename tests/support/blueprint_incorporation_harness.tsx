@@ -39,7 +39,6 @@ let durationWorkspace = daughterWorkspace(false);
 
 function feedback(): LiveAssessmentWorkspace["studentFeedbackReleaseRule"] {
   return {
-    score: "after_submit",
     per_item_correctness: "after_submit",
     submitted_response: "after_submit",
     question_answer: "never",

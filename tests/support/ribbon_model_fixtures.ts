@@ -44,6 +44,7 @@ const CANONICAL_FIXTURE_PARAMS = {
   draftQuestionId: "0198e000-0000-7000-8000-000000000001",
   blueprintCourseId: "BP7K3M2QAF",
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
+  accountId: "U00000009",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const RIBBON_ROUTE_USER_ROLES = ["instructor", "student", "sysadmin"] as const;

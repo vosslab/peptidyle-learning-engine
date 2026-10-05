@@ -131,6 +131,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE entry_row record;
 DECLARE append_result record;
+DECLARE has_started_attempts boolean;
 BEGIN
     IF p_assessment_id IS NULL OR p_assessment_entry_id IS NULL
        OR p_expected_assessment_edit_number IS NULL OR p_expected_assessment_edit_number <= 0
@@ -172,10 +173,66 @@ BEGIN
      WHERE entry.assessment_entry_id = p_assessment_entry_id
        AND entry.assessment_id = p_assessment_id
        AND entry.entry_kind = 'question_pool'
-     FOR UPDATE OF entry, pool_entry;
+     FOR UPDATE OF entry, pool_entry, pool;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Question Pool member save is unavailable';
+    END IF;
+
+    -- ASVS 2.2.2, 2.3.3: the Assessment root lock above is shared with
+    -- Student Attempt start.  After any Question has been issued from this
+    -- Assessment, this fork may only drop members that have never been issued
+    -- anywhere in that Assessment.  It cannot add, replace, or reorder members.
+    has_started_attempts := ple_private.assessment_has_started_attempts(p_assessment_id);
+    IF has_started_attempts THEN
+        IF EXISTS (
+            SELECT 1
+              FROM unnest(p_member_question_ids, p_member_revision_numbers)
+                   AS requested(published_question_id, question_revision_number)
+              LEFT JOIN ple_data.question_pool_member AS current_member
+                ON current_member.question_pool_id = entry_row.question_pool_id
+               AND current_member.published_question_id = requested.published_question_id
+               AND current_member.question_revision_number = requested.question_revision_number
+             WHERE current_member.question_pool_id IS NULL
+        ) OR EXISTS (
+            SELECT 1
+              FROM (
+                  SELECT current_member.member_position,
+                         lag(current_member.member_position) OVER (
+                             ORDER BY requested.ordinality
+                         ) AS prior_member_position
+                    FROM unnest(p_member_question_ids, p_member_revision_numbers)
+                         WITH ORDINALITY AS requested(
+                             published_question_id, question_revision_number, ordinality
+                         )
+                    JOIN ple_data.question_pool_member AS current_member
+                      ON current_member.question_pool_id = entry_row.question_pool_id
+                     AND current_member.published_question_id = requested.published_question_id
+                     AND current_member.question_revision_number = requested.question_revision_number
+              ) AS ordered_member
+             WHERE ordered_member.prior_member_position >= ordered_member.member_position
+        ) THEN
+            RAISE EXCEPTION USING ERRCODE = '55000',
+                MESSAGE = 'Started Assessment Question Pools may only remove members';
+        END IF;
+        IF EXISTS (
+            SELECT 1
+              FROM ple_data.question_pool_member AS current_member
+             WHERE current_member.question_pool_id = entry_row.question_pool_id
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM unnest(p_member_question_ids, p_member_revision_numbers)
+                          AS requested(published_question_id, question_revision_number)
+                    WHERE requested.published_question_id = current_member.published_question_id
+                      AND requested.question_revision_number = current_member.question_revision_number
+               )
+               AND ple_private.assessment_question_has_been_issued(
+                   p_assessment_id, current_member.published_question_id
+               )
+        ) THEN
+            RAISE EXCEPTION USING ERRCODE = '55000',
+                MESSAGE = 'Started Assessment Question Pool members issued in this Assessment cannot be removed';
+        END IF;
     END IF;
     SELECT * INTO append_result FROM ple_data.save_question_pool_members(
         entry_row.question_pool_id, p_expected_question_pool_edit_number,

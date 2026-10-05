@@ -153,7 +153,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Instructor Account list is invalid';
     END IF;
-    -- The match may use the authentication email or vetted display name.
+    -- The match may use the authentication email or Profile display name.
     -- Neither value is selected into this browser-safe summary. ASVS 8.2.3.
     -- A page asks for one extra row so the caller can see that another page exists.
     RETURN QUERY
@@ -176,7 +176,7 @@ BEGIN
             )
             OR strpos(
                 lower(COALESCE(
-                    ple_private.verified_instructor_display_name(account.account_id), ''
+                    ple_private.instructor_display_name(account.account_id), ''
                 )),
                 lower(v_query)
             ) > 0
@@ -212,6 +212,33 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT avatar.avatar_kind, avatar.provided_avatar_id, avatar.profile_image_id
       FROM ple_private.account_avatar AS avatar
      WHERE avatar.account_id = ple_api.current_session_account_id()
+$$;
+
+-- The only cross-Account Profile projection. Any active signed-in Account may
+-- read an active Instructor's name and avatar choice. It exposes no email,
+-- Account settings, Course relationship, or Student data. ASVS 8.2.1--8.3.1.
+CREATE FUNCTION ple_api.read_instructor_profile(p_instructor_account_id text)
+RETURNS TABLE(display_name text, avatar_kind text, provided_avatar_id text, profile_image_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+    SELECT ple_private.instructor_display_name(target.account_id),
+           avatar.avatar_kind, avatar.provided_avatar_id, avatar.profile_image_id
+      FROM ple_private.account AS viewer
+      JOIN LATERAL (
+          SELECT event.state FROM ple_private.account_state_event AS event
+           WHERE event.account_id = viewer.account_id
+           ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
+      ) AS viewer_state ON viewer_state.state = 'active'
+      JOIN ple_private.account AS target
+        ON target.account_id = p_instructor_account_id AND target.user_role = 'instructor'
+      JOIN LATERAL (
+          SELECT event.state FROM ple_private.account_state_event AS event
+           WHERE event.account_id = target.account_id
+           ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
+      ) AS target_state ON target_state.state = 'active'
+      LEFT JOIN ple_private.account_avatar AS avatar ON avatar.account_id = target.account_id
+     WHERE viewer.account_id = ple_api.current_session_account_id()
 $$;
 
 CREATE FUNCTION ple_api.select_provided_account_avatar(p_provided_avatar_id text)
@@ -262,7 +289,7 @@ BEGIN
             (profile_image_work_id, account_id, profile_image_id, object_delivery_id,
              object_record_id, operation_kind, state, created_at)
         VALUES (gen_random_uuid(), v_account_id, old_profile_image_id,
-            old_delivery_id, old_object_id, 'delete', 'pending', clock_timestamp())
+            old_delivery_id, old_object_id, 'delete', 'pending', transaction_timestamp())
         ON CONFLICT (profile_image_id, operation_kind) DO NOTHING;
     END IF;
     FOR completed_work IN
@@ -277,7 +304,7 @@ BEGIN
              object_record_id, operation_kind, state, created_at)
         VALUES (gen_random_uuid(), v_account_id, completed_work.profile_image_id,
             completed_work.object_delivery_id, completed_work.object_record_id, 'delete',
-            'pending', clock_timestamp())
+            'pending', transaction_timestamp())
         ON CONFLICT (profile_image_id, operation_kind) DO NOTHING;
     END LOOP;
     RETURN true;
@@ -295,15 +322,15 @@ BEGIN
        OR p_profile_image_id IS NULL OR p_object_record_id IS NULL OR p_sha256 IS NULL
        OR octet_length(p_sha256) <> 32 OR p_byte_length NOT BETWEEN 1 AND 2097152 THEN RETURN; END IF;
     INSERT INTO ple_private.object_record (object_record_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at)
-    VALUES (p_object_record_id, expected_address, 'private-content', 'profile-image', p_sha256, p_byte_length, 'image/webp', clock_timestamp()) ON CONFLICT DO NOTHING;
+    VALUES (p_object_record_id, expected_address, 'private-content', 'profile-image', p_sha256, p_byte_length, 'image/webp', transaction_timestamp()) ON CONFLICT DO NOTHING;
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record WHERE record.object_record_id = p_object_record_id
         AND record.object_address = expected_address AND record.object_storage_area = 'private-content' AND record.object_data_class = 'profile-image'
         AND record.sha256 = p_sha256 AND record.size_bytes = p_byte_length AND record.media_type = 'image/webp') THEN RETURN; END IF;
     INSERT INTO ple_data.object_delivery (object_delivery_id, object_record_id, sha256, media_type, byte_length, delivery_state, registered_at)
-    VALUES (v_delivery_id, p_object_record_id, p_sha256, 'image/webp', p_byte_length, 'pending', clock_timestamp());
+    VALUES (v_delivery_id, p_object_record_id, p_sha256, 'image/webp', p_byte_length, 'pending', transaction_timestamp());
     INSERT INTO ple_data.profile_image_delivery VALUES (v_delivery_id, p_object_record_id, p_profile_image_id);
     INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at)
-    VALUES (v_work_id, v_account_id, p_profile_image_id, v_delivery_id, p_object_record_id, 'put', 'pending', clock_timestamp());
+    VALUES (v_work_id, v_account_id, p_profile_image_id, v_delivery_id, p_object_record_id, 'put', 'pending', transaction_timestamp());
     work_id := v_work_id;
     profile_image_id := p_profile_image_id;
     object_record_id := p_object_record_id;
@@ -333,7 +360,7 @@ BEGIN
   WHERE existing.profile_image_id = put_work.profile_image_id AND existing.operation_kind = 'delete'; IF FOUND THEN RETURN NEXT; RETURN; END IF;
  delete_work_id := gen_random_uuid(); profile_image_id := put_work.profile_image_id; object_record_id := put_work.object_record_id;
  INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at)
- VALUES (delete_work_id, put_work.account_id, put_work.profile_image_id, put_work.object_delivery_id, put_work.object_record_id, 'delete', 'pending', clock_timestamp()); RETURN NEXT;
+ VALUES (delete_work_id, put_work.account_id, put_work.profile_image_id, put_work.object_delivery_id, put_work.object_record_id, 'delete', 'pending', transaction_timestamp()); RETURN NEXT;
 EXCEPTION WHEN unique_violation THEN SELECT existing.profile_image_work_id, existing.profile_image_id, existing.object_record_id INTO delete_work_id, profile_image_id, object_record_id FROM ple_private.profile_image_work existing WHERE existing.profile_image_id = put_work.profile_image_id AND existing.operation_kind = 'delete'; IF FOUND THEN RETURN NEXT; END IF;
 END $$;
 
@@ -372,10 +399,34 @@ BEGIN
  UPDATE ple_private.profile_image_work SET state = 'finalized', completed_at = clock_timestamp() WHERE profile_image_work_id = work.profile_image_work_id;
  INSERT INTO ple_private.account_avatar (account_id, avatar_kind, profile_image_id, profile_image_delivery_id) VALUES (work.account_id, 'profile-image', work.profile_image_id, work.object_delivery_id) ON CONFLICT (account_id) DO UPDATE SET avatar_kind = EXCLUDED.avatar_kind, provided_avatar_id = NULL, profile_image_id = EXCLUDED.profile_image_id, profile_image_delivery_id = EXCLUDED.profile_image_delivery_id;
  UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE object_delivery_id = work.object_delivery_id;
- IF old_delivery IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id = old_delivery; SELECT delivery.object_record_id INTO old_object FROM ple_data.object_delivery AS delivery WHERE delivery.object_delivery_id = old_delivery; retired_delete_work_id := gen_random_uuid(); retired_profile_image_id := old_image; retired_object_id := old_object; INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at) VALUES (retired_delete_work_id, work.account_id, old_image, old_delivery, old_object, 'delete', 'pending', clock_timestamp()); END IF;
+ IF old_delivery IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id = old_delivery; SELECT delivery.object_record_id INTO old_object FROM ple_data.object_delivery AS delivery WHERE delivery.object_delivery_id = old_delivery; retired_delete_work_id := gen_random_uuid(); retired_profile_image_id := old_image; retired_object_id := old_object; INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at) VALUES (retired_delete_work_id, work.account_id, old_image, old_delivery, old_object, 'delete', 'pending', transaction_timestamp()); END IF;
  profile_image_id := work.profile_image_id; object_record_id := work.object_record_id; RETURN NEXT;
 END $$;
 
 CREATE FUNCTION ple_api.resolve_current_account_profile_image(p_profile_image_id uuid) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
  SELECT delivery.object_record_id FROM ple_private.account_avatar avatar JOIN ple_data.object_delivery delivery ON delivery.object_delivery_id = avatar.profile_image_delivery_id WHERE avatar.profile_image_id = p_profile_image_id AND avatar.account_id = ple_api.current_session_account_id() AND avatar.avatar_kind = 'profile-image' AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) AND delivery.delivery_state = 'available'
+$$;
+
+-- A Profile image follows its active Instructor Profile visibility. The
+-- database derives the viewer from the installed session; an image identifier
+-- alone is never sufficient. ASVS 8.2.2 and 8.3.1.
+CREATE FUNCTION ple_api.resolve_instructor_profile_image(p_profile_image_id uuid) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+ SELECT delivery.object_record_id
+   FROM ple_private.account AS viewer
+   JOIN LATERAL (
+       SELECT event.state FROM ple_private.account_state_event AS event
+        WHERE event.account_id = viewer.account_id
+        ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
+   ) AS viewer_state ON viewer_state.state = 'active'
+   JOIN ple_private.account_avatar AS avatar
+     ON avatar.avatar_kind = 'profile-image' AND avatar.profile_image_id = p_profile_image_id
+   JOIN ple_private.account AS target
+     ON target.account_id = avatar.account_id AND target.user_role = 'instructor'
+   JOIN LATERAL (
+       SELECT event.state FROM ple_private.account_state_event AS event
+        WHERE event.account_id = target.account_id
+        ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
+   ) AS target_state ON target_state.state = 'active'
+   JOIN ple_data.object_delivery AS delivery ON delivery.object_delivery_id = avatar.profile_image_delivery_id
+  WHERE viewer.account_id = ple_api.current_session_account_id() AND delivery.delivery_state = 'available'
 $$;

@@ -8,9 +8,9 @@ are in [ROADMAP.md](ROADMAP.md).
 
 ## Future product capabilities
 
-- [ ] Build email-code authentication and the Gmail API Email Delivery Backend
-      as the complete challenge, Store, Server, operator credential, abuse-control,
-      session, browser, and connected-delivery capability specified in
+- [ ] Configure an external email provider and verify inbox delivery for the
+      implemented SMTP email-code sign-in path. The optional Gmail API adapter
+      remains future work under
       [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md).
 - [ ] Replace each BiologyProblems.org WeBWorK static expansion with its one
       canonical algorithmic PG/PGML source and one Published Question lineage. Verify

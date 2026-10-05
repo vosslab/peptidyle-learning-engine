@@ -182,7 +182,6 @@ SELECT jsonb_build_object(
     'late_work_rule', snapshot.late_work_rule::text,
     'question_variation_rule', snapshot.question_variation_rule::text,
     'assessment_question_order_rule', snapshot.assessment_question_order_rule::text,
-    'feedback_score', snapshot.feedback_score::text,
     'feedback_per_item_correctness', snapshot.feedback_per_item_correctness::text,
     'feedback_submitted_response', snapshot.feedback_submitted_response::text,
     'feedback_question_answer', snapshot.feedback_question_answer::text,

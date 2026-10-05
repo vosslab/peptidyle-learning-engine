@@ -191,7 +191,6 @@ AS $$
                 END
             ),
             'student_feedback_release_rule', jsonb_build_object(
-                'score', policy.feedback_score,
                 'per_item_correctness', policy.feedback_per_item_correctness,
                 'submitted_response', policy.feedback_submitted_response,
                 'question_answer', policy.feedback_question_answer,

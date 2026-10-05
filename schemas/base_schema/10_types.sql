@@ -30,7 +30,8 @@ CREATE TYPE ple_data.selected_question_order AS ENUM (
     'question_pool_order', 'random_order'
 );
 CREATE TYPE ple_data.feedback_release AS ENUM (
-    'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
+    'during_attempt', 'after_submit', 'after_due', 'after_close',
+    'after_all_students_complete', 'never'
 );
 CREATE TYPE ple_data.scoring_rule AS ENUM (
     'normal', 'full_credit', 'extra_credit', 'excluded'
@@ -55,7 +56,7 @@ CREATE TYPE ple_data.library_object_kind AS ENUM (
     'question', 'question_pool'
 );
 CREATE TYPE ple_data.library_watch_event_kind AS ENUM (
-    'revision', 'members_changed', 'fork', 'improvement_thread', 'impact_notice'
+    'revision', 'members_changed', 'fork', 'impact_notice'
 );
 CREATE TYPE ple_data.media_type AS ENUM (
     'image/png', 'image/jpeg', 'image/webp'
@@ -109,9 +110,6 @@ CREATE TYPE ple_data.license_spdx AS ENUM (
 );
 CREATE TYPE ple_data.correction_reason AS ENUM (
     'critical_correctness_flaw', 'security_flaw'
-);
-CREATE TYPE ple_data.thread_state AS ENUM (
-    'open', 'resolved'
 );
 CREATE TYPE ple_data.notice_state AS ENUM (
     'active', 'cancelled'
@@ -228,7 +226,6 @@ GRANT USAGE ON TYPE
     ple_data.public_id_object_kind,
     ple_data.license_spdx,
     ple_data.correction_reason,
-    ple_data.thread_state,
     ple_data.notice_state,
     ple_data.delivery_state,
     ple_data.cleanup_disposition,

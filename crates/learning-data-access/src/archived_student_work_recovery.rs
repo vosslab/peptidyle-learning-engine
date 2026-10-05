@@ -93,7 +93,6 @@ pub(crate) struct AttemptFacts {
     late_work_rule: String,
     question_variation_rule: String,
     assessment_question_order_rule: String,
-    feedback_score: String,
     feedback_per_item_correctness: String,
     feedback_submitted_response: String,
     feedback_question_answer: String,

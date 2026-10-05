@@ -1,4 +1,4 @@
-//! Vetted-Instructor Pool endorsements and actor-private Watch state.
+//! Active-Instructor Pool endorsements and actor-private Watch state.
 //! Watch notifications are a separate capability, not delivered by these routes.
 
 use std::sync::Arc;
@@ -29,7 +29,7 @@ struct RouteState {
     stewardship: PostgresQuestionPoolStewardshipStore,
 }
 
-/// Registers closed own-state commands and public vetted-name endorsements.
+/// Registers closed own-state commands and public display-name endorsements.
 pub fn question_pool_stewardship_router(
     sessions: Arc<PostgresSessionStore>,
     stewardship: PostgresQuestionPoolStewardshipStore,
@@ -74,9 +74,11 @@ struct StarResponse {
 #[serde(rename_all = "camelCase")]
 struct StarredInstructorResponse {
     display_name: String,
+    account_id: String,
 }
 
-// ASVS 8.2.3 and 15.3.1: no Account, email, Profile, or other-actor Watch data.
+// The canonical Account ID only locates the ordinary signed-in Profile. The
+// response has no email, Watch data, Course data, or Student data.
 #[derive(Serialize)]
 struct WatchResponse {
     watching: bool,
@@ -92,6 +94,7 @@ impl From<QuestionPoolStarProjection> for StarResponse {
                 .into_iter()
                 .map(|instructor| StarredInstructorResponse {
                     display_name: instructor.display_name,
+                    account_id: instructor.account_id.to_string(),
                 })
                 .collect(),
         }
@@ -245,7 +248,7 @@ async fn instructor_session_hash(
     .await
     {
         // ASVS 8.2.1 and 8.3.1: actor is session-derived; SQL independently
-        // rechecks active Instructor status and immutable completed vetting.
+        // rechecks active Instructor status and the required Profile display name.
         Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(

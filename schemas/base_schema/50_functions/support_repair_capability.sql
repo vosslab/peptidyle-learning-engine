@@ -338,7 +338,7 @@ BEGIN
            COALESCE((
                SELECT array_agg(named.display_name ORDER BY named.display_name)
                  FROM (
-                     SELECT DISTINCT ple_private.verified_instructor_display_name(
+                     SELECT DISTINCT ple_private.instructor_display_name(
                                 membership.account_id::text
                             ) AS display_name
                        FROM ple_data.course_membership AS membership

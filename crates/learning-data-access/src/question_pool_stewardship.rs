@@ -1,9 +1,9 @@
 //! Stable published Pool Stars and actor-private Watches.
 use crate::{SessionTokenHash, StoreError};
 use async_trait::async_trait;
-use question_model::QuestionPoolId;
+use question_model::{AccountId, QuestionPoolId};
 
-/// Approved public endorsement facts, with no Account/Profile or Watch fields.
+/// Public endorsement facts, with no Watch fields.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionPoolStarProjection {
     pub viewer_has_starred: bool,
@@ -11,10 +11,11 @@ pub struct QuestionPoolStarProjection {
     pub starred_instructors: Vec<QuestionPoolStarredInstructor>,
 }
 
-/// The immutable vetted public name, not an Account identifier.
+/// An active Instructor's public Profile identity in a Star list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionPoolStarredInstructor {
     pub display_name: String,
+    pub account_id: AccountId,
 }
 
 /// Subscription state for the authenticated actor only.

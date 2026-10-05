@@ -96,6 +96,18 @@ fn valid_cursor(key: &BlueprintCourseListCursorPosition, sort: BlueprintCourseLi
         | (
             BlueprintCourseListSort::Students,
             BlueprintCourseListCursorPosition::Students { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::Stars,
+            BlueprintCourseListCursorPosition::Stars { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::Watches,
+            BlueprintCourseListCursorPosition::Watches { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::RecentEdits,
+            BlueprintCourseListCursorPosition::RecentEdits { long_name, .. },
         ) => long_name.chars().count() <= 500 && count_fits_postgres(key),
         _ => false,
     }
@@ -104,7 +116,10 @@ fn valid_cursor(key: &BlueprintCourseListCursorPosition, sort: BlueprintCourseLi
 fn count_fits_postgres(key: &BlueprintCourseListCursorPosition) -> bool {
     match key {
         BlueprintCourseListCursorPosition::Adoptions { count, .. }
-        | BlueprintCourseListCursorPosition::Students { count, .. } => *count <= i64::MAX as u64,
+        | BlueprintCourseListCursorPosition::Students { count, .. }
+        | BlueprintCourseListCursorPosition::Stars { count, .. }
+        | BlueprintCourseListCursorPosition::Watches { count, .. } => *count <= i64::MAX as u64,
+        BlueprintCourseListCursorPosition::RecentEdits { .. } => true,
         BlueprintCourseListCursorPosition::Name { .. } => true,
     }
 }
@@ -112,9 +127,14 @@ fn count_fits_postgres(key: &BlueprintCourseListCursorPosition) -> bool {
 fn after_count(after: Option<&BlueprintCourseListCursorPosition>) -> Option<i64> {
     match after {
         Some(BlueprintCourseListCursorPosition::Adoptions { count, .. })
-        | Some(BlueprintCourseListCursorPosition::Students { count, .. }) => {
+        | Some(BlueprintCourseListCursorPosition::Students { count, .. })
+        | Some(BlueprintCourseListCursorPosition::Stars { count, .. })
+        | Some(BlueprintCourseListCursorPosition::Watches { count, .. }) => {
             i64::try_from(*count).ok()
         }
+        Some(BlueprintCourseListCursorPosition::RecentEdits {
+            edited_at_millis, ..
+        }) => Some(*edited_at_millis),
         Some(BlueprintCourseListCursorPosition::Name { .. }) | None => None,
     }
 }
@@ -123,7 +143,10 @@ fn after_name(after: Option<&BlueprintCourseListCursorPosition>) -> Option<&str>
     match after {
         Some(BlueprintCourseListCursorPosition::Name { long_name, .. })
         | Some(BlueprintCourseListCursorPosition::Adoptions { long_name, .. })
-        | Some(BlueprintCourseListCursorPosition::Students { long_name, .. }) => Some(long_name),
+        | Some(BlueprintCourseListCursorPosition::Students { long_name, .. })
+        | Some(BlueprintCourseListCursorPosition::Stars { long_name, .. })
+        | Some(BlueprintCourseListCursorPosition::Watches { long_name, .. })
+        | Some(BlueprintCourseListCursorPosition::RecentEdits { long_name, .. }) => Some(long_name),
         None => None,
     }
 }
@@ -139,6 +162,18 @@ fn after_id(after: Option<&BlueprintCourseListCursorPosition>) -> Option<String>
             ..
         })
         | Some(BlueprintCourseListCursorPosition::Students {
+            blueprint_course_id,
+            ..
+        })
+        | Some(BlueprintCourseListCursorPosition::Stars {
+            blueprint_course_id,
+            ..
+        })
+        | Some(BlueprintCourseListCursorPosition::Watches {
+            blueprint_course_id,
+            ..
+        })
+        | Some(BlueprintCourseListCursorPosition::RecentEdits {
             blueprint_course_id,
             ..
         }) => Some(blueprint_course_id.as_string()),
@@ -162,6 +197,21 @@ fn cursor_position(
         },
         BlueprintCourseListSort::Students => BlueprintCourseListCursorPosition::Students {
             count: record.total_students_ever_enrolled,
+            long_name: record.long_name.clone(),
+            blueprint_course_id: record.id.clone(),
+        },
+        BlueprintCourseListSort::Stars => BlueprintCourseListCursorPosition::Stars {
+            count: record.star_count,
+            long_name: record.long_name.clone(),
+            blueprint_course_id: record.id.clone(),
+        },
+        BlueprintCourseListSort::Watches => BlueprintCourseListCursorPosition::Watches {
+            count: record.watcher_count,
+            long_name: record.long_name.clone(),
+            blueprint_course_id: record.id.clone(),
+        },
+        BlueprintCourseListSort::RecentEdits => BlueprintCourseListCursorPosition::RecentEdits {
+            edited_at_millis: record.last_edited_at_millis,
             long_name: record.long_name.clone(),
             blueprint_course_id: record.id.clone(),
         },

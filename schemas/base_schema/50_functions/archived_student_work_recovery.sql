@@ -24,7 +24,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                'late_work_rule', policy.late_work_rule,
                'question_variation_rule', policy.question_variation_rule,
                'assessment_question_order_rule', policy.assessment_question_order_rule,
-               'feedback_score', policy.feedback_score,
                'feedback_per_item_correctness', policy.feedback_per_item_correctness,
                'feedback_submitted_response', policy.feedback_submitted_response,
                'feedback_question_answer', policy.feedback_question_answer,

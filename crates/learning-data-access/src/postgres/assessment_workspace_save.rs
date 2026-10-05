@@ -13,9 +13,9 @@ use crate::{SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInput, StoreError};
 #[rustfmt::skip]
 fn activity_rule_values(r: &AssessmentActivityRules) -> [&'static str; 2] { [match r.question_variation_rule { AssessmentQuestionVariationRule::ReuseVariation => "reuse_variation", AssessmentQuestionVariationRule::NewVariation => "new_variation" }, match r.assessment_question_order_rule { AssessmentQuestionOrderRule::AuthoredOrder => "authored_order", AssessmentQuestionOrderRule::Shuffled => "shuffled" }] }
 #[rustfmt::skip]
-fn feedback_rule_values(r: &StudentFeedbackReleaseRule) -> [&'static str; 8] { [feedback_value(r.score), feedback_value(r.per_item_correctness), feedback_value(r.submitted_response), feedback_value(r.question_answer), feedback_value(r.question_answer_explanation), feedback_value(r.class_statistics), feedback_value(r.hints), feedback_value(r.worked_solutions)] }
+fn feedback_rule_values(r: &StudentFeedbackReleaseRule) -> [&'static str; 7] { [feedback_value(r.per_item_correctness), feedback_value(r.submitted_response), feedback_value(r.question_answer), feedback_value(r.question_answer_explanation), feedback_value(r.class_statistics), feedback_value(r.hints), feedback_value(r.worked_solutions)] }
 #[rustfmt::skip]
-fn feedback_value(v: StudentFeedbackReleaseTiming) -> &'static str { match v { StudentFeedbackReleaseTiming::DuringAttempt => "during_attempt", StudentFeedbackReleaseTiming::AfterSubmit => "after_submit", StudentFeedbackReleaseTiming::AfterDue => "after_due", StudentFeedbackReleaseTiming::AfterClose => "after_close", StudentFeedbackReleaseTiming::Never => "never" } }
+fn feedback_value(v: StudentFeedbackReleaseTiming) -> &'static str { match v { StudentFeedbackReleaseTiming::DuringAttempt => "during_attempt", StudentFeedbackReleaseTiming::AfterSubmit => "after_submit", StudentFeedbackReleaseTiming::AfterDue => "after_due", StudentFeedbackReleaseTiming::AfterClose => "after_close", StudentFeedbackReleaseTiming::AfterAllStudentsComplete => "after_all_students_complete", StudentFeedbackReleaseTiming::Never => "never" } }
 
 #[rustfmt::skip]
 pub(super) fn assessment_values_json(input: &SaveLiveAssessmentInput) -> Result<Value, StoreError> {
@@ -26,7 +26,7 @@ pub(super) fn assessment_values_json(input: &SaveLiveAssessmentInput) -> Result<
         "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
         "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
         "question_variation_rule": activity[0], "assessment_question_order_rule": activity[1],
-        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_answer": feedback[3], "feedback_question_answer_explanation": feedback[4], "feedback_class_statistics": feedback[5], "feedback_hints": feedback[6], "feedback_worked_solutions": feedback[7]
+        "feedback_per_item_correctness": feedback[0], "feedback_submitted_response": feedback[1], "feedback_question_answer": feedback[2], "feedback_question_answer_explanation": feedback[3], "feedback_class_statistics": feedback[4], "feedback_hints": feedback[5], "feedback_worked_solutions": feedback[6]
     }))
 }
 
@@ -38,7 +38,7 @@ pub(super) fn base_assessment_policy_values_json(input: &SaveBaseAssessmentPolic
         "assessment_instructions": input.instructions.as_str(), "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
         "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
         "question_variation_rule": activity[0], "assessment_question_order_rule": activity[1],
-        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_answer": feedback[3], "feedback_question_answer_explanation": feedback[4], "feedback_class_statistics": feedback[5], "feedback_hints": feedback[6], "feedback_worked_solutions": feedback[7]
+        "feedback_per_item_correctness": feedback[0], "feedback_submitted_response": feedback[1], "feedback_question_answer": feedback[2], "feedback_question_answer_explanation": feedback[3], "feedback_class_statistics": feedback[4], "feedback_hints": feedback[5], "feedback_worked_solutions": feedback[6]
     })
 }
 

@@ -20,7 +20,6 @@ DECLARE
             'assessmentQuestionOrderRule', 'shuffled'
         ),
         'student_feedback_release_rule', jsonb_build_object(
-            'score', 'after_submit',
             'per_item_correctness', 'after_submit',
             'submitted_response', 'after_submit',
             'question_answer', 'never',

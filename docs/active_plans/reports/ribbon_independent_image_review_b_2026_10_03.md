@@ -40,7 +40,7 @@ than a palette exception.
 
 ## Criterion-specific findings
 
-### Ribbon continuity and selected-tab silhouette — fail for the stated design intent
+### Ribbon continuity and selected-tab silhouette - fail for the stated design intent
 
 The colored bars themselves are continuous, but the selected tabs do not yet convincingly read as
 tabs grown from them. In `theme_sample-arctic-light.webp`, `theme_sample-magma-dark.webp`, and
@@ -58,7 +58,7 @@ lacks a shared-color join or square corners. A clearer shared surface or unbroke
 the content region would make the intended join more legible; changing the color alone will not
 solve that silhouette problem.
 
-### Selection at a glance — pass, with a narrow-width reservation
+### Selection at a glance - pass, with a narrow-width reservation
 
 At desktop width, the selected Tier 1 destination is immediate: `Courses`, `Questions`, and
 `Assessments` are consistently isolated by a change of fill and position. Tier 2 selection is
@@ -75,7 +75,7 @@ into a viewport crop rather than a deliberately compact mobile header. Treat thi
 production-component concern to verify in a live narrow route, not proof of a production defect
 from the harness alone.
 
-### Hierarchy, rhythm, and visual weight — needs refinement
+### Hierarchy, rhythm, and visual weight - needs refinement
 
 The page typography is strong: headings, all-caps eyebrow labels, links, controls, and tables
 form a stable teaching-workflow hierarchy. The roster and gradebook are particularly successful:
@@ -92,7 +92,7 @@ course-list page also leaves a large unstructured right and lower field; that am
 than causes, the header's dominance. This is a whole-composition concern, not a request to add
 decorative cards or fill the space.
 
-### Theme character and consistency — pass
+### Theme character and consistency - pass
 
 The Theme samples are disciplined. Arctic/ocean/sea-floor remain cool, Desert/Magma remain warm,
 Grass/Forest/Wetland remain biological, and Tundra/Underground stay subdued without requiring a

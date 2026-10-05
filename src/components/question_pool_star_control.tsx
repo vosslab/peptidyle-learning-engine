@@ -1,11 +1,11 @@
-// Closed Star control and vetted-name list for one Published Question Pool.
+// Closed Star control and display-name list for one Published Question Pool.
 
 import { createResource, createSignal, Show, type JSX } from "solid-js";
 
 import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import { useApplicationApi } from "../api/application_api";
 import type { QuestionPoolStarredInstructor } from "../api/question_pool_stewardship";
-import { RecordList } from "./record_list/record_list";
+import { InstructorProfileLink } from "./instructor_profile_link";
 import "./question_pool_star_control.css";
 
 export interface QuestionPoolStarControlProps {
@@ -16,33 +16,30 @@ export interface QuestionPoolStarredInstructorListProps {
   readonly instructors: ReadonlyArray<QuestionPoolStarredInstructor>;
 }
 
-/** Plain-text presentation for the exact vetted names already authorized by the server. */
+/** Instructor-only Star list with links to active Instructors' public Profiles. */
 export function QuestionPoolStarredInstructorList(
   props: QuestionPoolStarredInstructorListProps,
 ): JSX.Element {
   return (
     <section aria-label="Instructors who starred this Question Pool">
       <h2>Starred by</h2>
-      <RecordList
-        ariaLabel="Instructors who starred this Question Pool"
-        emptyState={{ title: "No Instructors have starred this Question Pool." }}
-        recordId={(instructor) => instructor.displayName}
-        content={(instructor) => ({
-          title: instructor.displayName,
-          details: [],
-          actions: [],
-        })}
-        rows={props.instructors}
-        state={{ kind: "ready" }}
-      />
+      <ul>
+        {props.instructors.map((instructor) => (
+          <li>
+            <InstructorProfileLink
+              accountId={instructor.accountId}
+              displayName={instructor.displayName}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
 /**
- * Renders only the exact verified Instructor display names supplied by the
- * Pool Star endpoint. Names intentionally remain plain text: there is no
- * client lookup, Profile link, avatar, or substitute identity.
+ * Renders active Instructor identities supplied by the Instructor-only Star
+ * endpoint, linking each displayed name to the public Profile surface.
  */
 export function QuestionPoolStarControl(props: QuestionPoolStarControlProps): JSX.Element {
   const applicationApi = useApplicationApi();

@@ -215,7 +215,7 @@ CREATE TABLE ple_data.question_fork_source (
 -- A Star is a present, public-in-principle endorsement of a Published
 -- Question lineage.  It intentionally has no revision key: the endorsement
 -- belongs to the Question across its immutable Revisions.  C370 owns the
--- application persistence adapter and C371 owns the vetted-Instructor count
+-- application persistence adapter and C371 owns the active-Instructor count
 -- and identity projection; this table is not itself a browser projection.
 CREATE TABLE ple_data.question_star (
     published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),

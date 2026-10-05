@@ -1,14 +1,12 @@
 // Strict browser boundary for the deliberately small Instructor Accounts DTO.
-
 import type { AccountId } from "../../../generated/api/AccountId";
 import type {
-  CompleteInstructorIdentityVettingInput,
+  CreatedInstructorAccount,
   CreateInstructorAccountInput,
   DeactivateInstructorAccountInput,
   InstructorAccountList,
   InstructorAccountState,
   InstructorAccountSummary,
-  InstructorIdentityVettingReceipt,
 } from "../instructor_account";
 import { PROVIDED_AVATAR_CATALOG } from "../../features/profile_avatar/avatar_catalog_generated.ts";
 import {
@@ -21,62 +19,42 @@ import {
   decodeString,
 } from "../decoder.ts";
 import { validateCanonicalPublicId } from "../../question_id.ts";
-
 const MAX_REASON_LENGTH = 1_000;
-const VETTING_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-
 function field(record: Record<string, unknown>, key: string, path: string): unknown {
   return decodeField(record, key, path);
 }
-
-function requireOnlyFields(
-  record: Record<string, unknown>,
-  path: string,
-  allowed: ReadonlyArray<string>,
-): void {
-  for (const key of Object.keys(record)) {
-    if (!allowed.includes(key)) {
+function only(record: Record<string, unknown>, path: string, allowed: ReadonlyArray<string>): void {
+  for (const key of Object.keys(record))
+    if (!allowed.includes(key))
       throw new DecodeError(`${path}.${key}`, "a field allowed by this response contract");
-    }
-  }
 }
-
-/** The Sysadmin-only Account ID is opaque, not a public route identity. */
 export function isCanonicalAccountId(value: string): value is AccountId {
   return validateCanonicalPublicId("account", value) !== null;
 }
-
 function accountId(value: unknown, path: string): AccountId {
   const decoded = decodeString(value, path);
-  if (!isCanonicalAccountId(decoded)) {
+  if (!isCanonicalAccountId(decoded))
     throw new DecodeError(path, "a canonical Instructor Account ID");
-  }
   return decoded;
 }
-
-function accountState(value: unknown, path: string): InstructorAccountState {
+function state(value: unknown, path: string): InstructorAccountState {
   const decoded = decodeString(value, path);
-  if (decoded !== "active" && decoded !== "deactivated" && decoded !== "closed") {
+  if (decoded !== "active" && decoded !== "deactivated" && decoded !== "closed")
     throw new DecodeError(path, "a current Instructor Account State");
-  }
   return decoded;
 }
-
-function providedAvatarId(value: unknown, path: string): string {
+function avatar(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (!PROVIDED_AVATAR_CATALOG.some((entry) => entry.id === decoded)) {
+  if (!PROVIDED_AVATAR_CATALOG.some((entry) => entry.id === decoded))
     throw new DecodeError(path, "a generated provided avatar id");
-  }
   return decoded;
 }
-
 function summary(value: unknown, path: string): InstructorAccountSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "state", "lastSuccessfulSignIn", "providedAvatarId"]);
+  only(record, path, ["id", "state", "lastSuccessfulSignIn", "providedAvatarId"]);
   return {
     id: accountId(field(record, "id", path), `${path}.id`),
-    state: accountState(field(record, "state", path), `${path}.state`),
+    state: state(field(record, "state", path), `${path}.state`),
     lastSuccessfulSignIn: decodeNullable(
       field(record, "lastSuccessfulSignIn", path),
       `${path}.lastSuccessfulSignIn`,
@@ -85,16 +63,14 @@ function summary(value: unknown, path: string): InstructorAccountSummary {
     providedAvatarId: decodeNullable(
       field(record, "providedAvatarId", path),
       `${path}.providedAvatarId`,
-      providedAvatarId,
+      avatar,
     ),
   };
 }
-
-function displayTimeZone(value: unknown, path: string): string {
+function zone(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (decoded.length === 0 || decoded.length > 100) {
+  if (!decoded.length || decoded.length > 100)
     throw new DecodeError(path, "a bounded IANA display time zone");
-  }
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: decoded });
   } catch {
@@ -102,93 +78,49 @@ function displayTimeZone(value: unknown, path: string): string {
   }
   return decoded;
 }
-
-/** Rejects extra fields, including accidental Authentication Email disclosure. */
 export function decodeInstructorAccountList(
   value: unknown,
   path = "response",
 ): InstructorAccountList {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["accounts", "displayTimeZone", "nextCursor"]);
+  only(record, path, ["accounts", "displayTimeZone", "nextCursor"]);
   return {
     accounts: decodeArray(field(record, "accounts", path), `${path}.accounts`, summary),
-    displayTimeZone: displayTimeZone(
-      field(record, "displayTimeZone", path),
-      `${path}.displayTimeZone`,
-    ),
+    displayTimeZone: zone(field(record, "displayTimeZone", path), `${path}.displayTimeZone`),
     nextCursor: decodeNullable(field(record, "nextCursor", path), `${path}.nextCursor`, accountId),
   };
 }
-
 export function decodeInstructorAccount(
   value: unknown,
   path = "response",
 ): InstructorAccountSummary {
   return summary(value, path);
 }
-
-/** Receipts remain opaque so the browser cannot use the audit ID as identity. */
-export function decodeInstructorIdentityVettingReceipt(
-  value: unknown,
-  path = "response",
-): InstructorIdentityVettingReceipt {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["vettingDecisionId"]);
-  const vettingDecisionId = decodeString(
-    field(record, "vettingDecisionId", path),
-    `${path}.vettingDecisionId`,
-  );
-  if (!VETTING_ID_PATTERN.test(vettingDecisionId)) {
-    throw new DecodeError(`${path}.vettingDecisionId`, "an opaque vetting decision receipt");
-  }
-  return { vettingDecisionId };
-}
-
-export function decodeCompleteInstructorIdentityVettingInput(
-  value: unknown,
-  path = "request",
-): CompleteInstructorIdentityVettingInput {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["normalizedEmail", "verifiedInstructorDisplayName"]);
-  const normalizedEmail = decodeString(
-    field(record, "normalizedEmail", path),
-    `${path}.normalizedEmail`,
-  );
-  const verifiedInstructorDisplayName = decodeString(
-    field(record, "verifiedInstructorDisplayName", path),
-    `${path}.verifiedInstructorDisplayName`,
-  );
+function text(
+  record: Record<string, unknown>,
+  path: string,
+  key: "firstName" | "lastName" | "affiliation",
+  maximum: number,
+): string {
+  const value = decodeString(field(record, key, path), `${path}.${key}`);
   if (
-    normalizedEmail.length < 3 ||
-    normalizedEmail.length > 320 ||
-    normalizedEmail !== normalizedEmail.trim().toLowerCase()
-  ) {
+    !value.length ||
+    value !== value.trim() ||
+    [...value].length > maximum ||
+    /[\p{Cc}]/u.test(value)
+  )
     throw new DecodeError(
-      `${path}.normalizedEmail`,
-      "a trimmed lowercase normalized email within its bound",
+      `${path}.${key}`,
+      "a trimmed, control-free Instructor setup field within its bound",
     );
-  }
-  if (
-    verifiedInstructorDisplayName !== verifiedInstructorDisplayName.trim() ||
-    ![...verifiedInstructorDisplayName].length ||
-    [...verifiedInstructorDisplayName].length > 200 ||
-    /[\p{Cc}]/u.test(verifiedInstructorDisplayName)
-  ) {
-    throw new DecodeError(
-      `${path}.verifiedInstructorDisplayName`,
-      "a trimmed, control-free verified Instructor display name within its bound",
-    );
-  }
-  return { normalizedEmail, verifiedInstructorDisplayName };
+  return value;
 }
-
-/** Normalization is intentional; the server remains the final email-policy authority. */
 export function decodeCreateInstructorAccountInput(
   value: unknown,
   path = "request",
 ): CreateInstructorAccountInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["normalizedEmail", "vettingDecisionId"]);
+  only(record, path, ["normalizedEmail", "firstName", "lastName", "affiliation"]);
   const normalizedEmail = decodeString(
     field(record, "normalizedEmail", path),
     `${path}.normalizedEmail`,
@@ -197,31 +129,45 @@ export function decodeCreateInstructorAccountInput(
     normalizedEmail.length < 3 ||
     normalizedEmail.length > 320 ||
     normalizedEmail !== normalizedEmail.trim().toLowerCase()
-  ) {
+  )
     throw new DecodeError(
       `${path}.normalizedEmail`,
       "a trimmed lowercase normalized email within its bound",
     );
-  }
-  const vettingDecisionId = decodeString(
-    field(record, "vettingDecisionId", path),
-    `${path}.vettingDecisionId`,
-  );
-  if (!VETTING_ID_PATTERN.test(vettingDecisionId)) {
-    throw new DecodeError(`${path}.vettingDecisionId`, "an opaque vetting decision receipt");
-  }
-  return { normalizedEmail, vettingDecisionId };
+  return {
+    normalizedEmail,
+    firstName: text(record, path, "firstName", 100),
+    lastName: text(record, path, "lastName", 100),
+    affiliation: text(record, path, "affiliation", 300),
+  };
 }
-
+export function decodeCreatedInstructorAccount(
+  value: unknown,
+  path = "response",
+): CreatedInstructorAccount {
+  const record = decodeRecord(value, path);
+  only(record, path, ["account", "setupEmailSent"]);
+  const setupEmailSent = field(record, "setupEmailSent", path);
+  if (typeof setupEmailSent !== "boolean")
+    throw new DecodeError(`${path}.setupEmailSent`, "a setup-email delivery result");
+  return { account: summary(field(record, "account", path), `${path}.account`), setupEmailSent };
+}
+export function decodeInstructorSetupEmailResponse(value: unknown, path = "response"): boolean {
+  const record = decodeRecord(value, path);
+  only(record, path, ["setupEmailSent"]);
+  const sent = field(record, "setupEmailSent", path);
+  if (typeof sent !== "boolean")
+    throw new DecodeError(`${path}.setupEmailSent`, "a setup-email delivery result");
+  return sent;
+}
 export function decodeDeactivateInstructorAccountInput(
   value: unknown,
   path = "request",
 ): DeactivateInstructorAccountInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reason"]);
+  only(record, path, ["reason"]);
   const reason = decodeString(field(record, "reason", path), `${path}.reason`);
-  if (reason.length === 0 || reason.length > MAX_REASON_LENGTH || reason !== reason.trim()) {
+  if (reason.length === 0 || reason.length > MAX_REASON_LENGTH || reason !== reason.trim())
     throw new DecodeError(`${path}.reason`, "a trimmed deactivation reason within its bound");
-  }
   return { reason };
 }

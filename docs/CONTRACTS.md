@@ -8,6 +8,10 @@ authority. Generic teaching objects are Assessments. Assignment appears only in
 the three Assessment Type names. Blueprint lifecycle states are Private, Public,
 and Archived.
 
+The October 4 HG interview corrections below describe required behavior. Their
+linked implementation paths have not been revalidated against those corrections;
+production reconciliation remains follow-up to the interview.
+
 ## Contract rule
 
 A change to a published contract updates its owning implementation, direct
@@ -95,6 +99,16 @@ TOTP management or recovery.
 
 ## Accounts and profiles
 
+Much of the Sysadmin functionality beyond Instructor Account creation is deferred
+until a concrete need is established. Existing implementation detail does not
+establish that need or make further support workflows current requirements.
+
+All Instructors have equal standing within PLE. Vetting happens before Account
+creation outside PLE; there is no Verified Instructor role or verification tier.
+Sysadmins enter email, first and last name, and affiliation, and PLE sends setup
+email. Existing verification-specific code is implementation to reconcile, not
+an additional requirement for Instructor capabilities.
+
 PLE-provided avatars are a versioned first-party static catalog. The canonical
 source-controlled `assets/avatar_catalog/` holds the manifest, original SVGs,
 and `PROVENANCE`; a deterministic generator derives the Rust registry,
@@ -119,8 +133,9 @@ under `PYTEST_STYLE.md`. A retained retired-ID renderable/not-selectable test
 protects the durable catalog contract; its failure means repair the generator,
 seed, or authorization boundary before closure.
 
-Staff cross-Account Profile-image delivery is an explicit unresolved product
-question. Self-only delivery is the default. C40 owns the provided-avatar
+Instructor Profiles and their images are visible to everyone with a PLE Account.
+Profile images have no separate permissions mechanism. Self-owned editing does
+not restrict viewing to the owner. C40 owns the provided-avatar
 catalog and reusable picker contributor. C819 owns role-neutral Profile
 Settings authorization; C820 owns the real `/profile` route and page
 integration. The catalog and picker may be completed before those routes, but
@@ -165,19 +180,19 @@ credential and does not bypass MFA.
 | Boundary                       | Current contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Owner and evidence                                                                                                                                                                                                      |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Question lineage and revision  | A Published Question is one stable lineage. A `PublishedQuestionRevisionTuple` is its `PublishedQuestionId` plus immutable positive revision number. Publication creates complete immutable Question Revision facts, including source, provenance, license, and required metadata. A later publication appends a revision; it does not alter an earlier one. A fork publication derives and preserves the exact source Revision license rather than accepting a replacement. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [question_lineages.sql](../schemas/base_schema/50_functions/question_lineages.sql), [question_publication_operations.sql](../schemas/base_schema/50_functions/question_publication_operations.sql) |
-| Question discovery             | A Published Question is discoverable and selectable by vetted Instructors. Archive hides it from ordinary discovery and new selection while authorized exact Revision Tuples continue to resolve. Current implementation may call the discoverable state `Available`; that name is not a separate product object or Revision state. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_lineages.sql](../schemas/base_schema/50_functions/question_lineages.sql) |
+| Question discovery             | A Published Question is discoverable and selectable by Instructors. Archive hides it from ordinary discovery and new selection while authorized exact Revision Tuples continue to resolve. Current implementation may call the discoverable state `Available`; that name is not a separate product object or Revision state. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_lineages.sql](../schemas/base_schema/50_functions/question_lineages.sql) |
 | Question ID                    | `XXXX-ZXXX` is the canonical Question ID value at every persisted and transmitted boundary. Its hyphen makes the value immediately recognizable as a Question ID. Human entry may omit that hyphen and use the closed Crockford aliases before canonicalization, syntax validation, checksum validation, and lookup. Seven identity characters come from a cryptographically secure server source and the first character after the hyphen is the embedded public SHA-256 checksum character. Global public-ID registry reservation is the identity boundary. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md)                            |
 | Question Pool                  | A reusable Published Pool has one server-minted public ID. Membership is current state on an Edit Number, not a Pool Revision family. A change compare-and-swaps that Edit Number. Pool membership is backend neutral. Each Assessment-owned Pool entry/fork has one positive `selection_count` and copies current members once. Student Work pins Question ID, Question Revision, Pool ID, and Pool Edit Number. | [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql), [assessments.sql](../schemas/base_schema/50_functions/assessments.sql), [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) |
-| Bulk Published Question metadata | An active vetted Instructor may atomically replace only the current shared `tags`, `subject`, and `topic` for a bounded nonempty distinct set of canonical Published Question IDs. Every selected ID supplies its exact metadata Edit Number; stale, invalid, unauthorized, unavailable, duplicate, or oversized selection changes none and produces only a whole outcome. First publication seeds tags once from validated native `PLE authoring`/`Pilot` source tags or an empty WebWork list; thereafter tags are database-owned current metadata, and a successor preserves an intentional clear. Source, answer, grading, feedback, assets, backend, Question Type, authorship, ownership, availability, and immutable Question Revisions are excluded. | C365-C368 and C893 in the active [Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md) |
+| Bulk Published Question metadata | An active Instructor may atomically replace current Tags, Discipline, Subject, Topic, and Subtopic, preserving required classification for a bounded nonempty distinct set of canonical Published Question IDs. Every selected ID supplies its exact metadata Edit Number; stale, invalid, unauthorized, unavailable, duplicate, or oversized selection changes none and produces only a whole outcome. First publication seeds tags once from validated native `PLE authoring`/`Pilot` source tags or an empty WebWork list; thereafter tags are database-owned current metadata, and a successor preserves an intentional clear. Source, answer, grading, feedback, assets, backend, Question Type, authorship, ownership, availability, and immutable Question Revisions are excluded. | C365-C368 and C893 in the active [Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md) |
 | Discipline lifecycle | A Discipline has one stable UUID. Sysadmins create, rename, retire, and restore it; there is no delete transition. Retirement removes it from new choices while existing exact references remain visible and discoverable with retired status. Copy and inheritance may retain an exact referenced retired Discipline, while new use requires an active row. Shared row locks serialize retirement against concurrent new use. | [content_classification_operations.sql](../schemas/base_schema/50_functions/content_classification_operations.sql), [content_classification.rs](../crates/server/src/content_classification.rs), [content_disciplines_page.tsx](../src/pages/content_disciplines_page.tsx) |
-| Library improvement activity | Active vetted Instructors may create and reply to retained text-only improvement threads on an available Question or Pool and edit only their own posts. Question owners and Sysadmins may resolve or reopen Question threads and manage Question impact notices; Pool administration is Sysadmin-only. Records remain after resolution or cancellation. Sysadmins read Library content without ordinary Instructor mutation controls and use the same retained activity view for administration. This source boundary is distinct from private Watch delivery, whose four-event acceptance remains open. | [library_discussions.sql](../schemas/base_schema/60_policies/library_discussions.sql), [library_discussion_operations.sql](../schemas/base_schema/50_functions/library_discussion_operations.sql), [library_discussion.rs](../crates/server/src/library_discussion.rs), [library_discussion_panel.tsx](../src/components/library_discussion_panel.tsx) |
+| Content stewardship | PLE is not an online forum. Sysadmins should be reluctant to intervene in content. Question owner revisions and forks and Blueprint Course Change Proposals follow HG. The former retained-thread and Sysadmin-only Pool moderation rules are withdrawn; existing discussion code requires review against the intended Change Proposal workflow. | [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-stewardship-specifications), [interview follow-up](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md) |
 | BiologyProblems.org algorithmic catalog | Each BiologyProblems.org WeBWorK family records one canonical algorithmic author source (official PG/PGML or generator), produces exactly one canonical algorithmic PG/PGML file and ordinary Published Question lineage, and replaces its generated static variants. Algorithmic Questions ordinarily stand alone, but an Instructor may deliberately Pool distinct similar algorithms when selection is useful; Pool selection and backend-native variation remain independent. Only after per-family source acceptance, representative deterministic render/grade proof, and expected-current Blueprint Revision CAS may current placements change. A later Pool membership edit removes redundant generated variants while intentional distinct-algorithm Pools remain. Replaced static Question lineages, redundant Pool lineages, and generated source copies retire only through this forward path. Exact immutable Question Revisions, Blueprint pins, Pool IDs, Pool Edit Numbers, and Student Work remain resolvable; no history is deleted, repurposed, or raw-SQL-rewritten. The shipped 119 static banks remain unmigrated; the manifest's 13 algorithmic-source definitions, including HLA, are migration inputs, not runtime proof. | C824-C841 in the active [Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md); future bundled content manifest, Question publication, Pool, and Blueprint publication boundaries |
 | Blueprint lineage and revision | A Blueprint Course is a stable reusable lineage created Private with Revision 1. A `BlueprintRevisionTuple` names one exact immutable Revision; a changed explicit Save based on its current Revision creates the next one, while a canonical no-op returns the current Revision with `changed: false`. Blueprint Assessment provenance retains that exact Revision and the stable Blueprint Assessment ID when Course state derives from reusable content. | [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs), [blueprints.sql](../schemas/base_schema/50_functions/blueprints.sql)                                                                                 |
 
 Blueprint Courses use Private, Public, and Archived lifecycle states. Private is
 owner-only and cannot be adopted. Public is shared and adoptable; only a Public
 Blueprint with no adoptions may return to Private. Archived remains visible to
-vetted Instructors through explicit historical discovery, can be forked, and
+Instructors through explicit historical discovery, can be forked, and
 cannot be adopted. The owner can restore it to Public. Short name, long name,
 and lifecycle state are current lineage metadata and never create a Revision.
 
@@ -212,8 +227,8 @@ through the normal update workflow.
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Course Instance                | A Course Instance starts empty or adopts an exact Public Blueprint Revision, atomically creating every Assessment with its Questions, pools, and reusable settings, fresh identities, Unreleased state, and unset dates. It owns deliberately entered names, Course Term dates, equal co-Instructor memberships, roster, and delivery state; it always has at least one assigned Instructor. Course Term is current Course state, not a Revision. | [course_term.rs](../crates/question_model/src/course_term.rs), [course_core.sql](../schemas/base_schema/50_functions/course_core.sql), [course_operations.sql](../schemas/base_schema/50_functions/course_operations.sql) |
 | Assessment                     | An Assessment is one stable current aggregate under a Course Instance. Its positive Assessment Edit Number is the strong HTTP `If-Match` encoding for save, Assessment Properties save, release, and Unrelease. It owns current title, instructions, dates, settings, ordered Questions, and Question Pools. Every Question and Pool item pins an exact Question Revision; a newer Question Revision never advances it. | [edit_number.rs](../crates/question_model/src/assessment/edit_number.rs), [assessment.rs](../crates/question_model/src/assessment.rs), [assessments.sql](../schemas/base_schema/50_functions/assessments.sql) |
-| Assessment release and editing | Release is a current state transition, returning the current Assessment and new quoted Assessment Edit Number. A released Assessment save uses the same Assessment Edit Number contract and is accepted only when the resulting current state passes release validation. Accepted edits affect future Attempts; prior Student Work keeps its retained facts. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), [assessment_operations.sql](../schemas/base_schema/50_functions/assessment_operations.sql) |
-| Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent Blueprint Revision Tuple and Assessment Edit Number CAS. It preserves local dates, status, origin, and existing Student Work; equivalent content is a no-op and changed Pools receive fresh owned forks. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
+| Assessment release and editing | Release and saves use the current Assessment Edit Number and release validation. After issue, content edits follow HG: point changes, reordering, removal of Pool members never issued to any Student in that Assessment, and whole-Pool removal. Removing a Pool excludes its earned and possible points from every Attempt; point changes recalculate existing scores. Standalone Question removal remains tentative. Retained responses and issued Question evidence survive these edits. Unrelease deletes Student Work and permits normal editing before a new validated release. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), [assessment_operations.sql](../schemas/base_schema/50_functions/assessment_operations.sql) |
+| Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent Blueprint Revision Tuple and Assessment Edit Number CAS. Applying changes must respect the same post-issue Assessment content limits as direct edits. It preserves local dates, status, origin, and existing Student Work; equivalent content is a no-op and changed Pools receive fresh owned forks. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
 | Assessment Unrelease           | An authorized Teaching Team member supplies the exact Assessment Edit Number and title confirmation. The database locks the Assessment, confirms Released status, changes it to Unreleased, and permanently deletes its Student Work. Shared Questions, current Assessment state, and Course membership survive. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [unrelease.sql](../schemas/base_schema/50_functions/unrelease.sql) |
 
 **Create Blueprint from Course Instance** creates a distinct actor-owned Private
@@ -232,24 +247,30 @@ repository's non-enumerating response policy.
 
 ### Scoped support authority
 
-Only a current active Instructor membership for the exact Course may issue a
-time-scoped repair capability to a named Sysadmin. The implemented classes are one Student roster profile, one Course Instance, and
-one Course Assessment. The capability records its issuer, recipient, exact resource
-path, purpose, expiry, revocation, and each use. Use rechecks that authority and
-never creates Instructor membership or a broader record grant. The Course read
-returns Course identity, term, activity, retention state, and Instructor display
-names. The content read returns the Assessment identity, type, title, and status.
-Neither read returns Student records, Question answers, or Assessment instructions.
+A Sysadmin initiates a support repair under their own administrative authority;
+an Instructor does not issue permission or a capability first. Access remains
+limited to the support task and its use is recorded, as HG requires. Support
+does not create Instructor membership or change Course teaching authority.
+
+The existing Instructor-issued support-capability API and implementation need
+reconciliation with this rule. Their grant, recipient, and approval mechanics
+are not the target product contract. This documentation correction does not
+claim that the running authorization path has changed. Unproven Sysadmin
+workflows remain deferred; this authority rule is not a requirement to build
+a replacement support system now.
 
 ## Student Work and assessment evidence
 
 An Assessment Attempt is one independent Student Work occurrence. At start it
-retains the effective Assessment title, instructions, settings, feedback rule,
+retains the effective Assessment title, instructions, settings,
 and qualified sources for any accommodation-adjusted schedule or limits.
 Resume, response interpretation, history, disclosure, and statistics read that
 retained evidence with issued-work evidence; a later Assessment save does not
-replace it. Score calculation is the explicit exception: it combines stored
-credit fractions with current Assessment Question point values.
+replace it. Score calculation uses stored credit fractions and current Assessment Question
+point values, excluding removed entries from both earned and possible points.
+Correct-answer visibility follows the Instructor-selected setting, including
+later changes permitted by HG. Optional Question Feedback timing is deferred;
+retained implementation fields do not settle that product decision.
 
 Each Issued Question retains its Assessment position, exact
 Question Revision, point and scoring facts, statistics
@@ -309,7 +330,10 @@ Repeated finalization is idempotent, and a late payload cannot replace accepted
 or saved work.
 
 Score reads calculate each Attempt from current Assessment Question point
-values and use the highest submitted Assessment Attempt score. PLE has no
+values and use the highest submitted Assessment Attempt score. Question scores
+and the Assessment total are visible once submitted and automatically graded,
+without withholding, a separate posting step, or waiting for other Students.
+Correct-answer visibility remains separately controlled. PLE has no
 separate Question weights, Grade Categories, Course Grade Scheme, or Course
 percentage calculation. Pilot grade export is CSV or TSV point data. The current Course
 co-Instructor downloads the same authorized Gradebook projection through the fixed seven-column

@@ -50,10 +50,7 @@ BEGIN
                policy.assessment_title,
                attempt.assessment_attempt_number,
                attempt.started_at,
-               submission.submitted_at,
-               policy.feedback_score,
-               policy.due_at,
-               policy.closes_at
+               submission.submitted_at
           FROM ple_private.assessment_attempt AS attempt
           JOIN ple_data.assessment AS assessment
             ON assessment.course_instance_id = attempt.course_instance_id
@@ -78,9 +75,6 @@ BEGIN
                page.assessment_attempt_number,
                page.started_at,
                page.submitted_at,
-               page.feedback_score,
-               page.due_at,
-               page.closes_at,
                score.is_complete,
                score.points_earned,
                score.points_possible
@@ -110,14 +104,8 @@ BEGIN
                   ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
                 CROSS JOIN LATERAL ple_private.score_recorded_credit(
                     result.normalized_credit, snapshot.scoring_rule,
-                    coalesce(
-                        (SELECT question.points_possible
-                           FROM ple_data.assessment_entry_question AS question
-                          WHERE question.assessment_entry_id = issued.assessment_entry_id),
-                        (SELECT pool.points_per_item
-                           FROM ple_data.assessment_entry_pool AS pool
-                          WHERE pool.assessment_entry_id = issued.assessment_entry_id),
-                        snapshot.points
+                    ple_private.current_assessment_entry_points(
+                        issued.assessment_entry_id, snapshot.points
                     )
                 ) AS credit
                WHERE issued.course_instance_id = page.course_instance_id
@@ -136,17 +124,11 @@ BEGIN
                 ELSE floor(extract(epoch FROM evidence.submitted_at) * 1000)::bigint END,
            CASE WHEN evidence.submitted_at IS NOT NULL
                      AND evidence.is_complete
-                     AND ple_private.student_assessment_score_is_released(
-                         evidence.feedback_score, evidence.submitted_at,
-                         evidence.due_at, evidence.closes_at, v_now
-                     )
+                     AND evidence.submitted_at IS NOT NULL
                 THEN evidence.points_earned::double precision END,
            CASE WHEN evidence.submitted_at IS NOT NULL
                      AND evidence.is_complete
-                     AND ple_private.student_assessment_score_is_released(
-                         evidence.feedback_score, evidence.submitted_at,
-                         evidence.due_at, evidence.closes_at, v_now
-                     )
+                     AND evidence.submitted_at IS NOT NULL
                 THEN evidence.points_possible::double precision END
      FROM attempt_evidence AS evidence
      ORDER BY evidence.started_at DESC, evidence.assessment_attempt_id DESC;

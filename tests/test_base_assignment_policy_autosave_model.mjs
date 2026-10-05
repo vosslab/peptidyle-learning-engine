@@ -25,7 +25,6 @@ const draft = {
     assessmentQuestionOrderRule: "authoredOrder",
   },
   studentFeedbackReleaseRule: {
-    score: "afterSubmit",
     per_item_correctness: "afterSubmit",
     submitted_response: "afterSubmit",
     question_answer: "afterSubmit",

@@ -61,9 +61,7 @@ function attemptHistoryContent(
   }
 
   const score =
-    attempt.submittedAt === undefined
-      ? "No score yet"
-      : (scoreLabel(attempt) ?? "Score not released");
+    attempt.submittedAt === undefined ? "No score yet" : (scoreLabel(attempt) ?? "Score pending");
   details.push({ kind: "text", value: score });
 
   return {

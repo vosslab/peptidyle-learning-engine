@@ -3,9 +3,8 @@
 use async_trait::async_trait;
 use question_model::{AccountId, AccountTimeZone, Timestamp};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use crate::{ProvidedAvatarId, SessionTokenHash, StoreError};
+use crate::{AuthenticationEmail, ProvidedAvatarId, SessionTokenHash, StoreError};
 
 /// The current lifecycle state of an Instructor Account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,78 +59,52 @@ pub struct InstructorAccountBrowse {
     pub page_size: Option<i32>,
 }
 
-/// Normalized email supplied only to Create Instructor Account.
+/// Account record created by a Sysadmin after outside vetting.
+///
+/// The delivery destination stays server-only so API responses never disclose
+/// Authentication Email.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreatedInstructorAccount {
+    pub account: InstructorAccountSummary,
+    pub setup_email_destination: AuthenticationEmail,
+}
+
+/// Account setup supplied only to Create Instructor Account.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateInstructorAccountInput {
     /// Normalized Instructor Authentication Email; never returned by this Store.
     pub normalized_email: String,
-    /// Immutable completed identity check for this exact normalized email.
-    ///
-    /// The Store derives the approving Sysadmin from the authenticated session;
-    /// this opaque ID only binds that completed decision to the candidate.
-    pub vetting_decision_id: InstructorIdentityVettingDecisionId,
-}
-
-/// Opaque durable ID for an immutable completed Instructor identity check.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct InstructorIdentityVettingDecisionId(Uuid);
-
-impl InstructorIdentityVettingDecisionId {
-    /// Reconstitutes the private audit identity returned by the trusted Store.
-    pub fn from_uuid(value: Uuid) -> Self {
-        Self(value)
-    }
-
-    /// Returns the opaque audit identity for a later trusted Store operation.
-    pub fn as_uuid(self) -> Uuid {
-        self.0
-    }
-}
-
-/// Candidate identity supplied only to record completed human vetting.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CompleteInstructorIdentityVettingInput {
-    /// Exact normalized private Authentication Email for the vetted candidate.
-    pub normalized_email: String,
-    /// The Sysadmin-verified, immutable display identity for a later narrow
-    /// Instructor-only endorsement projection.  It is not an Account or
-    /// Profile field and is never returned by this vetting boundary.
-    pub verified_instructor_display_name: String,
-}
-
-impl CompleteInstructorIdentityVettingInput {
-    /// Accepts only the canonical lookup form; the Store never accepts an actor or role.
-    pub fn validate(&self) -> Result<(), StoreError> {
-        let email = &self.normalized_email;
-        if !(3..=320).contains(&email.len()) || email != &email.trim().to_lowercase() {
-            return Err(StoreError::InvalidRecord(
-                "Instructor identity vetting email is invalid".to_string(),
-            ));
-        }
-        let display_name = &self.verified_instructor_display_name;
-        if display_name != display_name.trim()
-            || !(1..=200).contains(&display_name.chars().count())
-            || display_name.chars().any(char::is_control)
-        {
-            return Err(StoreError::InvalidRecord(
-                "Verified Instructor display name is invalid".to_string(),
-            ));
-        }
-        Ok(())
-    }
+    pub first_name: String,
+    pub last_name: String,
+    pub affiliation: String,
 }
 
 impl CreateInstructorAccountInput {
     /// Matches the existing database Create Instructor Account normalization contract.
     pub fn validate(&self) -> Result<(), StoreError> {
-        let email = &self.normalized_email;
-        if !(3..=320).contains(&email.len()) || email != &email.trim().to_lowercase() {
+        let email = AuthenticationEmail::parse(&self.normalized_email).map_err(|_| {
+            StoreError::InvalidRecord("Instructor Authentication Email is invalid".to_string())
+        })?;
+        if email.normalized() != self.normalized_email {
             return Err(StoreError::InvalidRecord(
                 "Instructor Authentication Email is invalid".to_string(),
             ));
+        }
+        for (label, value, maximum) in [
+            ("first name", &self.first_name, 100usize),
+            ("last name", &self.last_name, 100usize),
+            ("affiliation", &self.affiliation, 300usize),
+        ] {
+            if value != value.trim()
+                || value.is_empty()
+                || value.chars().count() > maximum
+                || value.chars().any(char::is_control)
+            {
+                return Err(StoreError::InvalidRecord(format!(
+                    "Instructor {label} is invalid"
+                )));
+            }
         }
         Ok(())
     }
@@ -161,20 +134,10 @@ impl DeactivateInstructorAccountInput {
 /// Sysadmin-only Store boundary for Instructor Accounts.
 #[async_trait]
 pub trait InstructorAccountStore: Send + Sync {
-    /// Records one immutable completed identity-vetting fact for a candidate.
-    ///
-    /// The authenticated Sysadmin is derived from `session_token_hash`; callers
-    /// cannot provide an approving Account or User Role.
-    async fn complete_instructor_identity_vetting(
-        &self,
-        session_token_hash: SessionTokenHash,
-        input: CompleteInstructorIdentityVettingInput,
-    ) -> Result<InstructorIdentityVettingDecisionId, StoreError>;
-
     /// Lists browser-safe rows with only the authenticated Sysadmin's display zone.
     ///
     /// A non-empty query matches an Instructor authentication email exactly or a
-    /// vetted display name by case-insensitive substring. State keeps one Account
+    /// Profile display name by case-insensitive substring. State keeps one Account
     /// State. Page size 50, 100, or 250 returns at most that many rows after the
     /// previous Account ID. The returned rows still omit the email and the name.
     async fn list_instructor_accounts(
@@ -188,7 +151,15 @@ pub trait InstructorAccountStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: CreateInstructorAccountInput,
-    ) -> Result<InstructorAccountSummary, StoreError>;
+    ) -> Result<CreatedInstructorAccount, StoreError>;
+
+    /// Finds the private setup-email destination for one current Instructor.
+    /// Only the installed active Sysadmin session can request it.
+    async fn instructor_setup_email_destination(
+        &self,
+        session_token_hash: SessionTokenHash,
+        account_id: AccountId,
+    ) -> Result<AuthenticationEmail, StoreError>;
 
     /// Appends a Deactivated Account State Event and revokes active sessions.
     async fn deactivate_instructor_account(
@@ -208,34 +179,26 @@ pub trait InstructorAccountStore: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use super::{CreateInstructorAccountInput, InstructorIdentityVettingDecisionId};
+    use super::CreateInstructorAccountInput;
 
     #[test]
-    fn create_instructor_account_requires_a_completed_vetting_decision() {
+    fn create_instructor_account_requires_complete_setup_fields() {
         let missing = serde_json::from_str::<CreateInstructorAccountInput>(
             r#"{"normalizedEmail":"ada@university.edu"}"#,
         );
         assert!(
             missing.is_err(),
-            "creation without a vetting decision must fail"
+            "creation without the required setup fields must fail"
         );
-
-        let decision = "11111111-1111-4111-8111-111111111111";
-        let input: CreateInstructorAccountInput = serde_json::from_str(&format!(
-            r#"{{"normalizedEmail":"ada@university.edu","vettingDecisionId":"{decision}"}}"#
-        ))
-        .expect("vetted creation input");
+        let input: CreateInstructorAccountInput = serde_json::from_str(
+            r#"{"normalizedEmail":"ada@university.edu","firstName":"Ada","lastName":"Lovelace","affiliation":"University"}"#
+        )
+        .expect("complete setup input");
         input.validate().expect("normalized email is acceptable");
-        assert_eq!(
-            input.vetting_decision_id,
-            InstructorIdentityVettingDecisionId::from_uuid(
-                uuid::Uuid::parse_str(decision).expect("decision id")
-            )
-        );
 
-        let unnormalized: CreateInstructorAccountInput = serde_json::from_str(&format!(
-            r#"{{"normalizedEmail":"Ada@University.EDU","vettingDecisionId":"{decision}"}}"#
-        ))
+        let unnormalized: CreateInstructorAccountInput = serde_json::from_str(
+            r#"{"normalizedEmail":"Ada@University.EDU","firstName":"Ada","lastName":"Lovelace","affiliation":"University"}"#,
+        )
         .expect("field shape is valid");
         assert!(unnormalized.validate().is_err());
     }

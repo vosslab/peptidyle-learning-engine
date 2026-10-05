@@ -202,6 +202,7 @@ async fn discovery_pages_return_250_rows_and_one_blueprint_lookahead() {
 
     let blueprint_store = PostgresBlueprintCourseStore::new(application.clone());
     let mut featured = None;
+    let mut recently_edited = None;
     for index in 0..BLUEPRINT_ROWS {
         let mut input = content_input(&format!("Discovery Blueprint {index:03}"));
         input.short_name = format!("P0-DISC-{index:03}");
@@ -222,9 +223,12 @@ async fn discovery_pages_return_250_rows_and_one_blueprint_lookahead() {
             .expect("Blueprint discovery fixture row");
         if index + 1 == BLUEPRINT_ROWS {
             featured = Some(created.blueprint_revision_tuple);
+        } else if index + 2 == BLUEPRINT_ROWS {
+            recently_edited = Some(created.blueprint_revision_tuple);
         }
     }
     let featured = featured.expect("featured Blueprint fixture");
+    let recently_edited = recently_edited.expect("recently edited Blueprint fixture");
     let featured_metadata = blueprint_store
         .load_blueprint_course(token(), featured.blueprint_course_id.clone())
         .await
@@ -238,6 +242,25 @@ async fn discovery_pages_return_250_rows_and_one_blueprint_lookahead() {
     )
     .await
     .expect("publish featured Blueprint before adoption");
+    let recent_head = blueprint_store
+        .load_blueprint_course(token(), recently_edited.blueprint_course_id.clone())
+        .await
+        .expect("recent Blueprint fixture head");
+    let revised_recent_content =
+        changed_content(recent_head.content, "Discovery Blueprint later edit");
+    assert_eq!(
+        save(
+            &application_url,
+            &recently_edited.blueprint_course_id.as_string(),
+            1,
+            request(0xd4),
+            &revised_recent_content,
+        )
+        .await
+        .expect("later Blueprint fixture Save"),
+        (2, true),
+        "a later real Save gives Recent edits a distinct leader"
+    );
     let courses = PostgresCourseInstanceStore::new(application.clone());
     let term = near_now_term(&application_url).await;
     for index in 0..2 {
@@ -265,6 +288,54 @@ async fn discovery_pages_return_250_rows_and_one_blueprint_lookahead() {
             .await
             .expect("featured Blueprint adoption");
     }
+    let mut inspection = adoption_inspection_connection().await;
+    sqlx::query("SET ROLE ple_private_owner")
+        .execute(&mut inspection)
+        .await
+        .expect("fixture private owner");
+    let second_instructor: String = sqlx::query_scalar(
+        concat!(
+            "INSERT INTO ple_private.account (account_id, user_role, created_at) ",
+            "VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
+        ),
+    )
+    .fetch_one(&mut inspection)
+    .await
+    .expect("second Instructor for distinct stewardship counts");
+    sqlx::query("SET ROLE ple_data_owner")
+        .execute(&mut inspection)
+        .await
+        .expect("fixture data owner");
+    sqlx::query(
+        "INSERT INTO ple_data.blueprint_course_star \
+         (blueprint_course_id, instructor_account_id, starred_at) \
+         VALUES ($1, $2, clock_timestamp()), ($1, $3, clock_timestamp()), \
+                ($4, $2, clock_timestamp()) ON CONFLICT DO NOTHING",
+    )
+    .bind(featured.blueprint_course_id.as_string())
+    .bind(instructor_account_id())
+    .bind(&second_instructor)
+    .bind(recently_edited.blueprint_course_id.as_string())
+    .execute(&mut inspection)
+    .await
+    .expect("distinct Blueprint Star fixtures");
+    sqlx::query(
+        "INSERT INTO ple_data.blueprint_course_watch \
+         (blueprint_course_id, instructor_account_id, watched_at) \
+         VALUES ($1, $3, clock_timestamp()), ($4, $2, clock_timestamp()), \
+                ($4, $3, clock_timestamp()) ON CONFLICT DO NOTHING",
+    )
+    .bind(featured.blueprint_course_id.as_string())
+    .bind(instructor_account_id())
+    .bind(&second_instructor)
+    .bind(recently_edited.blueprint_course_id.as_string())
+    .execute(&mut inspection)
+    .await
+    .expect("distinct Blueprint Watch fixtures");
+    inspection
+        .close()
+        .await
+        .expect("featured Blueprint stewardship inspection close");
     let ranked = blueprint_store
         .list_blueprint_courses(
             token(),
@@ -281,6 +352,54 @@ async fn discovery_pages_return_250_rows_and_one_blueprint_lookahead() {
         .expect("adoption-ranked Blueprint page");
     assert_eq!(ranked.items[0].id, featured.blueprint_course_id);
     assert_eq!(ranked.items[0].total_adoptions, 2);
+    for (sort, expected_id, expected_stars, expected_watches) in [
+        (
+            learning_data_access::BlueprintCourseListSort::Stars,
+            &featured.blueprint_course_id,
+            2,
+            1,
+        ),
+        (
+            learning_data_access::BlueprintCourseListSort::Watches,
+            &recently_edited.blueprint_course_id,
+            1,
+            2,
+        ),
+    ] {
+        let ranked = blueprint_store
+            .list_blueprint_courses(
+                token(),
+                learning_data_access::BlueprintCourseListRequest {
+                    query: BLUEPRINT_FIXTURE_TEXT.to_owned(),
+                    ..discovery_request_with_sort(
+                        DiscoveryPageSize::new(1).expect("single rank"),
+                        None,
+                        sort,
+                    )
+                },
+            )
+            .await
+            .expect("stewardship-ranked Blueprint page");
+        assert_eq!(ranked.items[0].id, *expected_id);
+        assert_eq!(ranked.items[0].star_count, expected_stars);
+        assert_eq!(ranked.items[0].watcher_count, expected_watches);
+    }
+    let recent = blueprint_store
+        .list_blueprint_courses(
+            token(),
+            learning_data_access::BlueprintCourseListRequest {
+                query: BLUEPRINT_FIXTURE_TEXT.to_owned(),
+                ..discovery_request_with_sort(
+                    DiscoveryPageSize::new(1).expect("single rank"),
+                    None,
+                    learning_data_access::BlueprintCourseListSort::RecentEdits,
+                )
+            },
+        )
+        .await
+        .expect("recently-edited Blueprint page");
+    assert_eq!(recent.items[0].id, recently_edited.blueprint_course_id);
+    assert!(recent.items[0].last_edited_at_millis > 0);
     let empty_ranked = blueprint_store
         .list_blueprint_courses(
             token(),

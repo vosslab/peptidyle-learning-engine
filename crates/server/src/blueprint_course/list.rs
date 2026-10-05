@@ -44,7 +44,7 @@ pub(super) struct ListQuery {
     tag: String,
 }
 
-const BLUEPRINT_LIST_CURSOR_VERSION: u8 = 5;
+const BLUEPRINT_LIST_CURSOR_VERSION: u8 = 6;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -227,6 +227,18 @@ fn valid_cursor_position(
         | (
             BlueprintCourseListSort::Students,
             BlueprintCourseListCursorPosition::Students { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::Stars,
+            BlueprintCourseListCursorPosition::Stars { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::Watches,
+            BlueprintCourseListCursorPosition::Watches { long_name, .. },
+        )
+        | (
+            BlueprintCourseListSort::RecentEdits,
+            BlueprintCourseListCursorPosition::RecentEdits { long_name, .. },
         ) => long_name.chars().count() <= 500,
         _ => false,
     }
@@ -441,13 +453,42 @@ mod tests {
 
     #[test]
     fn public_search_accepts_the_same_query_wide_sorts() {
-        let public_adoptions =
-            serde_json::from_str::<ListQuery>(r#"{"publicOnly":true,"sort":"adoptions"}"#)
-                .expect("typed query");
-        assert!(list_request(public_adoptions).is_some());
-        let public_name =
-            serde_json::from_str::<ListQuery>(r#"{"publicOnly":true}"#).expect("typed query");
-        assert!(list_request(public_name).is_some());
+        for sort in [
+            BlueprintCourseListSort::Name,
+            BlueprintCourseListSort::Adoptions,
+            BlueprintCourseListSort::Students,
+            BlueprintCourseListSort::Stars,
+            BlueprintCourseListSort::Watches,
+            BlueprintCourseListSort::RecentEdits,
+        ] {
+            let query = ListQuery {
+                include_archived: false,
+                public_only: true,
+                promoted_only: false,
+                query: String::new(),
+                cursor: None,
+                page_size: None,
+                discipline_uuid: None,
+                subject_uuid: None,
+                topic_uuid: None,
+                subtopic_uuid: None,
+                cross_discipline: false,
+                sort,
+                tag: String::new(),
+            };
+            assert!(list_request(query).is_some());
+        }
+    }
+
+    #[test]
+    fn public_search_accepts_every_required_sort_wire_value() {
+        for sort in ["stars", "watches", "adoptions", "students", "recentEdits"] {
+            let query = serde_json::from_str::<ListQuery>(&format!(
+                r#"{{"publicOnly":true,"sort":"{sort}"}}"#
+            ))
+            .expect("required sort wire value");
+            assert!(list_request(query).is_some());
+        }
     }
 
     #[test]

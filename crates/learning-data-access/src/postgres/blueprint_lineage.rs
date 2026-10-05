@@ -133,7 +133,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                 },
                 owner_display_name: owner_display_name.ok_or_else(|| {
                     StoreError::InvalidRecord(
-                        "Blueprint fork owner verified display name is unavailable".into(),
+                        "Blueprint fork owner display name is unavailable".into(),
                     )
                 })?,
             });

@@ -183,7 +183,6 @@ function workspaceFrom(
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
-      score: "after_submit",
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
       question_answer: "never",

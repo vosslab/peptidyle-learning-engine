@@ -11,6 +11,11 @@ GRANT SELECT ON ple_data.blueprint_metadata_event TO ple_data_owner;
 REVOKE ALL ON TABLE ple_data.blueprint_course_star,
     ple_data.blueprint_course_watch FROM PUBLIC;
 
+-- The Blueprint discovery projection exposes only aggregate counts. Its
+-- SECURITY DEFINER owner reads these facts; ple_app has no table grant.
+GRANT SELECT ON ple_data.blueprint_course_star,
+    ple_data.blueprint_course_watch TO ple_api_owner;
+
 REVOKE ALL ON FUNCTION ple_data.set_current_blueprint_course_star(text, boolean),
     ple_data.set_current_blueprint_course_watch(text, boolean) FROM PUBLIC;
 
@@ -72,4 +77,3 @@ REVOKE ALL ON FUNCTION ple_api.set_current_blueprint_course_star(text, boolean),
 
 GRANT EXECUTE ON FUNCTION ple_api.set_current_blueprint_course_star(text, boolean),
     ple_api.set_current_blueprint_course_watch(text, boolean) TO ple_app;
-

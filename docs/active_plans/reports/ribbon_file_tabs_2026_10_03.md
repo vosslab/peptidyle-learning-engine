@@ -23,10 +23,8 @@ Fresh current-source application-shell renders use synthetic Instructor Course
 data and production theme tokens. They cover 320, 393, 768, and 1280px in both
 modes. These are visual evidence, not Live Demo preference-persistence tests.
 
-- [Desktop light](ribbon_file_tabs_2026_10_03/final_1280_light.png)
-- [Desktop dark](ribbon_file_tabs_2026_10_03/final_1280_dark.png)
-- [Phone light](ribbon_file_tabs_2026_10_03/final_393_light.png)
-- [Phone dark](ribbon_file_tabs_2026_10_03/final_393_dark.png)
+Desktop light, desktop dark, phone light, and phone dark renders were reviewed
+from the current shell. Those preview files are not stored beside this report.
 
 ## Verification
 

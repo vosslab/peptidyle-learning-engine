@@ -169,7 +169,7 @@ export function createScenarioRuntime(options: {
     await page
       .getByRole("heading", {
         level: 1,
-        name: "Explore Peptidyle Learning Engine",
+        name: "Sign in to Peptidyle Learning Engine",
         exact: true,
       })
       .waitFor();

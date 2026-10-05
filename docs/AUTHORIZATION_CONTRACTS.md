@@ -51,7 +51,7 @@ projections, including exact Revision Bloom Classification metadata. That
 read-only support access does not confer Instructor authoring or Library
 mutation authority.
 
-An active vetted Instructor with current exact Library read access may correct
+An active Instructor with current exact Library read access may correct
 the complete Bloom pair on that exact Question Revision or Question Pool. This is Library
 authority, not author, founder, or Pool-owner authority. A Sysadmin has no
 Bloom-correction authority; the read projection does not widen into either
@@ -66,18 +66,24 @@ course's authorized teaching projections but does not become a Student; one
 Student has no authority over another Student's work.
 
 Sysadmin is a platform User Role, not ambient teaching or FERPA authority.
-Course-instance bootstrap and support operations use their separately bounded,
-audited predicates. They do not create a Sysadmin Course Membership or general
-access to Student Work.
+A Sysadmin may initiate a scoped support repair under their own role authority,
+without an Instructor-issued grant or approval. Course-instance bootstrap and
+support operations use their separately bounded, audited predicates. The existing
+Instructor-issued support-capability implementation requires reconciliation.
+Unproven Sysadmin workflows are deferred under HG; this authority rule does not
+make new support tools a current implementation requirement. Support does not
+create a Sysadmin Course Membership or general access to Student Work.
 
 ## Mutable configuration and retained evidence
 
 Course term dates are current Course Instance state. An Assessment is one
 current aggregate protected by its Assessment Edit Number. Its status,
 authored policy, normalized entries, and exact Question Revision pins are
-re-evaluated for a new Attempt. An accepted edit to a Released Assessment
-affects later Attempts after release validation; it does not reinterpret an
-existing Attempt.
+re-evaluated for a new Attempt. An edit to a Released Assessment must pass release validation and HG's
+post-issue content restrictions. Existing response and issued-Question evidence
+remain intact. Current point changes recalculate scores, and whole-Pool removal
+excludes its earned and possible points from every Attempt. These HG requirements
+supersede broader editing behavior in the existing implementation.
 
 An Attempt retains the effective title, instructions, availability, timing,
 policy, and qualified adjustment source needed to interpret its own work. An
@@ -115,7 +121,7 @@ current membership with an Edit Number.
 A Published Question may be discoverable or archived.
 A Blueprint Course is Private, Public, or Archived. Private is owner-only and
 cannot be adopted. Public is shared and adoptable. Archived remains visible to
-vetted Instructors through explicit historical discovery, can be forked, and
+Instructors through explicit historical discovery, can be forked, and
 cannot be adopted. Exact historical Revision Tuples remain resolvable.
 
 New Assessments and Blueprint Revision pins select exact available Question
@@ -133,8 +139,8 @@ does not define a Blueprint collaborator relationship.
 Only the owner changes Blueprint lifecycle state. A Public Blueprint with no
 adoptions may return to Private; a Public Blueprint with an adoption remains
 Public. The owner may archive a Public Blueprint and restore their Archived
-Blueprint to Public. Every vetted Instructor may read Public and Archived
-content, but only Public content may be adopted. Every vetted Instructor may
+Blueprint to Public. Every Instructor may read Public and Archived
+content, but only Public content may be adopted. Every Instructor may
 fork Public or Archived content into a new Private Blueprint they own.
 
 Adding a new Blueprint Assessment also triggers the Human-Guidance-required
@@ -143,14 +149,14 @@ system action does not grant the Blueprint owner Course Membership or access to
 the daughter Courses. Each daughter Course's current co-Instructors decide
 whether to accept offered changes to existing Assessments.
 
-Any vetted Instructor may create a Blueprint Course Change Proposal. Only the
+Any Instructor may create a Blueprint Course Change Proposal. Only the
 receiving Blueprint owner chooses accepted changes and creates the resulting
 Blueprint Revision. Proposal authority never grants Course access or directly
 changes daughter Course Instances.
 
-Vetted Instructors may Star or Watch Public and Archived Blueprints. Star
-counts and the identities of vetted Instructors who Starred are visible to
-vetted Instructors. Watch state and subscription membership are private to the
+Instructors may Star or Watch Public and Archived Blueprints. Star
+counts and the identities of Instructors who Starred are visible to
+Instructors. Watch state and subscription membership are private to the
 watcher.
 
 Question authoring workspace relationships remain their own authoring

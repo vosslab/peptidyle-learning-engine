@@ -33,6 +33,7 @@ fn feedback_timing(value: String) -> Result<StudentFeedbackReleaseTiming, StoreE
         "after_submit" => Ok(StudentFeedbackReleaseTiming::AfterSubmit),
         "after_due" => Ok(StudentFeedbackReleaseTiming::AfterDue),
         "after_close" => Ok(StudentFeedbackReleaseTiming::AfterClose),
+        "after_all_students_complete" => Ok(StudentFeedbackReleaseTiming::AfterAllStudentsComplete),
         "never" => Ok(StudentFeedbackReleaseTiming::Never),
         _ => Err(invalid("Student Feedback Release Timing")),
     }
@@ -42,7 +43,6 @@ pub(super) fn feedback_rules(
     row: &sqlx::postgres::PgRow,
 ) -> Result<StudentFeedbackReleaseRule, StoreError> {
     Ok(StudentFeedbackReleaseRule {
-        score: feedback_timing(row.try_get("feedback_score").map_err(map_sqlx_error)?)?,
         per_item_correctness: feedback_timing(
             row.try_get("feedback_per_item_correctness")
                 .map_err(map_sqlx_error)?,
@@ -69,4 +69,18 @@ pub(super) fn feedback_rules(
                 .map_err(map_sqlx_error)?,
         )?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::feedback_timing;
+    use question_model::StudentFeedbackReleaseTiming;
+
+    #[test]
+    fn decodes_all_students_complete_answer_timing() {
+        assert_eq!(
+            feedback_timing("after_all_students_complete".to_string()),
+            Ok(StudentFeedbackReleaseTiming::AfterAllStudentsComplete)
+        );
+    }
 }

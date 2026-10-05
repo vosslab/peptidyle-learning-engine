@@ -1,7 +1,7 @@
 -- PLE Example Content is the installation-owned, non-login Instructor used
 -- solely to publish bundled reusable curriculum through ordinary product paths.
--- The account schema intentionally has no display-name field: source authorship
--- and attribution remain in the curriculum manifest.
+-- Its Instructor Profile identifies the publisher; source authorship and
+-- attribution remain in the curriculum manifest.
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -22,6 +22,9 @@ BEGIN
             authoring_workspace_id, owner_account_id, created_at
         ) VALUES (example_workspace, publisher, pg_catalog.transaction_timestamp());
     END IF;
+    INSERT INTO ple_private.instructor_profile (account_id, first_name, last_name, affiliation)
+    VALUES (publisher, 'PLE', 'Example Content', 'Peptidyle Learning Engine')
+    ON CONFLICT (account_id) DO NOTHING;
 END
 $$;
 

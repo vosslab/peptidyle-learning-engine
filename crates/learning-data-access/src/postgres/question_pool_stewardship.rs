@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the authenticated Question Pool Star boundary.
 
 use async_trait::async_trait;
-use question_model::QuestionPoolId;
+use question_model::{AccountId, QuestionPoolId};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -54,12 +54,7 @@ impl PostgresQuestionPoolStewardshipStore {
             viewer_has_starred: row.try_get("viewer_has_starred").map_err(map_sqlx_error)?,
             star_count: u64::try_from(count)
                 .map_err(|_| StoreError::InvalidRecord("Question Pool Star count".to_owned()))?,
-            starred_instructors: row
-                .try_get::<Vec<String>, _>("starred_instructor_display_names")
-                .map_err(map_sqlx_error)?
-                .into_iter()
-                .map(validated_display_name)
-                .collect::<Result<Vec<_>, _>>()?,
+            starred_instructors: starred_instructors(row)?,
         })
     }
 
@@ -101,13 +96,37 @@ impl PostgresQuestionPoolStewardshipStore {
     }
 }
 
-fn validated_display_name(value: String) -> Result<QuestionPoolStarredInstructor, StoreError> {
-    // Canonical vetting uses PostgreSQL btrim(text): ASCII space only.
+fn starred_instructors(
+    row: &sqlx::postgres::PgRow,
+) -> Result<Vec<QuestionPoolStarredInstructor>, StoreError> {
+    let display_names = row
+        .try_get::<Vec<String>, _>("starred_instructor_display_names")
+        .map_err(map_sqlx_error)?;
+    let account_ids = row
+        .try_get::<Vec<String>, _>("starred_instructor_account_ids")
+        .map_err(map_sqlx_error)?;
+    if display_names.len() != account_ids.len() {
+        return Err(StoreError::InvalidRecord(
+            "Question Pool Star Instructor identities".to_owned(),
+        ));
+    }
+    display_names
+        .into_iter()
+        .zip(account_ids)
+        .map(|(display_name, account_id)| validated_starred_instructor(display_name, account_id))
+        .collect()
+}
+
+fn validated_starred_instructor(
+    value: String,
+    account_id: String,
+) -> Result<QuestionPoolStarredInstructor, StoreError> {
+    // Canonical display-name validation uses PostgreSQL btrim(text): ASCII space only.
     // Preserve valid edge NBSP and other non-control Unicode characters.
     if value != value.trim_matches(' ')
         || value.is_empty()
-        // C852's immutable vetting boundary owns the 1..=200 contract.
-        // Keep this defensive decoder exactly aligned so a valid vetted name
+        // C852's public display-name boundary owns the 1..=200 contract.
+        // Keep this defensive decoder exactly aligned so a valid display name
         // cannot turn an otherwise authorized Star read into a server error.
         || value.chars().count() > 200
         || value.chars().any(char::is_control)
@@ -118,6 +137,9 @@ fn validated_display_name(value: String) -> Result<QuestionPoolStarredInstructor
     }
     Ok(QuestionPoolStarredInstructor {
         display_name: value,
+        account_id: account_id.parse::<AccountId>().map_err(|_| {
+            StoreError::InvalidRecord("Question Pool Star Instructor Account ID".to_owned())
+        })?,
     })
 }
 

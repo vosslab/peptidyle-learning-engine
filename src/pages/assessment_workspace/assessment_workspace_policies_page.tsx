@@ -48,7 +48,6 @@ import {
 } from "./base_assessment_policy_autosave_model";
 
 const FEEDBACK_FIELDS = [
-  ["score", "Score"],
   ["per_item_correctness", "Per-item correctness"],
   [
     "submitted_response",
@@ -193,6 +192,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       value === "after_submit" ||
       value === "after_due" ||
       value === "after_close" ||
+      value === "after_all_students_complete" ||
       value === "never"
     ) {
       setFeedbackRules((current) => ({ ...current, [field]: value }));
@@ -739,6 +739,11 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                   <option value="after_submit">After submit</option>
                   <option value="after_due">After due</option>
                   <option value="after_close">After close</option>
+                  <Show
+                    when={field === "question_answer" || field === "question_answer_explanation"}
+                  >
+                    <option value="after_all_students_complete">After all Students complete</option>
+                  </Show>
                   <option value="never">Never</option>
                 </select>
                 <Show when={help !== undefined}>

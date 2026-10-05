@@ -521,7 +521,7 @@ async function loadStarSurfaceRenderer() {
   return module.renderStarSurfaces;
 }
 
-test("Vetted Instructors can see the star count and which vetted Instructors starred a Published Question or Question Pool.", async () => {
+test("Instructors can see the Star count and the Instructor Profiles behind Question and Pool Stars.", async () => {
   const detail = fs.readFileSync(
     new URL("../src/pages/question_detail_page.tsx", import.meta.url),
     "utf8",
@@ -552,13 +552,20 @@ test("Vetted Instructors can see the star count and which vetted Instructors sta
   const projection = {
     starCount: 2,
     viewerHasStarred: false,
-    starredInstructors: [{ displayName: "Ada Lopez" }, { displayName: "Grace Hopper" }],
+    starredInstructors: [
+      { displayName: "Ada Lopez", accountId: "U00000009" },
+      { displayName: "Grace Hopper", accountId: "UABCDEFGM" },
+    ],
   };
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(String(input), "https://ple.example"), init);
-      requests.push({ method: request.method, pathname: new URL(request.url).pathname });
-      return new Response(JSON.stringify(projection), {
+      const pathname = new URL(request.url).pathname;
+      requests.push({ method: request.method, pathname });
+      const payload = pathname.startsWith("/api/instructor-profiles/")
+        ? { displayName: "Ada Lopez", avatar: { kind: "provided", providedAvatarId: "amber-arch" } }
+        : projection;
+      return new Response(JSON.stringify(payload), {
         headers: { "cache-control": "no-store", "content-type": "application/json" },
       });
     },
@@ -570,6 +577,8 @@ test("Vetted Instructors can see the star count and which vetted Instructors sta
   assert.match(html, /Ada Lopez/);
   assert.match(html, /Grace Hopper/);
   assert.deepEqual(requests.map((request) => `${request.method} ${request.pathname}`).sort(), [
+    "GET /api/instructor-profiles/U00000009",
+    "GET /api/instructor-profiles/UABCDEFGM",
     "GET /api/question-pools/3S8B-24DZ/stewardship/star",
     "GET /api/questions/by-id/7K3M-79QP/stewardship/star",
   ]);

@@ -27,7 +27,7 @@ import {
   verifyScreenshotGalleries,
   writeScreenshotGalleries,
 } from "./playwright/screenshot_corpus/screenshot_galleries";
-import { PRIVACY_PROFILES } from "./playwright/screenshot_corpus/privacy_profiles";
+import { PRIVACY_PROFILES, protectedKey } from "./playwright/screenshot_corpus/privacy_profiles";
 
 const repositoryRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const manifestPath = path.join(repositoryRoot, "docs/screenshots/current_capture_manifest.json");
@@ -115,6 +115,18 @@ test("the shipped manifest selects the least-data profile for each semantic surf
   assert.equal(PRIVACY_PROFILES.student_unanswered.selectedControl, "forbidden");
   assert.equal(PRIVACY_PROFILES.student_selected_response.selectedControl, "required");
   assert.equal(PRIVACY_PROFILES.student_selected_response.statusHeading, "forbidden");
+});
+
+test("privacy inspection permits a feedback-release timing but rejects answer content", () => {
+  const noAllowedKeys = new Set();
+  for (const timing of ["after_due", "after_all_students_complete"]) {
+    assert.equal(protectedKey({ question_answer: timing }, noAllowedKeys), undefined);
+    assert.equal(protectedKey({ question_answer_explanation: timing }, noAllowedKeys), undefined);
+  }
+  assert.equal(
+    protectedKey({ question_answer: "The correct answer is A." }, noAllowedKeys),
+    "question_answer",
+  );
 });
 
 test("theme samples use the same Instructor Course workspace", async () => {

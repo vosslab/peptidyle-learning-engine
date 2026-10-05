@@ -53,16 +53,6 @@ print(account_id)
 ' "$1"
 }
 
-vetting_decision_id() {
-	python3 -c '
-import json, re, sys
-value=json.loads(sys.argv[1]); vetting_decision_id=value.get("vettingDecisionId")
-if set(value)!={"vettingDecisionId"} or not isinstance(vetting_decision_id,str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",vetting_decision_id):
-    raise SystemExit("Foreign Instructor vetting receipt is malformed")
-print(vetting_decision_id)
-' "$1"
-}
-
 foreign_course_payload() {
 	python3 -c '
 import json, sys
@@ -142,12 +132,9 @@ assert_assessment_list "$(response_body "$listed")"
 
 run_id="$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')"
 foreign_email="m3-foreign-$run_id@live-demo.invalid"
-vetted="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$foreign_email\",\"verifiedInstructorDisplayName\":\"M3 Foreign Instructor\"}")"
-require_status "Foreign Instructor vetting" "$vetted" 201
-vetting_decision="$(vetting_decision_id "$(response_body "$vetted")")"
-created_instructor="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$foreign_email\",\"vettingDecisionId\":\"$vetting_decision\"}")"
+created_instructor="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$foreign_email\",\"firstName\":\"M3\",\"lastName\":\"Foreign Instructor\",\"affiliation\":\"PLE test\"}")"
 require_status "Foreign Instructor setup" "$created_instructor" 201
-foreign_instructor="$(foreign_instructor_account_id "$(response_body "$created_instructor")")"
+foreign_instructor="$(foreign_instructor_account_id "$(python3 -c 'import json, sys; print(json.dumps(json.loads(sys.argv[1])["account"]))' "$(response_body "$created_instructor")")")"
 course_view="$(request "/api/course-instances/$course" "$instructor_cookie")"
 require_status "Assessment list fixture Course view" "$course_view" 200
 foreign_payload="$(foreign_course_payload "$(response_body "$course_view")" "$foreign_instructor")"

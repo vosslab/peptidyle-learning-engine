@@ -6,10 +6,9 @@
 //! reconstructs access decisions nor records a Student Feedback Release receipt.
 
 use question_model::{
-    AssessmentScoringState, AssessmentType, GradingResult, QuestionAnswer,
-    QuestionAnswerExplanation, QuestionContentBlock, QuestionFeedback, StudentFeedback,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback,
-    Timestamp,
+    AssessmentScoringState, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
+    QuestionContentBlock, QuestionFeedback, StudentFeedback, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback, Timestamp,
 };
 
 use crate::effective_assessment_properties::{AssessmentAccessDecision, EffectiveAssessmentPolicy};
@@ -41,22 +40,27 @@ pub struct DisclosedSupportContent {
     pub worked_solutions: Option<Vec<QuestionContentBlock>>,
 }
 
-/// Applies the Course-cohort gate to Quiz and Exam answer disclosure.
+/// Applies the configured all-current-Students completion timing.
 ///
-/// The caller supplies one current-cohort completion decision calculated at a
-/// trusted persistence boundary. Other Assessment Types and independently
-/// configured feedback fields are unchanged. Hints and Worked Solutions keep
-/// the timings on their own settings. ASVS 8.2.3.
-pub fn gate_quiz_exam_answers_for_current_cohort(
+/// The caller supplies the completion decision from a trusted persistence
+/// boundary. Only fields configured for that timing wait for the cohort, so an
+/// Instructor can choose another timing for a Quiz or Exam. ASVS 2.2.2, 2.3.1.
+pub fn apply_all_students_completed_timing(
     mut decision: StudentFeedbackReleaseDecision,
-    assessment_type: AssessmentType,
+    rule: StudentFeedbackReleaseRule,
     all_current_students_completed: bool,
 ) -> StudentFeedbackReleaseDecision {
-    if matches!(assessment_type, AssessmentType::Quiz | AssessmentType::Exam)
-        && !all_current_students_completed
-    {
-        decision.question_answer = false;
-        decision.question_answer_explanation = false;
+    if matches!(
+        rule.question_answer,
+        StudentFeedbackReleaseTiming::AfterAllStudentsComplete
+    ) {
+        decision.question_answer = all_current_students_completed;
+    }
+    if matches!(
+        rule.question_answer_explanation,
+        StudentFeedbackReleaseTiming::AfterAllStudentsComplete
+    ) {
+        decision.question_answer_explanation = all_current_students_completed;
     }
     decision
 }
@@ -177,13 +181,9 @@ pub fn evaluate_allowed_student_feedback_release(
     submitted_at: Option<Timestamp>,
 ) -> StudentFeedbackReleaseDecision {
     StudentFeedbackReleaseDecision {
-        score: timing_released(
-            rule.score,
-            now,
-            submitted_at,
-            policy.due_at.value,
-            policy.closes_at.value,
-        ),
+        // Automated scores have no Instructor timing control. A submitted,
+        // current grading result is disclosed by the caller.
+        score: submitted_at.is_some(),
         per_item_correctness: timing_released(
             rule.per_item_correctness,
             now,
@@ -275,6 +275,7 @@ fn timing_released(
         StudentFeedbackReleaseTiming::AfterClose => {
             closes_at.is_some_and(|closes_at| now >= closes_at)
         }
+        StudentFeedbackReleaseTiming::AfterAllStudentsComplete => false,
         StudentFeedbackReleaseTiming::Never => false,
     }
 }

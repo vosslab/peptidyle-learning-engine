@@ -42,7 +42,7 @@ Title, description, tags, subject, topic, and other search metadata belong to
 the lineage and do not create a Revision. A substantive fork creates a private
 Draft and, after validation, a new Published Question ID with attribution.
 
-Published Questions are available to all vetted Instructors through the one
+Published Questions are available to all Instructors through the one
 Question Library. Students receive Question content only through authorized
 Coursework. Archive removes a Published Question from ordinary discovery/new
 selection but preserves exact Revisions used by Assessments and Student Work.
@@ -98,7 +98,7 @@ legacy `latestQuestionRevision` field carries that exact requested Revision on a
 exact-detail route; it does not trigger a second latest-Revision lookup.
 
 The B2 source boundary corrects the exact Question Revision or Question Pool through its
-dedicated `/bloom` route. An active vetted Instructor sends the complete pair and
+dedicated `/bloom` route. An active Instructor sends the complete pair and
 expected classification Edit Number; authority comes from current exact Library
 read access, not ownership. The pair is locked and checked for staleness before
 no-op handling. A stale request receives `412`; a current no-op retains the Edit
@@ -200,11 +200,13 @@ correctness.
 
 ## Statistics and stewardship
 
-Published Questions can be starred and watched. Vetted Instructors may see Star
-counts and which vetted Instructors starred. Watch state is private to the
-watcher and drives notifications for Revisions, forks, improvement threads, and
-impact notices. Students and anonymous users receive neither Instructor
-identity lists nor Watch information.
+Published Questions can be starred and watched. Instructors may see Star
+counts and which Instructors starred. Watch state is private to the
+watcher and drives notifications for Revisions, forks, and impact notices.
+Change Proposals is the Instructor-facing term for proposed content changes;
+PLE is not a general discussion forum. Library Star lists follow Library access
+rules, and Watch lists remain private. Instructor Profiles are visible to every
+PLE Account, including Students.
 
 Question Statistics are Revision-specific privacy-safe aggregates. They may
 include accepted graded-Attempt, correct, incorrect, partial-credit, unanswered,

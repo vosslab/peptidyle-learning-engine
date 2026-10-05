@@ -276,7 +276,7 @@ export function decodeCourseCreationInstructors(
 function instructorDisplayName(value: unknown, path: string): string {
   const name = decodeNonemptyString(value, path);
   if (name !== name.trim() || Array.from(name).length > 200 || /\p{Cc}/u.test(name)) {
-    throw new DecodeError(path, "a verified Instructor display name");
+    throw new DecodeError(path, "an Instructor display name");
   }
   return name;
 }

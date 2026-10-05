@@ -41,11 +41,13 @@ try {
   await page.locator("#instructor-accounts-heading").waitFor();
 
   await page.locator("#instructor-account-email").fill(`m16-browser-${Date.now()}@example.invalid`);
-  await page
-    .getByLabel("Verified Instructor Display Name", { exact: true })
-    .fill("M16 Browser Instructor");
+  await page.getByLabel("First name", { exact: true }).fill("M16");
+  await page.getByLabel("Last name", { exact: true }).fill("Browser Instructor");
+  await page.getByLabel("Affiliation", { exact: true }).fill("PLE test");
   await page.getByRole("button", { name: "Create Instructor Account" }).click();
-  await page.getByText("Instructor Account created.").waitFor();
+  await page
+    .getByText("Instructor Account created, but setup email could not be sent.", { exact: true })
+    .waitFor();
   const created = page
     .getByRole("list", { name: "Instructor Accounts", exact: true })
     .getByRole("listitem")

@@ -20,7 +20,7 @@
       "language": "en-US"
     },
     "authorship": {
-      "authors": [{ "displayName": "Fixture Instructor" }]
+      "authors": [{ "accountId": null, "displayName": "Fixture Instructor" }]
     },
     "availability": {
       "availability": "available"
@@ -96,7 +96,6 @@
       }
     ],
     "studentFeedbackReleaseRule": {
-      "score": "after_submit",
       "per_item_correctness": "after_submit",
       "submitted_response": "after_submit",
       "question_answer": "after_submit",
@@ -132,7 +131,6 @@
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
-          "score": "after_submit",
           "per_item_correctness": "after_submit",
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
@@ -173,7 +171,6 @@
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
-          "score": "after_submit",
           "per_item_correctness": "after_submit",
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
@@ -214,7 +211,6 @@
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
-          "score": "after_submit",
           "per_item_correctness": "after_submit",
           "submitted_response": "after_submit",
           "question_answer": "after_submit",
@@ -255,7 +251,6 @@
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
-          "score": "after_submit",
           "per_item_correctness": "after_submit",
           "submitted_response": "after_submit",
           "question_answer": "after_submit",

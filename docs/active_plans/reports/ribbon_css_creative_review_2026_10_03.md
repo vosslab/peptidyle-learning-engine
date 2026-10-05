@@ -44,7 +44,7 @@ Representative evidence links:
 - [theme_sample-arctic-light.webp](../../screenshots/instructor/theme_sample-arctic-light.webp)
 - [courses-students-course_roster_active.webp](../../screenshots/instructor/courses-students-course_roster_active.webp)
 - [courses-blueprint-blueprint_detail.webp](../../screenshots/instructor/courses-blueprint-blueprint_detail.webp)
-- [page_grass_light_320.png](ribbon_state_contrast_2026_10_03/page_grass_light_320.png)
+- [state contrast review](ribbon_state_contrast_2026_10_03/index.html)
 
 ### Strengths to preserve
 

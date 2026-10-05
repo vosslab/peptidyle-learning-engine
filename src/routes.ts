@@ -34,6 +34,7 @@ import { AssessmentAttemptPage } from "./pages/assessment_attempt_page";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { ProfilePage } from "./pages/profile_page";
+import { InstructorProfilePage } from "./pages/instructor_profile_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
@@ -77,6 +78,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentCourses: StudentCoursesPage,
   sysadminHome: SysadminHomePage,
   profile: ProfilePage,
+  instructorProfile: InstructorProfilePage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
   studentCourseInvitations: StudentCourseInvitationsPage,

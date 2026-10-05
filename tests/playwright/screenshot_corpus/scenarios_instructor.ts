@@ -17,6 +17,7 @@ import {
   COURSE_TITLE,
   courseCard,
   enterInstructor,
+  followCaptureLink,
   openInstructorCourse,
   scrollTop,
 } from "./visible_workflows";
@@ -97,7 +98,10 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByRole("link", { name: "My Active Courses", exact: true }).click();
     await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     const seededCourse = courseCard(session.page, COURSE_TITLE);
-    await seededCourse.getByRole("link", { name: "Open Course", exact: true }).click();
+    await followCaptureLink(
+      session.page,
+      seededCourse.getByRole("link", { name: "Open Course", exact: true }),
+    );
     await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_assignment_workspace", session);
     await session.page.getByRole("link", { name: "Open Students", exact: true }).click();
@@ -158,6 +162,41 @@ async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
   }
 }
 
+/** Captures the signed-in, cross-Account Instructor Profile surface from a real Profile link ID. */
+async function instructorPublicProfile(runtime: ScenarioRuntime): Promise<void> {
+  const session = await runtime.open("public_profile");
+  try {
+    await openInstructorProfile(session.page);
+    const accountId = await session.page.locator('code[aria-label^="Account ID "]').textContent();
+    if (accountId === null || !/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(accountId)) {
+      throw new Error("The signed-in Instructor Profile must expose one canonical Account ID.");
+    }
+    const profileResponses: string[] = [];
+    session.page.on("response", (response) => {
+      if (response.url().includes("/api/instructor-profiles/")) {
+        profileResponses.push(`${String(response.status())} ${response.url()}`);
+      }
+    });
+    await session.page.goto(new URL(`/instructors/${accountId}`, session.page.url()).href);
+    await session.page.locator('[data-route-surface="instructor-profile"]').waitFor();
+    await session.page
+      .getByRole("heading", { level: 1, name: "Instructor profile", exact: true })
+      .waitFor();
+    const profileLink = session.page.getByRole("link", { name: /Elena Martinez/u });
+    const unavailable = session.page.getByRole("alert");
+    await Promise.race([profileLink.waitFor(), unavailable.waitFor()]);
+    if (await unavailable.isVisible()) {
+      throw new Error(
+        `Instructor Profile was unavailable: ${(await unavailable.textContent()) ?? "no alert text"}; ` +
+          `profile responses: ${profileResponses.join(", ") || "none"}`,
+      );
+    }
+    await captureCheckpoint(runtime, "public_profile", session);
+  } finally {
+    await runtime.close(session);
+  }
+}
+
 async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open("library_default");
   try {
@@ -171,7 +210,7 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
     const result = session.page.locator(".record-list__row").filter({
       has: session.page.getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true }),
     });
-    await result.getByRole("link", { name: "Open", exact: true }).click();
+    await followCaptureLink(session.page, result.getByRole("link", { name: "Open", exact: true }));
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await captureCheckpoint(runtime, "published_question_detail", session);
     await navigateInstructorLibraryBrowse(session.page);
@@ -221,17 +260,39 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("link", { name: "Courses", exact: true })
       .click();
     await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    const blueprintResponses: string[] = [];
+    const blueprintResponseBodies: Promise<void>[] = [];
+    session.page.on("response", (response) => {
+      if (response.url().includes("/api/course-blueprints")) {
+        blueprintResponseBodies.push(
+          response.text().then((body) => {
+            blueprintResponses.push(`${String(response.status())} ${response.url()}: ${body}`);
+          }),
+        );
+      }
+    });
     await session.page.getByRole("link", { name: "My Blueprint Courses", exact: true }).click();
     await session.page
       .getByRole("heading", { name: "Build reusable course structure", exact: true })
       .waitFor();
-    await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
+    const seededCourseTitle = session.page.getByText(COURSE_TITLE, { exact: true });
+    const unavailable = session.page.getByRole("alert");
+    await Promise.race([seededCourseTitle.waitFor(), unavailable.waitFor()]);
+    if (await unavailable.isVisible()) {
+      await Promise.all(blueprintResponseBodies);
+      throw new Error(
+        `Blueprint Courses were unavailable: ${(await unavailable.textContent()) ?? "no alert text"}; ` +
+          `Blueprint responses: ${blueprintResponses.join(", ") || "none"}`,
+      );
+    }
     await captureCheckpoint(runtime, "blueprint_list", session);
-    await session.page
-      .getByRole("listitem")
-      .filter({ hasText: COURSE_TITLE })
-      .getByRole("link", { name: "Open Blueprint Course", exact: true })
-      .click();
+    await followCaptureLink(
+      session.page,
+      session.page
+        .getByRole("listitem")
+        .filter({ hasText: COURSE_TITLE })
+        .getByRole("link", { name: "Open Blueprint Course", exact: true }),
+    );
     await session.page.waitForURL(/\/blueprint-courses\/[^/]+$/u);
     await session.page
       .getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true })
@@ -558,6 +619,36 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       square: { target: "default", reason: "Instructor laptop capture is the representative." },
     }),
     run: instructorProfile,
+  },
+  {
+    id: "instructor_public_profile",
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "public_profile",
+        area: "account",
+        workflow: "Instructor Profile visibility",
+        state: "active Instructor Profile",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Instructor Profile",
+      },
+    ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "public_profile",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      phone: {
+        target: "public_profile",
+        reason: "Instructor laptop capture is the representative.",
+      },
+      square: {
+        target: "public_profile",
+        reason: "Instructor laptop capture is the representative.",
+      },
+    }),
+    run: instructorPublicProfile,
   },
   {
     id: "instructor_authoring",

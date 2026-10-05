@@ -136,8 +136,9 @@ the shipped Ribbon until its screen data path is complete in production.
 
 ### Instructor Accounts
 
-Instructor Accounts is the future Sysadmin surface for instructor vetting and
-account state work. There is no route or client method to advertise today.
+Instructor Accounts is the future Sysadmin surface for creating Instructor
+Accounts after outside-PLE vetting and for account-state work. There is no
+route or client method to advertise today.
 
 ### All Questions
 

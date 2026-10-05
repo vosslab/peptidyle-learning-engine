@@ -12,3 +12,8 @@ export * from "./decoders/assessment_attempt";
 export * from "./decoders/student_response_format_check";
 export * from "./decoders/navigation";
 export * from "./decoders/teaching_operations";
+export {
+  decodeCompletedEmailCodeSignIn,
+  decodeEmailCodeChallengeId,
+  decodeStartedEmailCodeSignIn,
+} from "./email_code";

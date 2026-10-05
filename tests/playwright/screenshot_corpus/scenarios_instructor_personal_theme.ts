@@ -5,7 +5,7 @@ import type { Theme } from "../../../generated/api/Theme";
 
 import type { ScenarioDefinition } from "./scenario_types";
 import { assertDocumentAppearance, persistDisplayMode } from "./theme_capture_workflow";
-import { choosePersona, scrollTop } from "./visible_workflows";
+import { choosePersona, followCaptureLink, scrollTop } from "./visible_workflows";
 
 const PERSONAL_THEME = "magma";
 const PUBLISHED_QUESTION_TITLE = "Biochemistry Chapter 1: Charged functional groups";
@@ -219,7 +219,10 @@ export const INSTRUCTOR_PERSONAL_THEME_SCENARIO: ScenarioDefinition = {
       const result = session.page.locator(".record-list__row").filter({
         has: session.page.getByRole("heading", { name: PUBLISHED_QUESTION_TITLE, exact: true }),
       });
-      await result.getByRole("link", { name: "Open", exact: true }).click();
+      await followCaptureLink(
+        session.page,
+        result.getByRole("link", { name: "Open", exact: true }),
+      );
       await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
       await scrollTop(session.page);
       await runtime.captureCheckpoint(session, "personal_theme_question_dark");

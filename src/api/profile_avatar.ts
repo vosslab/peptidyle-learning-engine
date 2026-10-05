@@ -14,6 +14,12 @@ export interface ProfileAvatarView {
   readonly avatar: ProfileAvatar | null;
 }
 
+/** The narrow Instructor Profile visible to every signed-in PLE Account. */
+export interface InstructorProfileView {
+  readonly displayName: string;
+  readonly avatar: ProfileAvatar | null;
+}
+
 /** Closed request for selecting one PLE-provided avatar. */
 export interface SelectProvidedProfileAvatarInput {
   readonly providedAvatarId: string;

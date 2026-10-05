@@ -84,6 +84,8 @@ function pageTrail(
       return [];
     case "profile":
       return [page("Profile settings")];
+    case "instructorProfile":
+      return [page("Instructor Profile")];
     case "pendingCourseInvitations":
     case "studentCourseInvitations":
       return [page("Course Invitations")];

@@ -35,7 +35,10 @@ pub(super) fn question_authorship(authors: Vec<String>) -> Result<QuestionAuthor
     let authors = authors
         .into_iter()
         .map(|name| {
-            QuestionAuthorDisplayName::new(name).map(|display_name| QuestionAuthor { display_name })
+            QuestionAuthorDisplayName::new(name).map(|display_name| QuestionAuthor {
+                display_name,
+                account_id: None,
+            })
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| ())?;

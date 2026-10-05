@@ -10,26 +10,30 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
-    DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountState,
-    InstructorAccountStore, InstructorIdentityVettingDecisionId, SessionTokenHash, StoreError,
+    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountBrowse,
+    InstructorAccountState, InstructorAccountStore, SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
 use question_model::{AccountId, UserRole};
 use serde::{Deserialize, Serialize};
 
-use crate::auth::{AuthError, resolve_session};
+use crate::{
+    auth::{AuthError, resolve_session},
+    instructor_setup_email_delivery::InstructorSetupEmailDelivery,
+};
 
 #[derive(Clone)]
 struct InstructorAccountRouteState {
     sessions: Arc<PostgresSessionStore>,
     accounts: PostgresInstructorAccountStore,
+    setup_email: Arc<dyn InstructorSetupEmailDelivery>,
 }
 
 /// Registers the Sysadmin Instructor Accounts task.
 pub fn instructor_account_router(
     sessions: Arc<PostgresSessionStore>,
     accounts: PostgresInstructorAccountStore,
+    setup_email: Arc<dyn InstructorSetupEmailDelivery>,
 ) -> Router {
     Router::new()
         .route(
@@ -41,8 +45,8 @@ pub fn instructor_account_router(
             post(find_instructor_accounts),
         )
         .route(
-            "/api/instructor-identity-vetting-decisions",
-            post(complete_instructor_identity_vetting),
+            "/api/instructor-accounts/{account_id}/send-setup-email",
+            post(send_setup_email),
         )
         .route(
             "/api/instructor-accounts/{account_id}/deactivate",
@@ -52,7 +56,11 @@ pub fn instructor_account_router(
             "/api/instructor-accounts/{account_id}/reactivate",
             post(reactivate_instructor_account),
         )
-        .with_state(InstructorAccountRouteState { sessions, accounts })
+        .with_state(InstructorAccountRouteState {
+            sessions,
+            accounts,
+            setup_email,
+        })
 }
 
 async fn list_instructor_accounts(
@@ -112,7 +120,7 @@ async fn find_instructor_accounts(
     };
     // ASVS 2.2.1, 7.1.1, and 8.2.3: state, page size, and cursor stay in the
     // body with the query. The response keeps the closed Account summary.
-    // Neither the authentication email nor the vetted display name is written back.
+    // Neither the authentication email nor the Profile display name is written back.
     match state
         .accounts
         .list_instructor_accounts(
@@ -141,47 +149,70 @@ async fn create_instructor_account(
         Err(response) => return *response,
     };
     match state.accounts.create_instructor_account(token, input).await {
-        Ok(account) => crate::auth::no_store((StatusCode::CREATED, Json(account)).into_response()),
+        Ok(created) => {
+            let setup_email_sent = state
+                .setup_email
+                .send_setup_email(&created.setup_email_destination)
+                .await
+                .is_ok();
+            crate::auth::no_store(
+                (
+                    StatusCode::CREATED,
+                    Json(InstructorAccountCreationResponse {
+                        account: created.account,
+                        setup_email_sent,
+                    }),
+                )
+                    .into_response(),
+            )
+        }
         Err(error) => store_error_response(error),
     }
 }
 
-/// Records a completed human identity check before the separate creation step.
-///
-/// PostgreSQL derives the active Sysadmin from the authenticated session. The
-/// opaque receipt is the only value a later creation request may present.
-async fn complete_instructor_identity_vetting(
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstructorAccountCreationResponse {
+    account: learning_data_access::InstructorAccountSummary,
+    setup_email_sent: bool,
+}
+
+async fn send_setup_email(
     State(state): State<InstructorAccountRouteState>,
     headers: HeaderMap,
-    Json(input): Json<CompleteInstructorIdentityVettingInput>,
+    Path(account_id): Path<String>,
 ) -> Response {
+    let account_id = match AccountId::from_str(&account_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
     let token = match sysadmin_session_hash(&state, &headers).await {
         Ok(token) => token,
         Err(response) => return *response,
     };
     match state
         .accounts
-        .complete_instructor_identity_vetting(token, input)
+        .instructor_setup_email_destination(token, account_id)
         .await
     {
-        Ok(vetting_decision_id) => crate::auth::no_store(
-            (
-                StatusCode::CREATED,
-                Json(InstructorIdentityVettingReceipt {
-                    vetting_decision_id,
-                }),
-            )
-                .into_response(),
+        Ok(destination) => crate::auth::no_store(
+            Json(InstructorSetupEmailResponse {
+                setup_email_sent: state
+                    .setup_email
+                    .send_setup_email(&destination)
+                    .await
+                    .is_ok(),
+            })
+            .into_response(),
         ),
         Err(error) => store_error_response(error),
     }
 }
 
-/// Opaque receipt for the Sysadmin-owned creation workflow.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct InstructorIdentityVettingReceipt {
-    vetting_decision_id: InstructorIdentityVettingDecisionId,
+struct InstructorSetupEmailResponse {
+    setup_email_sent: bool,
 }
 
 async fn deactivate_instructor_account(
@@ -316,6 +347,9 @@ mod tests {
         let state = InstructorAccountRouteState {
             sessions: Arc::new(PostgresSessionStore::new(pool.clone())),
             accounts: PostgresInstructorAccountStore::new(pool),
+            setup_email: Arc::new(
+                crate::instructor_setup_email_delivery::NotConfiguredInstructorSetupEmailDelivery,
+            ),
         };
         let response = deactivate_instructor_account(
             State(state),

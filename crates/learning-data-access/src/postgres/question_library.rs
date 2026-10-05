@@ -4,7 +4,7 @@ mod search;
 
 use async_trait::async_trait;
 use question_model::{
-    BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
+    AccountId, BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
     BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionId,
     PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QuestionAuthor,
     QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
@@ -428,11 +428,26 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     ))
     .map_err(|_| invalid("Question Type"))?;
     let author_names: Vec<String> = row.try_get("author_names").map_err(map_sqlx_error)?;
+    let author_account_ids: Vec<Option<String>> =
+        row.try_get("author_account_ids").map_err(map_sqlx_error)?;
+    if author_names.len() != author_account_ids.len() {
+        return Err(invalid("Question Authorship"));
+    }
     let authors = author_names
         .into_iter()
-        .map(|display_name| {
+        .zip(author_account_ids)
+        .map(|(display_name, account_id)| {
             QuestionAuthorDisplayName::new(display_name)
-                .map(|display_name| QuestionAuthor { display_name })
+                .and_then(|display_name| {
+                    let account_id = account_id
+                        .map(AccountId::new)
+                        .transpose()
+                        .map_err(|_| question_model::QuestionAuthorshipError::InvalidAuthors)?;
+                    Ok(QuestionAuthor {
+                        display_name,
+                        account_id,
+                    })
+                })
                 .map_err(|_| invalid("Question Authorship"))
         })
         .collect::<Result<Vec<_>, _>>()?;

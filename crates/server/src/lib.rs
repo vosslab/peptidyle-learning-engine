@@ -34,7 +34,7 @@ mod authoring_source;
 /// Server-owned Bloom classifier and candidate-bound publication preparation.
 /// Instructor-owned reusable Blueprint Course routes.
 pub(crate) mod blueprint_course;
-/// Vetted-Instructor Blueprint Course Star and private Watch routes.
+/// Active-Instructor Blueprint Course Star and private Watch routes.
 mod blueprint_stewardship;
 /// Production database/session composition.
 pub mod composition;
@@ -56,9 +56,10 @@ pub mod health;
 pub(crate) mod http_security;
 /// Sysadmin-only Instructor Account management routes.
 pub(crate) mod instructor_account;
+pub mod instructor_setup_email_delivery;
 /// Protected direct-Instructor invitation-mailer export route.
 pub(crate) mod invitation_export;
-/// Retained Question and Pool improvement threads and impact notices.
+/// Retained Question and Pool impact notices.
 mod library_discussion;
 mod library_search_terms;
 /// Private self-only Question and Pool Watch notification inbox.
@@ -73,7 +74,7 @@ pub(crate) mod profile_avatar;
 pub(crate) mod profile_settings;
 /// One-shot immutable public Question Image publisher with no HTTP surface.
 pub mod public_asset_publisher;
-/// Active-vetted-Instructor atomic shared Published Question metadata edits.
+/// Active-Instructor atomic shared Published Question metadata edits.
 mod question_bulk_metadata;
 /// Active-Instructor Published Question to private Draft fork command.
 mod question_fork;
@@ -81,22 +82,22 @@ mod question_fork;
 pub(crate) mod question_image_delivery;
 /// Instructor Question Library browse and answer-free detail routes.
 mod question_library;
-/// Active-vetted-Instructor Topic, Subtopic, and Tag edits for many Question Pools.
+/// Active-Instructor Topic, Subtopic, and Tag edits for many Question Pools.
 mod question_pool_bulk_metadata;
 /// Active-Instructor reusable Published Question Pool creation.
 mod question_pool_creation;
 /// Published Pool Library browse/current detail and owned fork detail routes.
 mod question_pool_library;
-/// Vetted-Instructor Pool Stars and actor-private Pool Watch state.
+/// Active-Instructor Pool Stars and actor-private Pool Watch state.
 mod question_pool_stewardship;
-/// Active-vetted-Instructor optional Pool Hint, Question Feedback, and Worked Solution.
+/// Active-Instructor optional Pool Hint, Question Feedback, and Worked Solution.
 mod question_pool_support;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
 mod question_publication_images;
-/// Vetted-Instructor Question Star state and aggregate endorsement routes.
+/// Active-Instructor Question Star state and aggregate endorsement routes.
 mod question_stewardship;
-/// Private self-only vetted-Instructor Question Watch routes.
+/// Private self-only active-Instructor Question Watch routes.
 mod question_watch;
 /// Process-wide safe request lifecycle handling.
 pub mod request_lifecycle;

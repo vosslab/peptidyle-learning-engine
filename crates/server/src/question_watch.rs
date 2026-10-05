@@ -1,4 +1,4 @@
-//! Private vetted-Instructor Question Watch HTTP boundary.
+//! Private active-Instructor Question Watch HTTP boundary.
 //!
 //! This surface carries only the current Instructor's Watch boolean. It never
 //! returns a watcher count, identity, list, activity, or notification record.

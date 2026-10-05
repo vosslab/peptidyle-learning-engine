@@ -126,7 +126,6 @@ async fn save_current_points(
             'late_work_rule', snapshot.late_work_rule, \
             'question_variation_rule', snapshot.question_variation_rule, \
             'assessment_question_order_rule', snapshot.assessment_question_order_rule, \
-            'feedback_score', snapshot.feedback_score, \
             'feedback_per_item_correctness', snapshot.feedback_per_item_correctness, \
             'feedback_submitted_response', snapshot.feedback_submitted_response, \
             'feedback_question_answer', snapshot.feedback_question_answer, \

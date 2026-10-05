@@ -71,7 +71,6 @@ enum EventKindResponse {
     Revision,
     MembersChanged,
     Fork,
-    ImprovementThread,
     ImpactNotice,
 }
 
@@ -107,15 +106,6 @@ impl From<LibraryWatchNotification> for NotificationResponse {
                 Some(source_revision_number),
                 Some(forked_public_id.to_string()),
                 None,
-            ),
-            LibraryWatchActivity::ImprovementThread {
-                creation_revision_number,
-                thread_id,
-            } => (
-                EventKindResponse::ImprovementThread,
-                Some(creation_revision_number),
-                None,
-                Some(thread_id.to_string()),
             ),
             LibraryWatchActivity::ImpactNotice {
                 affected_revision_number,
@@ -338,7 +328,6 @@ mod tests {
     fn every_watch_activity_serializes_to_the_stable_wire_shape() {
         let forked_id = question_model::PublishedQuestionId::from_random_identifier("0000001")
             .expect("Question ID");
-        let thread_id = uuid::Uuid::from_u128(1);
         let notice_id = uuid::Uuid::from_u128(2);
         let cases = [
             (
@@ -364,16 +353,6 @@ mod tests {
                 Some(3),
                 Some(forked_id.to_string()),
                 None,
-            ),
-            (
-                LibraryWatchActivity::ImprovementThread {
-                    creation_revision_number: 4,
-                    thread_id,
-                },
-                "improvementThread",
-                Some(4),
-                None,
-                Some(thread_id.to_string()),
             ),
             (
                 LibraryWatchActivity::ImpactNotice {

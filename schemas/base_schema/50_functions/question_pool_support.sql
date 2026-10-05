@@ -27,10 +27,10 @@ RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
-    -- ASVS 8.2.1: only an active vetted Instructor may read or replace Pool support.
+    -- ASVS 8.2.1: only an active Instructor may read or replace Pool support.
     IF NOT ple_api.current_session_account_is_instructor()
        OR ple_api.current_session_account_id() IS NULL
-       OR ple_private.verified_instructor_display_name(ple_api.current_session_account_id()) IS NULL THEN
+       OR ple_private.instructor_display_name(ple_api.current_session_account_id()) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool support requires an active Instructor';
     END IF;

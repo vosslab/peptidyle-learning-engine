@@ -106,130 +106,34 @@ CREATE TRIGGER instructor_account_creation_event_is_immutable
 BEFORE UPDATE OR DELETE ON ple_audit.instructor_account_creation_event
 FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_instructor_account_creation_event_change();
 
-CREATE FUNCTION ple_audit.reject_instructor_identity_vetting_decision_change()
-RETURNS trigger LANGUAGE plpgsql
-SET search_path = pg_catalog, ple_audit
-AS $$
-BEGIN
-    RAISE EXCEPTION USING ERRCODE = '23514',
-        MESSAGE = 'Instructor identity vetting decisions are immutable';
-END
-$$;
-
-CREATE TRIGGER instructor_identity_vetting_decision_is_immutable
-BEFORE UPDATE OR DELETE ON ple_audit.instructor_identity_vetting_decision
-FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_instructor_identity_vetting_decision_change();
-
 CREATE FUNCTION ple_audit.record_instructor_account_creation_event(
     p_created_instructor_account_id text,
-    p_created_by_sysadmin_account_id text,
-    p_vetting_decision_id uuid
+    p_created_by_sysadmin_account_id text
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_audit
 AS $$
 BEGIN
     IF p_created_instructor_account_id IS NULL
-       OR p_created_by_sysadmin_account_id IS NULL
-       OR p_vetting_decision_id IS NULL THEN
+       OR p_created_by_sysadmin_account_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22004',
-            MESSAGE = 'Instructor Account creation evidence requires subject, actor, and vetting decision';
+            MESSAGE = 'Instructor Account creation evidence requires subject and actor';
     END IF;
     INSERT INTO ple_audit.instructor_account_creation_event (
-        event_id, created_instructor_account_id, created_by_sysadmin_account_id,
-        instructor_identity_vetting_decision_id, occurred_at
+        event_id, created_instructor_account_id, created_by_sysadmin_account_id, occurred_at
     ) VALUES (
         pg_catalog.gen_random_uuid(), p_created_instructor_account_id,
-        p_created_by_sysadmin_account_id, p_vetting_decision_id,
-        pg_catalog.transaction_timestamp()
+        p_created_by_sysadmin_account_id, pg_catalog.transaction_timestamp()
     ) ON CONFLICT (created_instructor_account_id) DO NOTHING;
     IF NOT FOUND AND NOT EXISTS (
         SELECT 1 FROM ple_audit.instructor_account_creation_event
          WHERE created_instructor_account_id = p_created_instructor_account_id
            AND created_by_sysadmin_account_id = p_created_by_sysadmin_account_id
-           AND instructor_identity_vetting_decision_id = p_vetting_decision_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Instructor Account creation evidence conflicts with immutable history';
     END IF;
 END
-$$;
-
-CREATE FUNCTION ple_audit.record_completed_instructor_identity_vetting_decision(
-    p_normalized_email text,
-    p_verified_instructor_display_name text,
-    p_completed_by_sysadmin_account_id text
-)
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_audit
-AS $$
-DECLARE v_decision_id uuid; v_existing_display_name text;
-BEGIN
-    IF p_normalized_email IS NULL
-       OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
-       OR p_normalized_email IS DISTINCT FROM lower(btrim(p_normalized_email))
-       OR p_verified_instructor_display_name IS NULL
-       OR p_verified_instructor_display_name IS DISTINCT FROM btrim(p_verified_instructor_display_name)
-       OR char_length(p_verified_instructor_display_name) NOT BETWEEN 1 AND 200
-       OR p_verified_instructor_display_name ~ '[[:cntrl:]]'
-       OR p_completed_by_sysadmin_account_id IS NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Instructor identity vetting decision input is invalid';
-    END IF;
-
-    -- ASVS 2.3.1 and 2.3.3: a concurrent replay returns the one immutable
-    -- completed decision rather than writing a second approval fact.
-    INSERT INTO ple_audit.instructor_identity_vetting_decision (
-        decision_id, normalized_email, verified_instructor_display_name,
-        completed_by_sysadmin_account_id, completed_at
-    ) VALUES (
-        pg_catalog.gen_random_uuid(), p_normalized_email, p_verified_instructor_display_name,
-        p_completed_by_sysadmin_account_id, pg_catalog.transaction_timestamp()
-    ) ON CONFLICT (normalized_email) DO NOTHING
-    RETURNING decision_id INTO v_decision_id;
-
-    IF v_decision_id IS NULL THEN
-        SELECT decision_id, verified_instructor_display_name
-          INTO v_decision_id, v_existing_display_name
-        FROM ple_audit.instructor_identity_vetting_decision
-        WHERE normalized_email = p_normalized_email;
-        IF v_existing_display_name IS DISTINCT FROM p_verified_instructor_display_name THEN
-            RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'Completed Instructor identity vetting display name is immutable';
-        END IF;
-    END IF;
-    RETURN v_decision_id;
-END
-$$;
-
-CREATE FUNCTION ple_audit.completed_instructor_identity_vetting_decision(
-    p_decision_id uuid, p_normalized_email text
-)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_audit
-AS $$
-    SELECT p_decision_id IS NOT NULL
-       AND p_normalized_email IS NOT NULL
-       AND EXISTS (
-           SELECT 1 FROM ple_audit.instructor_identity_vetting_decision
-           WHERE decision_id = p_decision_id AND normalized_email = p_normalized_email
-       )
-$$;
-
-
-
--- This is callable only by the server-owned internal wrapper below.  It does
--- not grant browser clients or ordinary application logins any audit read.
-CREATE FUNCTION ple_audit.verified_instructor_display_name(p_instructor_account_id text)
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_audit, ple_private
-AS $$
-    SELECT decision.verified_instructor_display_name
-      FROM ple_audit.instructor_account_creation_event AS creation
-      JOIN ple_audit.instructor_identity_vetting_decision AS decision
-        ON decision.decision_id = creation.instructor_identity_vetting_decision_id
-     WHERE creation.created_instructor_account_id = p_instructor_account_id
-       AND creation.created_instructor_user_role = 'instructor'
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -333,7 +237,8 @@ END
 $$;
 
 CREATE FUNCTION ple_private.create_instructor_account(
-    p_normalized_email text, p_delivery_email text, p_vetting_decision_id uuid
+    p_normalized_email text, p_delivery_email text, p_first_name text,
+    p_last_name text, p_affiliation text
 )
 RETURNS TABLE (account_id text, created_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
@@ -344,15 +249,19 @@ BEGIN
     IF p_normalized_email IS NULL
        OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
        OR p_normalized_email IS DISTINCT FROM lower(btrim(p_normalized_email))
-       OR p_delivery_email IS NULL OR char_length(btrim(p_delivery_email)) NOT BETWEEN 3 AND 320 THEN
+       OR p_delivery_email IS NULL OR char_length(btrim(p_delivery_email)) NOT BETWEEN 3 AND 320
+       OR p_first_name IS NULL OR p_first_name IS DISTINCT FROM btrim(p_first_name)
+       OR char_length(p_first_name) NOT BETWEEN 1 AND 100 OR p_first_name ~ '[[:cntrl:]]'
+       OR p_last_name IS NULL OR p_last_name IS DISTINCT FROM btrim(p_last_name)
+       OR char_length(p_last_name) NOT BETWEEN 1 AND 100 OR p_last_name ~ '[[:cntrl:]]'
+       OR p_affiliation IS NULL OR p_affiliation IS DISTINCT FROM btrim(p_affiliation)
+       OR char_length(p_affiliation) NOT BETWEEN 1 AND 300 OR p_affiliation ~ '[[:cntrl:]]' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid Instructor Account input';
     END IF;
     v_actor_account_id := ple_private.require_current_sysadmin_account();
-    -- ASVS 2.2.1, 2.3.1, and 5.3.2: reject an absent, invalid, or
-    -- mismatched decision before an Account or credential write can occur.
-    PERFORM ple_private.require_completed_instructor_identity_vetting(
-        p_vetting_decision_id, p_normalized_email
-    );
+    -- ASVS 2.2.1, 2.2.2, 2.3.3, 8.2.1, and 8.3.1: validate every setup
+    -- field before the one atomic account, email, Profile, and audit write;
+    -- only the installed active Sysadmin session supplies the actor.
     v_created_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_private.account AS new_account (account_id, user_role, created_at)
     VALUES ('U00000009', 'instructor', v_created_at)
@@ -360,63 +269,50 @@ BEGIN
     INSERT INTO ple_private.account_authentication_email (
         account_id, normalized_email, delivery_email, verified_at, updated_at
     ) VALUES (v_account_id, p_normalized_email, p_delivery_email, v_created_at, v_created_at);
+    INSERT INTO ple_private.instructor_profile (
+        account_id, first_name, last_name, affiliation, created_at, updated_at
+    ) VALUES (v_account_id, p_first_name, p_last_name, p_affiliation, v_created_at, v_created_at);
     PERFORM ple_audit.record_instructor_account_creation_event(
-        v_account_id, v_actor_account_id, p_vetting_decision_id
+        v_account_id, v_actor_account_id
     );
     RETURN QUERY SELECT v_account_id, v_created_at;
 END
 $$;
 
-CREATE FUNCTION ple_private.complete_instructor_identity_vetting(
-    p_normalized_email text, p_verified_instructor_display_name text
-)
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_audit, ple_private
+-- A public Instructor name comes from the Account Profile created after
+-- outside vetting. It is not a role, status, or approval projection.
+CREATE FUNCTION ple_private.instructor_display_name(p_instructor_account_id text)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
 AS $$
-DECLARE v_actor_account_id text;
-BEGIN
-    IF p_normalized_email IS NULL
-       OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
-       OR p_normalized_email IS DISTINCT FROM lower(btrim(p_normalized_email))
-       OR p_verified_instructor_display_name IS NULL
-       OR p_verified_instructor_display_name IS DISTINCT FROM btrim(p_verified_instructor_display_name)
-       OR char_length(p_verified_instructor_display_name) NOT BETWEEN 1 AND 200
-       OR p_verified_instructor_display_name ~ '[[:cntrl:]]' THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Instructor identity vetting input is invalid';
-    END IF;
-    -- ASVS 8.2.1 and 8.3.1: only the installed session determines the
-    -- Sysadmin actor; no request field can select an approving role or Account.
-    v_actor_account_id := ple_private.require_current_sysadmin_account();
-    RETURN ple_audit.record_completed_instructor_identity_vetting_decision(
-        p_normalized_email, p_verified_instructor_display_name, v_actor_account_id
-    );
-END
+    SELECT profile.first_name || ' ' || profile.last_name
+      FROM ple_private.instructor_profile AS profile
+     WHERE profile.account_id = p_instructor_account_id
 $$;
 
-
-
--- Internal-only source for the two later Star projections.  It is not exposed
--- through ple_api: their own authorized procedures must select it after they
--- establish a published item and active Instructor viewer.
-CREATE FUNCTION ple_private.verified_instructor_display_name(p_instructor_account_id text)
+CREATE FUNCTION ple_private.instructor_affiliation(p_instructor_account_id text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_audit, ple_private
-AS $$ SELECT ple_audit.verified_instructor_display_name(p_instructor_account_id) $$;
-
-CREATE FUNCTION ple_private.require_completed_instructor_identity_vetting(
-    p_decision_id uuid, p_normalized_email text
-)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_audit, ple_private
+SET search_path = pg_catalog, ple_private
 AS $$
+    SELECT profile.affiliation
+      FROM ple_private.instructor_profile AS profile
+     WHERE profile.account_id = p_instructor_account_id
+$$;
+
+-- This private value reaches only the configured server-side mail adapter.
+-- The caller must be the installed active Sysadmin; browser DTOs never carry it.
+CREATE FUNCTION ple_private.instructor_setup_email_destination(p_account_id text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
+AS $$
+DECLARE v_delivery_email text;
 BEGIN
-    IF NOT ple_audit.completed_instructor_identity_vetting_decision(
-        p_decision_id, p_normalized_email
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Completed Instructor identity vetting decision is required';
-    END IF;
+    PERFORM ple_private.require_current_sysadmin_account();
+    SELECT email.delivery_email INTO v_delivery_email
+      FROM ple_private.account AS account
+      JOIN ple_private.account_authentication_email AS email ON email.account_id = account.account_id
+     WHERE account.account_id = p_account_id AND account.user_role = 'instructor';
+    RETURN v_delivery_email;
 END
 $$;
 
@@ -456,7 +352,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.create_instructor_account_summary(
-    p_normalized_email text, p_vetting_decision_id uuid
+    p_normalized_email text, p_first_name text, p_last_name text, p_affiliation text
 )
 RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
@@ -466,7 +362,7 @@ DECLARE v_account_id text;
 BEGIN
     SELECT created.account_id INTO v_account_id
     FROM ple_private.create_instructor_account(
-        p_normalized_email, p_normalized_email, p_vetting_decision_id
+        p_normalized_email, p_normalized_email, p_first_name, p_last_name, p_affiliation
     ) AS created;
     RETURN QUERY SELECT * FROM ple_private.instructor_account_summary(v_account_id);
 END
@@ -663,23 +559,19 @@ SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.list_instructor_accounts() $$;
 
 CREATE FUNCTION ple_api.create_instructor_account(
-    p_normalized_email text, p_vetting_decision_id uuid
+    p_normalized_email text, p_first_name text, p_last_name text, p_affiliation text
 )
 RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.create_instructor_account_summary(
-    p_normalized_email, p_vetting_decision_id
+    p_normalized_email, p_first_name, p_last_name, p_affiliation
 ) $$;
 
-CREATE FUNCTION ple_api.complete_instructor_identity_vetting(
-    p_normalized_email text, p_verified_instructor_display_name text
-)
-RETURNS uuid LANGUAGE sql SECURITY DEFINER
+CREATE FUNCTION ple_api.instructor_setup_email_destination(p_account_id text)
+RETURNS text LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
-AS $$ SELECT ple_private.complete_instructor_identity_vetting(
-    p_normalized_email, p_verified_instructor_display_name
-) $$;
+AS $$ SELECT ple_private.instructor_setup_email_destination(p_account_id) $$;
 
 CREATE FUNCTION ple_api.change_instructor_account_state(
     p_account_id text, p_next_state text, p_reason text

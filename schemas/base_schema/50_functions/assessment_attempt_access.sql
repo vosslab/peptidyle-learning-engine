@@ -132,15 +132,9 @@ BEGIN
                COALESCE(sum(ple_private.grade_contribution_points_possible(
                    assessment_row.assessment_type,
                    snapshot.scoring_rule,
-                   coalesce(
-                   (SELECT question.points_possible
-                      FROM ple_data.assessment_entry_question AS question
-                     WHERE question.assessment_entry_id = issued.assessment_entry_id),
-                   (SELECT pool.points_per_item
-                      FROM ple_data.assessment_entry_pool AS pool
-                     WHERE pool.assessment_entry_id = issued.assessment_entry_id),
-                   snapshot.points
-               )
+                   ple_private.current_assessment_entry_points(
+                       issued.assessment_entry_id, snapshot.points
+                   )
                )), 0)::double precision
           INTO question_count, points_possible
           FROM ple_private.issued_question AS issued

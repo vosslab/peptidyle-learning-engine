@@ -82,6 +82,8 @@ DECLARE
     question_available boolean;
     question_backend_supported boolean;
     question_pool_id_value text;
+    existing_entry record;
+    has_started_attempts boolean;
 BEGIN
     IF p_entries IS NULL OR jsonb_typeof(p_entries) <> 'array'
        OR jsonb_array_length(p_entries) > 1024 THEN
@@ -98,6 +100,76 @@ BEGIN
          WHERE value ->> 'availability' = 'available') > 250 THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment may contain at most 250 Questions';
+    END IF;
+
+    -- ASVS 2.2.2, 2.3.3: this trusted write runs while save_assessment
+    -- holds the Assessment root lock.  Student Attempt start takes that same
+    -- lock before issuing Questions, so a content save cannot race issuance.
+    -- Once any Student has started, preserve the issued Assessment: only
+    -- points and Entry order may change.  A whole Pool may be retired, which
+    -- removes its earned and possible points from every Attempt.  A fixed
+    -- Question stays conservative until its removal policy is settled.
+    has_started_attempts := ple_private.assessment_has_started_attempts(p_assessment_id);
+    IF has_started_attempts THEN
+        FOR entry_json IN SELECT value FROM jsonb_array_elements(p_entries) LOOP
+            SELECT entry.assessment_entry_id, entry.entry_kind,
+                   entry.availability::text AS availability,
+                   entry.scoring_rule::text AS scoring_rule,
+                   entry.question_attempt_limit,
+                   entry.question_attempt_time_limit_seconds,
+                   entry.question_attempt_grace_seconds,
+                   question.published_question_id, question.question_revision_number,
+                   pool_entry.question_pool_id, pool_entry.selection_count,
+                   pool_entry.selected_question_order::text AS selected_question_order
+              INTO existing_entry
+              FROM ple_data.assessment_entry AS entry
+              LEFT JOIN ple_data.assessment_entry_question AS question
+                ON question.assessment_entry_id = entry.assessment_entry_id
+              LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+                ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+             WHERE entry.assessment_id = p_assessment_id
+               AND entry.assessment_entry_id::text = entry_json ->> 'assessmentEntryId';
+            IF NOT FOUND
+               OR existing_entry.entry_kind::text IS DISTINCT FROM entry_json ->> 'kind'
+               OR (existing_entry.availability IS DISTINCT FROM entry_json ->> 'availability'
+                   AND NOT (existing_entry.entry_kind = 'question_pool'
+                       AND existing_entry.availability = 'available'
+                       AND entry_json ->> 'availability' = 'retired'))
+               OR existing_entry.scoring_rule IS DISTINCT FROM entry_json ->> 'scoringRule'
+               OR COALESCE(existing_entry.question_attempt_limit::text, '')
+                    IS DISTINCT FROM COALESCE(entry_json ->> 'questionAttemptLimit', '')
+               OR COALESCE(existing_entry.question_attempt_time_limit_seconds::text, '')
+                    IS DISTINCT FROM COALESCE(entry_json ->> 'questionAttemptTimeLimitSeconds', '')
+               OR COALESCE(existing_entry.question_attempt_grace_seconds::text, '')
+                    IS DISTINCT FROM COALESCE(entry_json ->> 'questionAttemptGraceSeconds', '')
+               OR (existing_entry.entry_kind = 'fixed_question' AND (
+                    existing_entry.published_question_id IS DISTINCT FROM entry_json ->> 'questionId'
+                    OR existing_entry.question_revision_number::text
+                         IS DISTINCT FROM entry_json ->> 'revisionNumber'))
+               OR (existing_entry.entry_kind = 'question_pool' AND (
+                    existing_entry.question_pool_id IS DISTINCT FROM entry_json ->> 'questionPoolId'
+                    OR existing_entry.selection_count::text
+                         IS DISTINCT FROM entry_json ->> 'selectionCount'
+                    OR existing_entry.selected_question_order
+                         IS DISTINCT FROM entry_json ->> 'selectedQuestionOrder')) THEN
+                RAISE EXCEPTION USING ERRCODE = '55000',
+                    MESSAGE = 'Started Assessment content allows points, order, and whole-Pool removal';
+            END IF;
+        END LOOP;
+        IF EXISTS (
+            SELECT 1
+              FROM ple_data.assessment_entry AS entry
+             WHERE entry.assessment_id = p_assessment_id
+               AND entry.entry_kind = 'fixed_question'
+               AND entry.availability = 'available'
+               AND NOT EXISTS (
+                   SELECT 1 FROM jsonb_array_elements(p_entries) AS candidate(value)
+                    WHERE candidate.value ->> 'assessmentEntryId' = entry.assessment_entry_id::text
+               )
+        ) THEN
+            RAISE EXCEPTION USING ERRCODE = '55000',
+                MESSAGE = 'Started Assessment fixed Questions cannot be removed';
+        END IF;
     END IF;
 
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_entries) LOOP
@@ -392,8 +464,8 @@ DECLARE
         'assessment_title', 'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
         'question_variation_rule',
-        'assessment_question_order_rule', 'feedback_score',
-        'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_answer',
+        'assessment_question_order_rule', 'feedback_per_item_correctness',
+        'feedback_submitted_response', 'feedback_question_answer',
         'feedback_question_answer_explanation', 'feedback_class_statistics',
         'feedback_hints', 'feedback_worked_solutions'
     ];
@@ -441,8 +513,8 @@ BEGIN
         candidate.available_at, candidate.due_at, candidate.closes_at,
         candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
         candidate.late_work_rule, candidate.question_variation_rule,
-        candidate.assessment_question_order_rule, candidate.feedback_score,
-        candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
+        candidate.assessment_question_order_rule, candidate.feedback_per_item_correctness,
+        candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics, current_assessment.assessment_type,
         candidate.feedback_hints, candidate.feedback_worked_solutions
@@ -531,7 +603,7 @@ BEGIN
             current_snapshot.assessment_attempt_time_limit_seconds,
             current_snapshot.assessment_attempt_limit,
             current_snapshot.late_work_rule, current_snapshot.question_variation_rule,
-            current_snapshot.assessment_question_order_rule, current_snapshot.feedback_score,
+            current_snapshot.assessment_question_order_rule,
             current_snapshot.feedback_per_item_correctness,
             current_snapshot.feedback_submitted_response,
             current_snapshot.feedback_question_answer,
@@ -591,8 +663,8 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
         'question_variation_rule',
-        'assessment_question_order_rule', 'feedback_score',
-        'feedback_per_item_correctness', 'feedback_submitted_response',
+        'assessment_question_order_rule', 'feedback_per_item_correctness',
+        'feedback_submitted_response',
         'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics',
         'feedback_hints', 'feedback_worked_solutions'];
 BEGIN
@@ -634,8 +706,8 @@ BEGIN
         candidate.available_at, candidate.due_at, candidate.closes_at,
         candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
         candidate.late_work_rule, candidate.question_variation_rule,
-        candidate.assessment_question_order_rule, candidate.feedback_score,
-        candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
+        candidate.assessment_question_order_rule, candidate.feedback_per_item_correctness,
+        candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics, current_assessment.assessment_type,
         candidate.feedback_hints, candidate.feedback_worked_solutions

@@ -1,7 +1,22 @@
 # Implementation compliance summary
 
-Implementation audit of the running PLE system against Human Guidance on 2026-10-02.
-Human Guidance blob: `d0614eba06400c7ae00dfcdb73ca0a9e1ed03efc`.
+Current findings: [2026-10-04 implementation audit](../../../active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md).
+The counts below are historical and are not current compliance claims.
+
+Implementation audit of the running PLE system against Human Guidance on 2026-10-03.
+Human Guidance blob: `3da3a20cb34ed9c01346835de5b55a6da92a98e8`.
+
+The 2026-10-04 guidance interview supersedes this snapshot's Instructor approval
+reading. PLE has no vetting workflow; Account creation sends a setup email.
+The current code still requires a stored vetting decision. Counts and checklist
+checks below describe the 2026-10-03 audit, not compliance with the revised guidance.
+See [unresolved_or_ambiguous_items.md](unresolved_or_ambiguous_items.md).
+
+Later interview answers also revise Profile visibility, Blueprint sorting, shared
+search presentation, tooltips, list-item navigation, and search-discard confirmation.
+System-wide settings are deferred and the Quiz collaboration sentence is removed.
+The implementation checklist requires reconciliation and fresh implementation
+evidence; this documentation interview does not renew its verification claims.
 
 ## Authority
 
@@ -21,16 +36,16 @@ QTI, BBQ upload, AI Bloom assignment, and automated daemon backends were not imp
 
 | Status | Count |
 | --- | --- |
-| Verified | 1055 |
-| Open | 28 |
+| Verified | 1065 |
+| Open | 27 |
 | Not applicable | 54 |
-| Bullets | 1137 |
+| Bullets | 1146 |
 
 | Section | Verified | Open | Not applicable |
 | --- | --- | --- | --- |
 | Development principles | 20 | 1 | 30 |
 | Accounts and roles | 44 | 0 | 8 |
-| Interface design | 345 | 24 | 4 |
+| Interface design | 355 | 23 | 4 |
 | Data and history | 159 | 2 | 0 |
 | Question specifications | 186 | 0 | 7 |
 | Course specifications | 154 | 0 | 4 |
@@ -55,6 +70,8 @@ Area patterns are in the sibling reports:
 
 ## Generated evidence
 
-The canonical Playwright suite passed for the signed-in top bar and Profile menu.
-Breadcrumb ancestor behavior is covered by `tests/test_breadcrumb_ribbon_ancestors.mjs`.
-The screenshot corpus and Graphify output were not regenerated in this pass.
+On 2026-10-03, `--diff` and `--consistency` each exited 0 twice against 1146 bullets.
+All nine checklist part gates exited 0. `./launchers/run_fast_checks.sh` exited 0.
+Breadcrumb ancestor behavior is covered by `tests/test_ribbon_contract.mjs`.
+The 2026-10-03 changelog records the 246-image screenshot refresh. This closeout
+did not start another capture or a Graphify relabel.

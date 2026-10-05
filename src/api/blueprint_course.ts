@@ -38,7 +38,8 @@ export interface BlueprintCourseClassificationSearch {
 }
 
 /** Closed server-owned ordering choices for My Blueprint Courses. */
-export type BlueprintCourseListSort = "name" | "adoptions" | "students";
+export type BlueprintCourseListSort =
+  "name" | "adoptions" | "students" | "stars" | "watches" | "recentEdits";
 
 export interface LoadedBlueprintCourse {
   readonly blueprintCourse: BlueprintCourseView;

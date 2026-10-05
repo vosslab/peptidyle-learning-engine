@@ -28,8 +28,8 @@ readings are recorded once in
 
 ## Open reading in this area
 
-- Position 1019 asks whether a Quiz also needs a distinct collaboration control, or
+- Position 1028 asks whether a Quiz also needs a distinct collaboration control, or
   only that more restrictive Attempt limit.
 
-Question specifications: 186 verified, 0 open, 7 not applicable. Assessment
-specifications: 147 verified, 1 open, 1 not applicable.
+Question specifications: 186 verified, 0 open, 7 not applicable.
+Assessment specifications: 147 verified, 1 open, 1 not applicable.

@@ -1,5 +1,5 @@
 // Instructor-only discovery of available Public Blueprint Courses.
-import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onCleanup, type JSX } from "solid-js";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseClient, BlueprintCourseListSort } from "../api/blueprint_course";
 import type { ContentClassificationClient } from "../api/content_classification";
@@ -9,24 +9,20 @@ import {
   RecordPageControls,
   type RecordPageSize,
 } from "../components/record_list/record_page_controls";
+import { RecordList, type RecordListState } from "../components/record_list/record_list";
+import { SearchLeaveGuard } from "../components/search_leave_guard";
 import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+  SearchResultDisplay,
+  type SearchResultDisplayMode,
+} from "../components/search_result_display";
+import { publicBlueprintContent } from "./blueprint_course_search_result";
 import { RecordSortControl } from "../components/record_list/record_sort_control";
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import {
   BlueprintSearchClassification,
   emptyBlueprintClassificationSearch,
 } from "./blueprint_course_search_classification";
-import {
-  blueprintSearchHistoryState,
-  createBlueprintSearchReturnToken,
-  saveBlueprintSearchReturnState,
-  takeBlueprintSearchReturnState,
-  type BlueprintSearchSnapshot as SearchSnapshot,
-} from "./blueprint_course_search_return_state";
+import type { BlueprintSearchSnapshot as SearchSnapshot } from "./blueprint_course_search_return_state";
 import "../features/blueprint_course/blueprint_course.css";
 
 export interface PublicBlueprintSearchPageProps {
@@ -53,8 +49,35 @@ function emptySearch(): SearchSnapshot {
   };
 }
 
-function blueprintCoursePath(blueprintCourseId: string): string {
-  return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
+function hasConfiguredSearch(snapshot: SearchSnapshot): boolean {
+  const classification = snapshot.classification;
+  return (
+    snapshot.query.trim().length > 0 ||
+    snapshot.promotedOnly ||
+    snapshot.tag.trim().length > 0 ||
+    classification.disciplineUuid !== null ||
+    classification.subjectUuid !== null ||
+    classification.topicUuid !== null ||
+    classification.subtopicUuid !== null ||
+    classification.crossDiscipline
+  );
+}
+
+function sortDescription(sort: BlueprintCourseListSort): string {
+  switch (sort) {
+    case "name":
+      return "name";
+    case "adoptions":
+      return "most adoptions";
+    case "students":
+      return "most students having taken the course";
+    case "stars":
+      return "most stars";
+    case "watches":
+      return "most watches";
+    case "recentEdits":
+      return "most recently edited";
+  }
 }
 
 function searchErrorMessage(failure: unknown): string {
@@ -69,9 +92,7 @@ function searchErrorMessage(failure: unknown): string {
 export function PublicBlueprintSearchResultList(props: {
   readonly courses: ReadonlyArray<BlueprintCourseSummaryView>;
   readonly state: RecordListState;
-  readonly returnTokenFor: (course: BlueprintCourseSummaryView) => string;
-  readonly resultLinks: Map<string, HTMLAnchorElement>;
-  readonly saveReturn: (event: MouseEvent, returnToken: string, linkKey: string) => void;
+  readonly presentation: SearchResultDisplayMode;
 }): JSX.Element {
   return (
     <RecordList
@@ -81,55 +102,12 @@ export function PublicBlueprintSearchResultList(props: {
         message: "Try another name or classification, or clear the search.",
       }}
       recordId={(course) => course.id}
-      content={(course) =>
-        publicBlueprintContent(
-          course,
-          props.returnTokenFor(course),
-          props.resultLinks,
-          props.saveReturn,
-        )
-      }
+      content={publicBlueprintContent}
+      presentation={props.presentation}
       rows={props.courses}
       state={props.state}
     />
   );
-}
-
-function publicBlueprintContent(
-  course: BlueprintCourseSummaryView,
-  returnToken: string,
-  resultLinks: Map<string, HTMLAnchorElement>,
-  saveReturn: (event: MouseEvent, returnToken: string, linkKey: string) => void,
-): RecordContent {
-  return {
-    title: course.long_name,
-    description: course.short_name,
-    details: [
-      {
-        kind: "text",
-        label: "Current Blueprint Revision",
-        value: course.current_revision_tuple.revisionNumber,
-      },
-      { kind: "text", label: "Adoptions", value: course.total_adoptions.toLocaleString() },
-      {
-        kind: "text",
-        label: "Students ever enrolled",
-        value: course.total_students_ever_enrolled.toLocaleString(),
-      },
-      { kind: "courseClassification", value: course.classification },
-    ],
-    actions: [
-      {
-        id: "open",
-        kind: "link",
-        label: "Open Blueprint",
-        href: blueprintCoursePath(course.id),
-        primary: true,
-        ref: (element) => resultLinks.set(`open:${course.id}`, element),
-        onFollow: (event) => saveReturn(event, returnToken, `open:${course.id}`),
-      },
-    ],
-  };
 }
 
 /** Local signals own filters and one server-returned page; the server owns public visibility. */
@@ -137,50 +115,26 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
   const sessionState = useSessionBootstrap().state();
   if (sessionState.kind !== "authenticated")
     throw new Error("Public Blueprint Search requires an authenticated session scope");
-  const sessionScope = sessionState.session;
-  const rawBrowserState: unknown = window.history.state;
-  const browserState =
-    rawBrowserState !== null && typeof rawBrowserState === "object" ? rawBrowserState : {};
-  const returnToken =
-    "blueprintSearchReturnToken" in browserState
-      ? browserState.blueprintSearchReturnToken
-      : undefined;
-  const returnHistoryState =
-    "blueprintSearchReturnState" in browserState
-      ? browserState.blueprintSearchReturnState
-      : undefined;
-  const returnState = takeBlueprintSearchReturnState(sessionScope, returnToken, returnHistoryState);
-  const [draft, setDraft] = createSignal(returnState?.draft.query ?? "");
-  const [draftPromotedOnly, setDraftPromotedOnly] = createSignal(
-    returnState?.draft.promotedOnly ?? false,
-  );
+  const [draft, setDraft] = createSignal("");
+  const [draftPromotedOnly, setDraftPromotedOnly] = createSignal(false);
   const [draftClassification, setDraftClassification] = createSignal(
-    returnState?.draft.classification ?? emptyBlueprintClassificationSearch(),
+    emptyBlueprintClassificationSearch(),
   );
-  const [draftClassificationDescription, setDraftClassificationDescription] = createSignal(
-    returnState?.draft.classificationDescription ?? "",
-  );
-  const [draftTag, setDraftTag] = createSignal(returnState?.draft.tag ?? "");
-  const [submitted, setSubmitted] = createSignal<SearchSnapshot>(
-    returnState?.submitted ?? emptySearch(),
-  );
+  const [draftClassificationDescription, setDraftClassificationDescription] = createSignal("");
+  const [draftTag, setDraftTag] = createSignal("");
+  const [submitted, setSubmitted] = createSignal<SearchSnapshot>(emptySearch());
   const [courses, setCourses] = createSignal<ReadonlyArray<BlueprintCourseSummaryView>>([]);
-  const [currentCursor, setCurrentCursor] = createSignal<string | undefined>(
-    returnState?.currentCursor,
-  );
-  const [previousCursors, setPreviousCursors] = createSignal<ReadonlyArray<string | undefined>>(
-    returnState?.previousCursors ?? [],
-  );
+  const [currentCursor, setCurrentCursor] = createSignal<string | undefined>();
+  const [previousCursors, setPreviousCursors] = createSignal<ReadonlyArray<string | undefined>>([]);
   const [nextCursor, setNextCursor] = createSignal<string | null>(null);
-  const [pageSize, setPageSize] = createSignal<RecordPageSize>(returnState?.pageSize ?? 50);
+  const [pageSize, setPageSize] = createSignal<RecordPageSize>(50);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [pendingRequest, setPendingRequest] = createSignal<BlueprintPageRequest>();
+  const [hasSearch, setHasSearch] = createSignal(false);
+  const [presentation, setPresentation] = createSignal<SearchResultDisplayMode>("compact");
   let generation = 0;
-  let restoreFrame: number | undefined;
   let resultsStatus: HTMLParagraphElement | undefined;
-  const resultLinks = new Map<string, HTMLAnchorElement>();
-  const returnTokens = new Map<string, string>();
 
   function pageRequest(
     snapshot: SearchSnapshot,
@@ -220,7 +174,6 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
     setPendingRequest(target);
     setError(null);
     setLoading(true);
-    resultLinks.clear();
     if (target.cursor === undefined) setCourses([]);
     try {
       const page = await props.client.listBlueprintCourses(
@@ -255,6 +208,7 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
     }
   }
   function submitSearch(): void {
+    setHasSearch(true);
     void load(
       pageRequest(
         {
@@ -273,6 +227,7 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
     );
   }
   function resetSearch(): void {
+    setHasSearch(true);
     setDraft("");
     setDraftPromotedOnly(false);
     setDraftClassification(emptyBlueprintClassificationSearch());
@@ -307,74 +262,8 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
   function changePageSize(next: RecordPageSize): void {
     if (next !== pageSize()) void load(pageRequest(submitted(), undefined, [], next, true));
   }
-  function returnTokenFor(course: BlueprintCourseSummaryView): string {
-    const existing = returnTokens.get(course.id);
-    if (existing !== undefined) return existing;
-    const token = createBlueprintSearchReturnToken();
-    returnTokens.set(course.id, token);
-    return token;
-  }
-  function saveReturn(event: MouseEvent, returnToken: string, linkKey: string): void {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey ||
-      loading()
-    )
-      return;
-    const savedState = {
-      draft: {
-        query: draft(),
-        promotedOnly: draftPromotedOnly(),
-        classification: draftClassification(),
-        classificationDescription: draftClassificationDescription(),
-        sort: submitted().sort,
-        tag: draftTag(),
-      },
-      submitted: submitted(),
-      currentCursor: currentCursor(),
-      previousCursors: previousCursors(),
-      pageSize: pageSize(),
-      scrollY: window.scrollY,
-      linkKey,
-    };
-    saveBlueprintSearchReturnState(sessionScope, returnToken, savedState);
-    const rawHistoryState: unknown = history.state;
-    const nextState =
-      rawHistoryState !== null && typeof rawHistoryState === "object" ? rawHistoryState : {};
-    const returnHistoryState = blueprintSearchHistoryState(sessionScope, returnToken, savedState);
-    if (returnHistoryState === null) return;
-    history.replaceState(
-      { ...nextState, blueprintSearchReturnState: returnHistoryState },
-      "",
-      window.location.href,
-    );
-  }
-  onMount(() => {
-    async function restore(): Promise<void> {
-      const request = await load(
-        pageRequest(
-          returnState?.submitted ?? emptySearch(),
-          returnState?.currentCursor,
-          returnState?.previousCursors ?? [],
-          returnState?.pageSize ?? 50,
-        ),
-      );
-      if (returnState === null || request === null || request !== generation) return;
-      restoreFrame = requestAnimationFrame(() => {
-        if (request !== generation) return;
-        resultLinks.get(returnState.linkKey)?.focus({ preventScroll: true });
-        window.scrollTo({ top: returnState.scrollY, behavior: "instant" });
-      });
-    }
-    void restore();
-  });
   onCleanup(() => {
     generation += 1;
-    if (restoreFrame !== undefined) cancelAnimationFrame(restoreFrame);
   });
 
   return (
@@ -446,23 +335,26 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
           {submitted().promotedOnly ? "Promoted only" : "all promotions"};{" "}
           {submitted().classificationDescription || "all classifications"};{" "}
           {submitted().tag === "" ? "all tags" : `tag "${submitted().tag}"`};{" "}
-          {submitted().sort === "adoptions"
-            ? "most adoptions"
-            : submitted().sort === "students"
-              ? "most students"
-              : "name"}
-          .
+          {sortDescription(submitted().sort)}.
         </p>
         <RecordSortControl
           label="Sort Public Blueprint Courses"
           options={[
             { value: "name", label: "Name" },
             { value: "adoptions", label: "Adoptions" },
-            { value: "students", label: "Students ever enrolled" },
+            { value: "students", label: "Students having taken the course" },
+            { value: "stars", label: "Stars" },
+            { value: "watches", label: "Watches" },
+            { value: "recentEdits", label: "Most recently edited" },
           ]}
           value={submitted().sort}
           disabled={loading()}
           onChange={changeSort}
+        />
+        <SearchResultDisplay
+          ariaLabel="Blueprint result display"
+          mode={presentation}
+          onChange={setPresentation}
         />
         <Show when={!loading() && error() === null}>
           <p
@@ -480,9 +372,7 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
         <PublicBlueprintSearchResultList
           courses={courses()}
           state={collectionState()}
-          returnTokenFor={returnTokenFor}
-          resultLinks={resultLinks}
-          saveReturn={saveReturn}
+          presentation={presentation()}
         />
         <RecordPageControls
           ariaLabel="Public Blueprint Course pages"
@@ -496,6 +386,18 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
           onPageSizeChange={changePageSize}
         />
       </section>
+      <SearchLeaveGuard
+        hasSearch={() =>
+          hasSearch() ||
+          hasConfiguredSearch({
+            ...submitted(),
+            query: draft(),
+            promotedOnly: draftPromotedOnly(),
+            classification: draftClassification(),
+            tag: draftTag(),
+          })
+        }
+      />
     </PageFrame>
   );
 }

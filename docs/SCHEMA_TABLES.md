@@ -173,6 +173,40 @@ Indexes:
 - instructor_personal_theme_account_id_instructor_user_role_fk_idx (account_id, instructor_user_role)
 - instructor_personal_theme_theme_id_fk_idx (theme_id)
 
+### ple_private.instructor_profile
+
+- Role: current state
+- Comment: role: current state, Instructor identity created after outside vetting. HUMAN_GUIDANCE.md Instructor role.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| account_id | ple_data.account_id | NOT NULL |
+| instructor_user_role | ple_data.user_role | NOT NULL |
+| first_name | text | NOT NULL |
+| last_name | text | NOT NULL |
+| affiliation | text | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (account_id)
+- CHECK instructor_user_role: `(instructor_user_role = 'instructor')`
+- CHECK first_name: `( first_name = btrim(first_name) AND char_length(first_name) BETWEEN 1 AND 100 AND first_name !~ '[[:cntrl:]]' )`
+- CHECK last_name: `( last_name = btrim(last_name) AND char_length(last_name) BETWEEN 1 AND 100 AND last_name !~ '[[:cntrl:]]' )`
+- CHECK affiliation: `( affiliation = btrim(affiliation) AND char_length(affiliation) BETWEEN 1 AND 300 AND affiliation !~ '[[:cntrl:]]' )`
+
+Foreign keys:
+
+- (account_id, instructor_user_role) -> ple_private.account (account_id, user_role)
+
+Indexes:
+
+- ple_private.instructor_profile_pkey UNIQUE (account_id)
+- instructor_profile_account_id_instructor_user_role_fk_idx (account_id, instructor_user_role)
+
 ### ple_audit.instructor_account_creation_event
 
 - Role: event
@@ -187,7 +221,6 @@ Columns:
 | created_instructor_user_role | ple_data.user_role | NOT NULL |
 | created_by_sysadmin_account_id | ple_data.account_id | NOT NULL |
 | created_by_sysadmin_user_role | ple_data.user_role | NOT NULL |
-| instructor_identity_vetting_decision_id | uuid | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
 Constraints:
@@ -199,7 +232,6 @@ Foreign keys:
 
 - (created_instructor_account_id, created_instructor_user_role) -> ple_private.account (account_id, user_role)
 - (created_by_sysadmin_account_id, created_by_sysadmin_user_role) -> ple_private.account (account_id, user_role)
-- (instructor_identity_vetting_decision_id) -> ple_audit.instructor_identity_vetting_decision (decision_id)
 
 Indexes:
 
@@ -207,40 +239,6 @@ Indexes:
 - ple_audit.instructor_account_creation_event_unique_0 UNIQUE (created_instructor_account_id)
 - instructor_account_creation_event_created_by_sy_4138130d_fk_idx (created_by_sysadmin_account_id, created_by_sysadmin_user_role)
 - instructor_account_creation_event_created_instr_838b23f7_fk_idx (created_instructor_account_id, created_instructor_user_role)
-- instructor_account_creation_event_instructor_id_2eefdbbf_fk_idx (instructor_identity_vetting_decision_id)
-
-### ple_audit.instructor_identity_vetting_decision
-
-- Role: event
-- Comment: role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and User Roles.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| decision_id | uuid | NOT NULL |
-| normalized_email | text | NOT NULL |
-| verified_instructor_display_name | text | NOT NULL |
-| completed_by_sysadmin_account_id | ple_data.account_id | NOT NULL |
-| completed_by_sysadmin_user_role | ple_data.user_role | NOT NULL |
-| completed_at | timestamp with time zone | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (decision_id)
-- UNIQUE (normalized_email)
-- CHECK normalized_email: `( char_length(normalized_email) BETWEEN 3 AND 320 AND normalized_email = lower(btrim(normalized_email)) )`
-- CHECK verified_instructor_display_name: `( verified_instructor_display_name = btrim(verified_instructor_display_name) AND char_length(verified_instructor_display_name) BETWEEN 1 AND 200 AND verified_instructor_display_name !~ '[[:cntrl:]]' )`
-
-Foreign keys:
-
-- (completed_by_sysadmin_account_id, completed_by_sysadmin_user_role) -> ple_private.account (account_id, user_role)
-
-Indexes:
-
-- ple_audit.instructor_identity_vetting_decision_pkey UNIQUE (decision_id)
-- ple_audit.instructor_identity_vetting_decision_unique_0 UNIQUE (normalized_email)
-- instructor_identity_vetting_decision_completed__5e383e9f_fk_idx (completed_by_sysadmin_account_id, completed_by_sysadmin_user_role)
 
 ## 20_tables/assessment.sql
 
@@ -264,7 +262,6 @@ Columns:
 | late_work_rule | ple_data.late_work_rule | NOT NULL |
 | question_variation_rule | ple_data.question_variation_rule | NOT NULL |
 | assessment_question_order_rule | ple_data.question_order_rule | NOT NULL |
-| feedback_score | ple_data.feedback_release | NOT NULL |
 | feedback_per_item_correctness | ple_data.feedback_release | NOT NULL |
 | feedback_submitted_response | ple_data.feedback_release | NOT NULL |
 | feedback_question_answer | ple_data.feedback_release | NOT NULL |
@@ -3111,83 +3108,10 @@ Indexes:
 
 ## 20_tables/library_discussion.sql
 
-### ple_data.library_improvement_thread
-
-- Role: current state
-- Comment: role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| library_improvement_thread_id | uuid | NOT NULL |
-| object_kind | ple_data.library_object_kind | NOT NULL |
-| public_object_id | text | NOT NULL |
-| creation_revision_number | integer | NOT NULL |
-| created_by_account_id | ple_data.account_id | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| state | ple_data.thread_state | NOT NULL |
-| resolved_by_account_id | ple_data.account_id | NULL |
-| resolved_at | timestamptz | NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (library_improvement_thread_id)
-- CHECK public_object_id: `( public_object_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(public_object_id, 6, 1) = ple_private.crockford_checksum_character( substr(public_object_id, 1, 4) // substr(public_object_id, 7, 3) ) )`
-- CHECK creation_revision_number: `(creation_revision_number > 0)`
-
-Foreign keys:
-
-- (created_by_account_id) -> ple_private.account (account_id)
-- (resolved_by_account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_data.library_improvement_thread_pkey UNIQUE (library_improvement_thread_id)
-- library_improvement_thread_object_idx (object_kind, public_object_id, created_at, library_improvement_thread_id)
-- library_improvement_thread_created_by_account_id_fk_idx (created_by_account_id)
-- library_improvement_thread_resolved_by_account_id_fk_idx (resolved_by_account_id)
-
-### ple_data.library_improvement_post
-
-- Role: event
-- Comment: role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| post_id | uuid | NOT NULL |
-| library_improvement_thread_id | uuid | NOT NULL |
-| author_account_id | ple_data.account_id | NOT NULL |
-| author_display_name | text | NOT NULL |
-| body | text | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NULL |
-
-Constraints:
-
-- PRIMARY KEY (post_id)
-- CHECK author_display_name: `( author_display_name = btrim(author_display_name) AND char_length(author_display_name) BETWEEN 1 AND 200 AND author_display_name !~ '[[:cntrl:]]' )`
-- CHECK body: `( body = btrim(body) AND char_length(body) BETWEEN 1 AND 4000 AND body !~ '[[:cntrl:]]' )`
-- CHECK updated_at: `(updated_at IS NULL OR updated_at >= created_at)`
-
-Foreign keys:
-
-- (library_improvement_thread_id) -> ple_data.library_improvement_thread (library_improvement_thread_id)
-- (author_account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_data.library_improvement_post_pkey UNIQUE (post_id)
-- library_improvement_post_thread_idx (library_improvement_thread_id, created_at, post_id)
-- library_improvement_post_author_account_id_fk_idx (author_account_id)
-
 ### ple_data.library_impact_notice
 
 - Role: event
-- Comment: role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.
+- Comment: role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool notice authorship remains an unresolved product seam and cancelled notices remain historical.
 
 Columns:
 

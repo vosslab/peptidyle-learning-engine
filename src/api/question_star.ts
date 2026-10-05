@@ -2,17 +2,17 @@
 
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 
-/** One server-projected verified Instructor display name, not an Account identity. */
+/** One active Instructor shown in an Instructor-only Star list. */
 export interface QuestionStarredInstructor {
   readonly displayName: string;
+  readonly accountId: string;
 }
 
 /**
  * Active-Instructor Star facts for one Published Question.
  *
- * The names are the complete server projection. This contract deliberately
- * carries no Profile route, avatar, email, Account ID, Course, or
- * Watch state from which the browser could reconstruct another identity.
+ * The server returns the canonical Profile identity with a display name. It
+ * never returns email, Course, or Watch state.
  */
 export interface QuestionStarProjection {
   readonly starCount: number;

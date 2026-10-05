@@ -18,7 +18,7 @@ set of teaching settings, including:
 
 - title, instructions, and Assessment Type;
 - availability and deadline values;
-- Attempt limit, late-work behavior, and feedback behavior;
+- Attempt limit, late-work behavior, and submission/correct-answer visibility;
 - Question ordering, navigation, display, and randomization behavior;
 - ordered fixed Questions or Question Pool selections; and
 - current point values.
@@ -34,7 +34,8 @@ Question Revision or Pool Edit Number already selected for an open Attempt.
 
 An Assessment copied from a Blueprint Assessment may retain the exact Blueprint
 Revision and stable Blueprint Assessment reference as provenance. This does not
-create an Assessment Revision or prevent later Course-local editing.
+create an Assessment Revision. Later Course-local edits remain subject to
+[HG's post-issue content limits](HUMAN_GUIDANCE.md#assessment-content-edits-after-issue).
 
 ## Assessment composition
 
@@ -72,8 +73,10 @@ An Attempt retains only what is needed to interpret Student Work correctly:
 - the exact Question Revision and Pool Edit Number selections;
 - randomization seed or opaque backend state;
 - the Student's saved response and its whole-Attempt finalization evidence;
-- the immutable credit fraction returned by each backend; and
-- the feedback-disclosure condition that applies.
+- the credit fraction returned by each backend under the current grading model.
+
+Optional Question Feedback timing remains deferred in HG. Existing stored policy
+fields do not establish a requirement to freeze that timing for an Attempt.
 
 This is not an Assessment snapshot family, software-version archive, rendered
 page archive, or general replay service. Supporting implementation evidence may
@@ -96,7 +99,10 @@ The Question Backend may evaluate a complete saved response early, but PLE does
 not expose a Student-visible grading outcome until the whole Attempt is
 submitted. The backend's credit fraction is immutable. Score readers multiply
 that fraction by the Assessment Question's current point value, so changing
-point values recalculates scores without regrading.
+point values recalculates scores without regrading. Removing a whole Pool
+excludes its earned and possible points from every Attempt. Scores appear after
+submission and automatic grading, with no separate posting or withholding rule.
+Native JSON regrading remains deferred.
 
 When several Attempts are submitted, the highest Assessment Attempt score is
 the Student's Assessment score. PLE uses current Question point values rather

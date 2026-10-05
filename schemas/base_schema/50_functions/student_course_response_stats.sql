@@ -50,11 +50,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
          WHERE attempt.course_instance_id = p_course_instance_id
            AND attempt.student_record_id = p_student_record_id
            AND ple_api.course_student_work_is_ordinarily_visible(attempt.course_instance_id)
-           AND ple_private.student_assessment_score_is_released(
-               policy.feedback_score, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-           AND ple_private.student_assessment_score_is_released(
+           AND ple_private.student_assessment_feedback_is_released(
                policy.feedback_per_item_correctness, submission.submitted_at,
                policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
            )

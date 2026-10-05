@@ -17,8 +17,8 @@ use crate::AssessmentType;
 /// Student-facing field may be disclosed.
 ///
 /// Each timing is evaluated independently so an instructor can, for example,
-/// show a score after submission while holding a Question Answer and its
-/// Question Answer Explanation until the assessment closes.
+/// show a Question Answer after submission while holding its explanation until
+/// the assessment closes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StudentFeedbackReleaseTiming {
@@ -30,6 +30,8 @@ pub enum StudentFeedbackReleaseTiming {
     AfterDue,
     /// The field is visible at or after the resolved assessment close time.
     AfterClose,
+    /// The field is visible once every current Student has completed the Assessment.
+    AfterAllStudentsComplete,
     /// The field is never visible to a Student through this policy.
     Never,
 }
@@ -43,8 +45,6 @@ pub enum StudentFeedbackReleaseTiming {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentFeedbackReleaseRule {
-    /// When the Student may see their score.
-    pub score: StudentFeedbackReleaseTiming,
     /// When the Student may see per-item correctness.
     pub per_item_correctness: StudentFeedbackReleaseTiming,
     /// When the Student may see their recorded response in a previous attempt.
@@ -80,11 +80,9 @@ impl StudentFeedbackReleaseRule {
     /// Type-specific answer timing required by Human Guidance.
     ///
     /// Answer and Answer Explanation remain independent settings. Quiz and Exam
-    /// answer fields use ordinary post-submit timing plus the
-    /// trusted current-Course-cohort gate.
+    /// default to current-Course completion, which an Instructor can replace.
     pub fn for_assessment_type(assessment_type: AssessmentType) -> Self {
         Self {
-            score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_answer: match assessment_type {
@@ -92,7 +90,7 @@ impl StudentFeedbackReleaseRule {
                     StudentFeedbackReleaseTiming::AfterSubmit
                 }
                 AssessmentType::Quiz | AssessmentType::Exam => {
-                    StudentFeedbackReleaseTiming::AfterSubmit
+                    StudentFeedbackReleaseTiming::AfterAllStudentsComplete
                 }
                 AssessmentType::RegularAssignment | AssessmentType::BonusAssignment => {
                     StudentFeedbackReleaseTiming::Never
@@ -100,7 +98,7 @@ impl StudentFeedbackReleaseRule {
             },
             question_answer_explanation: match assessment_type {
                 AssessmentType::Quiz | AssessmentType::Exam => {
-                    StudentFeedbackReleaseTiming::AfterSubmit
+                    StudentFeedbackReleaseTiming::AfterAllStudentsComplete
                 }
                 AssessmentType::RegularAssignment
                 | AssessmentType::PracticeQuestionAssignment
@@ -269,7 +267,6 @@ mod tests {
     #[test]
     fn student_feedback_release_rule_serializes_independent_snake_case_fields() {
         let rule = StudentFeedbackReleaseRule {
-            score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterDue,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
@@ -290,7 +287,6 @@ mod tests {
     fn default_student_feedback_releases_response_and_correctness_after_submission() {
         let rule = StudentFeedbackReleaseRule::default();
 
-        assert_eq!(rule.score, StudentFeedbackReleaseTiming::AfterSubmit);
         assert_eq!(
             rule.per_item_correctness,
             StudentFeedbackReleaseTiming::AfterSubmit
@@ -326,16 +322,16 @@ mod tests {
     }
 
     #[test]
-    fn quiz_and_exam_defaults_release_answers_only_after_submission() {
+    fn quiz_and_exam_defaults_wait_for_all_students() {
         for assessment_type in [AssessmentType::Quiz, AssessmentType::Exam] {
             let rule = StudentFeedbackReleaseRule::for_assessment_type(assessment_type);
             assert_eq!(
                 rule.question_answer,
-                StudentFeedbackReleaseTiming::AfterSubmit
+                StudentFeedbackReleaseTiming::AfterAllStudentsComplete
             );
             assert_eq!(
                 rule.question_answer_explanation,
-                StudentFeedbackReleaseTiming::AfterSubmit
+                StudentFeedbackReleaseTiming::AfterAllStudentsComplete
             );
         }
     }

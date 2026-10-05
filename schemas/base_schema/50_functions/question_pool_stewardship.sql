@@ -14,7 +14,7 @@ BEGIN
     IF p_question_pool_id IS NULL OR p_starred IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+       OR ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Star requires an active Instructor Account';
     END IF;
@@ -38,20 +38,21 @@ $$;
 
 
 -- This closed endorsement projection establishes every disclosure predicate
--- before it reaches the immutable vetting attribute.  It deliberately has no
+-- before it reads the active Instructor display name. It deliberately has no
 -- Account, email, profile, Course, or Watch join in its result.  The caller
 -- must be an active Instructor and the target must be a published Question Pool;
 -- an archived or unavailable published Question Pool remains a published Question Pool
 -- for its lineage-level stewardship facts.
 -- ASVS 8.2.1 and 8.3.1: both viewer role and each disclosed endorser's active
 -- Instructor status are derived in PostgreSQL, never from browser claims.
--- star_count counts the same vetted display names the name list returns.
+-- star_count counts the same active Instructor display names the name list returns.
 CREATE FUNCTION ple_data.read_current_question_pool_star(
     p_question_pool_id text
 ) RETURNS TABLE (
     viewer_has_starred boolean,
     star_count bigint,
-    starred_instructor_display_names text[]
+    starred_instructor_display_names text[],
+    starred_instructor_account_ids text[]
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -61,7 +62,7 @@ BEGIN
     IF p_question_pool_id IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+       OR ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Star requires an active Instructor Account';
     END IF;
@@ -74,7 +75,7 @@ BEGIN
     RETURN QUERY
     WITH active_endorsers AS (
         SELECT star.instructor_account_id,
-               ple_private.verified_instructor_display_name(star.instructor_account_id)
+               ple_private.instructor_display_name(star.instructor_account_id)
                    AS display_name
           FROM ple_data.question_pool_star AS star
           JOIN ple_private.account AS account
@@ -96,6 +97,11 @@ BEGIN
            count(*)::bigint,
            coalesce(
                array_agg(display_name ORDER BY display_name COLLATE "C")
+                   FILTER (WHERE display_name IS NOT NULL),
+               ARRAY[]::text[]
+           ),
+           coalesce(
+               array_agg(instructor_account_id::text ORDER BY display_name COLLATE "C")
                    FILTER (WHERE display_name IS NOT NULL),
                ARRAY[]::text[]
            )
@@ -122,7 +128,7 @@ BEGIN
     IF p_question_pool_id IS NULL OR p_watched IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+       OR ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Watch requires an active Instructor Account';
     END IF;
@@ -159,7 +165,7 @@ BEGIN
     IF p_question_pool_id IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
-       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+       OR ple_private.instructor_display_name(actor_id) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Watch requires an active Instructor Account';
     END IF;
@@ -191,7 +197,8 @@ CREATE FUNCTION ple_api.read_current_question_pool_star(
 ) RETURNS TABLE (
     viewer_has_starred boolean,
     star_count bigint,
-    starred_instructor_display_names text[]
+    starred_instructor_display_names text[],
+    starred_instructor_account_ids text[]
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT * FROM ple_data.read_current_question_pool_star($1)
@@ -211,4 +218,3 @@ CREATE FUNCTION ple_api.read_current_question_pool_watch(
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT * FROM ple_data.read_current_question_pool_watch($1)
 $$;
-

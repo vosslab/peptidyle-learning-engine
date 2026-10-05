@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the authenticated Question Star boundary.
 
 use async_trait::async_trait;
-use question_model::{PublishedQuestionId, validate_question_title};
+use question_model::{AccountId, PublishedQuestionId, validate_question_title};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
 
@@ -55,12 +55,7 @@ impl PostgresQuestionStarStore {
             viewer_has_starred: row.try_get("viewer_has_starred").map_err(map_sqlx_error)?,
             star_count: u64::try_from(count)
                 .map_err(|_| StoreError::InvalidRecord("Question Star count".to_owned()))?,
-            starred_instructors: row
-                .try_get::<Vec<String>, _>("starred_instructor_display_names")
-                .map_err(map_sqlx_error)?
-                .into_iter()
-                .map(validated_display_name)
-                .collect::<Result<Vec<_>, _>>()?,
+            starred_instructors: starred_instructors(row)?,
         })
     }
 
@@ -144,11 +139,35 @@ fn starred_question_page(
     Ok(Page { items, next_cursor })
 }
 
-fn validated_display_name(value: String) -> Result<QuestionStarredInstructor, StoreError> {
+fn starred_instructors(
+    row: &sqlx::postgres::PgRow,
+) -> Result<Vec<QuestionStarredInstructor>, StoreError> {
+    let display_names = row
+        .try_get::<Vec<String>, _>("starred_instructor_display_names")
+        .map_err(map_sqlx_error)?;
+    let account_ids = row
+        .try_get::<Vec<String>, _>("starred_instructor_account_ids")
+        .map_err(map_sqlx_error)?;
+    if display_names.len() != account_ids.len() {
+        return Err(StoreError::InvalidRecord(
+            "Question Star Instructor identities".to_owned(),
+        ));
+    }
+    display_names
+        .into_iter()
+        .zip(account_ids)
+        .map(|(display_name, account_id)| validated_starred_instructor(display_name, account_id))
+        .collect()
+}
+
+fn validated_starred_instructor(
+    value: String,
+    account_id: String,
+) -> Result<QuestionStarredInstructor, StoreError> {
     if value != value.trim()
         || value.is_empty()
-        // C852's immutable vetting boundary owns the 1..=200 contract.
-        // Keep this defensive decoder exactly aligned so a valid vetted name
+        // C852's public display-name boundary owns the 1..=200 contract.
+        // Keep this defensive decoder exactly aligned so a valid display name
         // cannot turn an otherwise authorized Star read into a server error.
         || value.chars().count() > 200
         || value.chars().any(char::is_control)
@@ -159,6 +178,9 @@ fn validated_display_name(value: String) -> Result<QuestionStarredInstructor, St
     }
     Ok(QuestionStarredInstructor {
         display_name: value,
+        account_id: account_id.parse::<AccountId>().map_err(|_| {
+            StoreError::InvalidRecord("Question Star Instructor Account ID".to_owned())
+        })?,
     })
 }
 

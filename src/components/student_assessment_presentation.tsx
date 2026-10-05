@@ -286,6 +286,7 @@ function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
   if (timing === "after_submit") return "after submission";
   if (timing === "after_due") return "after the due time";
   if (timing === "after_close") return "after the close time";
+  if (timing === "after_all_students_complete") return "after all Students complete";
   return "not shown";
 }
 

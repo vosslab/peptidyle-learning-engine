@@ -24,9 +24,9 @@ Implementation findings for product terms. Open readings are recorded once in
 
 - Position 40 asks whether terminology alignment is the Terminology Contract plus
   its registered surfaces, or a proof over every column, field, key, and label.
-- Position 529 asks whether Theme and provided-avatar tokens stay text vocabulary
+- Position 538 asks whether Theme and provided-avatar tokens stay text vocabulary
   keys or become UUID primary keys.
-- Position 537 asks whether Id, Tuple, and Binding are the simplest terms, or every
+- Position 546 asks whether Id, Tuple, and Binding are the simplest terms, or every
   remaining value still needs a naming judgment.
 
 Development principles: 20 verified, 1 open, 30 not applicable. Data and history:

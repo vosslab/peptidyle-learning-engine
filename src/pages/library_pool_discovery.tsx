@@ -7,7 +7,6 @@ import type { QuestionPoolBloomFacets } from "../../generated/api/QuestionPoolBl
 import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import type { ContentClassificationClient } from "../api/content_classification";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
-import type { LibraryDiscussionClient } from "../api/library_discussion";
 import type { BloomClassificationCorrectionClient } from "../api/bloom_classification";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
@@ -34,7 +33,6 @@ import {
 import type { QuestionPoolSearchMetadataClient } from "../api/question_pool_search_metadata";
 import type { QuestionPoolSupportClient } from "../api/question_pool_support";
 import { QuestionPoolSupportEditor } from "../components/question_pool_support_editor";
-import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionPoolStarControl } from "../components/question_pool_star_control";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
 import { RecordSequence } from "../components/record_list/record_sequence";
@@ -107,14 +105,13 @@ function poolSearchTarget(pool: QuestionPoolLibrarySummary): QuestionPoolSearchM
 
 export function LibraryPoolDiscovery(props: {
   readonly client: QuestionPoolLibraryClient &
-    LibraryDiscussionClient &
     BloomClassificationCorrectionClient &
     QuestionPoolSearchMetadataClient &
     QuestionPoolSupportClient;
   readonly classificationClient: ContentClassificationClient;
   /** Sysadmins inspect Pools read-only and never load Instructor Star or private Watch state. */
   readonly mayWatchPools: boolean;
-  /** Every active vetted Instructor may correct; Sysadmin inspection remains read-only. */
+  /** Every active Instructor may correct; Sysadmin inspection remains read-only. */
   readonly mayCorrectBloom: boolean;
 }): JSX.Element {
   const [filter, setFilter] = createSignal<LibraryClassificationFilter>(
@@ -751,7 +748,6 @@ export function LibraryPoolDiscovery(props: {
                     ariaLabel="Ordered exact Question Revisions"
                     emptyState={{ title: "No Question Revisions are in this Pool." }}
                   />
-                  <LibraryDiscussionPanel kind="questionPool" publicId={value().questionPoolId} />
                 </>
               )}
             </Show>
