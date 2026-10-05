@@ -56,6 +56,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - we could build a QTI v2.1 style JSON or human editable YAML format, or something closer to our Native JSON
   format.
 
+### Deferred content licenses
+
+- Support for CC BY-NC and CC BY-NC-SA content is deferred.
+- Support for Creative Commons NoDerivatives licenses is planned but deferred.
+  When supported, ND Questions must be blocked from forking.
+- When NC content is supported, a Pool containing public-domain, CC BY, CC BY-NC,
+  and CC BY-NC-SA Questions has a CC BY-NC-SA license and cannot accept a CC BY-SA
+  Question because it is incompatible.
+
 ## Development principles
 
 ### Agent working principles
@@ -1070,6 +1079,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
   Assets.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
+- Question Type cannot be NULL. Other required fields must also be present before publication.
 - Question Type is immutable author-declared educational metadata on a Published Question Revision.
 - PLE uses Question Type for search, filtering, labeling, and presentation.
 - Question Type comes from the author rather than inference from backend controls.
@@ -1216,22 +1226,31 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Question Pool specifications
 
 - A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
+- A Question Pool cannot contain two copies of the same Published Question; selection is random.
+- When editing a Pool, its member Questions should be sortable like a spreadsheet.
+  Ordering is for display, not Pool membership or random selection.
 - Pool contents should represent reasonably interchangeable assessments of the intended learning.
-- Question Pools may contain Questions from any Question Backend.
+- All members of a Question Pool use the same Question Backend.
+- All members of a Question Pool have the same Question Type.
 - Question Pools are created from a Published Question and enter the Question Library immediately.
 - A Question Pool is an independently reusable Question Library object, designed to be forked often.
   The Instructor who owns it is its owner.
 - Question Pools are available to all **Instructors**.
 - A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID.
-- A Question Pool is a current ordered list of exact Published Question Revisions plus its
-  metadata. Saving the list re-attests interchangeability and advances the Pool's Edit Number;
-  no Revision is created. Removing ten Questions and saving once is one Edit.
+- A Question Pool is a current unordered set of exact Published Question Revisions plus its
+  metadata. Saving membership changes re-attests interchangeability and advances the Pool's
+  Edit Number; no Revision is created. Removing ten Questions and saving once is one Edit.
+
+#### Question Pool use and selection
+
 - Importing a Question Pool into a new Assessment automatically forks the Question Pool.
 - The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
 - Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
 - Question Pools work the same way regardless of the Question Backend.
 - **Instructors** choose the contents of a Question Pool and how many Questions are selected.
 - PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
+- An Assessment must have enough Questions in each Pool to satisfy its selection count,
+  including after members are removed.
 - Question Pool selection and backend-native randomization are separate forms of variation.
 - Returning to an Attempt preserves the Question Pool selections already made.
 - Starting a new Attempt makes fresh selections from its Question Pools.
@@ -1239,20 +1258,34 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Pool's Edit Number for every Question served from a Pool; the pinned Published Question
   Revision is all that later interpretation and grading need.
 - Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
+- Each Question Pool member retains its own owner and authors; owners and authors may differ between members.
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
 - Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
 
+- Each Question Pool must have one license compatible with every member Question's license; its license cannot be "Mixed".
+  PLE calculates this license automatically from the member licenses and rejects incompatible combinations.
+
 #### Question Pool metadata
 
+- Text search matches only the Question Pool's own text and metadata, not the text or metadata of its member Questions.
+- Topic/Subtopic, Tags, and Bloom filters match only the Question Pool's own metadata, not its members' metadata.
 - Question Pools have metadata specific to the individual Question Pool.
-- Question Pool metadata includes Title and Description.
+- Question Pool metadata includes its own Title, Description, Topic, Subtopic, Tags,
+  and both Bloom dimensions: Knowledge Dimension and Cognitive Process.
 - The first Published Question establishes the Question Pool's Discipline and Subject.
 - Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
+  Topic and Subtopic do not have to match.
+- **Pool mismatch**: The Pool no longer satisfies its current requirements.
+- Pool mismatch causes include too few member Questions, member Discipline or Subject mismatch,
+  duplicate Questions, and other Pool constraint violations. Show the specific cause.
+- If a member's Discipline or Subject changes so it no longer matches the Pool, flag a
+  Pool mismatch and prevent release of an affected Assessment until the mismatch is resolved.
+- If a Pool mismatch develops after an Assessment is already released, allow that Assessment
+  to continue as-is.
 - Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
   when included in a Question Pool.
-- Question Pools may have their own authorship, attribution, license, and source information where
-  appropriate.
+- A Question Pool identifies its owner and its source Pool when forked; it has no separate Author field.
 - Question Pool metadata describes the Pool rather than duplicating metadata from its member
   Published Questions.
 - Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
@@ -1263,6 +1296,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
 - The Question Library is one global collection of Published Questions and Question Pools.
+  Both appear in the same combined search, with filters for Questions, Pools, and Pool membership.
+- Search supports a "Questions in no Pool" filter: Published Questions that belong to no Pool.
+- Default searches would probably be best showing Questions in no Pool together with Question
+  Pools; showing individual Pool members as well adds significant noise.
+- Search filters can also include individual Pool members so Instructors can find all
+  Published Questions.
 - Draft Questions are not part of the Question Library.
 - **Published Questions** and Question Pools are available to all **Instructors**.
 - **Students** access Question content through their Coursework rather than through the Question Library.
@@ -1276,6 +1315,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Question Library metadata
 
 - **Library Objects** use shared metadata for organization, search, filtering, and discovery.
+- Instructors may not have the attention to detail to fill out all metadata; assign metadata
+  automatically where possible and require the remaining required content before publication.
 - Required Question Library metadata must be complete before a Library Object enters the Question Library.
 - Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
 - Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag**
@@ -1314,6 +1355,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
 - Bloom Classification is left blank when a Published Question or Question Pool enters the Question
   Library, to be updated by AI later.
+- Bloom Classification may be NULL while awaiting AI assignment. Do not enforce a time limit.
 - AI assigns the initial Bloom Classification using a daemon after publication.
 - An **Instructor** can correct either Bloom dimension without creating a new Published Question
   Revision.

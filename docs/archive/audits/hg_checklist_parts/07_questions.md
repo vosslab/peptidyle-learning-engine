@@ -104,6 +104,8 @@
   - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each eight released native types at laptop and phone widths (18 unanswered captures including WeBWorK); exact issued Question Revision membership and permitted-response privacy checks passed. This is private presentation coverage, not an eight-type interaction matrix. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Question Type cannot be NULL. Other required fields must also be present before publication.
+  - Verification pending: Metadata requirements clarified in the interview; current enforcement needs validation.
 - [ ] Question Type is immutable author-declared educational metadata on a Published Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision_is_immutable` protects `question_type` on a revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -649,17 +651,21 @@
   - Evidence (runtime): `crates/server/src/assessment_delivery.rs` `start` passed accepted actual-server proof that selected an exact Pool member for Student Attempt 1, preserved it on resume, and selected again for Attempt 2. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] A Question Pool cannot contain two copies of the same Published Question; selection is random.
+  - Verification pending: New Pool guidance; implementation has not been validated.
+- [ ] When editing a Pool, its member Questions should be sortable like a spreadsheet.
+  Ordering is for display, not Pool membership or random selection.
+  - Verification pending: New Pool editor guidance; implementation has not been validated.
 - [ ] Pool contents should represent reasonably interchangeable assessments of the intended learning.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` requires the creating Instructor's true `interchangeability_attested` value; it does not substitute an automatic pedagogical evaluator.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that required the Instructor's attestation before creating the ordered reusable Pool and before its later Assessment-owned reorder. Artifacts: `/private/tmp/ple-course-empty-artifacts.bzwXEa` and `/private/tmp/ple-course-empty-artifacts.lgyOMK`.
   - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Pools may contain Questions from any Question Backend.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores Published Questions from each production Question Backend in one Pool.
-  - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_backend_is_supported_for_production` accepts the ple and webwork backends.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] All members of a Question Pool use the same Question Backend.
+  - Verification pending: Neil explicitly requires one Backend per Pool. Existing membership writes must be checked and aligned; earlier mixed-Backend evidence does not satisfy this rule.
+- [ ] All members of a Question Pool have the same Question Type.
+  - Verification pending: Neil requires one Question Type per Pool. Verify creation and member replacement before marking this implemented.
 - [ ] Question Pools are created from a Published Question and enter the Question Library immediately.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` requires each member to be an available Published Question and stores the Pool in that call.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns that new Pool to the Instructor.
@@ -679,13 +685,15 @@
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `reserve_public_id` records the ID for `question_pool` and rejects a second reservation of the same ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Question Pool is a current ordered list of exact Published Question Revisions plus its
-  metadata. Saving the list re-attests interchangeability and advances the Pool's Edit Number;
-  no Revision is created. Removing ten Questions and saving once is one Edit.
+- [ ] A Question Pool is a current unordered set of exact Published Question Revisions plus its
+  metadata. Saving membership changes re-attests interchangeability and advances the Pool's
+  Edit Number; no Revision is created. Removing ten Questions and saving once is one Edit.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_member` stores the current ordered Published Question Revision pins, and `question_pool` stores the Pool metadata with an Edit Number and no Revision column.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` re-attests interchangeability and advances `question_pool_edit_number` by one for one member-list save.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+#### Question Pool use and selection
+
 - [ ] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
@@ -715,6 +723,9 @@
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` performs server-owned selection.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] An Assessment must have enough Questions in each Pool to satisfy its selection count,
+  including after members are removed.
+  - Verification pending: New Pool guidance; implementation has not been validated.
 - [ ] Question Pool selection and backend-native randomization are separate forms of variation.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `QuestionPoolSelectionEntropy` is separate from Question backend state.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -743,6 +754,8 @@
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Each Question Pool member retains its own owner and authors; owners and authors may differ between members.
+  - Verification pending: Neil explicitly preserves member owners and authors, which may differ; verify membership writes do not transfer ownership or replace authorship.
 - [ ] Each member of a Question Pool is a **Published Question**.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_member` stores each exact Question Revision Tuple.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -756,13 +769,22 @@
 - [ ] Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
+- [ ] Each Question Pool must have one license compatible with every member Question's license; its license cannot be "Mixed".
+  PLE calculates this license automatically from the member licenses and rejects incompatible combinations.
+  - Verification pending: Verify automatic calculation of one compatible Pool license on creation and member edits, rejection of incompatible combinations, and preservation of original member licenses. NC and ND acceptance remain deferred.
+
 #### Question Pool metadata
 
+- [ ] Text search matches only the Question Pool's own text and metadata, not the text or metadata of its member Questions.
+  - Verification pending: Verify Pool keyword search uses Pool text and metadata without member-text matching.
+- [ ] Topic/Subtopic, Tags, and Bloom filters match only the Question Pool's own metadata, not its members' metadata.
+  - Verification pending: Neil selected Pool-only metadata filtering; verify API/database predicates and combined search behavior.
 - [ ] Question Pools have metadata specific to the individual Question Pool.
   - Evidence (runtime): `schemas/base_schema/50_functions/question_pools.sql` `question_pool` owns independent metadata. Accepted SQL/rollback/concurrency and final SQL, Rust/API, and browser reviews combine with root-supplied rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md`: independent metadata survives list/current reads and real Library UI creation/retry. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Pool metadata includes Title and Description.
+- [ ] Question Pool metadata includes its own Title, Description, Topic, Subtopic, Tags,
+  and both Bloom dimensions: Knowledge Dimension and Cognitive Process.
   - Evidence (runtime): Required independent Title/Description in `schemas/base_schema/50_functions/question_pools.sql` have accepted SQL and source review. Rebuilt `8147` proof at `/private/tmp/ple-pool-metadata-connected-report.md` rejects missing fields, retains exact list/current text, and preserves both fields after denied mixed-member UI creation. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -771,22 +793,29 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
+  Topic and Subtopic do not have to match.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` refuses a new member whose Discipline or Subject differs from the Pool and stores a new member that matches.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] **Pool mismatch**: The Pool no longer satisfies its current requirements.
+  - Verification pending: Pool mismatch state and cause reporting require implementation validation.
+- [ ] Pool mismatch causes include too few member Questions, member Discipline or Subject mismatch,
+  duplicate Questions, and other Pool constraint violations. Show the specific cause.
+  - Verification pending: Pool mismatch state and cause reporting require implementation validation.
+- [ ] If a member's Discipline or Subject changes so it no longer matches the Pool, flag a
+  Pool mismatch and prevent release of an affected Assessment until the mismatch is resolved.
+  - Verification pending: New Pool guidance; implementation has not been validated.
+- [ ] If a Pool mismatch develops after an Assessment is already released, allow that Assessment
+  to continue as-is.
+  - Verification pending: Updated Pool search and release guidance; implementation not validated.
 - [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
   when included in a Question Pool.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `published_question_metadata` keeps Topic, Subtopic, Tags, Title, and Description on the Published Question.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` updates the Pool member list and does not write that Question metadata.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Pools may have their own authorship, attribution, license, and source information where
-  appropriate.
-  - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_authorship` stores optional Pool-owned authors.
-  - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_provenance` stores optional Pool-owned SPDX license, attribution, and source information.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_provenance` stores those facts, and a later empty save clears them without writing member Question authorship, license, citation, the Pool edit number, or source_question_pool_id.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] A Question Pool identifies its owner and its source Pool when forked; it has no separate Author field.
+  - Verification pending: Align Pool identity and search displays with owner/source only; remove separate Pool Author behavior while preserving member authorship.
 - [ ] Question Pool metadata describes the Pool rather than duplicating metadata from its member
   Published Questions.
   - Evidence (runtime): Accepted SQL/source proof establishes independent Title/Description, empty creation Tags, optional narrower hierarchy, classification retention after Question reclassification, and historical fork preservation. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` confirms separately authored Pool text through creation, retry, list, and current reads. No historical Pool HTTP route is claimed. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
@@ -815,12 +844,16 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The Question Library is one global collection of Published Questions and Question Pools.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` discovers Published Questions and Published Question Pools on one Question Library page.
-  - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `question_library_entries` returns Published Questions for an Instructor or Sysadmin and left-joins Course membership only to mark course use.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns Question Pools from the global Question Pool table for an Instructor or Sysadmin without a Course filter.
-  - Evidence (test): `tests/test_library_classification_search.mjs` `The Question Library is one global collection of Published Questions and Question Pools` requested `/api/questions/search` and `/api/question-pools` with no Course id.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  Both appear in the same combined search, with filters for Questions, Pools, and Pool membership.
+  - Verification pending: Neil requires one combined Question-and-Pool search with Both, Questions only, and Pools only filters. Verify server-wide filtering, sorting, and paging of the combined results; separate existing searches do not establish compliance.
+- [ ] Search supports a "Questions in no Pool" filter: Published Questions that belong to no Pool.
+  - Verification pending: Updated Pool search and release guidance; implementation not validated.
+- [ ] Default searches would probably be best showing Questions in no Pool together with Question
+  Pools; showing individual Pool members as well adds significant noise.
+  - Verification pending: Updated Pool search and release guidance; implementation not validated.
+- [ ] Search filters can also include individual Pool members so Instructors can find all
+  Published Questions.
+  - Verification pending: Updated Pool search and release guidance; implementation not validated.
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns accepted Published Question Revisions and does not read Draft Questions.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` searches those same Published Question Revisions.
@@ -873,6 +906,9 @@
   - Evidence (test): `tests/test_library_classification_search.mjs` `Library Objects use shared metadata for organization, search, filtering, and discovery` sent the shared metadata through both discovery requests and refused a Subject without its Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Instructors may not have the attention to detail to fill out all metadata; assign metadata
+  automatically where possible and require the remaining required content before publication.
+  - Verification pending: Metadata requirements clarified in the interview; current enforcement needs validation.
 - [ ] Required Question Library metadata must be complete before a Library Object enters the Question Library.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` refuses a new Published Question when Discipline or Subject is absent and stores its Title, Description, language, Tags, and classification.
   - Evidence (source): `schemas/base_schema/20_tables/question_authoring.sql` `draft_question_metadata` requires that Title, Description, and language before publication copies them.
@@ -1057,6 +1093,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` returns a null Bloom pair when the Pool row is absent.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Bloom Classification may be NULL while awaiting AI assignment. Do not enforce a time limit.
+  - Verification pending: Metadata requirements clarified in the interview; current enforcement needs validation.
 - N/A AI assigns the initial Bloom Classification using a daemon after publication.
   - Reason: Deferred product behavior overrides this implementation language. Initial Bloom Classification is deferred with the AI backend, AI-backed Bloom classification is deferred until a later release, and automated daemon backends are deferred until a final server location. Publication does not start a daemon.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question

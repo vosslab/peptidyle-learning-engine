@@ -1,4 +1,4 @@
-# Human Guidance search and navigation fixes — 2026-10-04
+# Human Guidance search and navigation fixes - 2026-10-04
 
 ## Scope
 
@@ -26,13 +26,13 @@ metadata and sort contract is implemented by the Blueprint search lane.
 
 ## Validation
 
-- `node --import tsx --test tests/test_library_classification_search.mjs` — 15 passed.
-- `node --import tsx tests/test_record_list_reorder.mjs` — passed.
-- `node --import tsx tests/playwright/record_list_contracts.mjs` — passed with
+- `node --import tsx --test tests/test_library_classification_search.mjs` - 15 passed.
+- `node --import tsx tests/test_record_list_reorder.mjs` - passed.
+- `node --import tsx tests/playwright/record_list_contracts.mjs` - passed with
   the local browser harness. It includes the separate-tab and `noopener`
   contract for shared record links.
-- `npx prettier --check` on changed TypeScript/JavaScript — passed.
-- `git diff --check` — passed.
+- `npx prettier --check` on changed TypeScript/JavaScript - passed.
+- `git diff --check` - passed.
 - The live Question Library browser scenario passes. It proves direct Ribbon
   navigation from an untouched search page, confirmation for a completed search,
   protected new-tab detail links that preserve the original query/results,

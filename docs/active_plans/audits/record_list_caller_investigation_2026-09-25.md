@@ -159,7 +159,7 @@ choices across the full query; shared page controls serve both surfaces.
 | --- | --- | --- |
 | [gradebook_page.tsx](../../../src/pages/gradebook_page.tsx) and [course_roster_page.tsx](../../../src/pages/course_roster_page.tsx) | Table: explicit column comparisons and row headers | FR-SHELL for frame; INTEGRATOR for existing Table behavior |
 | [blueprint_course_detail_workspace.tsx](../../../src/features/blueprint_course/blueprint_course_detail_workspace.tsx) | Outline: nested Modules and Assessments, with existing selected editor | NAVIGATION then FR-WORKSPACE |
-| [library_discussion_panel.tsx](../../../src/components/library_discussion_panel.tsx) | Detail: Impact notices and threaded discussion bodies/actions | INTEGRATOR preserves existing behavior |
+| `src/components/library_discussion_panel.tsx` (removed after this audit) | Detail: Impact notices and threaded discussion bodies/actions | INTEGRATOR preserves existing behavior |
 | [question_bulk_metadata_editor.tsx](../../../src/components/question_bulk_metadata_editor.tsx) | Detail: current values of selected Questions inside review disclosure | INTEGRATOR preserves existing behavior |
 | [assessment_attempt_summary_page.tsx](../../../src/pages/assessment_attempt_summary_page.tsx) | Detail: recorded answers, feedback and backend-rendered Question content | FR-STUDENT for frame; INTEGRATOR for existing review behavior |
 | [content_disciplines_page.tsx](../../../src/pages/content_disciplines_page.tsx) | Detail: per-Discipline edit/lifecycle form | FR-SHELL for frame |

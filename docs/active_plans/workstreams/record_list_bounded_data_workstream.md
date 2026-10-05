@@ -1,5 +1,12 @@
 # RecordList bounded data workstream
 
+> Historical implementation record: the September 25 work is complete according to
+> [record_list_page_frame_standardization_ledger.md](record_list_page_frame_standardization_ledger.md).
+> Current [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#question-pool-specifications) supersedes
+> Pool-member ordering and separate-search assumptions here. Pools are unordered sets with
+> display sorting; Questions and Pools share discovery with Pool-membership filters. Follow
+> [SHARED_SEARCH_PAGE_SCHEMATIC.md](../active/SHARED_SEARCH_PAGE_SCHEMATIC.md) for current work.
+
 This is a required workstream of the
 [shared framework plan](../active/record_list_page_frame_standardization_plan.md), grounded in the
 [data-flow investigation](../audits/record_list_data_flow_investigation_2026-09-25.md).

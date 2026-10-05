@@ -85,16 +85,28 @@ SHA-256 checksum character. Published Questions and Question Pools share this
 one global namespace, while every public ID is globally unique across all
 public-ID object types and is never reused.
 
+Question Type and Backend are `NOT NULL` on `question_revision`. Published Question and Pool
+Title, Description, Discipline, and Subject are also required. Optional metadata remains optional;
+pending Bloom classification is a separate case with no enforced assignment deadline. See
+[QUESTION_MODEL.md](QUESTION_MODEL.md#required-and-assigned-metadata) for the field distinctions.
+
 Question source changes create immutable Question Revisions. Current metadata
 changes do not. Draft Questions remain private, mutable, unpublished, and
 unversioned.
 
-Question Pools use stable public identity plus a current member list. Saves
-CAS the Pool Edit Number; a no-op identical ordered list does not increment
-it. Assessment pool entries pin `question_pool_id` only. Student Work
+Question Pools use stable public identity plus current membership. HG defines membership
+as an unordered set of distinct Questions with exact Revision pins; editor sorting is display-only.
+The current SQL stores member positions and compares ordered arrays when saving. Its uniqueness
+constraint covers Question ID plus Revision, not Question ID alone. Both need alignment before
+claiming the unordered-set behavior is implemented. Saves compare-and-swap the Pool Edit Number. Assessment pool entries pin `question_pool_id` only. Student Work
 (`question_pool_selection`) stores Pool ID plus the Pool Edit Number at
 issue, and selected items keep exact Question Revision pins so later Pool
 edits do not silently change already-issued work.
+
+Current Pool storage also retains Author data and admission-only Discipline/Subject checks.
+The intended owner-only metadata, compatible calculated license, Pool mismatch handling, and
+combined search rules are in [QUESTION_MODEL.md](QUESTION_MODEL.md). Generated
+[SCHEMA_TABLES.md](SCHEMA_TABLES.md) describes current SQL, not completion of those changes.
 
 `question_pool.created_in_transaction` is an internal `xid8` marker with
 default `pg_current_xact_id()`. It replaces a timestamp-based heuristic when
@@ -129,7 +141,7 @@ Revision 1 and records one immutable Blueprint-to-source-Course relation. That
 source Course counts as the Blueprint's first Adoption and contributes its
 distinct students-ever-enrolled count, but it is not a daughter Course and is
 never included in automatic daughter-update operations. Course-owned Pools are
-forked into fresh Blueprint-owned Pools with identical ordered exact member
+forked into fresh Blueprint-owned Pools with identical exact member
 pins.
 
 The Blueprint-to-daughter relationship exposes newer Blueprint Revisions for

@@ -39,6 +39,18 @@ Start the stack through [USAGE.md](USAGE.md). Current route evidence is in
 Instructors do not grade, regrade, or retry Student responses. The selected
 Question Backend grades automatically and returns an immutable credit fraction.
 
+## Pool search and editing
+
+HG specifies one search for Published Questions and Pools. Its current preferred default shows
+Questions in no Pool plus Pools, reducing redundant member results. Filters can include member
+Questions. Pool search matches the Pool's own text and metadata. Pool membership is unordered;
+spreadsheet-style editor sorting changes only the display.
+
+A Pool mismatch identifies a requirement the Pool fails. Resolve it before releasing an affected
+Assessment; an Assessment already released when the mismatch develops continues as-is. These
+recent requirements are not all implemented or runtime-verified yet. See
+[QUESTION_MODEL.md](QUESTION_MODEL.md) for the rules and known implementation gaps.
+
 ## Assessment changes and Unrelease
 
 An Assessment is current Course teaching configuration, not a Revision family.

@@ -1,5 +1,12 @@
 # Plan: Shared record and page presentation framework
 
+> Historical implementation record: the September 25 work is complete according to
+> [record_list_page_frame_standardization_ledger.md](../workstreams/record_list_page_frame_standardization_ledger.md).
+> Current [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#question-pool-specifications) supersedes
+> Pool-member ordering and separate-search assumptions here. Pools are unordered sets with
+> display sorting; Questions and Pools share discovery with Pool-membership filters. Follow
+> [SHARED_SEARCH_PAGE_SCHEMATIC.md](SHARED_SEARCH_PAGE_SCHEMATIC.md) for current work.
+
 ## Context
 
 The September 25 audit confirms that RecordList shares markup but delegates row design to callers.

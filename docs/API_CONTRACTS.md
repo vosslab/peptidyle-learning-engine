@@ -73,15 +73,27 @@ Question availability belongs to the stable lineage; publishing another
 Published, non-archived Question lineages. Existing exact references remain resolvable.
 
 Active Instructors and Sysadmins receive answer-free Question and Pool Library
-read projections. A Question projection carries its exact Revision's required
+read projections. A Question projection carries its exact Revision's optional
 two-value Bloom Classification and independent classification Edit Number. A
 Pool projection carries the current Pool's own pair and classification Edit
-Number; member Question pairs never substitute. The `publishedQuestionRevisionTuple` field identifies the exact resolved Revision on an
+Number when present; member Question pairs never substitute. The `publishedQuestionRevisionTuple` field identifies the exact resolved Revision on an
 exact Question-detail route. `GET /api/question-pools` and
 `GET /api/question-pools/{questionPoolId}` are the product Pool reads. JSON
 carries sibling `questionPoolId` and `questionPoolEditNumber` fields; there
 is no Pool Pin wrapper. Exact immutable Question Revision pins remain
 `{ publishedQuestionId, revisionNumber }`.
+
+Question Type and other required publication fields must be present and non-NULL; an optional
+Bloom projection does not relax that requirement. Pending AI assignment has no enforced deadline.
+See [QUESTION_MODEL.md](QUESTION_MODEL.md#required-and-assigned-metadata).
+
+The separate Question and Pool routes describe current implementation. HG requires a combined
+Question Library search with result-kind and Pool-membership filters, sorted and paged together.
+The preferred default is Questions in no Pool plus Pools; individual members remain searchable.
+The combined response and Pool fields must follow [QUESTION_MODEL.md](QUESTION_MODEL.md),
+including Pool owner instead of Author, calculated compatible license, and Pool-owned matching.
+These changes and Pool mismatch enforcement are pending implementation validation. Existing
+ordered member arrays are transport/storage details to align, not an ordered membership rule.
 
 Pool discovery accepts optional exact `bloom_cognitive_process` and
 `bloom_knowledge_dimension` query parameters. Each combines with every other applied Pool
@@ -130,7 +142,7 @@ including zero counts and an empty result.
 | --------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Browse                      | `GET /api/course-blueprints`                                                                    | Lists Public Blueprint Courses for a Instructor. Explicit historical discovery may include Archived Blueprint Courses. Private Blueprint Courses remain owner-only.                                                                                                                                                                                                                                               |
 | Create                      | `POST /api/course-blueprints`                                                                   | Validates complete reusable content and atomically creates one Private Blueprint Course with Revision 1. The `201` response contains that Revision and its quoted Blueprint Revision Number.                                                                                                                                                                                                                             |
-| Create from Course Instance | `POST /api/course-instances/{course_instance_id}/course-blueprints`                             | A current Course Instructor supplies only the new Blueprint names and classification. The server atomically copies current reusable Assessment structure into a distinct actor-owned Private Revision 1, records the unchanged source Course Instance as its first Adoption, forks each Course-owned Pool with identical exact ordered pins, and returns the complete owner-visible Blueprint with `201` and `no-store`. |
+| Create from Course Instance | `POST /api/course-instances/{course_instance_id}/course-blueprints`                             | A current Course Instructor supplies only the new Blueprint names and classification. The server atomically copies current reusable Assessment structure into a distinct actor-owned Private Revision 1, records the unchanged source Course Instance as its first Adoption, forks each Course-owned Pool with identical exact Revision pins, and returns the complete owner-visible Blueprint with `201` and `no-store`. |
 | Current Blueprint Course    | `GET /api/course-blueprints/{blueprint_course_id}`                                              | Returns the authorized answer-free aggregate: current Revision, its quoted Blueprint Revision Number, and a separate Blueprint metadata Edit Number for short name, long name, and lifecycle state.                                                                                                                                                                                                                      |
 | Save                        | `PUT /api/course-blueprints/{blueprint_course_id}`                                              | Replaces reusable content with `If-Match` encoding of the current Blueprint Revision Number. A changed Save creates the next Revision; a canonical no-op returns the current Revision with `changed: false`.                                                                                                                                                                                                             |
 | Exact Blueprint Revision    | `GET /api/course-blueprints/{blueprint_course_id}/revisions/{revision_number}`                  | Returns one immutable exact Blueprint Revision for an authorized Instructor, including after the lineage is archived.                                                                                                                                                                                                                                                                                                    |

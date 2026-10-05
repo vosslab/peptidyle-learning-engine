@@ -1,4 +1,4 @@
-# Human Guidance Assessment compliance audit — 2026-10-04
+# Human Guidance Assessment compliance audit - 2026-10-04
 
 ## Scope and method
 
@@ -10,11 +10,11 @@ decision.
 
 Reviewed Human Guidance requirements:
 
-- `HUMAN_GUIDANCE.md:1576-1582` — limited edits after issue, the Pool-member
+- `HUMAN_GUIDANCE.md:1576-1582` - limited edits after issue, the Pool-member
   guard, whole-entry removal, fairness, and Unrelease.
-- `HUMAN_GUIDANCE.md:1666-1681` — immediately visible automated scores and
+- `HUMAN_GUIDANCE.md:1666-1681` - immediately visible automated scores and
   separately controlled correct-answer disclosure.
-- `HUMAN_GUIDANCE.md:1145-1150` and `1758-1775` — immutable credit fractions,
+- `HUMAN_GUIDANCE.md:1145-1150` and `1758-1775` - immutable credit fractions,
   current point values, and recalculation without another Backend call.
 
 Focused tests run:
@@ -49,9 +49,9 @@ No production files were changed.
 
 ## Priority findings
 
-### A-01 — score-release controls still hide automated scores
+### A-01 - score-release controls still hide automated scores
 
-**Status: mismatch — highest priority.**
+**Status: mismatch - highest priority.**
 
 HG requires each Question score and the total to be visible as soon as an
 Attempt is submitted and automatically graded. An Instructor cannot hide or
@@ -66,7 +66,7 @@ landing suppresses both earned and possible points unless that timing releases
 them (`schemas/base_schema/50_functions/student_assessment_landing.sql:119-147`),
 and Attempt History does the same
 (`schemas/base_schema/50_functions/student_course_attempt_history.sql:137-150`).
-The UI explicitly renders “Score not released”
+The UI explicitly renders "Score not released"
 (`src/pages/assessment_overview_page.tsx:51-55`; `src/pages/student_course_attempt_history_page.tsx:110-112`).
 
 The focused domain test suite passed because it validates this old timing model,
@@ -76,9 +76,9 @@ stale comment.
 Correct-answer timing is a separate HG decision and should remain separate;
 this finding does not ask to change it.
 
-### A-02 — post-issue content saves allow changes beyond the limited list
+### A-02 - post-issue content saves allow changes beyond the limited list
 
-**Status: mismatch — high priority fairness risk.**
+**Status: mismatch - high priority fairness risk.**
 
 Once an Assessment is issued, HG allows only point changes, Question order,
 limited unissued Pool-member removal, and whole-Pool removal with the stated
@@ -107,9 +107,9 @@ does not allow.
 
 No focused test establishes enforcement of the current post-issue limits.
 
-### A-03 — Pool member replacement has no issued-Question guard
+### A-03 - Pool member replacement has no issued-Question guard
 
-**Status: mismatch — high priority fairness risk.**
+**Status: mismatch - high priority fairness risk.**
 
 HG permits removing an individual Pool Question only when it has not been
 issued to any Student in that Assessment (`HUMAN_GUIDANCE.md:1578`).
@@ -129,9 +129,9 @@ Thus an Instructor can replace a released Pool's membership, including removal
 of a Question already issued in that Assessment. There is no source or test
 evidence of the required per-member issue guard.
 
-### A-04 — removing a Pool stops future delivery but does not remove its score from existing Attempts
+### A-04 - removing a Pool stops future delivery but does not remove its score from existing Attempts
 
-**Status: mismatch — highest priority fairness risk.**
+**Status: mismatch - highest priority fairness risk.**
 
 HG says a bad Pool may be removed and that both earned and possible points must
 be excluded from **every** Attempt, including existing Attempts
@@ -167,9 +167,9 @@ through `ple_api.save_assessment`, then called
 result remained `2 / 2` and the probe's assertion passed. The removed Pool
 therefore still supplied its `1 / 1` score contribution after retirement.
 
-### A-05 — Quiz and Exam all-completed behavior is a hard gate, not a selectable default
+### A-05 - Quiz and Exam all-completed behavior is a hard gate, not a selectable default
 
-**Status: mismatch — medium priority; affects Quiz/Exam answer disclosure.**
+**Status: mismatch - medium priority; affects Quiz/Exam answer disclosure.**
 
 HG makes the all-Students-completed condition the default for Quiz and Exam
 correct answers, but says Instructors can change Assessment-type defaults and
@@ -190,7 +190,7 @@ This is separate from A-01: it concerns correct answers, not score visibility.
 
 ## Freshly supported behaviors
 
-### S-01 — current point values rescale stored credit without Backend work
+### S-01 - current point values rescale stored credit without Backend work
 
 **Status: supported by source and focused unit test.**
 
@@ -207,7 +207,7 @@ points while the stored credit remains `0.67`
 This support applies to point-value edits. It does not cure the Pool-removal
 fairness gap above.
 
-### S-02 — Unrelease remains a distinct destructive reset
+### S-02 - Unrelease remains a distinct destructive reset
 
 **Status: source and existing end-to-end coverage present; not rerun in this audit.**
 
@@ -217,7 +217,7 @@ Unrelease deletes Student Work and then permits ordinary editing
 (`HUMAN_GUIDANCE.md:1582`, `1683-1691`). I did not rerun the database-connected
 oracle, so this is not fresh runtime certification.
 
-### S-03 — submission-viewing and correct-answer timing controls are separate
+### S-03 - submission-viewing and correct-answer timing controls are separate
 
 **Status: supported by source; no new browser test.**
 

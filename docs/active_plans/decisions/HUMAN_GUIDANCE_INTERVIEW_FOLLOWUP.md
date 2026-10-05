@@ -480,3 +480,424 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
   GitHub distinguishes subscriber counts from Stars and restricts watcher-list
   access. PLE search shows the count without a public watcher-identity list.
   This mapping does not add GitHub's collaboration roles to PLE.
+
+## Pool member licenses: undecided
+
+- Neil wants Pool members to have compatible licenses and strongly dislikes the
+  idea of mixed-license Pools. He is unsure whether to require an identical
+  license and version or permit different compatible licenses.
+- Firmness: strong preference against mixed-license Pools; exact membership rule
+  undecided. His answer to those two alternatives was "I do not kno, either 1 or 2".
+- Why: keep Pool membership consistent with his preference against mixed licenses.
+  The agent suggested identical licenses as simpler to enforce, but Neil has not
+  chosen that rule.
+- Follow-up: compare the practical restrictions of the two choices before making
+  either an enforced rule. Member-license rules and the Pool's own license are
+  separate questions. Continue with teaching-related membership rules meanwhile.
+
+### Creative Commons reference supplied by Neil
+
+- Neil supplied the [CC License Compatibility Chart](https://wiki.creativecommons.org/wiki/File:CC_License_Compatibility_Chart.png).
+- The agent checked the image and the current
+  [CC guidance on combining works](https://creativecommons.org/faq/#can-i-combine-material-under-different-creative-commons-licenses-in-my-work).
+  The chart concerns remixes. CC separately explains that a collection's license
+  does not replace the licenses of its member works.
+- Agent inference: a PLE Pool of separate, unchanged Question references is closer
+  to a collection. The remix chart should not automatically become a legal
+  requirement for Pool membership.
+- The earlier recommendation to require identical licenses for implementation
+  simplicity was premature. A concrete CC BY / CC BY-SA example is being used
+  to clarify whether Neil wants compatible differences or strict uniformity.
+  His supplied link is evidence for discussion, not approval of a final rule.
+
+### Pool license minimum settled
+
+- Neil clarified: "at minimum only compatible licenses, but perhaps stronger".
+- Decision: Pool members must have compatible licenses.
+- Firmness: the compatibility minimum is settled. Requiring an identical license
+  and version remains open; do not treat it as approved.
+- Why: Neil wants to avoid incompatible license combinations and has expressed
+  discomfort with mixed-license Pools even where compatibility might permit them.
+- Follow-up: specify and verify the concrete compatibility rule for PLE's supported
+  licenses. The remix/collection distinction remains relevant to that definition.
+  No new membership enforcement has been implemented in this discussion.
+
+## Pool Question Type: stronger membership direction
+
+- Neil: "I am thinking of higher requirements for pools, all contain the same
+  type of question, no mixing match with mc."
+- Direction: every member of a Pool has the same Question Type; Matching and
+  Multiple Choice do not belong together in one Pool.
+- Firmness: current design direction; Neil is still exploring the stronger
+  membership requirements. Do not report this as implemented.
+- Why: Neil wants stronger similarity among Pool members. Consequence inferred
+  by the agent: Question Type filtering can describe the entire Pool, avoiding
+  the previously proposed any-member/all-members choice for mixed-type Pools.
+- The earlier recommendation to include mixed-type Pools when any member matches
+  is superseded by this direction. Question Backend is a separate property;
+  whether it must also be uniform is the next interview question.
+- Manager handoff: plan for uniform Question Type; verify the concrete type
+  identity used across supported Backends before implementing membership checks.
+  Do not silently remove existing members to make a Pool satisfy the rule.
+
+### Same Backend confirmed
+
+- Neil selected: "Require one Backend per Pool: all Native JSON or all WeBWorK."
+- Decision: every Pool has one Question Type and one Question Backend; its members
+  share both. The Backend rule supersedes the earlier HG wording permitting
+  members from any Backend within a Pool.
+- Firmness: Backend uniformity explicitly selected. Same Question Type remains
+  Neil's stated direction, now carried into HG alongside the Backend rule.
+- Why: Neil wants stronger similarity among members. The search consequence is
+  an agent inference: Type and Backend filters can describe the entire Pool.
+- Manager handoff: establish membership enforcement before treating these as
+  guaranteed Pool properties in search. Audit existing mixed Pools explicitly;
+  do not silently remove members. Source and checklist updated; code work pending.
+
+### Reason for stronger Pool similarity
+
+- Neil: "I have done like a 180, and I think having more common pools allows for
+  better search and better assessments".
+- Why: uniform Pool membership should improve search and Assessments. This is
+  Neil's stated reason for the stronger direction, replacing the need to infer
+  his reason from implementation convenience.
+- Firmness: clear change toward stronger member similarity, including the stated
+  same-Type and selected same-Backend rules. Further restrictions, such as
+  identical licenses or shared Topic/Subtopic, remain undecided.
+
+### Pool classification similarity settled
+
+- Neil selected: "Keep only the same Discipline and Subject as required
+  classification matches."
+- Decision: Pool members share Discipline and Subject. Topic and Subtopic may
+  differ. Same Question Type, same Backend, and reasonable interchangeability
+  remain separate requirements.
+- Firmness: explicit selection; settled for this design.
+- Why: Neil did not provide a separate reason for this boundary. His broader
+  rationale is better search and Assessments through stronger Pool similarity;
+  do not infer that every classification field must therefore match.
+- Manager handoff: do not require common Topic/Subtopic when creating or editing
+  a Pool, or present member Topic/Subtopic as guaranteed uniform values.
+
+## Pool metadata and member metadata
+
+- Neil explicitly allows different authors among member Questions and requires
+  the Pool to have its own Topic and Subtopic. These are settled directions.
+- Why: Neil distinguishes metadata belonging to the Pool from metadata belonging
+  to its members; Topics/Subtopics primarily support search. Broader motivation
+  remains better search and better Assessments.
+- Pool: its own title, description, owner, Topic, and Subtopic. Pool ownership is
+  distinct from Question authorship. Existing optional Pool attribution/license
+  concerns the Pool's own material, not replacement of member licenses.
+- Members: preserve each Question's authorship, license, title, description,
+  Topic, Subtopic, and Tags. Their authors and Topics/Subtopics may differ.
+- Shared membership requirements: Discipline, Subject, Question Type, and Backend.
+  A Pool may display their common values without changing its members.
+- Licenses must be compatible; the possible stricter identical-license rule
+  remains open. Do not invent a single replacement license for all members.
+- Agent proposal, not yet approved: use Pool-specific Tags rather than an
+  automatic union of member Tags. Which metadata search filters should match
+  remains the next question. Search promotion/ranking is also unresolved.
+
+### Question ownership correction
+
+- Neil corrected the metadata split: "Each keeps its owners AND authors; owners
+  AND authors may differ".
+- Decision: each member Question retains its own owner and authors. Different
+  members may have different owners and authors. Pool ownership is separate;
+  membership does not transfer ownership of the Questions.
+- Firmness: explicit correction, settled.
+- Why: ownership and authorship are distinct and both belong to the individual
+  Question; recording only authorship loses that distinction.
+- Wording clarification: the agent's "any Pool attribution" meant source credit,
+  such as identifying the original Pool when a Pool is forked. Use concrete
+  source-Pool wording when referring to that relationship. This clarification
+  does not add a role or decide any additional Pool-credit fields.
+
+### One required Pool license
+
+- Neil: "since we require only compatible licenses for members, we can assign the
+  pool that compatible master license. So the pool must have a license, it cannot
+  be mixed."
+- Decision: each Pool has one required license compatible with every member
+  Question's license. "Mixed" is not a Pool license. Earlier optional Pool-license
+  wording is superseded.
+- Firmness: explicit direction, settled. Different compatible member licenses
+  are accommodated by this design; identical member licenses are not required
+  by the selected single-Pool-license rule.
+- Why: compatible member licenses allow the Pool to have one clear license for
+  discovery and reuse rather than a mixed label.
+- Preserve each Question's original license. CC's collection guidance says the
+  collection license does not replace licenses on the individual works. The
+  Pool label must not imply rights absent from a member's original license.
+- Manager handoff: Pool license filters use the Pool's license. Membership writes
+  must respect its compatibility with member licenses. The concrete mapping for
+  supported licenses and the choice between automatic assignment and owner
+  selection remain to be specified. No enforcement was implemented here.
+
+### Pool-specific Tags and Bloom dimensions confirmed
+
+- Neil: "yes, we should have pool specific tags, pool specific Blooms 2D
+  attributes, etc."
+- Decision: a Pool has its own Tags, Bloom Knowledge Dimension, and Bloom
+  Cognitive Process, alongside its own Topic and Subtopic. Member Questions
+  retain their own metadata.
+- Firmness: explicit direction, settled for these named fields. "Etc." does not
+  approve arbitrary additional fields or a new metadata system.
+- Why: the Pool and its members are distinct objects with their own descriptions
+  for search. This carries forward Neil's stated separation of their metadata.
+- Manager handoff: expose Pool metadata independently of member values. Do not
+  substitute member values for missing Pool fields or require member values to
+  equal Pool values without an explicit membership rule. Which values search
+  filters use to match a Pool is the pending question.
+
+### Concrete Pool-license example confirmed
+
+- Neil's example: members under public domain, CC BY, CC BY-NC, and CC BY-NC-SA
+  yield a Pool license of CC BY-NC-SA. Adding a CC BY-SA Question is rejected as
+  incompatible.
+- Firmness: explicit example, settled as PLE membership behavior.
+- Why: the Pool needs one compatible license; its members cannot impose
+  conflicting reuse conditions. Compatibility is not a single most-restrictive
+  ordering of all licenses.
+- This is a PLE membership policy. CC distinguishes remix compatibility from
+  collecting unchanged works; the original member licenses remain intact.
+  Reference: [Creative Commons combining guidance](https://creativecommons.org/faq/#can-i-combine-material-under-different-creative-commons-licenses-in-my-work).
+- Implementation gap: `generated/api/QuestionLicense.ts` and
+  `schemas/base_schema/10_types.sql` currently allow only CC0-1.0, CC-BY-4.0,
+  and CC-BY-SA-4.0. The example requires adding CC BY-NC and CC BY-NC-SA through
+  the publication, validation, database, generated API, search, and export code.
+  Do not add them only to a Pool dropdown or relabel existing Question licenses.
+- Public-domain status and CC0 are distinct descriptions; the concrete supported
+  identifiers need mapping during implementation. The example does not approve
+  NoDerivatives licenses or every historical license version.
+
+### Cost recovery and NonCommercial content: unresolved
+
+- Neil asked whether charging only the site's operating costs permits CC BY-NC
+  content in PLE. This is a question, not a confirmed pricing or license decision.
+- CC's [NonCommercial explanation](https://wiki.creativecommons.org/wiki/NonCommercial_interpretation)
+  evaluates the primary purpose of the use, including commercial advantage or
+  monetary compensation. Cost recovery and nonprofit status do not by themselves
+  establish permission for a particular deployment.
+- Agent conclusion: no legal clearance established for a paid PLE deployment.
+  Review the actual fee arrangement with counsel or obtain rights-holder
+  permission before relying on NC licensing for that arrangement.
+- Keep software support for NC metadata and compatibility separate from whether
+  a particular hosted use meets the NC condition. This does not change Neil's
+  Pool compatibility example or add an in-product approval workflow.
+
+### NC supported; ND deferred
+
+- Neil: "I see no reason to not include CC NC; but CC ND 'NoDerivative' would
+  have to block forking, let's plan to support CC ND, but defer that for now."
+- Decision: support NonCommercial Question licenses, including the CC BY-NC and
+  CC BY-NC-SA licenses in his example. Supporting NoDerivatives licenses is
+  planned but deferred; ND Question forking must be blocked when implemented.
+- Firmness: explicit direction for both current NC scope and ND deferral.
+- Why: Neil wants NC content available in PLE; ND introduces a forking restriction
+  that needs separate future work.
+- NC support does not establish legal permission for every hosted fee arrangement.
+  Keep that deployment question separate from the supported-license code.
+- Deferred detail: distinguish forking an ND Question from forking a Pool that
+  merely references an unchanged ND Question when ND support is resumed. Do not
+  use this future distinction to block the current shared search work.
+- Manager handoff: expand NC support consistently; leave ND acceptance disabled
+  for the current implementation. Preserve each member's original license.
+
+### NC inclusion reopened
+
+- Neil asked what PLE's NC policy should be and said he is less certain. This
+  reopens the preceding decision to include NC in current scope.
+- Firmness: current NC inclusion is now tentative. ND remains explicitly deferred.
+- Agent recommendation: defer NC acceptance for the initial hosted release while
+  the fee arrangement is unresolved. Continue using the existing CC0, CC BY,
+  and CC BY-SA set; retain future NC support and the Pool compatibility example.
+- Why: cost recovery alone does not establish NonCommercial use under CC's
+  guidance. Avoid relying on an unsettled deployment assumption for release.
+- Await Neil's choice. No implementation change or automatic withdrawal of the
+  existing HG direction has been made on the strength of this recommendation.
+
+### Pool filters confirmed; NC deferred
+
+- Neil: "I think yes to this: Topic/Subtopic, Tags, and Bloom filters match only
+  the Pool's own metadata"; then "let's defer NC content as well".
+- Decisions: named metadata filters use Pool values only. NC content joins ND
+  content in the deferred section. Earlier current-scope NC approval is superseded.
+- Firmness: Pool-only filtering is accepted with Neil's "I think yes" qualifier;
+  NC deferral is explicit. Preserve that difference in confidence.
+- Why: Pool-specific metadata describes the Pool; member metadata remains separate.
+  NC was deferred following uncertainty about the hosted service's fee model.
+- Manager handoff: current licenses remain CC0, CC BY, and CC BY-SA. Retain the
+  NC compatibility example as deferred guidance. Do not expand NC acceptance in
+  the current search work. Do not make a Pool match a Topic, Tag, or Bloom filter
+  solely because one member matches.
+- Remaining search decisions: keyword matching of member content; the meaning
+  of Owner/Author filters for Pools; automatic versus owner selection of the
+  Pool's compatible license. Ranking/promotion remains separate from metadata.
+
+### Pool keyword search confirmed
+
+- Neil selected: "Search only the Pool's own text and metadata."
+- Decision: ordinary text search does not match a Pool through its member
+  Questions' text or metadata.
+- Firmness: explicit selection, settled.
+- Why: the recommendation Neil selected keeps text search consistent with the
+  Pool's own metadata. This is the presented rationale; no separate reason was
+  supplied by Neil.
+- Manager handoff: no member-text expansion or matching-member explanation is
+  needed for Pool results. Member Questions still match their own search results.
+
+### Pool Author field removed from design
+
+- Neil selected: "Use the Pool owner and source-Pool link; no separate Pool
+  Author field."
+- Decision: the Pool identifies its owner and its source Pool when forked. It
+  does not have separate author credits. Member Question owners and authors
+  remain unchanged.
+- Firmness: explicit selection, settled. Supersedes earlier optional Pool
+  authorship language in HG.
+- Why: the selected proposal uses the established owner and fork-source facts;
+  Neil supplied no additional rationale. Preserve Question authorship separately.
+- Manager handoff: show and filter Pool ownership as Owner, not Author. Do not
+  match a Pool through member authors or fabricate a Pool Author from its owner.
+  Existing Pool authorship storage and API behavior require alignment; docs-only
+  discussion has not completed that work.
+
+### Pool license calculated automatically
+
+- Neil selected: "Calculate the Pool license automatically from its members."
+- Decision: PLE calculates one Pool license from its members and rejects
+  incompatible member combinations. Pool owners do not manually choose the
+  Pool license. Each Question retains its original license.
+- Firmness: explicit selection, settled.
+- Why: the selected recommendation keeps owners from having to calculate license
+  compatibility manually. Neil did not add a separate reason.
+- Manager handoff: compute from current membership on creation and membership
+  changes. Validate exact license versions using a compatibility table, not an
+  assumed total order. Current support remains CC0, CC BY, and CC BY-SA; NC/ND
+  remain deferred. The CC BY plus CC BY-SA example produces a CC BY-SA Pool.
+- Pool promotion/ranking remains a separate search decision. No new product
+  implementation was performed during this interview.
+
+### Pool ranking question withdrawn
+
+- Neil called the proposed preference for equally relevant Pool results
+  "bikeshedding" and rejected spending time on it.
+- Decision: do not add a Pool ranking preference from this interview.
+- Why: it was an unnecessary proposed distinction, and the agent had assumed a
+  relevance sort that the current Question search does not provide. The current
+  `QuestionSearchSort` supports titleAscending and publishedNewest.
+- Firmness: explicit rejection of this question. It does not answer whether
+  Questions and Pools share one result set or use separate searches.
+- Manager handoff: remove ranking/promotion from the unresolved implementation
+  requirements. The pending combined-versus-separate result-set question affects
+  real query, filtering, and paging responsibilities.
+
+### Combined Question and Pool search confirmed as original intent
+
+- Neil selected one combined search with Both, Questions only, and Pools only,
+  then clarified that combining Questions and Pools was the original reason for
+  starting this work and must be documented in HG.
+- Decision: one combined Question Library search; result-kind filters select
+  both Published Questions and Pools, Questions only, or Pools only.
+- Firmness: explicit selection and correction; settled original requirement,
+  not a new optional expansion.
+- Why: Questions and Pools belong together in Library discovery. The original
+  shared-search goal was combined discovery, not merely similar-looking pages.
+- Manager handoff: combine matching records before server sorting and paging;
+  do not merge separately paged lists in the browser. Preserve each kind's own
+  searchable metadata and stable identity. The schematic now states this scope.
+- Existing HG supplies picker scope: Pool members are Published Questions only;
+  importing a Pool into an Assessment forks it. These do not require new
+  interview questions. Documentation is updated; implementation remains pending.
+
+### Existing HG authority verified
+
+- Neil emphasized that combined Question-and-Pool search should ALREADY be in HG.
+- Verified against committed HG before this interview's edits: it already says
+  "The Question Library is one global collection of Published Questions and
+  Question Pools." Git history traces that statement to `eecc03ac`, September 16.
+- Correction: combined discovery is an existing product requirement the agent
+  failed to carry into the schematic. Asking Neil to choose separate searches
+  reopened established intent. This is not a newly authorized scope expansion.
+- The added Both/Questions only/Pools only wording makes the filter behavior
+  explicit. The schematic now corrects the missing combined-query responsibility.
+
+### Pool corrections after edge-case review
+
+- Neil rejected the premise of unpublished Pools. HG already says Pools enter the Library
+  immediately. The manager must use the existing lifecycle rather than invent a second category.
+  Firmness: explicit correction. Why: the question contradicted the documented Pool model.
+- A Pool is an unordered set of distinct Published Questions, with exact Revision pins retained.
+  It cannot contain two copies of the same Question. This supersedes HG's ordered-list wording.
+  Firmness: explicit direction. Why: Pool usage selects Questions randomly.
+- Neil called overlap across Assessment entries speculative bikeshedding. Do not add restrictions
+  or automatic deduplication because a directly added Question is also in an Assessment Pool.
+  Firmness: explicit rejection of proposed gates. Why: Instructors choose their Assessment content.
+- A Pool must retain enough Questions for its Assessment selection count after member removal.
+  Firmness: settled rule. Why: an Assessment must remain usable. Where the checks run is an
+  implementation responsibility, not an unresolved product choice.
+- When a member's Discipline or Subject changes so it no longer matches the Pool, flag that Pool
+  and prevent release until the mismatch is resolved. Firmness: explicit behavior; the word
+  "stale" is flexible. Why: membership requirements must not silently become invalid; this
+  rationale follows from the instruction rather than a separate explanation supplied by Neil.
+- Manager handoff: current SQL treats classification as an admission-only check and explicitly
+  leaves existing memberships unchanged by reclassification. That behavior needs alignment.
+  Use the existing Assessment release flow, not a new Pool publication stage. Already-released
+  Assessments must be reconciled with existing post-issue limits without silently changing
+  delivered Questions. No policy for that interaction has been inferred from this answer.
+- Documentation only: no runtime behavior was changed or certified by this recording step.
+
+### Pool editor display order
+
+- Neil: "no reason for a pool to be ordered, other than display purposes"; member Questions
+  should be "sortable like in a spreadsheet" when editing a Pool.
+- Decision: Pool membership is unordered, while the editor supports sorting its member display.
+  Firmness: explicit direction. Why: ordering serves inspection and editing, not random selection.
+- Implementation consequence: a display-sort change is not a membership edit and must not advance
+  the Pool's membership Edit Number or alter selection. Reuse the shared spreadsheet presentation.
+
+### Pool mismatch terminology settled
+
+- Use "Pool mismatch: The Pool no longer satisfies its current requirements." This supersedes
+  the provisional "stale" wording in earlier interview entries.
+- Causes include too few member Questions, member Discipline or Subject mismatch, duplicate
+  Questions, and other Pool constraint violations. Show the specific cause with the broad state.
+- Firmness: explicit terminology supplied after reviewing alternatives. Why: "mismatch" is
+  broader and more neutral than "stale" and describes failure to meet current requirements.
+- Implementation mapping: insufficient membership depends on the affected Assessment's selection
+  count. Continue preventing invalid writes; reporting a mismatch does not permit duplicate
+  members. The broader label adds no new constraints or separate Pool publication workflow.
+- Documentation only; state reporting and release enforcement remain unverified implementation work.
+
+### Organized search default and released Assessments
+
+- Neil clarified that both Questions and Pools should show up in search. This already covers
+  the search/picker concern; do not reopen their combined discovery as a product question.
+- Define "Questions in no Pool" as Published Questions with no Pool membership. Firmness:
+  explicit request. This filter is distinct from showing all individual Questions.
+- Preferred default: show Questions in no Pool plus Question Pools, with member Questions
+  available through the filters. Firmness: current preference, retaining Neil's "probably".
+  Why: redundant individual Pool members add significant noise to the combined search.
+- Existing Pool-only search matching still applies. Agent observation: the preferred default
+  does not expose a Question-only text or metadata match when its Pool does not also match.
+  The broader member-inclusive search remains available; do not silently change Pool matching.
+- If a Pool mismatch develops after an Assessment is already released, allow it to continue
+  as-is. Firmness: explicit direction. Why: Neil sees no useful remedy for an already-released
+  Assessment. This closes the previously open post-release mismatch question.
+- Continue preventing membership edits that leave too few candidates; the post-release exception
+  does not authorize destructive edits. No runtime behavior was changed in this documentation pass.
+
+### Required metadata and pending Bloom assignment
+
+- Question Type cannot be NULL; other required metadata must be complete before publication.
+  Firmness: explicit requirement. Why: publication must not rely on incomplete required fields.
+- Neil explained that Instructors may not have the attention to detail to fully fill out metadata.
+  PLE should assign what it can automatically and require the remaining required content before
+  publication. This does not make explicitly optional fields mandatory or assign all metadata to AI.
+- Bloom is assigned initially by AI and may remain NULL while awaiting assignment. Neil first
+  suggested 24 hours, then explicitly answered "do not enforce any time limit". The latter
+  supersedes the proposed deadline. Initial AI classification remains deferred under existing HG.
+- Firmness: no time-limit enforcement is explicit. Missing Bloom is not a publication failure;
+  missing Question Type or another required field is. Existing Instructor Bloom corrections remain.

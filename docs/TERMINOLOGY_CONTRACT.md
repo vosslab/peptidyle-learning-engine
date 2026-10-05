@@ -272,6 +272,12 @@ means either of those published objects. Drafts are excluded. Private Course
 use does not make a Library Object private. Students access Question content
 through authorized Coursework rather than Library discovery.
 
+**Questions in no Pool** is the search filter for Published Questions with no Pool
+membership. Both Questions and Pools appear in one combined search. The preferred
+default is Questions in no Pool plus Pools, reducing redundant member results; HG
+retains "probably" for this preference. Filters can include individual member Questions.
+A directly added Assessment Question is a separate concept: it may also belong to a Pool.
+
 **Starred Library Object** is an Instructor favorite and visible endorsement.
 Instructors can see Star counts and who Starred a Question or Pool.
 **Watched Library Object** is a subscription to in-app notifications about new
@@ -295,8 +301,10 @@ Student-record deletion.
 Pools. It
 describes the cognitive work needed for full credit, rather than **Question
 Difficulty**. A Pool's classification describes its intended cognitive work as
-a whole. Bloom Classification is required for Library entry; AI assigns it
-initially and an Instructor may correct either dimension without a new Revision.
+a whole. Bloom Classification may be blank at Library entry; initial AI assignment
+is deferred and does not block publication. Pending values have no enforced time limit.
+Question Type and other required publication fields remain non-NULL. An Instructor may correct either dimension
+without a new Revision.
 Each exact Revision's pair has its own positive **Bloom Classification Edit
 Number** for correction concurrency. It is not a third classification dimension
 or content-Revision history. Read projections carry the pair and that Edit
@@ -364,18 +372,29 @@ WeBWorK renderer files keep their own identities.
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications).
 
 **Question Pool** is a published reusable collection with a stable **Pool ID**
-(`XXXX-ZXXX`). It is current state: an ordered list of exact Published Question
-Revisions plus Pool metadata. Saving the member list re-attests
-interchangeability and advances the Pool's **Edit Number**; no Pool Revision is
-created. Questions and Pools remain distinct objects even though each may
-occupy an Assessment position. Pools contain interchangeable Published
-Questions, may span Question Backends, and cannot contain other Pools. Creation
-begins with a Published Question and enters the Library immediately.
+(`XXXX-ZXXX`). It is current state: an unordered set of distinct Published Questions,
+each pinned to an exact Revision, plus Pool metadata. Membership changes advance the
+Pool's **Edit Number** and re-attest interchangeability; no Pool Revision is created.
+Spreadsheet-style sorting changes the editor display, not membership or selection.
+Questions and Pools remain distinct objects even though each may occupy an Assessment
+position. Members share one Question Type and one Backend; Pools cannot contain Pools.
+Creation begins with a Published Question and enters the Library immediately.
 
 **Pool classification** uses the first Question's Discipline and Subject.
 Every additional member has that same Discipline and Subject. Member Questions
 retain their own Topic, Subtopic, Tags, and other metadata; the Pool also has
-its own Title, Description, and applicable Library metadata and support content.
+its own Title, Description, Topic/Subtopic, Tags, both Bloom dimensions, and optional
+support content. Search matches the Pool's own text and metadata, not its members'.
+The Pool identifies its owner and source Pool; it has no separate Author field.
+Members retain their owners and authors. PLE calculates one compatible Pool license
+from member licenses and rejects incompatible combinations; member licenses remain intact.
+NC and ND content are deferred.
+
+**Pool mismatch** means the Pool no longer satisfies its current requirements. Show
+its specific cause, such as insufficient members for an Assessment's selection count,
+a Discipline/Subject mismatch, duplicate Questions, or another membership violation.
+Block affected Assessment release until resolved. An Assessment already released when
+a mismatch develops continues as-is. The state adds no separate Pool publication step.
 
 **Question Pool fork** creates a new Pool ID, initially retaining the same
 member Question IDs and exact Question Revisions, with Edit Number 1. Adding a

@@ -1,5 +1,12 @@
 # Record and frame standardization ledger
 
+> Historical implementation record: the September 25 work is complete according to
+> [record_list_page_frame_standardization_ledger.md](record_list_page_frame_standardization_ledger.md).
+> Current [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#question-pool-specifications) supersedes
+> Pool-member ordering and separate-search assumptions here. Pools are unordered sets with
+> display sorting; Questions and Pools share discovery with Pool-membership filters. Follow
+> [SHARED_SEARCH_PAGE_SCHEMATIC.md](../active/SHARED_SEARCH_PAGE_SCHEMATIC.md) for current work.
+
 Date: 2026-09-25. Caller investigation: complete. Implementation status: complete.
 
 This is the mutable execution ledger for
@@ -163,7 +170,7 @@ creates no additional migration mechanism or permanent inventory test.
 | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [gradebook_page.tsx](../../../src/pages/gradebook_page.tsx) and [course_roster_page.tsx](../../../src/pages/course_roster_page.tsx) | Table: explicit column comparisons and row headers                           | FR-SHELL for frame; INTEGRATOR for existing Table behavior    |
 | [blueprint_course_detail_workspace.tsx](../../../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)               | Outline: nested Modules and Assessments, with existing selected editor       | NAVIGATION then FR-WORKSPACE                                  |
-| [library_discussion_panel.tsx](../../../src/components/library_discussion_panel.tsx)                                                | Detail: Impact notices and threaded discussion bodies/actions                | INTEGRATOR preserves existing behavior                        |
+| `src/components/library_discussion_panel.tsx` (removed after this audit)                                                | Detail: Impact notices and threaded discussion bodies/actions                | INTEGRATOR preserves existing behavior                        |
 | [question_bulk_metadata_editor.tsx](../../../src/components/question_bulk_metadata_editor.tsx)                                      | Detail: current values of selected Questions inside review disclosure        | INTEGRATOR preserves existing behavior                        |
 | [assessment_attempt_summary_page.tsx](../../../src/pages/assessment_attempt_summary_page.tsx)                                       | Detail: recorded answers, feedback and backend-rendered Question content     | FR-STUDENT for frame; INTEGRATOR for existing review behavior |
 | [content_disciplines_page.tsx](../../../src/pages/content_disciplines_page.tsx)                                                     | Detail: per-Discipline edit/lifecycle form                                   | FR-SHELL for frame                                            |

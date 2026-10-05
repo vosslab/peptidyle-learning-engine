@@ -1,4 +1,4 @@
-# Human Guidance score and answer-release fixes — 2026-10-04
+# Human Guidance score and answer-release fixes - 2026-10-04
 
 ## Settled behavior implemented
 
@@ -22,12 +22,12 @@ The trusted PostgreSQL policy function validates the limited timing use (ASVS 2.
 
 ## Checks run
 
-- `cargo test -p question_model assessment_activity_rules::tests` — 10 passed, including the Quiz/Exam default.
-- `cargo test -p domain student_feedback_release::tests` — 15 passed, including the completion hold and explicit `after_submit` override.
-- `cargo test -p server_core assessment_delivery::history::tests` — 11 passed, including configured Quiz answer release after every current Student completes and the Instructor `after_submit` override.
-- `node --import tsx --test tests/test_assessment_template_settings_model.mjs tests/test_assignment_workspace_questions.mjs tests/test_student_course_progress_presentation.mjs` — 13 passed.
-- `git diff --check` — passed.
-- `source ./source_me.sh && devel/generate_schema_tables_doc.py && schema_style/check_schema_style.py` — passed.
+- `cargo test -p question_model assessment_activity_rules::tests` - 10 passed, including the Quiz/Exam default.
+- `cargo test -p domain student_feedback_release::tests` - 15 passed, including the completion hold and explicit `after_submit` override.
+- `cargo test -p server_core assessment_delivery::history::tests` - 11 passed, including configured Quiz answer release after every current Student completes and the Instructor `after_submit` override.
+- `node --import tsx --test tests/test_assessment_template_settings_model.mjs tests/test_assignment_workspace_questions.mjs tests/test_student_course_progress_presentation.mjs` - 13 passed.
+- `git diff --check` - passed.
+- `source ./source_me.sh && devel/generate_schema_tables_doc.py && schema_style/check_schema_style.py` - passed.
 
 Integration validation also corrected Blueprint's closed-content validator: its
 feedback object now omits the removed score-timing field. The WebWork answer-review

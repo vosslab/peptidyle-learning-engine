@@ -1,4 +1,4 @@
-# HG repair six-pass audit — 2026-10-04
+# HG repair six-pass audit - 2026-10-04
 
 All six fresh independent review passes completed: Plan, Test, Style, Docs,
 Legacy, and Comment. Each reported at least one finding. The review used the

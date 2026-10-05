@@ -1,4 +1,4 @@
-# Human Guidance search and navigation compliance audit — 2026-10-04
+# Human Guidance search and navigation compliance audit - 2026-10-04
 
 ## Scope and evidence
 
@@ -11,7 +11,7 @@ observation was unavailable; the reason is recorded under Validation.
 
 ## Priority findings
 
-### P1 — HG-SRCH-01: list-result navigation replaces the search and restores old results
+### P1 - HG-SRCH-01: list-result navigation replaces the search and restores old results
 
 HG requires every list item, including a search result and an Assessment in an Assessment list,
 to open in a new browser tab or window. Ribbon navigation stays in the current tab. It also says
@@ -41,7 +41,7 @@ still restore old search results, which conflicts with HG. Change list-result li
 separate tab/window, remove the Question and Blueprint return-snapshot flows and their tests, and
 verify that the original search tab remains unchanged. Preserve current-tab Ribbon navigation.
 
-### P1 — HG-SRCH-02: Public Blueprint sorting omits required choices
+### P1 - HG-SRCH-02: Public Blueprint sorting omits required choices
 
 HG requires sorting by Stars, Watches, Adoptions, number of students having taken the course, and
 most recent edit ([HG:532-534](../../HUMAN_GUIDANCE.md#L532-L534)). The current API type, UI, SQL,
@@ -56,7 +56,7 @@ and cursor logic provide only `name`, `adoptions`, and `students`:
 Stars, Watches, and most-recent-edit are absent from the returned summary. Add those fields,
 their sort keys, cursor forms, UI controls, and focused tests.
 
-### P1 — HG-SRCH-03: the assembled Question search workflow lacks the required shared interface and modes
+### P1 - HG-SRCH-03: the assembled Question search workflow lacks the required shared interface and modes
 
 HG says both exploration and simple search begin in one spreadsheet-style interface; simple
 search returns those same results; the interface supports compact, list, and movie-poster-style
@@ -78,7 +78,7 @@ ordinary-word search and later refinement are partly present
 about the missing assembled user workflow and display modes; HG does not require a particular
 component or backend shape.
 
-### P1 — HG-SRCH-04: Ribbon navigation silently discards a nonempty search
+### P1 - HG-SRCH-04: Ribbon navigation silently discards a nonempty search
 
 HG requires confirmation before navigation discards an existing search and its results, while an
 empty search page may leave directly ([HG:342-346](../../HUMAN_GUIDANCE.md#L342-L346)).
@@ -92,7 +92,7 @@ empty search page may leave directly ([HG:342-346](../../HUMAN_GUIDANCE.md#L342-
 Ribbon navigation already remains current-tab. Add a confirmation only when a search or its
 results exist; bypass it for the empty initial page.
 
-### P1 — HG-SRCH-05: Public Blueprint result metadata is incomplete
+### P1 - HG-SRCH-05: Public Blueprint result metadata is incomplete
 
 HG requires Course name, classification, author, institution, and useful usage or stewardship
 signals directly in the result list ([HG:529-531](../../HUMAN_GUIDANCE.md#L529-L531)). The returned

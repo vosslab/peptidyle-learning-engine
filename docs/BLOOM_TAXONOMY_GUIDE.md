@@ -182,10 +182,11 @@ learning.
 
 ## AI assignment and correction
 
-Before a Published Question Revision or Question Pool enters the Question Library, AI
-assigns its initial Cognitive Process Dimension and Knowledge Dimension values as part of
-publication. Both values are required for Library entry; an unassigned Question or Pool is not
-discoverable in the Library.
+Initial AI assignment is deferred under [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#deferred-product-behavior).
+A Published Question or Pool may enter the Library with no Bloom Classification; missing values
+do not block publication or discovery, and no assignment deadline is enforced. When available,
+both dimensions describe that object's
+own intended cognitive work rather than being inherited from Pool members.
 
 An Instructor can later edit either value when teaching context or expert judgment supports a
 different pair. The correction targets the same exact Question Revision or Question Pool. It
@@ -193,9 +194,8 @@ changes classification metadata while retaining the other value and without crea
 immutable Question Revision or changing Question content, Pool member pins, or Question Reason
 for Edit history.
 
-This guide defines the expected result and timing. A separate AI integration plan will select the
-model execution environment, protected Question inputs, scheduling, concurrent work claims, retry
-behavior, and operational validation.
+This guide defines classification meaning. Future AI assignment timing and implementation
+remain deferred; this document does not authorize publication gates or background processing.
 
 ## Search and reporting
 
@@ -206,8 +206,8 @@ Question Library search exposes two independent facets:
 
 Each selected facet is an exact filter and combines with every other active Question Library
 predicate. It neither replaces the other Bloom facet nor broadens text, hierarchy, Tag, Question
-Type, capability, license, course-use, authorship, or other existing filters. Saved searches, URL
-handoff, and an opaque continuation cursor retain the normalized pair and existing sort; a cursor
+Type, capability, license, course-use, authorship, or other existing filters. Current-page query state
+and an opaque continuation cursor retain the normalized pair and existing sort; a cursor
 is valid only for that same normalized query. Bloom filtering does not add, remove, or redefine
 Question Library sorts.
 
@@ -244,8 +244,8 @@ color does not represent correctness, Question Difficulty, point value, or maste
 
 ## Review checklist
 
-- [ ] AI assigns both Bloom dimensions as part of Question or Pool publication.
-- [ ] A Question or Pool enters the Question Library only after both dimensions are assigned.
+- [ ] Missing Bloom Classification does not block Question or Pool publication or Library discovery.
+- [ ] Initial AI classification remains deferred until HG brings it into scope.
 - [ ] The completed classification has one Cognitive Process value.
 - [ ] The completed classification has one Knowledge Dimension value.
 - [ ] The combined classification and matrix position are derived from that ordered pair.

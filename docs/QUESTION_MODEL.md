@@ -52,19 +52,81 @@ create replacement immutable Revision evidence; they do not rewrite prior
 Student Work. Human Guidance does not require a generalized correction worker,
 remediation manifest, or public regrading workflow.
 
+## Required and assigned metadata
+
+PLE assigns metadata where it can determine the value and validates the remaining required
+content before publication. This reduces dependence on Instructors completing every field.
+It does not make explicitly optional fields mandatory or authorize AI to invent Question Type.
+
+| Field | Required behavior |
+| --- | --- |
+| Question Type | Required and non-NULL on every Published Question Revision; declared by the author or carried by import, not inferred from backend controls |
+| Backend | Required and non-NULL on every Published Question Revision |
+| Title and Description | Required, non-NULL, and nonempty for Published Questions and Pools |
+| Discipline and Subject | Required and non-NULL; a Pool starts with the first member's values and validates later members |
+| License | A Published Question has its required license; calculate the Pool's compatible license from members |
+| Pool Type and Backend | Common member values, present rather than NULL; do not require duplicate manual entry |
+| Bloom dimensions | Initially assigned by AI; may be NULL while awaiting assignment, with no enforced time limit; AI remains deferred |
+| Topic and Subtopic | Optional; retain their established hierarchy rules |
+| Tags | May be empty; the existing SQL represents none with an empty collection rather than NULL |
+| Hints, Question Feedback, Worked Solutions | Optional support content |
+
+The SQL also requires Published Question language and internal identity/concurrency fields.
+This table does not replace those constraints. It separates absent required metadata from pending
+Bloom assignment. The proposed 24-hour Bloom deadline was withdrawn. Implementation validation
+must check the actual publication and Pool write paths, not only browser form controls.
+
 ## Question Pools
 
-A Question Pool is an independently reusable published object with its own
-public `XXXX-ZXXX` ID. Membership is current state with an Edit Number. It has
-no Draft state and no Pool Revision family.
+A Question Pool is an independently reusable published object with its own public
+`XXXX-ZXXX` ID. It enters the Library when created from a Published Question. Membership
+is an unordered set of distinct Published Questions, each pinned to an exact Revision.
+It uses an Edit Number, with no Draft state or Pool Revision family. The editor supports
+spreadsheet-style sorting; display order changes neither membership nor random selection.
 
-Importing a Pool into a new Assessment automatically forks it for that
-Assessment. The fork copies current members once and can change without
-mutating the source Pool.
+Members share one Question Type, one Backend, and the Pool's Discipline and Subject.
+They remain reasonably interchangeable assessments of the intended learning. Members
+retain their own owners, authors, Topics/Subtopics, Tags, and other metadata. A Pool
+contains Published Questions only, never another Pool.
 
-Starting an Attempt makes fresh Pool selections. Returning to the same Attempt
-preserves its selections. Student Work keeps the Question ID, Question
-Revision, Pool ID, and Pool Edit Number delivered.
+The Pool has its own owner, source-Pool link, Title, Description, Topic/Subtopic, Tags,
+and both Bloom dimensions. It has no separate Author field. PLE calculates one compatible
+license from member licenses; incompatible combinations are rejected. Each member keeps
+its original license. Current supported grants are CC0, CC BY, and CC BY-SA; NC and ND
+support is deferred.
+
+Importing a Pool into an Assessment forks it with independent membership and the same
+initial exact Question Revisions. Starting an Attempt makes fresh selections; resuming
+preserves selections. Student Work keeps the exact Question ID, Revision, Pool ID, and
+Pool Edit Number delivered. Duplication within one Pool is invalid. Overlap between
+separate Assessment entries does not authorize an Assessment-wide deduplication rule.
+
+**Pool mismatch** means the Pool no longer satisfies its current requirements. Show
+the specific cause: insufficient members for the Assessment selection count,
+Discipline/Subject mismatch, duplicate Questions, or another Pool constraint violation.
+Block affected Assessment release until resolved. If a mismatch develops after release,
+that Assessment continues as-is. Preserve checks against edits that leave too few members.
+
+Implementation alignment remains pending: current SQL uses member positions, permits
+uniqueness by Question-and-Revision rather than Question alone, and treats classification
+as an admission-time check. Pool Author storage also remains. These are implementation
+gaps, not alternative product rules. The current plan is
+[SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
+
+## Combined Question Library search
+
+Published Questions and Pools share one search. Filters select Questions, Pools, and
+Pool membership. **Questions in no Pool** means no membership in any Pool, including
+Assessment forks, not merely no membership in currently matching Pools. HG's preferred
+default is Questions in no Pool plus Pools; its "probably" qualifier remains intentional.
+Individual member Questions remain available through the filters.
+
+Text and metadata filters match a Pool's own values. Member-only matches do not make the
+Pool match; including individual members exposes those Question results. Filtering,
+sorting, and paging apply to one combined server result set, not separately paged lists.
+Simple search and exploratory browsing use the shared spreadsheet-style results with
+compact, list, and image-focused displays. These rules guide the pending combined-search
+implementation; they do not certify the current separate query paths.
 
 ## Bloom classification
 
@@ -89,11 +151,10 @@ do not change source, content Revision Numbers, member pins, lineage metadata to
 Assessment references, or Student Work.
 
 The trusted initialization seam inserts once and cannot overwrite a correction.
-It validates storage values, not semantic correctness or model origin. AI initial
-assignment during publication and required classification before Library entry remain
-the product contract, not completed runtime behavior. Current Question and Pool
-Library reads project the required pair and its independent Edit Number for the exact
-Question Revision or current Pool requested. A Question summary's
+It validates storage values, not semantic correctness or model origin. Initial AI
+assignment is deferred. Classification may be absent at Library entry and does not block
+publication; no assignment deadline is enforced. Question and Pool Library reads project the pair
+when present and its independent Edit Number for the exact Question Revision or current Pool requested. A Question summary's
 legacy `latestQuestionRevision` field carries that exact requested Revision on an
 exact-detail route; it does not trigger a second latest-Revision lookup.
 
@@ -108,9 +169,10 @@ and requires explicit resave. No correction creates a content Revision.
 
 Question Library Browse accepts the two Bloom values as independent optional exact predicates.
 When either is present, it combines with every other normalized search predicate; neither changes
-the existing `titleAscending` or `publishedNewest` sorts. A saved `QuestionSearchFilter`, URL
-handoff, and opaque cursor retain the same normalized Bloom pair and sort; a cursor cannot continue
-a different normalized query. The server returns whole-matching-set Bloom facets in guide order:
+the existing `titleAscending` or `publishedNewest` sorts. The current-page `QuestionSearchFilter`
+and opaque cursor retain the same normalized Bloom pair and sort; a cursor cannot continue a different normalized query. Search terms and
+results are not permanently stored or restored after the page is discarded. The server returns
+whole-matching-set Bloom facets in guide order:
 six Cognitive Process values and four Knowledge Dimension values, including zero counts and an
 empty result.
 
@@ -118,13 +180,11 @@ Question Pool discovery applies the same two independent optional exact values t
 Pool's own classification. Both values are part of the Pool cursor's normalized query
 binding. PostgreSQL applies every Pool-owned predicate before its page limit and returns the page
 with complete six-plus-four matching-set counts from that one filtered relation. Counts therefore
-remain available for an empty page and never derive from loaded rows or member Questions. Returning
-from exact Pool inspection retains the applied Pool filters, counts, results, and position; a
-classification correction refreshes the applied query before those results are shown again.
+remain available for an empty page and never derive from loaded rows or member Questions. Opening a Pool list item uses a new tab or window, leaving the search in its original tab.
+This preserves only that open page's working state, not a durable search snapshot.
 
 The B1/B2 source paths still need connected two-Instructor, denied-role, and
-browser proof. Configured AI execution, complete publication orchestration, and
-legacy classification remain open product work. The source-approved Question and Pool
+browser proof. AI execution and initial classification remain deferred; unclassified content stays discoverable. The source-approved Question and Pool
 Library filter/report paths still need connected multi-page, role, and browser
 proof. Forks need their own whole-Pool judgment; corrected source classification
 is not an automatic AI-assigned target classification. No default classification
@@ -221,9 +281,9 @@ evaluation.
 
 ## Revision boundary
 
-Published Questions, published Question Pools, and Blueprint Courses have
-immutable Revisions. Revision families do not extend to Assessment current
-state, Attempts, responses, corrections, metadata, or retention.
+Published Questions and Blueprint Courses have immutable Revisions. Question Pools use
+current membership with an Edit Number. Revision families do not extend to Assessment
+current state, Attempts, responses, corrections, metadata, or retention.
 
 See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md),
 [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md),

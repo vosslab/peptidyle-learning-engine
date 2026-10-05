@@ -1,4 +1,4 @@
-# HG Profile fixes — 2026-10-04
+# HG Profile fixes - 2026-10-04
 
 ## Implemented boundary
 
@@ -39,7 +39,7 @@ after that function is present in the fresh-schema order.
 - `tests/e2e/e2e_live_demo_profile_avatar.sh` now checks Student visibility of an Instructor image
   and anonymous denial. It was not run because no Live Demo target was available in this task.
 
-## Live Profile-image repair — 2026-10-05
+## Live Profile-image repair - 2026-10-05
 
 The running Profile image path exposed three database/result-shape defects that source checks did
 not exercise. The PostgreSQL functions return `object_record_id`; the Rust adapter had read
@@ -60,7 +60,7 @@ uses `transaction_timestamp()` for this invariant.
   though its session and direct preparation call are authorized; that separate lifecycle seam is
   unresolved and is not claimed as passing evidence for Instructor Profile visibility.
 
-## Consumer completion — 2026-10-04
+## Consumer completion - 2026-10-04
 
 - Added the signed-in `/instructors/:accountId` browser route. It accepts only a
   canonical Account ID, performs the existing access-checked Profile read, and renders the

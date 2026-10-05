@@ -36,6 +36,99 @@
 
 ### Fixes and Maintenance
 
+- Aligned active Pool/search terminology, model, API/data descriptions, Assessment lifecycle,
+  architecture, Instructor guide, Bloom guide, and design decisions with current HG. Documented
+  unordered membership, one Type/Backend, Pool-owned metadata, compatible licensing, organized
+  combined search, and Pool mismatch behavior. Marked current SQL/API gaps rather than claiming
+  implementation completion. Added current-guidance notices to the completed RecordList plans.
+- Clarified required non-NULL metadata, including Question Type, and separated it from optional
+  metadata and pending AI-assigned Bloom Classification. Neil withdrew the proposed 24-hour
+  deadline: no time limit is enforced. Recorded why automatic assignment and publication checks
+  reduce dependence on Instructors completing every field manually.
+- Documentation validation passed: 392 guidance-format/link checks, HG/checklist equality at
+  1195 bullets, status consistency, and whitespace checks. Replaced dead links in historical
+  audits with labeled references to removed files. No application or database code changed.
+
+- Recorded Questions in no Pool as a search filter and Neil's preferred default of those
+  Questions plus Pools, reducing redundant member results while retaining member-inclusive
+  search. Clarified that already-released Assessments continue as-is after a Pool mismatch.
+  Updated the manager handoff; HG/checklist diff and consistency pass at 1192 bullets.
+
+- Replaced provisional stale-Pool wording with Pool mismatch: the Pool no longer satisfies
+  its current requirements. Documented specific causes and updated the shared search handoff.
+  HG/checklist diff and consistency pass at 1188 bullets; whitespace check passes.
+
+- Corrected Pool membership to an unordered set of distinct Questions, with spreadsheet-style
+  sorting for the editor display. Recorded stale-Pool release blocking after classification
+  mismatches and the requirement to retain enough members for Assessment selection. Removed
+  speculative Assessment-overlap restrictions from the handoff. HG and checklist match at
+  1186 bullets; consistency and whitespace checks pass. Documentation only.
+
+- Made the original combined Question-and-Pool search requirement explicit in
+  HG, with Both, Questions only, and Pools only filters. Corrected the schematic
+  to require combined server sorting/paging and recorded the existing picker
+  rules without reopening them as product decisions.
+
+- Recorded automatic Pool license calculation from member licenses, with
+  incompatible combinations rejected. Updated the shared search schematic;
+  current NC and ND deferrals remain in place.
+
+- Replaced optional Pool authorship in HG with Pool owner and source-Pool link,
+  as selected by Neil. The Pool has no separate Author field; member ownership
+  and authorship remain intact. Updated the shared search schematic.
+
+- Recorded Pool keyword search as matching only Pool text and metadata, with no
+  member-Question search expansion. Updated the shared search schematic.
+
+- Recorded Pool-only Topic/Subtopic, Tags, and Bloom filtering. Deferred NC
+  content alongside ND and moved the NC compatibility example into deferred
+  guidance. Updated the shared search schematic with the settled Pool rules
+  and the remaining search decisions.
+
+- Recorded NC Question license support as current scope and ND support as
+  deferred in HG. Future ND support must restrict Question forking; the current
+  search work does not enable ND content.
+
+- Added Neil's concrete CC BY-NC-SA Pool compatibility example to HG and the
+  checklist. Recorded missing CC BY-NC and CC BY-NC-SA support across the
+  current Question license contract as implementation work.
+
+- Recorded Pool-specific Tags and both Bloom dimensions in HG and its checklist,
+  alongside the Pool's own Topic/Subtopic. Member metadata remains separate;
+  search matching behavior is still being clarified.
+
+- Made the Pool license required in HG: one license compatible with every member,
+  never a Mixed label. Preserved individual Question licenses and removed the
+  older optional Pool-license wording; implementation checks remain open.
+
+- Corrected Pool membership guidance to preserve each Question's owner as well
+  as its authors. Both may differ across members; Pool ownership is separate.
+
+- Recorded separate Pool Topic/Subtopic and allowance for different member
+  authors in HG and its checklist. Distinguished Pool metadata, member metadata,
+  and shared membership requirements in the interview record; filter behavior
+  and Pool-specific Tags remain proposals.
+
+- Clarified Pool classification membership in HG: Discipline and Subject match;
+  Topic and Subtopic may differ. Recorded Neil's explicit choice and retained
+  the separate same-Type and same-Backend requirements.
+
+- Recorded one Question Type and one Backend per Pool in HG after Neil's
+  explicit Backend choice. Updated checklist evidence to keep enforcement
+  pending and remove obsolete mixed-Backend evidence from the new requirement.
+
+- Recorded Neil's direction toward one Question Type per Pool, including no
+  mixing Matching and Multiple Choice. The interview record supersedes the
+  proposed mixed-type search behavior and keeps Backend uniformity separate.
+
+- Recorded compatible member licenses as the settled minimum for Question Pools
+  in HG and its evidence checklist. A stricter identical-license requirement
+  remains open; implementation verification remains pending.
+
+- Recorded the Pool member-license discussion as undecided: Neil prefers to
+  avoid mixed licenses but has not chosen identical licenses over compatible
+  licenses. No new membership restriction was implemented.
+
 - Added [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md)
   proposing shared search controls, request handling, and result displays on top
   of the existing database queries. It separates shared behavior from content

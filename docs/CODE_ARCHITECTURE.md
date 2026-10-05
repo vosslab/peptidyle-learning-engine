@@ -223,6 +223,13 @@ request one server page of 50, 100, or 250 records. Pool discovery uses the
 same page sizes. RecordList renders that
 page; client windowing is not part of the record list.
 
+This describes the existing shared presentation foundation. Current HG extends it to one
+combined Question-and-Pool search, with Pool-membership filters and an organized default.
+The combined query and shared search-page work remain pending; see
+[SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
+Pool editor sorting is display-only; the shared reorder component does not make Pool membership
+ordered. [QUESTION_MODEL.md](QUESTION_MODEL.md) lists related implementation gaps.
+
 Pages compose these pieces around their domain state. For example,
 [src/features/blueprint_course/blueprint_course_detail_workspace.tsx](../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)
 holds a locally editable Blueprint draft until explicit Save creates the next

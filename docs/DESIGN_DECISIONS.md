@@ -448,7 +448,8 @@ discussion system or routine Sysadmin moderation of Pool content.
 
 **Consequence.** The former general retained-thread system is withdrawn. This
 does not settle who may author or administer Pool impact notices: the current
-Sysadmin-only path is not certified, and PLE does not invent a Pool-owner role.
+Sysadmin-only path is not certified. The Instructor who owns a Pool is its owner;
+that fact alone does not approve a new impact-notice workflow.
 Existing impact-notice behavior needs separate reconciliation. The intended
 Question Change Proposal workflow needs clarification in the interview; this
 decision does not extend it to Pools.
@@ -1443,6 +1444,10 @@ recovery, or announcement behavior. The shared layer therefore provides array
 movement plus accessible `RecordList` or `RecordSequence` controls; each caller
 keeps its workflow policy.
 
+The Pool-member rows below record the earlier implementation. Current HG supersedes their
+membership-reordering behavior: Pools are unordered sets and their editors support display sorting.
+Assessment entry order and Student Ordering interactions remain distinct from Pool membership.
+
 | Site                          | Save timing                                                  | Disabled and failure behavior                                                                         | Announcement                                                           |
 | ----------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Blueprint Assessment editor   | Local Blueprint draft; outer Blueprint Save persists it      | Editor availability governs changes; outer Save retains the draft on failure                          | Parent change notice describes the unsaved order                       |
@@ -1818,14 +1823,59 @@ Unrelease audit counts finalized `assessment_attempt_saved_response` rows as
 
 ### Question Pools are current state
 
-**Decision.** Pools are not a Revision family. Members live in
-`question_pool_member`. Saves compare-and-swap the Pool Edit Number.
+**Decision.** Pools are not a Revision family. Membership is an unordered set of distinct
+Published Questions pinned to exact Revisions. Members share one Type, Backend, Discipline,
+and Subject. Each Pool owns its search metadata and has an owner rather than an Author field;
+its compatible license is calculated from member licenses. NC and ND content remain deferred.
+Members live in `question_pool_member`; saves compare-and-swap the Pool Edit Number.
+Spreadsheet-style sorting changes only the editor display.
 
 **Why.** Human Guidance treats Pool membership as current authored state,
 not an immutable Revision history.
 
 **Consequence.** Student Work pins Question ID, Question Revision, Pool ID,
-and Pool Edit Number. Forks copy current members once.
+and Pool Edit Number. Forks copy current members once. A Pool mismatch identifies failed
+requirements and prevents affected Assessment release until resolved; Assessments already
+released when a mismatch develops continue as-is. Current ordering, uniqueness, Author storage,
+and admission-only classification checks require implementation alignment. See
+[QUESTION_MODEL.md](QUESTION_MODEL.md) for the complete product boundary and pending work.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications)
+
+### Metadata is assigned or required
+
+**Decision.** PLE assigns metadata where the value follows from existing content, and publication
+requires the remaining mandatory fields. Question Type is non-NULL and remains author-declared
+or imported. Bloom may be NULL awaiting initial AI assignment, which remains deferred. No time
+limit is enforced; the proposed 24-hour deadline was withdrawn. Explicitly optional fields remain
+optional. [QUESTION_MODEL.md](QUESTION_MODEL.md#required-and-assigned-metadata) lists the distinctions.
+
+**Why.** Instructors should not need to supply every metadata value manually or be relied upon to
+notice missing required fields. Pending AI classification is different from missing required content.
+
+**Consequence.** Validate required metadata at publication and trusted write boundaries. A combined
+Question/Pool result must not turn a required common field into an optional field. This documentation
+change does not implement AI processing or certify every write path.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-metadata)
+
+### Combined Library search uses Pool membership filters
+
+**Decision.** Published Questions and Pools share one search. Questions in no Pool means
+Published Questions with no Pool membership. HG currently prefers those Questions plus Pools
+as the default; retain its tentative "probably" qualifier. Filters can include member Questions.
+Pools match only their own text and metadata. One server query filters, sorts, and pages the
+combined results; individual member matches do not expand Pool matches.
+
+**Why.** The Library should show reusable Pools without flooding results with their members.
+Member-inclusive search remains available when the Instructor needs individual Questions.
+
+**Consequence.** The combined query and shared interface are pending work, not completed
+behavior. Pool member pickers select Questions only and preserve all membership requirements.
+The Library display default does not make a Question in another Pool ineligible for membership.
+The plan is [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-specifications)
 
 ### Library usage statistics are retained counters, not reconstructions
 

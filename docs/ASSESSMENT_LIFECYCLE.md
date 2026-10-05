@@ -32,6 +32,13 @@ score availability. Post-issue content edits follow
 [HG's limits](HUMAN_GUIDANCE.md#assessment-content-edits-after-issue), including
 removal of a bad Pool's earned and possible points from every Attempt.
 
+HG also defines **Pool mismatch**: a Pool no longer satisfies its current requirements.
+Before Assessment release, report and resolve insufficient members, incompatible classification,
+duplicate Questions, or another Pool constraint violation. If a mismatch develops after release,
+allow that Assessment to continue as-is. Membership edits must still preserve enough candidates
+for its selection count. The broader mismatch handling is intended behavior awaiting implementation
+validation; it is not a new Pool publication lifecycle.
+
 ## Related identities and owners
 
 | Thing | Owner and lifetime | Important identity |
@@ -69,8 +76,8 @@ Question Pools are also published reusable objects with stable public identity
 and current membership on an Edit Number. An Assessment records the exact
 Question Revision, and when it selects from a Pool, the Pool ID and Pool Edit
 Number, needed to explain its selection. Importing a Pool into an Assessment
-creates Course-local composition; later Pool changes do not silently rewrite
-that Assessment.
+creates an independent fork; the source Pool's later changes do not rewrite it. The fork
+remains a reusable Library object, even when the Course Instance is private.
 
 ## Build and release an Assessment
 

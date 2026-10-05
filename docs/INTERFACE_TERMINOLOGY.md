@@ -49,6 +49,14 @@ and **Browse Question Library** name the Questions tasks. **Assessments Due
 Soon** and **My Assessment Templates** name the Assessments tasks. A retained
 name does not itself claim a backed capability.
 
+**Questions in no Pool** names a search filter for Published Questions with no Pool
+membership. It does not mean every individually displayed Question. Question Library search
+includes both Questions and Pools; HG currently prefers Questions in no Pool plus Pools by
+default, with member Questions available through filters.
+
+**Pool mismatch** means the Pool no longer satisfies its current requirements. Display the
+specific cause alongside the state. It is not an unpublished or Draft Pool state.
+
 **Assessment Question Editor** names the Instructor task for selecting, adding,
 removing, and ordering Questions and Question Pools. **Assessment Properties
 Editor** names the whole-Assessment settings task: dates, scoring, Attempts,

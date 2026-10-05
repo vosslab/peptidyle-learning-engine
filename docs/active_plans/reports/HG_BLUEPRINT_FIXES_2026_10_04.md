@@ -1,4 +1,4 @@
-# Blueprint search fixes — 2026-10-04
+# Blueprint search fixes - 2026-10-04
 
 This change implements HG-SRCH-02 and HG-SRCH-05 for Public Blueprint Course search.
 
