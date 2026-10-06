@@ -1290,7 +1290,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Question Pool specifications
 
 - A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
-- A Question Pool cannot contain two Revisions of the same Published Question.
+- A Question Pool contains Published Questions only; it cannot contain another Question Pool.
 - When editing a Pool, Instructors should be able to sort its Published Questions like a
   spreadsheet. Sorting changes only the display; it leaves the Pool contents and random selection
   unchanged.
@@ -1306,9 +1306,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - For forking, we are mostly using the GitHub model.
 - Changes to a Pool take effect when the Instructor saves them. There is no undo after saving.
 - A Pool Edit Number is only a counter and does not identify a stored historical Pool.
-- A Question Pool is an unordered set of Question Revision Tuples plus its metadata.
+- A Question Pool contains an unordered set of Question Revision Tuples.
   When the set changes, saving advances the Pool's Edit Number; no Revision is created.
   Removing ten Questions and saving once is one Edit.
+- A Question Pool can contain a Question ID only once.
+- A Question Pool has its own metadata. Some metadata belongs directly to the Pool, while other
+  metadata is derived from the Published Questions it contains.
 
 #### Question Pool use and selection
 
