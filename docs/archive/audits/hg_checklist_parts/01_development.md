@@ -154,7 +154,8 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - N/A All Podman content on the Mac-Studio-36G machine belongs to this project.
   - Reason: human ownership statement about a named machine, not implemented PLE behavior.
-- N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
+- N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed and
+  has provided the script `./devel/prune_podman.sh` for doing the pruning
   - Reason: human authorization statement, not implemented PLE behavior.
 - N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
   - Reason: human-owned project priority, not implemented PLE behavior.
@@ -162,7 +163,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `ple_private.account` has no institution column or foreign key; user roles are global account data.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Project images and simulated live-stack data are disposable acceptance infrastructure.
+- [ ] Project images and simulated test data are disposable and can be recreated for testing.
   - Evidence (source): `local_stack_control/disposable_stack_adapter.py` `disposable_target` creates a closed disposable Compose target for acceptance infrastructure.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.

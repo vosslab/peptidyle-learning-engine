@@ -6,9 +6,9 @@ interaction semantics, response interpretation, grading, partial credit, and
 backend state. PLE owns authorization, immutable Question Revision selection,
 Assessment Attempt lifecycle, persistence, and recorded outcomes.
 
-Question Type is immutable author-declared educational metadata on the
-Published Question Revision. PLE uses it for labels, filtering, and search;
-it does not infer Question Type from a WeBWorK document or controls.
+Question Type is editable classification metadata on the complete Question record. The author or
+importer supplies it; reliable detection from PGML or PG source may help. PLE uses Type for labels,
+filtering, and search while WeBWorK owns the actual rendering and grading behavior.
 
 ## Runtime boundary
 
@@ -186,5 +186,5 @@ validation, ordered-pair forwarding, server-owned field refusal, score mapping,
 document authorization, and the two-prefix asset route. Connected validation
 uses a real local renderer and browser path when a renderer or document-boundary
 change needs evidence. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for
-the test-lifetime policy and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md)
+the test-lifetime policy and [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md)
 for the shared Question Backend lifecycle.

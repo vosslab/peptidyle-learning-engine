@@ -6,7 +6,8 @@
   - Evidence (test): `tests/test_ribbon_contract.mjs` `frequent Instructor teaching tasks stay linked while future tasks stay unusable` checks the three groups stay linked and the four future destinations stay unusable.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Keep the teaching content central in authoring and inspection workflows, with metadata and supporting explanations arranged compactly around it.
+- [ ] Keep teaching content central when Instructors create or review it. Arrange metadata and
+  supporting explanations compactly around the content.
   - Evidence (source): `src/pages/question_detail_page.tsx` `aria-label="Question prompt"` renders the prompt before the Question Description and the metadata strip.
   - Evidence (source): `src/pages/question_detail_page.css` `question-detail-description` keeps that explanation compact, with no card padding, fill, or shadow.
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_editor_workspace.tsx` `Student-facing prompt` stays in the authoring column, and Question Library metadata sits with the preview.
@@ -31,7 +32,8 @@
   - Evidence (test): `tests/test_ribbon_contract.mjs` `settled Instructor Tier 2 destinations and order stay fixed across deeper routes` keeps those choices on every Instructor route in the Tier 1 area.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Required Instructor Ribbon choices whose workflows are unavailable remain visible as unavailable, annotation-free controls. They become usable only when their workflow exists.
+- [ ] Required Instructor Ribbon choices stay visible but disabled, without extra annotations,
+  until their pages and actions are available.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `UnavailableRibbonChoice` keeps the choice visible, disabled, and labeled without a navigation href.
   - Evidence (test): `tests/e2e/e2e_ribbon_app_component.mjs` `required Instructor choices remain visible without inventing unfinished routes` checks that unavailable choices stay visible and available choices keep their routes.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -76,7 +78,8 @@
   - Evidence (test): `tests/playwright/ribbon_shell_contract.mjs` `Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.` opened the shipped Student View in headless Chromium, showed the peptide-bond prompt and the answer-free cue, kept the response preview disabled and inert, and recorded only the workspace read plus the Student View manifest and Question reads. No Save response, Submit, or Start attempt control was present. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Instructor lists and repeated records should favor compact rows or tables with clear columns over cards or loosely concatenated text.
+- [ ] Instructor lists should favor compact rows or tables with clear columns over cards or
+  text run together without clear separation.
   - Evidence (source): `src/components/record_list/record_table.tsx` `scope="col"` names each Gradebook and roster column.
   - Evidence (source): `src/components/record_list/record_list.css` `repeat(auto-fit, minmax(min(100%, 8rem), 1fr))` places each Question Library fact in an equal column.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -159,8 +162,8 @@
   - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchResultList` keeps public Blueprint results on the semantic record list.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Results should show Course name, classification, author, institution, and useful usage or
-  stewardship signals directly in the result list to support scanning and comparison.
+- [ ] Results should show Course name, classification, author, institution, and useful information
+  about Course use and upkeep directly in the list for easy scanning and comparison.
   - Evidence (source): `src/pages/blueprint_course_search_result.ts` `publicBlueprintContent` renders author, institution, Stars, Watches, Adoptions, historical Student count, and last edit with course name and classification.
   - Evidence (test): `tests/test_blueprint_course_client.mjs` strict summary and result tests cover author, institution, Star, and Watch metadata.
   - Verification pending: The projection and connected PostgreSQL search are complete; fresh Live Demo rendering/capture remains pending.
@@ -210,12 +213,13 @@
   - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` opens one selected Assessment and exercises both tasks through `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Only the selected Blueprint Assessment's Questions should appear in its editor.
+- [ ] Only the selected Blueprint Assessment's Library Objects should appear in its editor.
   - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor` renders entries from its selected `content` input only.
   - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` verifies one selected Assessment, its separated Questions task, and an unchanged sibling after ordinary Save and exact reload through `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.
+- [ ] **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders
+  Library Objects in a Blueprint Assessment.
   - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor` selects through the Question picker, adds with confirmFixedQuestions, removes with removeEntry, and orders through its RecordSequence.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -242,7 +246,8 @@
   - Evidence (source): `src/pages/course_list_page.tsx` `InactiveCourseListPage` lists only Inactive Course Instances, separate from the Active home.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings.
+- [ ] Creating a Course Instance from a Blueprint Course preserves its Assessments, Library Objects,
+  and settings.
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `validate_course_blueprint_adoption` requires adopted Assessments, Questions, pools, and settings to match the exact Revision.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs` `assert_adoption_projection` checks that adopted Course against the sealed Revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -295,7 +300,7 @@
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_overview_page.tsx` `Assessment Question Editor` links to the Question editor and `Assessment Properties Editor` links to the properties editor.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-  - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
+  - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Library Objects in an Assessment.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_view.tsx` `Assessment Question Editor` is the Question editor title.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `appendAvailableFixedQuestion` adds a selected Question, `removeAssessmentEntry` removes one Entry, and `moveAssessmentEntry` reorders Entries.
   - Evidence (test): `tests/test_assignment_workspace_questions.mjs` `appendAvailableFixedQuestion` adds a selected Published Question.
@@ -354,7 +359,7 @@
   - Evidence (test): `tests/test_question_pool_source_binding.mjs` `questionPoolMemberTuples` keeps the starting Revision first.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Adding Questions to a Pool should begin with Question Library results filtered to the Pool's
+- [ ] Adding Published Questions to a Pool should begin with Question Library results filtered to the Pool's
   Discipline and Subject.
   - Evidence (source): `src/components/question_pool_create_model.ts` `questionPoolSourcePickerRepository` keeps Question Library rows from the starting Discipline and Subject.
   - Evidence (test): `tests/test_question_pool_source_binding.mjs` `questionPoolSourcePickerRepository` requests the starting Subject and drops a different Discipline.
@@ -363,7 +368,7 @@
 
 ##### Search Question Library interface
 
-- [ ] **Search Question Library** helps Instructors find specific Questions in a large library.
+- [ ] **Search Question Library** helps Instructors find specific Library Objects in a large library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies the searchable published Question Library.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -395,15 +400,11 @@
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` passes ordinary `search` text to the Question Library query.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Instructors should not need to learn search syntax to use Search Question Library.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` exposes ordinary search and labeled filter controls without syntax requirements.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Results should make it easy to scan many Questions quickly.
+- [ ] Results should make it easy to scan many Library Objects quickly.
   - Evidence (source): `src/features/search/search_results.tsx` `SearchResults` keeps the current shared-search result page in one result region.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Results should show the information needed to judge relevance without opening each Question.
+- [ ] Results should show the information needed to judge relevance without opening each Library Object.
   - Evidence (source): `src/pages/question_library_search_definition.ts` `questionDetails` shows authors, Discipline, Bloom, format when present, and the Question ID on each result.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -417,7 +418,7 @@
   - Verification pending: The first occurrence also covers Blueprint Course search, which this Question Library live proof does not exercise.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
-- [x] Opening a Question list item opens a new tab or window, preserving the search and its position
+- [x] Opening a Question Library list item opens a new tab or window, preserving the search and its position
   in the original tab.
   - Evidence (source): `src/components/record_list/record_list.tsx` `RecordActionControl` opens each list item with `target="_blank"` and `rel="noopener"`; old return-state storage is removed.
   - Evidence (runtime): `tests/playwright/e2e_live_demo_question_library_browser.mjs` `Opening a Question changed the original Question Library filters or results` opened the detail in a protected new Live Demo tab and verified the original tab kept its query, filters, and one result. The passed receipt is `/private/tmp/hg_live_question_library_browser.log`.
@@ -537,7 +538,7 @@
 
 ##### Browse Question Library interface
 
-- [ ] **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
+- [ ] **Browse Question Library** helps Instructors explore Library Objects without knowing what to search for.
   - Evidence (source): `src/route_contract.ts` `libraryBrowse` is a distinct Instructor route and `src/pages/library_page.tsx` `LibraryPage` provides an overview-first grouped Browse mode without requiring Search text.
   - Evidence (runtime): accepted private full-app browser evidence exercised `src/main.tsx` `render` against the actual server through overview-first Browse, Biology, Enzymes, and focused Search without starting from Search text; every actual search response was `no-store`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -564,7 +565,7 @@
   - Evidence (runtime): accepted actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` with `page_size=1` yet returned Biology topic counts of Enzymes 2 and Metabolism 1 over all three matching Questions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Browse results should use the same dense Question presentation used by Search where practical.
+- [ ] Browse results should use the same dense Library Object presentation used by Search where practical.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` gives Search and Browse the same virtualized `question-library-row` result renderer.
   - Evidence (runtime): accepted private full-app browser evidence rendered `src/pages/library_page.tsx` `LibraryPage` at 1280 by 800 with two shared dense Question rows, and root manager visual review accepted the initial Browse, narrowed Browse, and Search handoff screenshots.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -607,7 +608,7 @@
   - Evidence (runtime): accepted private exact-main browser evidence navigated from `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` into the independently rendered Properties Editor.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-  - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
+  - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Library Objects.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` provides Add, Move, Remove, and Save controls.
   - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage`, adding two exact Questions, moving, removing, re-adding, saving, and reloading them in the persisted visible order.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -622,17 +623,18 @@
   - Evidence (runtime): accepted private exact-main browser evidence showed `src/ribbon/ribbon_catalog.ts` `assessmentPolicies` as a distinct selected task, with Question order and Properties instructions each surviving their own actual-HTTP reload.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The Assessment Question Editor should make Question order easy to understand at a glance.
+- [ ] The Assessment Question Editor should make the order of Library Objects easy to understand
+  at a glance.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` renders the ordered entries as one numbered list with adjacent Move and Remove controls.
   - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` with two visibly numbered Questions, changed their order, and reloaded the persisted order; root manager visual review and independent review accepted the rendered order.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Adding Questions should provide direct paths to Search and Browse Question Library.
+- [ ] Adding Library Objects should provide direct paths to Search and Browse Question Library.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` now renders direct Search and Browse Question Library links inside Available published Questions.
   - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` through both direct paths and browser Back; the unsaved-changes guard preserved a title draft on Stay and required deliberate Discard before navigation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Instructors should be able to inspect a Question before adding it to an Assessment.
+- [ ] Instructors should be able to inspect a Library Object before adding it to an Assessment.
   - Evidence (source): `src/features/question_picker/question_picker_model.ts` `inspectQuestionPickerRow` returns the current selection and the result Revision without adding the Question.
   - Evidence (source): `src/features/question_picker/question_picker.tsx` `inspectQuestionPickerRow` opens that inspection inside the picker, and Confirm adds only the selection.
   - Evidence (source): `src/features/question_picker/question_picker_inspection.tsx` `QuestionPickerInspection` shows the answer-free prompt and states that inspection does not add the Question.
@@ -748,7 +750,8 @@
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `confirmationTitle` disables Unrelease unless the entered value exactly matches the current Assessment title, while `schemas/base_schema/50_functions/unrelease.sql` `ple_api.unrelease_assessment` independently rejects a nonmatching confirmation title.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Archive actions should explain the effect on shared availability and require a clear confirmation.
+- [ ] Archive actions should explain how archiving affects access to the shared content and require
+  a clear confirmation.
   - Evidence (source): `src/pages/question_detail_page.tsx` `QuestionArchiveControl` explains that archiving removes the Published Question from new selection and disables confirmation until the exact title, and `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `BlueprintCourseLifecycleControls` does the same for the Blueprint Course long name.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.

@@ -121,15 +121,16 @@ durable release direction remains in [ROADMAP.md](ROADMAP.md).
 
 ### QTI Package Maker
 
-- Relationship: Companion project, extension, or interoperability tool
-- Link: https://github.com/vosslab/qti-package-maker
-- Why visitors may care: instructors and assessment developers can convert Blackboard Question
-  Upload text into Canvas, Blackboard, HTML self-test, and other teaching formats.
-- Evidence: the project's official README documents its conversion workflow, while
-  [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) records the reviewed item semantics used by
-  the current PLE Question JSON shape.
-- Notes: QTI Package Maker is an interoperability and interaction oracle, not a PLE runtime
-  dependency or a Rust porting target.
+- Relationship: Companion conversion project reused at the import/export boundary.
+- Link: [qti-package-maker-rs](https://github.com/vosslab/qti-package-maker-rs), the Rust port of
+  [qti-package-maker](https://github.com/vosslab/qti-package-maker).
+- Why visitors may care: the shared project converts supported assessment formats using reusable
+  item models, readers, writers, and package checks.
+- Evidence: its local workspace and engine inventory establish different reader and writer
+  coverage; [QTI_INTERCHANGE_SPEC.md](QUESTION_SPECS/QTI_INTERCHANGE_SPEC.md) records PLE's mapping.
+- Notes: reuse the existing Rust work rather than implementing another converter in PLE. A future
+  WASM build is planned direction, not assumed current capability. Native JSON remains PLE's
+  internal source format; QTI remains interchange.
 
 ### Biology Problems OER
 

@@ -13,7 +13,6 @@ import type { LibrarySearchCategoryCounts } from "../../../generated/api/Library
 import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
 import type { QuestionSearchSubjectFacet } from "../../../generated/api/QuestionSearchSubjectFacet";
 import type { QuestionSearchTopicFacet } from "../../../generated/api/QuestionSearchTopicFacet";
-import type { QuestionSearchCourseUseFacet } from "../../../generated/api/QuestionSearchCourseUseFacet";
 import type { QuestionSearchBloomCognitiveProcessFacet } from "../../../generated/api/QuestionSearchBloomCognitiveProcessFacet";
 import type { QuestionSearchBloomKnowledgeDimensionFacet } from "../../../generated/api/QuestionSearchBloomKnowledgeDimensionFacet";
 import {
@@ -154,17 +153,6 @@ function decodeQuestionSearchQuestionLicenseFacet(
   };
 }
 
-function decodeQuestionSearchCourseUseFacet(
-  value: unknown,
-  path: string,
-): QuestionSearchCourseUseFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["used"]);
-  return {
-    used: decodeNonnegativeInteger(field(record, "used", path), `${path}.used`),
-  };
-}
-
 function decodeBloomCognitiveProcessFacet(
   value: unknown,
   path: string,
@@ -255,7 +243,6 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     "questionTypes",
     "capabilities",
     "questionLicenses",
-    "usedInMyCourses",
     "bloomCognitiveProcesses",
     "bloomKnowledgeDimensions",
   ]);
@@ -324,10 +311,6 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       `${path}.questionLicenses`,
       MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
       decodeQuestionSearchQuestionLicenseFacet,
-    ),
-    usedInMyCourses: decodeQuestionSearchCourseUseFacet(
-      field(record, "usedInMyCourses", path),
-      `${path}.usedInMyCourses`,
     ),
     bloomCognitiveProcesses: decodeBloomCognitiveProcessFacets(
       field(record, "bloomCognitiveProcesses", path),

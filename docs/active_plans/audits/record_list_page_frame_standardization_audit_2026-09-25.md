@@ -52,9 +52,9 @@ configuration contains 95 literal region objects and 28 distinct width strings. 
 Sequence configuration, some of which is ignored by that component.
 
 Concrete display decisions remain in
-[library_browse_rows.tsx](../../../src/pages/library_browse_rows.tsx), lines 139-196:
+`src/pages/library_browse_rows.tsx` (historical path; retired), lines 139-196:
 title markup, summary markup, selection placement, classification layout, and track widths.
-[library_browse_record_list.css](../../../src/pages/library_browse_record_list.css), lines 28-60,
+`src/pages/library_browse_record_list.css` (historical path; retired), lines 28-60,
 then supplies row padding, title sizing, metadata typography, and internal spacing.
 
 **Recommendation:** replace the ordinary scan's region array with a small, typed content contract.

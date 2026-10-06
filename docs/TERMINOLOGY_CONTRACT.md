@@ -15,17 +15,18 @@ Those documents must preserve the meanings established by Human Guidance.
 - Use Account for a global login identity and relationship for scoped access.
 - Use Course for either a Blueprint Course or a Course Instance, and Library
   Object for either a Published Question or a Question Pool.
-- Use Revision only for Published Questions and Blueprint Courses. Question
-  Pools, Assessments, Course Instances, and Draft Questions use current state.
+- Use Revision only for Published Questions and Blueprint Courses.
+  Assessments, Course Instances, and Draft Questions use current state.
 - Use Edit Number only for current-state concurrency; it is not history. When
   needed, it is a monotonic sequential counter, not a stored historical object.
   Name each clock with its domain, such as Assessment Edit Number, Blueprint
   Edit Number, or Draft Question Edit Number.
-- Use Revision Number for immutable Question and Blueprint version sequences,
+- Use Revision Number for the numbered Question and Blueprint Revisions,
   named as Question Revision Number or Blueprint Revision Number. Revision
   Numbers start at 1 and increase sequentially within each object.
   A new Revision retains the object's identity; a fork has a new identity and
-  starts at Revision 1 when published or created as a revisioned object.
+  starts at Revision 1 when published or created as a revisioned object. Each Revision is a
+  complete record; permitted metadata edits preserve its Revision Number.
 - Use Assignment only inside the three Assessment Type names.
 - A public ID is the one universal, canonical human-facing identifier for a PLE
   object that needs one. Store and use the exact same ID in the database, Rust,
@@ -122,9 +123,9 @@ a Student Observer would have authorized read-only access to a particular
 Student's Course information. These are future capabilities. Graders are not
 currently needed because grading is automatic.
 
-**Scoped Support Access** is deliberate Sysadmin access to an exact support
-need involving FERPA-protected records. It is recorded. The Sysadmin User
-Role alone provides no ambient FERPA access.
+**Sysadmin access** is full administrative access to PLE, including Course and Student
+records. Before accessing FERPA-sensitive Student data, a Sysadmin confirms that access is needed
+for administrative work. That access is recorded for audit.
 
 ## Human-facing identifiers
 
@@ -202,9 +203,14 @@ content across its other Disciplines.
 
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-specifications).
 
-**Question** is one automatically evaluated PLE question, regardless of its
-Question Backend. It has one canonical title and its own internal Question
-record. Answer-choice randomization belongs to the Question, not the Assessment.
+**Question** is a PLE object containing the content, metadata, and Backend information needed
+to present and grade one automatically graded item. It has one canonical title and its own
+internal Question record. Answer-choice randomization belongs to the Question, not the Assessment.
+
+Use **Draft Question**, **Published Question**, or **Question Revision** where that distinction
+matters. Use **Library Object** when a rule applies equally to Published Questions and Question
+Pools. Name the individual kinds when defining Library Object or when the distinction matters.
+Use **Question** for general content, display, responses, and grading.
 
 **Question Backend** is the component that owns Question rendering,
 interaction, response interpretation, grading, feedback, and backend-specific
@@ -225,10 +231,11 @@ to generated static variants. Variants do not become separate Published
 Questions or a Pool. Pool selection among distinct Questions and backend-native
 randomization are separate forms of variation.
 
-**Question Type** is immutable author-declared educational metadata on a
-Published Question Revision, used for discovery, filtering, labels, and
-presentation. It is not inferred from backend controls. Native Type labels are
-MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
+**Question Type** identifies the interaction for discovery, filtering, labels, and presentation.
+Native JSON has a built-in Type. Other Backends use Type as editable classification metadata;
+the author or importer supplies it, with source detection where reliable. Type labels are
+MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Backend rendering and grading remain
+owned by the Backend.
 
 **Draft Question** is private, mutable, unpublished, and unversioned. Its **Edit
 Number** may protect concurrent saves but does not create Draft Revisions.
@@ -248,23 +255,23 @@ the hyphen is an embedded checksum character. Checksum input for `XXXX-ZXXX`
 is the ASCII bytes of `XXXXXXX`: calculation excludes only the hyphen and `Z`,
 while the canonical value retains both. The checksum detects malformed IDs.
 
-**Question Revision** is one immutable source-bearing version within a
-Published Question lineage. Changes to source, answers, grading rules, Hints,
-Question Feedback, Worked Solutions, or assets create a new Revision. Changes
-to title, description, classification, Tags, or other search metadata update
-the lineage without creating a Revision. Existing Assessments and Student Work
-remain pinned to exact Revisions when a successor is published.
+**Question Revision** is a complete Question record. Publishing a new Revision creates another
+complete record with the same Question ID and the next Revision Number. Permitted metadata edits
+change fields on the current record in place. Changes to source, answers, grading rules, Hints,
+Question Feedback, Worked Solutions, or assets create a new Revision. Existing Assessments and
+Student Work retain their references and fixed source and grading content. See
+[QUESTION_REVISION_SPEC.md](QUESTION_SPECS/QUESTION_REVISION_SPEC.md).
 
-**Question fork** begins as a private Draft Question with its own authorship
-and lineage. Any Instructor may fork a Published Question. Publication requires
-Question Publication Validation and establishes a new public Question ID at
-Revision 1. Forks and Revisions preserve attribution, contributor credit,
-history, and compatible CC licensing. Forced corrections are audited Sysadmin
-actions reserved for critical flaws.
+**Question fork** begins as a private Draft Question owned by the Instructor who creates it.
+Any Instructor may fork a Published Question. Publication requires Question Publication Validation
+and establishes a new public Question ID at Revision 1. A fork starts with the source Question's
+license, authors, metadata, and Question content, and records the source Question as its parent.
+It retains the exact source Question Revision Tuple. Sysadmins retain their full administrative editing
+authority. Access to FERPA-sensitive Student data follows the confirmation and audit rule above.
 
-**Archive Published Question** is the high-consequence action that removes a
-Published Question from ordinary discovery/new selection while preserving
-exact Revision evidence already used by Assessments and Student Work.
+**Archive Published Question** makes the ordinary Question read-only and removes it from normal
+discovery while preserving it and its existing references. Archived Questions can be restored or
+forked. See [PUBLISHED_QUESTION_SPEC.md](QUESTION_SPECS/PUBLISHED_QUESTION_SPEC.md#archive).
 
 **Question Library** is the global collection and Instructor discovery
 and reuse surface for Published Questions and Question Pools. **Library Object**
@@ -273,9 +280,9 @@ use does not make a Library Object private. Students access Question content
 through authorized Coursework rather than Library discovery.
 
 **Questions in no Pool** is the search filter for Published Questions with no Pool
-membership. Both Questions and Pools appear in one combined search. The preferred
-default is Questions in no Pool plus Pools, reducing redundant member results; HG
-retains "probably" for this preference. Filters can include individual member Questions.
+membership. Both Questions and Pools appear in one combined search. Questions in no Pool plus
+Pools is a tentative default candidate, reducing redundant member results; HG retains "probably"
+and the final default remains open. Filters can include individual member Questions.
 A directly added Assessment Question is a separate concept: it may also belong to a Pool.
 
 **Library result kind** is the search choice **Both**, **Questions**, or **Pools**.
@@ -286,16 +293,16 @@ Question or Pool metadata.
 **Starred Library Object** is an Instructor favorite and visible endorsement.
 Instructors can see Star counts and who Starred a Question or Pool.
 **Watched Library Object** is a subscription to in-app notifications about new
-Question Revisions, Pool member-list changes, forks, and impact notices. Watch lists remain
+Question Revisions, Pool member-list changes, and forks. Watch lists remain
 private. Students and anonymous users receive neither Instructor identity
 lists nor Watch information. Stars and Watches are not Student Work.
 
 **Library Object Statistics** are aggregate counts kept separately for each
-Question Revision and for each Question Pool. Question statistics include
-accepted graded Attempt and correct counts, and may include incorrect,
-partial-credit, unanswered, and eligible answer-choice counts. Pool statistics
-may include use and selection counts. Question rollups across Revisions must
-be clearly labeled and meet privacy thresholds. Removing names alone does not
+Published Question Revision and for each Question Pool. They show how often Students received a
+Published Question Revision or a Question from a Pool and how much credit they earned: graded-response
+count, average stored credit, full-credit percentage, and zero-credit percentage.
+Question results describe each Revision separately. Cross-Revision rollups are not
+approved intended behavior. Removing names alone does not
 make statistics anonymous. Shared statistics must prevent identification or
 reconstruction of individual Student activity; Course-specific analysis remains
 FERPA-sensitive when Students can be inferred. Privacy-safe aggregates survive
@@ -308,20 +315,12 @@ describes the cognitive work needed for full credit, rather than **Question
 Difficulty**. A Pool's classification describes its intended cognitive work as
 a whole. Bloom Classification may be blank at Library entry; initial AI assignment
 is deferred and does not block publication. Pending values have no enforced time limit.
-Question Type and other required publication fields remain non-NULL. An Instructor may correct either dimension
+Question Type and other required publication fields remain non-NULL. The owning Instructor may correct either dimension
 without a new Revision.
-Each exact Revision's pair has its own positive **Bloom Classification Edit
-Number** for correction concurrency. It is not a third classification dimension
-or content-Revision history. Read projections carry the pair and that Edit
-Number together; a Pool never derives its pair from member Questions.
-
-A **Bloom correction** is one complete-pair, exact-Revision compare-and-swap
-command. The active Instructor supplies both dimensions and the expected
-Bloom Classification Edit Number; a stale number is refused before no-op
-handling. A current no-op retains the number and a changed pair advances it.
-The correction does not create content history. It is available to any active
-Instructor with current exact Library read access, not only the author
-or owner; Sysadmins retain read-only Library access.
+Bloom is ordinary editable metadata on the complete Question record or current Pool record,
+like Title. A correction uses the ordinary record save and concurrency checks and preserves the
+Question Revision Number. The owning Instructor or a Sysadmin may correct it. A Pool uses its
+own values, independently of its members' values.
 Teaching interpretation belongs in [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE.md).
 
 **Hints**, **Question Feedback**, and **Worked Solutions** are optional
@@ -377,9 +376,11 @@ WeBWorK renderer files keep their own identities.
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications).
 
 **Question Pool** is a published reusable collection with a stable **Pool ID**
-(`XXXX-ZXXX`). It is current state: an unordered set of distinct Published Questions,
-each pinned to an exact Revision, plus Pool metadata. Membership changes advance the
-Pool's **Edit Number** and re-attest interchangeability; no Pool Revision is created.
+(`XXXX-ZXXX`). It contains an unordered set of Question Revision Tuples plus Pool metadata.
+A Question Pool cannot contain two Revisions of the same Published Question.
+When the set of Question Revision Tuples changes, saving advances the Pool's **Edit Number**.
+Changes take effect when the Instructor saves them. There is no undo after saving.
+The counter identifies no historical Pool.
 Spreadsheet-style sorting changes the editor display, not membership or selection.
 Questions and Pools remain distinct objects even though each may occupy an Assessment
 position. Members share one Question Type and one Backend; Pools cannot contain Pools.
@@ -397,19 +398,20 @@ from exact member-Revision licenses and rejects incompatible combinations; that 
 the **calculated Pool license**. Member licenses remain intact.
 NC and ND content are deferred.
 
-**Pool mismatch** means the Pool no longer satisfies its current requirements. Show
-its specific cause, such as insufficient members for an Assessment's selection count,
-a Discipline/Subject mismatch, duplicate Questions, or another membership violation.
+A Pool must continue to meet its requirements. Show the specific problem, such as a Published
+Question with a different Discipline or Subject, duplicate Questions, or another unmet requirement.
+If an Assessment requests more Questions than the Pool can provide, show the problem and block
+release. The Pool itself may still be valid.
+Before release, save incomplete editing state and show the specific problem.
 Block affected Assessment release until resolved. An Assessment already released when
-a mismatch develops continues as-is. The state adds no separate Pool publication step.
+a problem develops continues as-is.
 
-**Question Pool fork** creates a new Pool ID, initially retaining the same
-member Question IDs and exact Question Revisions, with Edit Number 1. Adding a
-Pool to another Assessment automatically forks it into an independently
-editable Pool belonging to that Assessment; the source is unchanged.
+**Question Pool fork** is a regular Pool with a new ID, its own Instructor owner, and a
+parent-Pool pointer. It starts at Edit Number 1 with the same Question Revision Tuples.
+It can be reused in many Assessments. Saving changes to the fork leaves the parent Pool unchanged.
 
-**Pool selection** is PLE's selection of the Instructor-specified number of
-Questions from Instructor-chosen interchangeable contents. A resumed Attempt
+**Pool selection** is PLE selecting the number of Questions the Assessment requests from a Pool.
+That number belongs to the Assessment, not the Pool. A resumed Attempt
 retains its selections; a new Attempt makes fresh selections. The selected
 Question Backend owns the resulting interaction.
 
@@ -440,23 +442,23 @@ and lifecycle authority. Visibility grants reading, not editing. A Public
 Blueprint can return to Private only before any adoption. Once adopted, it
 remains Public unless Archived. Archived restores to Public.
 
-**Blueprint Revision** is one immutable saved Blueprint content state. Creation
+**Blueprint Revision** keeps saved reusable content fixed. Permitted metadata changes keep the
+Revision Number. Creation
 produces a Private Blueprint at Revision 1. A meaningful explicit Save creates
 the next Revision; a no-op creates none. Blueprint metadata changes, including
 names, do not create Revisions. Lifecycle changes are separate from content saves.
 
 **Blueprint fork** creates a new Private lineage with ancestry.
 An Instructor may fork a visible Public or Archived Blueprint and owns the
-fork. The fork records the exact source Blueprint and Revision, creates new
-Blueprint Assessments, retains Published Question IDs and exact Revisions,
-and forks Pools into new Pool IDs with the same exact initial membership.
+fork. The fork records the source Blueprint Course Revision Tuple, creates new
+Blueprint Assessments, retains Question Revision Tuples,
+and retains existing Pool references. Explicit Pool forks provide independent customization.
 Source changes are not automatically applied to forks.
 
 **Adoption** connects a Blueprint Course and a Course Instance. Creating a new
 Course Instance from a Public Blueprint Course establishes Adoption and copies
-every Assessment, its Questions, forked Pools, and reusable settings from the
-selected exact Blueprint Revision. The daughter records its parent Blueprint
-and adopted Revision; copied Assessments are independent current Course state,
+every Assessment, its Questions, existing Pool references, and reusable settings from the
+selected exact Blueprint Revision. The daughter records its parent Blueprint Course Revision Tuple; copied Assessments are independent current Course state,
 Unreleased, with dates unset. A Blueprint Course tracks its Adoption count.
 
 **Create Blueprint from Course Instance** creates a new Blueprint Course from
@@ -593,8 +595,9 @@ remain sufficient without color.
 value. **Randomize question order** is the setting name for Question-order
 randomization.
 Assessment content is an ordered sequence of Published Questions and Pools.
-Questions retain the same public ID and exact Revision; added Pools are forked
-and independently editable. Both Assessment forms use the same underlying model
+Questions retain the same public ID and exact Revision. Adding a Pool references its existing ID
+and the Assessment specifies how many Questions to select. Pool forking is an explicit action.
+Both Assessment forms use the same underlying model
 and are ordered within their Course.
 
 **Blueprint Assessment** is reusable Assessment content and teaching settings
@@ -822,7 +825,7 @@ uses its ordinary casing: SQL `account_id`, Rust/TypeScript type
 Do not keep a parallel UUID primary key, a `reference` JSON field for a
 public ID, or a `public_reference` SQL alias beside a public ID. Composite
 Published Question Revision Tuple JSON is the field `publishedQuestionRevisionTuple` with members
-`{publishedQuestionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
+`{publishedQuestionId, revisionNumber}`. Blueprint Course Revision Tuple JSON is the field
 `blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
 Question Image Asset Tuple JSON is the field `questionImageAssetTuple` with members
 `{questionImageAssetId, checksum}`. Course Roster Tuple JSON is the field

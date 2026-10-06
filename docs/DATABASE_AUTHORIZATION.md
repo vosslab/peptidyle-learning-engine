@@ -55,8 +55,9 @@ compatibility workflow merely because job infrastructure exists.
   Blueprint Assessment does not grant the Blueprint owner Course access.
 - Any active Instructor may create a Blueprint Course Change Proposal; only
   the receiving Blueprint owner accepts changes into a new Revision.
-- A Sysadmin user role is not ambient Course membership or FERPA authority.
-  Support access is deliberate, scoped, and recorded.
+- Sysadmins have full administrative authority, including access to Course and Student records.
+  Support work is recorded for audit.
+  Existing narrower database predicates need reconciliation; see [TODO.md](TODO.md#question-spec-implementation-follow-up).
 
 Account deactivation closes new access while preserving authorship, Course
 relationships, Student Work, and history. Course membership removal does not

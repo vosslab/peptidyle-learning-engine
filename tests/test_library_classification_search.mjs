@@ -151,7 +151,6 @@ function questionSearchPage() {
       questionTypes: [],
       capabilities: [],
       questionLicenses: [],
-      usedInMyCourses: { used: 0 },
       bloomCognitiveProcesses: [
         "Remember",
         "Understand",
@@ -212,7 +211,6 @@ test("The Question Library is one global collection of Published Questions and Q
     assert.equal(url.pathname.includes("course"), false);
     for (const key of url.searchParams.keys()) assert.equal(/course/iu.test(key), false);
   }
-  assert.equal(requests[0].searchParams.has("used_in_my_courses"), false);
   assert.equal(requests[0].searchParams.get("authorship"), "any");
   assert.equal(questions.items.length, questionPage.items.length);
   assert.equal(questions.items[0].displayId, questionPage.items[0].question.summary.questionId);
@@ -382,7 +380,7 @@ test("Library URL handoff and strict wire request retain hierarchy, filters, and
 
 test("Pools-only Library URLs retain text but clear Question-only predicates", () => {
   const pools = searchHandoffQuery(
-    "?kind=pools&membership=all&search=protein&authorName=Ada&capability=clientRendering&usedInMyCourses=used",
+    "?kind=pools&membership=all&search=protein&authorName=Ada&capability=clientRendering",
   );
   const normalized = normalizeQuestionLibraryBrowseQuery(pools);
   assert.equal(normalized.kind, "pools");
@@ -390,7 +388,6 @@ test("Pools-only Library URLs retain text but clear Question-only predicates", (
   assert.equal(normalized.search, "protein");
   assert.equal(normalized.authorName, null);
   assert.equal(normalized.capability, null);
-  assert.equal(normalized.usedInMyCourses, null);
   assert.match(searchWithinResultsPath(normalized), /kind=pools/);
   assert.match(searchWithinResultsPath(normalized), /membership=all/);
 });
@@ -508,7 +505,6 @@ test("Bloom facet decoder requires all guide values in guide order, including ze
     questionTypes: [],
     capabilities: [],
     questionLicenses: [],
-    usedInMyCourses: { used: 0 },
     bloomCognitiveProcesses: [
       "Remember",
       "Understand",

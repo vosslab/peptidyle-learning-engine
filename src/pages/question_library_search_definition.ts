@@ -173,7 +173,6 @@ export function questionLibrarySearchDefinition(
         ["questionType", "Question type"],
         ["questionLicense", "License"],
         ["capability", "Capability"],
-        ["usedInMyCourses", "Course use"],
       ];
       for (const [field, name] of scalarFilters) {
         const value = query[field];

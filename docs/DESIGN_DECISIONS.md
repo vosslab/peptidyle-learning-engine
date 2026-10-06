@@ -110,10 +110,11 @@ copied as an Unreleased Course Instance Assessment.
 
 ### Current state is not a hidden revision family
 
-**Decision.** Published Questions and Blueprint Courses have immutable Revision
-families. Question Pools, Draft Questions, Course Instances,
-Assessments, Attempts, Student Work, names, and lifecycle metadata use current
-state. Edit Numbers are concurrency controls, not historical content.
+**Decision.** Published Questions and Blueprint Courses use numbered Revisions for saved
+content. Permitted metadata fields can change without creating another Revision; each object
+defines those fields. Draft Questions, Course Instances, Assessments, Attempts,
+Student Work, names, and lifecycle metadata use current state. Edit Numbers are concurrency
+controls, not historical content.
 
 **Why.** History is valuable only where the product needs exact reusable or
 submitted evidence. Universal snapshots create cost and a misleading object
@@ -221,23 +222,21 @@ lists remain private, and viewing a Profile does not expose Student records.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#instructor-profile-visibility).
 
-### Sysadmin is platform administration, not ambient FERPA access
+### Sysadmins have full administrative authority
 
-**Decision.** Sysadmins manage platform configuration and operations but do not
-automatically read Course Student records. Support access is deliberate,
-scoped, and recorded. A Sysadmin initiates repairs under their own authority;
-no Instructor-issued permission or approval is required.
+**Decision.** Sysadmins have full administrative authority across PLE, including content,
+Accounts, Courses, and Student records. A Sysadmin initiates repairs under their own authority;
+the Sysadmin role supplies the access needed for that work. Support work is recorded for audit.
 
 Much of the Sysadmin workflow beyond Instructor Account creation remains deferred
 until concrete needs are established. The authority rule does not authorize
 speculative support tools or make their implementation a current requirement.
 
-**Why.** Operational privilege and educational-record access have different
-purposes.
+**Why.** Neil: "Sysadmins have god powers, I see no way around iit." The earlier rule that denied
+general administrative access did not express his intended role.
 
-**Consequence.** A Sysadmin-created Course gains an ordinary Instructor
-relationship for its teaching staff; the Sysadmin does not acquire Course
-membership merely by creating or supporting it.
+**Consequence.** Sysadmin access checks provide full administrative access to Course and
+Student records. Course Instructor relationships identify the teaching staff.
 
 ### Sysadmin sessions require a TOTP-bound second factor
 
@@ -335,6 +334,22 @@ deletion.
 
 ## Questions and Pools
 
+### Question export uses the conversion library
+
+**Decision.** Instructor Question export sends selected Questions to another LMS using the
+external `qti-package-maker-rs` library for conversion and packaging.
+
+**Why.** Neil defined export for reuse in another LMS and asked PLE to use the existing Rust
+library rather than repeat that work.
+
+**Consequence.** Selecting a Pool exports its members together in one package. Each member is
+an individual Question in that package. This packaging interpretation follows Neil's example
+of a Pool with 1,000 Questions. Supported formats and bank grouping depend on the external
+library and target LMS. This decision does not add PLE backup or transfer requirements.
+
+**Owner.** [QUESTION_EXPORT_SPEC.md](QUESTION_SPECS/QUESTION_EXPORT_SPEC.md) and
+[QTI_INTERCHANGE_SPEC.md](QUESTION_SPECS/QTI_INTERCHANGE_SPEC.md).
+
 ### Draft and Published Questions are separate
 
 **Decision.** A Draft Question is private, mutable, unpublished, and
@@ -364,9 +379,9 @@ Question ID with attribution.
 private Draft Question owned by the active Instructor who invoked it. The server resolves the
 selected source, obtains the new Question ID from the server-side cryptographically random
 allocator with its public SHA-256 checksum, and writes the Draft, ownership, exact source
-Revision, and immutable attribution in one transaction. Later
-publication derives and preserves that exact source Revision's compatible CC license; it rejects a
-requested replacement even when that replacement is otherwise supported. The client
+Revision, and immutable attribution in one transaction. The fork starts with the source Question's
+license, with no license choice during forking. Later publication preserves source attribution under
+[QUESTION_FORK_SPEC.md](QUESTION_SPECS/QUESTION_FORK_SPEC.md). The client
 submits no new Question ID, source facts, authorship, Draft content, or attribution payload. It
 may carry an opaque idempotency key; that key is bound to the active Instructor and exact source
 Revision so a retry returns the same Draft and a key reuse for another source is refused.
@@ -389,6 +404,10 @@ C319 and C876-C879 implement it in the active
 
 ### Bulk metadata editing is an all-or-none current-state command
 
+**Status: deferred.** Neil deferred Instructor bulk editing on 2026-10-05. The earlier
+design below records implementation history, not a current delivery requirement or a settled
+future save policy. See [QUESTION_LIBRARY_BULK_EDIT_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_BULK_EDIT_SPEC.md).
+
 **Decision.** An active Instructor may update selected Published Questions' global Tags,
 Discipline, Subject, Topic, and Subtopic together.
 The command replaces only fields explicitly present in its closed patch. An empty tag list or
@@ -397,8 +416,9 @@ It never edits source, answer, grading,
 feedback, assets, backend, Question Type, authorship, ownership, availability, or a Question
 Revision.
 
-**Why.** Human Guidance requires practical cleanup of large imports but says metadata belongs to
-the Published Question as a whole, not to an immutable Revision. A whole-batch outcome avoids
+**Why.** The earlier implementation supported cleanup of large imports and treated
+metadata as separate current state. The current model places it on the complete Question record;
+see [QUESTION_REVISION_SPEC.md](QUESTION_SPECS/QUESTION_REVISION_SPEC.md). A whole-batch outcome avoids
 silently half-cleaned library state and avoids disclosing which selected reference was unavailable
 or unauthorized.
 
@@ -414,10 +434,11 @@ numeric batch maximum and future addition of another _stored shared search metad
 operational/schema decisions. A future field must join the same closed patch and CAS contract; no
 arbitrary JSON field patch is permitted.
 
-First publication seeds current tags once from the validated source: native `PLE authoring` and
-`Pilot` tags when present, or an empty WebWork list. Thereafter tags are database-owned current
-metadata. A successor preserves an intentional clear unless an authorized later metadata command
-replaces it.
+**Current implementation evidence.** First publication seeds Tags from Native JSON source or
+an empty WeBWorK list, then uses separate current metadata storage. This Backend-specific source
+duplication needs reconciliation with the shared Question record. Title, Description, Tags,
+license, and citation have that same owner for every Backend; see
+[QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md).
 
 **Owner.** [CONTRACTS.md](CONTRACTS.md)'s Bulk Published Question metadata boundary;
 C365-C368 and C893 implement it in the active
@@ -446,13 +467,12 @@ forks, and Blueprint Course Change Proposals follow Human Guidance.
 **Why.** References to GitHub-like stewardship do not authorize a general
 discussion system or routine Sysadmin moderation of Pool content.
 
-**Consequence.** The former general retained-thread system is withdrawn. This
-does not settle who may author or administer Pool impact notices: the current
-Sysadmin-only path is not certified. The Instructor who owns a Pool is its owner;
-that fact alone does not approve a new impact-notice workflow.
-Existing impact-notice behavior needs separate reconciliation. The intended
-Question Change Proposal workflow needs clarification in the interview; this
-decision does not extend it to Pools.
+**Consequence.** An Instructor who finds a problem in another Instructor's Question or Pool can
+fork it and fix it. Neil rejected manually written notices in favor of that existing workflow.
+Remove the existing impact-notice implementation as recorded in
+[TODO.md](TODO.md#question-spec-implementation-follow-up). Watch notifications cover Question
+Revisions, Pool membership edits, and forks. The existing Change Proposal guidance remains
+separate from notices.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-stewardship-specifications)
 and the [interview follow-up](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md).
@@ -469,7 +489,7 @@ the embedded checksum character, which is the first character after the hyphen.
 The checksum is the high five bits of public unsalted `SHA-256(identity)` digest
 byte zero, encoded in the Crockford alphabet. The exact canonical syntax and
 rejection rules remain those in
-[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
+[QUESTION_ID_SPEC.md](QUESTION_SPECS/QUESTION_ID_SPEC.md).
 
 **Why.** A short copyable public ID benefits from typo detection without
 revealing creation order or object metadata.
@@ -484,7 +504,7 @@ not approved public formats, and must be removed rather than replaced.
 There is no dual parser, legacy-ID reader, data rewrite, or compatibility path.
 A fresh-schema preflight requires zero published Question rows before the
 cutover; a nonzero count stops the work and escalates rather than converting
-stored identities. [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) owns the exact
+stored identities. [QUESTION_ID_SPEC.md](QUESTION_SPECS/QUESTION_ID_SPEC.md) owns the exact
 generation and validation contract. UUIDs remain internal.
 
 Pool creation uses this same server-held allocator: a browser never supplies a
@@ -506,7 +526,7 @@ and inevitably drifts.
 
 **Consequence.** Backend presentation and state are opaque. PLE does not infer
 Question Type from controls. A backend outage never becomes an incorrect
-response. See [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
+response. See [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md).
 
 ### Opaque WeBWorK previews report only size
 
@@ -551,7 +571,7 @@ protected document. No public review asset, answer parser, persisted review,
 grading write, or disclosure latch is introduced. Failure is local to review;
 the issued document and immutable Student Work remain intact.
 
-**Owner.** [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md),
+**Owner.** [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md),
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md), and
 [webwork_document_route.rs](../crates/server/src/webwork_document_route.rs).
 
@@ -776,7 +796,7 @@ Archived. Archived restores to Public.
 ### Blueprint Saves create content Revisions only when content changes
 
 **Decision.** A Blueprint is created Private with Revision 1. Explicit Save
-creates the next immutable Revision only after a meaningful canonical content
+creates the next Revision only after a meaningful reusable-content
 change. A no-op save creates nothing. Name and lifecycle metadata changes do
 not create Revisions.
 
@@ -805,8 +825,8 @@ through the normal Blueprint update workflow.
 
 ### Blueprint fork updates are explicit selective saves
 
-**Decision.** A fork's existing immutable origin records its source Blueprint Course and exact
-source Blueprint Revision as provenance, not a required comparison baseline. Human Guidance now
+**Decision.** A fork's existing immutable origin records its source Blueprint Course Revision Tuple
+as provenance, not a required comparison baseline. Human Guidance now
 requires any visible related Blueprint Courses in the same fork lineage to be comparable, normally
 using the newest source and fork Revisions. Shared Question IDs provide durable content
 relationships; Blueprint Assessments are matched by the shared Question IDs they contain, not
@@ -827,7 +847,7 @@ not permission to view a known Course. Private Blueprints are owner-only on eith
 controls the fork's apply mutation. The Instructor explicitly selects which displayed changes to
 bring forward; no source change is applied automatically. One request may select several related
 changes. The server constructs and validates one coherent complete fork tree, then uses the ordinary
-expected current Blueprint Revision Tuple compare-and-swap to save all selected content changes as
+expected current Blueprint Course Revision Tuple compare-and-swap to save all selected content changes as
 one new immutable Blueprint Revision. Selected name changes use the ordinary Blueprint metadata
 Edit Number in the same authorized operation (HTTP `If-Match` encodes it).
 
@@ -1438,7 +1458,7 @@ guidance and the Question Library scan-row regions in
 
 **Decision.** The six current reorder sites were compared before extracting a
 shared control. The two Blueprint Course editors share deferred-save behavior.
-Fork application, Assessment entries, Assessment-owned Pool members, and
+Fork application, Assessment entries, members of the referenced Pool, and
 Student Ordering differ in persistence timing, disabled policy, failure
 recovery, or announcement behavior. The shared layer therefore provides array
 movement plus accessible `RecordList` or `RecordSequence` controls; each caller
@@ -1454,7 +1474,7 @@ Assessment entry order and Student Ordering interactions remain distinct from Po
 | Blueprint Pool members editor | Local Blueprint draft; outer Blueprint Save persists it      | Editability and list boundaries govern changes; outer Save retains the draft on failure               | Parent change notice describes the unsaved member change               |
 | Blueprint fork application    | One explicit apply request                                   | Busy, locked, invalid, or empty selection blocks apply; conflict or uncertain result requires refresh | Result message reports saved, correction, or refresh state             |
 | Assessment entries            | Local Assessment draft; Save Questions and order persists it | Busy or reload-required state blocks saving; conflict recovery reloads or discards the draft          | RecordSequence announces each move and returns focus                   |
-| Assessment-owned Pool members | Local Assessment draft; Save Questions and order persists it | Attestation, availability, dirty state, busy state, and list boundaries govern changes                | The editor explains the pending Pool state; it has no move live region |
+| members of the referenced Pool | Local Assessment draft; Save Questions and order persists it | Attestation, availability, dirty state, busy state, and list boundaries govern changes                | The editor explains the pending Pool state; it has no move live region |
 | Student Ordering response     | Each move updates the response controller                    | Locked response state and list boundaries block changes; controller owns response-save failure        | The response control announces each move and returns focus             |
 
 **Why.** Similar move buttons do not establish identical state transitions.
@@ -1821,25 +1841,26 @@ Unrelease audit counts finalized `assessment_attempt_saved_response` rows as
 `finalized_saved_response_count`. JSON may still project
 `question_attempt_state` from remaining facts.
 
-### Question Pools are current state
+### Saving changes to Question Pools
 
-**Decision.** Pools are not a Revision family. Membership is an unordered set of distinct
-Published Questions pinned to exact Revisions. Members share one Type, Backend, Discipline,
+**Decision.** Pools are not a Revision family. A Pool contains an unordered set of Question
+Revision Tuples for distinct Published Questions. Those Questions share one Type, Backend, Discipline,
 and Subject. Each Pool owns its search metadata and has an owner rather than an Author field;
 its compatible license is calculated from member licenses. NC and ND content remain deferred.
 Members live in `question_pool_member`; saves compare-and-swap the Pool Edit Number.
 Spreadsheet-style sorting changes only the editor display.
 
-**Why.** Human Guidance treats Pool membership as current authored state,
-not an immutable Revision history.
+**Why.** Saving updates the Pool and advances its Edit Number; no Revision is created.
 
-**Consequence.** Student Work pins Question ID, Question Revision, Pool ID,
-and Pool Edit Number. Forks copy current members once. A Pool mismatch identifies failed
-requirements and prevents affected Assessment release until resolved; Assessments already
-released when a mismatch develops continue as-is. Per-Question uniqueness and removal of separate Pool Author storage are implemented. Current
+**Consequence.** Student Work keeps the Question Revision Tuple, Pool ID,
+and Pool Edit Number. Forks copy the current set of Question Revision Tuples once. Show which Pool
+requirements are not met and block affected Assessment release until resolved; Assessments already
+released when a problem develops continue as-is. Per-Question uniqueness and removal of separate Pool Author storage are implemented. Current
 ordering and admission-only classification checks still require implementation alignment.
 A role-typed composite foreign key enforces Instructor ownership. See
-[QUESTION_MODEL.md](QUESTION_MODEL.md) for the complete product boundary and pending work.
+[QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md) for the product boundary and
+[question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md)
+for implementation differences.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications)
 
@@ -1849,7 +1870,7 @@ A role-typed composite foreign key enforces Instructor ownership. See
 requires the remaining mandatory fields. Question Type is non-NULL and remains author-declared
 or imported. Bloom may be NULL awaiting initial AI assignment, which remains deferred. No time
 limit is enforced; the proposed 24-hour deadline was withdrawn. Explicitly optional fields remain
-optional. [QUESTION_MODEL.md](QUESTION_MODEL.md#required-and-assigned-metadata) lists the distinctions.
+optional. [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md) lists the distinctions.
 
 **Why.** Instructors should not need to supply every metadata value manually or be relied upon to
 notice missing required fields. Pending AI classification is different from missing required content.
@@ -1860,10 +1881,26 @@ change does not implement AI processing or certify every write path.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-metadata)
 
+### Remove Course-use search filtering
+
+**Decision.** Remove the "Used in my Courses" filter from Question Library search and pickers.
+
+**Why.** Neil never approved it. He questions the value of searching for content already in use
+and considers its server overhead unnecessary. No performance measurement is claimed.
+
+**Consequence.** Remove the control, query parameter, result count, and Course-membership joins
+from Library reads. Existing Course access checks and Question usage statistics keep their own
+purposes. Remaining SQL filters retain parameter binding (ASVS 1.2.4), and server request
+validation retains its allowed fields (ASVS 2.2.1-2.2.2).
+
+**Owner.** [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_FILTER_SPEC.md),
+[question_library_operations.sql](../schemas/base_schema/50_functions/question_library_operations.sql).
+
 ### Combined Library search uses Pool membership filters
 
 **Decision.** Published Questions and Pools share one search. Questions in no Pool means
-Published Questions with no Pool membership. HG currently prefers those Questions plus Pools
+Published Questions with no Pool membership, including membership in Pool forks.
+This follows from ordinary Pool membership; a fork is itself a Pool. HG currently prefers those Questions plus Pools
 as the default; retain its tentative "probably" qualifier. Filters can include member Questions.
 Pools match only their own text and metadata. One server query filters, sorts, and pages the
 combined results; individual member matches do not expand Pool matches.
@@ -1903,7 +1940,7 @@ action resets the tray. The Assessment content picker owns its Question-or-one-P
 **Decision.** Pool credit consists of its owner and, for a fork, its source-Pool link.
 The shared-search plan's calculated-license step removes the unused manual Pool provenance
 contract, including source text and source URL, alongside its manual license. Each member keeps
-the authorship, source information, and license of its exact pinned Question Revision.
+the authors, citation, and license of its exact Question Revision.
 
 **Why.** HG names owner and source Pool as the Pool's credit fields. The current Rust and browser
 interfaces already follow that model; the remaining manual provenance functions exist only in SQL.
@@ -1918,42 +1955,30 @@ license evidence.
 
 ### Library usage statistics are retained counters, not reconstructions
 
-**Decision.** Each Published Question Revision stores `issued_count`,
-`blank_count`, `answered_count`, `correct_count` (full credit),
-`partial_count`, `incorrect_count` (zero credit), `credit_sum`, and
-`credit_sum_sq`. Mean and standard deviation of credit derive from the
-sums. A Question Pool stores `issued_count` and a per-member
-`selected_count`. Difficulty is computed from current members' Question
-statistics when read. Storage is per Revision; bulk Library views show
-the rollup across Revisions, and the Question detail page adds the
-per-Revision breakdown.
+**Decision.** Keep Question statistics separately per Published Question Revision and per Pool.
+Show times received by Students, graded-response count, average stored credit, full-credit
+percentage, and zero-credit percentage. Use the Backend's stored credit fraction. The agreed
+measures are specified in [QUESTION_LIBRARY_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SPEC.md#usage-statistics).
+Cross-Revision rollups are outside approved scope.
 
-**Why.** Human Guidance asks for privacy-safe counts so Instructors can
-judge how often a Question is used and how hard it is. Rebuilding
-aggregates from Student Work receipts would shrink historical totals when
-Attempts are Unreleased or FERPA-purged. A cached Pool difficulty column
-would need membership-triggered rewrites.
+**Why.** Neil wants to see how often Students received a Question and how they performed.
+Average credit, full-credit percentage, and zero-credit percentage describe different aspects
+of those outcomes; the graded-response count gives their sample size. Assessment points are a
+separate concern.
 
-**Consequence.** Counters increment at Assessment Attempt submission, so
-an Unreleased or deleted in-progress Attempt contributes nothing.
-`issued_count = blank_count + answered_count` and
-`answered_count = correct_count + partial_count + incorrect_count`. A
-blank Question is submitted with no saved response and is never sent to a
-Question Backend. Every Attempt counts as one observation, including
-practice Attempts after full credit. The increment receipt is Student
-Work and is purged with the Attempt; the aggregate survives and is never
-rebuilt from Student Work. The statistic records Revision, outcome class,
-credit fraction, and `updated_on` only. A member's `selected_count` is
-removed with the member and starts at zero if the member is re-added.
-Member outcomes count in that Question Revision's own statistic, never in
-a Pool-level copy. Instructors see each rate beside its observation
-count. Students see Course-scoped class statistics through the Assessment
-feedback policy; those projections are Student Work and are purged with
-the Course. [FERPA_DATA_POLICY.md](FERPA_DATA_POLICY.md) lists the
-collected facts.
+**Consequence.** Keep privacy-safe aggregate statistics separate from identifiable Student Work.
+Student-record deletion preserves anonymous aggregates. Reconcile the existing counters and
+Library displays with the agreed measures through [TODO.md](TODO.md#question-spec-implementation-follow-up).
 
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) "Question Library object
-usage statistics"; schema in `schemas/base_schema/20_tables/statistics.sql`.
+**Current implementation evidence.** The earlier design entry specified detailed submission
+counters, credit sums and squared sums, per-member Pool selection counts, derived Pool difficulty,
+and cross-Revision display rollups. Those details are not established product choices merely
+because this entry previously called them settled. Storage is described in
+[statistics.sql](../schemas/base_schema/20_tables/statistics.sql); evaluate implementation against
+the agreed measures rather than treating the former entry as authority.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-object-usage-statistics) and
+[QUESTION_LIBRARY_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SPEC.md#usage-statistics).
 
 ### Creation clocks are `timestamptz` for enforcement and `date` for authored content
 
@@ -2032,6 +2057,10 @@ table is `ple_data.theme` with `theme_id`. A viewer's nullable `DisplayMode`
 preference is `light`, `dark`, or unset; unset follows the browser. `grass` is
 the default Theme.
 
+A Course created from a Blueprint starts with the Blueprint's Theme and can be changed
+independently afterward. Neil clarified that this follows the meaning of a Blueprint; the missing
+Blueprint Theme field is an implementation gap, not a product choice between copying and ignoring it.
+
 **Why.** The values no longer belong only to Courses. Keeping Course names at
 the write boundary states what the operation authorizes. A nullable preference
 expresses browser following without introducing a third display mode or a mode
@@ -2065,3 +2094,42 @@ speculative failure machinery into additional unresolved product questions.
 See the temporary
 [COMPLIANCE_SUMMARY.md](archive/reports/human_guidance_compliance/COMPLIANCE_SUMMARY.md)
 for the corpus review.
+
+### Complete Question records and regular Pool forks
+
+**Decision.** Each Question Revision is a complete record. Permitted metadata edits update fields
+on the current record in place; source and grading changes publish another complete Revision.
+Bloom follows ordinary metadata editing, including ordinary record concurrency. Native JSON Type
+comes from its interaction; other Backends use editable Type classification. Pool forks are regular
+reusable Pools with Instructor owners and parent-Pool pointers. Saving changes updates the Pool,
+with no undo; their Edit Number is a concurrency counter, not recoverable history.
+
+**Why.** Neil's October 5 clarification rejects special metadata revision systems and Pool kinds.
+A fork may be used in hundreds of Assessments. Conservative Revision creation and ordinary fields
+keep the model consistent.
+
+**Consequence.** Correct the specs now and track storage, API, permission, and editor alignment in
+[TODO.md](TODO.md#question-spec-implementation-follow-up). Keep historical implementation evidence
+separate from current product rules.
+
+**Owner.** [QUESTION_REVISION_SPEC.md](QUESTION_SPECS/QUESTION_REVISION_SPEC.md),
+[QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md), and
+[QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md).
+
+### Shared Pool references and explicit forks
+
+**Decision.** [QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md) owns all Pool behavior.
+Assessment entries reference existing Pools and store their own selection counts. Pool forking is
+explicit and creates a regular Instructor-owned Pool. Current edits affect future selections at
+every reference; existing Attempts keep selected Questions. Save incomplete unreleased Assessment
+work and show when an Assessment requests more Questions than a Pool can provide.
+Release validates completeness.
+
+**Why.** Neil replaced automatic fork-on-add with one reusable Pool model and
+separated valid Pool membership from an Assessment requesting too many Questions. One spec keeps
+membership, ownership, selection, and editing rules together.
+
+**Consequence.** Reconcile runtime behavior through [TODO.md](TODO.md). The five smaller Pool specs
+are folded into the main spec; Published Question forks retain their separate Draft/Revision spec.
+
+**Owner.** [QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md).

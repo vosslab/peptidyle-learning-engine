@@ -21,11 +21,10 @@ pub use crate::question_search::{
     MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
     QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
     QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
-    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
-    QuestionSearchFilter, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
-    QuestionSearchRequestError, QuestionSearchSort, QuestionSearchSubjectFacet,
-    QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionTypeFacet,
-    normalized_question_search_group_value,
+    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchSort,
+    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet,
+    QuestionTypeFacet, normalized_question_search_group_value,
 };
 pub use crate::response::QuestionType;
 

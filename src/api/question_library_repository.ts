@@ -206,7 +206,6 @@ function facets(
       value: facet.knowledgeDimension,
       count: facet.count,
     })),
-    { facet: "usedInMyCourses" as const, value: "used", count: page.facets.usedInMyCourses.used },
   ];
 }
 
@@ -233,7 +232,6 @@ export function questionSearchRequest(
     question_types: selectedQuestionType(query.questionType),
     capabilities: selectedCapability(query.capability),
     question_licenses: selectedQuestionLicense(query.questionLicense),
-    used_in_my_courses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
     sort: query.sort,
     cursor,

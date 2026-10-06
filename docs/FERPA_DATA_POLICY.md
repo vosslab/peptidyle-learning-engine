@@ -52,8 +52,8 @@ of identifiable or linkable individual Student evidence:
 - Questions, Question Pools, Blueprint Courses, and their Revisions.
 - Instructor authoring content.
 - Independent global Account data.
-- The version-first Question Library object usage statistics defined below, which hold counts
-  and credit sums per Published Question Revision and cannot identify or
+- The Question Library usage statistics defined below, which hold counts and credit sums
+  separately for each Published Question Revision and each Pool, and cannot identify or
   reconstruct a Student's activity.
 
 This is a content-and-relationship boundary, not a blanket label for every
@@ -66,21 +66,30 @@ Student-linked delivery or selection record remains protected.
 
 ## Question Library object usage statistics
 
-PLE keeps one global, version-first usage statistic per Published Question Revision so
-Instructors can judge a Question's difficulty in the Library. This section states exactly what
-that statistic collects, stores, and shows. The schema shape lives in
-[DATABASE_STYLE.md](DATABASE_STYLE.md) ("Every table has a clock") and
-`schemas/base_schema/20_tables/statistics.sql`.
+HG requires privacy-safe aggregate statistics separately per Question Revision and per Pool.
+For each Published Question Revision and each Pool, show times received by Students,
+graded-response count, average stored credit, full-credit percentage, and zero-credit percentage.
+For a Pool, these statistics describe the Questions selected from it. See
+[QUESTION_LIBRARY_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SPEC.md#usage-statistics).
 
-Collected once per Issued Question when its Assessment Attempt is submitted (an Attempt that is
-Unreleased or deleted before submission contributes nothing):
+### Current implementation evidence
+
+The details below describe the existing counters and submission-time collection, not additional
+approved statistics or a definition of Question difficulty. The schema shape lives in
+[DATABASE_STYLE.md](DATABASE_STYLE.md) ("Every table has a clock") and
+[statistics.sql](../schemas/base_schema/20_tables/statistics.sql).
+
+The current implementation collects once per Issued Question when its Assessment Attempt is
+submitted (an Attempt Unreleased or deleted before submission contributes nothing):
 
 - the exact `(question_id, revision_number)` issued;
 - whether a saved response exists (blank Questions are never sent to a Question Backend), and
   for a graded response its credit fraction.
 
-Every Attempt counts, including practice Attempts after full credit; the pedagogy treats each
-Attempt as one observation.
+The implementation counts each submitted Attempt, including practice Attempts after full credit.
+That describes its counting behavior; HG does not give the earlier claimed pedagogical rationale.
+Its submission-time `issued_count` misses delivered Questions in unsubmitted Attempts. The
+intended times-received measure counts those deliveries as well. Reconciliation belongs in [TODO.md](TODO.md#question-spec-implementation-follow-up).
 
 Stored in two places with two lifetimes:
 
@@ -105,16 +114,18 @@ Stored in two places with two lifetimes:
 Each Question Pool keeps two stored counters: an `issued_count` for the Pool, and a
 `selected_count` per member Published Question, removed with the member. Its difficulty is
 derived at read time from its current members' Question rows; nothing about outcomes is stored
-per Pool. Question storage stays separate per Revision; every bulk
-view shows the rollup across all Revisions, and the Question detail page is the one place that
-adds the per-Revision breakdown.
+per Pool. These describe existing storage choices, not approval of derived difficulty or
+additional displayed measures. Question statistics remain separate per Revision in the intended
+Library behavior; the former cross-Revision display rule was unsupported. The approved measures
+are in [QUESTION_LIBRARY_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SPEC.md#usage-statistics).
 
-The aggregate row is built from those columns and those only. Re-identification comes from
+### Privacy and display requirements
+
+The approved measures use aggregate counts and sums. Re-identification comes from
 linkage, so the following stay in Student Work: any Course, Student, Account, Attempt,
 submission, or roster reference; any time of day; any point value, timing, ordering, seed,
-selected choice, or free-text response; any per-Course or per-term breakdown. The row records
-global totals and a last-increment calendar date, so an observer with a roster learns at most that
-some Student somewhere answered that day.
+selected choice, or free-text response; any per-Course or per-term breakdown. Removing identifiers or reducing timestamp precision alone does not establish anonymity.
+Apply HG's requirement that shared statistics cannot reasonably identify individual Students.
 
 Shown to Instructors in the Question Library with the count of observations beside every rate.
 Students see Course-scoped class statistics through the Assessment feedback policy instead;
@@ -125,9 +136,11 @@ feedback settings, and purged with the Course.
 
 In normal access, authorized Students use only their own protected Course
 records. Current Course Instructors use only the authorized teaching
-projections for their Course; co-Instructors have equal authority. The Sysadmin
-User Role has no ambient FERPA access. Support access is specific to a task,
-scoped to it, and recorded.
+projections for their Course; co-Instructors have equal authority. Sysadmins have full
+administrative authority, including access to Course and Student records. Before accessing
+FERPA-sensitive Student data, a Sysadmin confirms that access is needed for administrative work.
+That access is recorded for audit. Implementation and verification remain follow-up work in
+[TODO.md](TODO.md#question-spec-implementation-follow-up).
 
 After Instructor notice, archived records leave ordinary Student and Instructor
 browsing. An authorized current Course Instructor may explicitly recover an

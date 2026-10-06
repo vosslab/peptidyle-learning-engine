@@ -128,9 +128,10 @@ submission state.
 ## Backend-owned documents
 
 The frontend hosts an authorized backend document in an isolated frame and
-captures the bounded opaque response shape defined by that backend. It does not
-inspect controls, infer Question Type, or rewrite the interaction into native
-PLE semantics.
+captures the bounded opaque response shape defined by that backend. The Backend owns control
+interpretation and grading. Question Type classification is supplied separately. WeBWorK Type
+is assigned manually for now; automatic detection is deferred. See
+[QUESTION_TYPE_SPEC.md](QUESTION_SPECS/QUESTION_TYPE_SPEC.md).
 
 ## Browser data rules
 

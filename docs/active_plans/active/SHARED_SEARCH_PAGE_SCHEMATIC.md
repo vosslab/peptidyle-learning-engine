@@ -193,7 +193,7 @@ The current decision record is
 | Question Type and Backend | Every member shares one Type and one Backend |
 | Discipline and Subject | All members match the Pool's values |
 | Pool mismatch | Pool no longer satisfies current requirements; show specific causes and block affected Assessment release until resolved; already-released Assessments continue as-is |
-| Selection count | Preserve enough members for the Assessment selection count, including during member removal |
+| Selection count | Each Assessment entry owns its count; save unreleased work, report Pool-use mismatch, and validate at release |
 | Topic/Subtopic, Tags, Bloom dimensions | The Pool has its own values; members keep theirs and may differ |
 | Filtering those metadata fields | Match Pool values only, never member values |
 | Text search | Search Pool text and metadata only; do not match through member Questions |
@@ -205,7 +205,7 @@ Required fields, including Question Type, must not become nullable merely to com
 Pools have a common Type and Backend from their members. Bloom may remain NULL awaiting AI
 assignment, with no enforced deadline; initial AI assignment remains deferred. Keep Topic/Subtopic
 and optional support content optional. See
-[QUESTION_MODEL.md](../../QUESTION_MODEL.md#required-and-assigned-metadata).
+[QUESTION_LIBRARY_METADATA_SPEC.md](../../QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md).
 
 The metadata and combined-search decisions are settled for this work. Neil emphasized that
 combining Published Questions and Pools was the original reason for the work. Result-kind and
@@ -238,8 +238,9 @@ Existing HG settles the main picker boundaries:
 
 - Adding members to a Pool offers Published Questions only; Pools cannot contain Pools.
   Restrict candidates to the Pool's Discipline, Subject, Type, Backend, and compatible licenses.
-- Adding Assessment content can offer Published Questions and Pools. Selecting a Pool invokes
-  the existing Assessment-owned fork operation; it does not attach a shared mutable source Pool.
+- Adding Assessment content offers Published Questions and Pools. Adding a Pool references its
+  existing ID and stores the selection count on the Assessment entry. Explicit forking creates an
+  independent Pool when wanted; it is a regular Instructor-owned Pool.
 - A Pool remains an independently reusable Library object. A fork retains its own Pool identity
   and source link, while the member Questions retain their identities, owners, and authors.
 
@@ -261,24 +262,18 @@ Neil rejected overlap between separate Assessment entries as a reason for new re
 An Instructor may add a Question directly even when a Pool in that Assessment also contains it.
 Do not add Assessment-wide overlap bans or automatic deduplication from this interview.
 
-The selection-count rule is settled. Locate the checks in the trusted membership-edit and
-Assessment paths so removing members cannot leave an issued Assessment with too few candidates.
-Choose the check locations during implementation; this is not another product decision.
+Each Assessment entry stores its selection count. Before release, save incomplete or inconsistent
+editing state and show its specific problem. If the count exceeds the Pool's valid members, show a
+**Pool-use mismatch** for that Assessment and block release. The Pool may itself remain valid.
+Allow its membership save and let the Instructor resolve the affected entry by adding members,
+lowering the count, replacing the Pool, or removing it.
 
-Use **Pool mismatch** for a Pool that no longer satisfies its current requirements. Report the
-specific causes: too few members, Discipline/Subject mismatch, duplicate Questions, or another
-existing Pool constraint violation. This replaces the provisional "stale" label. For insufficient
-members, evaluate the requirement against the affected Assessment's selection count; that count
-is not a global minimum for every use of the Pool. Retain trusted checks that prevent invalid
-writes; the mismatch state is not permission to save duplicate members or unusable selections.
-A later Discipline/Subject mismatch must flag the affected Pool and block release until resolved.
-Current admission-only validation is insufficient for this rule.
-Implement the block through the existing Assessment release flow; do not invent a separate Pool
-publication workflow. This decision does not authorize replacing Questions in existing Attempts
-or silently removing incompatible members. If a mismatch develops after an Assessment is already
-released, allow that Assessment to continue as-is. Preserve the existing post-issue limits and
-checks against destructive membership edits; this exception does not authorize creating too few
-members for future Attempts.
+Use **Pool mismatch** for unmet Pool membership requirements, such as Discipline/Subject mismatch,
+duplicate Questions, or another membership constraint. Report the concrete cause and use the
+existing Assessment release check for affected uses. This creates no separate Pool publication
+workflow. Existing Attempts retain selected Questions. If a mismatch develops after release, the
+Assessment continues as-is; established post-issue editing restrictions remain. The single rule
+owner is [QUESTION_POOL_SPEC.md](../../QUESTION_SPECS/QUESTION_POOL_SPEC.md).
 
 ## Approach
 

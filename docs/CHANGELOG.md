@@ -9,6 +9,369 @@
 
 ## 2026-10-05
 
+### Documentation
+
+- Corrected the search specs' treatment of current API names: they are implementation evidence,
+  not compatibility requirements. Added naming alignment to TODO across schema, Rust, TypeScript,
+  JSON, API consumers, and tests, including Library search and Blueprint Course Revision Tuple.
+
+- Standardized Blueprint Course Revision Tuple in Rust comments and assertion text, JavaScript
+  test names, the semantic-contract registry, and the historical docs identified by Neil.
+
+- Checked the reviewer follow-up against current HG. Clarified publication Type requirements,
+  copied fork fields, Watch wording, and the Questions a Pool contains. Kept Library Object and
+  Blueprint Course Revision Tuple; retained notice removal as implementation follow-up.
+  All 1,237 HG/checklist bullets align; 451 documentation checks passed.
+
+- Aligned supporting Question, identity, lifecycle, architecture, database, privacy, and security
+  docs with HG: complete Revision records, ordinary reusable Pools, separate Assessment count
+  problems, Library Object terminology, metadata ownership, and confirmed Sysadmin access.
+  Kept citation format and the initial search default unsettled. Recorded the alignment in the
+  settled-decision review; existing TODO items retain the implementation work.
+
+- Restored Library Object wording wherever rules apply equally to Published Questions and
+  Question Pools, including Instructor workflows. The terminology rule now expands the names
+  only when defining Library Object or distinguishing its two kinds. All 1,237 checklist bullets
+  match HG; 451 documentation checks passed.
+
+- Kept Blueprint Course Revision Tuple and Library Object as established terms. Clarified
+  Instructor-facing editor/search wording, removed the duplicate Pool classification-problem
+  bullet, separated Pool contents from the number each Assessment selects, and simplified the
+  metadata ownership rule. All 1,237 checklist bullets match HG; 451 documentation checks passed.
+
+- Kept citation format deferred in the Question metadata spec and open-question log. Labeled
+  existing URL/text bounds as implementation details; HG retains the simple term citation.
+
+- Simplified Question definitions, Pool fork wording, Edit Number guidance, and statistics wording.
+  Replaced vague source information with citation. Removed current-state phrasing for Pools
+  from HG and supporting specifications; the tuple set and Save rules describe the Pool.
+  All 1,238 checklist bullets match HG; 451 documentation checks passed.
+
+- Applied the final HG wording corrections: defined Question, kept metadata on Draft and Published
+  Question records, simplified Pool selection/Save/problem reporting, removed extra fork recipes,
+  included Pool statistics, and adopted Blueprint Course Revision Tuple. Aligned supporting docs
+  and TODO; all 1,238 checklist bullets match HG and 451 documentation checks passed.
+
+- Simplified awkward HG wording across interfaces, Pools, revisions, Backends, retention, and
+  Assessments. Used direct wording for settled permissions and kept unresolved choices tentative.
+  Used Library Objects for shared Question/Pool rules and aligned the terminology guidance.
+  Preserved checklist evidence; all 1,241 bullets match HG and 451 documentation checks passed.
+
+- Qualified Question wording in HG where publication, exact Revisions, or Pool inclusion matters.
+  Library search and Assessment editing name Published Questions and Question Pools; runtime
+  wording stays generic. Simplified the Pool Save and release guidance into three plain bullets.
+  Updated terminology and checklists; 451 documentation checks passed.
+
+- Documented Sysadmin confirmation and audited access to FERPA-sensitive Student data, with
+  implementation follow-up in TODO. Clarified shared Revision rules and used Blueprint Revision
+  Tuple for exact Blueprint identities. Simplified Native JSON wording and the Question definition,
+  and specified Published Question metadata in HG and its checklists. Kept Revision publication
+  authority separate from the rules defining which changes create a Revision.
+  HG/checklists match; 451 documentation checks passed.
+
+- Reviewed settled Question-spec claims against exact HG wording. Corrected publication scope,
+  Type/backend generalization, Bloom transport requirements, Pool mismatch wording, and the
+  feedback exception. Separated Pool attestation, Native JSON limits, and statistics counters
+  from approved product rules; closed stale Q32. Recorded the four-way authority review and
+  focused implementation follow-up. Application code and schema are unchanged.
+
+- Kept HG Question Archive behavior explicit: read-only, removed from normal discovery, existing
+  references preserved, restorable, and forkable. Placed the shared Question/Blueprint simplicity
+  principle immediately after it, with GitHub as the general model. Updated checklists.
+
+- Applied Neil's final short Archive rule: an ordinary Question becomes read-only and leaves
+  normal discovery, preserves existing references, and can be restored or forked. Replaced
+  intermediate Archive interpretations in current specs and recorded the final rule in Q39.
+
+- Clarified Archive as preservation of Questions that cannot safely be deleted, with normal
+  active discovery excluding archived Questions and existing references retained. Kept new-use
+  restrictions outside implied Archive behavior. Made the search default explicitly tentative
+  and removed unapproved cross-Revision statistics requirements from terminology, design, and
+  data-policy docs; recorded implementation follow-up in TODO.
+
+- Traced stored notices from August 29 HG wording through September 17 SQL/API implementation
+  and October 4 thread removal that retained notices. Recorded commit evidence, the expanded
+  design rationale, and current code locations in the Question-spec authority audit. Static
+  history review; no application changes or runtime acceptance claim.
+
+- Recorded Neil's fork-and-fix answer for Question/Pool problems. Removed manually written
+  notices from HG Watch events and current specifications; retained notifications for Revisions,
+  forks, and Pool membership edits. Added removal of existing notice code to TODO. Docs only.
+
+- Rechecked the Question uncertainty log before further interviewing. Corrected residual
+  Assessment-owned Pool wording, removed unsupported certainty about Archive blocking new
+  selection, and labeled the existing Bloom sorting restriction as implementation evidence.
+  Recorded the remaining notice-feature question and source evidence in the authority audit.
+
+- Corrected the mistaken fork-license finding: a Question fork starts with its source license,
+  with no license choice during forking. Removed the proposed compatibility change and its code
+  TODO, withdrew F06, and aligned HG, the fork spec, contracts, and audit records.
+
+- Corrected the three remaining Question-spec authority findings. Shared metadata belongs to the
+  complete Question record; Native JSON duplicate fields are labeled current implementation
+  evidence. Question fork rules preserve attribution and compatible licensing; the exact-license
+  SQL lock remains in TODO. Recorded Neil's further direction in HG: WeBWorK Type is assigned
+  manually for now and automatic detection is deferred. Aligned specs, contracts, examples,
+  checklists, and audit status. Application code and schema are unchanged.
+
+- Traced the Assessment-owned Pool model from September 14 HG wording through the September 15
+  agent-authored SQL restrictions, September 16 Blueprint reuse restrictions, and September 18
+  current-state conversion. Added commit references, session timestamps, recorded reasons, and
+  limits on attribution to the fork audit. This is historical evidence, not a new product decision.
+
+- Audited fork storage and creation across SQL, Rust, TypeScript, tests, fixtures, and docs.
+  Recorded five fork-named tables and confirmed special Assessment-owned Pool constraints,
+  forced Pool copies, Blueprint reuse restrictions, and matching API/domain types. Question and
+  Blueprint creation use ordinary records and child Revision 1 in the inspected paths. Added
+  [FORK_MODEL_CODE_AUDIT_2026_10_05.md](active_plans/reports/FORK_MODEL_CODE_AUDIT_2026_10_05.md)
+  and focused TODOs for a direct pre-production schema correction, parent fields, retry records,
+  Pool metadata copying, and tests. All 450 documentation checks pass. Static audit only;
+  application code and schema are unchanged, and no runtime tests were run.
+
+- Recorded Q36 and aligned HG and the Library spec with four agreed credit measures:
+  graded-response count, average stored credit, full-credit percentage, and zero-credit
+  percentage. Removed unsupported answer-choice statistics and cross-Revision summaries from
+  the Library spec, retained usage frequency and privacy requirements, and queued code review
+  in TODO. Recorded Neil's interview rule: derive consequences from existing PLE concepts and
+  settled rules before asking about genuine alternatives. All 449 documentation checks pass;
+  HG/checklist align at 1,232 bullets. Application code is unchanged.
+
+- Recorded Q35: include average earned Question credit and its contributing graded-response
+  count. The proposed full-credit and zero-credit percentages remain undecided. All 449
+  documentation checks pass; application code is unchanged.
+
+- Recorded Q34 as a clarification of existing responsibilities: Question statistics use
+  stored Question credit; Assessment settings determine awarded points separately. Withdrew
+  the invented performance-summary name and kept proposed aggregate measures undecided.
+  All 449 documentation checks pass; application code is unchanged.
+
+- Recorded Q33: Question Library statistics should show how often Students received a
+  Question and how much credit they earned. Exact measures remain under discussion; the
+  choice approves no derived difficulty rating or cross-Revision summary. All 449 documentation
+  checks pass; application code is unchanged.
+
+- Recorded the rejected statistics interview premise as Q32: define useful usage and Student
+  performance measures before asking about combined Revision statistics. Neither reporting
+  option was approved; unsupported agent additions remain queued for documentation cleanup.
+  All 449 documentation checks pass. Product rules and application code are unchanged.
+
+- Recorded Q31: shared Question metadata belongs to the complete Question record; Native JSON
+  holds Backend rendering, response, and grading material. Captured Neil's duplication concern
+  and explicit confirmation, queued the spec cleanup, and extended the focused implementation
+  TODO. All 449 documentation checks pass. No source-format or application changes made.
+
+- Recorded Neil's explicit default: new Assessments start with partial credit enabled.
+  Updated HG, its checklist, the Backend and scoring specs, the decision log, and implementation
+  TODO. Instructor control and stored-fraction scoring remain unchanged. All 449 documentation
+  checks pass; HG/checklist remain aligned at 1,230 bullets. Application code is unchanged.
+
+- Renamed the dedicated scoring specs to
+  [MULTIPLE_ANSWER_SCORING_SPEC.md](QUESTION_SPECS/MULTIPLE_ANSWER_SCORING_SPEC.md) and
+  [ORDER_SCORING_SPEC.md](QUESTION_SPECS/ORDER_SCORING_SPEC.md), updated documentation references,
+  and kept their current Native JSON scope explicit. Another Backend may adopt either model
+  explicitly. Scoring rules and application code are unchanged. All 449 documentation checks pass.
+
+- Applied the post-consolidation reviewer cleanup: removed duplicate Pool/Search links and stale
+  Bloom API wording. Removed required Question language from product rules while retaining the
+  actual schema/Native JSON constraint as labeled implementation evidence with a TODO. QTI now
+  leaves its converter handoff undecided, removes the unsupported exact Native JSON mapping,
+  and separates Question content conversion from deferred feedback timing. Aligned active search
+  guidance and interview summaries with per-Assessment Pool-use mismatch. Recorded the findings
+  without adding new HG decisions. All 449 documentation checks pass; HG/checklist remain at
+  1,230 bullets. Code is unchanged.
+
+- Consolidated Question import workflow and API evidence in
+  [QUESTION_IMPORT_SPEC.md](QUESTION_SPECS/QUESTION_IMPORT_SPEC.md), Browse into
+  [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SEARCH_SPEC.md), and deferred
+  bulk-edit workflow/API evidence in
+  [QUESTION_LIBRARY_BULK_EDIT_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_BULK_EDIT_SPEC.md). Removed
+  the three redundant files and updated README, cross-references, plans, and coverage records.
+  Filter semantics, cross-kind behavior, combinations, and count scope remain owned by the filter
+  spec; Search references those rules. Existing implementation details are labeled separately.
+  The prior Pool consolidation remains intact. One-time reference checks and all 449 documentation
+  checks pass; HG/checklist remain aligned at 1,230 bullets. No product redesign or code changes.
+
+- Consolidated all six Pool specs into [QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md),
+  removed the five narrower files, and updated their references. Recorded Neil's replacement
+  model: Assessment entries reference existing Pools and store their own selection counts;
+  explicit forks create regular Instructor-owned Pools. Current edits affect future selections,
+  while existing Attempts retain selected Questions. Aligned HG, its checklist, Library and
+  Course/Blueprint summaries, terminology, contracts, and active handoffs. Recorded Q28/Q29 and
+  the reasons, superseding the earlier automatic-fork answer. Unreleased editing state can be
+  saved with a specific Pool-use mismatch; release validates completeness, and post-issue limits
+  remain. Copied Pool metadata includes existing Bloom fields. Code/API/schema/UI/test work is
+  recorded in one TODO item. All 452 documentation checks pass; HG/checklist match at 1,230
+  bullets. This pass changes documentation only.
+
+- Recorded Neil's acceptance of Draft autosave with a visible saved status so Instructors can
+  return to unfinished work. Updated HG, its checklist, the Draft spec, Q27, and implementation
+  TODO. Automated abandoned-Draft cleanup remains deferred, with no expiration period set.
+  All 457 documentation checks pass; HG/checklist match at 1,217 bullets. Code is unchanged.
+
+- Restored automatic Pool forking when an Instructor adds a Pool to an Assessment. The new
+  Pool belongs to the Instructor and its parent field points to the original, allowing independent
+  editing. Removed the invented reuse-versus-fork choice from the Library and Pool fork specs;
+  aligned HG and its checklist, resolved audit F01 and Q21, and updated implementation TODO.
+  Recorded Draft Save versus autosave as undecided; expiration remains unspecified and automated
+  cleanup deferred. All 457 documentation checks pass; HG/checklist match at 1,216 bullets.
+  Application code is unchanged.
+
+- Recorded Neil's clarification that Drafts have no content or metadata requirements. Aligned HG
+  and the Draft, Backend, Type, metadata, Native JSON, WeBWorK, and import specs: empty, incomplete,
+  or broken content can be created, imported, and saved; complete source and required metadata
+  are checked at publication. Closed audit finding F02 in documentation, recorded Q26, and added
+  implementation verification to TODO. All 457 documentation checks pass; HG/checklist match at
+  1,216 bullets. Application behavior remains unchanged.
+
+- Audited the Question specification refactor against HG and Neil's explicit decisions. Recorded
+  seven remaining conflicts or unsupported choices in
+  [QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md](active_plans/reports/QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md),
+  including the agent's overreach when changing automatic Pool forking during an ownership
+  correction. Linked the findings from earlier reports and the decision log. This pass changes
+  audit records only; product rules and code remain unchanged. All 457 documentation checks pass;
+  HG/checklist match at 1,215 bullets. The findings remain open.
+
+- Corrected the Question record and Pool model after Neil's review. Each Question Revision is a
+  complete record with permitted in-place metadata edits. Backend Type classification and Bloom
+  use ordinary metadata editing; Native JSON Type follows its source. Pool forks are regular
+  reusable Pools with Instructor owners and parent pointers. Pool saves replace current state,
+  with no undo; Edit Numbers serve concurrency only. Aligned HG, the Question specs, terminology,
+  concurrency, and API summaries. Recorded schema/application work in TODO and set aside the
+  archive edge case. All 456 documentation checks pass; HG/checklist match at 1,215 bullets.
+
+- Removed the three obsolete Question Model, Question ID, and Question Backend navigation
+  files at Neil's request. Updated Markdown links to the current QUESTION_SPECS owners.
+  Recorded that Backends always calculate and PLE stores earned credit; Assessment partial-credit
+  changes recalculate all Attempts from stored fractions without regrading. Clarified saving valid
+  MATCH and MULTI-FIB responses with unanswered parts. Implementation remains in TODO.
+  All 456 documentation checks pass; HG/checklist match at 1,211 bullets. Application code is unchanged.
+
+- Added [ORDER_SCORING_SPEC.md](QUESTION_SPECS/ORDER_SCORING_SPEC.md)
+  for Neil's equal-weight position and relative-order scoring rule. Included the pair comparison,
+  inversion explanation, permutation and swap tables, and exact reversed-order behavior.
+  Closed Q20, aligned HG and related specs, and recorded implementation work in TODO.
+  One-time arithmetic checks reproduced the tables across 5,910 permutations. All 459
+  documentation checks pass; HG/checklist match at 1,207 bullets. Application code is unchanged.
+
+- Recorded the Native JSON grading map: MC and HOTSPOT all-or-nothing, NUM tolerance, FIB
+  accepted answers with regex support, and MULTI-FIB as independently graded FIBs. Closed Q19
+  and opened the relative-order question for ORDER. Regex support and MULTI-FIB partial-credit
+  implementation remain in TODO. All 458 documentation checks pass; HG/checklist match at
+  1,206 bullets.
+
+- Continued the Question-spec decision review: scoped the accepted Matching formula to
+  Native JSON with Assessment partial credit enabled, corrected stale MA decision-log wording,
+  and opened Q19 about MULTI-FIB grading. Existing all-or-nothing code remains evidence of
+  current behavior rather than an approved teaching rule. All 458 documentation checks pass;
+  HG/checklist match at 1,202 bullets.
+
+- Settled Native JSON Multiple Answer partial credit with the linear choice-count multiplier
+  on both too-few and too-many selections. Updated the dedicated spec, current references,
+  decision log, and implementation TODO. All 20 supplied examples pass; one-time arithmetic
+  checks cover 45,880 valid count combinations and confirm score bounds and selection behavior.
+  All 458 documentation checks pass; HG/checklist remain aligned at 1,202 bullets.
+
+- Created the dedicated Native JSON Multiple Answer scoring spec for Neil's supplied
+  cancellation-plus-squared-penalty rule. Recorded Backend ownership and Assessment
+  Instructor control of partial credit. Verified the worked examples and flagged two
+  conflicts: adding a correct selection can lower credit, and selecting everything can
+  earn 72% for nine correct out of ten. Formula correction remains open. All 458
+  documentation checks pass; HG/checklist match at 1,202 bullets.
+
+- Updated the preferred Multiple Answer formula to the symmetric average penalty, retaining
+  Neil's "probably the strongest candidate so far" qualification. Recorded unequal answer-key
+  examples and the change from zero credit to less than 50% for selecting everything when
+  incorrect choices exist. One-time arithmetic checks cover the six supplied examples and
+  1,640 answer-key compositions. All 457 documentation checks pass; HG/checklist match at
+  1,201 bullets. Grading implementation remains in TODO.
+
+- Reopened the Multiple Answer grading decision in the uncertainty log. Recorded Neil's two
+  candidate deductions and the uneven-answer-key examples; the final formula remains open.
+
+- Aligned Sysadmin authority across HG, authorization, security, terminology, API, and data
+  docs: full administrative access includes Course and Student records; support work is
+  recorded for audit. Removed conflicting scoped-access wording and retained implementation
+  follow-up in TODO. All 457 documentation checks pass; HG/checklist match at 1,201 bullets.
+
+- Kept HG focused on positive product guidance: removed rejected-filter commentary and a
+  redundant search-syntax warning, and recorded the writing rule. The decision log retains
+  the removal reason. All 457 documentation checks pass; HG/checklist match at 1,203 bullets.
+
+- Recorded Multiple Answer partial credit: fraction of correct choices selected minus fraction of
+  incorrect choices selected, with a minimum of zero. Neil's five-correct-among-ten example earns
+  zero when all ten are selected. Implementation remains in TODO. Documentation checks pass;
+  HG and its checklist match at 1,205 bullets.
+
+- Settled proportional Matching grading: equal credit per correct pair, wrong or blank pairs
+  zero, no additional deduction. Replaced the unsupported all-or-nothing requirement and recorded
+  Native JSON grader and incomplete-response changes in TODO. Other Types remain separate
+  decisions. All 457 documentation checks pass; HG and its checklist match at 1,204 bullets.
+
+- Clarified Published Question permissions: every Instructor may read, add to an Assessment, or
+  fork; the owning Instructor and Sysadmins may edit. Recorded Sysadmins' full administrative
+  authority and removed conflicting metadata-only, read-only, and critical-flaw restrictions
+  from current specs and authority docs. Unproven tools remain deferred, with implementation
+  follow-up in TODO. All 457 documentation checks pass; HG and its checklist match at 1,203 bullets.
+
+- Recorded Neil's metadata-editing rule: Question owner and Sysadmin, with AI editing tentative
+  because Instructors will do the bare minimum of metadata writing. Replaced the unsupported
+  reference to deferred bulk-edit permissions. Neil clarified that the owning Instructor corrects
+  Bloom; other Instructors may fork Questions, not edit them. Corrected the broader documented
+  Bloom permissions and recorded code follow-up in TODO. Also removed
+  lingering Draft revision-history and HTTP-import claims, and restored HG's archive confirmation.
+  All 457 documentation checks pass; HG and its checklist agree on 1,204 bullets.
+
+- Clarified the common Question workflow in HG, the Draft and import specs, and the implementation
+  TODO: import or write a Draft, preview it, test it, refine it, add the metadata, then publish.
+  All 457 documentation checks pass; HG and its checklist agree on 1,203 bullets.
+
+- Reviewed agent-added assumptions in the Question specs. Made backend-agnostic Draft authoring
+  and testing explicit, corrected fork-Draft revision wording, removed unsupported import tracking
+  and transport requirements, and closed the unnecessary Blueprint Theme question. Current source
+  inspection confirms PG/PGML Draft creation and publication services already exist; the browser
+  authoring and Draft-testing gaps are recorded in TODO.md. No application code changed. All 457
+  documentation checks pass; HG and its checklist agree on 1,203 bullets; whitespace checks pass.
+
+- Revised the first-delivery set to Genetics, Biotechnology, and Biochemistry. Neil currently
+  favors deferring largely incomplete Biostatistics, and explicitly retained Biotechnology.
+  BP.org and Neil confirm only Genetics and Biochemistry have complete source-course coverage.
+  Updated Q08/Q09, the pilot, and Course specs; all 456 documentation checks pass.
+
+- Settled first-delivery Blueprint scope: Genetics, Biotechnology, Biostatistics, and Biochemistry;
+  Molecular Biology and Laboratory come later. Closed Q08 and aligned the pilot and Course specs.
+  All 456 guidance-format and Markdown-link checks pass; this follow-up changes documentation only.
+- Rotated October 2-3 entries into [CHANGELOG-2026-10b.md](CHANGELOG-2026-10b.md) at the size limit.
+
+- Closed the unapproved "Used in my Courses" question and removed its UI/API/SQL support.
+  Offline Rust, frontend, schema, and documentation checks pass. Neil chose to retain these edits;
+  further code work and live verification are tracked in [TODO.md](TODO.md) during the docs review.
+
+- Kept recent HG additions close to Neil's stated intent; moved Pool export packaging and fork
+  search consequences into Design Decisions, and marked the older bulk-edit design deferred.
+  HG/checklist alignment and all 455 guidance-format and Markdown-link checks pass.
+
+- Reworded the latest HG additions closer to Neil's own words and removed the repeated
+  Pool-filter explanation. Forks use ordinary Pool rules. Product decisions are unchanged;
+  HG/checklist diff, consistency, and whitespace checks pass.
+
+- Recorded the Question-spec interview decisions: Pool forks remain Pools, Instructor bulk
+  editing is deferred, base Assessments start from website topics, and PLE does not track later
+  BiologyProblems.org changes. Question export targets another LMS and uses the external
+  `qti-package-maker-rs` library. Pool members stay separate same-Type Questions within the
+  export package. Updated HG, its checklist, focused specs, and the decision log with reasons
+  and firmness. HG diff/consistency, Markdown links, and whitespace checks pass; code is unchanged.
+
+- Replaced competing Question definitions with 31 focused Question specifications, ten
+  BiologyProblems.org source/Course specifications, and a Blueprint import specification.
+  Established shared Library Object rules for Questions and Pools, preserved the canonical
+  hyphen/public SHA-256 ID rule, and separated Native JSON from QTI interchange. Old rule-owner
+  paths now link to their replacements. Recorded specification conflicts, implementation gaps,
+  and unresolved choices without designing import recovery. HG remains unchanged. Markdown
+  links, JSON example syntax, and whitespace checks pass; no runtime compliance is claimed.
+  A further HG fidelity review restored omitted MATCH, Pool creation, archive, and Profile-image
+  rules; removed unsupported fork-ID allocation timing and Assessment-Pool filter claims; and
+  recorded the unresolved filter scope with its authority evidence.
+
 ### Behavior or Interface Changes
 
 - Named Instructor screenshots by visible PLE location and state: removed redundant laptop
@@ -110,6 +473,13 @@
   frontend gate, independent review, and current-source live Blueprint screenshot pass.
 
 ### Fixes and Maintenance
+
+- Clarified Question metadata and fork fields; separated the Pool tuple-set definition from its
+  one-Revision-per-Question rule. Aligned HG wording and checklists; 451 doc checks passed.
+
+- Reconciled all Question decision-review findings and the fork audit with concrete implementation
+  TODOs. Clarified Pool Save, release checks, nullable Bloom, metadata ownership, and statistics;
+  corrected stale API/default/storage claims. Docs only; 451 documentation checks passed.
 
 - The live Library API gate now checks global pagination separately from the eight known Pilot
   Questions, which it locates by exact title. It no longer assumes the Pilot is the entire
@@ -486,283 +856,3 @@
 - Both guidance-format tests pass. The implementation checklist and its counts
   remain the pre-interview snapshot; no runtime compliance is claimed for the
   clarified onboarding behavior.
-
-## 2026-10-03
-
-### Behavior or Interface Changes
-
-- Applied the actionable specialist review findings: widened Tier 1 shoulder
-  curves, softened its upper corners, and simplified the content sheet edge.
-  Ribbon overflow chevrons now scroll their own row by pointer or keyboard
-  without changing selection. Blueprint detail puts primary teaching actions
-  and reusable structure ahead of stewardship and classification; return and
-  classification actions use compact, aligned placement.
-
-- Strengthened active/inactive surface separation in both Ribbon tiers across
-  all themes and display modes. A small shared surface stylesheet keeps the
-  value step adjustable while preserving curved Tier 1 and square Tier 2 joins.
-  Inactive labels retain their contrast; keyboard focus now stays clear against
-  both surfaces. Human Guidance records surface distinction separately from text
-  accessibility.
-
-- Refined the Ribbon and content as one composition: broader borderless Tier 1
-  shoulders, square open Tier 2 joins, better label spacing, and tinted bar
-  surfaces. Added a quiet outer content rail, removed the competing breadcrumb
-  rule, and softened Course section dividers. Connected surfaces repaint
-  together during theme changes. Navigation and row reservations stay stable.
-- Real-page review exposed an empty media column squeezing text-only records.
-  The shared grid now creates a media track only for an actual image; facts wrap
-  between labels and values. Temporary browser evidence verifies the row width.
-  Primary record links/buttons now reuse the shared primary-action treatment
-  instead of a color-only local rule.
-
-- Corrected Tier 1 to a continuous colored Ribbon with one curved selected
-  file-folder tab flowing into its lower strip. Unselected choices stay
-  integrated into the bar. Tier 2 flows into content with square corners.
-  Both tier treatments remain modular and selection keeps stable geometry.
-
-- Ribbon polish shades inactive folders consistently in light and dark,
-  gives desktop folder labels more space, softens their corners, and quiets
-  the Tier 2 divider. Selected tabs retain their stronger labels and edges.
-  Both tier treatments stay independently owned by their small stylesheets.
-
-### Developer Tests and Notes
-
-- Public Blueprint search results show the owner's verified display name as
-  Author. Institution stays off that row because one global installation has no
-  institution boundaries.
-- `devel/human_guidance_checklist.py --evidence` checks the assembled checklist.
-  Every verified bullet needs a locating source, test, or runtime symbol, and a
-  runtime-required bullet also needs test or runtime evidence.
-- The implementation checklist now matches Human Guidance at 1065 verified
-  bullets, 27 open bullets, and 54 items that are not product behavior, across
-  1146 bullets. Blob `3da3a20cb34ed9c01346835de5b55a6da92a98e8`. The duplicate
-  breadcrumb probe left the permanent suite; the ribbon contract test keeps
-  that behavior. A later re-audit found no added, removed, or changed bullets.
-  All nine part gates exited 0, and `--diff` and `--consistency` exited 0 twice.
-  The role-badge open row now states both current readings: badge left of the
-  logo, or logo then badge, with phones omitting the product name.
-
-- Review fixes pass existing theme/density, responsive, style-ownership,
-  TypeScript, and focused lint gates. Responsive coverage now checks actual
-  pointer/keyboard overflow navigation. One-time live checks verify narrow
-  Instructor pages and Blueprint editor access. Regenerated all 246 screenshots
-  directly and rebuilt the Instructor crop stack after capture completion. See
-  [review fixes](active_plans/reports/ribbon_review_fixes_2026_10_03.md).
-
-- Added separate skill-guided Instructor reviews: an
-  [HCI review](active_plans/reports/ribbon_hci_review_2026_10_03.md)
-  covering task orientation and navigation, and a
-  [CSS creative review](active_plans/reports/ribbon_css_creative_review_2026_10_03.md)
-  covering composition, tab silhouettes, and surface relationships. Each
-  distinguishes screenshot evidence from behavior requiring runtime validation
-  and gives concrete implementation and acceptance recommendations.
-
-- Two independent image reviewers assessed the current Instructor screenshot
-  corpus, all 30 theme/mode samples, representative full pages, and controlled
-  narrow-screen examples. Their separate [review A](active_plans/reports/ribbon_independent_image_review_a_2026_10_03.md)
-  and [review B](active_plans/reports/ribbon_independent_image_review_b_2026_10_03.md)
-  preserve their differing aesthetic judgments. This pass changes review
-  documentation only.
-
-- Reviewed all 30 theme/mode combinations and narrow/full-page compositions for
-  the Ribbon state contrast change. Existing density, text contrast, focus,
-  reduced-motion, responsive, and style-ownership checks pass. The existing
-  all-theme check now protects meaningful surface separation instead of mere
-  color inequality. Refreshed all 246 real-app screenshots directly in
-  `docs/screenshots` and rebuilt the 66-image Instructor crop stack. See the
-  [contrast review](active_plans/reports/ribbon_state_contrast_2026_10_03.md).
-
-- Regenerated all 246 screenshots into staging from a fresh Live Demo and ran
-  the existing Instructor crop-stack script there: 66 images, 1280 by 11748
-  pixels. Capture paths match the manifest. The reused demo had altered Student
-  score state; a fresh seed passed all 27 scenarios. This first run used staging
-  because automatic approval review enforced the earlier publishing boundary.
-- Following the user's destination correction, regenerated all 246 images directly
-  into `docs/screenshots` and rebuilt the Instructor crop stack there after all
-  66 Instructor captures completed. Manifest, receipt, and galleries validate.
-  Screenshot discovery now ignores regular Finder `.DS_Store` files at every
-  corpus directory level; other unexpected entries remain rejected. Existing
-  screenshot contract tests pass. No Git actions were taken.
-
-- Surface refinement passes all-theme density/contrast, responsive, routed-shell,
-  style-ownership, TypeScript, and focused lint checks. Local design comparisons
-  are in the [surface review](active_plans/reports/ribbon_surface_refinement_2026_10_03.md).
-  Screenshots for this pass use staging only; publishing and Git are out of scope.
-
-- Replaced the earlier miniature-folder assertions with the clarified bar/tab
-  surface contract. All-theme contrast, focus, forced colors, reduced motion,
-  responsive, routed-shell, and offline checks pass. See the
-  [file-tab review](active_plans/reports/ribbon_file_tabs_2026_10_03.md).
-- Refreshed all 246 real-app captures on a fresh demo. Final publication resumed
-  after removing Finder metadata from the corpus root; receipt/gallery checks pass.
-
-- Rotated October 1 and September 30 history into
-  [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md), retaining the latest two dates.
-- All-theme light/dark density, responsive, and routed-shell checks pass for
-  the polish. Rendered comparisons and final capture evidence are recorded in
-  [ribbon_polish_2026_10_03.md](active_plans/reports/ribbon_polish_2026_10_03.md).
-
-## 2026-10-02
-
-### Behavior or Interface Changes
-
-- Ribbon tiers use separate small stylesheets: Tier 1 folders float on the
-  Ribbon plane, and Tier 2 rectangular tabs sit on the content edge. The open
-  folder shares its surrounding surface, with shaded siblings; the selected
-  Tier 2 tab joins content. Selection preserves control and row geometry.
-  Phone role badges leave room for the selected folder.
-- One breadcrumb implementation composes the selected Ribbon hierarchy and
-  object ancestry directly. Instructor Course descendants retain My Active
-  Courses or My Inactive Courses from stored lifecycle. Authored labels are
-  preserved, and Attempt links carry their required navigation state.
-
-### Developer Tests and Notes
-
-- Ribbon and breadcrumb model checks passed 30 tests. Live Instructor checks
-  verified active and inactive Course, Students, and Appearance routes, plus
-  keyboard breadcrumb reachability and light/dark navigation accessibility at
-  320, 393, 768, and 1280px. Density, responsive, shell, and style-ownership
-  evidence passed. The clean 246-image corpus and required acceptance stages
-  passed; final review and test-fixture repairs are recorded in
-  [ribbon_review_2026_10_02.md](active_plans/reports/ribbon_review_2026_10_02.md).
-- Screenshot invitation setup confirms roster revocation through its existing
-  modal. Instructor crop stacking runs in its own directory and excludes its
-  previous output. Submitted-Attempt captures select the latest Attempt when
-  a synthetic account has history from earlier replays.
-- Database support-repair assertions inspect append-only audit effects under
-  their table owner inside the rolled-back test transaction, restoring forced
-  row filtering before further API calls. Production access remains unchanged.
-- The connected Unrelease fixture mints its Student Account ID so preceding
-  acceptance cases cannot collide with the permanent public-ID registry.
-- The Blueprint promotion fixture uses the existing Account ID-minting
-  placeholder instead of an invalid fixed Sysadmin ID.
-- The cross-store acceptance script uses its own repository-root variable so
-  loading `source_me.sh` reaches the PostgreSQL/MinIO tests.
-- Screenshot publication keeps `docs/screenshots/instructor/crop-stack.sh` and
-  `stacked-screenshot.webp` beside the Instructor captures. Those review files
-  are not corpus images, and a file in another role folder is still rejected.
-- Ribbon Tier 1 tabs keep one folder box, and the selected tab opens into the
-  Tier 2 surface. Tier 2 controls are smaller separated tabs. A phone-width
-  Tier 2 row uses the full width and scrolls, with an edge fade so a label is
-  not sliced at the scrollport.
-- Ribbon Tier 1 uses folder tabs and Tier 2 uses quieter compact tabs. A
-  descendant page keeps the ancestor Tier 1 tab and Tier 2 control selected.
-  Breadcrumbs follow that hierarchy. Adjacent crumbs collapse only when they
-  show the same name. Course summary reads now include `course_lifecycle_state`
-  so active and inactive Courses select the matching Tier 2 parent.
-- Human Guidance closeout records 1055 verified bullets, 28 open bullets, and 54
-  items that are not product behavior, across 1137 bullets. The Human Guidance
-  blob is `d0614eba06400c7ae00dfcdb73ca0a9e1ed03efc`. The compliance plan now
-  lives at `docs/archive/human_guidance_implementation_compliance_plan.md`. The
-  checklist stays in `docs/active_plans/audits/`.
-- Breadcrumb trails keep the Course and Assessment steps. `presentBreadcrumbs`
-  adds the selected Ribbon tier when a descendant page omitted that destination,
-  and it drops an adjacent crumb that opens the same href.
-- `devel/run_playwright_tests.sh` exited 0 on the canonical Live Demo before the
-  breadcrumb ancestor change. The four registered scenarios passed, and so did
-  Assessment release, Assessment Attempt including WeBWorK reload, Instructor
-  Accounts, support repair, invitation export, and the seeded course browser.
-- Live Demo invitation creation reads `courseInstance.id`. The seeded course
-  browser checks the released Assessment record, the Gradebook table, roster
-  names, and the Unit Review label. The course-seed journey passed on the
-  running Live Demo.
-- The Live Demo support journey reads `support_repair_capability_id` and stamps
-  the copied roster profile at the transaction clock so `updated_at` stays at
-  or after `created_at`. The support journey passed on the running Live Demo.
-- The signed-in top bar is logo, product name, role badge, then Tier 1.
-  Light/Dark and the Profile image stay at the far end. Phones omit the product
-  name and keep logo, then badge. The Profile menu offers Profile settings and
-  Sign Out. A Ribbon contract test checks that order.
-- A verbatim Human Guidance relative link in the implementation checklist resolves
-  from docs/. The same link outside those copies still resolves from the file that
-  contains it. Markdown link and ASCII checks passed.
-- Offline fast checks passed. The empty recorded-JavaScript CDN list is consulted
-  by author-script validation. `cargo clean` brought target/ under 10 GiB.
-- Canonical Live Demo started. The four registered Playwright scenarios passed.
-  The Assessment Attempt journey still fails while reloading a WeBWorK saved
-  response. The Live Demo stack was left running.
-- The Human Guidance checklist records a product question or the unlocked Sysadmin
-  Ribbon layout on every open row. Implementation compliance reports summarize 1041
-  verified bullets, 27 open bullets, and 54 items that are not product behavior.
-  No Live Demo stack was started.
-- Frequent Instructor teaching tasks stay in the Courses, Questions, and Assessments
-  groups. Those tasks are linked. Teaching Operations, Blueprint Updates, Course Setup,
-  and Grade Settings stay future destinations and are not usable links. No Live Demo
-  stack was started.
-- Table shape and clocks follow the schema style rules. Support repair resource class is
-  the enum ple_data.support_repair_resource_class instead of a repeated text check.
-  Source rules report no findings. A disposable database installed the schema and was
-  removed. No Live Demo stack was started.
-- Large Question Library collections stay scannable rows. Each row shows the title, Question
-  ID, discipline, and author together. Search, filters, and title sort run on 13,000
-  Questions, and excluding one term narrows 12,000 to 6,000. No Live Demo stack was started.
-- Expert Question Library syntax narrows a large library. `enzyme -inhibitor` keeps the
-  enzyme term and excludes inhibitor. A disposable database held 12,000 matching Questions
-  and the exclusion left 6,000 within 15 seconds. The database was removed. No Live Demo
-  stack was started.
-- Profile and Sign out stay together in the Profile menu. Ribbon navigation does not
-  repeat Sign out for Student, Instructor, or Sysadmin. A headless browser opened the
-  shipped Ribbon and checked each role. No Live Demo stack was started.
-- A fresh install provisions the Live Demo and the Genetics example by default. The
-  migrator command created Course BCHM 301 and public Blueprint Genetics, Fall Genetics,
-  with 9 topics and 41 Questions. The Live Demo launcher was not started. Disposable
-  Postgres, object storage, and the API were removed.
-- Public identities reject an internal UUID. Account, Course, Assessment, Blueprint, and
-  Question parsers refuse a UUID. Profile hides one. PostgreSQL rejects a UUID Account ID
-  and keeps UABCDEFGM. A disposable database ran the proof and was removed. No Live Demo
-  stack was started.
-- Object storage, its hash, and the retention log keep the canonical public ID. Question
-  ABCD-XEFG is the object path and JSON. Course CIABCDEFGS is the record path and the
-  failure log. A different canonical ID changes the hash. No Live Demo stack was started.
-- Parsing, JSON, routes, and PostgreSQL keep a canonical public ID unchanged. Account
-  UABCDEFGM was stored and reread as that string. A mint placeholder became a different
-  canonical Account ID. Lowercase Account and Question values were rejected. A disposable
-  database ran the proof and was removed. No Live Demo stack was started.
-- Generators and JSON store and transmit only the canonical public ID. Profile displays and
-  copies Account ID U0000035E and hides a lowercase value. A Rust test generated the five
-  typed IDs and rejected lowercase and bad-checksum Account JSON. A browser test copied only
-  the canonical Account ID. No Live Demo stack was started.
-- PLE and WeBWorK issue and grade through one Question Backend interface. Each adapter keeps
-  its source and renderer details. A native Question graded at credit 1 and a WeBWorK Question
-  graded at credit 0.5 through that interface. Deferred iMathAS and H5P stay outside it. No
-  Live Demo stack was started.
-- Question Library stewardship keeps a private Watch and delivers improvement threads and impact
-  notices to current watchers. A new thread records the same timestamp for creation and update,
-  and the discussion read uses the stored thread id. A disposable database executed the Watch
-  inbox contract and was removed. No Live Demo stack was started.
-- Public ID routes check canonical syntax and the embedded checksum before a database lookup.
-  A bad checksum for a Question, Question Pool, Course Instance, Assessment, Blueprint Course,
-  or Account is concealed, and the Store is not called. No Live Demo stack was started.
-- Question Library cleanup of a large import uses shipped search, filters, title sort, and one
-  bulk metadata command. A disposable database loaded 13,000 imported Questions, narrowed them
-  by text, tag, Question type, and license, sorted by title, and retagged the first 1,000. The
-  remaining imported Questions kept their tag. The database was removed. No Live Demo stack was
-  started.
-- The Question Library PostgreSQL acceptance fixture mints Account IDs through the account
-  placeholder. `question_library_search_filters_and_pages_in_postgresql` passed on a disposable
-  database, including both Bloom dimension counts. The database was removed. No Live Demo stack
-  was started.
-- Question Library search keeps both Bloom dimensions useful. Each filter narrows the
-  whole Library, and the report lists every guide value. The Library browser test selects
-  Remember and Factual Knowledge and shows both teaching meanings. No Live Demo stack was
-  started.
-- Library Bloom search shows the guide's teaching meaning for each Cognitive Process and
-  Knowledge Dimension. The database accepts only those six and four values. AI
-  assignment stays deferred and does not block publication. A disposable database
-  executed the vocabulary contract and was removed. No Live Demo stack was started.
-- Reference stays the name for an indirect locator. Current object identities remain Ids
-  and Tuples. A WeBWorK source location remains a Binding. The Question and Blueprint
-  Tuple tests refuse a legacy reference wrapper. No Reference type was added. No Live
-  Demo stack was started.
-- An Instructor can issue a one-hour content support capability for one Course
-  Assessment. The Sysadmin read returns that Assessment's identity, type, title, and
-  status. It omits instructions, Questions, answers, and Student Work. Issuer
-  deactivation conceals the read, and the Sysadmin does not become a Course member.
-  A disposable database executed the contract and was removed. No Live Demo stack
-  was started.
-- An Instructor can issue a one-hour Course support capability to a Sysadmin. The read
-  returns Course identity, term, activity, retention, and Instructor display names. It
-  records the use, rechecks the original Instructor, and does not create Course
-  membership. Content repair stays rejected. A disposable database executed the contract
-  and was removed. No Live Demo stack was started.

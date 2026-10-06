@@ -16,8 +16,19 @@ choices. Existing code provides implementation evidence; it does not settle prod
 The earlier [library_object_documentation_audit_2026_10_05.md](../audits/library_object_documentation_audit_2026_10_05.md)
 identifies integration gaps that the new specifications must make possible to assess.
 
-This task plans documentation. Writing the specifications and changing application code are
-separate tasks. The folder and empty specification files are not created by this planning step.
+## Completion status
+
+The approved specification files are written and the substantive fidelity review has finished.
+The report records authority-backed corrections and unresolved gaps separately from mechanical checks. See
+[Question specifications](../../QUESTION_SPECS/README.md),
+[BiologyProblems.org specifications](../../BIOLOGY_PROBLEMS_SPECS/README.md), the
+[alignment report](../reports/question_specs_alignment_report.md), and the
+[uncertainty log](../decisions/question_specs_open_questions.md).
+Application implementation and runtime compliance remain separate work. Neil clarified that this
+pass repairs specification drift; import protocol design is outside its scope.
+
+This completed plan remains here because `.git` is not writable in this session, preventing the
+required `git mv` into `docs/archive/`. The move was not attempted after the permission check.
 
 ## Final folder structure
 
@@ -27,7 +38,7 @@ docs/QUESTION_SPECS/
     LIBRARY_OBJECT_SPEC.md
     QUESTION_LIBRARY_SPEC.md
     QUESTION_LIBRARY_SEARCH_SPEC.md
-    QUESTION_LIBRARY_BROWSE_SPEC.md
+    QUESTION_LIBRARY_SEARCH_SPEC.md
     QUESTION_LIBRARY_FILTER_SPEC.md
     QUESTION_LIBRARY_BULK_EDIT_SPEC.md
     QUESTION_ID_SPEC.md
@@ -36,11 +47,11 @@ docs/QUESTION_SPECS/
     PUBLISHED_QUESTION_SPEC.md
     QUESTION_FORK_SPEC.md
     QUESTION_POOL_SPEC.md
-    QUESTION_POOL_MEMBERSHIP_SPEC.md
-    QUESTION_POOL_SELECTION_SPEC.md
-    QUESTION_POOL_LICENSE_SPEC.md
-    QUESTION_POOL_FORK_SPEC.md
-    QUESTION_POOL_MISMATCH_SPEC.md
+    QUESTION_POOL_SPEC.md
+    QUESTION_POOL_SPEC.md
+    QUESTION_POOL_SPEC.md
+    QUESTION_POOL_SPEC.md
+    QUESTION_POOL_SPEC.md
     QUESTION_LIBRARY_METADATA_SPEC.md
     QUESTION_CLASSIFICATION_SPEC.md
     QUESTION_BLOOM_CLASSIFICATION_SPEC.md
@@ -50,10 +61,10 @@ docs/QUESTION_SPECS/
     NATIVE_JSON_SPEC.md
     WEBWORK_SPEC.md
     QUESTION_IMPORT_SPEC.md
-    QUESTION_IMPORT_API_SPEC.md
+    QUESTION_IMPORT_SPEC.md
     QUESTION_EXPORT_SPEC.md
     QTI_INTERCHANGE_SPEC.md
-    QUESTION_BULK_EDIT_API_SPEC.md
+    QUESTION_LIBRARY_BULK_EDIT_SPEC.md
 ```
 
 Give BiologyProblems.org content its own specification folder:
@@ -94,21 +105,15 @@ assigned document. Do not compress necessary detail just to preserve the file co
 | `README.md` | Model overview, reading order, document map, authority, and links to related specifications outside this folder. |
 | `LIBRARY_OBJECT_SPEC.md` | Small foundational model: what a Library Object is, its two kinds, shared responsibilities, kind-specific behavior, and links to the detailed rules. |
 | `QUESTION_LIBRARY_SPEC.md` | One global Library; included objects and access; shared Library Object result fields; display modes; selection and picker reuse; Stars and Watches within established scope; links to Search, Browse, filters, and bulk editing. |
-| `QUESTION_LIBRARY_SEARCH_SPEC.md` | Starting and running a text search; supported text and field searches; result order and paging; empty results; navigation; temporary current-page state. Uses the shared filter rules. |
-| `QUESTION_LIBRARY_BROWSE_SPEC.md` | Exploring from Discipline through Subject, Topic, Subtopic, Tags, and Question Types; useful counts; narrowing results; transition into the same Library result display. |
+| `QUESTION_LIBRARY_SEARCH_SPEC.md` | Search and Browse, text syntax, shared results, sorting, paging, navigation, and temporary search state; filter meaning belongs to the filter spec |
 | `QUESTION_LIBRARY_FILTER_SPEC.md` | Each filter's meaning for each object kind; combining filters; Questions in no Pool; default membership; absent values; counts; consistent filtering before sorting and paging. |
-| `QUESTION_LIBRARY_BULK_EDIT_SPEC.md` | Instructor selection and editing of many Library Objects; editable fields; mixed-kind behavior; review of changes; successful and failed edits. |
+| `QUESTION_LIBRARY_BULK_EDIT_SPEC.md` | Deferred Instructor workflow, intended semantics, unresolved mixed-save behavior, and current API evidence |
 | `QUESTION_ID_SPEC.md` | Internal and public IDs; shared Question/Pool public namespace; generation; validation; display; lookup; which actions retain or create an ID. |
 | `QUESTION_REVISION_SPEC.md` | Exact Published Question Revisions; immutable content versus editable metadata; Revision numbering; exact references retained by Assessments and Student Work. Points to the Pool Edit Number rules rather than treating them as Revisions. |
 | `DRAFT_QUESTION_SPEC.md` | Private working content; creation and editing; save behavior; deletion; publication readiness; exact handoff to Published Question creation. |
 | `PUBLISHED_QUESTION_SPEC.md` | Publication and availability; permitted changes; corrections; archive; effects on existing uses. Links to the exact Revision, fork, and ownership rules. |
 | `QUESTION_FORK_SPEC.md` | Forking a Published Question into a private Draft; copied content and metadata; attribution and source reference; ownership; publication under a new Question ID. |
-| `QUESTION_POOL_SPEC.md` | Pool meaning and creation; immediate Library entry; Pool-owned state; Pool Edit Number and save behavior; metadata edit checks; references to detailed Pool rules. |
-| `QUESTION_POOL_MEMBERSHIP_SPEC.md` | Unordered distinct members pinned to exact Question Revisions; shared Type, Backend, Discipline, and Subject; interchangeability; additions/removals; enough members; display sorting. |
-| `QUESTION_POOL_SELECTION_SPEC.md` | Assessment selection count; random selection; new versus resumed Attempts; retained selection evidence; separation from backend randomization. |
-| `QUESTION_POOL_LICENSE_SPEC.md` | Automatic compatible Pool license; allowed member combinations; rejected combinations; preservation of member licenses; deferred license support. |
-| `QUESTION_POOL_FORK_SPEC.md` | New Pool ID and owner; source-Pool reference; copied member Revisions and metadata; independent edits; automatic Assessment forks. |
-| `QUESTION_POOL_MISMATCH_SPEC.md` | Meaning and causes of Pool mismatch; checks and notices; effects on Assessment release; continued operation after release; resolving a mismatch. |
+| `QUESTION_POOL_SPEC.md` | All Pool behavior: current state, membership, metadata, license, references, selection, explicit forks, mismatch, release checks, and evidence. |
 | `QUESTION_LIBRARY_METADATA_SPEC.md` | Authoritative shared field table: meaning, location, type, required/optional status, NULL/empty behavior, assigned/derived values, editing, and applicable object kinds. Links to detailed classification, authorship, and license rules. |
 | `QUESTION_CLASSIFICATION_SPEC.md` | Discipline, Subject, Topic, Subtopic, and Tags; hierarchy and vocabulary rules for Questions and Pools; required and optional classification; changes and their effects. |
 | `QUESTION_BLOOM_CLASSIFICATION_SPEC.md` | Two independent Bloom dimensions; Question Revision versus Pool assignment; NULL while pending; deferred initial AI assignment without a deadline; Instructor corrections and edit checks. Links to the teaching guide. |
@@ -117,10 +122,8 @@ assigned document. Do not compress necessary detail just to preserve the file co
 | `QUESTION_TYPE_SPEC.md` | PLE Question Types and their meanings; required author/import declaration; no NULL Published Question Type; distinction from Backend and source format; common Pool Type. |
 | `NATIVE_JSON_SPEC.md` | Complete internal JSON fields; source examples; supported Question Types; allowed responses; grading rules; validation; answer-choice randomization; presentation; images; permitted JavaScript and dependencies; changes to the internal format. |
 | `WEBWORK_SPEC.md` | PG versus PGML source; algorithmic Questions; backend-owned rendering, interaction, and grading; randomization; saved response/state; resume behavior; feedback limits; connection to the common backend contract. |
-| `QUESTION_IMPORT_SPEC.md` | PLE import workflow; supported input paths; validation; metadata assignment; ownership/authorship and license preservation; assets; resulting Drafts or other explicitly supported objects; partial failures where applicable. |
-| `QUESTION_IMPORT_API_SPEC.md` | Supported authenticated API operations for imported Questions; exact requests and responses; source/assets and metadata; validation; ownership; normal Draft/publication behavior; generated IDs and exact Revisions; failures and repeat requests. |
+| `QUESTION_IMPORT_SPEC.md` | Import workflow, Drafts, publication, generated PLE identities, source mapping, readback, and current implementation evidence |
 | `QUESTION_EXPORT_SPEC.md` | PLE export workflow; eligible content; exact content selected for export; included metadata, attribution, licenses, and assets; supported outputs; unsupported features and known information loss. |
-| `QUESTION_BULK_EDIT_API_SPEC.md` | API for editing shared metadata on selected Library Objects, including both Questions and Pools where supported; requests, responses, authorization, field validation, edit checks, partial outcomes, and errors. |
 | `QTI_INTERCHANGE_SPEC.md` | Format-specific QTI import/export mappings; supported constructs; response and grading mappings; identifiers; assets and packaging; unsupported constructs; preservation and loss of information. |
 
 The ten files in `BIOLOGY_PROBLEMS_SPECS/` have these responsibilities:
@@ -166,7 +169,7 @@ This specification serves any supported Course importer, including BiologyProble
   `QUESTION_POOL_SPEC.md` owns Pool Edit Numbers. Fork specifications own the copying operation
   and refer to those definitions. An Edit Number does not imply retained Pool Revisions.
 - `QUESTION_LIBRARY_BULK_EDIT_SPEC.md` explains bulk editing from the Instructor's perspective.
-  `QUESTION_BULK_EDIT_API_SPEC.md` specifies requests and outcomes. Its scope includes Library
+  `QUESTION_LIBRARY_BULK_EDIT_SPEC.md` specifies requests and outcomes. Its scope includes Library
   Objects, despite the shorter Question filename; it must not assume Question-only editing.
 - Import and Export own PLE workflows. QTI owns the format mappings used by those workflows.
   Naming an export document does not decide that every object or feature can be exported.
@@ -223,7 +226,7 @@ endpoints. If an operation required by the import is missing, document the API g
 that operation instead of bypassing it through direct database writes. This requirement does not
 create a new approval workflow, import queue, or privileged validation bypass.
 
-`QUESTION_IMPORT_SPEC.md` describes the PLE workflow; `QUESTION_IMPORT_API_SPEC.md` owns the
+`QUESTION_IMPORT_SPEC.md` describes the PLE workflow; `QUESTION_IMPORT_SPEC.md` owns the
 concrete API sequence, requests/responses, returned IDs, and errors. The Blueprint Course import
 API specification owns the equivalent Course operations. These specifications may use existing
 endpoints; adding a document does not require a new bulk endpoint or a second publication path.
@@ -422,9 +425,9 @@ terminology rather than carrying it into the new set.
 Create the 31 documents under `docs/QUESTION_SPECS/`, ten documents under
 `docs/BIOLOGY_PROBLEMS_SPECS/`, and `docs/BLUEPRINT_COURSE_IMPORT_API_SPEC.md`
 during the later writing task. Redistribute
-material from [QUESTION_MODEL.md](../../QUESTION_MODEL.md),
-[QUESTION_ID_SPEC.md](../../QUESTION_ID_SPEC.md),
-[QUESTION_BACKEND_CONTRACTS.md](../../QUESTION_BACKEND_CONTRACTS.md), and
+material from [QUESTION_SPECS/README.md](../../QUESTION_SPECS/README.md),
+[QUESTION_ID_SPEC.md](../../QUESTION_SPECS/QUESTION_ID_SPEC.md),
+[QUESTION_BACKEND_SPEC.md](../../QUESTION_SPECS/QUESTION_BACKEND_SPEC.md), and
 [QTI-JSON_OBJECT_FORMAT.md](../../QTI-JSON_OBJECT_FORMAT.md). Retire their duplicated ownership
 after replacements exist; update referring documentation and relevant code comments/tests that
 contain document paths. Preserve implementation evidence without promoting it to product authority.

@@ -13,6 +13,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Guidance bullets should start with the subject when practical, making them easier to scan.
 - Guidance should stay terse and in my own words.
+- Describe intended PLE behavior with positive instructions and omit irrelevant alternatives.
 - Uncertainty should remain when I have not made a final decision.
 - This document uses GitHub Flavored Markdown (GFM).
 - Bullet duplication is acceptable because many agents only skim read one section at a time.
@@ -28,9 +29,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - This section overrides implementation language elsewhere in this document until an item is moved
   out of this section.
 - Much of the Sysadmin functionality beyond creating Instructor Accounts is deferred until concrete needs are established. I know more will be needed, but what is needed is still unproven.
+- Bulk editing of Published Question metadata for Instructors is delayed.
+- Automatic WeBWorK Question Type detection is deferred. Assign the Type manually for now.
 - System-wide settings are deferred; the settings themselves have not been defined.
 - System-wide settings should have their own area, separate from user and Course administration.
-- Regrading submitted responses after a Native JSON answer-key correction is deferred for now; I would probably still defer this.
+- Regrading submitted responses after a Native JSON answer-key correction is deferred for now.
 - When implemented, regrading replaces the previous grading result rather than keeping old grading results. Changing the answer key back runs grading again.
 - The decision about when optional Question Feedback is shown is deferred until I better understand how feedback is used in PLE.
 - all automated daemon backends are deferred until final server location
@@ -46,6 +49,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Assignments.
 - Quizzes and Exams do not use H5P because its runtime exposes answers and correctness to the
   Student browser.
+
+### Deferred content tools and public APIs
+
 - public API for instructors to use AI to control their classes.
 - public API perhaps modeled after BrickLink OAuth `https://www.bricklink.com/v3/api.page?page=auth`
 - I am developing a rust version of qti-package-maker for importing content to Native JSON, see
@@ -132,10 +138,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - BiologyProblems.org content is free and open source.
 - The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
 - All Podman content on the Mac-Studio-36G machine belongs to this project.
-- Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
+- Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed and
+  has provided the script `./devel/prune_podman.sh` for doing the pruning
 - The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
 - PLE should use one global installation with no institution boundaries.
-- Project images and simulated live-stack data are disposable acceptance infrastructure.
+- Project images and simulated test data are disposable and can be recreated for testing.
 - `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
   diagnostics, use `source source_me.sh && python3 local_stack.py`.
 
@@ -143,7 +150,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Account**: A global PLE user account with exactly one User Role.
 - **User Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
-- **Sysadmin**: A PLE administrator who manages the system, creates Accounts after outside vetting, and provides scoped administrative support.
+- **Sysadmin**: A PLE administrator with full administrative authority over the system.
 - **Instructor**: A user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
 - **Student**: A user who enrolls in **Course Instances** and completes Coursework.
 
@@ -170,14 +177,16 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Coursework**: The Student-facing collective term for Weekly Assignments, Unit Review Assignments/Exam Reviews, Bonus Assignments, Quizzes, and Exams.
 - **Assessment Attempt**: One **Student** attempt at a Course Instance Assessment.
 - **Assessment Template**: A reusable set of settings for creating Course Instance Assessments. It contains settings rather than Questions.
-- **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
+- **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and
+  ordering Library Objects in an Assessment.
 - **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, Attempts, late work, and what **Students** can see.
 
 ### Question vocabulary
 
-- **Question**: The general PLE object representing one automatically evaluated question, regardless of its Question Backend.
+- **Question**: A PLE object containing the content, metadata, and Backend information needed
+  to present and grade one automatically graded item.
 - **Draft Question**: A private Question being developed by an **Instructor**. It must pass publication validation before becoming a Published Question.
-- **Published Question**: An immutable-revision Question available for reuse through the global **Question Library**.
+- **Published Question**: A Question with numbered Revisions available for reuse through the global **Question Library**.
 - **Question Revision**: A fixed version of a **Published Question** preserved so Assessments and Student Work can refer to the exact Question delivered.
 - **Question Pool**: A published **Library Object** containing interchangeable **Published Questions** from which PLE selects Questions for a **Student**.
 - **Question Backend**: The component responsible for a Question's rendering, interaction, response handling, grading, feedback, and backend-specific state.
@@ -218,7 +227,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Every Account has exactly one User Role: **Student**, **Instructor**, or **Sysadmin**.
 - User Role is locked and cannot change during the lifetime of an Account.
 - A person who needs more than one User Role uses separate Accounts.
-- Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
+- Instructor Accounts can be deactivated while preserving their content, Course relationships,
+  and historical records.
 - Reactivating an Instructor Account restores access to the same Account and User Role.
 
 ### Instructor role
@@ -246,8 +256,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student Accounts persist across Courses and semesters.
 - A Student Account is global and is not owned by or permanently tied to a Course Instance.
 - Roster import uses institutional email to find an existing Student Account or create one when needed.
-- Each Course Instance has its own course-scoped Student Record and enrollment for the Student Account.
-- Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.
+- Each Course Instance has its own Student Record and enrollment for the Student Account.
+- Student Work, Attempts, submissions, and grades are kept or deleted under the Course retention
+  policy, independently of the Student Account.
 - Removing a **Student** from a Course revokes future Course access but does not immediately delete the Student's Course records or Student Work.
 - Student Work and grades remain subject to the normal Course retention policy after enrollment ends.
 - An **Instructor** can deactivate a Student's access to their Course.
@@ -259,17 +270,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Sysadmin role
 
-- A **Sysadmin** has full administrative authority over PLE.
+- **Sysadmins** have god powers: full administrative authority over PLE.
 - Sysadmins vet **Instructors** and create Instructor Accounts.
 - Sysadmins can help Instructors repair Courses, Students, and content.
 - Sysadmins should be reluctant to get involved in content.
 - The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.
 - Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.
-- **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
-- A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
-- Sysadmin support access should be limited to that support task and recorded for audit.
-- A Sysadmin can initiate support repairs under their own administrative authority; no Instructor permission or grant is required.
-- Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
+- **Sysadmins** can access Course and Student records for administrative work.
+- Before accessing FERPA-sensitive Student data, a Sysadmin confirms that access is needed
+  for administrative work.
+- Sysadmin access to FERPA-sensitive Student data is recorded for audit.
+- Sysadmins use their full administrative access to support Instructors and resolve problems.
 
 ### Future Course roles
 
@@ -287,7 +298,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Important information should stand out from supporting information.
 - Related information should be visually grouped and aligned.
 - Similar pages should place similar controls in consistent locations.
-- A page describes what each record shows and what the user can do. Shared record and page components own the markup, spacing, and reflow, so the same facts and actions stay readable when the page gets narrower.
+- Each page defines what its records show and what users can do. Shared components handle layout
+  and spacing, keeping the same information and actions readable as the page gets narrower.
 - Use headings and action labels that reflect the current state and next useful step.
 - Match feedback wording and visual emphasis to the outcome: success, information, warning, or
   error. Make the result and any next action easy to recognize.
@@ -342,8 +354,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Interaction design
 
-- Use progressive disclosure to keep common tasks compact while making supporting details easy
-  to find.
+- Keep common tasks compact, with supporting details easy to open when needed.
 - Use tooltips for brief supplementary explanations, available on hover and keyboard focus.
 - Tooltips provide brief text; hover previews add too much overhead and slow the interface.
 - Opening a list item opens it in a new browser tab or window, including search results and
@@ -410,7 +421,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course, Assessment, Question, or other item does not change the Tier 2 choices or their order.
 - Tier 1 is a continuous colored Ribbon/bar. Its selected file-folder tab emerges through a contrasting surface and curved shoulders; unselected choices stay integrated into the bar.
 - Tier 1 uses a compact tab silhouette around its label, with curved transitions into the Ribbon surface below it. Keep the Tier 1 surface separate from Tier 2; individual choices are not miniature folders or enclosed cards.
-- The selected Tier 1 reads as the current/open tab. Choose its surface relationship to the colored bar in light and dark themes rather than fixing selection to a darker or lighter color.
+- The selected Tier 1 tab should look open. Choose its color relative to the Ribbon for each
+  Light and Dark theme; the selected tab need not always be darker or always lighter.
 - Tier 2 uses simple rectangular tabs with square corners immediately against the content surface. Its selected tab flows into that surface with a matching background and open bottom edge; unselected tabs stay integrated into their row.
 - Active and inactive tabs in both Ribbon tiers must be clearly distinguishable by surface contrast in every theme and display mode. Inactive tabs visibly recede while retaining readable, enabled-looking labels; text accessibility contrast is a separate requirement.
 - Verify selection visibility from fresh light and dark renders across themes. The active tab should be obvious at a glance without close inspection of its curve, border, or surface connection.
@@ -461,8 +473,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Instructor Profile visibility
 
 - Instructor Profiles are public within PLE to everyone with an Account, including Students.
-- Instructor Profile images appear when viewing Question authors, Question Pool owners, and other Instructor
-  representations; Profile images do not have a separate permissions mechanism.
+- Instructor Profile images appear beside Published Question authors, Question Pool owners,
+  and wherever else PLE shows an Instructor. Profile images have no separate permissions.
 
 #### Student avatars
 
@@ -499,12 +511,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Instructor interface
 
 - The Instructor interface should make frequent teaching tasks fast and easy to find.
-- Keep the teaching content central in authoring and inspection workflows, with metadata and supporting explanations arranged compactly around it.
+- Keep teaching content central when Instructors create or review it. Arrange metadata and
+  supporting explanations compactly around the content.
 - Gradebook rows should identify Students by their Course roster names and Coursework by title, with IDs as supporting information where useful.
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
 - All required Ribbon choices remain visible even when their collection is empty.
-- Required Instructor Ribbon choices whose workflows are unavailable remain visible as unavailable, annotation-free controls. They become usable only when their workflow exists.
+- Required Instructor Ribbon choices stay visible but disabled, without extra annotations,
+  until their pages and actions are available.
 - A working navigation destination remains visible when its collection is empty.
 - A future or unavailable capability should not appear as a usable control until its workflow exists.
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
@@ -512,7 +526,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Instructor pages should be composed around the teaching task rather than collections of padded components.
 - Instructor lists and repeated records should be dense and easy to scan, more like a spreadsheet than cards.
 - Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
-- Instructor lists and repeated records should favor compact rows or tables with clear columns over cards or loosely concatenated text.
+- Instructor lists should favor compact rows or tables with clear columns over cards or
+  text run together without clear separation.
 - At 1280 x 800, Instructor pages should expose enough of the current workflow to minimize unnecessary scrolling.
 
 #### Course interfaces
@@ -537,8 +552,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   associated with that Subject across its other Disciplines.
 - Tags should provide additional filters outside the hierarchy.
 - Search results should use a compact, information-rich layout that supports scanning and comparison.
-- Results should show Course name, classification, author, institution, and useful usage or
-  stewardship signals directly in the result list to support scanning and comparison.
+- Results should show Course name, classification, author, institution, and useful information
+  about Course use and upkeep directly in the list for easy scanning and comparison.
 - Public Blueprint Course search supports sorting by Stars, Watches, Adoptions, number of students
   having taken the course, and most recent edit, plus other relevant search metadata.
 - Number of students having taken the course is an aggregate count, not identifiable Student records.
@@ -553,8 +568,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
 - The Course Editor should show the Blueprint Course structure without editing every Question on one page.
 - Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
-- Only the selected Blueprint Assessment's Questions should appear in its editor.
-- **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.
+- Only the selected Blueprint Assessment's Library Objects should appear in its editor.
+- **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders
+  Library Objects in a Blueprint Assessment.
 - **Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.
 - Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
 
@@ -563,7 +579,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **My Active Courses** should emphasize Course Instances the Instructor is currently teaching.
 - Active Course Instances should make upcoming Assessments and important course activity easy to find.
 - **My Inactive Courses** should keep past Course Instances available without competing with active Course Instances.
-- Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings.
+- Creating a Course Instance from a Blueprint Course preserves its Assessments, Library Objects,
+  and settings.
 - Assessments created from a Blueprint Course start unreleased with dates unset.
 - A Course Instance represents one teaching period and remains Active for at most six months from
   creation.
@@ -574,7 +591,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course banners appear as small centered banners rather than full-width page heroes.
 - An Instructor can upload a Course banner and select a Course Theme from the fixed theme catalog.
 - Course Instance Assessments have two editors:
-  - **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
+  - **Assessment Question Editor**: Selects, adds, removes, and orders Library Objects in an Assessment.
   - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
 
 #### Question interface
@@ -588,12 +605,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Pool creation should show the starting Question and its Discipline and Subject alongside the
   Pool Title field.
 - Creating the Pool includes the starting Question and uses its Discipline and Subject.
-- Adding Questions to a Pool should begin with Question Library results filtered to the Pool's
+- Adding Published Questions to a Pool should begin with Question Library results filtered to the Pool's
   Discipline and Subject.
 
 ##### Search Question Library interface
 
-- **Search Question Library** helps Instructors find specific Questions in a large library.
+- **Search Question Library** helps Instructors find specific Library Objects in a large library.
 - Instructors sometimes explore and sometimes know what they are looking for; the search interface
   should support both.
 - Instructors can begin exploring or searching directly in the shared spreadsheet-style interface,
@@ -604,12 +621,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   the display mode names are not settled.
 - Image-focused boxes can help Instructors find visual Questions.
 - Question Library search should work well with ordinary words by default.
-- Instructors should not need to learn search syntax to use Search Question Library.
-- Results should make it easy to scan many Questions quickly.
-- Results should show the information needed to judge relevance without opening each Question.
+- Results should make it easy to scan many Library Objects quickly.
+- Results should show the information needed to judge relevance without opening each Library Object.
 - Search terms and active filters should remain visible while reviewing results.
 - Clearing or changing part of a search should be quick.
-- Opening a Question list item opens a new tab or window, preserving the search and its position
+- Opening a Question Library list item opens a new tab or window, preserving the search and its position
   in the original tab.
 - The interface should show options by priority without overwhelming new users.
 
@@ -651,13 +667,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ##### Browse Question Library interface
 
-- **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
+- **Browse Question Library** helps Instructors explore Library Objects without knowing what to search for.
 - Browse should help Instructors understand what the Question Library contains.
 - Browse should begin with Discipline and make moving through Subject, Topic, and Subtopic easy.
 - Selecting a Discipline limits browsing to Subjects associated with that Discipline.
 - Browse should also offer Tags, Question Types, and other useful groupings.
 - Browse should show useful counts where they help Instructors choose where to explore.
-- Browse results should use the same dense Question presentation used by Search where practical.
+- Browse results should use the same dense Library Object presentation used by Search where practical.
 - Instructors should be able to move from browsing into a more focused search.
 - Search and Browse are different paths into the same **Question Library**.
 
@@ -668,12 +684,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessment lists should make Course, release status, due date, and other important state easy to scan.
 - **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
 - Assessment editing has two editors:
-  - **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
+  - **Assessment Question Editor**: Selects, adds, removes, and orders Library Objects.
   - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.
 - The two Assessment editors should remain clearly distinct.
-- The Assessment Question Editor should make Question order easy to understand at a glance.
-- Adding Questions should provide direct paths to Search and Browse Question Library.
-- Instructors should be able to inspect a Question before adding it to an Assessment.
+- The Assessment Question Editor should make the order of Library Objects easy to understand
+  at a glance.
+- Adding Library Objects should provide direct paths to Search and Browse Question Library.
+- Instructors should be able to inspect a Library Object before adding it to an Assessment.
 - Instructors should be able to quickly add questions by Question ID to an assessment in bulk.
 - Assessment Properties should group related settings so important settings are easy to find.
 - Present timing settings in familiar units such as minutes, with explicit units and clear
@@ -703,7 +720,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Danger Zone should be visually separate from ordinary editing actions.
 - Assessment Unrelease should explain that Student work will be deleted.
 - Assessment Unrelease should require typing the Assessment title before confirmation.
-- Archive actions should explain the effect on shared availability and require a clear confirmation.
+- Archive actions should explain how archiving affects access to the shared content and require
+  a clear confirmation.
 - Restore actions should use ordinary availability controls.
 
 ### Student interface
@@ -766,7 +784,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Response Stats** should show actual Student response outcomes from submitted Attempts across Assessment Types, subject to per-Question feedback rules.
 - Measured Question display time should be labeled as approximate **time shown with the Question**, with its sample count. It does not measure attention or effort and does not affect grades.
 - Keep Coursework entries compact in height so Students can scan several items at once.
-- Keep essential Coursework information and the main action visible, with fuller access and timing details available through progressive disclosure.
+- Keep essential Coursework information and the main action visible. Make fuller access and
+  timing details easy to open when needed.
 - Coursework lists may provide filters for **Weekly Assignments**, **Unit Review Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.
 - Each Coursework item should clearly show its Assessment Type using its label and Type icon.
 - Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
@@ -828,7 +847,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ## Data and history
 
 - Answers, keys, grading, and correctness decisions should stay on the server, out of reach of **Students**.
-- Public data should stay separate from private, answer-bearing, identifying, or radioactive FERPA data.
+- Keep public data separate from private data, answers, identifying information, and radioactive
+  FERPA data.
 - Human-readable titles and identifiers should be used wherever people must recognize, copy, or enter them.
 - FERPA-sensitive Student data should not become ordinary logs, analytics, URLs, or long-lived browser storage.
 - Opaque IDs remain FERPA-sensitive when they link a Student to Course activity.
@@ -836,7 +856,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Human-facing public IDs
 
 - Public IDs are intended for content creators (Instructors) and for Sysadmins providing Instructor support.
-- Here the public refers to Instructor users and Sysadmins.
+- Here, "public" refers to Instructors and Sysadmins.
 - Human-facing public IDs should be short, opaque, and easy to communicate.
 - Human-facing public IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
 - A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
@@ -860,7 +880,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Human-entered IDs may use lowercase Crockford characters.
 - Human-entered IDs may use `O` or `o` for `0`.
 - Human-entered IDs may use `I`, `i`, `L`, or `l` for `1`.
-- Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
+- When an ID is entered, normalize it to the canonical form, then validate its syntax and checksum.
 - Store, transmit, display, copy, and generate only the canonical form.
 
 #### Public ID checksum
@@ -878,8 +898,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Public ID formats by object
 
-- Published Questions and Question Pools use the public `XXXX-ZXXX` format.
-- Question IDs are the merged concept of Published Question IDs and Question Pool IDs
+- Library Objects use the public `XXXX-ZXXX` format.
+- Question ID is the shared term for Published Question IDs and Question Pool IDs.
 - The hyphen is specific to Question IDs. Other public IDs use a prefix without a hyphen.
 - Published Questions and Question Pools share the same public-ID namespace.
 - An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
@@ -889,20 +909,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Account IDs use `UXXXXXXXZ`.
 - Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
 - Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
-- Account `UXXXXXXXZ` ids are look up values for Sysadmin support.
-- Account `UXXXXXXXZ` ids are only exposed to Students or Instructors only on their profile page.
+- Sysadmins use Account IDs (`UXXXXXXXZ`) to look up Accounts for support.
+- Students and Instructors see their Account ID (`UXXXXXXXZ`) only on their Profile page.
 
 #### Database keys and clocks
 
 - An object with a public ID uses that public ID as its primary key and as the target of every
   foreign key to it.
-- An object without a public ID uses a native UUID primary key, or a composite natural key when
-  it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
+- An object without a public ID uses a native UUID primary key, or a combined key when it is owned
+  by a parent (for example, a Revision identified by its parent object ID and Revision Number).
 - One value that identifies one object is an Id, such as a Public ID or UUID.
 - Multiple values that together identify one exact object, state, or version are a Tuple.
 - Tuple is the general cross-language term and suffix for a composite identity made from multiple values.
 - A Question Revision Tuple is one example: Question ID plus Question Revision Number.
-- A Blueprint Revision Tuple is another example: Blueprint Course ID plus Blueprint Revision Number.
+- A Blueprint Course Revision Tuple is a Blueprint Course ID plus Blueprint Revision Number.
 - Use Reference for a genuine indirect, scoped, or external locator.
 - Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
 - Use the simplest term that accurately describes what the value represents.
@@ -939,13 +959,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Sysadmins** exclusively create and manage the Discipline vocabulary and its lifecycle.
 - Discipline is a stable vocabulary expected to change infrequently.
 - **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
-- **Instructors** may create new Subjects within a selected Discipline.
+- **Instructors** can create new Subjects within a selected Discipline.
 - When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
   offers the existing Subject.
 - PLE requires explicit Instructor acceptance before associating the existing Subject with the
   selected Discipline.
-- **Instructors** may create new Topics within a Subject.
-- **Instructors** may create new Subtopics within a Topic.
+- **Instructors** can create new Topics within a Subject.
+- **Instructors** can create new Subtopics within a Topic.
 - Creating or selecting vocabulary should fit naturally into the classification workflow.
 
 #### Classification selection and discovery
@@ -961,7 +981,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Tags and classification names
 
 - **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
-- Courses and Library Objects may have any number of Tags, including none.
+- Courses and Library Objects can have any number of Tags, including none.
 - Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
 - Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
 - Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
@@ -971,7 +991,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Student** course data falls under FERPA; treat it as radioactive.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - FERPA access should be scoped through exact Course membership and **Student** ownership.
-- **Sysadmins** receive only the FERPA access required for a specific administrative task.
+- **Sysadmins** should use Course and Student records only for administrative work.
 - Student Accounts persist independently of Course data and Course retention.
 - Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
 - Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
@@ -990,20 +1010,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Creating or extending a later Assessment deadline may move those dates, but not beyond the
   six-month Active lifetime.
 - Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
-- The configured FERPA retention policy determines the later notice, archive, recovery, and
-  permanent deletion transitions.
+- The configured FERPA retention policy determines when to send notices, archive Student data,
+  allow recovery, and permanently delete it.
 - PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
   creation.
 - The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
   FERPA retention and deletion.
-- Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
-  delete Student records.
+- A Course becoming Inactive does not itself delete Student records. FERPA deletion follows its
+  own schedule.
 - Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
 - PLE should notify the **Instructor** before FERPA-sensitive Student data is archived.
 - Archived Student data should leave normal Instructor and Student interfaces but remain recoverable during the retention period.
 - FERPA-sensitive Student data should be permanently deleted when its retention period expires.
 - Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-- FERPA retention intervals are operational configuration rather than separate product decisions.
+- FERPA retention periods are set in the server configuration.
 
 ### Course retention processing
 
@@ -1016,20 +1036,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Common revision and history specifications
 
 - Be conservative about creating revisions.
-- Assessments, Course Instances, Draft Questions, and Question Pools use current state.
-- Published Questions and Blueprint Courses have immutable revisions.
-- Mutable working state uses a monotonic sequential Edit Number when needed for concurrency.
+- Assessments, Course Instances, and Draft Questions use current state.
+- Published Questions and Blueprint Courses use numbered Revisions for their saved content.
+- A Revision is a complete database record. Permitted metadata fields can change without
+  creating another Revision.
+- Use an Edit Number when current-state editing needs conflict detection.
 - An Edit Number is only a counter and does not identify a stored historical object.
 - Question and Blueprint Revision Numbers start at 1 and increase sequentially for each object.
-- A Revision Number identifies a specific immutable Revision stored by PLE.
+- A Revision Number identifies a specific complete Revision record stored by PLE.
 - A new Revision keeps the same Published Question ID.
-- Forking a Published Question or Question Pool creates a new public ID.
+- Forking a Library Object creates a new public ID.
 - A Published Question fork starts at Revision 1 under its new ID.
-- A Question Pool fork starts at Edit Number 1 under its new ID; Pools have no Revision family.
+- A Question Pool fork starts at Edit Number 1 under its new ID.
 - Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
 - Student Work records the Student's responses and the grading outcome returned by the Question Backend.
-- For a Question served from a Question Pool, Student Work pins all four: the Published Question
-  ID, its Revision Number, the Question Pool ID, and the Pool's Edit Number at selection time.
+- For a Published Question selected from a Pool, Student Work records the Question Revision Tuple,
+  Pool ID, and Pool Edit Number at selection time.
 - Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
 - Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
 - Immutable Question source and Question Image Assets use SHA-256 checksums where needed to verify their stored contents.
@@ -1053,9 +1075,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Question specifications
 
+- Questions are backend agnostic.
 - Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
   the same Question Library.
-- Questions are strictly and deterministically automated; grading does not require an **Instructor**.
+- Questions are graded automatically. Grading the same response under the same conditions gives
+  the same result and requires no **Instructor** action.
 - Questions have one canonical title. Compact interfaces may truncate that title.
 - Every Question stored by PLE has its own internal Question record.
 - Answer-choice randomization belongs to the Question.
@@ -1063,11 +1087,16 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Draft Question specifications
 
+- The backend-agnostic Question workflow is: import or write a Draft, preview it, test it,
+  refine it, add the metadata, then publish.
+- Drafts are Drafts and have no content or metadata requirements. Those requirements apply at
+  publication.
 - Draft Questions are private working content.
 - Draft Questions are not part of the Question Library.
 - Draft Questions use current state rather than immutable Revisions.
+- Draft Questions autosave with a visible saved status so Instructors can return to unfinished work.
 - Saving a Draft Question replaces its previous working state.
-- **Instructors** may delete Draft Questions they no longer need.
+- **Instructors** can delete Draft Questions they no longer need.
 - PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
 - A Draft Question must pass Question Publication Validation before becoming a Published Question.
 - Question Publication Validation requires Discipline, Subject, and all other required Question
@@ -1077,20 +1106,40 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - PLE flat-question JSON is the canonical machine format for simple static Questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
-- A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
-  Assets.
+- QTI ZIP files, retained QTI archives, and images extracted from QTI packages are import/export
+  files, separate from Question Image Assets.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
+- For Native JSON Matching Questions with partial credit enabled, each correct pair earns equal
+  credit. Wrong or unanswered pairs earn zero, with no additional deduction. Three correct pairs
+  out of five earn 60% credit.
+- Native JSON owns its Multiple Answer partial-credit formula; Question Backends grade their own Questions.
+- Assessment Instructors decide whether to award partial credit. New Assessments start with partial credit enabled.
+- Native JSON MC and HOTSPOT Questions are graded all-or-nothing.
+- Native JSON NUM Questions use a tolerance to judge the answer.
+- Native JSON FIB Questions accept a list of possible answers and support regular expressions.
+- Native JSON MULTI-FIB Questions are multiple independently graded FIBs.
+- Native JSON ORDER partial credit gives equal weight to correct positions and correct relative
+  order. DABC earns 25% for an ABCD answer key.
 - Question Type cannot be NULL. Other required fields must also be present before publication.
-- Question Type is immutable author-declared educational metadata on a Published Question Revision.
+- Native JSON has a built-in Question Type; other Question Backends use Question Type as
+  editable classification metadata.
 - PLE uses Question Type for search, filtering, labeling, and presentation.
-- Question Type comes from the author rather than inference from backend controls.
-- Question importers are transient translators from external formats into PLE-managed Question representations.
+- Use the Type built into Native JSON. Assign WeBWorK Question Type manually for now; automatic
+  detection is deferred. For other Backends, the author or importer supplies the classification.
+- Question importers convert external content into the Question format PLE stores; they are used
+  during import.
+- PLE uses `qti-package-maker-rs` as an external library to handle all of its conversion.
+- Export is for selected Questions to use in another LMS.
+- Once PLE launches, BiologyProblems.org and PLE are no longer connected. PLE no longer cares
+  how BiologyProblems.org changes.
 
 ### Native PLE JSON Question specifications
 
+- Question metadata belongs on the Question record, not in Native JSON.
+- Native JSON contains the Question content needed to display and grade the Question.
 - The native PLE JSON Question format is private, unversioned, and unpublished.
 - Stored native JSON Questions may be upgraded together when the internal format changes.
-- The native PLE JSON Question format is a strictly validated internal source shape without an external API.
+- The native PLE JSON Question format is internal and strictly validated. It has no external API.
 - Native JSON Questions are static, not algorithmic nor random, and receive no random seed.
 - Native PLE JSON supports MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
 - External URLs used by native JSON Questions are explicitly recorded and reviewable.
@@ -1140,10 +1189,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PLE owns and stores the Question representation used for each Question Backend.
 - Imported backend source may be transformed into the form PLE stores and manages.
 - PLE preserves the information needed to reproduce the Question through its backend.
-- PLE-managed Question representations participate in Question revision history.
+- Each Question Revision stores the Question content used by its Backend.
 - Question Backends own rendering, interaction, response, grading, feedback, and backend-specific state.
 - PLE owns authorization, Question ID, revisions, persistence, lifecycle, and stored outcomes.
-- PLE uses the same basic interface for every Question Backend, each backend handles its own internal details.
+- PLE uses the same basic interface for every Question Backend. Each Backend handles its own
+  internal details.
 - Each Question Backend adapter retains its backend-specific interaction knowledge.
 - Question Backends may support more complex interactions without requiring PLE to implement those interactions.
 
@@ -1155,8 +1205,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   interaction feedback.
 - A Question Backend returns an immutable credit fraction for each complete response it evaluates.
 - PLE stores the immutable credit fraction as the grading outcome.
-- When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
-  state.
+- When PLE requests a grading outcome, the Question Backend returns the result in that response.
 - Assessment scores are calculated from stored credit fractions and current Question point values.
 - Changing Question point values recalculates scores without another Question Backend interaction.
 
@@ -1173,8 +1222,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Published Question specifications
 
-- A Published Question is an immutable-revision Question available for reuse through the Question Library.
-- Published Questions are available to all **Instructors**.
+- A Published Question is a Question with numbered Revisions available for reuse through the
+  Question Library.
+- Every **Instructor** can read, add to an Assessment, or fork any Published Question.
+- Only the owning **Instructor** can edit a Published Question; **Sysadmins** can edit any
+  Published Question.
 
 #### Published Question identity specifications
 
@@ -1191,46 +1243,59 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Published Questions have metadata specific to the individual Question.
 - Published Question metadata includes Title and Description.
-- Published Question metadata may include authorship, attribution, license, and source information.
-- Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and
+- Published Question metadata includes its owner, authors, license, and citation.
+- Published Questions can include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
 - Published Questions also use the shared Question Library metadata required for publication.
 
 #### Published Question revisions, edits, and forks
 
-- **Published Questions** maintain immutable revision history.
-- Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
+- Each Published Question Revision is a complete Question record, with permitted fields that
+  can be edited in place without creating a new Revision.
+- Assessments and Student Work record exact Question Revision Tuples. The source and grading
+  content for those Revisions stay fixed.
 - Publishing a new Question Revision does not silently change existing Assessments or Student Work.
-- The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
+- The owning Instructor or a Sysadmin can publish a new Question Revision.
 - Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
   or Question Image Assets creates a new Question Revision.
-- Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
-  search metadata update the Published Question metadata while preserving the current Question Revision.
-- Search metadata belongs to the Published Question as a whole rather than to one Revision.
-- Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
-- A fork starts as a private **Draft Question** with its own authorship and lineage.
+- Editing Title, Description, Discipline, Subject, Topic, Subtopic, Tags, or Bloom updates the
+  current Published Question record and keeps the same Revision Number.
+- A new Question Revision starts as another complete record, carrying forward its attributes
+  except for the changes being published.
+- Any **Instructor** can fork a Published Question. The fork has a new Question ID, its own owner,
+  and starts at Revision 1.
+- A Question fork starts with the source Question's license, authors, metadata, and Question
+  content, and records the source Question as its parent.
+- A fork starts as a private **Draft Question** owned by the Instructor who creates it.
 - A fork must pass Question Publication Validation before joining the Question Library.
 - Published forks retain source attribution.
-- Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-- Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
-- Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.
+- Archive preserves a Published Question that cannot safely be deleted because it is used or referenced.
+- Archive makes the ordinary Question read-only, removes it from normal discovery, preserves
+  existing references, and allows restore or fork.
+- Keep Archive behavior simple for both Published Questions and Blueprint Courses. The less
+  Archive-specific architecture, the better; otherwise follow the GitHub repository archive model.
+- Question authors are preserved across Revisions and forks.
+- Instructors watching a Published Question receive notifications in PLE about new Revisions
+  and forks.
 
 #### Published Question behavior specifications
 
-- Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+- Published Questions can include optional PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
 - PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
-- WeBWorK Questions may use PLE-managed Hints, Question Feedback, and Worked Solutions even when similar material also exists in the WeBWorK source.
-- Question Feedback is shown when its disclosure rules allow it.
-- Hints and Worked Solutions use their own disclosure settings.
-- Student workflows remain complete when a Question has none of this optional support content.
+- WeBWorK Questions can use PLE-managed Hints, Question Feedback, and Worked Solutions even when similar material also exists in the WeBWorK source.
+- Question Feedback is shown when its display settings allow it.
+- Hints and Worked Solutions each have their own settings for when Students can see them.
+- Students can complete a Question with or without Hints, Question Feedback, or Worked Solutions.
 
 ### Question Pool specifications
 
 - A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
-- A Question Pool cannot contain two copies of the same Published Question; selection is random.
-- When editing a Pool, its member Questions should be sortable like a spreadsheet.
-  Ordering is for display, not Pool membership or random selection.
-- Pool contents should represent reasonably interchangeable assessments of the intended learning.
+- A Question Pool cannot contain two Revisions of the same Published Question.
+- When editing a Pool, Instructors should be able to sort its Published Questions like a
+  spreadsheet. Sorting changes only the display; it leaves the Pool contents and random selection
+  unchanged.
+- Published Questions in a Pool should be reasonably interchangeable for assessing the intended
+  learning.
 - All members of a Question Pool use the same Question Backend.
 - All members of a Question Pool have the same Question Type.
 - Question Pools are created from a Published Question and enter the Question Library immediately.
@@ -1238,31 +1303,45 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   The Instructor who owns it is its owner.
 - Question Pools are available to all **Instructors**.
 - A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID.
-- A Question Pool is a current unordered set of exact Published Question Revisions plus its
-  metadata. Saving membership changes re-attests interchangeability and advances the Pool's
-  Edit Number; no Revision is created. Removing ten Questions and saving once is one Edit.
+- For forking, we are mostly using the GitHub model.
+- Changes to a Pool take effect when the Instructor saves them. There is no undo after saving.
+- A Pool Edit Number is only a counter and does not identify a stored historical Pool.
+- A Question Pool is an unordered set of Question Revision Tuples plus its metadata.
+  When the set changes, saving advances the Pool's Edit Number; no Revision is created.
+  Removing ten Questions and saving once is one Edit.
 
 #### Question Pool use and selection
 
-- Importing a Question Pool into a new Assessment automatically forks the Question Pool.
-- The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
-- Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
+- An Assessment can use an existing Question Pool and specifies how many Questions to select from it.
+- The number selected belongs to the Assessment, not the Pool.
+- Adding a Question Pool to an Assessment uses that existing Pool; adding it does not create a fork.
+- One Assessment or hundreds can reference the same Pool. Its owner stays the same.
+- Pool changes affect future selections wherever that Pool is referenced. Existing Attempts retain
+  the Questions already selected for them.
+- Forking a Question Pool is an explicit action used when an Instructor wants an independent Pool.
+- A Pool fork is a new Question Pool with a new Pool ID and its own owner, and records its source Pool.
+- A Pool fork begins with the parent Pool's current Question Revision Tuples
+  and starts at Edit Number 1.
+- A Pool fork is a normal reusable Question Pool and can be used in any number of Assessments.
+- A Pool fork has its own Instructor owner and can be changed without changing its parent Pool.
 - Question Pools work the same way regardless of the Question Backend.
-- **Instructors** choose the contents of a Question Pool and how many Questions are selected.
-- PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
-- An Assessment must have enough Questions in each Pool to satisfy its selection count,
-  including after members are removed.
+- **Instructors** choose the Questions in a Pool. Each Assessment specifies how many Questions
+  to select from it.
+- PLE randomly selects from the Question Pool; the selected Question Backend controls the Question interaction.
+- At release, each Pool must contain enough valid Published Questions to provide the number
+  the Assessment requests.
 - Question Pool selection and backend-native randomization are separate forms of variation.
 - Returning to an Attempt preserves the Question Pool selections already made.
 - Starting a new Attempt makes fresh selections from its Question Pools.
-- Student Work pins the Published Question ID, its Revision Number, the Question Pool ID, and the
-  Pool's Edit Number for every Question served from a Pool; the pinned Published Question
-  Revision is all that later interpretation and grading need.
+- For each Published Question selected from a Pool, Student Work records its Question Revision
+  Tuple, the Pool ID, and the Pool Edit Number. That Question Revision provides what PLE needs
+  to interpret and grade the response later.
 - Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
 - Each Question Pool member retains its own owner and authors; owners and authors may differ between members.
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
-- Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
+- Instructors watching a Question Pool receive notifications in PLE when its Questions change
+  or when it is forked.
 
 - Each Question Pool must have one license compatible with every member Question's license; its license cannot be "Mixed".
   PLE calculates this license automatically from the member licenses and rejects incompatible combinations.
@@ -1277,19 +1356,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The first Published Question establishes the Question Pool's Discipline and Subject.
 - Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
   Topic and Subtopic do not have to match.
-- **Pool mismatch**: The Pool no longer satisfies its current requirements.
-- Pool mismatch causes include too few member Questions, member Discipline or Subject mismatch,
-  duplicate Questions, and other Pool constraint violations. Show the specific cause.
-- If a member's Discipline or Subject changes so it no longer matches the Pool, flag a
-  Pool mismatch and prevent release of an affected Assessment until the mismatch is resolved.
-- If a Pool mismatch develops after an Assessment is already released, allow that Assessment
+- A Pool must continue to meet its requirements. Show the specific problem when a Published
+  Question's Discipline or Subject differs from the Pool's, the same Published Question appears
+  more than once, or another Pool requirement is not met.
+- If an Assessment asks for more Questions than a Pool can provide, show the problem and block
+  release. The Pool itself may still be valid.
+- If a Pool develops a problem after an Assessment is already released, allow that Assessment
   to continue as-is.
 - Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
   when included in a Question Pool.
 - A Question Pool identifies its owner and its source Pool when forked; it has no separate Author field.
 - Question Pool metadata describes the Pool rather than duplicating metadata from its member
   Published Questions.
-- Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
+- Question Pools can include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
 - Question Pools also use the shared Question Library metadata required for publication.
 
@@ -1297,14 +1376,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
 - The Question Library is one global collection of Published Questions and Question Pools.
-  Both appear in the same combined search, with filters for Questions, Pools, and Pool membership.
+  Both appear in the same search, with filters for Published Questions, Question Pools,
+  and whether a Published Question belongs to a Pool.
 - Search supports a "Questions in no Pool" filter: Published Questions that belong to no Pool.
 - Default searches would probably be best showing Questions in no Pool together with Question
   Pools; showing individual Pool members as well adds significant noise.
 - Search filters can also include individual Pool members so Instructors can find all
   Published Questions.
 - Draft Questions are not part of the Question Library.
-- **Published Questions** and Question Pools are available to all **Instructors**.
+- **Library Objects** are available to all **Instructors**.
 - **Students** access Question content through their Coursework rather than through the Question Library.
 - Question Library content remains discoverable when used by a private **Course Instance**.
 - With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
@@ -1316,36 +1396,38 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Question Library metadata
 
 - **Library Objects** use shared metadata for organization, search, filtering, and discovery.
-- Instructors may not have the attention to detail to fill out all metadata; assign metadata
-  automatically where possible and require the remaining required content before publication.
+- Instructors may not fill out all metadata. Assign it automatically where possible and require
+  the remaining necessary information before publication.
 - Required Question Library metadata must be complete before a Library Object enters the Question Library.
 - Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
 - Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag**
   vocabulary.
 - Every Library Object has exactly one **Discipline** and one **Subject**.
 - **Topic** and **Subtopic** are optional for Library Objects.
-- Library Objects may have any number of **Tags**, including none.
+- Library Objects can have any number of **Tags**, including none.
 - Question Publication Validation requires Discipline and Subject before publication.
 - Library Object classification follows Discipline -> Subject -> Topic -> Subtopic.
-- Questions and Question Pools retain their Library Object classification when used in an Assessment.
+- Library Objects retain their classification when used in an Assessment.
 - Library classification supports searching, filtering, sorting, and bulk editing.
-- Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+- Library Objects can have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
 - Support content may be attached at the level where it applies rather than duplicated across individual Questions.
 
 #### Question Library object usage statistics
 
-- Published Questions and Question Pools keep privacy-safe aggregate usage statistics.
-- Statistics are kept separately for each Published Question Revision and for each Question
-  Pool.
+- Library Objects keep privacy-safe aggregate usage statistics.
+- Keep statistics separate for each Published Question Revision and each Question Pool.
 - Aggregate statistics contain counts and sums, never Student Attempts or identifiable Student
   records.
-- Instructors should be able to judge how often a Question is used and how hard it is.
+- Statistics show how often Students received each Published Question Revision or Questions from
+  each Pool and how much credit they earned.
+- Include the number of graded responses, average earned credit, and percentages earning full credit and zero credit.
+- Use the stored Question credit fraction for these statistics; Assessment settings determine awarded points separately.
 - Removing Student names alone does not make statistics anonymous.
 - Shared statistics should be shown only when individual Students cannot reasonably be identified
   from the aggregate.
 - Course-specific analysis remains FERPA-sensitive when individual Students could be inferred.
-- Schema and increment rules live in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and
-  [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
+- Database details and rules for updating statistics are in
+  [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
 
 #### Question Library Bloom classification metadata
 
@@ -1354,29 +1436,32 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The two Bloom dimensions are independent and together determine the object's Bloom Classification.
 - Bloom Classification supports Question Library search and Assessment item sorting.
 - A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
-- Bloom Classification is left blank when a Published Question or Question Pool enters the Question
-  Library, to be updated by AI later.
+- Bloom Classification starts blank for new content awaiting AI assignment. A Pool fork copies
+  the parent Pool's existing Bloom fields along with its other Pool metadata.
 - Bloom Classification may be NULL while awaiting AI assignment. Do not enforce a time limit.
 - AI assigns the initial Bloom Classification using a daemon after publication.
-- An **Instructor** can correct either Bloom dimension without creating a new Published Question
+- The owning **Instructor** can correct either Bloom dimension without creating a new Published Question
   Revision.
 - Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
+- Bloom is an editable field like Title. Save it like other metadata and check for conflicting edits.
 - Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
 
 #### Question Library stewardship specifications
 
 - Question Library stewardship should use a GitHub-like model.
+- An Instructor who finds a problem in another Instructor's Library Object can fork it and fix it.
 - PLE is not social media or an online forum.
 - Use **Change Proposals** as the Instructor-facing term for proposed content changes.
 - Stars follow the GitHub model: Instructors can Star or unstar content, see its Star count, and see who Starred content they can access.
 - Use **Stars** and **who Starred** rather than a separate "endorsement list" concept.
-- Published Questions and Question Pools can be starred and watched.
+- Library Objects can be starred and watched.
 - Star means favorite and visible endorsement.
-- **Instructors** can see the star count and which **Instructors** starred a Published
-  Question or Question Pool.
+- **Instructors** can see the Star count and which **Instructors** starred a Library Object.
 - Watch means subscription.
-- Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.
-- Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
+- Instructors watching a Published Question receive notifications in PLE about new Revisions
+  and forks.
+- Instructors watching a Question Pool receive notifications in PLE when its Questions change
+  or when it is forked.
 - An **Instructor's** watch list remains private.
 - **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
 
@@ -1389,9 +1474,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Course can have multiple co-**Instructors** with equal teaching authority.
 - **Sysadmins** can create Courses, but **Instructors** teach them.
 - Every Course Instance must have at least one assigned **Instructor**.
-- Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
+- The Instructor who creates a Course Instance becomes its first Instructor and has the same
+  Course authority as co-Instructors added later.
 - **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
-- An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
+- An Instructor can create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
 - A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
 
 ### Course classification specifications
@@ -1399,8 +1485,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Blueprint Courses** and **Course Instances** use the shared content classification system.
 - Course classification describes the Course as a whole.
 - Every Blueprint Course and Course Instance has exactly one **Discipline**.
-- Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
-- Courses may have any number of **Tags**, including none.
+- **Subject**, **Topic**, and **Subtopic** are optional for Courses, with at most one of each.
+- Courses can have any number of **Tags**, including none.
 - Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
 - Course Discipline selection should provide a clear way to request a new Discipline when the needed
   Discipline is unavailable.
@@ -1416,21 +1502,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Courses have no **Students**, deadlines, or other teaching-specific delivery settings.
 - Blueprint Courses do not contain dates or relative schedules.
 - Public Blueprint Courses are visible and reusable by every **Instructor**.
-- Blueprint Courses contain only **Published Questions** and published **Question Pools**.
-- An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
-- Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
+- Blueprint Courses contain only **Library Objects**.
+- An **Instructor** can create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+- Creating a Blueprint Course from a Course Instance copies its Assessments as Blueprint
+  Assessments in the same order.
 
 #### Blueprint Course lifecycle specifications
 
 - Blueprint Courses have three lifecycle states: **Private**, **Public**, and **Archived**.
 - New Blueprint Courses and forks start Private.
 - Private Blueprint Courses are visible only to their owning **Instructor**.
-- Instructors may develop and use Private Blueprint Courses without publishing them.
+- Instructors can develop and use Private Blueprint Courses without publishing them.
 - Private Blueprint Courses cannot be adopted to create daughter **Course Instances**.
 - Making a Blueprint Course Public adds it to the shared Blueprint Course collection.
 - Public Blueprint Courses and their Revision history are visible to all **Instructors**.
 - Public Blueprint Courses can be adopted to create daughter Course Instances.
-- A Public Blueprint Course with no adoptions may return to Private.
+- A Public Blueprint Course with no adoptions can return to Private.
 - A Public Blueprint Course with one or more adoptions remains Public.
 - Blueprint Courses have no separate Draft state.
 
@@ -1472,7 +1559,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Blueprint adoption and incorporation specifications
 
 - Blueprint adoption copies every Assessment from the Blueprint Course into the Course Instance.
-- Course Instances pin the exact Blueprint Revision from which they were adopted.
+- Course Instances record the Blueprint Course Revision Tuple from which they were adopted.
 - New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
 - Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
 - It should be obvious when a Course Instance is based on an older Blueprint Revision.
@@ -1484,16 +1571,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - An **Instructor** can fork a Public or Archived **Blueprint Course** to create a new Private Blueprint Course.
 - A fork is owned by the **Instructor** who created it.
-- A fork records the source Blueprint Course and Blueprint Revision from which it was created.
+- A fork records the source Blueprint Course Revision Tuple from which it was created.
 - Forking a Blueprint Course creates new Blueprint Assessments.
-- Published Questions in the new Blueprint Assessments retain the same Published Question IDs and exact Revisions.
-- Question Pools in the new Blueprint Assessments are forked and receive new Question Pool IDs.
-- Forked Question Pools initially contain the same Published Question IDs and exact Revisions as their source.
+- Published Questions in the new Blueprint Assessments retain the same Question Revision Tuples.
+- Question Pools in the new Blueprint Assessments keep their existing Pool IDs. An Instructor
+  who wants to change a Pool independently forks it first.
+- Forked Question Pools initially contain the same Question Revision Tuples as their source.
 - Forked Blueprint Courses develop independently and have their own Blueprint Revisions.
 - Changes to a source Blueprint Course are never automatically applied to its forks.
 - A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
 - PLE should make newer source Revisions easy for the fork owner to discover and review.
-- PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
+- PLE should show newer Revisions of forked Blueprint Courses from their source Blueprint Course.
 - The fork owner decides whether to incorporate source changes into the fork.
 - PLE should make it easy for the fork owner to incorporate selected source changes.
 
@@ -1501,20 +1589,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - A **Blueprint Course Change Proposal** proposes changes from one Blueprint Course to another.
 - An **Instructor** can create a Change Proposal for a Blueprint Course they do not own.
-- A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
-- A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
+- A Change Proposal records the source Blueprint Course Revision Tuple.
+- A Change Proposal records the target Blueprint Course Revision Tuple used for comparison.
 - The proposed changes are represented using the canonical Blueprint Course JSON format.
 - PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
 - A Change Proposal should present those changes in a human-readable interface rather than requiring
   the receiving **Instructor** to review raw JSON.
 - A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
 - Changes may include Course names and metadata, Assessment names and settings, Assessment additions
-  and removals, and Question membership changes.
+  and removals, and changes to the Library Objects in an Assessment.
 - Question content changes belong to the Published Question and are not Blueprint Course changes.
 - PLE should present proposed changes in terms meaningful to Instructors rather than as raw JSON changes.
 - The receiving **Instructor** can review proposed changes before changing the target Blueprint Course.
 - The receiving Instructor decides which proposed changes to accept.
-- The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
+- The receiving Instructor can accept the entire Change Proposal or selected proposed changes.
 - Accepted changes are applied to the current target Blueprint Course and create a new Blueprint Revision.
 - The Change Proposal remains a record of what was proposed and what was accepted.
 - If the target Blueprint Course changes after the proposal was created, PLE should show that the
@@ -1532,7 +1620,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Course differences are calculated from canonical JSON when the Instructor requests the comparison.
 - Shared Published Question IDs provide durable relationships between Published Questions across Blueprint Course forks.
 - Blueprint Course comparison does not require Blueprint Assessment identity or history across forks.
-- Comparison should show shared, added, removed, and changed Assessments, Published Questions, and Question Pools.
+- Comparison should show shared, added, removed, and changed Assessments and Library Objects.
 - Comparison should remain useful when Assessment names, order, or structure have changed.
 - Comparison visibility follows Blueprint Course visibility rather than fork ownership.
 
@@ -1543,7 +1631,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Importing exported Blueprint JSON should reproduce the same Blueprint Course content and structure.
 - Blueprint JSON contains Blueprint metadata and an ordered list of Blueprint Assessments.
 - Blueprint Assessments contain only reusable teaching settings.
-- Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
+- Blueprint Assessments contain ordered **Library Objects**.
 - Blueprint Assessments have no deadlines, release dates, Student data, or other Course Instance settings.
 - Blueprint Revisions can be compared through their canonical JSON representations.
 - Blueprint Course Change Proposals use canonical JSON to identify changes between Blueprint Revisions.
@@ -1557,12 +1645,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - An **Instructor** can create a Course Instance from a Public Blueprint Course.
 - **Instructors** can also create a new empty Course Instance without a parent Blueprint Course.
 - Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
-- Course Instances contain only **Published Questions** and published **Question Pools**.
+- Course Instances contain only **Library Objects**.
 - Course Instances are visible only to their co-**Instructors** and enrolled **Students**.
 - Active Courses are current teaching Course Instances.
 - Inactive Courses are past Course Instances and retain Course metadata, including after
   FERPA-sensitive Student data is removed.
-- An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+- An **Instructor** can create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
 - A new academic term uses a new Course Instance. Rollover is not a separate product model.
 
 #### Blueprint adoption and daughter Course Instances
@@ -1571,9 +1659,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
 - Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
 - A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
-- A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
+- A daughter Course Instance records the parent Blueprint Course Revision Tuple used to create it.
 - A daughter Course Instance receives every Assessment from the selected Blueprint Revision.
-- Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
+- Creating a daughter Course Instance copies the Blueprint Course's Assessments, Library Objects,
+  and reusable settings.
 - Course Instance Assessments created from Blueprint Assessments start unreleased with dates unset.
 - New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
 - Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
@@ -1605,20 +1694,27 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Assessment content specifications
 
 - Assessments are organized by their Course and position within its ordered sequence.
-- Assessments contain an ordered sequence of Published Questions and Question Pools.
-- Each Published Question in an Assessment is identified by its Question ID and exact Revision.
-- Question Pools are copied by forking when added to another Assessment.
-- A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
+- Assessments contain an ordered sequence of Library Objects.
+- Each Published Question in an Assessment is identified by its Question Revision Tuple.
+- Adding a Question Pool to an Assessment stores a reference to the existing Pool.
+- A newly forked Question Pool initially contains the same Question Revision Tuples
   as its source.
 - A forked Question Pool can be changed independently without changing its source Question Pool.
 - Published Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
-- **Instructors** can add, remove, and reorder Published Questions and Question Pools, subject to the post-issue limits below.
+- **Instructors** can add, remove, and reorder Library Objects, subject to the post-issue limits below.
 - Assessment Question-order randomization is called **Randomize question order**.
+- Before release, an Assessment can be incomplete or inconsistent. Save the current work and
+  show specific problems. Require it to pass Release Validation before release.
+- Save changes to a Pool even when an unreleased Assessment asks for more Questions than the Pool
+  can provide.
+- Show the problem and block release until the Instructor adds Published Questions to the Pool,
+  lowers the number selected, replaces the Pool, or removes it from the Assessment.
+- After an Assessment has been issued to a Student, follow the editing rules below.
 
 #### Assessment content edits after issue
 
 - Once an Assessment has been issued to a Student, only a limited set of content edits should be allowed.
-- Instructors can change the points of each Question or Question Pool and change the order of Questions.
+- Instructors can change the points and order of Library Objects.
 - Instructors can remove an individual Question from an Assessment's Question Pool only if it has not been issued to any Student in that Assessment.
 - If a Question Pool is bad, Instructors can remove the whole Pool from the Assessment and exclude its earned and possible points from every Attempt. Err on the side of caution; fairness to all Students takes precedence.
 - I would probably allow completely removing a standalone Question from the Assessment.
@@ -1639,8 +1735,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Weekly Assignments are designed as practice for learning, not merely as one-time assessments.
 - **Unit Review Assignments** provide focused review or study-guide practice using material already covered.
 - Unit Review Assignments may be worth a small number of points or a small amount of extra credit.
-- Unit Review Assignments use the same whole-Attempt submission boundary as every other
-  Assessment and default to showing the correct answer immediately after that Assessment Attempt is submitted.
+- Students submit the whole Attempt for Unit Review Assignments, as for every Assessment.
+  By default, correct answers are shown immediately after submission.
 - **Bonus Assignments** provide optional extra credit.
 - Bonus Assignments are worth zero points possible and add earned points directly to the grade.
 - **Quizzes** assess understanding of recent material.
@@ -1653,7 +1749,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A **Blueprint Assessment** is an Assessment in a **Blueprint Course**.
 - Blueprint Assessments define reusable Assessment content and teaching settings.
 - Blueprint Assessments have an Assessment Type.
-- Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
+- Blueprint Assessments contain ordered **Library Objects**.
 - Blueprint Assessments define Question point values and points possible.
 - Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
 - Blueprint Assessments do not use Assessment Templates.
@@ -1674,7 +1770,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessment Templates are separate from Assessment Types.
 - Every Assessment Template has one of the five Assessment Types.
 - **Instructors** can create and change their own Assessment Templates.
-- Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
+- Assessment Templates provide defaults for Attempts, timing, scoring, and what Students can see.
 - Creating a Course Instance Assessment from a Template copies its settings into the new Assessment.
 - The new Course Instance Assessment can be changed independently after it is created.
 - Changing an Assessment Template does not change Assessments previously created from it.
@@ -1693,7 +1789,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Course Instance's six-month Active limit.
 - Release Validation should check that release, due, and other dates occur in a valid order.
 - Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
-- Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
+- Release Validation should check that the Assessment contains at least one Library Object
+  and that required settings for those entries are valid.
 - The **Instructor** should be able to correct validation problems and run Release Validation again.
 - An Assessment can be released only after Release Validation passes.
 - Releasing an Assessment makes it available to **Students** according to its dates and access settings.
@@ -1707,11 +1804,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Assessment answer and feedback disclosure
 
-- Assessment disclosure settings remain separate and independently configurable.
+- Settings for what Students can see are separate and can be changed independently.
 - Use the Blackboard Ultra model of separate availability and timing settings for viewing submissions and correct answers. Optional Question Feedback timing remains undecided.
 - Question scores and the total Assessment score are visible as soon as the Attempt is submitted and automatically graded.
 - Instructors cannot hide or delay these scores. PLE has no separate score-posting step, and score visibility does not depend on other Students completing the Assessment.
-- The Assessment-type release behaviors below are defaults that Instructors can change.
+- The correct-answer settings below are defaults. Instructors can change them for each Assessment.
 - **Weekly Assignments** and **Bonus Assignments** should rarely show the correct answer.
 - Regular and Bonus Assignments show the **Student's** response and whether it was correct or incorrect.
 - **Unit Review Assignments** default to showing correct answers immediately after Assessment Attempt
@@ -1726,10 +1823,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Assessment unrelease
 
-- Unreleasing is the destructive reversal of releasing a Course Instance Assessment.
+- Unreleasing returns a Course Instance Assessment to an unreleased state and deletes its
+  Student Work.
 - Unreleasing permanently deletes all Student Work for that Assessment.
 - Student Work deletion includes Assessment Attempts, saved responses, submissions, and grading outcomes.
-- Unreleasing removes the Assessment from Student availability and returns it to a pre-release state.
+- Students can no longer access an unreleased Assessment.
 - The Assessment itself, its Questions, settings, and other Instructor-created content remain.
 - The Instructor can edit the unreleased Assessment normally after Student Work is deleted.
 - Releasing the Assessment again follows the normal Assessment Release Validation process.
@@ -1742,7 +1840,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
 - **Instructors** control the number of permitted Assessment Attempts.
 - Weekly Assignments default to unlimited Attempts.
-- **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
+- **Students** can repeat an Assessment as often as its settings allow, including practicing toward
+  a perfect score.
 - When an Assessment permits multiple Attempts, the highest Assessment Attempt score is used as the
   Student's Assessment score.
 - Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
@@ -1753,26 +1852,27 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Student submission action submits the whole Assessment Attempt.
 - A Question either has a complete saved response or has no saved response.
 - PLE saves complete Question responses as the **Student** works.
-- The Student may change a saved response while the Assessment Attempt remains open.
+- The Student can change a saved response while the Assessment Attempt remains open.
 - Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
 - Questions without a saved response remain visibly unanswered when the Attempt is submitted.
 - An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
 - PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
+- Valid MATCH and MULTI-FIB responses can include unanswered parts. Save the answered parts and
+  award zero for the unanswered parts.
 - A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
-- When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
-  state.
+- When PLE requests a grading outcome, the Question Backend returns the result in that response.
 - The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
 
 ### Assessment Attempt timing and expiration specifications
 
 - Each Assessment Attempt has a time limit.
-- Each Assessment may contain at most 250 Questions.
+- Each Assessment can contain at most 250 Questions.
 - A Question Pool counts as the number of Questions selected from it for the Assessment Question
   limit and default time calculation; selecting 3 of 199 Questions counts as 3.
 - The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
 - Instructors can override the default time limit up to 12 hours.
-- The interface should show the calculated default time limit and provide a specific Instructor override.
+- The interface should show the calculated default time limit and let the Instructor change it.
 - Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
 - Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit
   up to 24 hours.
@@ -1780,7 +1880,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessment Attempts use wall-clock time.
 - The server owns the Attempt start and expiration times.
 - Attempt time continues while the **Student** is disconnected or the browser is closed.
-- A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
+- A **Student** can reconnect, reload, or use another browser session to resume the same active Attempt.
 - Resuming an Attempt does not reset or extend its expiration time.
 - Attempt expiration is checked whenever a **Student** interacts with the Attempt.
 - Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
@@ -1799,9 +1899,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Assessment scoring specifications
 
-- Blueprint Assessments and Course Instance Assessments assign point values to Questions.
+- Blueprint Assessments and Course Instance Assessments assign point values to Library Objects.
 - A Question Backend returns an immutable credit fraction for each complete response it evaluates.
 - PLE stores the credit fraction as the Question grading outcome.
+- PLE stores earned partial credit whether the Assessment awards partial credit or not.
+- With partial credit on, use the stored fraction for points. With it off, full credit earns full
+  points and smaller fractions earn zero.
+- Instructors can change the partial-credit setting for all Attempts, including submitted Attempts.
+  Use stored fractions to recalculate scores fairly for all Students.
 - Course Instance Assessment scores are calculated from stored credit fractions and current Question point values.
 - An unanswered Question contributes zero points to the Assessment score and counts as incorrect.
 - When an Assessment has multiple submitted Attempts, the highest Assessment Attempt score is the
@@ -1813,7 +1918,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Instructor handles Course-level weighting or percentage calculations in the home LMS.
 - Changing Question point values recalculates affected Assessment scores.
 - For a flawed Question, the usual remedy is to set its point value to zero in the Assessment.
-- Only the owner may correct a Native JSON Question, following the Published Question revision rules. An Instructor using someone else's Question can set its Assessment point value to zero.
-- A bad WeBWorK Question requires a revision, so setting its Assessment point value to zero is the remedy for affected work.
+- The owning Instructor or a Sysadmin can correct a published Native JSON Question, following the
+  Published Question revision rules. An Instructor using someone else's Published Question can set
+  its Assessment point value to zero.
+- Correcting a published WeBWorK Question requires a new Revision, so setting its Assessment point
+  value to zero is the remedy for affected work.
 - Score recalculation does not require another Question Backend interaction.
 - Score recalculation does not change the stored Question grading outcome.

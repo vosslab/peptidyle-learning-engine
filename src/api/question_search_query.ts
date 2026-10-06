@@ -56,7 +56,6 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "capabilities",
   "question_licenses",
   "evidence",
-  "used_in_my_courses",
   "authorship",
   "sort",
   "cursor",
@@ -259,14 +258,6 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
       "question_licenses",
       questionSearchEnum(questionLicense, QUESTION_LICENSES, "Question Library Question License"),
     );
-  }
-  const usedInMyCourses = questionSearchEnum(
-    query.used_in_my_courses,
-    ["any", "used"],
-    "Question Library used_in_my_courses",
-  );
-  if (usedInMyCourses !== "any") {
-    parameters.set("used_in_my_courses", usedInMyCourses);
   }
   const authorship = questionSearchEnum(
     query.authorship,

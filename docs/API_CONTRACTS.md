@@ -39,7 +39,7 @@ revisions use a named `publishedQuestionRevisionTuple` with members
 client identities use `courseInstanceId`, `assessmentId`, and other precise
 `...Id` names rather than bare `course` or `assessment`. Assessment Blueprint
 Update review and apply, known forks, and Course Instance provenance use named
-Blueprint Revision Tuples such as `blueprintRevisionTuple`,
+Blueprint Course Revision Tuples such as `blueprintRevisionTuple`,
 `adoptedBlueprintRevisionTuple`, `currentBlueprintRevisionTuple`, and
 `expectedSourceBlueprintRevisionTuple`. They do not carry sibling
 ID-plus-Revision fields. Student Work Recovery returns typed Course Instance,
@@ -63,86 +63,43 @@ lifecycle transition is `409`. Temporary dependency failure is `503`.
 | Optional seeded-demo entry | `GET` / `POST /api/auth/live-demo/accounts`                                                                             | When the installation includes configured demo accounts, lists the bounded eligible persona set or establishes an ordinary session for one selected persona. It grants no authority itself.                                                                                                                                                                                                                                         |
 | Question Library           | `GET /api/questions/search`, `GET /api/questions/by-id/{questionId}`, `GET /api/questions/by-id/{questionId}/detail`    | Active Instructors and Sysadmins receive answer-free discovery and current published Question detail.                                                                                                                                                                                                                                                                                                                        |
 | Exact Question Revision    | `GET /api/questions/by-id/{questionId}/revisions/{revisionNumber}`                                                      | Resolves one immutable `PublishedQuestionRevisionTuple`, including when its lineage is archived, for an authorized Instructor.                                                                                                                                                                                                                                                                                                      |
-| Question Bloom correction  | `POST /api/questions/by-id/{questionId}/revisions/{revisionNumber}/bloom`                                               | An active Instructor corrects one exact Question Revision with the complete Bloom pair and its expected classification Edit Number. A successful response returns that same exact Revision and current pair.                                                                                                                                                                                                                 |
+| Question Bloom correction | Existing `POST /api/questions/by-id/{questionId}/revisions/{revisionNumber}/bloom` | Implementation drift: this dedicated route and classification counter must align with ordinary metadata editing by the owner or Sysadmin. See [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md) and [TODO.md](TODO.md#question-spec-implementation-follow-up). |
 | Question availability      | `POST /api/questions/by-id/{questionId}/archive`, `POST /api/questions/by-id/{questionId}/restore`                      | Archive requires the exact lineage Availability Edit Number and a clear confirmation; the current `confirmationTitle` request field is an implementation shape, not a Human Guidance requirement. Restore requires the exact Availability Edit Number. Each returns current availability and its new Availability Edit Number.                                                                                                      |
 | Draft Question             | `GET` / `POST /api/authoring/drafts`; `GET` / `PUT /api/authoring/drafts/{draftQuestionId}/source`                      | An Instructor owns private canonical source through their Authoring Workspace. `draftQuestionId` is the native private UUID route value. Source save uses its quoted Draft Question Edit Number.                                                                                                                                                                                                                                    |
 | Question publication       | `POST /api/authoring/drafts/{draftQuestionId}/publish`, `POST /api/authoring/drafts/{draftQuestionId}/publish-revision` | Validates the owned Draft and creates immutable published Question content. Publication copies the author-declared educational Question Type from the Draft source binding to the Published Question Revision. The first route creates a stable lineage; the second requires an exact parent `PublishedQuestionRevisionTuple` and reviewed reason, then creates its successor Revision. Responses expose no private source binding. |
 
-Question availability belongs to the stable lineage; publishing another
-`PublishedQuestionRevisionTuple` does not reset it. Ordinary selection admits only
-Published, non-archived Question lineages. Existing exact references remain resolvable.
+The detailed Question operations have one owning specification each:
 
-Active Instructors and Sysadmins receive answer-free Question and Pool Library
-read projections. A Question projection carries its exact Revision's optional
-two-value Bloom Classification and independent classification Edit Number. A
-Pool projection carries the current Pool's own pair and classification Edit
-Number when present; member Question pairs never substitute. The `publishedQuestionRevisionTuple` field identifies the exact resolved Revision on an
-exact Question-detail route. `GET /api/questions/search` discovers Questions and Pools together;
-`GET /api/question-pools/{questionPoolId}` reads a Pool detail. JSON
-carries sibling `questionPoolId` and `questionPoolEditNumber` fields; there
-is no Pool Pin wrapper. Exact immutable Question Revision pins remain
-`{ publishedQuestionId, revisionNumber }`.
+- [QUESTION_IMPORT_SPEC.md](QUESTION_SPECS/QUESTION_IMPORT_SPEC.md): current Draft,
+  source, assets, publication requests, and the required API importer boundary.
+- [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SEARCH_SPEC.md): combined
+  Question/Pool request, sorting, page sizes, and temporary current-query state.
+- [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_FILTER_SPEC.md): per-kind
+  filter meanings, membership, and counts.
+- [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md):
+  ordinary owner/Sysadmin metadata editing, independently nullable dimensions, and ordinary
+  concurrency. Dedicated correction routes and complete-pair gates are current implementation drift.
+- [QUESTION_LIBRARY_BULK_EDIT_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_BULK_EDIT_SPEC.md): bounded metadata
+  writes and their actual per-command outcomes.
+- [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md): required
+  versus optional fields; pending Bloom never permits NULL Question Type.
 
-Question Type and other required publication fields must be present and non-NULL; an optional
-Bloom projection does not relax that requirement. Pending AI assignment has no enforced deadline.
-See [QUESTION_MODEL.md](QUESTION_MODEL.md#required-and-assigned-metadata).
-
-The separate Question and Pool routes describe current implementation. HG requires a combined
-Question Library search with result-kind and Pool-membership filters, sorted and paged together.
-The preferred default is Questions in no Pool plus Pools; individual members remain searchable.
-The combined response and Pool fields must follow [QUESTION_MODEL.md](QUESTION_MODEL.md),
-including Pool owner instead of Author, calculated compatible license, and Pool-owned matching.
-These changes and Pool mismatch enforcement are pending implementation validation. Existing
-ordered member arrays are transport/storage details to align, not an ordered membership rule.
-
-Pool discovery accepts optional exact `bloom_cognitive_process` and
-`bloom_knowledge_dimension` query parameters. Each combines with every other applied Pool
-predicate. The opaque continuation is bound to both values, and the response carries all six
-Cognitive Process counts plus all four Knowledge Dimension counts from the complete filtered Pool
-set, including zeros and an empty page. Page position affects only `items`; the counts and rows come
-from the same authorized filtered SQL relation. These predicates and counts use the current Pool's
-own pair, never a member Question's pair.
-
-The corresponding Pool correction route is
-`POST /api/question-pools/{questionPoolId}/bloom`. Bloom lives on the
-current Pool. Both Question and Pool correction routes
-accept only the complete `cognitiveProcess`, `knowledgeDimension`, and
-`expectedClassificationEditNumber` command. The classification Edit Number is
-the pair's CAS precondition, not a content Revision or a lineage token. Either
-route first checks a stale expected number and returns `412`; only a current
-request may then return an unchanged pair without advancing it. A changed pair
-advances its classification Edit Number once. Active Instructor
-authority is based on current exact Library read access, not target ownership.
-Sysadmins retain the read projection but cannot use either correction route.
-
-The client does not retry or merge a `412`. It reloads only the same exact
-Question Revision or current Pool, retains the Instructor's draft pair for
-comparison, and requires an explicit later Save. Corrections do not create a
-Question content Revision, change Pool member Question Revision pins, or alter retained
-Assessment or Student Work evidence.
-
-Question search, Pool discovery, and Blueprint Course browse each default to 50
-records and accept `pageSize` from 1 through 250. The usual choices are 50, 100,
-and 250. The opaque cursor is bound to that size and to the normalized query.
-Each response replaces the current page.
-
-`GET /api/questions/search` accepts optional exact `bloom_cognitive_process` and
-`bloom_knowledge_dimension` filters. Each is independent and combines with every
-other active normalized Question Library predicate. Saved `QuestionSearchFilter`
-values, browser URL handoff, and opaque cursors retain both filters and the
-existing sort; a cursor is valid only for that exact normalized query. The route
-does not change the established `titleAscending` and `publishedNewest` sorts.
-Its facets report the whole matching set, not one cursor page, with all six
-Cognitive Process and all four Knowledge Dimension values in guide order,
-including zero counts and an empty result.
+Question availability belongs to the stable Question identity, separate from immutable source
+Revisions. Exact authorized historical references remain resolvable after archival. Question
+Revision references use `{ publishedQuestionId, revisionNumber }`; Pool references use their
+Pool ID and Pool Edit Number, not a Pool Revision family. Implementation differences and evidence
+limits are in [question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md).
 
 ## Blueprint Courses
+
+[BLUEPRINT_COURSE_IMPORT_API_SPEC.md](BLUEPRINT_COURSE_IMPORT_API_SPEC.md) owns the detailed
+create/build/readback sequence for source import using generated PLE identities.
 
 | Surface                     | Route                                                                                           | Contract                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Browse                      | `GET /api/course-blueprints`                                                                    | Lists Public Blueprint Courses for a Instructor. Explicit historical discovery may include Archived Blueprint Courses. Private Blueprint Courses remain owner-only.                                                                                                                                                                                                                                               |
 | Create                      | `POST /api/course-blueprints`                                                                   | Validates complete reusable content and atomically creates one Private Blueprint Course with Revision 1. The `201` response contains that Revision and its quoted Blueprint Revision Number.                                                                                                                                                                                                                             |
-| Create from Course Instance | `POST /api/course-instances/{course_instance_id}/course-blueprints`                             | A current Course Instructor supplies only the new Blueprint names and classification. The server atomically copies current reusable Assessment structure into a distinct actor-owned Private Revision 1, records the unchanged source Course Instance as its first Adoption, forks each Course-owned Pool with identical exact Revision pins, and returns the complete owner-visible Blueprint with `201` and `no-store`. |
+| Create from Course Instance | `POST /api/course-instances/{course_instance_id}/course-blueprints`                             | A current Course Instructor supplies only the new Blueprint names and classification. The server atomically copies current reusable Assessment structure into a distinct actor-owned Private Revision 1, records the unchanged source Course Instance as its first Adoption, retains existing Pool references and Instructor ownership (automatic Pool copies in the current implementation require reconciliation), and returns the complete owner-visible Blueprint with `201` and `no-store`. |
 | Current Blueprint Course    | `GET /api/course-blueprints/{blueprint_course_id}`                                              | Returns the authorized answer-free aggregate: current Revision, its quoted Blueprint Revision Number, and a separate Blueprint metadata Edit Number for short name, long name, and lifecycle state.                                                                                                                                                                                                                      |
 | Save                        | `PUT /api/course-blueprints/{blueprint_course_id}`                                              | Replaces reusable content with `If-Match` encoding of the current Blueprint Revision Number. A changed Save creates the next Revision; a canonical no-op returns the current Revision with `changed: false`.                                                                                                                                                                                                             |
 | Exact Blueprint Revision    | `GET /api/course-blueprints/{blueprint_course_id}/revisions/{revision_number}`                  | Returns one immutable exact Blueprint Revision for an authorized Instructor, including after the lineage is archived.                                                                                                                                                                                                                                                                                                    |
@@ -151,7 +108,7 @@ including zero counts and an empty result.
 
 A Blueprint Revision contains exact `PublishedQuestionRevisionTuple` pins. A Course
 Instance Assessment records its stable Blueprint Assessment reference plus the
-exact Blueprint Revision Tuple. That source is
+exact Blueprint Course Revision Tuple. That source is
 provenance, not a third Revision family. A newly added Blueprint Assessment is
 automatically copied to daughter Course Instances as an Unreleased Course
 Instance Assessment. New Blueprint Revisions must also be offered to daughter
@@ -164,7 +121,7 @@ their exact route names or wire shapes.
 
 | Surface                       | Route                                                                                                                                                                                                                                                                                   | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course Instances              | `GET` / `POST /api/course-instances`; `GET /api/course-instances/{course_instance_id}`                                                                                                                                                                                                  | An active Instructor creates an empty Course Instance or adopts an exact current Public Blueprint Revision as `blueprintRevisionTuple`. Adoption atomically establishes the Course Term, first equal Instructor membership, and every Blueprint Assessment as a fresh Course Instance Assessment with exact Question Revision pins, reusable settings, Unreleased state, and unset dates. The teaching-team view provenance is `adoptedBlueprintRevisionTuple` plus `currentBlueprintRevisionTuple`. Creation starts the maximum six-month Active lifetime. A Sysadmin creating for another Instructor receives no ambient Course authority. |
+| Course Instances              | `GET` / `POST /api/course-instances`; `GET /api/course-instances/{course_instance_id}`                                                                                                                                                                                                  | An active Instructor creates an empty Course Instance or adopts an exact current Public Blueprint Revision as `blueprintRevisionTuple`. Adoption atomically establishes the Course Term, first equal Instructor membership, and every Blueprint Assessment as a fresh Course Instance Assessment with exact Question Revision pins, reusable settings, Unreleased state, and unset dates. The teaching-team view provenance is `adoptedBlueprintRevisionTuple` plus `currentBlueprintRevisionTuple`. Creation starts the maximum six-month Active lifetime. Sysadmins have full administrative access to Course and Student records. |
 | Course summary and navigation | `GET /api/course-instances/{course_instance_id}/summary`, `GET /api/navigation/{course_instance_id}`                                                                                                                                                                                    | Returns answer-free scoped Course identity only for an active Course Member.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Course appearance             | `GET` / `PUT /api/course-instances/{course_instance_id}/appearance`; `POST /api/course-instances/{course_instance_id}/appearance/banner-uploads`; `PUT` / `DELETE /api/course-instances/{course_instance_id}/appearance/banner`; `POST /api/course-banners/{course_banner_id}/delivery` | Course Members read the answer-free appearance aggregate; an active Course Instructor changes theme or banner. Delivery rechecks Course membership.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Account appearance            | `GET /api/profile`; `PUT /api/account/appearance/display-mode-preference`; `PUT /api/instructor/personal-theme`                                                                                                                                                                         | The authenticated Account reads only its nullable `displayModePreference` and, for an Instructor, `personalTheme`, alongside Profile settings. The display write accepts an explicit Light, Dark, or `null` clear; the clear returns the document to the live browser setting. The personal Theme write derives the active Instructor from the session and accepts one closed Theme value. Neither route accepts an Account, Course, or User Role selector.                                                                                                                                                                               |

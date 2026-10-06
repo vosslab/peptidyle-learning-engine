@@ -1,11 +1,14 @@
 ## Question specifications
 
+- [ ] Questions are backend agnostic.
+  - Verification pending: Documentation clarification; shared authoring and Backend implementation coverage has not been verified in this pass.
 - [ ] Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
   the same Question Library.
   - Evidence (source): `crates/server/src/question_library/paging.rs` `QuestionSearchFilter` supplies the shared Library query filter without a subject partition.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Questions are strictly and deterministically automated; grading does not require an **Instructor**.
+- [ ] Questions are graded automatically. Grading the same response under the same conditions gives
+  the same result and requires no **Instructor** action.
   - Evidence (source): `schemas/base_schema/50_functions/grading.sql` `record_direct_automated_grading_result` stores backend credit with no Instructor argument, and `reject_grading_evidence_change` keeps that result immutable.
   - Evidence (source): `crates/adapters/ple/src/lib/question_json_source.rs` `grade_question_json` grades the compiled answer key and takes no Instructor.
   - Evidence (source): `crates/adapters/webwork/src/lib/grade.rs` `grade` sends the seeded Student response to the renderer and takes no Instructor.
@@ -39,6 +42,12 @@
 
 ### Draft Question specifications
 
+- [ ] The backend-agnostic Question workflow is: import or write a Draft, preview it, test it,
+  refine it, add the metadata, then publish.
+  - Verification pending: Documentation clarification; shared authoring and Backend implementation coverage has not been verified in this pass.
+- [ ] Drafts are Drafts and have no content or metadata requirements. Those requirements apply at
+  publication.
+  - Verification pending: Draft creation, import, and saving of empty, incomplete, or broken content need implementation verification.
 - [ ] Draft Questions are private working content.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `ple_private.draft_question` stores draft state in the private schema.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -55,11 +64,13 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft` updates that current Draft in place and does not insert a Question Revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Draft Questions autosave with a visible saved status so Instructors can return to unfinished work.
+  - Verification pending: Draft autosave, saved status, and reopening unfinished content need implementation verification.
 - [ ] Saving a Draft Question replaces its previous working state.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft` replaces the current draft aggregate values.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Instructors** may delete Draft Questions they no longer need.
+- [ ] **Instructors** can delete Draft Questions they no longer need.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `delete_draft_question` resolves only the current Instructor-owned Draft, locks and compares its Edit Number, then deletes that private aggregate without considering the separate Published Question lineage.
   - Evidence (source): `crates/learning-data-access/src/postgres/authoring.rs` `delete_authoring_draft` carries the SQL compare-and-swap through the authenticated Store.
   - Evidence (source): `crates/server/src/authoring.rs` `delete_draft` requires the parsed `If-Match` Edit Number and maps a concurrent change to 412; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` supplies explicit Keep/Delete confirmation.
@@ -94,8 +105,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `workspace_import` treats `qti` as an import format, not a source binding.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
-  Assets.
+- [ ] QTI ZIP files, retained QTI archives, and images extracted from QTI packages are import/export
+  files, separate from Question Image Assets.
   - Evidence (source): `crates/adapters/qti/src/model.rs` `QtiPackageArchive` and `QtiPackageExtractedImage` are import-only; `question_image_asset_id()` is derived at Question bind.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -104,9 +115,28 @@
   - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each eight released native types at laptop and phone widths (18 unanswered captures including WeBWorK); exact issued Question Revision membership and permitted-response privacy checks passed. This is private presentation coverage, not an eight-type interaction matrix. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] For Native JSON Matching Questions with partial credit enabled, each correct pair earns equal
+  credit. Wrong or unanswered pairs earn zero, with no additional deduction. Three correct pairs
+  out of five earn 60% credit.
+  - Verification pending: Native JSON grading and incomplete Matching responses need alignment; see docs/TODO.md.
+- [ ] Native JSON owns its Multiple Answer partial-credit formula; Question Backends grade their own Questions.
+- [ ] Assessment Instructors decide whether to award partial credit. New Assessments start with partial credit enabled.
+- [ ] Native JSON MC and HOTSPOT Questions are graded all-or-nothing.
+  - Verification pending: Native JSON grading and regex support; see docs/TODO.md.
+- [ ] Native JSON NUM Questions use a tolerance to judge the answer.
+  - Verification pending: Native JSON grading and regex support; see docs/TODO.md.
+- [ ] Native JSON FIB Questions accept a list of possible answers and support regular expressions.
+  - Verification pending: Native JSON grading and regex support; see docs/TODO.md.
+- [ ] Native JSON MULTI-FIB Questions are multiple independently graded FIBs.
+  - Verification pending: Native JSON grading and regex support; see docs/TODO.md.
+- [ ] Native JSON ORDER partial credit gives equal weight to correct positions and correct relative
+  order. DABC earns 25% for an ABCD answer key.
+  - Verification pending: Native JSON ORDER partial credit; see docs/TODO.md.
+  - Verification pending: Native JSON grading needs alignment; see docs/TODO.md.
 - [ ] Question Type cannot be NULL. Other required fields must also be present before publication.
   - Verification pending: Metadata requirements clarified in the interview; current enforcement needs validation.
-- [ ] Question Type is immutable author-declared educational metadata on a Published Question Revision.
+- [ ] Native JSON has a built-in Question Type; other Question Backends use Question Type as
+  editable classification metadata.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision_is_immutable` protects `question_type` on a revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -114,17 +144,31 @@
   - Evidence (source): `src/api/question_library_repository.ts` `questionSearchRequest` sends the selected Question Type as the Library search filter; `src/pages/library_page.tsx` `questionTypeLabel` supplies learner-facing type labels and the Question Type selector presents the type facets.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Type comes from the author rather than inference from backend controls.
+- [ ] Use the Type built into Native JSON. Assign WeBWorK Question Type manually for now; automatic
+  detection is deferred. For other Backends, the author or importer supplies the classification.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `draft_question_source_binding` records authoring input independent of backend.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question importers are transient translators from external formats into PLE-managed Question representations.
+- [ ] Question importers convert external content into the Question format PLE stores; they are used
+  during import.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `workspace_import` stages external-format imports before committed PLE state.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
+- [ ] PLE uses `qti-package-maker-rs` as an external library to handle all of its conversion.
+  - Decision: Neil clarified this during the 2026-10-05 Question specification interview.
+  - Verification pending: Documentation updated; current implementation has not been verified for this clarification.
+- [ ] Export is for selected Questions to use in another LMS.
+  - Decision: Neil clarified this during the 2026-10-05 Question specification interview.
+  - Verification pending: Documentation updated; current implementation has not been verified for this clarification.
+- [ ] Once PLE launches, BiologyProblems.org and PLE are no longer connected. PLE no longer cares
+  how BiologyProblems.org changes.
+  - Decision: Neil clarified this during the 2026-10-05 Question specification interview.
+  - Verification pending: Documentation updated; current implementation has not been verified for this clarification.
 ### Native PLE JSON Question specifications
 
+- [ ] Question metadata belongs on the Question record, not in Native JSON.
+- [ ] Native JSON contains the Question content needed to display and grade the Question.
 - [ ] The native PLE JSON Question format is private, unversioned, and unpublished.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` accepts the unversioned internal source shape.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -133,7 +177,7 @@
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` is the single internal reader for stored PLE JSON.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The native PLE JSON Question format is a strictly validated internal source shape without an external API.
+- [ ] The native PLE JSON Question format is internal and strictly validated. It has no external API.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` validates the internal source document.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -310,7 +354,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `question_revision_source_binding` retains backend selectors and source checksum.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] PLE-managed Question representations participate in Question revision history.
+- [ ] Each Question Revision stores the Question content used by its Backend.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `question_revision_source_binding` keys source bindings to immutable revisions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -327,7 +371,8 @@
   - Evidence (test): `crates/server/src/assessment_delivery/direct_finalization.rs` `ple_owns_authorization_question_id_revisions_persistence_lifecycle_and_stored_outcomes` concealed an Instructor before preparation, then posted the shipped submission route for a Student. The handler graded revision 4 of the prepared Question ID, committed Deadline with normalized credit 1, and opened zero renderer connections. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] PLE uses the same basic interface for every Question Backend, each backend handles its own internal details.
+- [ ] PLE uses the same basic interface for every Question Backend. Each Backend handles its own
+  internal details.
   - Evidence (source): `crates/server/src/assessment_delivery/question_backend.rs` `BasicQuestionBackend` issues one presentation and grades one saved response for every production backend.
   - Evidence (source): `crates/server/src/assessment_delivery/question_backend.rs` `PleQuestionBackendAdapter` and `WebworkQuestionBackendAdapter` keep native JSON grading and PG renderer calls inside the adapter.
   - Evidence (test): `crates/server/src/assessment_delivery/question_backend.rs` `both_production_backends_issue_and_grade_through_one_interface` issued and graded a native Question at credit 1 and a WeBWorK Question at credit 0.5 through that interface. No Live Demo stack was started. No PostgreSQL proof was run.
@@ -376,8 +421,7 @@
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `backend_returned_credit_is_stored_as_the_immutable_grading_outcome` stored the backend credit 0 for the incorrect color response, refused to rewrite it, and refused a second grading result.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
-  state.
+- [ ] When PLE requests a grading outcome, the Question Backend returns the result in that response.
   - Evidence (source): `crates/adapters/ple/src/lib/question_json_source.rs` `grade_question_json` returns the compiled evaluation immediately.
   - Evidence (source): `crates/question_model/src/student_work/grading.rs` `QuestionEvaluation` records only correctness and a normalized credit fraction.
   - Evidence (source): `crates/adapters/webwork/src/http_renderer/grade.rs` `QuestionGradingOutcome::Evaluated` is the only grading result for a complete renderer score.
@@ -445,15 +489,19 @@
 
 ### Published Question specifications
 
-- [ ] A Published Question is an immutable-revision Question available for reuse through the Question Library.
+- [ ] A Published Question is a Question with numbered Revisions available for reuse through the
+  Question Library.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` publishes one Revision from the current Draft.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision_is_immutable` rejects a later change to that Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns that available Published Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that same Revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Questions are available to all **Instructors**.
+- [ ] Every **Instructor** can read, add to an Assessment, or fork any Published Question.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Only the owning **Instructor** can edit a Published Question; **Sysadmins** can edit any
+  Published Question.
+  - Verification pending: Editing authority clarified by Neil; implementation follow-up is in docs/TODO.md.
 
 #### Published Question identity specifications
 
@@ -505,11 +553,11 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `published_question_metadata` keys individual metadata to `question_id` and requires nonempty `question_title` and `question_description` independently of Course placement.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Question metadata may include authorship, attribution, license, and source information.
+- [ ] Published Question metadata includes its owner, authors, license, and citation.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `validate_question_publication` requires exact source, contiguous revision authorship and license records, keeping them associated with the Published Question Revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and
+- [ ] Published Questions can include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft_general_feedback` stores optional `hint`, `worked_solution`, and `general_feedback` on the Draft, and leaves Hint and Worked Solution unchanged when they are omitted.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` copies Draft `hint`, `worked_solution`, and `general_feedback` onto the Published Question Revision.
@@ -528,11 +576,13 @@
 
 #### Published Question revisions, edits, and forks
 
-- [ ] **Published Questions** maintain immutable revision history.
+- [ ] Each Published Question Revision is a complete Question record, with permitted fields that
+  can be edited in place without creating a new Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
+- [ ] Assessments and Student Work record exact Question Revision Tuples. The source and grading
+  content for those Revisions stay fixed.
   - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `assessment_entry_question` stores the Assessment's exact Published Question Revision.
   - Evidence (source): `schemas/base_schema/20_tables/assessment_attempt.sql` `issued_question` stores the Student Work Published Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` appends the next Revision and does not write Assessment entries or issued Questions.
@@ -544,7 +594,7 @@
   - Evidence (source): `schemas/base_schema/20_tables/assessment_attempt.sql` `issued_question` keeps Student Work on the Revision recorded before publication.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
+- [ ] The owning Instructor or a Sysadmin can publish a new Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -555,24 +605,28 @@
   - Evidence (test): `crates/adapters/ple/src/question_json/tests.rs` `changing_source_answer_grading_or_question_image_changes_the_revision_source_checksum` changed the prompt, the correct choice, the numeric tolerance, and the HOTSPOT image tuple. Each change produced a different canonical source checksum. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
-  search metadata update the Published Question metadata while preserving the current Question Revision.
+- [ ] Editing Title, Description, Discipline, Subject, Topic, Subtopic, Tags, or Bloom updates the
+  current Published Question record and keeps the same Revision Number.
   - Evidence (source): `schemas/base_schema/50_functions/published_question_metadata_operations.sql` `bulk_replace_published_question_metadata` stores each Question Title and Description and the shared Discipline, Subject, Topic, Subtopic, and Tags on published_question_metadata without inserting a Question Revision.
   - Evidence (source): `crates/learning-data-access/src/postgres/question_bulk_metadata.rs` `bulk_replace_published_question_metadata` sends that per-Question text with the shared metadata patch.
   - Evidence (source): `src/api/http_client/question_bulk_metadata.ts` `updateQuestionBulkMetadata` is the browser command for that metadata update.
   - Evidence (test): `tests/test_library_classification_search.mjs` `search metadata updates Title, Description, and classification without a Question Revision` sent two Question titles and descriptions with one shared classification and Tags and refused a blank Title before the request.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Search metadata belongs to the Published Question as a whole rather than to one Revision.
+- [ ] A new Question Revision starts as another complete record, carrying forward its attributes
+  except for the changes being published.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
+- [ ] Any **Instructor** can fork a Published Question. The fork has a new Question ID, its own owner,
+  and starts at Revision 1.
   - Evidence (source): `src/pages/question_detail_page.tsx` `QuestionForkControl` invokes the exact-Revision server command, which mints the separate Question ID and opens only the returned private Draft.
   - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected PostgreSQL/server/browser proof with two Instructors, exact source attribution, private cross-account denial, retry/concurrency, a distinct server-issued identity, and prevalidation-publication denial; exact canonical-ID proof remains required.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A fork starts as a private **Draft Question** with its own authorship and lineage.
+- [ ] A Question fork starts with the source Question's license, authors, metadata, and Question
+  content, and records the source Question as its parent.
+- [ ] A fork starts as a private **Draft Question** owned by the Instructor who creates it.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
   - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected browser proof that opened only the returned private Draft for the invoking Instructor and denied the other Instructor.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -582,24 +636,26 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Published forks retain source attribution.
+- [ ] Archive preserves a Published Question that cannot safely be deleted because it is used or referenced.
+- [ ] Archive makes the ordinary Question read-only, removes it from normal discovery, preserves
+  existing references, and allows restore or fork.
+- [ ] Keep Archive behavior simple for both Published Questions and Blueprint Courses. The less
+  Archive-specific architecture, the better; otherwise follow the GitHub repository archive model.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `question_fork_source` records published fork provenance.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-  - Evidence (source): `schemas/base_schema/20_tables/corrections.sql` `forced_question_correction` and its immutable audit targets record correction actions.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
+- [ ] Question authors are preserved across Revisions and forks.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
   - Evidence (runtime): `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_new_question_lineage` passed the accepted C879 3-by-3 PostgreSQL publication proof: each exact source Revision license was preserved across three supported compatible CC licenses and every mismatched requested license was rejected.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.
+- [ ] Instructors watching a Published Question receive notifications in PLE about new Revisions
+  and forks.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Published Question behavior specifications
 
-- [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+- [ ] Published Questions can include optional PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft_general_feedback` stores optional `hint`, `worked_solution`, and `general_feedback` on the Draft, and leaves Hint and Worked Solution unchanged when they are omitted.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` copies Draft `hint`, `worked_solution`, and `general_feedback` onto the Published Question Revision.
   - Evidence (source): `crates/server/src/authoring.rs` `save_general_feedback` writes Hint and Worked Solution only when the request contains both keys.
@@ -615,21 +671,21 @@
   - Evidence (test): `crates/server/src/assessment_delivery/history.rs` `ple_managed_support_stays_separate_from_backend_generated_content` kept the PLE Hint, Question Feedback, and Worked Solution while the backend answer and explanation were disclosed in their own fields. The backend content stayed out of the three PLE-managed fields. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] WeBWorK Questions may use PLE-managed Hints, Question Feedback, and Worked Solutions even when similar material also exists in the WeBWorK source.
+- [ ] WeBWorK Questions can use PLE-managed Hints, Question Feedback, and Worked Solutions even when similar material also exists in the WeBWorK source.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `hint` stores the optional PLE-managed Hint on the Question Revision, separate from the WeBWorK source. `worked_solution` stores the optional PLE-managed Worked Solution the same way. `general_feedback` stores Question Feedback.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` returns `hint` and `worked_solution` from the issued Question Revision for every backend.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `disclosed_revision_support` projects those Revision texts for every backend, including WeBWorK, and does not read the WeBWorK source. A native Question Hint is used only when the Revision Hint is absent.
   - Evidence (test): `crates/server/src/assessment_delivery/history.rs` `webwork_questions_keep_ple_managed_hints_and_worked_solutions` disclosed the PLE Hint and Worked Solution while a WeBWorK BEGIN_HINT and BEGIN_SOLUTION string stayed out of those blocks. Withheld timings hid both. A native Hint appeared only when the Revision Hint was absent. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Feedback is shown when its disclosure rules allow it.
+- [ ] Question Feedback is shown when its display settings allow it.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `released_general_feedback` shows the Revision's Question Feedback when that text is present and omits it when absent.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns that feedback without using Assessment correct-answer disclosure.
   - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `ReleasedBlocks` shows the General feedback block when the history carries it.
   - Evidence (test): `crates/server/src/assessment_delivery/history.rs` `question_feedback_is_shown_when_its_disclosure_rules_allow_it` kept "Keep the units." visible while a withheld answer decision hid the correct answer and still showed provided backend choice feedback. Absent Question Feedback stayed absent. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Hints and Worked Solutions use their own disclosure settings.
+- [ ] Hints and Worked Solutions each have their own settings for when Students can see them.
   - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_disclosed_support` shows Hint blocks only when the Hints timing allows them and Worked Solution blocks only when the Worked Solutions timing allows them.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_disclosed_support` applies that projection from `project_released_content` on Attempt history. `disclosed_revision_support` uses the Revision Hint when it is stored and a native Question Hint only when the Revision Hint is absent. A Worked Solution stays absent until the Revision stores one.
   - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `feedback_hints` stores the Hints timing separately from Question Answer disclosure. `feedback_worked_solutions` stores the Worked Solutions timing. Both default to Never.
@@ -637,7 +693,7 @@
   - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `hints_and_worked_solutions_use_their_own_disclosure_settings` released Hints during the Attempt while Worked Solutions stayed hidden, then released Worked Solutions after submit while Hints stayed hidden. The Quiz cohort gate kept the released Worked Solution and hid the Question Answer. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Student workflows remain complete when a Question has none of this optional support content.
+- [ ] Students can complete a Question with or without Hints, Question Feedback, or Worked Solutions.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AssessmentAttemptPage` presents the open Attempt without requiring Hints, Question Feedback, or Worked Solutions.
   - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `ReleasedBlocks` shows a support block only when that block is present.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `general_feedback` may be absent; a NULL value means that optional fact is not stored.
@@ -651,12 +707,14 @@
   - Evidence (runtime): `crates/server/src/assessment_delivery.rs` `start` passed accepted actual-server proof that selected an exact Pool member for Student Attempt 1, preserved it on resume, and selected again for Attempt 2. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Question Pool cannot contain two copies of the same Published Question; selection is random.
+- [ ] A Question Pool cannot contain two Revisions of the same Published Question.
   - Verification pending: New Pool guidance; implementation has not been validated.
-- [ ] When editing a Pool, its member Questions should be sortable like a spreadsheet.
-  Ordering is for display, not Pool membership or random selection.
+- [ ] When editing a Pool, Instructors should be able to sort its Published Questions like a
+  spreadsheet. Sorting changes only the display; it leaves the Pool contents and random selection
+  unchanged.
   - Verification pending: New Pool editor guidance; implementation has not been validated.
-- [ ] Pool contents should represent reasonably interchangeable assessments of the intended learning.
+- [ ] Published Questions in a Pool should be reasonably interchangeable for assessing the intended
+  learning.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` requires the creating Instructor's true `interchangeability_attested` value; it does not substitute an automatic pedagogical evaluator.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that required the Instructor's attestation before creating the ordered reusable Pool and before its later Assessment-owned reorder. Artifacts: `/private/tmp/ple-course-empty-artifacts.bzwXEa` and `/private/tmp/ple-course-empty-artifacts.lgyOMK`.
   - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
@@ -685,28 +743,49 @@
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `reserve_public_id` records the ID for `question_pool` and rejects a second reservation of the same ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Question Pool is a current unordered set of exact Published Question Revisions plus its
-  metadata. Saving membership changes re-attests interchangeability and advances the Pool's
-  Edit Number; no Revision is created. Removing ten Questions and saving once is one Edit.
+- [ ] For forking, we are mostly using the GitHub model.
+  - Decision: Neil clarified this during the 2026-10-05 Question specification interview.
+  - Verification pending: Documentation updated; current implementation has not been verified for this clarification.
+- [ ] Changes to a Pool take effect when the Instructor saves them. There is no undo after saving.
+  - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
+- [ ] A Pool Edit Number is only a counter and does not identify a stored historical Pool.
+  - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
+- [ ] A Question Pool is an unordered set of Question Revision Tuples plus its metadata.
+  When the set changes, saving advances the Pool's Edit Number; no Revision is created.
+  Removing ten Questions and saving once is one Edit.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_member` stores the current ordered Published Question Revision pins, and `question_pool` stores the Pool metadata with an Edit Number and no Revision column.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` re-attests interchangeability and advances `question_pool_edit_number` by one for one member-list save.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` advances `question_pool_edit_number` by one for one member-list save. Its additional attestation flag/storage is implementation drift recorded in docs/TODO.md.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 #### Question Pool use and selection
 
-- [ ] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
-  - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
-  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
-  - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/50_functions/question_pools.sql` retains exact source-Revision provenance.
-  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
+- [ ] An Assessment can use an existing Question Pool and specifies how many Questions to select from it.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] The number selected belongs to the Assessment, not the Pool.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Adding a Question Pool to an Assessment uses that existing Pool; adding it does not create a fork.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] One Assessment or hundreds can reference the same Pool. Its owner stays the same.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Pool changes affect future selections wherever that Pool is referenced. Existing Attempts retain
+  the Questions already selected for them.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Forking a Question Pool is an explicit action used when an Instructor wants an independent Pool.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] A Pool fork is a new Question Pool with a new Pool ID and its own owner, and records its source Pool.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] A Pool fork begins with the parent Pool's current Question Revision Tuples
+  and starts at Edit Number 1.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_fork` copies each source member `published_question_id` onto the new Pool.
   - Evidence (source): `schemas/base_schema/10_types.sql` `is_canonical_question_family_id` requires that copied public ID to keep the `XXXX-ZXXX` checksum form.
+  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
+  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] A Pool fork is a normal reusable Question Pool and can be used in any number of Assessments.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] A Pool fork has its own Instructor owner and can be changed without changing its parent Pool.
+  - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/50_functions/question_pools.sql` retains exact source-Revision provenance.
+  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Question Pools work the same way regardless of the Question Backend.
@@ -714,18 +793,19 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_start.sql` `start_assessment_attempt` stores one Pool selection and both issued Questions, and keeps the source-backend reproduction seed.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
+- [ ] **Instructors** choose the Questions in a Pool. Each Assessment specifies how many Questions
+  to select from it.
   - Evidence (source): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` submits the Instructor's ordered current Published Question Revisions with interchangeability attestation; `src/pages/assessment_workspace/assessment_pool_entry_editor.tsx` `AssessmentPoolEntryEditor` exposes the Assessment-owned fork's exact members and bounded selection count.
   - Evidence (runtime): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `updatePoolSelectionCount` passed accepted actual-main proof that created the reusable Pool from ordered Published Questions, then imported it, changed its selection count from 2 to 1, attested and reordered its exact members, and reloaded its Revision 2 while the source remained unchanged. Artifacts: `/private/tmp/ple-course-empty-artifacts.bzwXEa` and `/private/tmp/ple-course-empty-artifacts.lgyOMK`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
+- [ ] PLE randomly selects from the Question Pool; the selected Question Backend controls the Question interaction.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` performs server-owned selection.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] An Assessment must have enough Questions in each Pool to satisfy its selection count,
-  including after members are removed.
-  - Verification pending: New Pool guidance; implementation has not been validated.
+- [ ] At release, each Pool must contain enough valid Published Questions to provide the number
+  the Assessment requests.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
 - [ ] Question Pool selection and backend-native randomization are separate forms of variation.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `QuestionPoolSelectionEntropy` is separate from Question backend state.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -741,9 +821,9 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_start.sql` `prepare_current_assessment_attempt_start_decision` returns no resumable Attempt once the open Attempt has passed its stored expiration.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Student Work pins the Published Question ID, its Revision Number, the Question Pool ID, and the
-  Pool's Edit Number for every Question served from a Pool; the pinned Published Question
-  Revision is all that later interpretation and grading need.
+- [ ] For each Published Question selected from a Pool, Student Work records its Question Revision
+  Tuple, the Pool ID, and the Pool Edit Number. That Question Revision provides what PLE needs
+  to interpret and grade the response later.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_start.sql` `start_assessment_attempt` stores the Pool ID, its Edit Number, and each selected Published Question ID and Revision Number on the Attempt.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_attempt_pool_selection` returns those stored pins.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `prepare_assessment_attempt_finalization` returns the issued Published Question ID, Revision Number, and that Revision's source binding.
@@ -766,7 +846,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `reserve_public_id` keeps one public ID from being both a Question Pool and a Published Question.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
+- [ ] Instructors watching a Question Pool receive notifications in PLE when its Questions change
+  or when it is forked.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 - [ ] Each Question Pool must have one license compatible with every member Question's license; its license cannot be "Mixed".
@@ -797,15 +878,14 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` refuses a new member whose Discipline or Subject differs from the Pool and stores a new member that matches.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Pool mismatch**: The Pool no longer satisfies its current requirements.
-  - Verification pending: Pool mismatch state and cause reporting require implementation validation.
-- [ ] Pool mismatch causes include too few member Questions, member Discipline or Subject mismatch,
-  duplicate Questions, and other Pool constraint violations. Show the specific cause.
-  - Verification pending: Pool mismatch state and cause reporting require implementation validation.
-- [ ] If a member's Discipline or Subject changes so it no longer matches the Pool, flag a
-  Pool mismatch and prevent release of an affected Assessment until the mismatch is resolved.
-  - Verification pending: New Pool guidance; implementation has not been validated.
-- [ ] If a Pool mismatch develops after an Assessment is already released, allow that Assessment
+- [ ] A Pool must continue to meet its requirements. Show the specific problem when a Published
+  Question's Discipline or Subject differs from the Pool's, the same Published Question appears
+  more than once, or another Pool requirement is not met.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] If an Assessment asks for more Questions than a Pool can provide, show the problem and block
+  release. The Pool itself may still be valid.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] If a Pool develops a problem after an Assessment is already released, allow that Assessment
   to continue as-is.
   - Verification pending: Updated Pool search and release guidance; implementation not validated.
 - [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
@@ -821,7 +901,7 @@
   - Evidence (runtime): Accepted SQL/source proof establishes independent Title/Description, empty creation Tags, optional narrower hierarchy, classification retention after Question reclassification, and historical fork preservation. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` confirms separately authored Pool text through creation, retry, list, and current reads. No historical Pool HTTP route is claimed. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
+- [ ] Question Pools can include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `hint` stores optional Pool Hint, Question Feedback, and Worked Solution text. NULL means absent. No PostgreSQL proof was run. No Live Demo stack was started.
   - Evidence (source): `schemas/base_schema/50_functions/question_pool_support.sql` `save_question_pool_ple_managed_support` replaces those three Pool texts and leaves the member-list Edit Number unchanged.
@@ -844,7 +924,8 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The Question Library is one global collection of Published Questions and Question Pools.
-  Both appear in the same combined search, with filters for Questions, Pools, and Pool membership.
+  Both appear in the same search, with filters for Published Questions, Question Pools,
+  and whether a Published Question belongs to a Pool.
   - Verification pending: Neil requires one combined Question-and-Pool search with Both, Questions only, and Pools only filters. Verify server-wide filtering, sorting, and paging of the combined results; separate existing searches do not establish compliance.
 - [ ] Search supports a "Questions in no Pool" filter: Published Questions that belong to no Pool.
   - Verification pending: Updated Pool search and release guidance; implementation not validated.
@@ -862,7 +943,7 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
-- [ ] **Published Questions** and Question Pools are available to all **Instructors**.
+- [ ] **Library Objects** are available to all **Instructors**.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Students** access Question content through their Coursework rather than through the Question Library.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` reserves both Question Library routes for Instructors, and `src/route_access_boundary.tsx` `withRouteAccessBoundary` fail-closes every protected route before its page component mounts.
@@ -906,8 +987,8 @@
   - Evidence (test): `tests/test_library_classification_search.mjs` `Library Objects use shared metadata for organization, search, filtering, and discovery` sent the shared metadata through both discovery requests and refused a Subject without its Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Instructors may not have the attention to detail to fill out all metadata; assign metadata
-  automatically where possible and require the remaining required content before publication.
+- [ ] Instructors may not fill out all metadata. Assign it automatically where possible and require
+  the remaining necessary information before publication.
   - Verification pending: Metadata requirements clarified in the interview; current enforcement needs validation.
 - [ ] Required Question Library metadata must be complete before a Library Object enters the Question Library.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` refuses a new Published Question when Discipline or Subject is absent and stores its Title, Description, language, Tags, and classification.
@@ -953,7 +1034,7 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
-- [ ] Library Objects may have any number of **Tags**, including none.
+- [ ] Library Objects can have any number of **Tags**, including none.
   - Evidence (source): `schemas/base_schema/15_table_check_functions.sql` `question_metadata_tags_are_valid` accepts an empty tag list and any number of distinct trimmed tags.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores a Question tag list, including none, and stores several tags.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns those Question tag lists.
@@ -974,7 +1055,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Questions and Question Pools retain their Library Object classification when used in an Assessment.
+- [ ] Library Objects retain their classification when used in an Assessment.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `save_assessment` pins a Published Question on an Assessment and does not rewrite its Library Object classification.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns that Question's Discipline, Subject, Topic, and Subtopic after the pin.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork` places a Question Pool on an Assessment by forking it.
@@ -988,7 +1069,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/published_question_metadata_operations.sql` `bulk_replace_published_question_metadata` replaces Subject, Topic, and Subtopic for a selected set of Published Questions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+- [ ] Library Objects can have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
   - Evidence (test): `crates/server/src/authoring.rs` `published_questions_include_optional_hint_feedback_and_worked_solution` kept omitted Published Question Hint and Worked Solution unchanged and replaced both when present.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `general_feedback` stores optional Pool Question Feedback beside hint and worked_solution. No PostgreSQL proof was run. No Live Demo stack was started.
   - Evidence (test): `crates/server/src/question_pool_support.rs` `pools_keep_optional_ple_managed_support_without_copying_member_questions` saved the three Pool texts and kept Edit Number 4.
@@ -1003,14 +1084,13 @@
 
 #### Question Library object usage statistics
 
-- [ ] Published Questions and Question Pools keep privacy-safe aggregate usage statistics.
+- [ ] Library Objects keep privacy-safe aggregate usage statistics.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `capture_issued_question_statistics_observation` records one observation for each Issued Question when the Attempt is submitted.
   - Evidence (source): `schemas/base_schema/50_functions/statistics.sql` `increment_question_revision_statistics` adds that observation to the Published Question aggregate.
   - Evidence (source): `schemas/base_schema/50_functions/statistics.sql` `increment_question_pool_issue_statistics` adds the Question Pool issue count and the member selection count.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Statistics are kept separately for each Published Question Revision and for each Question
-  Pool.
+- [ ] Keep statistics separate for each Published Question Revision and each Question Pool.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` stores counts for one Published Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/statistics.sql` `read_question_library_revision_usage_statistics` returns each Revision on its own, including a Revision that has not been issued.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_pool_statistics` stores the Question Pool issue count apart from those Revision rows.
@@ -1022,11 +1102,14 @@
   - Evidence (source): `schemas/base_schema/50_functions/statistics.sql` `read_question_library_usage_statistics` returns those counts and sums.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Instructors should be able to judge how often a Question is used and how hard it is.
+- [ ] Statistics show how often Students received each Published Question Revision or Questions from
+  each Pool and how much credit they earned.
   - Evidence (source): `schemas/base_schema/50_functions/statistics.sql` `read_question_library_usage_statistics` returns issued, correct, and credit sums for an Instructor.
   - Evidence (source): `src/pages/question_statistics_panel.tsx` `QuestionStatisticsPanel` shows each rate beside its observation count.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Include the number of graded responses, average earned credit, and percentages earning full credit and zero credit.
+- [ ] Use the stored Question credit fraction for these statistics; Assessment settings determine awarded points separately.
 - [ ] Removing Student names alone does not make statistics anonymous.
   - Evidence (source): `docs/FERPA_DATA_POLICY.md` `Question Library object usage statistics` keeps Course, Student, Account, Attempt, and response facts in Student Work.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` stores counts and credit sums without a Student name or Student record.
@@ -1047,8 +1130,8 @@
   - Evidence (test): `crates/server/src/assessment_delivery/history.rs` `course_class_statistics_stay_omitted_when_a_student_could_be_inferred` omitted a cohort of 1 and a cohort one below the minimum, omitted a safe cohort while class statistics were Never, and disclosed that safe cohort after AfterSubmit.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Schema and increment rules live in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and
-  [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
+- [ ] Database details and rules for updating statistics are in
+  [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
   - Evidence (source): `docs/DESIGN_DECISIONS.md` `Library usage statistics are retained counters` states the stored counts and the submission increment.
   - Evidence (source): `docs/FERPA_DATA_POLICY.md` `Question Library object usage statistics` states those schema and increment rules.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -1085,8 +1168,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the Pool pair.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Bloom Classification is left blank when a Published Question or Question Pool enters the Question
-  Library, to be updated by AI later.
+- [ ] Bloom Classification starts blank for new content awaiting AI assignment. A Pool fork copies
+  the parent Pool's existing Bloom fields along with its other Pool metadata.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` publishes a Question Revision and does not insert a Bloom row.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` creates a Question Pool and does not insert a Bloom row.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `load_question_library_revision` returns a null Bloom pair when that row is absent.
@@ -1097,7 +1180,7 @@
   - Verification pending: Metadata requirements clarified in the interview; current enforcement needs validation.
 - N/A AI assigns the initial Bloom Classification using a daemon after publication.
   - Reason: Deferred product behavior overrides this implementation language. Initial Bloom Classification is deferred with the AI backend, AI-backed Bloom classification is deferred until a later release, and automated daemon backends are deferred until a final server location. Publication does not start a daemon.
-- [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question
+- [ ] The owning **Instructor** can correct either Bloom dimension without creating a new Published Question
   Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` `correct_question_revision_bloom` updates one stored dimension for an active Instructor and does not insert a Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` `correct_question_pool_bloom` updates one stored Pool dimension and does not insert a Question Revision.
@@ -1110,6 +1193,8 @@
   - Evidence (test): `tests/playwright/test_bloom_classification_workflow.mjs` `Bloom Classification supports Question Library search and Assessment item sorting` selects Remember and Factual Knowledge and shows both teaching meanings.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Bloom is an editable field like Title. Save it like other metadata and check for conflicting edits.
+  - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
 - [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
   - Evidence (source): `schemas/base_schema/10_types.sql` `bloom_cognitive_process` stores Remember, Understand, Apply, Analyze, Evaluate, and Create.
   - Evidence (source): `schemas/base_schema/10_types.sql` `bloom_knowledge_dimension` stores Factual, Conceptual, Procedural, and Metacognitive Knowledge.
@@ -1123,6 +1208,7 @@
 #### Question Library stewardship specifications
 
 - [ ] Question Library stewardship should use a GitHub-like model.
+- [ ] An Instructor who finds a problem in another Instructor's Library Object can fork it and fix it.
   - Evidence (source): `schemas/base_schema/50_functions/library_discussion_operations.sql` `create_library_improvement_thread` retains a text-only thread, and `create_library_impact_notice` retains an owner-managed notice.
   - Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_thread_event` and `enqueue_library_watch_impact_event` deliver those activities to current watchers.
   - Evidence (source): `src/components/library_discussion_panel.tsx` `LibraryDiscussionPanel` presents improvement threads and impact notices on a Library Object.
@@ -1139,12 +1225,12 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Use **Stars** and **who Starred** rather than a separate "endorsement list" concept.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Questions and Question Pools can be starred and watched.
+- [ ] Library Objects can be starred and watched.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `set_current_question_star` records an Instructor Star, and `set_current_question_watch` records that Instructor's Question Watch.
   - Evidence (source): `schemas/base_schema/50_functions/question_pool_stewardship.sql` `set_current_question_pool_star` records a Pool Star, and `set_current_question_pool_watch` records that Instructor's Pool Watch.
   - Evidence (source): `src/components/question_star_control.tsx` `QuestionStarControl` and `src/components/question_pool_star_control.tsx` `QuestionPoolStarControl` expose the Star actions.
   - Evidence (source): `src/components/question_watch_control.tsx` `QuestionWatchControl` and `src/components/question_pool_watch_control.tsx` `QuestionPoolWatchControl` expose the Watch actions.
-  - Evidence (test): `tests/test_frontend_contract.mjs` `Published Questions and Question Pools can be starred and watched.` starred Question 7K3M-79QP and Pool 3S8B-24DZ, watched both through the shipped client, and rendered Star question and Star Pool. `tests/test_question_watch_client.mjs` `Watch means subscription.` rendered Watch and Unwatch for a Question and a Pool. No Live Demo stack was started. No PostgreSQL proof was run.
+  - Evidence (test): `tests/test_frontend_contract.mjs` `Library Objects can be starred and watched.` starred Question 7K3M-79QP and Pool 3S8B-24DZ, watched both through the shipped client, and rendered Star question and Star Pool. `tests/test_question_watch_client.mjs` `Watch means subscription.` rendered Watch and Unwatch for a Question and a Pool. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Star means favorite and visible endorsement.
@@ -1152,8 +1238,7 @@
   - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 with an active vetted Instructor's actual HTTP Star action and exact closed Star projection.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Instructors** can see the star count and which **Instructors** starred a Published
-  Question or Question Pool.
+- [ ] **Instructors** can see the Star count and which **Instructors** starred a Library Object.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Watch means subscription.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `set_current_question_watch` inserts or deletes only the current Instructor's Question Watch row.
@@ -1166,10 +1251,12 @@
   - Evidence (test): `tests/test_question_watch_client.mjs` `Watch means subscription.` rendered Watch and Unwatch for Question 7K3M-79QP and Pool 3S8B-24DZ, subscribed and unsubscribed through the shipped Watch client, and rejected a Pool watcher count.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, and impact notices.
+- [ ] Instructors watching a Published Question receive notifications in PLE about new Revisions
+  and forks.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
-- [ ] Watching a Question Pool drives in-app notifications for membership edits, forks, and impact notices.
+- [ ] Instructors watching a Question Pool receive notifications in PLE when its Questions change
+  or when it is forked.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
 - [ ] An **Instructor's** watch list remains private.

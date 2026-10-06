@@ -41,17 +41,6 @@ pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS: usize = QuestionType::ALL.l
 /// Maximum Question Type values returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS: usize = QuestionType::ALL.len();
 
-/// Account-bound course-use filter for Question Library discovery.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum QuestionSearchCourseUse {
-    /// Include every Published Question regardless of current Account use.
-    #[default]
-    Any,
-    /// Include only publications used in at least one course visible to the Account.
-    Used,
-}
-
 /// Account-bound authorship scope for Question Library discovery.
 ///
 /// The browser selects only this closed meaning. The active authenticated
@@ -137,14 +126,6 @@ pub struct QuestionTypeFacet {
     pub count: u64,
 }
 
-/// Account-specific reverse-index count from the same Question Search query snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchCourseUseFacet {
-    /// Publications used in one or more courses visible to the current Account.
-    pub used: u64,
-}
-
 /// Server-computed count for one closed Bloom Cognitive Process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -223,10 +204,6 @@ pub struct QuestionSearchRequest {
     pub capabilities: Vec<Capability>,
     /// Accepted exact Question Licenses; any supplied value may match.
     pub question_licenses: Vec<QuestionLicense>,
-    /// Whether a current Account-visible course use is required.
-    ///
-    /// This closed filter carries no Course Instance ID, title, or identity.
-    pub used_in_my_courses: QuestionSearchCourseUse,
     /// Whether immutable publication authorship by the current Account is required.
     ///
     /// This closed filter carries no browser-provided Account identity.
@@ -279,7 +256,6 @@ pub struct QuestionSearchFilter {
     pub question_types: Vec<QuestionType>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
-    pub used_in_my_courses: QuestionSearchCourseUse,
     pub authorship: QuestionSearchAuthorship,
     #[serde(default)]
     pub sort: QuestionSearchSort,
@@ -314,7 +290,6 @@ impl QuestionSearchFilter {
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
-            used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
             sort: query.sort,
         })
@@ -348,7 +323,6 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             question_types: filter.question_types,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
-            used_in_my_courses: filter.used_in_my_courses,
             authorship: filter.authorship,
             sort: filter.sort,
             cursor: None,
@@ -379,7 +353,6 @@ impl Default for QuestionSearchRequest {
             question_types: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
-            used_in_my_courses: QuestionSearchCourseUse::Any,
             authorship: QuestionSearchAuthorship::Any,
             sort: QuestionSearchSort::TitleAscending,
             cursor: None,
@@ -578,8 +551,6 @@ pub struct QuestionSearchFacets {
     pub capabilities: Vec<QuestionSearchCapabilityFacet>,
     /// Exact Question License counts.
     pub question_licenses: Vec<QuestionSearchQuestionLicenseFacet>,
-    /// Account-specific current-course-use count.
-    pub used_in_my_courses: QuestionSearchCourseUseFacet,
     /// Complete closed Bloom Cognitive Process counts in teaching-guide order.
     pub bloom_cognitive_processes: Vec<QuestionSearchBloomCognitiveProcessFacet>,
     /// Complete closed Bloom Knowledge Dimension counts in teaching-guide order.
@@ -741,7 +712,6 @@ mod tests {
     fn question_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
         let query = QuestionSearchRequest {
             question_types: vec![QuestionType::FillInBlank],
-            used_in_my_courses: QuestionSearchCourseUse::Used,
             cursor: Some("opaque-cursor".to_string()),
             page_size: Some(25),
             ..QuestionSearchRequest::default()
@@ -751,10 +721,8 @@ mod tests {
             query_json["question_types"],
             serde_json::json!(["fillInBlank"])
         );
-        assert_eq!(query_json["used_in_my_courses"], serde_json::json!("used"));
         assert_eq!(query_json["page_size"], serde_json::json!(25));
         assert!(query_json.get("responseFamilies").is_none());
-        assert!(query_json.get("usedInMyCourses").is_none());
 
         let filter =
             QuestionSearchFilter::from_query(query).expect("filter produces normalized D1 meaning");

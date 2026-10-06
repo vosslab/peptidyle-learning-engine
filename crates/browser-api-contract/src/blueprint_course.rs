@@ -56,7 +56,7 @@ pub struct BlueprintKnownForkView {
     pub long_name: String,
     pub availability: question_model::BlueprintAvailability,
     pub current_revision_tuple: BlueprintRevisionTuple,
-    /// Source Blueprint Revision Tuple at fork creation, not a last-applied update marker.
+    /// Source Blueprint Course Revision Tuple at fork creation, not a last-applied update marker.
     pub source_revision_tuple: BlueprintRevisionTuple,
     pub owner_display_name: String,
 }
@@ -117,7 +117,7 @@ pub struct BlueprintComparisonAssessment {
     pub question_ids: Vec<question_model::PublishedQuestionId>,
 }
 
-/// Answer-free immutable content resolved by its exact Blueprint Revision Tuple.
+/// Answer-free immutable content resolved by its exact Blueprint Course Revision Tuple.
 ///
 /// The Tuple identifies one saved Revision independently of lineage names
 /// and availability.

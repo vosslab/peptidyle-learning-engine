@@ -23,7 +23,7 @@ as do Question list items ([HG:600-603](../../HUMAN_GUIDANCE.md#L600-L603)).
 - **Static:** The shared `RecordActionControl` emits ordinary anchors without `target="_blank"`
   ([`record_list.tsx:185-197`](../../../src/components/record_list/record_list.tsx#L185-L197)).
 - **Static:** Question results save a return token before ordinary same-tab navigation
-  ([`library_browse_rows.tsx:99-129`](../../../src/pages/library_browse_rows.tsx#L99-L129)). Their
+  (`src/pages/library_browse_rows.tsx` (historical path; retired)). Their
   return state retains query, loaded rows, aggregate facets, cursors, and scroll position
   ([`library_page_model.ts:189-301`](../../../src/pages/library_page_model.ts#L189-L301)).
 - **Static:** Blueprint results do the same
@@ -67,7 +67,7 @@ modes and OER Commons' simple search/image-focused boxes as references
 - **Static:** Question Library starts from a separate simple-search entry, then displays
   `RecordList` rows after input
   ([`library_page.tsx:425-717`](../../../src/pages/library_page.tsx#L425-L717),
-  [`library_browse_rows.tsx:227-264`](../../../src/pages/library_browse_rows.tsx#L227-L264)).
+  `src/pages/library_browse_rows.tsx` (historical path; retired)).
 - **Static:** The currently assembled workflow has no compact/list/movie-poster mode selection.
   `RecordListImageBrowser` offers only Gallery and List, and is not wired to Question search
   ([`record_list_image_browser.tsx:22-69`](../../../src/components/record_list/record_list_image_browser.tsx#L22-L69)).
@@ -128,7 +128,7 @@ model requirement.
   and bulk work ([`library_page.tsx:108-161`](../../../src/pages/library_page.tsx#L108-L161)).
 - **Static:** No search-scoped hover-preview implementation was found. The Question Open action
   has a short native title; keyboard-focus tooltip behavior was not verified
-  ([`library_browse_rows.tsx:107-127`](../../../src/pages/library_browse_rows.tsx#L107-L127)).
+  (`src/pages/library_browse_rows.tsx` (historical path; retired)).
 - **Static:** Blueprint student counts are numeric aggregates, with no Student records returned
   ([`blueprint_operations.sql:548-566`](../../../schemas/base_schema/50_functions/blueprint_operations.sql#L548-L566)).
 

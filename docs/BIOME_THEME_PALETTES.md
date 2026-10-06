@@ -24,8 +24,10 @@ browser preference.
 Changing display mode never changes the selected Theme. Changing a Theme
 never changes display mode.
 
-There is no System or Auto display-mode option, Theme inheritance,
-Theme-strength setting, or per-Course display mode.
+A Course created from a Blueprint starts with the Blueprint's Theme. The Instructor can then
+change the Course Theme independently. The starting copy is not an ongoing Theme dependency.
+
+There is no System or Auto display-mode option, Theme-strength setting, or per-Course display mode.
 
 The default Theme is `grass` (Grassland).
 

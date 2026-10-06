@@ -7,7 +7,8 @@ screens with older names are implementation gaps, not a different product.
 
 A Blueprint Course is reusable Course content with no Students, dates, time
 zones, or relative schedules. It is created Private with Revision 1. A changed
-explicit Save creates the next immutable Revision; a no-op creates none.
+explicit Save creates the next Revision when reusable content changes; a no-op creates none.
+Permitted metadata edits preserve the Revision Number.
 
 Private is owner-only and cannot be adopted. Public is visible to active
 Instructors and adoptable. Archived is read-only, omitted from ordinary
@@ -121,8 +122,8 @@ Attempt, response, credit, or Student Work.
 
 Each global Account has exactly one immutable User Role: Student,
 Instructor, or Sysadmin. All co-Instructors in a Course have equal authority.
-A Sysadmin has no ambient Course membership or FERPA access; support access is
-deliberate, scoped, and recorded.
+Sysadmins have full administrative access, including Course and Student records.
+Support work is recorded for audit.
 
 ## What happens when access or an Account is deactivated?
 

@@ -49,7 +49,9 @@ spreadsheet-style editor sorting changes only the display.
 A Pool mismatch identifies a requirement the Pool fails. Resolve it before releasing an affected
 Assessment; an Assessment already released when the mismatch develops continues as-is. These
 recent requirements are not all implemented or runtime-verified yet. See
-[QUESTION_MODEL.md](QUESTION_MODEL.md) for the rules and known implementation gaps.
+[QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md) for the rules and
+[question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md)
+for implementation gaps.
 
 ## Assessment changes and Unrelease
 

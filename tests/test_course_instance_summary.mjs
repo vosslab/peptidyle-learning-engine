@@ -154,7 +154,7 @@ test("Course creation accepts only the two current source wires", () => {
   );
 });
 
-test("Course Instance view provenance accepts named Blueprint Revision Tuples and rejects split siblings", () => {
+test("Course Instance view provenance accepts named Blueprint Course Revision Tuples and rejects split siblings", () => {
   const origin = {
     adoptedBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "1" },
     currentBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },

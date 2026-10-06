@@ -19,7 +19,7 @@ pub struct StoredKnownBlueprintFork {
     pub long_name: String,
     pub availability: BlueprintAvailability,
     pub current_revision_tuple: BlueprintRevisionTuple,
-    /// Immutable source Blueprint Revision Tuple used when this direct fork was created.
+    /// Immutable source Blueprint Course Revision Tuple used when this direct fork was created.
     pub source_revision_tuple: BlueprintRevisionTuple,
     pub owner_display_name: String,
 }

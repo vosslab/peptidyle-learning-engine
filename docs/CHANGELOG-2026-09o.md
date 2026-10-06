@@ -531,7 +531,7 @@ tests/test_question_pool_metadata.mjs
 tests/test_question_picker_blueprint_course.mjs`,
   `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`.
 
-- Finish remaining identity contract shape. Blueprint Revision Tuple JSON
+- Finish remaining identity contract shape. Blueprint Course Revision Tuple JSON
   is `{blueprintCourseId, revisionNumber}` everywhere on current contracts,
   matching Question Revision Tuple `{questionId, revisionNumber}`. Leftover
   SQL/Rust holders `read_active_student_assessment_attempt_reference`,
@@ -723,7 +723,7 @@ tests/test_assignment_client.mjs`.
   [FILE_STRUCTURE.md](FILE_STRUCTURE.md),
   [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md),
   [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md),
-  [QUESTION_MODEL.md](QUESTION_MODEL.md),
+  [QUESTION_SPECS/README.md](QUESTION_SPECS/README.md),
   [CONTRACTS.md](CONTRACTS.md),
   [API_CONTRACTS.md](API_CONTRACTS.md),
   [DATA_CONTRACTS.md](DATA_CONTRACTS.md),

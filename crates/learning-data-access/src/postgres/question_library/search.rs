@@ -28,7 +28,7 @@ impl PostgresQuestionLibraryStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.search_question_library_entries(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, \
-                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)",
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)",
         )
         .bind(
             request
@@ -55,7 +55,6 @@ impl PostgresQuestionLibraryStore {
         )
         .bind(question_types(&request.question_types)?)
         .bind(question_licenses(&request.question_licenses)?)
-        .bind(request.used_in_current_account_courses)
         .bind(request.authored_by_current_account)
         .bind(match request.kind {
             LibrarySearchKind::Both => "both",
@@ -292,7 +291,6 @@ mod tests {
             bloom_knowledge_dimension: None,
             question_types: Vec::new(),
             question_licenses: Vec::new(),
-            used_in_current_account_courses: false,
             authored_by_current_account: false,
             sort: QuestionLibrarySearchSort::TitleAscending,
             page_size: 50,

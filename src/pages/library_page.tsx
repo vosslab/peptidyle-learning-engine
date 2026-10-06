@@ -98,7 +98,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "questionType"
       | "capability"
       | "questionLicense"
-      | "usedInMyCourses"
       | "bloomCognitiveProcess"
       | "bloomKnowledgeDimension",
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {

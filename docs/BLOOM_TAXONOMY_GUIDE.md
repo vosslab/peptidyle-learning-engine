@@ -6,7 +6,7 @@ understand and correct the AI-assigned cognitive classification of one exact Pub
 Revision or Question Pool.
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#content-and-delivery-relationships) owns the
-canonical names. [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the classification
+canonical names. [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md) owns the classification
 data contract. This guide owns the practical teaching interpretation.
 
 ## Why use it
@@ -61,9 +61,8 @@ An Instructor may use Bloom Classification to organize the current Entries in an
 order is Cognitive Process first (Remember through Create), then Knowledge Dimension (Factual
 through Metacognitive). Entries with the same pair retain their immediately prior relative order.
 
-A fixed Question Entry uses the pair on its exact pinned Question Revision. A Question Pool Entry
-uses the pair on the Assessment-owned fork Pool. Do not substitute the reusable
-source Pool's current pair or infer a Pool pair from its members. Sorting changes only the pending
+A fixed Question Entry uses the Bloom fields on its referenced complete Question record. A Question Pool Entry
+uses the Pool's own Bloom fields, independently of its parent Pool and member Questions. Sorting changes only the pending
 Assessment Entry sequence; the ordinary Assessment Save and its Edit Number CAS persist it.
 
 ## Cognitive process dimension
@@ -254,7 +253,7 @@ color does not represent correctness, Question Difficulty, point value, or maste
 - [ ] The classification remains separate from Question Difficulty and Question Type.
 - [ ] Every color-coded presentation also displays both dimension labels.
 - [ ] An Instructor can edit either assigned value later without creating a Question Revision or advancing the Pool Edit Number.
-- [ ] Assessment sorting uses the exact fixed or Assessment-owned Pool pair, guide order, and a
+- [ ] Assessment sorting uses the exact fixed or referenced Pool pair, guide order, and a
   stable prior-position tie-break.
 
 ## Sources

@@ -293,7 +293,6 @@ function pickerQuestionLibraryPage(
       questionTypes: [],
       capabilities: [],
       questionLicenses: [],
-      usedInMyCourses: { used: 0 },
       bloomCognitiveProcesses: BLOOM_COGNITIVE_PROCESSES.map((cognitiveProcess) => ({
         cognitiveProcess,
         count: 0,

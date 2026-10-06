@@ -206,25 +206,6 @@ export function LibrarySearchFilters(props: LibrarySearchFiltersProps): JSX.Elem
         </select>
       </label>
       <label>
-        Used in my courses
-        <select
-          value={props.query().usedInMyCourses ?? ""}
-          disabled={questionOnlyDisabled()}
-          onChange={(event) =>
-            props.onChange({ usedInMyCourses: event.currentTarget.value || null })
-          }
-        >
-          <option value="">Any course use</option>
-          <RetainedSelectOption
-            value={props.query().usedInMyCourses}
-            label={() => "Used in my courses"}
-          />
-          <For each={option("usedInMyCourses", props.query().usedInMyCourses)}>
-            {(item) => <option value={item.value}>{`Used in my courses (${item.count})`}</option>}
-          </For>
-        </select>
-      </label>
-      <label>
         Capability
         <select
           value={props.query().capability ?? ""}

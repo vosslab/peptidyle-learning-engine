@@ -2,7 +2,7 @@
 use axum::http::StatusCode;
 use question_model::{
     BloomCognitiveProcess, BloomKnowledgeDimension, Capability, QuestionBackend,
-    QuestionSearchAuthorship, QuestionSearchCourseUse, QuestionSearchRequest, QuestionSearchSort,
+    QuestionSearchAuthorship, QuestionSearchRequest, QuestionSearchSort,
 };
 use serde::Deserialize;
 
@@ -55,8 +55,6 @@ pub(super) struct QuestionSearchQuery {
     #[serde(default)]
     question_licenses: Vec<question_model::QuestionLicense>,
     #[serde(default)]
-    used_in_my_courses: QuestionSearchCourseUse,
-    #[serde(default)]
     authorship: QuestionSearchAuthorship,
     #[serde(default)]
     sort: QuestionSearchSort,
@@ -107,7 +105,6 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
-            used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
             sort: query.sort,
             cursor: query.cursor,

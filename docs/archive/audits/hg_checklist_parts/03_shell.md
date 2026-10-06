@@ -21,7 +21,8 @@
   - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `Sort Public Blueprint Courses` is the Blueprint search sort control above its results.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A page describes what each record shows and what the user can do. Shared record and page components own the markup, spacing, and reflow, so the same facts and actions stay readable when the page gets narrower.
+- [ ] Each page defines what its records show and what users can do. Shared components handle layout
+  and spacing, keeping the same information and actions readable as the page gets narrower.
   - Evidence (source): `src/pages/course_list_page.tsx` `courseContent` names each Course, its classification, its Term, and Open Course.
   - Evidence (source): `src/components/record_list/record_list.tsx` `RecordList` renders that description in the shared semantic record row.
   - Evidence (source): `src/components/record_list/record_list.css` `record-list--semantic` lays the shared list out as one column so its facts and actions remain in the row when the page is narrower.
@@ -267,8 +268,7 @@
 
 ### Interaction design
 
-- [ ] Use progressive disclosure to keep common tasks compact while making supporting details easy
-  to find.
+- [ ] Keep common tasks compact, with supporting details easy to open when needed.
   - Evidence (source): `src/style.css` `details:not([open]) > :not(summary)` hides supporting content until its disclosure is opened.
   - Evidence (source): `src/pages/course_roster_page.tsx` `roster-tools` keeps the Roster tools summary available and places the import explanation inside that disclosure.
   - Evidence (test): `tests/playwright/ribbon_narrow_routed_shell.mjs` `Use progressive disclosure to keep common tasks compact while making supporting details easy to find.` rendered the Roster tools disclosure in headless Chromium, kept the summary visible while the import explanation had no box, then opened the section and showed that explanation. No Live Demo stack was started. No PostgreSQL proof was run.
@@ -526,7 +526,8 @@
   - Evidence (source): `src/ribbon/ribbon_tier_one.css` `border-radius: 0` leaves the hit target square while only the selected face is curved.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The selected Tier 1 reads as the current/open tab. Choose its surface relationship to the colored bar in light and dark themes rather than fixing selection to a darker or lighter color.
+- [ ] The selected Tier 1 tab should look open. Choose its color relative to the Ribbon for each
+  Light and Dark theme; the selected tab need not always be darker or always lighter.
   - Evidence (source): `src/ribbon/ribbon_surfaces.css` `--ple-ribbon-folder-selected-surface` uses the theme canvas in both display modes.
   - Evidence (test): `tests/playwright/ribbon_tier_theme_evidence.mjs` `assertTierThemeSurfaces` checks that the selected curved tab flows into the Ribbon apron in every theme and in light and dark.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -700,8 +701,8 @@
   - Evidence (test): `tests/test_instructor_profile_decoder.mjs` `Instructor Profile has only its public name and avatar` validates the narrow Profile response and canonical Account-ID route decoding.
   - Evidence (runtime): `tests/e2e/e2e_live_demo_profile_avatar.sh` `Student delivery of public Instructor Profile image` passed against the rebuilt Live Demo: an Instructor upload finalized, a Student received that Instructor image with HTTP 200, and an anonymous request received 404. A replacement upload also retired and cleaned up the former image. The receipt is recorded in `docs/active_plans/reports/HG_PROFILE_FIXES_2026_10_04.md` `Live Profile-image repair`; the separate Sysadmin upload failure remains open.
 
-- [ ] Instructor Profile images appear when viewing Question authors, Question Pool owners, and other Instructor
-  representations; Profile images do not have a separate permissions mechanism.
+- [ ] Instructor Profile images appear beside Published Question authors, Question Pool owners,
+  and wherever else PLE shows an Instructor. Profile images have no separate permissions.
   - Evidence (source): `src/components/instructor_profile_link.tsx` `InstructorProfileLink` supplies canonical author, Star, and Blueprint-owner Profile links; `crates/server/src/profile_avatar.rs` `deliver_profile_image` allows active signed-in viewers to retrieve an active Instructor image.
   - Evidence (test): `tests/test_instructor_profile_requests.mjs` covers shared in-flight Profile/image requests without retaining a Profile cache.
   - Evidence (runtime): `tests/e2e/e2e_live_demo_profile_avatar.sh` `Student delivery of public Instructor Profile image` passed the fresh cross-account image read: a Student received the finalized Instructor image while an anonymous request returned 404.

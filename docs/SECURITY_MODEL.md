@@ -33,12 +33,10 @@ reads are limited to the exact Course relationship.
 
 ### Sysadmin
 
-A Sysadmin administers the platform but has no ambient Course membership or
-FERPA access. Support access to Student records is deliberate, narrowly scoped,
-and recorded, and a Sysadmin initiates it under their own authority without
-Instructor approval. Much of the functionality beyond Instructor Account
-creation is deferred until concrete needs are established. Creating or configuring a Course does not silently give the
-Sysadmin an Instructor relationship.
+Sysadmins have full administrative access to PLE, including Course and Student records.
+That access supplies the power needed for support work, which is recorded for audit.
+Much of the functionality beyond Instructor Account creation is deferred until concrete
+needs are established.
 
 ### Future Course roles
 
@@ -67,14 +65,15 @@ Answer Key, private feedback, provider configuration, and preview remain inside
 the authorized workspace.
 
 Publication validates server-held source and creates or advances a stable
-Published Question lineage with immutable Question Revisions. Published
+Published Question with complete Question Revision records. Source and grading content stay
+fixed; permitted metadata edits preserve the Revision Number. Published
 answer-free content may be discovered by Instructors. Private source,
 Answer Keys, grading inputs, workspace identifiers, and credentials remain
 private.
 
 A Published Question ID is a human reference, not access authority. Question
-Archive is a high-consequence owner action and must not erase immutable Revision
-evidence used by Assessments or Student Work.
+Archive makes a Published Question read-only and removes it from normal discovery, preserving
+its Revisions and existing references. Archived Questions can be restored or forked.
 
 ## Question Backend boundary
 

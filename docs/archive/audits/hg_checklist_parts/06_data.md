@@ -10,7 +10,8 @@
   - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` passed on 2026-09-30. The withheld projection omitted questionAnswer and questionAnswerExplanation. `weekly_and_bonus_keep_the_correct_answer_hidden_after_submission` kept Weekly and Bonus correct answers hidden after submission and still showed correctness. Fifteen student_feedback_release tests passed.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Public data should stay separate from private, answer-bearing, identifying, or radioactive FERPA data.
+- [ ] Keep public data separate from private data, answers, identifying information, and radioactive
+  FERPA data.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` stores identity-free issued, blank, answered, outcome, and credit-sum counts in ple_data, and `question_statistics_observation_receipt` stores the Course, Issued Question, and submission receipt in ple_private.
   - Evidence (source): `schemas/base_schema/20_tables/assessment_attempt.sql` `assessment_attempt_saved_response` stores student_response in ple_private.
   - Evidence (source): `schemas/base_schema/20_tables/authentication.sql` `account_authentication_email` stores normalized_email in ple_private.
@@ -56,7 +57,7 @@
 
 - [ ] Public IDs are intended for content creators (Instructors) and for Sysadmins providing Instructor support.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Here the public refers to Instructor users and Sysadmins.
+- [ ] Here, "public" refers to Instructors and Sysadmins.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-facing public IDs should be short, opaque, and easy to communicate.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QUESTION_ID_CANONICAL_LENGTH` fixes the Question and Pool form at nine characters, and `QUESTION_ID_ALPHABET` omits ambiguous Crockford characters.
@@ -167,7 +168,7 @@
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` map the Crockford `I` and `L` aliases to `1` before validation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
+- [ ] When an ID is entered, normalize it to the canonical form, then validate its syntax and checksum.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` normalize explicit human entry and then invoke the generated exact validators.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -230,12 +231,12 @@
 
 #### Public ID formats by object
 
-- [ ] Published Questions and Question Pools use the public `XXXX-ZXXX` format.
+- [ ] Library Objects use the public `XXXX-ZXXX` format.
   - Evidence (source): `schemas/base_schema/10_types.sql` `question_family_id` stores both Published Question IDs and Question Pool IDs in that form.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionId` parses only that canonical form, and the same file defines `QuestionPoolId` with it.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question IDs are the merged concept of Published Question IDs and Question Pool IDs
+- [ ] Question ID is the shared term for Published Question IDs and Question Pool IDs.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QUESTION_ID_CANONICAL_LENGTH` is the shared canonical length for a Question or Pool ID.
   - Evidence (source): `schemas/base_schema/10_types.sql` `question_family_id` stores both Published Question IDs and Question Pool IDs.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -276,13 +277,13 @@
   - Evidence (source): `crates/question_model/src/public_route.rs` `PUBLIC_ID_RANDOM_LENGTH` fixes seven random positions over the 32-character `QUESTION_ID_ALPHABET`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Account `UXXXXXXXZ` ids are look up values for Sysadmin support.
+- [ ] Sysadmins use Account IDs (`UXXXXXXXZ`) to look up Accounts for support.
   - Evidence (source): `src/route_contract.ts` `instructorAccounts` opens `/sysadmin/instructor-accounts` only for the Sysadmin role.
   - Evidence (source): `src/pages/instructor_accounts_page.tsx` `accountContent` shows the Account ID as the record title, with state and last successful sign-in.
   - Evidence (source): `crates/server/src/instructor_account.rs` `list_instructor_accounts` requires `sysadmin_session_hash` before returning those Account IDs.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Account `UXXXXXXXZ` ids are only exposed to Students or Instructors only on their profile page.
+- [ ] Students and Instructors see their Account ID (`UXXXXXXXZ`) only on their Profile page.
   - Evidence (source): `src/pages/profile_page.tsx` `ProfileAccountId` receives the signed-in `authenticatedAccountId` on Profile.
   - Evidence (source): `src/pages/profile_account_id.tsx` `validateCanonicalPublicId` shows and copies only a canonical Account ID.
   - Evidence (source): `src/route_contract.ts` `instructorAccounts` stays the Sysadmin support lookup, and `profile` is the Student and Instructor page.
@@ -297,8 +298,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `course_instance.course_instance_id`, `schemas/base_schema/50_functions/assessments.sql` `assessment.assessment_id`, `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course.blueprint_course_id`, `schemas/base_schema/50_functions/accounts.sql` `account.account_id`, and `schemas/base_schema/50_functions/question_pools.sql` `question_pool.question_pool_id` store the public ID as the primary key.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] An object without a public ID uses a native UUID primary key, or a composite natural key when
-  it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
+- [ ] An object without a public ID uses a native UUID primary key, or a combined key when it is owned
+  by a parent (for example, a Revision identified by its parent object ID and Revision Number).
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] One value that identifies one object is an Id, such as a Public ID or UUID.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionId` is one value for one Published Question.
@@ -323,7 +324,7 @@
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `revision_number` is the second column of the Question Revision primary key beside published_question_id.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Blueprint Revision Tuple is another example: Blueprint Course ID plus Blueprint Revision Number.
+- [ ] A Blueprint Course Revision Tuple is a Blueprint Course ID plus Blueprint Revision Number.
   - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `BlueprintRevisionTuple` stores blueprint_course_id and revision_number.
   - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_revision_number` is the second column of the Blueprint Revision primary key beside blueprint_course_id.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -507,7 +508,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns that selected Discipline on the Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Instructors** may create new Subjects within a selected Discipline.
+- [ ] **Instructors** can create new Subjects within a selected Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` creates a Subject and associates it with the selected Discipline for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns that Subject for the Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -526,12 +527,12 @@
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `add_content_subject_discipline` associates that existing Subject with another Discipline only when the Instructor calls it.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Instructors** may create new Topics within a Subject.
+- [ ] **Instructors** can create new Topics within a Subject.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_topic` creates a Topic belonging to the selected Subject for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_topics` returns that Topic for the Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Instructors** may create new Subtopics within a Topic.
+- [ ] **Instructors** can create new Subtopics within a Topic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subtopic` creates a Subtopic belonging to the selected Topic for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subtopics` returns that Subtopic for the Topic.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -597,7 +598,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a caller-chosen tag list that is not copied from the member Question.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Courses and Library Objects may have any number of Tags, including none.
+- [ ] Courses and Library Objects can have any number of Tags, including none.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores a Course with no tags and a Course with several tags.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns those Course tag lists.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores a Question with no tags and a Question with several tags.
@@ -645,7 +646,7 @@
   - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `ferpa_access_follows_course_membership_and_student_ownership` ran that oracle on PostgreSQL. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Sysadmins** receive only the FERPA access required for a specific administrative task.
+- [ ] **Sysadmins** should use Course and Student records only for administrative work.
   - Evidence (source): `crates/server/src/support_capability.rs` `support_capability_router` exposes only a scoped, revocable exact-record repair reader; it has no whole-Course roster route.
   - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `prove_issue` exercises named-record repair issuance, concealment, use, and revocation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -717,8 +718,8 @@
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_notifications.sql` `claim_course_retention_notification` at 2025-06-01 returned no receipt for Course CIK1000000, and no notification row was stored. No mail transport ran. The Course, Accounts, released Assessment, roster, and Assessment Attempt were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and
-  permanent deletion transitions.
+- [ ] The configured FERPA retention policy determines when to send notices, archive Student data,
+  allow recovery, and permanently delete it.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `retention_schedule` reads ple.retention_inactive_warning_lead_time, ple.retention_archive_notice_lead_time, ple.retention_archive_after_retention_start, and ple.retention_delete_after_archive.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` returns warn_inactive, notify_archive, archive, and delete from that schedule.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `archive_course_student_records` archives at retention_starts_at plus archive_after_retention_start, and delete_course_student_records deletes at that instant plus delete_after_archive.
@@ -741,8 +742,8 @@
   - Evidence (runtime): accepted independent PostgreSQL actual-API proofs exercised `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
-  delete Student records.
+- [ ] A Course becoming Inactive does not itself delete Student records. FERPA deletion follows its
+  own schedule.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` sets course_lifecycle_state to inactive and course_became_inactive_at to active_until_at.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records` deletes Student records only from the archived retention state.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` refused 2023-07-14 for Course CIC100000D, then at 2023-07-15 returned true and a later call returned false. The Student record remained for Account UBVMVNJCV. retention_lifecycle_state stayed active, and student_data_archived_at and student_data_deleted_at stayed null. The Course, Accounts, and Student record were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
@@ -778,7 +779,7 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
-- [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
+- [ ] FERPA retention periods are set in the server configuration.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `retention_schedule` reads ple.retention_archive_after_retention_start and the sibling retention interval settings, using defaults of 14 days, 70 days, 100 days, and 265 days.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` as ple_course_retention_executor scheduled summer CIB1000008 archive at 2025-03-13 under the 100-day default and at 2025-03-03 after ple.retention_archive_after_retention_start was set to 90 days. active_until stayed 2024-12-03. A disposable PostgreSQL session ran that check and was not kept.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -823,19 +824,22 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Assessments, Course Instances, Draft Questions, and Question Pools use current state.
+- [ ] Assessments, Course Instances, and Draft Questions use current state.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `save_assessment_inline` advanced Assessment A9FM0000C from Edit Number 1 to 2 and left one current Assessment row. A later Pool import advanced that same row again. No assessment_revision relation exists.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `update_course_classification` advanced Course Instance CI9F100006 from Edit Number 1 to 2 and left one current Course row. No course_instance_revision relation exists.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft` replaced one Draft Question, advanced its Edit Number from 1 to 2, and left that one Draft row. No draft revision relation exists.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stored Pool 8K3M-J9F1 at Edit Number 1. `schemas/base_schema/50_functions/assessment_pool_forks.sql` `append_assessment_question_pool_fork_members_for_course` advanced fork Pool 8K3M-09F2 from Edit Number 1 to 2, left one Pool row, and left the member pin on Question Revision 2. No question_pool_revision relation exists.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Questions and Blueprint Courses have immutable revisions.
+- [ ] Published Questions and Blueprint Courses use numbered Revisions for their saved content.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision_is_immutable` refused an update of Question Revision 1 on 7K3M-V9F1 and left Revisions 1 and 2 stored.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` refused an update of Blueprint Revision 1 on BP9F10000N and left Revisions 1 and 2 stored, including the original empty-module Revision 1.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Mutable working state uses a monotonic sequential Edit Number when needed for concurrency.
+- [ ] A Revision is a complete database record. Permitted metadata fields can change without
+  creating another Revision.
+  - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
+- [ ] Use an Edit Number when current-state editing needs conflict detection.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `save_assessment_inline` requires and advances `assessment_edit_number`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -848,7 +852,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `create_blueprint_course` stored Blueprint Revision 1 for BP9F10000N, and `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `save_blueprint_course` stored Revision 2 for that same Blueprint Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
+- [ ] A Revision Number identifies a specific complete Revision record stored by PLE.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` stored Revision 2 as its own question_revision row beside Revision 1 of Published Question 7K3M-V9F1. Blueprint Revisions 1 and 2 are separate rows of Blueprint Course BP9F10000N.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_edit_number` is the current Pool counter. The same session found no revision_number column on question_pool and no question_pool_revision relation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -857,7 +861,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` stored Revision 2 of Published Question 7K3M-V9F1, and Revision 1 of that Question uses the same Published Question ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Forking a Published Question or Question Pool creates a new public ID.
+- [ ] Forking a Library Object creates a new public ID.
   - Evidence (source): `crates/server/src/question_fork.rs` `fork_published_question` issues `forked_question_id` before the fork-to-Draft operation; `schemas/base_schema/50_functions/question_pools.sql` `ple_data.construct_question_pool_pin_fork` inserts the fork as a new Pool lineage with `p_public_question_pool_id`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -865,7 +869,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `fork_published_question_to_draft` copied Revision 1 of 7K3M-V9F1 into a new Draft. `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stored Revision 1 under new Published Question 7K3M-89F2, and question_fork_source records that source Revision. The source Question still has Revisions 1 and 2.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Question Pool fork starts at Edit Number 1 under its new ID; Pools have no Revision family.
+- [ ] A Question Pool fork starts at Edit Number 1 under its new ID.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork_for_ids` created Pool 8K3M-09F2 at Edit Number 1 from source Pool 8K3M-J9F1 and set source_question_pool_id to that source. question_pool keeps question_pool_edit_number, has no revision_number column, and has no question_pool_revision relation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -878,8 +882,8 @@
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `first_score` verifies the finalization grading outcome.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] For a Question served from a Question Pool, Student Work pins all four: the Published Question
-  ID, its Revision Number, the Question Pool ID, and the Pool's Edit Number at selection time.
+- [ ] For a Published Question selected from a Pool, Student Work records the Question Revision Tuple,
+  Pool ID, and Pool Edit Number at selection time.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_start.sql` `start_assessment_attempt` stored fork Pool 8K3M-H0K4 at Edit Number 1 with Published Questions 7K3M-T0K1 and 7K3M-F0K2, both at Revision 1.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_attempt_pool_selection` returned 8K3M-H0K4:1:1:7K3M-T0K1:1 and 8K3M-H0K4:1:2:7K3M-F0K2:1, which is the Pool ID, that Edit Number, each Published Question ID, and Revision 1.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `append_assessment_question_pool_fork_members_for_course` then stored Pool Edit Number 2 and moved 7K3M-T0K1 to Revision 2. The stored selection stayed at Edit Number 1 and Revision 1. The Questions were inserted directly. The credit passed to commit was an input. No Question Backend was called.

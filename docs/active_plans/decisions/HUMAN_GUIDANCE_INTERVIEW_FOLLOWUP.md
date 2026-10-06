@@ -437,7 +437,7 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 - Shared components remain in
   [record_table.tsx](../../../src/components/record_list/record_table.tsx) and
   [record_list.tsx](../../../src/components/record_list/record_list.tsx).
-- [library_browse_rows.tsx](../../../src/pages/library_browse_rows.tsx) renders
+- `src/pages/library_browse_rows.tsx` (historical path; retired) renders
   Question Library results with `RecordList`.
 - [library_page.tsx](../../../src/pages/library_page.tsx) owns the search form,
   filters, and sorting. `RecordTable` provides columns and row headers but has
@@ -809,7 +809,7 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
   do not merge separately paged lists in the browser. Preserve each kind's own
   searchable metadata and stable identity. The schematic now states this scope.
 - Existing HG supplies picker scope: Pool members are Published Questions only;
-  importing a Pool into an Assessment forks it. These do not require new
+  adding a Pool references it; explicit forks create independent Pools (Q29). These do not require new
   interview questions. Documentation is updated; implementation remains pending.
 
 ### Existing HG authority verified
@@ -835,9 +835,9 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 - Neil called overlap across Assessment entries speculative bikeshedding. Do not add restrictions
   or automatic deduplication because a directly added Question is also in an Assessment Pool.
   Firmness: explicit rejection of proposed gates. Why: Instructors choose their Assessment content.
-- A Pool must retain enough Questions for its Assessment selection count after member removal.
-  Firmness: settled rule. Why: an Assessment must remain usable. Where the checks run is an
-  implementation responsibility, not an unresolved product choice.
+- Later clarification (Q28): each Assessment entry stores its selection count. Save incomplete
+  unreleased work, report that Assessment's Pool-use mismatch, and validate at release. The earlier
+  claim that save/release timing was merely an implementation choice was an agent inference.
 - When a member's Discipline or Subject changes so it no longer matches the Pool, flag that Pool
   and prevent release until the mismatch is resolved. Firmness: explicit behavior; the word
   "stale" is flexible. Why: membership requirements must not silently become invalid; this
@@ -862,13 +862,14 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 
 - Use "Pool mismatch: The Pool no longer satisfies its current requirements." This supersedes
   the provisional "stale" wording in earlier interview entries.
-- Causes include too few member Questions, member Discipline or Subject mismatch, duplicate
-  Questions, and other Pool constraint violations. Show the specific cause with the broad state.
+- Pool mismatch causes include member Discipline or Subject mismatch, duplicate Questions, and
+  other Pool membership violations. Q28 later distinguished an Assessment requesting too many
+  Questions as a Pool-use mismatch for that Assessment; the Pool itself may still be valid.
 - Firmness: explicit terminology supplied after reviewing alternatives. Why: "mismatch" is
   broader and more neutral than "stale" and describes failure to meet current requirements.
-- Implementation mapping: insufficient membership depends on the affected Assessment's selection
-  count. Continue preventing invalid writes; reporting a mismatch does not permit duplicate
-  members. The broader label adds no new constraints or separate Pool publication workflow.
+- Each Assessment entry owns its selection count. Before release, save incomplete work and show
+  its Pool-use mismatch; release validates completeness. Pool membership remains a set of distinct
+  Questions. These rules introduce no separate Pool publication workflow.
 - Documentation only; state reporting and release enforcement remain unverified implementation work.
 
 ### Organized search default and released Assessments
@@ -886,8 +887,9 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 - If a Pool mismatch develops after an Assessment is already released, allow it to continue
   as-is. Firmness: explicit direction. Why: Neil sees no useful remedy for an already-released
   Assessment. This closes the previously open post-release mismatch question.
-- Continue preventing membership edits that leave too few candidates; the post-release exception
-  does not authorize destructive edits. No runtime behavior was changed in this documentation pass.
+- Later clarification (Q28): an unreleased Assessment requesting too many Questions does not
+  prevent a Pool membership save. Show the Pool-use mismatch and block release. Established
+  post-issue editing restrictions remain; this record establishes no runtime compliance.
 
 ### Required metadata and pending Bloom assignment
 

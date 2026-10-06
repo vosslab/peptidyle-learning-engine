@@ -9,7 +9,7 @@ Assessments. Assignment appears only in the three Assessment Type names.
 - A durable ID names one thing.
 - One canonical identity value is an Id. Multiple values that together identify
   one exact object, state, or version are a Tuple, including Question and
-  Blueprint Revision Tuples. Reference is only a genuine indirect, scoped, or
+  Blueprint Course Revision Tuples. Reference is only a genuine indirect, scoped, or
   external locator; do not name an Id or a Tuple as a Reference.
 - A checksum detects disagreement in otherwise valid data.
 - A public ID is the one universal, canonical human-facing identifier for a PLE
@@ -21,8 +21,9 @@ Assessments. Assignment appears only in the three Assessment Type names.
   ID as its primary key. There is no parallel UUID key beside a public ID.
   JSON for those objects is `id` (or nested `courseInstanceId` / `assessmentId`); there
   is no parallel `reference` property.
-- Published Questions and Blueprint Courses have immutable Revision families.
-  Question Pools are current state with an Edit Number.
+- Published Questions and Blueprint Courses use numbered Revisions for saved content.
+  Each Revision is a complete record; permitted metadata edits preserve its Revision Number.
+  Saving changes to a Question Pool advances its Edit Number.
 
 ## Account and relationship identities
 
@@ -47,7 +48,9 @@ more than one role uses separate Accounts.
 
 Every current co-Instructor has equal Course authority. The creator or first
 Instructor has no special ownership. A Sysadmin Account does not gain Course
-membership or ambient FERPA access from its global role.
+membership from its global role. Sysadmins have full administrative authority. Before accessing
+FERPA-sensitive Student data, they confirm that access is needed for administrative work; that
+access is recorded for audit.
 
 Removing a relationship or deactivating an Account does not erase the related
 Course history or Student Work. Retention is a separate Course process.
@@ -63,11 +66,11 @@ Course membership.
 | --- | --- |
 | Draft Question ID | One private, mutable, unpublished Draft Question |
 | Question ID | One stable Published Question lineage, in canonical form `XXXX-ZXXX` |
-| Question Revision Tuple | One immutable Revision: Question ID plus Revision Number |
-| Question Pool ID | One published Pool in the shared `XXXX-ZXXX` namespace; membership is current state |
+| Question Revision Tuple | One exact Question Revision: Question ID plus Question Revision Number |
+| Question Pool ID | One published Pool in the shared `XXXX-ZXXX` namespace; contains an unordered set of Question Revision Tuples |
 | Blueprint Module ID | Stable UUID lineage identity for one retained Blueprint Module |
 | Blueprint Assessment ID | Stable UUID lineage identity for one retained Blueprint Assessment |
-| Blueprint Revision Tuple | One immutable saved Blueprint content state: Blueprint Course ID plus Revision Number |
+| Blueprint Course Revision Tuple | Blueprint Course ID plus Blueprint Revision Number; identifies one exact Blueprint Revision |
 | Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
 | Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
 | Question Image Asset Tuple | `QuestionImageAssetTuple` with `QuestionImageAssetId` member `questionImageAssetId` plus checksum; every field holding it is `questionImageAssetTuple` |
@@ -85,7 +88,7 @@ Its one canonical form is `XXXX-ZXXX` at every boundary; the hyphen is part of
 the form and makes it immediately recognizable. Human Question-ID entry may
 omit the hyphen; canonicalization restores it before validation and lookup.
 Published Questions and Question Pools share that one namespace: a
-value identifies either object, never both. See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
+value identifies either object, never both. See [QUESTION_ID_SPEC.md](QUESTION_SPECS/QUESTION_ID_SPEC.md).
 
 Blueprint Course `BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment
 `AXXXXXXXZ`, and Account `UXXXXXXXZ` IDs each contain seven random Crockford
@@ -97,19 +100,19 @@ before database lookup or resolution. Generation enforces global uniqueness
 across every public-ID object type, retries random collisions, and never
 reassigns an issued ID, including after deletion or archival.
 
-Published Question metadata and immutable Question Revision content are
-separate. A source change creates a Question Revision. A compatible metadata
-edit does not create a Revision. A substantive fork creates a new Question ID.
+A Question Revision is a complete record containing Question content and metadata. A source
+change creates a new Revision. Permitted metadata edits update that record without changing its
+Revision Number. A fork creates a new Question ID.
 
-Question Pools are current authored state. A membership change compare-and-swaps
-the Pool Edit Number; it does not append a Pool Revision. Student Work pins
-Question ID, Question Revision, Pool ID, and Pool Edit Number so later Pool
-edits cannot silently alter existing Attempts.
+A Question Pool is an unordered set of Question Revision Tuples plus its metadata. Saving changes
+to that set advances the Pool's Edit Number; no Revision is created. Student Work records the
+selected Question Revision Tuple, Pool ID, and Pool Edit Number. Existing Attempts retain their
+selected Questions after later Pool edits.
 
 ## Blueprint identities and lifecycle
 
 A Blueprint Course is created Private with Revision 1. An explicit Save creates
-the next immutable Blueprint Revision only when canonical content changed; a
+the next Blueprint Revision only when reusable content changed; a
 no-op returns the current Revision and creates nothing. Name and lifecycle
 metadata changes do not create Blueprint Revisions.
 
@@ -127,7 +130,7 @@ changes.
 
 Blueprints contain no Students, dates, time zones, or relative schedules.
 
-Adoption and fork ancestry retain the source Blueprint and exact Revision.
+Adoption and forks retain the source Blueprint Course Revision Tuple.
 Those references support daughter update review and selective fork updates;
 they do not authorize a silent mutation. A Blueprint Course Change Proposal
 targets one receiving Blueprint and creates a new receiving Revision only for
@@ -191,5 +194,5 @@ capability with expiry and redaction rather than an ordinary ID.
 
 See [USER_ROLES.md](USER_ROLES.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[QUESTION_MODEL.md](QUESTION_MODEL.md), and
+[README.md](QUESTION_SPECS/README.md), and
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).

@@ -54,6 +54,11 @@ https://biologyproblems.org/biochemistry/
 
 #### PLE production content
 
+Keep Genetics, Biotechnology, and Biochemistry as the base Blueprint Courses for the first
+delivery. Genetics and Biochemistry are the only complete source courses; Biotechnology supplies
+a selected Question collection. Molecular Biology and Laboratory come later. Biostatistics is
+largely incomplete, and Neil would probably defer it too; that is the current delivery plan.
+
 When PLE goes into production, use the course content from BiologyProblems.org as the source for these Courses:
 
 https://biologyproblems.org/

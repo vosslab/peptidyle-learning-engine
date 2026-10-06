@@ -38,7 +38,6 @@ pub(super) fn request() -> QuestionLibrarySearchRequest {
         bloom_knowledge_dimension: None,
         question_types: vec![question_model::QuestionType::MultipleChoice],
         question_licenses: vec![question_model::QuestionLicense::CcBy4_0],
-        used_in_current_account_courses: false,
         authored_by_current_account: true,
         sort: QuestionLibrarySearchSort::TitleAscending,
         page_size: 50,
@@ -750,7 +749,6 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
             && impossible_backend.facets.question_licenses.is_empty(),
         "Only([]) retains meaningful all-zero facets"
     );
-    assert_eq!(impossible_backend.facets.used_in_my_courses.used, 0);
     assert_eq!(
         impossible_backend
             .facets

@@ -6,10 +6,11 @@ This document applies the current Assessment and Student Work model from
 
 PLE separates current teaching configuration from retained Student Work. A
 Course Instance Assessment is one current aggregate. An Assessment Attempt is
-one occurrence of that Assessment for one Student. Published Questions and Blueprint Courses have immutable Revisions. Question
-Pools are current membership with an Edit Number. Student Work retains the
-exact Question Revision and, when the Question came from a Pool, Pool ID plus
-Pool Edit Number.
+one occurrence of that Assessment for one Student. Published Questions and Blueprint Courses
+use numbered Revisions for saved content; permitted metadata edits preserve the Revision Number.
+A Pool contains an unordered set of Question Revision Tuples plus its metadata. Saving changes
+advances its Edit Number. Student Work retains the exact Question Revision Tuple and, when the
+Question came from a Pool, the Pool ID and Pool Edit Number.
 
 ## Assessment current state
 
@@ -150,7 +151,7 @@ and permanent-deletion rules.
 - [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) maps the end-to-end path.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines the
   Student transport boundary.
-- [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) defines opaque
+- [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md) defines opaque
   backend ownership and credit fractions.
 - [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) describes the database
   enforcement boundary.

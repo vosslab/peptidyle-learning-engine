@@ -223,7 +223,8 @@
   - Evidence (source): `src/components/record_list/record_list.css` `.record-list__row--semantic` keeps that row a short bordered list entry.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Keep essential Coursework information and the main action visible, with fuller access and timing details available through progressive disclosure.
+- [ ] Keep essential Coursework information and the main action visible. Make fuller access and
+  timing details easy to open when needed.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` keeps the start action next to `StudentAssessmentStartFacts`.
   - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentDecisionDetails` places Available, Closes, and Late work in `student-assessment-decision__details`.
   - Evidence (source): `src/components/student_assessment_presentation.css` `.student-assessment-decision__details:not([open]) > :not(summary)` hides that fuller timing until the Student opens it.
@@ -404,13 +405,13 @@
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `change_instructor_account_state` appends active/deactivated state to the same Instructor Account without changing its role or deleting content; `schemas/base_schema/50_functions/authorization.sql` `current_session_account_has_active_role` reads that current state. Fresh source inspection on 2026-10-04; live deactivate/reactivate flow not rerun.
 
 - N/A Sysadmins should be able to find and inspect Courses across the installation.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
+  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Full Sysadmin authority and audit requirements guide future implementation; HG-ACC-03 records the existing authority conflict.
 
 - N/A Course administration should show the Instructor and important Course status information.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
+  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Full Sysadmin authority and audit requirements guide future implementation; HG-ACC-03 records the existing authority conflict.
 
 - N/A Sysadmins should manage Courses through Sysadmin interfaces and capabilities.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
+  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Full Sysadmin authority and audit requirements guide future implementation; HG-ACC-03 records the existing authority conflict.
 
 - [ ] Everyday navigation should emphasize frequently used administrative tasks.
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `instructorAccounts` is a primary critical task while `supportRoster` is supporting normal priority.

@@ -73,7 +73,7 @@ Representative controlled evidence:
 - [Library after](ribbon_review_fixes_2026_10_03/after/questions-browse-library_browse.webp)
 - [Blueprint before](ribbon_review_fixes_2026_10_03/before/courses-blueprint-blueprint_detail.webp)
 - [Blueprint after](ribbon_review_fixes_2026_10_03/after/courses-blueprint-blueprint_detail.webp)
-- [Instructor crop stack](../../screenshots/instructor/stacked-screenshot.webp)
+- `docs/screenshots/instructor/stacked-screenshot.webp` (historical path; retired)
 
 The source route used the CSS creative skill's layout, theming, and cascade
 guidance. Its local Grid guide explains content-sized start alignment instead

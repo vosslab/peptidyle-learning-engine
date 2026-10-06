@@ -72,7 +72,6 @@ const query = {
   questionType: null,
   capability: null,
   questionLicense: null,
-  usedInMyCourses: null,
   authorship: "any",
 };
 

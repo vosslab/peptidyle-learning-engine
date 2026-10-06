@@ -134,8 +134,11 @@ backend. The Student sees scores once submission and automatic grading complete,
 without a separate disclosure condition for scores.
 
 Scores use the current point value for each Assessment Question and the stored
-credit fraction. A point-value edit can change the calculated score but does
-not regrade the response or change the fraction. Whole-Pool removal excludes
+credit fraction, applying the current Assessment partial-credit setting. When enabled, use the
+stored fraction; otherwise, one earns full credit and smaller fractions earn zero. Changing the
+setting or point value recalculates scores for all Attempts, including submitted Attempts,
+without regrading or changing the stored fraction. See
+[QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md#stored-credit-and-awarded-points). Whole-Pool removal excludes
 its earned and possible points from every Attempt.
 
 No browser or Instructor grading, Retry, or grading-job action is part of this
@@ -180,5 +183,5 @@ together.
 | Backend fails | Preserve Student work, disclose no invented result, and show a bounded error. |
 
 This contract has no separate browser recovery state machine. Detailed backend
-ownership is in [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md);
+ownership is in [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md);
 the lifecycle is in [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md).

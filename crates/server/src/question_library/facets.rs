@@ -35,7 +35,6 @@ pub(super) fn from_store(facets: QuestionLibrarySearchFacets) -> QuestionSearchF
             .map(|(capability, count)| QuestionSearchCapabilityFacet { capability, count })
             .collect(),
         question_licenses: facets.question_licenses,
-        used_in_my_courses: facets.used_in_my_courses,
         bloom_cognitive_processes: facets.bloom_cognitive_processes,
         bloom_knowledge_dimensions: facets.bloom_knowledge_dimensions,
     }

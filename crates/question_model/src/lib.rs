@@ -266,12 +266,12 @@ pub use crate::question_library::{
     QuestionRevisionUsageStatistics, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
     QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
     QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
-    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
-    QuestionSearchFilter, QuestionSearchPage, QuestionSearchQuestionLicenseFacet,
-    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchResult, QuestionSearchSort,
-    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet,
-    QuestionStatistics, QuestionSummary, QuestionTypeFacet, QuestionUsageTotals,
-    QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
+    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
+    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
+    QuestionSearchResult, QuestionSearchSort, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
+    QuestionSearchTopicFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
+    QuestionUsageTotals, QuestionUseDetails, QuestionUseSummary,
+    normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{

@@ -49,7 +49,7 @@ failure: the command succeeds, but different Questions enter the Assessment.
 
 | Boundary | Actual contract |
 |---|---|
-| [Pool picker](../../../src/features/question_pool_picker/question_pool_picker.tsx) `selectPool`, 143-170 | Rejects a list/detail edit mismatch; the UI deliberately requires reviewed membership |
+| `src/features/question_pool_picker/question_pool_picker.tsx` (historical path; retired) `selectPool`, 143-170 | Rejects a list/detail edit mismatch; the UI deliberately requires reviewed membership |
 | Same file `confirm`, 174-190 | Returns the selected Pool ID, edit number, and member count |
 | [Assessment page](../../../src/pages/assessment_workspace/assessment_workspace_questions_page.tsx) `choosePool`, 610-616 | Retains the selection and explicitly says Edit N is ready to import |
 | Same file `importPool`, 618-644 | Validates against the reviewed count, then sends the Pool ID without the reviewed edit number |

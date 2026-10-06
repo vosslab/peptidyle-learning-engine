@@ -11,7 +11,7 @@ new product revisions or lifecycle states. Product meaning comes from
 | Authenticated database work  | One protected transaction with server-installed Account context and exact relationship checks        |
 | Draft Question               | Draft Question Edit Number compare-and-swap                                                          |
 | Assessment                   | Assessment Edit Number; not an Assessment Revision                                                   |
-| Blueprint content            | Expected current Blueprint Revision Number; a meaningful Save creates one next immutable Revision    |
+| Blueprint content            | Expected current Blueprint Revision Number; a Save changing reusable content creates the next Revision    |
 | Blueprint metadata/lifecycle | Blueprint metadata Edit Number; no Blueprint Revision                                                |
 | Assessment Attempt           | One authoritative open Attempt per applicable start/resume operation                                 |
 | Response save and submission | Serialization at the Attempt boundary; saved response wins before submission or is refused afterward |
@@ -48,18 +48,16 @@ Published Question source changes create one next immutable Question Revision
 under the stable Question ID. Publication serializes against the Draft state it
 validated so a stale request cannot publish a different source.
 
-A Question or Pool Bloom Classification uses the exact Revision's independent
-classification Edit Number as a whole-pair CAS precondition. The command always
-contains both dimensions, including an unchanged dimension. The transaction
-locks the exact pair and checks the expected number before deciding whether the
-pair is a no-op: a stale request returns `412`, even when its requested pair
-matches current values. A current changed pair advances the number once; a
-current no-op keeps it. Neither outcome creates or substitutes a content
-Revision.
+Question and Pool metadata, including Bloom, use ordinary record concurrency checks. Bloom is
+an editable field like Title; its correction preserves the Question Revision Number. A changed
+Pool Save updates the Pool and advances its Edit Number. Changes take effect on Save,
+with no undo after saving. The counter detects stale saves and cannot
+recover old content. See
+[QUESTION_REVISION_SPEC.md](QUESTION_SPECS/QUESTION_REVISION_SPEC.md) and
+[QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md).
 
-The correction client does not automatically retry or merge after `412`. It
-reloads the same exact Revision's current pair, retains the submitted draft for
-comparison, and requires an explicit Instructor Save to issue a later command.
+Existing dedicated Bloom counters and routes require implementation alignment, recorded in
+[TODO.md](TODO.md#question-spec-implementation-follow-up).
 
 ## Attempt convergence
 

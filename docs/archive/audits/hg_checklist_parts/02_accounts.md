@@ -49,7 +49,8 @@
 - [x] A person who needs more than one User Role uses separate Accounts.
   - Evidence (source): `schemas/base_schema/20_tables/account.sql` `ple_private.account` stores one non-null User Role per Account; `schemas/base_schema/50_functions/accounts.sql` `reject_account_identity_change` prevents changing that role. Fresh source inspection on 2026-10-04; no new live identity-mutation test.
 
-- [x] Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
+- [x] Instructor Accounts can be deactivated while preserving their content, Course relationships,
+  and historical records.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `change_instructor_account_state` appends active/deactivated state to the same Instructor Account without changing its role or deleting content; `schemas/base_schema/50_functions/authorization.sql` `current_session_account_has_active_role` reads that current state. Fresh source inspection on 2026-10-04; live deactivate/reactivate flow not rerun.
 
 - [x] Reactivating an Instructor Account restores access to the same Account and User Role.
@@ -165,11 +166,12 @@
   - Evidence (test): `crates/learning-data-access/src/course_roster.rs` `roster_import_uses_one_normalized_institutional_email_for_account_resolution` drives `validated_entries` so one institutional email is the account-resolution key.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Each Course Instance has its own course-scoped Student Record and enrollment for the Student Account.
+- [ ] Each Course Instance has its own Student Record and enrollment for the Student Account.
   - Evidence (source): `schemas/base_schema/20_tables/course_membership.sql` `student_record` unique `(course_id, student_account_id)` and `course_membership`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.
+- [ ] Student Work, Attempts, submissions, and grades are kept or deleted under the Course retention
+  policy, independently of the Student Account.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records`.
   - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_delete_follows_the_course_not_the_account`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -214,7 +216,7 @@
 
 ### Sysadmin role
 
-- [ ] A **Sysadmin** has full administrative authority over PLE.
+- [ ] **Sysadmins** have god powers: full administrative authority over PLE.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_has_platform_administration` grants that capability from the active Sysadmin role and does not consult Course membership.
   - Evidence (test): `tests/e2e/database_baseline_security_catalog.sql` `current_session_account_has_platform_administration` denies an ordinary Sysadmin session, then accepts platform administration and refuses Course membership for the same active Account. A disposable database executed that contract and was removed. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -224,7 +226,7 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - N/A Sysadmins can help Instructors repair Courses, Students, and content.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
+  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Full Sysadmin authority and audit requirements guide future implementation; HG-ACC-03 records the existing authority conflict.
 
 - N/A Sysadmins should be reluctant to get involved in content.
   - Reason: Human constraint on content intervention; not a separate feature to implement. Broader Sysadmin work remains deferred.
@@ -233,23 +235,22 @@
   - Reason: human ownership statement, not an implemented PLE behavior.
 - N/A Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.
   - Reason: human ownership and approval statement, not an implementation requirement.
-- [ ] **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
+- [ ] **Sysadmins** can access Course and Student records for administrative work.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_has_platform_administration`.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_is_course_instructor`.
   - Evidence (test): `tests/e2e/database_baseline_security_catalog.sql` `current_session_account_is_course_instructor` denies Course membership for an active Sysadmin session.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- N/A A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
 
-- N/A Sysadmin support access should be limited to that support task and recorded for audit.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
+- [ ] Before accessing FERPA-sensitive Student data, a Sysadmin confirms that access is needed
+  for administrative work.
+  - Verification pending: Implement deliberate Sysadmin access confirmation; see docs/TODO.md.
+- [ ] Sysadmin access to FERPA-sensitive Student data is recorded for audit.
+  - Verification pending: Verify audit records for confirmed Sysadmin access; see docs/TODO.md.
 
-- N/A A Sysadmin can initiate support repairs under their own administrative authority; no Instructor permission or grant is required.
-  - Reason: Broader Sysadmin support is explicitly deferred by HG. The settled own-authority rule still binds future work; HG-ACC-03 records that existing Instructor-grant code conflicts with it.
+- [ ] Sysadmins use their full administrative access to support Instructors and resolve problems.
+  - Verification pending: Reconcile implementation with full Sysadmin authority; see docs/TODO.md.
 
-- N/A Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
-  - Reason: Concrete Sysadmin support/Course-administration functionality beyond Instructor Account creation is deferred by HG. Scope, audit, and membership rules still constrain any future implementation; HG-ACC-03 records the existing authority conflict.
 
 ### Future Course roles
 

@@ -14,9 +14,9 @@ use question_model::{
     QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
     QuestionLicense, QuestionPoolLibrarySummary, QuestionSearchAuthorFacet,
     QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
-    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCourseUseFacet,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
-    QuestionSearchTopicFacet, QuestionType, QuestionTypeFacet, SourceObjectChecksum, Timestamp,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionType,
+    QuestionTypeFacet, SourceObjectChecksum, Timestamp,
 };
 use uuid::Uuid;
 
@@ -53,9 +53,6 @@ pub struct PublishedQuestionLibraryEntry {
     /// selected for new classification.
     pub discipline_is_retired: bool,
     pub subtopic_name: Option<String>,
-    /// Whether a current available entry in one of the viewer's Courses uses
-    /// this stable Question lineage.
-    pub used_in_current_account_courses: bool,
     /// Immutable reviewed public credit for this Question Revision.
     pub authorship: QuestionAuthorship,
     /// Whether the authenticated Account is an immutable Question Author.
@@ -171,7 +168,6 @@ pub struct QuestionLibrarySearchRequest {
     pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
     pub question_types: Vec<QuestionType>,
     pub question_licenses: Vec<QuestionLicense>,
-    pub used_in_current_account_courses: bool,
     pub authored_by_current_account: bool,
     pub sort: QuestionLibrarySearchSort,
     pub page_size: u16,
@@ -248,7 +244,6 @@ pub struct QuestionLibrarySearchFacets {
     pub topics_truncated: bool,
     pub question_types: Vec<QuestionTypeFacet>,
     pub question_licenses: Vec<QuestionSearchQuestionLicenseFacet>,
-    pub used_in_my_courses: QuestionSearchCourseUseFacet,
     pub bloom_cognitive_processes: Vec<QuestionSearchBloomCognitiveProcessFacet>,
     pub bloom_knowledge_dimensions: Vec<QuestionSearchBloomKnowledgeDimensionFacet>,
 }

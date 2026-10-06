@@ -35,21 +35,19 @@
   - Evidence (source): `src/pages/course_instance_page.tsx` `assessmentRows` numbers that Course sequence as Assessment 1, Assessment 2, and onward.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Assessments contain an ordered sequence of Published Questions and Question Pools.
+- [ ] Assessments contain an ordered sequence of Library Objects.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` renders the mixed entry sequence; `schemas/base_schema/50_functions/assessments.sql` `assessment_entry_active_authored_position_key` enforces distinct current positions with a deferred constraint, allowing atomic swaps and retired-position reuse. `schemas/base_schema/50_functions/assessment_operations.sql` `ple_api.load_assessment_workspace_rows` projects only available current entries.
   - Evidence (runtime): accepted independent actual-server/private bundled-main browser proof at `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` saved Fixed A, an imported Pool, and Fixed B, moved the top-level Pool across Fixed A, and reloaded exact ordered entry IDs and Revision pins. Artifact: `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Each Published Question in an Assessment is identified by its Question ID and exact Revision.
+- [ ] Each Published Question in an Assessment is identified by its Question Revision Tuple.
   - Evidence (source): `src/features/blueprint_course/blueprint_assessment_entry_content.ts` `blueprintAssessmentEntryContent` names each fixed Question by its Question ID and Revision number.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_selected_entry.ts` `selectedAssessmentEntryContent` names each Course Instance Question by its Question ID and Revision number.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Pools are copied by forking when added to another Assessment.
-  - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork` creates the Assessment entry and calls `fork_question_pool` for a new Pool id.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
+- [ ] Adding a Question Pool to an Assessment stores a reference to the existing Pool.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] A newly forked Question Pool initially contains the same Question Revision Tuples
   as its source.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_fork` copies each source member's published_question_id and question_revision_number into the new Pool.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -63,23 +61,30 @@
   - Evidence (runtime): accepted mixed-entry proof at `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` reloaded distinct Fixed Question and Pool entries with exact pins, then retained the retired Pool's old Revision while a reimport received a distinct fork entry ID and Pool ID. Artifact: `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`. Existing connected adoption regression also passed 1 test with 0 ignored under the corrected SQL, with two supplemental Type projections retaining unchanged pins: `/private/tmp/ple-shared-assessment-adoption-artifacts.UmP416`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [x] **Instructors** can add, remove, and reorder Published Questions and Question Pools, subject to the post-issue limits below.
+- [x] **Instructors** can add, remove, and reorder Library Objects, subject to the post-issue limits below.
   - Evidence (source): Before issue, `schemas/base_schema/50_functions/assessments.sql` `replace_assessment_entries` retains ordinary entry editing. After issue, its root lock and content comparison allow only point and order changes plus whole-Pool removal; it rejects additions, Fixed Question removal, and Question or Revision replacement. The standalone Fixed Question removal decision remains deferred.
   - Evidence (runtime): Fresh disposable PostgreSQL 17 receipt `tests/e2e/assessment_saved_response/07_assessment_fairness.sql` `assessment_fairness_submitted_active_and_future_attempts_exclude_retired_pool`, run by `tests/e2e/e2e_assessment_saved_response.sh` on 2026-10-04, accepted post-issue points and order changes and rejected changed Pool content and retired-Pool reactivation across seven receipts.
 
 - [ ] Assessment Question-order randomization is called **Randomize question order**.
-  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` renders the exact accessible checkbox label **Randomize question order**.
-  - Evidence (runtime): the earlier accepted part 04 actual-main/HTTP receipt saved and reloaded this visible checkbox through `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage`; this is separate from the mixed-entry artifact. C64 owns persisted Question-order behavior. This label receipt does not claim C505's planned filename rename or whole-milestone completion.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Before release, an Assessment can be incomplete or inconsistent. Save the current work and
+  show specific problems. Require it to pass Release Validation before release.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Save changes to a Pool even when an unreleased Assessment asks for more Questions than the Pool
+  can provide.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Show the problem and block release until the Instructor adds Published Questions to the Pool,
+  lowers the number selected, replaces the Pool, or removes it from the Assessment.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] After an Assessment has been issued to a Student, follow the editing rules below.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
 #### Assessment content edits after issue
 
 - [x] Once an Assessment has been issued to a Student, only a limited set of content edits should be allowed.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment` locks the Assessment root before `replace_assessment_entries`; Student start locks the same root. After issue, the replacement guard permits points, order, whole-Pool removal, and the separately limited unissued Pool-member removal only.
   - Evidence (runtime): Fresh disposable PostgreSQL 17 receipt `tests/e2e/assessment_saved_response/07_assessment_fairness.sql` `assessment_fairness_submitted_active_and_future_attempts_exclude_retired_pool`, run by `tests/e2e/e2e_assessment_saved_response.sh` on 2026-10-04, accepted the permitted point/order edits and rejected changed Pool content and retired-Pool reactivation.
 
-- [x] Instructors can change the points of each Question or Question Pool and change the order of Questions.
+- [x] Instructors can change the points and order of Library Objects.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `replace_assessment_entries` permits only points and authored order for retained post-issue entries.
   - Evidence (runtime): Fresh disposable PostgreSQL 17 receipt `tests/e2e/assessment_saved_response/07_assessment_fairness.sql` `assessment_fairness_submitted_active_and_future_attempts_exclude_retired_pool`, run by `tests/e2e/e2e_assessment_saved_response.sh` on 2026-10-04, accepted a post-issue point and order change.
 - [x] Instructors can remove an individual Question from an Assessment's Question Pool only if it has not been issued to any Student in that Assessment.
@@ -155,8 +160,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/grading.sql` `grade_contribution_points_possible` keeps authored points for a Unit Review Assignment unless the entry is extra credit or excluded. `src/features/blueprint_course/blueprint_course_model.ts` `updateReusableEntryScoring` accepts a decimal point value and extra credit.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Unit Review Assignments use the same whole-Attempt submission boundary as every other
-  Assessment and default to showing the correct answer immediately after that Assessment Attempt is submitted.
+- [ ] Students submit the whole Attempt for Unit Review Assignments, as for every Assessment.
+  By default, correct answers are shown immediately after submission.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Bonus Assignments** provide optional extra credit.
   - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` states optional extra credit in the Bonus description at both Instructor creation surfaces; `schemas/base_schema/50_functions/grading.sql` `grade_contribution_points_possible` gives Bonus a zero grade denominator without discarding earned points.
@@ -204,7 +209,7 @@
   - Evidence (test): `tests/test_blueprint_course_client.mjs` `B1 client sends Revision and metadata validators to their separate routes` covers create/save/view Type round trips plus missing and unknown rejection; the focused Blueprint client lane passed 16/16.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
+- [ ] Blueprint Assessments contain ordered **Library Objects**.
   - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentEntryInput` stores each Fixed Published Question or Question Pool in vector order.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `validate_blueprint_question_selection` rejects a new pin unless that Published Question is available.
   - Evidence (source): `src/features/assessment_content_picker/assessment_content_picker.tsx` `AssessmentContentPicker` selects either one published Question Pool or configured fixed Questions before the existing Assessment import path.
@@ -291,7 +296,7 @@
   - Evidence (runtime): separate actual-component proof covered browser Template CRUD at `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface`; it is not connected-server evidence.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
+- [ ] Assessment Templates provide defaults for Attempts, timing, scoring, and what Students can see.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_templates.sql` `ple_private.assessment_template` stores instructions, Attempt/time limits, late-work, seven activity rules, and six feedback-release timings including grade rule.
   - Evidence (runtime): accepted independent fresh PostgreSQL actual-Store receipt passed Template settings round trip and copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -364,7 +369,8 @@
   - Evidence (runtime): accepted fresh PostgreSQL actual-API receipt for `schemas/base_schema/50_functions/assessment_operations.sql` `ple_api.save_assessment` atomically rejected `1000000001` and `1000000000.99999`; exact `1000000000.9999` saved and released.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
+- [ ] Release Validation should check that the Assessment contains at least one Library Object
+  and that required settings for those entries are valid.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_release_validation.sql` `assessment_release_issues` requires an available Question or Pool, rejects more than 250 delivered Questions, and rejects a Pool selection count above that Pool's member count.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -408,7 +414,7 @@
 
 #### Assessment answer and feedback disclosure
 
-- [ ] Assessment disclosure settings remain separate and independently configurable.
+- [ ] Settings for what Students can see are separate and can be changed independently.
   - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` gives score, correctness, submitted response, correct answer, answer explanation, and class statistics independent timing fields; `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` exposes those six fields. Question Feedback is shown when provided and has no delayed-release state.
   - Evidence (test): accepted actual-component proof exercised `src/features/blueprint_course/blueprint_course_create_dialog.tsx` `BlueprintCourseCreateDialog`, switching Type both ways while preserving title, entries, and the resulting Type defaults.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -426,7 +432,7 @@
   - Evidence (test): `tests/playwright/screenshot_corpus/scenarios_student.ts` `studentScores` emitted the submitted-score state in the canonical 247-capture Live Demo publication. The trusted source and server tests above establish that no hidden score-release setting or cohort-completion condition exists.
   - Evidence (runtime): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` was exercised in the rebuilt Live Demo; `/private/tmp/hg_live_policy_probe_final.log` found no score-delay control. This probe did not release an Assessment or create Student work.
 
-- [x] The Assessment-type release behaviors below are defaults that Instructors can change.
+- [x] The correct-answer settings below are defaults. Instructors can change them for each Assessment.
   - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `for_assessment_type` defaults Quiz and Exam answers to `after_all_students_complete`, while `schemas/base_schema/50_functions/assessment_policy_snapshot.sql` `ensure_assessment_policy_snapshot` accepts allowed answer timing.
   - Evidence (test): `crates/question_model/src/assessment_activity_rules.rs` `quiz_and_exam_defaults_wait_for_all_students` covers the Quiz/Exam default.
 
@@ -473,7 +479,8 @@
 
 #### Assessment unrelease
 
-- [ ] Unreleasing is the destructive reversal of releasing a Course Instance Assessment.
+- [ ] Unreleasing returns a Course Instance Assessment to an unreleased state and deletes its
+  Student Work.
   - Evidence (source): `schemas/base_schema/50_functions/unrelease.sql` `unrelease_assessment` requires a released Assessment, then sets its status to unreleased and deletes that Assessment's Attempts. `schemas/base_schema/50_functions/assessments.sql` `release_assessment` is the release transition this reverses.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -485,7 +492,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/unrelease.sql` `unrelease_assessment` counts Attempts, finalized saved responses, submissions, and grading results, then deletes the Assessment Attempt root.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Unreleasing removes the Assessment from Student availability and returns it to a pre-release state.
+- [ ] Students can no longer access an unreleased Assessment.
   - Evidence (source): `schemas/base_schema/50_functions/unrelease.sql` `unrelease_assessment` sets `assessment_status` to unreleased. `schemas/base_schema/50_functions/assessment_attempt_start.sql` `assessment_attempt_start_gate` refuses a start unless that status is released.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -531,7 +538,8 @@
   - Evidence (test): `crates/question_model/src/assessment_template.rs` `regular_template_defaults_to_unlimited_attempts` checks that the Weekly Assignment default has no attempt limit. `start_assessment_attempt` was not executed against PostgreSQL in this pass.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
+- [ ] **Students** can repeat an Assessment as often as its settings allow, including practicing toward
+  a perfect score.
   - Evidence (source): `crates/domain/src/effective_assessment_properties.rs` `assessment_start_decision` allows another Attempt when the saved limit is absent or the prior Attempt count is still below it, and that decision does not read a score. `schemas/base_schema/50_functions/assessment_attempt_access.sql` `assessment_start_decision` applies the same count-against-limit rule, and `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` offers Start while the decision is may_start.
   - Evidence (test): `crates/domain/src/effective_assessment_properties/tests.rs` `student_may_repeat_while_the_saved_attempt_limit_allows_it` checks an unset limit after seven prior Attempts, one remaining Attempt under a limit of 3, and refusal at that limit.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -571,7 +579,7 @@
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks` saves an ordinary Student response and asserts its persisted `saved` state.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The Student may change a saved response while the Assessment Attempt remains open.
+- [ ] The Student can change a saved response while the Assessment Attempt remains open.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_operations.sql` `save_student_assessment_attempt_response` replaces `student_response` while the Attempt has no submission.
   - Evidence (test): `tests/e2e/assessment_saved_response/01_saved_response_lifecycle.sql` `save_student_assessment_attempt_response` replaced bilayer with cholesterol, then a save after submission left cholesterol stored. `tests/e2e/e2e_assessment_saved_response.sh` `save_student_assessment_attempt_response` ran that oracle on PostgreSQL.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -597,6 +605,9 @@
   - Evidence (test): `tests/test_backend_owned_bridge.mjs` `saveCompleteResponseBeforeAttemptSubmission` does not call save for incomplete input, including when an earlier save has already succeeded. The test ran with node --import tsx.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Valid MATCH and MULTI-FIB responses can include unanswered parts. Save the answered parts and
+  award zero for the unanswered parts.
+  - Verification pending: stored credit and valid partial responses; see docs/TODO.md.
 - [ ] A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
   - Evidence (source): `crates/server/src/assessment_delivery/submission.rs` `save_selected_response` stores one complete response and returns `SavedResponseAcknowledgement` with response state saved. It does not call `evaluate_saved_responses`.
   - Evidence (source): `crates/server/src/assessment_delivery/submission.rs` `finalize_assessment_attempt` calls `evaluate_saved_responses` only while submitting the Attempt.
@@ -605,8 +616,7 @@
   - Evidence (test): `crates/server/src/assessment_delivery/submission.rs` `a_question_backend_may_evaluate_a_response_before_assessment_submission_when_needed` put the shipped save route for a two-choice response, received responseState saved, stored the durable choice, and left finalization prepare and commit at zero. No Live Demo stack was started. No PostgreSQL proof was run.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
-  state.
+- [ ] When PLE requests a grading outcome, the Question Backend returns the result in that response.
   - Evidence (source): `crates/adapters/ple/src/lib/question_json_source.rs` `grade_question_json` returns the compiled evaluation immediately.
   - Evidence (source): `crates/question_model/src/student_work/grading.rs` `QuestionEvaluation` records only correctness and a normalized credit fraction.
   - Evidence (source): `crates/adapters/webwork/src/http_renderer/grade.rs` `QuestionGradingOutcome::Evaluated` is the only grading result for a complete renderer score.
@@ -631,7 +641,7 @@
   - Evidence (test): `tests/playwright/test_assessment_attempt_delivery.mjs` `an assessment attempt has a time limit` supplies 15 minutes remaining for Membrane review, shows a timer that is not Untimed, and shows the automatic-submission deadline. `start_assessment_attempt` was not executed against PostgreSQL in this pass.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Each Assessment may contain at most 250 Questions.
+- [ ] Each Assessment can contain at most 250 Questions.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_release_validation.sql` defines `ple_data.assessment_delivered_question_count`; `schemas/base_schema/50_functions/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` calls it before advancing the parent Assessment Edit Number.
   - Evidence (runtime): accepted fresh PostgreSQL proof exercised `schemas/base_schema/50_functions/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork`, imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -651,7 +661,7 @@
   - Evidence (test): `tests/test_assessment_duration.mjs` `assessmentDurationOverrideSecondsFromMinutesDraft` accepts 720 minutes as 43200 seconds and rejects 721 minutes. The table check was not executed against PostgreSQL in this pass.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The interface should show the calculated default time limit and provide a specific Instructor override.
+- [ ] The interface should show the calculated default time limit and let the Instructor change it.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` shows `assessmentDurationDefaultDescription` and saves the Instructor's minutes through `assessmentDurationOverrideSecondsFromMinutesDraft`.
   - Evidence (test): `tests/playwright/test_course_instance_delivery.mjs` `assessment properties show the calculated time limit and save an instructor override` shows Calculated default: 2 minutes for 1 Questions, saves 20 minutes as 1200 seconds, reloads that override, and clears it so the calculated default remains. The policy SQL was not executed against PostgreSQL in this pass.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -681,7 +691,7 @@
   - Evidence (test): `tests/e2e/e2e_live_demo_assignment_attempt.sh` `prove_background_expiry` proves the generic worker finalizes an expired Attempt without a further Student interaction.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
+- [ ] A **Student** can reconnect, reload, or use another browser session to resume the same active Attempt.
   - Evidence (source): `schemas/base_schema/50_functions/authentication.sql` `resolve_and_install_session` installs one authenticated session, including its session id, before Student work.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_start.sql` `start_assessment_attempt` returns the open Attempt for that Student record and does not write a new expires_at on that path.
   - Evidence (test): `tests/e2e/assessment_resume_expiration_oracle.sql` `resolve_and_install_session` installed sessions 72000000-0000-0000-0000-0000000000a1 and 72000000-0000-0000-0000-0000000000a2 for Student USRS0000T, and each session resumed Attempt 72000000-0000-0000-0000-000000000001 with the same expires_at and one issued Question.
@@ -751,7 +761,7 @@
 
 ### Assessment scoring specifications
 
-- [ ] Blueprint Assessments and Course Instance Assessments assign point values to Questions.
+- [ ] Blueprint Assessments and Course Instance Assessments assign point values to Library Objects.
   - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `changeScoring` stores Points possible on a Blueprint Assessment Question and Points per Question on a Blueprint Pool.
   - Evidence (source): `src/pages/assessment_workspace/assessment_fixed_question_points_editor.tsx` `withFixedQuestionPointValues` saves a Course Instance Assessment fixed Question point value through the Assessment workspace.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -768,6 +778,14 @@
   - Evidence (runtime): `schemas/base_schema/50_functions/grading.sql` `ple_private.record_direct_automated_grading_result` is invoked by the accepted private PostgreSQL production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the submitted `0.5` fraction while rescoring current points from `8` to `13`. This SQL-only fixture simulates the initial synchronous Backend credit and does not establish Backend transport or HTTP.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] PLE stores earned partial credit whether the Assessment awards partial credit or not.
+  - Verification pending: stored credit and valid partial responses; see docs/TODO.md.
+- [ ] With partial credit on, use the stored fraction for points. With it off, full credit earns full
+  points and smaller fractions earn zero.
+  - Verification pending: stored credit and valid partial responses; see docs/TODO.md.
+- [ ] Instructors can change the partial-credit setting for all Attempts, including submitted Attempts.
+  Use stored fractions to recalculate scores fairly for all Students.
+  - Verification pending: stored credit and valid partial responses; see docs/TODO.md.
 - [ ] Course Instance Assessment scores are calculated from stored credit fractions and current Question point values.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` joins retained grading credit to the current Assessment entry point value and calls `schemas/base_schema/50_functions/grading.sql` `ple_private.score_recorded_credit`; current scoring treatment remains an explicit input.
   - Evidence (runtime): `schemas/base_schema/50_functions/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) first recorded `0.5` as `4 / 8`, then authorized an expected-current Instructor save to points `13` and observed `6.5 / 13` for the answered Question, `0 / 13` unanswered, and `6.5 / 26` through replay, history, Student landing, and Instructor Gradebook reads. This does not establish HTTP, rendering, or Backend transport.
@@ -811,10 +829,13 @@
 
 - [ ] For a flawed Question, the usual remedy is to set its point value to zero in the Assessment.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [x] Only the owner may correct a Native JSON Question, following the Published Question revision rules. An Instructor using someone else's Question can set its Assessment point value to zero.
+- [x] The owning Instructor or a Sysadmin can correct a published Native JSON Question, following the
+  Published Question revision rules. An Instructor using someone else's Published Question can set
+  its Assessment point value to zero.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` requires the actor to match `question_current_owner` before writing a successor Revision. `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` applies Assessment points separately from source ownership. Fresh source inspection; owner-denial runtime proof not rerun.
 
-- [ ] A bad WeBWorK Question requires a revision, so setting its Assessment point value to zero is the remedy for affected work.
+- [ ] Correcting a published WeBWorK Question requires a new Revision, so setting its Assessment point
+  value to zero is the remedy for affected work.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [x] Score recalculation does not require another Question Backend interaction.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `normalized_credit` projection uses current points; `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` rescales stored credit. S-01 supports point edits, not removal (A-04).

@@ -2,6 +2,9 @@
 
 ## Current status
 
+Neil subsequently requested removal of the unapproved "Used in my Courses" filter. References
+to it below are historical and do not authorize its restoration.
+
 M1-M16 below record the original implementation sequence and historical acceptance. The
 October 5 drift corrections passed the Rust, frontend, UI, Python, live Library, and connected
 acceptance gates. The renamed screenshot workflows passed a full replay, and all 256 captures were then published
@@ -34,7 +37,7 @@ loading and error states. The schematic asks for one shared version, proven firs
 Library and Public Blueprint Course search.
 
 Question Library is the harder of the two. HG and
-[QUESTION_MODEL.md](../QUESTION_MODEL.md) require one search over Published Questions
+[QUESTION_SPECS/README.md](../QUESTION_SPECS/README.md) require one search over Published Questions
 and Question Pools, with filters for result kind and Pool membership, and a preferred default
 of Questions in no Pool plus Pools. That needs a combined server query and some Pool data
 fixes. That work supports the Library; the shared search page is the main goal.
@@ -185,7 +188,7 @@ Shared search page:
 - **Links and leaving**: results open in a new tab; the leave warning appears after a search
   has run or while text is typed; Clear turns it off.
 
-Question Library (HG, `docs/QUESTION_MODEL.md`, schematic):
+Question Library (HG, `docs/QUESTION_SPECS/README.md`, schematic):
 
 - **Result filters** (final labels not fixed):
   - Show: Both / Questions only / Pools only.
@@ -274,7 +277,7 @@ Question, plus every Assessment entry that uses it (selection count, points per 
 - An `image_evaluator` agent reviews screenshots. A new agent using `human-interact-expert`
   walks through the main tasks and lists problems by severity. Axe and keyboard tests check
   accessibility.
-- When a product question comes up, check HG, then `docs/QUESTION_MODEL.md`, then the
+- When a product question comes up, check HG, then `docs/QUESTION_SPECS/README.md`, then the
   interview decision record, then this plan. If none answers it, the manager picks the
   simplest option that fits HG, records it in `docs/DESIGN_DECISIONS.md`, lists it in the
   final report, and continues.
@@ -496,7 +499,7 @@ Narrow checks run at every milestone; broad checks run at integration points.
   field and the now-empty `question_pool_provenance` table removed; API, generated types, and
   Pool views show the Pool license while each member keeps its own license.
 - Entry criteria: an independent reviewer checks the license table against HG,
-  `docs/QUESTION_MODEL.md`, the interview decision record, and Creative Commons guidance on
+  `docs/QUESTION_SPECS/README.md`, the interview decision record, and Creative Commons guidance on
   collections.
 - Exit criteria (narrow backend check, then B): store tests for every table row, including
   CC BY + CC BY-SA giving CC BY-SA; the schema and API carry only the calculated Pool license.
@@ -681,7 +684,7 @@ Narrow checks run at every milestone; broad checks run at integration points.
   rows in `docs/active_plans/audits/human_guidance_implementation_checklist.md`.
 - docs/CHANGELOG.md entry: one per milestone under that day's headings.
 - `docs/SEARCH_PAGE_ARCHITECTURE.md`: new guide for adding a search.
-- `docs/QUESTION_MODEL.md`: update its implementation-alignment paragraph (one copy per
+- `docs/QUESTION_SPECS/README.md`: update the affected owning specification (one copy per
   Question and Pool Author removal are done; member positions and classification re-checks
   remain).
 - `docs/DESIGN_DECISIONS.md`: shared search code lives in `src/features/search/`; text runs on
@@ -700,7 +703,7 @@ Narrow checks run at every milestone; broad checks run at integration points.
 - How the manager and subagents decide:
   - Who decides: frontend owner for the shared code's shape; backend owner for Library data;
     manager for scope and conflicts.
-  - Rule: HG, then `docs/QUESTION_MODEL.md`, then the interview decision record, then this
+  - Rule: HG, then `docs/QUESTION_SPECS/README.md`, then the interview decision record, then this
     plan; if none answers, the simplest option that fits HG, recorded in
     `docs/DESIGN_DECISIONS.md`.
 - Later follow-ups (none block this plan):

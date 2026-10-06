@@ -249,7 +249,7 @@ mod tests {
         );
         assert!(
             serde_json::from_value::<BlueprintRevisionTuple>(serde_json::json!("1")).is_err(),
-            "a lone Revision Number is not a Blueprint Revision Tuple"
+            "a lone Revision Number is not a Blueprint Course Revision Tuple"
         );
     }
 }

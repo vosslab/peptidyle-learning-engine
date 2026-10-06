@@ -145,7 +145,6 @@ export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
     questionType: boundedValues(parameters, "questionType")[0] ?? null,
     capability: boundedValues(parameters, "capability")[0] ?? null,
     questionLicense: boundedValues(parameters, "questionLicense")[0] ?? null,
-    usedInMyCourses: boundedValues(parameters, "usedInMyCourses")[0] ?? null,
     sort: librarySort(parameters),
   };
 }
@@ -179,7 +178,6 @@ export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): stri
     "questionType",
     "capability",
     "questionLicense",
-    "usedInMyCourses",
     "bloomCognitiveProcess",
     "bloomKnowledgeDimension",
   ] as const) {

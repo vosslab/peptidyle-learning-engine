@@ -56,20 +56,22 @@ Global Account (one immutable User Role)
   +-- Blueprint Course owner relationship
 
 Published Question
-  +-- immutable Question Revisions
+  +-- complete Question Revision records
 
 Published Question Pool
-  +-- current member list with Edit Number CAS
+  +-- unordered set of Question Revision Tuples and Pool metadata
+  +-- Pool Edit Number
 
 Blueprint Course (Private, Public, or Archived)
-  +-- immutable changed-content Blueprint Revisions
+  +-- complete Blueprint Revision records
         +-- Blueprint Assessments
   +-- adoption relationships used to copy newly added Blueprint Assessments
       into daughter Course Instances as Unreleased Assessments
 ```
 
-Published Questions and Blueprint Courses have immutable Revision families.
-Question Pools are current state: members live on the Pool row's Edit Number.
+Published Questions and Blueprint Courses use numbered Revisions for saved content. Each Revision
+is a complete record; permitted metadata edits preserve its Revision Number.
+Question Pools contain Question Revision Tuples. Saving changes advances the Pool Edit Number.
 Accounts, Course Instances, Assessments, and Blueprint Courses use the public
 ID as primary key. Edit Numbers on current aggregates are concurrency
 controls. HTTP `ETag`/`If-Match` encode those integers as quoted decimal
@@ -88,10 +90,10 @@ public-ID object types and is never reused.
 Question Type and Backend are `NOT NULL` on `question_revision`. Published Question and Pool
 Title, Description, Discipline, and Subject are also required. Optional metadata remains optional;
 pending Bloom classification is a separate case with no enforced assignment deadline. See
-[QUESTION_MODEL.md](QUESTION_MODEL.md#required-and-assigned-metadata) for the field distinctions.
+[QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md) for the field distinctions.
 
-Question source changes create immutable Question Revisions. Current metadata
-changes do not. Draft Questions remain private, mutable, unpublished, and
+Question source changes create a new complete Question Revision. Permitted metadata changes
+update the record without changing its Revision Number. Draft Questions remain private, mutable, unpublished, and
 unversioned.
 
 Question Pools use stable public identity plus current membership. HG defines membership
@@ -107,7 +109,7 @@ Current Pool storage has an owner Account, immutable Type and Backend, and a cal
 compatible license; separate Pool Author storage is removed. Library search combines Questions
 and Pools. A role-typed composite foreign key enforces Instructor ownership.
 Admission-only Discipline/Subject checks remain; mismatch handling, release blocking, and
-classification re-checks are pending. See [QUESTION_MODEL.md](QUESTION_MODEL.md) and generated
+classification re-checks are pending. See [README.md](QUESTION_SPECS/README.md) and generated
 [SCHEMA_TABLES.md](SCHEMA_TABLES.md) for the product boundary and current SQL.
 
 `question_pool.created_in_transaction` is an internal `xid8` marker with
@@ -122,13 +124,13 @@ Frozen Assessment policy lives in content-addressed
 `course_instance_id`. Question Attempts reference
 `ple_private.delivery_toolchain` rather than copying toolchain strings.
 Saved responses finalize in place. Library usage statistics are identity-free
-counts on Question Revisions and Pool members; private observation receipts
+counts and credit sums per Published Question Revision and per Pool; private observation receipts
 purge with Student Work.
 
 ## Blueprint Courses
 
 Creation atomically produces a Private Blueprint and Revision 1. A meaningful
-explicit content Save creates one next immutable Revision. A canonical no-op
+explicit content Save creates the next complete Blueprint Revision. A canonical no-op
 creates none. Short name, long name, and Private/Public/Archived lifecycle are
 current lineage metadata and do not create Revisions.
 
@@ -142,9 +144,9 @@ Instance. It atomically creates a distinct actor-owned Private Blueprint at
 Revision 1 and records one immutable Blueprint-to-source-Course relation. That
 source Course counts as the Blueprint's first Adoption and contributes its
 distinct students-ever-enrolled count, but it is not a daughter Course and is
-never included in automatic daughter-update operations. Course-owned Pools are
-forked into fresh Blueprint-owned Pools with identical exact member
-pins.
+never included in automatic daughter-update operations. Intended Pool behavior retains existing
+Pool references and Instructor ownership; an explicit Pool fork provides independent customization.
+Existing automatic-copy storage needs reconciliation in [TODO.md](TODO.md).
 
 The Blueprint-to-daughter relationship exposes newer Blueprint Revisions for
 Instructor review and approval. Existing Assessment changes are not applied

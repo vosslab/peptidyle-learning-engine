@@ -540,7 +540,7 @@ work package has no remaining implementation criteria.
   states. The window helper keeps the visible range, overscan, scroll position, and spacer height.
   The windowed library page renders its records through exactly the same row code as an ordinary
   page, so turning windowing off needs no different row markup. The hand-written window in
-  [library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx):139-177
+  `src/pages/library_browse_rows.tsx` (historical path; retired):139-177
   is replaced by it, and only the library list turns it on.
 - Evidence or review, when useful: `node --import tsx tests/playwright/record_list_contracts.mjs`
   checks the durable windowing behavior: measured row heights select the visible records, a focused
@@ -556,7 +556,7 @@ work package has no remaining implementation criteria.
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | WP-E1 | [question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx)                                                                         | Simple scan list, one variant                                      |
 | WP-E2 | [gradebook_page.tsx](../../src/pages/gradebook_page.tsx)                                                                                     | Dense table, `fullWidth`, many columns                             |
-| WP-E3 | [library_browse_rows.tsx](../../src/pages/library_browse_rows.tsx)                                                                           | Two variants plus windowing                                        |
+| WP-E3 | `src/pages/library_browse_rows.tsx` (historical path; retired)                                                                           | Two variants plus windowing                                        |
 | WP-E4 | [assessment_workspace_questions_view.tsx](../../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx) | Reorder by keyboard and drag                                       |
 | WP-E5 | [course_instance_page.tsx](../../src/pages/course_instance_page.tsx)                                                                         | Dense rows, per-row actions, theme accent                          |
 | WP-E6 | [student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)                                                           | Student list, phone layout keeps action next to identity           |

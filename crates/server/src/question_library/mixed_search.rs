@@ -52,8 +52,6 @@ where
         bloom_knowledge_dimension: query.bloom_knowledge_dimension,
         question_types: query.question_types.clone(),
         question_licenses: query.question_licenses.clone(),
-        used_in_current_account_courses: query.used_in_my_courses
-            == question_model::QuestionSearchCourseUse::Used,
         authored_by_current_account: query.authorship
             == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
         sort: match query.sort {

@@ -59,7 +59,7 @@ with current query/return state; no account preference, arbitrary numeric input 
   [facets.rs](../../../crates/server/src/question_library/facets.rs) counts the full intersection
   and caps free-text facet lists. Preserve that meaning when moving aggregation into SQL.
 - [Library session](../../../src/pages/library_page_model.ts):622-759 appends pages and retains a
-  return snapshot; [Library rows](../../../src/pages/library_browse_rows.tsx):292-367 measures windows
+  return snapshot; `src/pages/library_browse_rows.tsx` (historical path; retired):292-367 measures windows
   and requests another page on scroll. the former client window helper (removed after bounded server pages)
   builds layout arrays across all retained records. It bounds ordinary mounted DOM, not transfer,
   retained data or all layout calculation; a distant focused row can also expand the mounted slice.
@@ -69,8 +69,8 @@ with current query/return state; no account preference, arbitrary numeric input 
   [Pool store](../../../crates/learning-data-access/src/postgres/question_pool_library.rs):62-128
   already implement bounded discovery and full-query Bloom facets. The store removes the lookahead
   row. Pool Library and picker append in
-  [library_pool_discovery.tsx](../../../src/pages/library_pool_discovery.tsx):101-124 and
-  [question_pool_picker.tsx](../../../src/features/question_pool_picker/question_pool_picker.tsx):54-78.
+  `src/pages/library_pool_discovery.tsx` (historical path; retired):101-124 and
+  `src/features/question_pool_picker/question_pool_picker.tsx` (historical path; retired):54-78.
 - [Blueprint list route](../../../crates/server/src/blueprint_course/list.rs):23-191,
   [store](../../../crates/learning-data-access/src/postgres/blueprint_course/search.rs), and
   [SQL](../../../schemas/base_schema/50_functions/blueprint_operations.sql):467-569 own filtered

@@ -11,7 +11,7 @@ CREATE FUNCTION ple_private.question_library_entries(
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, used_in_current_account_courses boolean,
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint,
     source_object_record_id uuid, source_object_checksum text, source_media_type text,
@@ -24,33 +24,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Library requires an active Instructor or Sysadmin Account';
     END IF;
-    -- ASVS 8.2.2 and 8.3.1: derive Course use from the current session's
-    -- exact Instructor memberships at this trusted database boundary. The
-    -- stable Question lineage match deliberately ignores the pinned Revision.
     RETURN QUERY
-    WITH authorized_course_question_ids(published_question_id) AS MATERIALIZED (
-        SELECT question.published_question_id
-          FROM ple_data.assessment_entry AS entry
-          JOIN ple_data.assessment_entry_question AS question
-            ON question.assessment_entry_id = entry.assessment_entry_id
-          JOIN ple_data.assessment AS assessment
-            ON assessment.assessment_id = entry.assessment_id
-         WHERE entry.availability = 'available'
-           AND entry.entry_kind = 'fixed_question'
-           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
-        UNION
-        SELECT member.published_question_id
-          FROM ple_data.assessment_entry AS entry
-          JOIN ple_data.assessment_entry_pool AS pool_entry
-            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
-          JOIN ple_data.assessment AS assessment
-            ON assessment.assessment_id = entry.assessment_id
-          JOIN ple_data.question_pool_member AS member
-            ON member.question_pool_id = pool_entry.question_pool_id
-         WHERE entry.availability = 'available'
-           AND entry.entry_kind = 'question_pool'
-           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
-    )
     SELECT revision.published_question_id::text, revision.revision_number, revision.backend::text, binding.question_format::text, revision.question_type::text,
            floor(extract(epoch FROM revision.published_at) * 1000)::bigint,
            metadata.question_title, metadata.question_description,
@@ -89,7 +63,6 @@ BEGIN
                 AND owner.owner_account_id = ple_api.current_session_account_id()),
            license.spdx_expression::text, lineage.availability::text, lineage.availability_edit_number,
            metadata.metadata_edit_number, metadata.tags, metadata.content_discipline_id, metadata.content_subject_id, metadata.content_topic_id, metadata.content_subtopic_id,
-           authorized_course_question.published_question_id IS NOT NULL,
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,
            bloom.classification_edit_number,
            binding.source_object_record_id, binding.source_object_checksum, record.media_type,
@@ -105,8 +78,6 @@ BEGIN
       JOIN ple_private.question_revision_source_binding AS binding
         ON binding.published_question_id = revision.published_question_id AND binding.revision_number = revision.revision_number
       JOIN ple_private.object_record AS record ON record.object_record_id = binding.source_object_record_id
-      LEFT JOIN authorized_course_question_ids AS authorized_course_question
-        ON authorized_course_question.published_question_id = revision.published_question_id
      WHERE (p_published_question_id IS NULL OR revision.published_question_id = p_published_question_id)
        AND (p_revision_number IS NULL OR revision.revision_number = p_revision_number)
        AND (p_revision_number IS NOT NULL OR revision.revision_number = (
@@ -144,7 +115,7 @@ RETURNS TABLE (
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, used_in_current_account_courses boolean,
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint,
     source_object_record_id uuid, source_object_checksum text, source_media_type text,
@@ -162,7 +133,7 @@ CREATE FUNCTION ple_private.search_question_library_entries(
     p_tags text[], p_subjects text[], p_topics text[], p_discipline_id uuid, p_subject_id uuid,
     p_topic_id uuid, p_subtopic_id uuid, p_cross_discipline boolean, p_bloom_cognitive_process text,
     p_bloom_knowledge_dimension text, p_question_types text[], p_question_licenses text[],
-    p_used_in_current_account_courses boolean, p_authored_by_current_account boolean,
+    p_authored_by_current_account boolean,
     p_result_kind text, p_membership text, p_owner_account_id text, p_has_capability_filter boolean,
     p_sort text, p_after_title text, p_after_published_at_millis bigint, p_after_public_id text,
     p_limit integer
@@ -171,7 +142,7 @@ CREATE FUNCTION ple_private.search_question_library_entries(
     question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean, question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, used_in_current_account_courses boolean,
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
     bloom_cognitive_process text, bloom_knowledge_dimension text, bloom_classification_edit_number bigint,
     source_object_record_id uuid, source_object_checksum text, source_media_type text, webwork_pg_path text,
     subject_name text, topic_name text, discipline_name text, discipline_is_retired boolean, subtopic_name text,
@@ -229,7 +200,7 @@ BEGIN
                pool.license::text AS question_license, NULL::text AS availability,
                NULL::bigint AS availability_edit_number, pool.question_pool_metadata_edit_number AS metadata_edit_number,
                pool.tags, pool.content_discipline_id, pool.content_subject_id, pool.content_topic_id, pool.content_subtopic_id,
-               false AS used_in_current_account_courses, bloom.cognitive_process::text AS bloom_cognitive_process,
+               bloom.cognitive_process::text AS bloom_cognitive_process,
                bloom.knowledge_dimension::text AS bloom_knowledge_dimension,
                bloom.classification_edit_number AS bloom_classification_edit_number,
                NULL::uuid AS source_object_record_id, NULL::text AS source_object_checksum,
@@ -267,13 +238,12 @@ BEGIN
            AND (p_bloom_knowledge_dimension IS NULL OR entry.bloom_knowledge_dimension = p_bloom_knowledge_dimension)
            AND (cardinality(p_question_types) = 0 OR entry.question_type = ANY(p_question_types))
            AND (cardinality(p_question_licenses) = 0 OR entry.question_license = ANY(p_question_licenses))
-           AND (entry.row_kind = 'question' OR (cardinality(p_author_names) = 0 AND NOT p_used_in_current_account_courses
+           AND (entry.row_kind = 'question' OR (cardinality(p_author_names) = 0
                 AND NOT p_authored_by_current_account AND NOT p_has_capability_filter
                 AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(p_text_terms, '[]'::jsonb)) term(value)
                                 WHERE term.value ->> 'field' = 'author')))
            AND (cardinality(p_author_names) = 0 OR EXISTS (SELECT 1 FROM unnest(entry.author_names) author(name)
                 WHERE lower(btrim(regexp_replace(author.name, '[[:space:]]+', ' ', 'g'))) = ANY(p_author_names)))
-           AND (NOT p_used_in_current_account_courses OR entry.used_in_current_account_courses)
            AND (NOT p_authored_by_current_account OR entry.authored_by_current_account)
            AND NOT EXISTS (
                 SELECT 1 FROM jsonb_array_elements(COALESCE(p_text_terms, '[]'::jsonb)) term(value)
@@ -431,10 +401,6 @@ BEGIN
                   FROM (SELECT entry.question_license, count(*)::bigint AS facet_count
                           FROM filtered AS entry GROUP BY entry.question_license) AS license_counts
             ), '[]'::jsonb),
-            'usedInMyCourses', jsonb_build_object(
-                'used', (SELECT count(*) FILTER (WHERE entry.used_in_current_account_courses)::bigint
-                           FROM filtered AS entry)
-            ),
             'bloomCognitiveProcesses', jsonb_build_array(
                 jsonb_build_object('cognitiveProcess', 'Remember', 'count', (SELECT count(*) FILTER (WHERE entry.bloom_cognitive_process = 'Remember')::bigint FROM filtered AS entry)),
                 jsonb_build_object('cognitiveProcess', 'Understand', 'count', (SELECT count(*) FILTER (WHERE entry.bloom_cognitive_process = 'Understand')::bigint FROM filtered AS entry)),
@@ -455,7 +421,7 @@ BEGIN
            page.question_title, page.question_description, page.author_names, page.author_account_ids,
            page.authored_by_current_account, page.viewer_may_archive, page.question_license, page.availability,
            page.availability_edit_number, page.metadata_edit_number, page.tags,
-           page.content_discipline_id, page.content_subject_id, page.content_topic_id, page.content_subtopic_id, page.used_in_current_account_courses,
+           page.content_discipline_id, page.content_subject_id, page.content_topic_id, page.content_subtopic_id,
            page.bloom_cognitive_process, page.bloom_knowledge_dimension, page.bloom_classification_edit_number,
            page.source_object_record_id, page.source_object_checksum, page.source_media_type, page.webwork_pg_path,
            page.subject_name, page.topic_name, page.discipline_name, page.discipline_is_retired, page.subtopic_name,
@@ -476,7 +442,7 @@ CREATE FUNCTION ple_api.search_question_library_entries(
     p_tags text[], p_subjects text[], p_topics text[], p_discipline_id uuid, p_subject_id uuid,
     p_topic_id uuid, p_subtopic_id uuid, p_cross_discipline boolean, p_bloom_cognitive_process text,
     p_bloom_knowledge_dimension text, p_question_types text[], p_question_licenses text[],
-    p_used_in_current_account_courses boolean, p_authored_by_current_account boolean,
+    p_authored_by_current_account boolean,
     p_result_kind text, p_membership text, p_owner_account_id text, p_has_capability_filter boolean,
     p_sort text, p_after_title text, p_after_published_at_millis bigint, p_after_public_id text,
     p_limit integer
@@ -485,7 +451,7 @@ CREATE FUNCTION ple_api.search_question_library_entries(
     question_title text, question_description text, author_names text[], author_account_ids text[],
     authored_by_current_account boolean, viewer_may_archive boolean, question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, used_in_current_account_courses boolean,
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
     bloom_cognitive_process text, bloom_knowledge_dimension text, bloom_classification_edit_number bigint,
     source_object_record_id uuid, source_object_checksum text, source_media_type text, webwork_pg_path text,
     subject_name text, topic_name text, discipline_name text, discipline_is_retired boolean, subtopic_name text,
@@ -497,7 +463,7 @@ CREATE FUNCTION ple_api.search_question_library_entries(
         p_exact_question_id, p_text_terms, p_author_names, p_backends, p_tags, p_subjects, p_topics,
         p_discipline_id, p_subject_id, p_topic_id, p_subtopic_id, p_cross_discipline,
         p_bloom_cognitive_process, p_bloom_knowledge_dimension, p_question_types, p_question_licenses,
-        p_used_in_current_account_courses, p_authored_by_current_account, p_result_kind, p_membership,
+        p_authored_by_current_account, p_result_kind, p_membership,
         p_owner_account_id, p_has_capability_filter, p_sort, p_after_title, p_after_published_at_millis,
         p_after_public_id, p_limit)
 $$;
@@ -540,7 +506,7 @@ RETURNS TABLE (
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, used_in_current_account_courses boolean,
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint,
     source_object_record_id uuid, source_object_checksum text, source_media_type text,

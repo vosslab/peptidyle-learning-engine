@@ -35,11 +35,11 @@ Rust declarations, while authored runtime decoders reject unexpected wire data.
 ## Product-domain boundaries
 
 ```text
-Draft Question --publish--> Published Question + immutable Revisions
-Question Pool -------------> current Pool + Edit Number
+Draft Question --publish--> Published Question + complete Question Revision records
+Question Pool -------------> unordered set of Question Revision Tuples + metadata + Edit Number
 
 Blueprint Course (Private/Public/Archived)
-  +-- immutable changed-content Revisions
+  +-- complete Blueprint Revision records
   +-- Blueprint Assessments
                |
                | adopt exact Public Blueprint Revision
@@ -57,8 +57,9 @@ Assessments. New Blueprint Revisions are offered to daughter Course Instances
 for Instructor review and approval, and changes to existing Assessments are
 never applied silently. A newly added Blueprint Assessment is automatically
 copied as an Unreleased Course Instance Assessment. Published Questions and
-Blueprint Courses have immutable Revision families. Question Pools are current
-state: members live on the Pool row's Edit Number.
+Blueprint Courses use numbered Revisions for saved content. Each Revision is a complete record;
+permitted metadata edits preserve its Revision Number. A Pool contains an unordered set of
+Question Revision Tuples plus its metadata. Saving changes advances its Edit Number.
 
 Forks retain their source Blueprint and Revision so later source changes can be
 discovered and selectively applied. Blueprint Course Change Proposals compare
@@ -238,7 +239,8 @@ or Pool detail. The Question picker retains its ordered domain tray; the Assessm
 selects Questions or one Pool through the mixed Library definition. See
 [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md).
 Pool editor sorting is display-only; the shared reorder component does not make Pool membership
-ordered. [QUESTION_MODEL.md](QUESTION_MODEL.md) lists related implementation gaps.
+ordered. [question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md)
+records related implementation gaps.
 
 Pages compose these pieces around their domain state. For example,
 [src/features/blueprint_course/blueprint_course_detail_workspace.tsx](../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)

@@ -30,15 +30,15 @@ Backend from authenticated context and stored relationships.
 | --- | --- | --- | --- |
 | Global Account | Server identity and immutable user role | Authorized account projection only | [USER_ROLES.md](USER_ROLES.md) |
 | Course relationship | Stored Course membership or Blueprint ownership | Only the relationship needed for the current page | [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) |
-| Draft Question | Authorized Instructor workspace; mutable and unpublished | Bounded Instructor result only | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
-| Published Question | Stable identity plus immutable Question Revisions | Answer-free render and permitted metadata | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
+| Draft Question | Authorized Instructor workspace; mutable and unpublished | Bounded Instructor result only | [README.md](QUESTION_SPECS/README.md) |
+| Published Question | Stable identity plus complete Question Revision records; permitted metadata edits in place | Answer-free render and permitted metadata | [README.md](QUESTION_SPECS/README.md) |
 | Question Pool | Stable identity plus current membership on an Edit Number | Published discovery data and Assessment selection evidence | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
 | Blueprint Course | Stable identity plus immutable changed-content Revisions | Visibility follows Private, Public, or Archived state | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
 | Canonical Blueprint JSON | Complete Blueprint comparison and exchange representation; not primary persistence | Authorized import, export, comparison, and proposal review only | [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) |
 | Course Instance Assessment | Current Course configuration; no Assessment Revision family | Instructor editor or Student Coursework projection | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Assessment Attempt | Course, Student, timing, saved responses, nullable cumulative Question display milliseconds, and whole-Assessment submission state | The authorized Student's current Attempt and permitted result | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Student response | Student-authored response saved while an Attempt is open | Typed native response or bounded backend-owned form data | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
-| Credit and feedback | Question Backend's immutable credit fraction and permitted feedback | Hidden until the applicable disclosure point | [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) |
+| Credit and feedback | Question Backend's immutable credit fraction and permitted feedback | Scores appear after submission and automatic grading; optional feedback timing remains deferred | [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md) |
 | Binary object | Object metadata plus typed server key | Logical asset ID or authorized bytes only | [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) |
 | FERPA-protected Course record | Course Instance retention policy | Removed from normal interfaces at archive; recoverable only during retention | [RETENTION_POLICY.md](RETENTION_POLICY.md) |
 
@@ -98,8 +98,8 @@ machinery, or compatibility states.
 - Private backend state stays behind the PLE server boundary.
 - Browser caches and retained presentations are never grading or authorization
   authorities.
-- Sysadmin support access to FERPA-protected records is scoped, deliberate, and
-  recorded; the Sysadmin role has no ambient FERPA access.
+- Sysadmins have full administrative access, including Course and Student records.
+  Support work is recorded for audit.
 
 ## Owner directory
 
@@ -107,7 +107,7 @@ machinery, or compatibility states.
 | --- | --- |
 | Product intent | [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) |
 | Cross-module contract state | [CONTRACTS.md](CONTRACTS.md) |
-| Question publication and native/backend boundaries | [QUESTION_MODEL.md](QUESTION_MODEL.md) and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) |
+| Question publication and native/backend boundaries | [README.md](QUESTION_SPECS/README.md) and [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md) |
 | Assessment lifecycle and payloads | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) and [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Identity | [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) |
 | Authorization and FERPA access | [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md), and [SECURITY_MODEL.md](SECURITY_MODEL.md) |

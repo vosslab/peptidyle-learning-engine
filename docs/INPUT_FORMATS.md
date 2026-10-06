@@ -39,7 +39,7 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 
 | Format                 | Surface and media type                                                      | Implemented boundary                                                                                                                                                                     | Owner                                                                                                                                           |
 | ---------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE Question JSON      | Private PLE Question JSON route; `application/vnd.peptidyle.question+json`  | One answer-bearing document with the closed eight Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                                                | PLE Question JSON adapter source (currently `crates/adapters/ple/src/question_json.rs`), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
+| PLE Question JSON      | Private PLE Question JSON route; `application/vnd.peptidyle.question+json`  | One answer-bearing document with the closed eight Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                                                | PLE Question JSON adapter source (currently `crates/adapters/ple/src/question_json.rs`), [NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md) |
 | Canvas QTI 1.2 ZIP     | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and QTI Import Package Checksum evidence stay private    | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs)                                                     |
 | Blackboard QTI 2.1 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free                                             | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs)                                             |
 
@@ -47,14 +47,14 @@ QTI conversion produces one complete PLE Question JSON Draft Question through
 the shared authoring contract. Workspace Import separately retains the original
 archive, private mapping evidence, choice maps, and QTI Import Checksums. The
 ordinary PLE Question Backend later produces the answer-free Question Presentation. See
-[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and [QUESTION_MODEL.md](QUESTION_MODEL.md).
+[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and [README.md](QUESTION_SPECS/README.md).
 
 ## Private server source
 
 PLE can publish a private immutable PG or PGML Question Source through a Source Object ID to the configured external
-`webwork-pg-renderer`. The author declares the educational Question Type on the Published Question
-Revision; PLE uses that immutable metadata for labeling and discovery, never by inspecting renderer
-controls. The server sends source bytes, source path, seed, display and embed policy, PLE origin,
+`webwork-pg-renderer`. Question Type is editable classification metadata on the Question record.
+The author or importer supplies it; reliable source detection may help. PLE uses it for labeling
+and discovery while the Backend owns its controls and execution. The server sends source bytes, source path, seed, display and embed policy, PLE origin,
 and asset-base parameters to `/render-api`. The browser receives an authenticated exact
 backend-owned document through PLE and saves a bounded opaque canonical ordered-pair Student
 Response. WeBWorK owns the HTML, controls, response interpretation, and grading. The local

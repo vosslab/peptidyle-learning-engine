@@ -42,7 +42,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` records that Instructor membership when the Course Instance is created.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
+- [ ] The Instructor who creates a Course Instance becomes its first Instructor and has the same
+  Course authority as co-Instructors added later.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` inserts the first membership with role instructor, and `add_course_instructor` inserts each later co-Instructor with that same role.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_is_course_instructor` accepts any active instructor membership on that Course.
   - Evidence (test): `crates/learning-data-access/tests/course_instance_postgres.rs` `empty_course_has_no_initial_content_and_current_instructors_are_peers` started from one Instructor membership, then the later co-Instructor added another peer. The disposable PostgreSQL database baseline required this ignored test and exited 0.
@@ -53,7 +54,7 @@
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`, showed Adoption count 1, and left the source addressable and unchanged.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
+- [ ] An Instructor can create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` exposes a metadata-only Create Blueprint from Course Instance dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` validates the canonical Course reference, sends only generated names/classification with one retry-safe idempotency key, requires `201 no-store`, and accepts only a new owner-visible Private Revision-1 Blueprint receipt.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed authorization/no-write, stale rollback, replay, exact reusable content/Pool pins, immutable source provenance, unchanged source state, first-Adoption/student counts, and lifecycle rollback on PostgreSQL.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created actor-owned Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`, showed Adoption count 1, and left the source addressable and unchanged.
@@ -80,11 +81,11 @@
   - Evidence (runtime): Accepted required `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` reject missing/nonexistent Discipline. Rebuilt `8147` ordinary Course and Blueprint creation/editor proof selects Biology explicitly and hydrates it without reselection; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
+- [ ] **Subject**, **Topic**, and **Subtopic** are optional for Courses, with at most one of each.
   - Evidence (runtime): Accepted `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` validate optional hierarchy and parent constraints. Root's rebuilt `8147` ordinary Course/Blueprint creation and Tags-only saves succeed with only Biology and no narrower levels; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Courses may have any number of **Tags**, including none.
+- [ ] Courses can have any number of **Tags**, including none.
   - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` exercises empty Tags and 65 Tags without a count cap. Rebuilt `8147` ordinary Course/Blueprint Tags-only browser saves pass without Discipline reselection; session 85118 exited 0. Per-Tag validation remains bounded. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -146,7 +147,7 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Public Blueprint Courses are visible and reusable by every **Instructor**.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Blueprint Courses contain only **Published Questions** and published **Question Pools**.
+- [ ] Blueprint Courses contain only **Library Objects**.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `validate_blueprint_question_selection` refuses a new pin that is not an Available Question.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_pools.sql` `validate_blueprint_owned_pools` refuses a Pool that is not a fresh fork owned by the Blueprint Revision.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_pools.sql` `fork_blueprint_question_pool` copies the published Pool into that fork.
@@ -155,13 +156,14 @@
   - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `blueprint_courses_contain_only_published_questions_and_published_pools` ran that oracle on PostgreSQL.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+- [ ] An **Instructor** can create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` supplies the Course tools dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` supplies its strict, idempotent create request; `schemas/base_schema/50_functions/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` owns the atomic source lock/copy/provenance boundary.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed immutable source provenance, unchanged Course state, replay, stale rollback, exact pins, and first-Adoption counts on PostgreSQL.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof creating distinct Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X` while leaving the source unchanged.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
+- [ ] Creating a Blueprint Course from a Course Instance copies its Assessments as Blueprint
+  Assessments in the same order.
   - Evidence (source): `crates/learning-data-access/src/postgres/course_blueprint_publication.rs` `load_course_blueprint_publication_source` uses the existing visible Course order and `PostgresCourseBlueprintPublicationStore` preserves that vector under one deterministic `Assessments` wrapper with fresh Blueprint Assessment identities.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof showing Private Revision-1 Blueprint `BPJD8H28` retained reusable structure copied from unchanged Course `CI0QR41X`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -186,7 +188,7 @@
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle_privacy.rs` `assert_private_blueprint_is_owner_only` kept the Private Blueprint on the owner list and returned NotFound for a non-owner list, load, and Revision load. The disposable PostgreSQL database baseline required the lifecycle test that calls this check and exited 0.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Instructors may develop and use Private Blueprint Courses without publishing them.
+- [ ] Instructors can develop and use Private Blueprint Courses without publishing them.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` permits the owner to edit a Private Blueprint and withholds adoption; Private is deliberately not a daughter-Course source.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -206,7 +208,7 @@
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/lifecycle.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` had a non-owner Instructor adopt the Public Blueprint twice. The disposable PostgreSQL database baseline required this ignored test and exited 0.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Public Blueprint Course with no adoptions may return to Private.
+- [ ] A Public Blueprint Course with no adoptions can return to Private.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits this transition only before a daughter Course Instance exists; the accepted lifecycle runtime contract covers the rule.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -358,7 +360,7 @@
   - Evidence (source): `crates/learning-data-access/src/postgres/course_instance.rs` `create_course_instance` obtains `creation_assignments` before atomic creation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Course Instances pin the exact Blueprint Revision from which they were adopted.
+- [ ] Course Instances record the Blueprint Course Revision Tuple from which they were adopted.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` requires an exact immutable Blueprint Revision source for adoption.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -409,7 +411,7 @@
   - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the created Private fork; the actual HTTP lineage receipt rejects concealed Private intermediates for other Instructors.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A fork records the source Blueprint Course and Blueprint Revision from which it was created.
+- [ ] A fork records the source Blueprint Course Revision Tuple from which it was created.
   - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` carries the source reference and Revision to the Store.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -418,17 +420,15 @@
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Published Questions in the new Blueprint Assessments retain the same Published Question IDs and exact Revisions.
+- [ ] Published Questions in the new Blueprint Assessments retain the same Question Revision Tuples.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
   - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Question Pools in the new Blueprint Assessments are forked and receive new Question Pool IDs.
-  - Evidence (source): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
-  - Evidence (runtime): `schemas/base_schema/50_functions/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
-  - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Forked Question Pools initially contain the same Published Question IDs and exact Revisions as their source.
+- [ ] Question Pools in the new Blueprint Assessments keep their existing Pool IDs. An Instructor
+  who wants to change a Pool independently forks it first.
+  - Verification pending: Current Pool model and release-boundary behavior need implementation verification.
+- [ ] Forked Question Pools initially contain the same Question Revision Tuples as their source.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` derives comparison relationships from the exact fixed and Pool member Question IDs.
   - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying forked Pools retain exact ordered Question Revision membership under fresh Pool IDs.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -450,7 +450,7 @@
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` presents the source/fork review entry.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
+- [ ] PLE should show newer Revisions of forked Blueprint Courses from their source Blueprint Course.
   - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` returns each visible child fork's current Revision for the source view.
   - Evidence (runtime): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, which loads the source known-forks row before opening the pair review.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -477,11 +477,11 @@
   - Evidence (source): `src/features/blueprint_change_proposal/proposal_workspace.tsx` `ProposalTargetTools` offers the proposal action only when the reader is not the Blueprint owner.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
+- [ ] A Change Proposal records the source Blueprint Course Revision Tuple.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `create_blueprint_change_proposal` stores the source Blueprint Course id and exact source Revision number.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
+- [ ] A Change Proposal records the target Blueprint Course Revision Tuple used for comparison.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `create_blueprint_change_proposal` stores the target Blueprint Course id and the exact Revision used for comparison.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -504,7 +504,7 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
-  and removals, and Question membership changes.
+  and removals, and changes to the Library Objects in an Assessment.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintSelectionEditor` offers source names, complete Assessment content, a new Assessment copy, and removal from the destination.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -525,7 +525,7 @@
   - Evidence (source): `src/features/blueprint_change_proposal/proposal_review.tsx` `ProposalReview` lets the receiving owner choose selected changes or the entire proposal before acceptance.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
+- [ ] The receiving Instructor can accept the entire Change Proposal or selected proposed changes.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_change_proposals.sql` `finalize_blueprint_change_proposal_acceptance` accepts an entire decision or a selected decision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -591,7 +591,7 @@
   - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies source and fork Assessment IDs are disjoint before comparison and Apply.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Comparison should show shared, added, removed, and changed Assessments, Published Questions, and Question Pools.
+- [ ] Comparison should show shared, added, removed, and changed Assessments and Library Objects.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `assessmentComparison` classifies a related Assessment as shared when its canonical fields match and as changed when they differ, and classifies a side-only Assessment as added or removed.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `publishedQuestionComparison` classifies Question IDs as shared, added, or removed, and a shared ID with a different Revision pin as changed.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_model.ts` `questionPoolComparison` classifies Question Pool IDs as shared, added, or removed, and the same Pool ID with different canonical entry content as changed.
@@ -632,7 +632,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `ple_data.blueprint_content_is_closed` allowlists reusable Assessment content and defaults without Course delivery dates or release state.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
+- [ ] Blueprint Assessments contain ordered **Library Objects**.
   - Evidence (source): `crates/question_model/src/blueprint_course/assessment_content.rs` `BlueprintAssessmentEntryInput` stores each Fixed Published Question or Question Pool in vector order.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `validate_blueprint_question_selection` rejects a new pin unless that Published Question is available.
   - Evidence (source): `src/features/assessment_content_picker/assessment_content_picker.tsx` `AssessmentContentPicker` selects either one published Question Pool or configured fixed Questions before the existing Blueprint import path.
@@ -684,7 +684,7 @@
   - Evidence (test): `tests/test_live_assignment_release_validation.mjs` `Course Instance delivery keeps Students, deadlines, release, and attempt settings` decoded a released Assessment with those deadlines and an attempt limit, and read an active Student from the Course roster.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Course Instances contain only **Published Questions** and published **Question Pools**.
+- [ ] Course Instances contain only **Library Objects**.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` creates an original published Pool only from available Published Questions, and refuses an archived Question.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `replace_assessment_entries` refuses a new pin that is not an Available Question and refuses a Pool that is not already the Assessment's immutable fork.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork_for_ids` stores a fork of the published Pool on the Course Assessment. The Assessment stores that fork, not the published Pool id.
@@ -710,7 +710,7 @@
   - Evidence (test): `crates/learning-data-access/tests/course_instance_postgres.rs` `inactive_course_keeps_metadata_after_student_data_deletion` archived and deleted the Student record, left zero Student records and zero Student memberships, kept short name PAST-1, long name Past teaching Course, the term, the discipline, and one Instructor membership, and listed the Inactive Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+- [ ] An **Instructor** can create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` offers the compact metadata-only Course tools action; its strict client retains source-Course identity and no delivery fields; `schemas/base_schema/50_functions/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the immutable source without changing the Course.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed source preservation, first-Adoption counts, exact pins/Pool fork, replay, and stale rollback on PostgreSQL.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created actor-owned Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`; the source remained addressable and unchanged.
@@ -744,7 +744,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
+- [ ] A daughter Course Instance records the parent Blueprint Course Revision Tuple used to create it.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` includes `blueprint_course` and `blueprint_revision`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
@@ -752,7 +752,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` constructs the Course Assessments from selected Blueprint content.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
+- [ ] Creating a daughter Course Instance copies the Blueprint Course's Assessments, Library Objects,
+  and reusable settings.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_fork` copies the source Pool members into the Course fork.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs` `assert_adoption_projection` checks those Question pins and Pool member copies.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.

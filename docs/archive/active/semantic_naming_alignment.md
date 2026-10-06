@@ -74,8 +74,8 @@ TypeScript declarations.
 - Complete Blueprint Tuple flows for Course Instance creation/provenance,
   Blueprint history, fork creation, known forks, and Assessment Blueprint
   Update review/apply. Replace `source_revision_number` and
-  `expected_source_revision_number` with source Blueprint Revision Tuples.
-- Make known-fork results carry current and source Blueprint Revision Tuples
+  `expected_source_revision_number` with source Blueprint Course Revision Tuples.
+- Make known-fork results carry current and source Blueprint Course Revision Tuples
   rather than an ID plus generic revision numbers. Preserve `left`/`right` only
   for complete comparison-side objects; rename scalar IDs precisely.
 - Repair Student Work Recovery from SQL through server serialization, including

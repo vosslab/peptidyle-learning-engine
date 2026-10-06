@@ -5,11 +5,19 @@ below records the starting seams; current behavior and completion evidence are i
 [the architecture guide](../../SEARCH_PAGE_ARCHITECTURE.md) and
 [the implementation ledger](SHARED_SEARCH_IMPLEMENTATION.md).
 
+## Later Pool model correction
+
+The October 5 decision in [QUESTION_POOL_SPEC.md](../../QUESTION_SPECS/QUESTION_POOL_SPEC.md)
+supersedes the automatic Assessment-fork and Assessment-owned Pool workflow below. Adding a Pool
+references its existing ID; the Assessment entry stores its selection count. Explicit forking
+creates a regular Instructor-owned Pool. The paths below are retained implementation evidence,
+not authority to preserve that behavior. Reconciliation is in [TODO.md](../../TODO.md).
+
 ## Scope and authority
 
 This handoff prepares M13 and M14 in
 `read-docs-active-plans-active-shared-sea-peaceful-mountain.md`.  It follows
-`docs/HUMAN_GUIDANCE.md` and `docs/QUESTION_MODEL.md`: Pool members are
+`docs/HUMAN_GUIDANCE.md` and `docs/QUESTION_SPECS/QUESTION_POOL_SPEC.md`: Pool members are
 Published Questions, retain exact Revisions, share Discipline, Subject, Type,
 and Backend, and use a compatible supported license.  The approved plan keeps
 the separate Pool-validation work out of these milestones.  M8-M9 remain the

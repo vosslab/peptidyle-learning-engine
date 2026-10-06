@@ -50,7 +50,7 @@ their owner's spelling.
 | Domain aggregate | Domain noun | `Account`, `CourseInstance`, `Assessment` |
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
-| Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber`, `BlueprintRevisionNumber` |
+| Revision number | `RevisionNumber` | `QuestionRevisionNumber`, `BlueprintRevisionNumber` |
 | Composite exact identity | `Tuple` | `PublishedQuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionImageAssetTuple`, `CourseRosterTuple`; JSON fields `publishedQuestionRevisionTuple` / `blueprintRevisionTuple` / `questionImageAssetTuple` / `courseRosterTuple` |
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber`, `BlueprintEditNumber`, `DraftQuestionEditNumber`; JSON `assessmentEditNumber`, `draftQuestionEditNumber`, `expectedAssessmentEditNumber` |
@@ -60,8 +60,8 @@ their owner's spelling.
 | Bounded bearer value | `Token` | `WorkerLeaseToken` |
 | One-time correspondence value | `Nonce` | `PresentationNonce` |
 
-Use `Revision` only for Published Questions and Blueprint Courses. Question
-Pools, Assessments, and Course Instances are current state. An Edit Number,
+Use `Revision` only for Published Questions and Blueprint Courses.
+Assessments and Course Instances use current state. An Edit Number,
 event, receipt, snapshot, job generation, or current state is not a Revision.
 
 A Count is not a version number. A Position is neither an identity nor a

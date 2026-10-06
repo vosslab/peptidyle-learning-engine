@@ -5,6 +5,17 @@ This guide gives contributors the repository's supported edit, build, and verifi
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) own architecture, durable release direction, and
 acceptance rules.
 
+## Question specification index
+
+- [QUESTION_SPECS/README.md](QUESTION_SPECS/README.md) indexes the shared Library Object model,
+  Published Questions, Pools, metadata, Backends, and import/export APIs.
+- [BIOLOGY_PROBLEMS_SPECS/README.md](BIOLOGY_PROBLEMS_SPECS/README.md) indexes source content and
+  base Blueprint Course mappings.
+- [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](BLUEPRINT_COURSE_IMPORT_API_SPEC.md) defines reusable
+  Course assembly through authenticated APIs and generated identities.
+- [question_specs_open_questions.md](active_plans/decisions/question_specs_open_questions.md)
+  records unresolved choices for the later Human Guidance interview.
+
 ## Start an edit
 
 - Read the relevant contract in [CONTRACTS.md](CONTRACTS.md) before changing a frozen module

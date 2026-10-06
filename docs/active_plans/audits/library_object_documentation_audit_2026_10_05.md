@@ -26,10 +26,8 @@ the combined query supports the common Question Type filter for both kinds. Its 
 depending on how the filter is expressed. Define matching once for the shared field and use it
 consistently across supported search controls and syntax.
 
-The same SQL supplies `false` for Pool `used_in_current_account_courses` and excludes all Pools
-when the Course-use filter is active. Pools can occupy Assessment positions. This exclusion is
-not justified merely by their kind. Trace actual Pool use and source-fork relationships before
-specifying the precise Course-use rule; do not silently treat missing implementation as no use.
+The earlier Course-use finding is withdrawn: Neil never approved "Used in my Courses"
+and requested its removal. It is not a missing Pool behavior.
 Pool exclusion from Author filters is different: HG explicitly gives Pools no Author field.
 
 ### Shared fields lose a common shape
@@ -77,7 +75,7 @@ concurrency checks, and membership constraints. Do not make shared fields imply 
 
 ## Documentation problems
 
-[QUESTION_MODEL.md](../../QUESTION_MODEL.md) combines the domain model, detailed Bloom API behavior,
+[QUESTION_SPECS/README.md](../../QUESTION_SPECS/README.md) combines the domain model, detailed Bloom API behavior,
 implementation status, and pending verification. Its opening does not establish the common Library
 Object model. Readers must reconstruct that model from later sections and other files.
 
@@ -86,7 +84,7 @@ not QTI JSON, contrary to its filename. It repeats publication and identity rule
 feedback disclosure is independently configurable even though the feedback decision is deferred.
 Native source rules need a clearly named home separate from interchange adapters.
 
-[QUESTION_ID_SPEC.md](../../QUESTION_ID_SPEC.md) describes the shared namespace inside a
+[QUESTION_ID_SPEC.md](../../QUESTION_SPECS/QUESTION_ID_SPEC.md) describes the shared namespace inside a
 Question-lineage-focused document. Its ID-generation details remain useful; the new overview
 should make the shared namespace and different lifecycle counters obvious before those details.
 

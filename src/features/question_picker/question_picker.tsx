@@ -367,22 +367,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
             </select>
           </label>
           <label>
-            My course use
-            <select
-              value={search.query().libraryQuery.usedInMyCourses ?? ""}
-              onChange={(event) =>
-                updateLibraryQuery({ usedInMyCourses: event.currentTarget.value || null })
-              }
-            >
-              <option value="">Any course use</option>
-              <For each={facetValues("usedInMyCourses")}>
-                {(facet) => (
-                  <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
-                )}
-              </For>
-            </select>
-          </label>
-          <label>
             Question License
             <select
               value={search.query().libraryQuery.questionLicense ?? ""}

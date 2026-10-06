@@ -3,7 +3,7 @@
 This guide explains how a Question Backend joins Peptidyle without changing
 the shared attempt loop, gradebook, or browser trust boundary. It is for contributors adding an
 adapter, not for defining a new student Question Type. The shared public contract is
-[QUESTION_MODEL.md](QUESTION_MODEL.md); durable release direction and acceptance rules are in
+[README.md](QUESTION_SPECS/README.md); durable release direction and acceptance rules are in
 [ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 ## Non-negotiable boundaries
@@ -89,8 +89,8 @@ The PLE Question Backend is the small reference: it interprets the complete curr
 and produces the answer-free Question Presentation and server-owned evaluation behavior required by
 the shared pipeline. Its supported Question Types are MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and
 HOTSPOT. See
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
-[QUESTION_MODEL.md](QUESTION_MODEL.md).
+[NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md) and
+[README.md](QUESTION_SPECS/README.md).
 
 ## Determinism and caching
 

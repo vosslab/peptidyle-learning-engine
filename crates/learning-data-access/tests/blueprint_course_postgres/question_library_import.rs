@@ -52,7 +52,6 @@ fn import_request(
         bloom_knowledge_dimension: None,
         question_types: vec![question_model::QuestionType::MultipleChoice],
         question_licenses: vec![question_model::QuestionLicense::CcBy4_0],
-        used_in_current_account_courses: false,
         authored_by_current_account: false,
         sort: QuestionLibrarySearchSort::TitleAscending,
         page_size: question_model::MAX_DISCOVERY_PAGE_SIZE as u16,

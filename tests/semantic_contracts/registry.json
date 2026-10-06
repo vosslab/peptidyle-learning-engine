@@ -2,7 +2,7 @@
   "surfaces": [
     {
       "id": "course_instance_blueprint_provenance",
-      "behavior": "Course Instance provenance uses named Blueprint Revision Tuples.",
+      "behavior": "Course Instance provenance uses named Blueprint Course Revision Tuples.",
       "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/learning-data-access/src/course_instance.rs",
       "typescript_test": "tests/test_course_instance_summary.mjs",
@@ -11,7 +11,7 @@
     },
     {
       "id": "blueprint_known_fork_tuples",
-      "behavior": "Known-fork results carry current and source Blueprint Revision Tuples.",
+      "behavior": "Known-fork results carry current and source Blueprint Course Revision Tuples.",
       "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/browser-api-contract/src/blueprint_course.rs",
       "typescript_test": "tests/test_nested_identity_contracts.mjs",

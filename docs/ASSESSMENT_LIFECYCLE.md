@@ -32,12 +32,12 @@ score availability. Post-issue content edits follow
 [HG's limits](HUMAN_GUIDANCE.md#assessment-content-edits-after-issue), including
 removal of a bad Pool's earned and possible points from every Attempt.
 
-HG also defines **Pool mismatch**: a Pool no longer satisfies its current requirements.
-Before Assessment release, report and resolve insufficient members, incompatible classification,
-duplicate Questions, or another Pool constraint violation. If a mismatch develops after release,
-allow that Assessment to continue as-is. Membership edits must still preserve enough candidates
-for its selection count. The broader mismatch handling is intended behavior awaiting implementation
-validation; it is not a new Pool publication lifecycle.
+A Pool must meet its own requirements. An Assessment can ask an otherwise-valid Pool for too
+many Questions. Show that problem and block release until resolved. Save changes to the Pool
+even when an unreleased Assessment asks for too many Questions. If a Pool develops a problem
+after an Assessment is released, allow that Assessment to continue as-is.
+The established post-issue edit restrictions still apply. See
+[QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md).
 
 ## Related identities and owners
 
@@ -45,16 +45,16 @@ validation; it is not a new Pool publication lifecycle.
 | --- | --- | --- |
 | Draft Question | Instructor authoring workspace; private, mutable, and unpublished | Draft Question UUID and Edit Number |
 | Published Question | Shared Question Library lineage | Public Question ID `AAAA-ZBBB` |
-| Question Revision | Immutable Question source | Question ID and Revision Number |
-| Question Pool | Published reusable collection | Public Pool ID and current membership Edit Number |
-| Blueprint Assessment | Blueprint Course content | Blueprint Course and Blueprint Revision |
+| Question Revision | Complete Question record; fixed content and permitted editable metadata | Question Revision Tuple |
+| Question Pool | Published reusable collection | Pool ID and Pool Edit Number |
+| Blueprint Assessment | Blueprint Course content | Blueprint Course Revision Tuple |
 | Course Instance Assessment | One Course Instance's current configuration | Course and Assessment ID |
 | Student Work | The Student's FERPA-protected Course record | Student, Assessment Attempt, and saved response identities |
 
-Published Questions and Blueprint Courses have immutable Revisions. Draft
-Questions, Question Pools, Course Instances, Assessments, Attempts, and Student
-Work use current state plus concurrency controls; an Edit Number is not
-historical content.
+Published Questions and Blueprint Courses use numbered Revisions for saved content. A Revision
+is a complete record; permitted metadata edits preserve its Revision Number. Saving changes to
+a Pool advances its Edit Number. Draft Questions, Course Instances, Assessments, Attempts, and
+Student Work use current state plus concurrency controls; an Edit Number is not historical content.
 
 ## Author and publish Questions
 
@@ -64,10 +64,11 @@ source at publication. A stale Edit Number conflicts instead of overwriting
 newer work.
 
 Publishing a new Question creates a stable public Question identity and its
-first immutable Revision. Publishing a compatible source change under the same
-lineage creates the next Revision. Changing lineage metadata that Human
-Guidance treats as current metadata does not create a Revision. A substantive
-fork creates a new Question identity.
+first complete Revision record. Publishing a compatible source change under the same
+Question creates the next complete Revision record. Title, Description, classification, Tags,
+and Bloom are fields on that record and may change in place under HG's metadata rules. Those
+edits preserve the Revision Number. A fork creates a new Question identity. See
+[QUESTION_REVISION_SPEC.md](QUESTION_SPECS/QUESTION_REVISION_SPEC.md).
 
 Published content is independent of the Draft Question workspace. Draft cleanup
 must not make a Published Question or Revision incomplete.
@@ -76,8 +77,9 @@ Question Pools are also published reusable objects with stable public identity
 and current membership on an Edit Number. An Assessment records the exact
 Question Revision, and when it selects from a Pool, the Pool ID and Pool Edit
 Number, needed to explain its selection. Importing a Pool into an Assessment
-creates an independent fork; the source Pool's later changes do not rewrite it. The fork
-remains a reusable Library object, even when the Course Instance is private.
+stores the existing Pool ID and an entry-specific selection count. Explicit forking creates a
+separate reusable Pool when the Instructor wants independent customization. Current Pool edits
+affect future selections wherever referenced; existing Attempts keep their selected Questions.
 
 ## Build and release an Assessment
 
@@ -97,7 +99,8 @@ work. Adoption copies it into a Course Instance as a Course Instance Assessment.
 An Assessment Template is an Instructor-owned reusable set of settings outside
 a Course or Blueprint. It contains no Questions or Question Pools.
 
-A Course Instance Assessment starts Unreleased. The Instructor configures its
+A Course Instance Assessment starts Unreleased. Save incomplete or inconsistent editing state and
+show the specific problem; release is the validation boundary. The Instructor configures its
 Questions, Pool selections, point values, instructions, timing, Attempt limit,
 late behavior, and submission/correct-answer visibility, then runs the automated, interactive
 Assessment Release Validation. Validation explains missing, invalid, or
@@ -122,9 +125,8 @@ own IANA time zone. Changing a display zone never shifts a stored deadline.
 
 An Instructor may order the current Assessment Entries by their Bloom
 Classification. A fixed Question Entry uses its exact pinned Question
-Revision's pair. A Question Pool Entry uses its Assessment-owned fork's current
-Bloom pair; it does not use the reusable source Pool's current pair or
-derive a pair from Pool members.
+Revision's pair. A Question Pool Entry uses its referenced Pool's current
+Bloom pair, independently of its parent Pool and member Questions.
 
 The order is Cognitive Process first (Remember, Understand, Apply, Analyze,
 Evaluate, Create), Knowledge Dimension second (Factual, Conceptual,
@@ -133,12 +135,14 @@ last key makes equal classifications stable. Sorting changes only the pending
 Entry sequence. It neither changes an Entry's identity, pin, Pool membership,
 selection count, points, or other settings nor creates a new Question Revision or Pool membership Edit.
 
-The sort control remains unavailable when the complete exact pair for any
-Entry cannot be read. It explains whether the missing pair is fixed or
-Assessment-owned Pool content and leaves the existing order unchanged. A
-successful sort remains an unsaved current-Assessment edit: the ordinary whole
-Assessment Save, with its existing Edit Number CAS, is the only persistence
-boundary.
+A successful sort remains an unsaved current-Assessment edit. Ordinary Assessment Save and
+its Edit Number concurrency check persist the order.
+
+**Current implementation evidence.** The
+[Assessment editor](../src/pages/assessment_workspace/assessment_workspace_questions_page.tsx)
+disables sorting when any entry lacks Bloom. HG permits missing Bloom indefinitely and does not
+require this restriction. Placement of unclassified entries remains an implementation follow-up,
+not a newly settled product rule.
 
 ## Start or resume an Attempt
 
@@ -177,7 +181,9 @@ backend's controls.
 
 A complete response can be saved while the Attempt remains open. A later valid
 save replaces that Question's working response. An incomplete response is not
-saved as a complete response and is not graded.
+saved as a complete response and is not graded. Here, complete means valid for the Backend to
+evaluate. Valid Native JSON MATCH and MULTI-FIB responses can contain unanswered parts; save
+and grade the answered parts, with zero credit for the unanswered parts.
 
 Saving changes only the working response. The Student may revisit and edit any
 saved response until the whole Attempt is submitted or automatically closes at
@@ -202,9 +208,12 @@ A late response cannot replace saved work after the Attempt has closed.
 
 The Question Backend returns an immutable credit fraction for each complete
 response it evaluates. PLE stores that fraction without reinterpretation and
-calculates points from the Assessment Question's current point value. Changing
-point values recalculates scores from the stored fractions; it does not regrade
-responses or change the fractions.
+calculates points using the Assessment's current partial-credit setting and Question point value.
+With partial credit enabled, use the stored fraction; otherwise, a fraction of one earns full
+points and smaller fractions earn zero. Changing the setting applies consistently to all Attempts,
+including submitted Attempts, using their stored fractions. Changing point values also recalculates
+scores from those fractions. Neither change regrades responses or changes stored outcomes. See
+[QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md#stored-credit-and-awarded-points).
 
 When PLE requests a grading outcome, the Question Backend returns it without a
 deferred grading state. PLE has no Student- or Instructor-visible asynchronous
@@ -261,13 +270,13 @@ deletion. Course metadata, Assessments, Questions, and settings remain. See
 
 ## Contract map
 
-- [QUESTION_MODEL.md](QUESTION_MODEL.md): Question source, publication, and
+- [README.md](QUESTION_SPECS/README.md): Question source, publication, and
   browser-safe boundaries.
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): Attempts, saved responses, timing, and
   score projections.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): render and
   response payloads.
-- [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md): opaque backend
+- [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md): opaque backend
   ownership and immutable credit fractions.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md): role and Course
   access.

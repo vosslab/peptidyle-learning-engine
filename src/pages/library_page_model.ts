@@ -106,7 +106,6 @@ export interface QuestionLibraryBrowseFacetAggregate {
     | "questionType"
     | "capability"
     | "questionLicense"
-    | "usedInMyCourses"
     | "bloomCognitiveProcess"
     | "bloomKnowledgeDimension";
   readonly value: string;
@@ -128,7 +127,6 @@ export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter 
   readonly questionType: string | null;
   readonly capability: string | null;
   readonly questionLicense: string | null;
-  readonly usedInMyCourses: string | null;
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
   readonly authorship: QuestionSearchAuthorship;
   /** Server-owned deterministic order retained with this exact query. */
@@ -423,7 +421,6 @@ function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFac
     facet !== "questionType" &&
     facet !== "capability" &&
     facet !== "questionLicense" &&
-    facet !== "usedInMyCourses" &&
     facet !== "bloomCognitiveProcess" &&
     facet !== "bloomKnowledgeDimension"
   ) {
@@ -486,7 +483,6 @@ function validateAggregateGroupCaps(
     questionType: MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
     capability: MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
     questionLicense: MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
-    usedInMyCourses: 1,
     bloomCognitiveProcess: BLOOM_COGNITIVE_PROCESSES.length,
     bloomKnowledgeDimension: BLOOM_KNOWLEDGE_DIMENSIONS.length,
   };
@@ -574,7 +570,6 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   questionType: null,
   capability: null,
   questionLicense: null,
-  usedInMyCourses: null,
   authorship: "any",
   sort: "titleAscending",
 };
@@ -599,7 +594,6 @@ export function normalizeQuestionLibraryBrowseQuery(
     questionType: query.questionType,
     capability: poolsOnly ? null : query.capability,
     questionLicense: query.questionLicense,
-    usedInMyCourses: poolsOnly ? null : query.usedInMyCourses,
     authorship: poolsOnly ? "any" : query.authorship,
     sort: query.sort,
   };

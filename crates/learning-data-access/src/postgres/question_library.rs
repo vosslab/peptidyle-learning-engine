@@ -489,9 +489,6 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         subtopic_name: row.try_get("subtopic_name").map_err(map_sqlx_error)?,
         subject_name: row.try_get("subject_name").map_err(map_sqlx_error)?,
         topic_name: row.try_get("topic_name").map_err(map_sqlx_error)?,
-        used_in_current_account_courses: row
-            .try_get("used_in_current_account_courses")
-            .map_err(map_sqlx_error)?,
         authorship: QuestionAuthorship::new(authors).map_err(|_| invalid("Question Authorship"))?,
         authored_by_current_account: row
             .try_get("authored_by_current_account")

@@ -382,7 +382,6 @@ impl QuestionLibraryStore for PageOnlyLibrary {
         assert_eq!(request.page_size, DEFAULT_PAGE_SIZE);
         assert!(request.after.is_none());
         assert!(!request.authored_by_current_account);
-        assert!(!request.used_in_current_account_courses);
         Ok(QuestionLibrarySearchPage {
             items: self.page.clone(),
             next_position: Some(self.continuation.clone()),
@@ -491,7 +490,6 @@ fn empty_search_facets() -> QuestionLibrarySearchFacets {
         topics_truncated: false,
         question_types: Vec::new(),
         question_licenses: Vec::new(),
-        used_in_my_courses: question_model::QuestionSearchCourseUseFacet { used: 0 },
         bloom_cognitive_processes: Vec::new(),
         bloom_knowledge_dimensions: Vec::new(),
     }
@@ -547,7 +545,6 @@ async fn stored_library_entry(
         discipline_name: "Biology".to_string(),
         discipline_is_retired: false,
         subtopic_name: None,
-        used_in_current_account_courses: false,
         authorship: QuestionAuthorship::new(vec![QuestionAuthor {
             display_name: QuestionAuthorDisplayName::new("Ada".to_string()).expect("author"),
             account_id: None,

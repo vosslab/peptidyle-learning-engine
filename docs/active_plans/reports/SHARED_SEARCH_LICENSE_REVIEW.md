@@ -28,7 +28,7 @@ works in a collection.
 
 - [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) requires one Pool license compatible with
   every member and rejects a `Mixed` Pool license.
-- [QUESTION_MODEL.md](../../QUESTION_MODEL.md) requires a calculated compatible Pool
+- [QUESTION_SPECS/README.md](../../QUESTION_SPECS/README.md) requires a calculated compatible Pool
   license, rejects incompatible combinations, and preserves each member's original license.
 - The [interview decision record](../decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
   settles automatic calculation, the current CC0/CC BY/CC BY-SA scope, the CC BY plus

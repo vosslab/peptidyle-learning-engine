@@ -46,16 +46,17 @@ Course Membership for the exact Course Instance. Course creation establishes
 the initial Instructor Membership, and every current Instructor member has the
 same teaching authority; no creator-owned authority is retained.
 
-An active Sysadmin may read the answer-free Question and Pool Library support
-projections, including exact Revision Bloom Classification metadata. That
-read-only support access does not confer Instructor authoring or Library
-mutation authority.
+Every Instructor can read, add to an Assessment, or fork any Published Question. Only the owning
+Instructor or a Sysadmin may edit it. Sysadmin editing permission includes Question content and
+metadata; edits follow the ordinary Question Revision and current-metadata rules. Existing read
+and write checks require reconciliation with that rule;
+see [TODO.md](TODO.md#question-spec-implementation-follow-up).
 
-An active Instructor with current exact Library read access may correct
-the complete Bloom pair on that exact Question Revision or Question Pool. This is Library
-authority, not author, founder, or Pool-owner authority. A Sysadmin has no
-Bloom-correction authority; the read projection does not widen into either
-correction route.
+The owning Instructor can correct either Bloom dimension on their Question or Pool. Library
+read access alone does not permit another Instructor to edit it. Sysadmins may also correct
+Bloom on Questions and Pools. The existing broader
+Instructor correction checks require reconciliation with HG; see
+[TODO.md](TODO.md#question-spec-implementation-follow-up).
 
 A Student may act only through that Student's current Course Membership and
 Student Record for the exact Course. Student-facing Assessment delivery,
@@ -65,14 +66,16 @@ Account therefore stops subsequent access. An Instructor can inspect the
 course's authorized teaching projections but does not become a Student; one
 Student has no authority over another Student's work.
 
-Sysadmin is a platform User Role, not ambient teaching or FERPA authority.
-A Sysadmin may initiate a scoped support repair under their own role authority,
-without an Instructor-issued grant or approval. Course-instance bootstrap and
-support operations use their separately bounded, audited predicates. The existing
-Instructor-issued support-capability implementation requires reconciliation.
-Unproven Sysadmin workflows are deferred under HG; this authority rule does not
-make new support tools a current implementation requirement. Support does not
-create a Sysadmin Course Membership or general access to Student Work.
+Sysadmins have full administrative authority over PLE, including content, Accounts, Courses,
+and Student records. Before accessing FERPA-sensitive Student data, a Sysadmin confirms that
+access is needed for administrative work. That access is recorded for audit. The Sysadmin role
+provides the authority; confirmation makes access deliberate. Implementation and verification
+of confirmation and access recording remain follow-up work in
+[TODO.md](TODO.md#question-spec-implementation-follow-up).
+
+Existing support-capability checks require reconciliation with that authority. Unproven Sysadmin
+tools remain deferred; deferred tools do not limit the role's authority or require a new approval
+workflow. This document does not claim that every administrative operation is implemented.
 
 ## Mutable configuration and retained evidence
 

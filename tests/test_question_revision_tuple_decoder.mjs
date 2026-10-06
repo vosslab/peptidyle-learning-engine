@@ -35,7 +35,7 @@ test("Question Revision Tuple rejects leftover reference JSON", () => {
   );
 });
 
-test("Blueprint Revision Tuple decodes blueprintCourseId plus revisionNumber", () => {
+test("Blueprint Course Revision Tuple decodes blueprintCourseId plus revisionNumber", () => {
   assert.deepEqual(
     blueprintRevisionTuple(BLUEPRINT_TUPLE, "blueprintRevisionTuple"),
     BLUEPRINT_TUPLE,
@@ -79,7 +79,7 @@ test("Blueprint Assessment fixed entry rejects leftover published_question Tuple
   );
 });
 
-test("Blueprint Revision Tuple rejects leftover reference and snake_case members", () => {
+test("Blueprint Course Revision Tuple rejects leftover reference and snake_case members", () => {
   assert.throws(
     () => blueprintRevisionTuple({ reference: BLUEPRINT_TUPLE }, "blueprintRevisionTuple"),
     DecodeError,

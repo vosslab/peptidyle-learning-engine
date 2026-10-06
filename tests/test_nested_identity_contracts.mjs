@@ -440,7 +440,7 @@ test("Blueprint comparison rejects leftover scalar left/right Blueprint Course I
   );
 });
 
-test("Known forks require named current and source Blueprint Revision Tuples", () => {
+test("Known forks require named current and source Blueprint Course Revision Tuples", () => {
   const forks = decodeKnownBlueprintForks([
     {
       id: BLUEPRINT_TUPLE.blueprintCourseId,
