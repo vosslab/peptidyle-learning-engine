@@ -2,157 +2,172 @@
 
 SET LOCAL ROLE ple_data_owner;
 
--- ASVS 15.4.2: the private receipt winner increments in the same transaction.
--- Retained counts never depend on reconstructing deleted Student evidence.
--- p_normalized_credit NULL means a blank Issued Question (no saved response).
-CREATE FUNCTION ple_data.increment_question_revision_statistics(
-    p_published_question_id text,
+-- ASVS 8.2.1 and 8.3.1: isolate aggregate writes in narrow data-owner
+-- functions; the runtime EXECUTE grant is limited to ple_private_owner.
+CREATE FUNCTION ple_data.record_question_revision_delivery(
+    p_published_question_id ple_data.question_family_id,
     p_revision_number integer,
-    p_normalized_credit numeric,
-    p_observed_on date,
-    p_issued_floor bigint,
-    p_blank_floor bigint,
-    p_answered_floor bigint,
-    p_correct_floor bigint,
-    p_partial_floor bigint,
-    p_incorrect_floor bigint
+    p_issued_contributor_floor bigint,
+    p_observed_on date
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE
-    blank_delta bigint;
-    answered_delta bigint;
-    correct_delta bigint;
-    partial_delta bigint;
-    incorrect_delta bigint;
-    credit_delta numeric;
 BEGIN
-    IF p_published_question_id IS NULL
-       OR p_published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-       OR substr(p_published_question_id, 6, 1) <> ple_private.crockford_checksum_character(
-           substr(p_published_question_id, 1, 4) || substr(p_published_question_id, 7, 3)
-       )
-       OR p_revision_number IS NULL OR p_revision_number <= 0
-       OR p_observed_on IS NULL
-       OR p_issued_floor < 0 OR p_blank_floor < 0 OR p_answered_floor < 0
-       OR p_correct_floor < 0 OR p_partial_floor < 0 OR p_incorrect_floor < 0
-       OR (p_normalized_credit IS NOT NULL
-           AND (p_normalized_credit < 0 OR p_normalized_credit > 1)) THEN
+    IF p_published_question_id IS NULL OR p_revision_number IS NULL OR p_revision_number <= 0
+       OR p_issued_contributor_floor IS NULL OR p_issued_contributor_floor < 0
+       OR p_observed_on IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Revision Statistics increment is invalid';
-    END IF;
-
-    IF p_normalized_credit IS NULL THEN
-        blank_delta := 1;
-        answered_delta := 0;
-        correct_delta := 0;
-        partial_delta := 0;
-        incorrect_delta := 0;
-        credit_delta := 0;
-    ELSE
-        blank_delta := 0;
-        answered_delta := 1;
-        correct_delta := CASE WHEN p_normalized_credit = 1 THEN 1 ELSE 0 END;
-        partial_delta := CASE WHEN p_normalized_credit > 0 AND p_normalized_credit < 1 THEN 1 ELSE 0 END;
-        incorrect_delta := CASE WHEN p_normalized_credit = 0 THEN 1 ELSE 0 END;
-        credit_delta := p_normalized_credit;
+            MESSAGE = 'Question Revision delivery statistics are invalid';
     END IF;
 
     INSERT INTO ple_data.question_revision_statistics AS retained (
-        published_question_id, revision_number,
-        issued_count, blank_count, answered_count,
-        correct_count, partial_count, incorrect_count,
-        issued_contributor_floor, blank_contributor_floor, answered_contributor_floor,
-        correct_contributor_floor, partial_contributor_floor, incorrect_contributor_floor,
-        credit_sum, credit_sum_sq, updated_on
+        published_question_id, revision_number, issued_count,
+        issued_contributor_floor, updated_on
     ) VALUES (
-        p_published_question_id, p_revision_number,
-        1, blank_delta, answered_delta,
-        correct_delta, partial_delta, incorrect_delta,
-        least(p_issued_floor, 1), least(p_blank_floor, blank_delta),
-        least(p_answered_floor, answered_delta), least(p_correct_floor, correct_delta),
-        least(p_partial_floor, partial_delta), least(p_incorrect_floor, incorrect_delta),
-        credit_delta, credit_delta * credit_delta, p_observed_on
-    )
-    ON CONFLICT (published_question_id, revision_number) DO UPDATE
+        p_published_question_id, p_revision_number, 1,
+        least(p_issued_contributor_floor, 1), p_observed_on
+    ) ON CONFLICT (published_question_id, revision_number) DO UPDATE
         SET issued_count = retained.issued_count + 1,
-            blank_count = retained.blank_count + EXCLUDED.blank_count,
-            answered_count = retained.answered_count + EXCLUDED.answered_count,
-            correct_count = retained.correct_count + EXCLUDED.correct_count,
-            partial_count = retained.partial_count + EXCLUDED.partial_count,
-            incorrect_count = retained.incorrect_count + EXCLUDED.incorrect_count,
             issued_contributor_floor = greatest(retained.issued_contributor_floor,
-                least(p_issued_floor, retained.issued_count + 1)),
-            blank_contributor_floor = greatest(retained.blank_contributor_floor,
-                least(p_blank_floor, retained.blank_count + EXCLUDED.blank_count)),
-            answered_contributor_floor = greatest(retained.answered_contributor_floor,
-                least(p_answered_floor, retained.answered_count + EXCLUDED.answered_count)),
-            correct_contributor_floor = greatest(retained.correct_contributor_floor,
-                least(p_correct_floor, retained.correct_count + EXCLUDED.correct_count)),
-            partial_contributor_floor = greatest(retained.partial_contributor_floor,
-                least(p_partial_floor, retained.partial_count + EXCLUDED.partial_count)),
-            incorrect_contributor_floor = greatest(retained.incorrect_contributor_floor,
-                least(p_incorrect_floor, retained.incorrect_count + EXCLUDED.incorrect_count)),
-            credit_sum = retained.credit_sum + EXCLUDED.credit_sum,
-            credit_sum_sq = retained.credit_sum_sq + EXCLUDED.credit_sum_sq,
+                least(p_issued_contributor_floor, retained.issued_count + 1)),
             updated_on = greatest(retained.updated_on, EXCLUDED.updated_on);
 END
 $$;
 
-CREATE FUNCTION ple_data.increment_question_pool_issue_statistics(
-    p_question_pool_id text,
-    p_published_question_id text,
-    p_observed_on date,
-    p_issued_contributor_floor bigint
+CREATE FUNCTION ple_data.record_question_pool_delivery(
+    p_question_pool_id ple_data.question_family_id,
+    p_issued_contributor_floor bigint,
+    p_observed_on date
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF p_question_pool_id IS NULL OR p_issued_contributor_floor IS NULL
+       OR p_issued_contributor_floor < 0 OR p_observed_on IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool delivery statistics are invalid';
+    END IF;
+
+    INSERT INTO ple_data.question_pool_statistics AS retained (
+        question_pool_id, issued_count, issued_contributor_floor, updated_on
+    ) VALUES (
+        p_question_pool_id, 1, least(p_issued_contributor_floor, 1), p_observed_on
+    ) ON CONFLICT (question_pool_id) DO UPDATE
+        SET issued_count = retained.issued_count + 1,
+            issued_contributor_floor = greatest(retained.issued_contributor_floor,
+                least(p_issued_contributor_floor, retained.issued_count + 1)),
+            updated_on = greatest(retained.updated_on, EXCLUDED.updated_on);
+END
+$$;
+
+CREATE FUNCTION ple_data.record_question_revision_outcome(
+    p_published_question_id ple_data.question_family_id,
+    p_revision_number integer,
+    p_normalized_credit numeric,
+    p_blank_contributor_floor bigint,
+    p_answered_contributor_floor bigint,
+    p_correct_contributor_floor bigint,
+    p_partial_contributor_floor bigint,
+    p_incorrect_contributor_floor bigint,
+    p_observed_on date
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF p_published_question_id IS NULL OR p_revision_number IS NULL OR p_revision_number <= 0
+       OR (p_normalized_credit IS NOT NULL AND p_normalized_credit NOT BETWEEN 0 AND 1)
+       OR p_blank_contributor_floor IS NULL OR p_blank_contributor_floor < 0
+       OR p_answered_contributor_floor IS NULL OR p_answered_contributor_floor < 0
+       OR p_correct_contributor_floor IS NULL OR p_correct_contributor_floor < 0
+       OR p_partial_contributor_floor IS NULL OR p_partial_contributor_floor < 0
+       OR p_incorrect_contributor_floor IS NULL OR p_incorrect_contributor_floor < 0
+       OR p_observed_on IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Revision outcome statistics are invalid';
+    END IF;
+
+    UPDATE ple_data.question_revision_statistics AS stats
+       SET blank_count = stats.blank_count + CASE WHEN p_normalized_credit IS NULL THEN 1 ELSE 0 END,
+           answered_count = stats.answered_count + CASE WHEN p_normalized_credit IS NULL THEN 0 ELSE 1 END,
+           correct_count = stats.correct_count + CASE WHEN p_normalized_credit = 1 THEN 1 ELSE 0 END,
+           partial_count = stats.partial_count + CASE WHEN p_normalized_credit > 0 AND p_normalized_credit < 1 THEN 1 ELSE 0 END,
+           incorrect_count = stats.incorrect_count + CASE WHEN p_normalized_credit = 0 THEN 1 ELSE 0 END,
+           blank_contributor_floor = greatest(stats.blank_contributor_floor,
+               least(p_blank_contributor_floor, stats.blank_count + CASE WHEN p_normalized_credit IS NULL THEN 1 ELSE 0 END)),
+           answered_contributor_floor = greatest(stats.answered_contributor_floor,
+               least(p_answered_contributor_floor, stats.answered_count + CASE WHEN p_normalized_credit IS NULL THEN 0 ELSE 1 END)),
+           correct_contributor_floor = greatest(stats.correct_contributor_floor,
+               least(p_correct_contributor_floor, stats.correct_count + CASE WHEN p_normalized_credit = 1 THEN 1 ELSE 0 END)),
+           partial_contributor_floor = greatest(stats.partial_contributor_floor,
+               least(p_partial_contributor_floor, stats.partial_count + CASE WHEN p_normalized_credit > 0 AND p_normalized_credit < 1 THEN 1 ELSE 0 END)),
+           incorrect_contributor_floor = greatest(stats.incorrect_contributor_floor,
+               least(p_incorrect_contributor_floor, stats.incorrect_count + CASE WHEN p_normalized_credit = 0 THEN 1 ELSE 0 END)),
+           credit_sum = stats.credit_sum + COALESCE(p_normalized_credit, 0),
+           credit_sum_sq = stats.credit_sum_sq + COALESCE(p_normalized_credit * p_normalized_credit, 0),
+           updated_on = greatest(stats.updated_on, p_observed_on)
+     WHERE stats.published_question_id = p_published_question_id
+       AND stats.revision_number = p_revision_number;
+END
+$$;
+
+CREATE FUNCTION ple_data.record_question_pool_outcome(
+    p_question_pool_id ple_data.question_family_id,
+    p_normalized_credit numeric,
+    p_observed_on date
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF p_question_pool_id IS NULL
-       OR p_published_question_id IS NULL
-       OR p_observed_on IS NULL OR p_issued_contributor_floor < 0 THEN
+       OR (p_normalized_credit IS NOT NULL AND p_normalized_credit NOT BETWEEN 0 AND 1)
+       OR p_observed_on IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Pool Statistics increment is invalid';
+            MESSAGE = 'Question Pool outcome statistics are invalid';
     END IF;
 
-    INSERT INTO ple_data.question_pool_statistics AS retained (
-        question_pool_id, issued_count, issued_contributor_floor, updated_on
-    ) VALUES (p_question_pool_id, 1, least(p_issued_contributor_floor, 1), p_observed_on)
-    ON CONFLICT (question_pool_id) DO UPDATE
-        SET issued_count = retained.issued_count + 1,
-            issued_contributor_floor = greatest(retained.issued_contributor_floor,
-                least(p_issued_contributor_floor, retained.issued_count + 1)),
-            updated_on = greatest(retained.updated_on, EXCLUDED.updated_on);
-
-    INSERT INTO ple_data.question_pool_member_statistics AS retained (
-        question_pool_id, published_question_id, selected_count, updated_on
-    ) VALUES (p_question_pool_id, p_published_question_id, 1, p_observed_on)
-    ON CONFLICT (question_pool_id, published_question_id) DO UPDATE
-        SET selected_count = retained.selected_count + 1,
-            updated_on = greatest(retained.updated_on, EXCLUDED.updated_on);
+    UPDATE ple_data.question_pool_statistics AS stats
+       SET answered_count = stats.answered_count + CASE WHEN p_normalized_credit IS NULL THEN 0 ELSE 1 END,
+           correct_count = stats.correct_count + CASE WHEN p_normalized_credit = 1 THEN 1 ELSE 0 END,
+           partial_count = stats.partial_count + CASE WHEN p_normalized_credit > 0 AND p_normalized_credit < 1 THEN 1 ELSE 0 END,
+           incorrect_count = stats.incorrect_count + CASE WHEN p_normalized_credit = 0 THEN 1 ELSE 0 END,
+           credit_sum = stats.credit_sum + COALESCE(p_normalized_credit, 0),
+           credit_sum_sq = stats.credit_sum_sq + COALESCE(p_normalized_credit * p_normalized_credit, 0),
+           updated_on = greatest(stats.updated_on, p_observed_on)
+     WHERE stats.question_pool_id = p_question_pool_id;
 END
 $$;
 
-CREATE FUNCTION ple_data.drop_question_pool_member_statistics_when_unselected()
-RETURNS trigger LANGUAGE plpgsql
+CREATE FUNCTION ple_data.record_question_pool_contributor_floors(
+    p_question_pool_id ple_data.question_family_id,
+    p_answered_contributor_floor bigint,
+    p_correct_contributor_floor bigint,
+    p_partial_contributor_floor bigint,
+    p_incorrect_contributor_floor bigint
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.question_pool_member AS member
-         WHERE member.question_pool_id = OLD.question_pool_id
-           AND member.published_question_id = OLD.published_question_id
-    ) THEN
-        DELETE FROM ple_data.question_pool_member_statistics
-         WHERE question_pool_id = OLD.question_pool_id
-           AND published_question_id = OLD.published_question_id;
+    IF p_question_pool_id IS NULL
+       OR p_answered_contributor_floor IS NULL OR p_answered_contributor_floor < 0
+       OR p_correct_contributor_floor IS NULL OR p_correct_contributor_floor < 0
+       OR p_partial_contributor_floor IS NULL OR p_partial_contributor_floor < 0
+       OR p_incorrect_contributor_floor IS NULL OR p_incorrect_contributor_floor < 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool contributor floors are invalid';
     END IF;
-    RETURN NULL;
+
+    UPDATE ple_data.question_pool_statistics AS stats
+       SET answered_contributor_floor = greatest(stats.answered_contributor_floor,
+               least(p_answered_contributor_floor, stats.answered_count)),
+           correct_contributor_floor = greatest(stats.correct_contributor_floor,
+               least(p_correct_contributor_floor, stats.correct_count)),
+           partial_contributor_floor = greatest(stats.partial_contributor_floor,
+               least(p_partial_contributor_floor, stats.partial_count)),
+           incorrect_contributor_floor = greatest(stats.incorrect_contributor_floor,
+               least(p_incorrect_contributor_floor, stats.incorrect_count))
+     WHERE stats.question_pool_id = p_question_pool_id;
 END
 $$;
-
-CREATE TRIGGER question_pool_member_statistics_follow_member
-AFTER DELETE ON ple_data.question_pool_member
-FOR EACH ROW EXECUTE FUNCTION ple_data.drop_question_pool_member_statistics_when_unselected();
 
 -- Resolve Student Record identities only long enough to count distinct
 -- Accounts. The only returned values are six anonymous cohort counts.
@@ -177,7 +192,8 @@ SET search_path = pg_catalog, ple_data AS $$
 $$;
 SET LOCAL ROLE ple_private_owner;
 
--- One Issued Question contributes at most once, at its Assessment Submission.
+-- The receipt is created at the first committed presentation and finalized
+-- once after the Backend's stored result exists.
 CREATE FUNCTION ple_private.capture_issued_question_statistics_observation(
     p_course_instance_id text,
     p_issued_question_id uuid,
@@ -198,7 +214,6 @@ DECLARE
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_issued_question_id IS NULL
-       OR p_assessment_submission_id IS NULL
        OR p_observed_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Statistics Observation facts are invalid';
@@ -217,14 +232,63 @@ BEGIN
         RETURN;
     END IF;
 
-    INSERT INTO ple_private.question_statistics_observation_receipt (
-        course_instance_id, issued_question_id, assessment_submission_id,
-        published_question_id, revision_number, observed_at
-    ) VALUES (
-        p_course_instance_id, p_issued_question_id, p_assessment_submission_id,
-        v_question_id, v_revision_number, p_observed_at
-    ) ON CONFLICT (course_instance_id, issued_question_id) DO NOTHING
-      RETURNING true INTO v_inserted;
+    IF p_assessment_submission_id IS NULL THEN
+        INSERT INTO ple_private.question_statistics_observation_receipt (
+            course_instance_id, issued_question_id, published_question_id,
+            revision_number, question_pool_id, observed_at
+        ) VALUES (
+            p_course_instance_id, p_issued_question_id, v_question_id,
+            v_revision_number, v_pool_id, p_observed_at
+        ) ON CONFLICT (course_instance_id, issued_question_id) DO NOTHING
+          RETURNING true INTO v_inserted;
+        IF COALESCE(v_inserted, false) IS NOT TRUE THEN
+            RETURN;
+        END IF;
+
+        SELECT array_agg(attempt.student_record_id), array_agg('issued'::text)
+          INTO v_student_record_ids, v_cohorts
+          FROM ple_private.question_statistics_observation_receipt AS receipt
+          JOIN ple_private.issued_question AS issued USING (course_instance_id, issued_question_id)
+          JOIN ple_private.assessment_attempt AS attempt
+            ON attempt.course_instance_id = issued.course_instance_id
+           AND attempt.assessment_attempt_id = issued.assessment_attempt_id
+         WHERE receipt.published_question_id = v_question_id
+           AND receipt.revision_number = v_revision_number;
+        SELECT * INTO v_floors
+          FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts);
+        PERFORM ple_data.record_question_revision_delivery(
+            v_question_id::ple_data.question_family_id,
+            v_revision_number,
+            v_floors.issued_floor,
+            p_observed_at::date
+        );
+        IF v_pool_id IS NOT NULL THEN
+            SELECT array_agg(attempt.student_record_id), array_agg('issued'::text)
+              INTO v_student_record_ids, v_cohorts
+              FROM ple_private.question_statistics_observation_receipt AS receipt
+              JOIN ple_private.issued_question AS issued USING (course_instance_id, issued_question_id)
+              JOIN ple_private.assessment_attempt AS attempt
+                ON attempt.course_instance_id = issued.course_instance_id
+               AND attempt.assessment_attempt_id = issued.assessment_attempt_id
+             WHERE receipt.question_pool_id = v_pool_id;
+            SELECT count_statistics.issued_floor INTO v_floors
+              FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts) AS count_statistics;
+            PERFORM ple_data.record_question_pool_delivery(
+                v_pool_id::ple_data.question_family_id,
+                v_floors.issued_floor,
+                p_observed_at::date
+            );
+        END IF;
+        RETURN;
+    END IF;
+
+    UPDATE ple_private.question_statistics_observation_receipt AS receipt
+       SET assessment_submission_id = p_assessment_submission_id,
+           observed_at = p_observed_at
+     WHERE receipt.course_instance_id = p_course_instance_id
+       AND receipt.issued_question_id = p_issued_question_id
+       AND receipt.assessment_submission_id IS NULL
+    RETURNING true INTO v_inserted;
     IF COALESCE(v_inserted, false) IS NOT TRUE THEN
         RETURN;
     END IF;
@@ -242,6 +306,10 @@ BEGIN
     IF NOT FOUND THEN
         RETURN;
     END IF;
+    UPDATE ple_private.question_statistics_observation_receipt
+       SET normalized_credit = v_credit
+     WHERE course_instance_id = p_course_instance_id
+       AND issued_question_id = p_issued_question_id;
     IF EXISTS (
         SELECT 1
           FROM ple_private.question_attempt AS attempt
@@ -261,6 +329,7 @@ BEGIN
 
     SELECT array_agg(attempt.student_record_id),
            array_agg(CASE
+               WHEN receipt.assessment_submission_id IS NULL THEN 'issued'
                WHEN saved.question_attempt_id IS NULL THEN 'blank'
                WHEN result.normalized_credit = 1 THEN 'correct'
                WHEN result.normalized_credit > 0 THEN 'partial'
@@ -288,12 +357,24 @@ BEGIN
        AND receipt.revision_number = v_revision_number;
     SELECT * INTO v_floors
       FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts);
-    PERFORM ple_data.increment_question_revision_statistics(
-        v_question_id, v_revision_number, v_credit, p_observed_at::date,
-        v_floors.issued_floor, v_floors.blank_floor, v_floors.answered_floor,
-        v_floors.correct_floor, v_floors.partial_floor, v_floors.incorrect_floor);
+    PERFORM ple_data.record_question_revision_outcome(
+        v_question_id::ple_data.question_family_id,
+        v_revision_number,
+        v_credit,
+        v_floors.blank_floor,
+        v_floors.answered_floor,
+        v_floors.correct_floor,
+        v_floors.partial_floor,
+        v_floors.incorrect_floor,
+        p_observed_at::date
+    );
 
     IF v_pool_id IS NOT NULL THEN
+        PERFORM ple_data.record_question_pool_outcome(
+            v_pool_id::ple_data.question_family_id,
+            v_credit,
+            p_observed_at::date
+        );
         SELECT array_agg(attempt.student_record_id), array_agg('issued'::text)
           INTO v_student_record_ids, v_cohorts
           FROM ple_private.question_statistics_observation_receipt AS receipt
@@ -309,16 +390,38 @@ BEGIN
          WHERE pool.question_pool_id = v_pool_id;
         SELECT count_statistics.issued_floor INTO v_floors
           FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts) AS count_statistics;
-        PERFORM ple_data.increment_question_pool_issue_statistics(
-            v_pool_id, v_question_id, p_observed_at::date, v_floors.issued_floor);
+        SELECT array_agg(attempt.student_record_id),
+               array_agg(CASE
+                   WHEN receipt.assessment_submission_id IS NULL THEN 'issued'
+                   WHEN receipt.normalized_credit = 1 THEN 'correct'
+                   WHEN receipt.normalized_credit > 0 THEN 'partial'
+                   WHEN receipt.normalized_credit = 0 THEN 'incorrect'
+                   ELSE 'blank'
+               END)
+          INTO v_student_record_ids, v_cohorts
+          FROM ple_private.question_statistics_observation_receipt AS receipt
+          JOIN ple_private.issued_question AS issued USING (course_instance_id, issued_question_id)
+          JOIN ple_private.assessment_attempt AS attempt
+            ON attempt.course_instance_id = issued.course_instance_id
+           AND attempt.assessment_attempt_id = issued.assessment_attempt_id
+         WHERE receipt.question_pool_id = v_pool_id;
+        SELECT * INTO v_floors
+          FROM ple_api.count_statistics_contributors(v_student_record_ids, v_cohorts);
+        PERFORM ple_data.record_question_pool_contributor_floors(
+            v_pool_id::ple_data.question_family_id,
+            v_floors.answered_floor,
+            v_floors.correct_floor,
+            v_floors.partial_floor,
+            v_floors.incorrect_floor
+        );
     END IF;
 END
 $$;
 
 SET LOCAL ROLE ple_data_owner;
 
--- All-Revision rollup for bulk Question Library views. Missing statistic rows
--- contribute zeros so Instructors always receive a stable Available shape.
+-- Search attaches statistics for the current Revision only. Missing rows
+-- contribute zeros so Instructors receive a stable Available shape.
 CREATE FUNCTION ple_data.question_usage_statistics_rollups(
     p_published_question_ids text[]
 ) RETURNS TABLE (
@@ -357,6 +460,11 @@ SET search_path = pg_catalog, ple_data AS $$
       FROM unnest(p_published_question_ids) AS requested(published_question_id)
       LEFT JOIN ple_data.question_revision_statistics AS stats
         ON stats.published_question_id = requested.published_question_id
+       AND stats.revision_number = (
+           SELECT max(revision.revision_number)
+             FROM ple_data.question_revision AS revision
+            WHERE revision.published_question_id = requested.published_question_id
+       )
      GROUP BY requested.published_question_id
 $$;
 
@@ -405,9 +513,8 @@ SET search_path = pg_catalog, ple_data AS $$
      ORDER BY revision.revision_number
 $$;
 
--- Pool issued_count plus current-member all-Revision rollup. Outcome rates
--- use the member-sum denominators; Pool draws stay in pool_issued_count.
--- Member mean_credit is therefore weighted by answered_count.
+-- Pool statistics come from the Pool recorded on each delivery receipt.
+-- Current Pool membership has no effect on this retained history.
 CREATE FUNCTION ple_data.question_pool_usage_statistics(
     p_question_pool_id text
 ) RETURNS TABLE (
@@ -429,32 +536,25 @@ CREATE FUNCTION ple_data.question_pool_usage_statistics(
     credit_sum_sq numeric
 ) LANGUAGE sql STABLE
 SET search_path = pg_catalog, ple_data AS $$
-    SELECT COALESCE((
-               SELECT pool_stats.issued_count
-                 FROM ple_data.question_pool_statistics AS pool_stats
-                WHERE pool_stats.question_pool_id = p_question_pool_id
-           ), 0),
-           COALESCE((SELECT pool_stats.issued_contributor_floor
-                 FROM ple_data.question_pool_statistics AS pool_stats
-                WHERE pool_stats.question_pool_id = p_question_pool_id), 0),
-           COALESCE(SUM(stats.issued_count), 0),
-           COALESCE(SUM(stats.blank_count), 0),
-           COALESCE(SUM(stats.answered_count), 0),
-           COALESCE(SUM(stats.correct_count), 0),
-           COALESCE(SUM(stats.partial_count), 0),
-           COALESCE(SUM(stats.incorrect_count), 0),
-           COALESCE(MAX(stats.issued_contributor_floor), 0),
-           COALESCE(MAX(stats.blank_contributor_floor), 0),
-           COALESCE(MAX(stats.answered_contributor_floor), 0),
-           COALESCE(MAX(stats.correct_contributor_floor), 0),
-           COALESCE(MAX(stats.partial_contributor_floor), 0),
-           COALESCE(MAX(stats.incorrect_contributor_floor), 0),
-           COALESCE(SUM(stats.credit_sum), 0),
-           COALESCE(SUM(stats.credit_sum_sq), 0)
-      FROM ple_data.question_pool_member AS member
-      LEFT JOIN ple_data.question_revision_statistics AS stats
-        ON stats.published_question_id = member.published_question_id
-     WHERE member.question_pool_id = p_question_pool_id
+    SELECT COALESCE(stats.issued_count, 0),
+           COALESCE(stats.issued_contributor_floor, 0),
+           COALESCE(stats.issued_count, 0),
+           0::bigint,
+           COALESCE(stats.answered_count, 0),
+           COALESCE(stats.correct_count, 0),
+           COALESCE(stats.partial_count, 0),
+           COALESCE(stats.incorrect_count, 0),
+           COALESCE(stats.issued_contributor_floor, 0),
+           0::bigint,
+           COALESCE(stats.answered_contributor_floor, 0),
+           COALESCE(stats.correct_contributor_floor, 0),
+           COALESCE(stats.partial_contributor_floor, 0),
+           COALESCE(stats.incorrect_contributor_floor, 0),
+           COALESCE(stats.credit_sum, 0),
+           COALESCE(stats.credit_sum_sq, 0)
+      FROM (SELECT p_question_pool_id::text AS question_pool_id) AS requested
+      LEFT JOIN ple_data.question_pool_statistics AS stats
+        ON stats.question_pool_id = requested.question_pool_id
 $$;
 
 SET LOCAL ROLE ple_api_owner;

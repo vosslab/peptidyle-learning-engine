@@ -81,7 +81,6 @@ run_stage rust cargo build --workspace $cargo_profile_flag
 run_stage wasm ./pipeline/build_wasm.sh $wasm_profile_flag
 
 run_stage tsgen cargo tsgen
-run_stage fixtures cargo tools fixtures --check
 run_stage client node pipeline/build.mjs --skip-wasm
 
 build_end="$(now_seconds)"

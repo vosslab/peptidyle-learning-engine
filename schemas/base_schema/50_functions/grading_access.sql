@@ -42,6 +42,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
     WITH assessment_attempts AS (
         SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.started_at,
                assessment_attempt.expires_at, assessment.assessment_type,
+               current_policy.partial_credit_enabled,
                EXISTS (
                    SELECT 1 FROM ple_private.assessment_submission AS submission
                     WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
@@ -49,6 +50,10 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
           FROM ple_private.assessment_attempt AS assessment_attempt
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = assessment_attempt.assessment_id
+          -- Award policy is current Assessment configuration. The Attempt's
+          -- policy snapshot remains historical evidence for its original run.
+          JOIN ple_data.assessment_policy_snapshot AS current_policy
+            ON current_policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
          WHERE assessment_attempt.student_record_id = p_student_record_id
            AND assessment_attempt.assessment_id = p_assessment_id
     ), assessment_attempt_scores AS (
@@ -92,11 +97,13 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
               result.normalized_credit, snapshot.scoring_rule,
               ple_private.current_assessment_entry_points(
                   issued.assessment_entry_id, snapshot.points
-              )
+              ), assessment_attempt.partial_credit_enabled
           ) AS score ON snapshot.assessment_entry_snapshot_id IS NOT NULL
          GROUP BY assessment_attempt.assessment_attempt_id, assessment_attempt.started_at,
                   assessment_attempt.expires_at,
-                  assessment_attempt.assessment_type, assessment_attempt.is_submitted
+                  assessment_attempt.assessment_type,
+                  assessment_attempt.partial_credit_enabled,
+                  assessment_attempt.is_submitted
     ), chosen_assessment_attempt AS (
         SELECT assessment_attempt_id, expires_at, is_submitted,
                points_earned, points_possible

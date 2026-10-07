@@ -2,7 +2,7 @@ import { createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
-import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
+import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
@@ -10,11 +10,6 @@ import { ApiRequestError } from "../../api/http_client/error";
 import { useApplicationApi } from "../../api/application_api";
 import { createQuestionLibraryRepository } from "../../api/question_library_repository";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
-import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
-import {
-  questionLibraryPickerRepository,
-  questionLibraryPickerSources,
-} from "../../features/question_picker";
 import type { AssessmentContentPickerSelection } from "../../features/assessment_content_picker";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
@@ -61,26 +56,17 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [needsReload, setNeedsReload] = createSignal(false);
   const [dirty, setDirty] = createSignal(false);
   const [blueprintReview, setBlueprintReview] = createSignal<AssessmentBlueprintUpdateReview>();
-  const [poolForks, setPoolForks] = createSignal<
-    ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>
+  const [poolDetails, setPoolDetails] = createSignal<
+    ReadonlyMap<AssessmentEntryId, QuestionPoolView>
   >(new Map());
-  const [poolForkLoadFailed, setPoolForkLoadFailed] = createSignal(false);
+  const [poolDetailLoadFailed, setPoolDetailLoadFailed] = createSignal(false);
   const questionLibrary = createQuestionLibraryRepository(applicationApi.client);
-  const myQuestions = createQuestionLibraryRepository(
-    applicationApi.client,
-    "authoredByCurrentAccount",
-  );
-  const pickerRepository = questionLibraryPickerRepository(questionLibrary, myQuestions);
-  const pickerSources = questionLibraryPickerSources(true);
   const [poolSelectionCount, setPoolSelectionCount] = createSignal("1");
   const [poolPointsPerItem, setPoolPointsPerItem] = createSignal("1");
-  const [poolSelectedQuestionOrder, setPoolSelectedQuestionOrder] = createSignal<
-    "questionPoolOrder" | "randomOrder"
-  >("randomOrder");
   const [poolScoringRule, setPoolScoringRule] = createSignal<
     "normal" | "fullCredit" | "extraCredit" | "excluded"
   >("normal");
-  let poolForkLoadRequest = 0;
+  let poolDetailLoadRequest = 0;
 
   const descriptions = createMemo(() => {
     const known = new Map<string, string>();
@@ -117,23 +103,19 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       const bloom =
         entry.kind === "fixedQuestion"
           ? fixedBlooms().get(questionRevisionKey(entry.publishedQuestionRevisionTuple))
-          : poolForks().get(entry.id)?.bloom;
+          : poolDetails().get(entry.id)?.bloom;
       if (bloom !== undefined && bloom !== null) known.set(entry.id, bloom);
     }
     return known;
   });
   const bloomSortUnavailableReason = createMemo(() => {
     const missingPool = entries().some(
-      (entry) => entry.kind === "questionPool" && !poolForks().has(entry.id),
+      (entry) => entry.kind === "questionPool" && !poolDetails().has(entry.id),
     );
-    if (missingPool && poolForkLoadFailed()) {
-      return "Exact Bloom Classification for a Question Pool could not load. Reload the latest Assessment.";
+    if (missingPool && poolDetailLoadFailed()) {
+      return "Current Question Pool detail could not load. Reload the latest Assessment.";
     }
-    if (missingPool)
-      return "Loading exact Bloom Classification for Assessment-owned Question Pools.";
-    if (entryBlooms().size !== entries().length) {
-      return "Bloom sorting waits until all Questions and Question Pools have a Bloom Classification.";
-    }
+    if (missingPool) return "Loading current Bloom Classification for referenced Question Pools.";
     return undefined;
   });
   const remainingQuestionCapacity = createMemo(() => {
@@ -145,22 +127,14 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   });
 
   onMount(() => {
-    void loadInitialPoolForks();
+    void loadPoolDetails(entries());
   });
 
-  async function loadInitialPoolForks(): Promise<void> {
-    if ((await loadPoolForks(entries())) === "failed") {
-      setMessage(
-        "Exact Question Pool members could not load. Reload the Assessment and try again.",
-      );
-    }
-  }
-
-  async function loadPoolForks(
+  async function loadPoolDetails(
     currentEntries: ReadonlyArray<AssessmentEntry>,
   ): Promise<"loaded" | "failed" | "superseded"> {
-    const request = ++poolForkLoadRequest;
-    setPoolForkLoadFailed(false);
+    const request = ++poolDetailLoadRequest;
+    setPoolDetailLoadFailed(false);
     const poolEntries = currentEntries.filter(
       (entry): entry is Extract<AssessmentEntry, { readonly kind: "questionPool" }> =>
         entry.kind === "questionPool",
@@ -169,23 +143,16 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       const loaded = await Promise.all(
         poolEntries.map(
           async (entry) =>
-            [
-              entry.id,
-              await applicationApi.client.getAssessmentQuestionPoolFork(
-                workspace.courseInstanceId,
-                workspace.assessmentId,
-                entry.id,
-              ),
-            ] as const,
+            [entry.id, await applicationApi.client.getQuestionPool(entry.questionPoolId)] as const,
         ),
       );
-      if (request !== poolForkLoadRequest) return "superseded";
-      setPoolForks(new Map(loaded));
-      setPoolForkLoadFailed(false);
+      if (request !== poolDetailLoadRequest) return "superseded";
+      setPoolDetails(new Map(loaded));
+      setPoolDetailLoadFailed(false);
       return "loaded";
     } catch {
-      if (request !== poolForkLoadRequest) return "superseded";
-      setPoolForkLoadFailed(true);
+      if (request !== poolDetailLoadRequest) return "superseded";
+      setPoolDetailLoadFailed(true);
       return "failed";
     }
   }
@@ -202,8 +169,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   function poolTitle(questionPoolId: string): string {
-    for (const fork of poolForks().values()) {
-      if (fork.questionPoolId === questionPoolId) return fork.metadata.title;
+    for (const pool of poolDetails().values()) {
+      if (pool.questionPoolId === questionPoolId) return pool.metadata.title;
     }
     return "Question Pool";
   }
@@ -222,13 +189,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     if (busy() || needsReload()) return;
     const current = entries();
     const sorted = sortAssessmentEntriesByBloom(current, entryBlooms());
-    if (sorted === undefined) {
-      setMessage(
-        bloomSortUnavailableReason() ??
-          "Bloom sorting waits until all Questions and Question Pools have a Bloom Classification.",
-      );
-      return;
-    }
     if (sorted === current) {
       setMessage("Entries already follow Bloom Classification guide order. No changes were made.");
       return;
@@ -416,13 +376,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
       setTitle(latest.workspace.title);
-      if ((await loadPoolForks(latest.workspace.entries)) === "loaded") {
+      if ((await loadPoolDetails(latest.workspace.entries)) === "loaded") {
         setNeedsReload(false);
         setMessage("Latest assessment loaded. Review its complete ordered Entries.");
       } else {
         setNeedsReload(true);
         setMessage(
-          "Latest Assessment loaded, but exact Question Pool members could not load. Reload again.",
+          "Latest Assessment loaded, but current Question Pool details could not load. Reload again.",
         );
       }
     } catch {
@@ -472,12 +432,12 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.courseInstanceId,
         workspace.assessmentId,
         {
-          expectedSourceBlueprintRevisionTuple: review.sourceBlueprintRevisionTuple,
+          expectedSourceBlueprintCourseRevisionTuple: review.sourceBlueprintCourseRevisionTuple,
           expectedAssessmentEditNumber: review.assessment.assessmentEditNumber,
         },
       );
       setBlueprintReview(undefined);
-      await refreshAfterPoolMutation(
+      await refreshAfterAssessmentSave(
         "Blueprint update applied. Dates, release status, and existing Student Work were preserved.",
       );
     } catch (error: unknown) {
@@ -494,18 +454,18 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  async function refreshAfterPoolMutation(success: string): Promise<void> {
+  async function refreshAfterAssessmentSave(success: string): Promise<void> {
     try {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
       setTitle(latest.workspace.title);
-      if ((await loadPoolForks(latest.workspace.entries)) === "loaded") {
+      if ((await loadPoolDetails(latest.workspace.entries)) === "loaded") {
         setNeedsReload(false);
         setMessage(success);
       } else {
         setNeedsReload(true);
         setMessage(
-          `${success} It was committed, but exact Question Pool members could not load. Reload again.`,
+          `${success} It was committed, but current Question Pool details could not load. Reload again.`,
         );
       }
     } catch {
@@ -516,65 +476,20 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  async function updatePoolSelectionCount(
+  function updatePoolSelectionCount(
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
     selectionCount: number,
-  ): Promise<void> {
-    if (dirty() || needsReload()) return;
-    setBusy(true);
-    try {
-      await applicationApi.client.updateAssessmentQuestionPoolSelectionCount(
-        workspace.courseInstanceId,
-        workspace.assessmentId,
-        entry.id,
-        selectionCount,
-        workspace.assessment().workspace.assessmentEditNumber,
-      );
-      await refreshAfterPoolMutation("Question Pool selection count updated.");
-    } catch (error: unknown) {
-      const conflict = error instanceof AssessmentPoolForkConflictError;
-      setNeedsReload(conflict);
-      setMessage(
-        conflict
-          ? "This Assessment changed elsewhere. Reload latest Assessment before changing its Question Pool."
-          : "Question Pool selection count was not saved. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function replacePoolMembers(
-    entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    members: ReadonlyArray<PublishedQuestionRevisionTuple>,
-  ): Promise<void> {
-    const fork = poolForks().get(entry.id);
-    if (dirty() || needsReload() || fork === undefined) return;
-    setBusy(true);
-    try {
-      await applicationApi.client.appendAssessmentQuestionPoolForkMembers(
-        workspace.courseInstanceId,
-        workspace.assessmentId,
-        entry.id,
-        {
-          expectedQuestionPoolEditNumber: fork.questionPoolEditNumber,
-          members,
-          interchangeabilityAttested: true,
-        },
-        workspace.assessment().workspace.assessmentEditNumber,
-      );
-      await refreshAfterPoolMutation("Assessment-owned Question Pool membership updated.");
-    } catch (error: unknown) {
-      const conflict = error instanceof AssessmentPoolForkConflictError;
-      setNeedsReload(conflict);
-      setMessage(
-        conflict
-          ? "This Assessment changed elsewhere. Reload latest Assessment before changing its Question Pool."
-          : "Question Pool membership was not saved. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+  ): void {
+    if (needsReload() || busy()) return;
+    setEntries((current) =>
+      current.map((currentEntry) =>
+        currentEntry.id === entry.id && currentEntry.kind === "questionPool"
+          ? { ...currentEntry, selectionCount }
+          : currentEntry,
+      ),
+    );
+    setDirty((current) => nextQuestionEditDirty(current, "add"));
+    setMessage("Selection count changed for this Assessment. Save Questions when ready.");
   }
 
   function choosePool(
@@ -583,7 +498,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setPoolImport(selection);
     setPoolSelectionCount("1");
     setMessage(
-      `${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}) is ready to import. Existing Assessment Entries remain here.`,
+      `${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}) is ready to add as a shared Pool reference.`,
     );
   }
 
@@ -621,7 +536,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     describeAddedQuestions(added, []);
   }
 
-  async function importPool(): Promise<void> {
+  function addPool(): void {
     if (dirty() || needsReload()) return;
     const source = poolImport();
     const selectionCount = Number(poolSelectionCount());
@@ -636,39 +551,28 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
     if (selectionCount > remainingQuestionCapacity()) {
       setMessage(
-        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Question Pool was imported.",
+        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Pool reference was added.",
       );
       return;
     }
-    setBusy(true);
-    try {
-      await applicationApi.client.importAssessmentQuestionPoolFork(
-        workspace.courseInstanceId,
-        workspace.assessmentId,
-        {
-          sourceQuestionPoolId: source.questionPoolId,
-          expectedSourceQuestionPoolEditNumber: source.questionPoolEditNumber,
-          authoredPosition: entries().length,
-          selectionCount,
-          pointsPerItem: poolPointsPerItem(),
-          selectedQuestionOrder: poolSelectedQuestionOrder(),
-          scoringRule: poolScoringRule(),
-        },
-        workspace.assessment().workspace.assessmentEditNumber,
-      );
-      setPoolImport(undefined);
-      await refreshAfterPoolMutation("Question Pool imported as an Assessment-owned fork.");
-    } catch (error: unknown) {
-      const conflict = error instanceof AssessmentPoolForkConflictError;
-      setNeedsReload(conflict);
-      setMessage(
-        conflict
-          ? "The Assessment or selected Question Pool changed. Reload the Assessment and choose the Pool again before importing."
-          : "Question Pool import was not saved. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    const currentEntries = entries();
+    const addedEntry: AssessmentEntry = {
+      kind: "questionPool",
+      id: entryId(),
+      questionPoolId: source.questionPoolId,
+      questionPoolEditNumber: source.questionPoolEditNumber,
+      availability: "available",
+      scoringRule: poolScoringRule(),
+      selectionCount,
+      pointsPerItem: poolPointsPerItem(),
+      questionAttemptLimit: { maxAttempts: null },
+      questionAttemptTimeLimit: { kind: "unlimited" },
+    };
+    setEntries([...currentEntries, addedEntry]);
+    setPoolImport(undefined);
+    setDirty((current) => nextQuestionEditDirty(current, "add"));
+    setMessage("Reusable Question Pool reference added. Save Questions when ready.");
+    void loadPoolDetails([...currentEntries, addedEntry]);
   }
 
   return AssessmentWorkspaceQuestionsView({
@@ -696,19 +600,10 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     entryBlooms,
     move,
     remove,
-    poolForks,
-    poolForkLoadFailed,
-    pickerRepository,
-    pickerSources,
-    loadQuestionInspection: (publishedQuestionRevisionTuple) =>
-      applicationApi.client.getQuestionRevision(publishedQuestionRevisionTuple),
-    questionRevisionPreviewDocumentUrl: (publishedQuestionRevisionTuple) =>
-      applicationApi.client.questionRevisionPreviewDocumentUrl(publishedQuestionRevisionTuple),
-    questionImageUrl: (publishedQuestionRevisionTuple, questionImageAssetId) =>
-      applicationApi.client.questionImageUrl(publishedQuestionRevisionTuple, questionImageAssetId),
+    poolDetails,
+    poolDetailLoadFailed,
     assessmentContentRepository: questionLibrary,
     updatePoolSelectionCount,
-    replacePoolMembers,
     remainingQuestionCapacity,
     chooseAssessmentContent,
     addQuestionsById,
@@ -717,10 +612,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setPoolSelectionCount,
     poolPointsPerItem,
     setPoolPointsPerItem,
-    poolSelectedQuestionOrder,
-    setPoolSelectedQuestionOrder,
     poolScoringRule,
     setPoolScoringRule,
-    importPool,
+    addPool,
   });
 }

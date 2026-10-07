@@ -44,9 +44,9 @@ to implement the disputed rules.
 
 ## Lower-priority notes; no decision needed for this documentation pass
 
-Citation format remains deferred until attribution and import are worked through. The term and
-its place on the Question record are settled; URL, text, DOI, and structured formats remain possible.
-Existing URL/text fields are implementation evidence.
+Citation is settled as one optional text value on Question metadata. Earlier notes about URL, DOI,
+and structured formats are resolved by that decision; attribution and import do not defer this
+format choice.
 
 | ID | Source and uncertainty | Why it matters | Later question or prerequisite | Status |
 | --- | --- | --- | --- | --- |
@@ -152,7 +152,7 @@ The notes below retain how the discussion reached that rule; Q14 and Q15 govern 
   partial credit off, fractions below one award zero; with it on, use the fraction. Full credit
   remains full credit. Changing the setting applies to all Attempts using the stored fractions.
   Reason: "this is fair because it applies to all users." Firmness: direct correction of the
-  agent's assumption that a setting change would require regrading or a post-start lock.
+  agent's assumption that a setting change would require another Backend evaluation or a post-start lock.
   Q30 below settles the initial default: enabled.
 
 - **Q19 resolved: Native JSON MULTI-FIB is multiple FIBs.** Neil: "MUTLIFIB is just multiple
@@ -220,9 +220,10 @@ The notes below retain how the discussion reached that rule; Q14 and Q15 govern 
 ## Draft autosave decision
 
 - **Q27 resolved: Drafts autosave with a visible saved status.** Neil: "I agree with those draft
-  decisions." He accepted autosave so Instructors can return to unfinished work. Cleanup of
-  abandoned Drafts remains deferred, with warning and a recovery period required when introduced;
-  no expiration period is set. Reason: temporary working content still needs saving. This was
+  decisions." He accepted autosave so Instructors can return to unfinished work. Cleanup of expired
+  Drafts requires a warning and recovery period; automation remains deferred and no expiration
+  period is set. Reason: temporary working content
+  still needs saving. This was
   the recommendation Neil accepted, rather than a separate rationale he supplied. Firmness:
   explicit agreement. Implementation and verification remain in TODO.
 
@@ -257,10 +258,19 @@ statements were removed from product rules; existing schema and Native JSON vali
 labeled implementation evidence with reconciliation in TODO. This records an unsupported
 requirement, not a new human decision about language defaults or representation.
 
-HG still leaves the converter handoff format undecided. The QTI spec now states that boundary
-and removes the unapproved exact Native JSON mapping. External conversion ownership, normal Draft
-publication, generated identity, and accurate reporting of limitations remain settled. The
-optional feedback-timing decision remains separate from Question conversion.
+Historical checkpoint (superseded October 7): this review said the converter handoff format was
+undecided. The settled handoff is converter-generated PLE Native JSON; the Native JSON spec owns
+the existing unversioned source format. The optional feedback-timing decision remains separate.
+
+The October 7 HTML correction is settled: Native JSON display-content strings carry HTML with
+inline CSS, including ordinary image references resolved through existing asset tuples and storage.
+Current text escaping is implementation drift. Sanitization detail remains deferred, and existing
+author-script isolation remains in force.
+
+The earlier proposed question about putting a PLE asset ID in Native JSON is withdrawn. The import
+reference locates supplied bytes by content-relative path; PLE resolves the bytes and owns the
+Question Image Asset ID, checksum, and storage identity. No open product question remains about
+whether the converter should supply PLE asset IDs.
 
 ## Explicitly deferred decisions
 
@@ -270,14 +280,12 @@ These have already been deferred. Revisit only when their stated reason is addre
 | --- | --- | --- |
 | Instructor bulk editing | Neil: "I think we should defer bulk editing for instructors." Save semantics do not need a decision while the feature is deferred | Explicit deferral; tentative wording retained, no rationale supplied |
 | Optional Question Feedback timing | Need concrete examples of its use in PLE before deciding automatic display, following answer visibility, or separate timing | Explicit deferral; support content remains optional |
-| Regrading submitted Native JSON responses | Desired benefit acknowledged, infrastructure cost raised; when implemented results replace prior grades | Explicit deferral, not a new grade-correction workflow |
+| Reevaluate submitted Native JSON responses after an answer-key or grading-rule correction | Explicitly deferred; if implemented, the new grading result replaces the previous result | Outside the current grill unless this becomes a release-blocking decision |
 | WeBWorK Question Type detection | Neil: "Type detection is deferred; manual for now" | Explicit deferral; assign Type manually |
 | Initial Bloom/AI assignment | AI backend and daemon work deferred; NULL allowed with no time limit | Firm absence rule; AI delivery deferred |
-| NC and ND content | Support deferred; future ND blocks forking and future NC example retains compatible license requirements | Explicit deferral; current allowed licenses remain unchanged |
-| Importer interchange shape | Reuse Rust QTI Package Maker; whether its shared item model or another supported representation crosses the boundary remains unsettled | Do not duplicate the converter or publish Native JSON by assumption |
 | H5P and iMathAS | Desired later Backends, outside current delivery; HG restricts future H5P Assessment types | Explicit deferral |
 | Detailed Sysadmin repair work | Needs beyond account creation remain unproven; no Instructor approval pipeline was approved | Explicit deferral, not denial of Sysadmin power |
-| Automated abandoned-Draft cleanup | HG permits warning and recovery but gives no inactivity rule, periods, or failed-notice outcome; automated daemons are deferred | Defer deletion automation; ordinary Instructor Draft deletion remains available |
+| Automated expired-Draft cleanup | Warning and recovery period are required; automation remains deferred; no expiration period or duration is set | Ordinary Instructor Draft deletion remains available |
 
 ## Flexible choices, not blockers
 
@@ -571,7 +579,7 @@ of this review.
 
 Neil's final wording for Q31: Question metadata belongs on the Question record, not in Native
 JSON. Native JSON contains the Question content needed to display and grade it. The metadata
-spec defines the fields and their editing and Revision rules. Citation format remains deferred.
+spec defines the fields and their editing and Revision rules. Citation is one optional text value.
 This is a firm ownership decision; it applies to Draft and Published Questions.
 
 ## Pool Save wording correction

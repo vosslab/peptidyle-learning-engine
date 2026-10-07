@@ -28,12 +28,14 @@ PERSONAS = frozenset(
 RESOURCE_KINDS = frozenset(
 	{
 		"assignment",
+		"assessment",
 		"blueprint",
 		"course",
 		"grade_scheme",
 		"invitation",
 		"passkey",
 		"question",
+		"question_pool",
 		"qti_import",
 		"response",
 		"teaching_invitation",

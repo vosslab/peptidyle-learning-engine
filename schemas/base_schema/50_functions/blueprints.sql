@@ -119,7 +119,6 @@ DECLARE
     feedback_value jsonb;
     limit_value jsonb;
     time_limit_value jsonb;
-    selection_value jsonb;
     delivered_question_count bigint;
 BEGIN
     IF NOT ple_data.blueprint_content_has_exact_keys(p_content, ARRAY['modules'])
@@ -179,6 +178,7 @@ BEGIN
             activity_value := defaults_value -> 'activity_rules';
             feedback_value := defaults_value -> 'student_feedback_release_rule';
             IF NOT ple_data.blueprint_content_has_exact_keys(activity_value, ARRAY[
+                'partialCreditEnabled',
                 'questionVariationRule',
                 'assessmentQuestionOrderRule'
             ]) OR NOT ple_data.blueprint_content_has_exact_keys(feedback_value, ARRAY[
@@ -186,6 +186,9 @@ BEGIN
                 'question_answer', 'question_answer_explanation', 'class_statistics',
                 'hints', 'worked_solutions'
             ]) THEN
+                RETURN false;
+            END IF;
+            IF jsonb_typeof(activity_value -> 'partialCreditEnabled') <> 'boolean' THEN
                 RETURN false;
             END IF;
             FOR entry_value IN SELECT value FROM jsonb_array_elements(content_value -> 'entries') LOOP
@@ -206,22 +209,16 @@ BEGIN
                     delivered_question_count := delivered_question_count +
                         (entry_value ->> 'selection_count')::bigint;
                     IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
-                        'kind', 'question_pool_id', 'question_pool_edit_number',
+                        'kind', 'question_pool_id',
                         'selection_count', 'points_per_item',
-                        'scoring_rule', 'selection_rule', 'question_attempt_limit',
+                        'scoring_rule', 'question_attempt_limit',
                         'question_attempt_time_limit'
                     ]) THEN
                         RETURN false;
                     END IF;
-                    IF entry_value ->> 'question_pool_id' IS NULL
-                       OR jsonb_typeof(entry_value -> 'question_pool_edit_number')
-                            NOT IN ('number', 'string') THEN
+                    IF entry_value ->> 'question_pool_id' IS NULL THEN
                         RETURN false;
                     END IF;
-                    selection_value := entry_value -> 'selection_rule';
-                    IF NOT ple_data.blueprint_content_has_exact_keys(
-                        selection_value, ARRAY['selectedQuestionOrder']
-                    ) THEN RETURN false; END IF;
                 ELSE
                     RETURN false;
                 END IF;
@@ -293,8 +290,7 @@ BEGIN
                OR (entry_row.entry ->> 'kind' = 'fixed'
                    AND jsonb_typeof(entry_row.entry -> 'published_question_revision_tuple') <> 'object')
                OR (entry_row.entry ->> 'kind' = 'pool'
-                   AND (entry_row.entry ->> 'question_pool_id' IS NULL
-                        OR entry_row.entry -> 'question_pool_edit_number' IS NULL))
+                   AND entry_row.entry ->> 'question_pool_id' IS NULL)
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint Course content is invalid';
@@ -346,19 +342,23 @@ $$;
 
 
 
--- The source Course and source Revision are permanent ancestry facts.  The
--- forked Blueprint's own content remains independently editable through its
--- ordinary immutable Revision sequence.
--- ASVS 8.2.2, 8.3.1: enforce this data-specific boundary in trusted PostgreSQL.
-CREATE FUNCTION ple_data.reject_blueprint_course_fork_change()
+-- Parentage is immutable lineage data; ordinary names, classification,
+-- availability, and Revision content remain independently editable.
+-- ASVS 8.2.2, 8.3.1: enforce this boundary in trusted PostgreSQL.
+CREATE FUNCTION ple_data.reject_blueprint_course_parent_change()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    RAISE EXCEPTION USING ERRCODE = '55000',
-        MESSAGE = 'Blueprint Course fork origin is immutable';
+    IF NEW.parent_blueprint_course_id IS DISTINCT FROM OLD.parent_blueprint_course_id
+       OR NEW.parent_blueprint_revision_number IS DISTINCT FROM OLD.parent_blueprint_revision_number THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Blueprint Course parent is immutable';
+    END IF;
+    RETURN NEW;
 END
 $$;
 
-CREATE TRIGGER blueprint_course_fork_origin_is_immutable
-BEFORE UPDATE OR DELETE ON ple_data.blueprint_course_fork
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_fork_change();
+CREATE TRIGGER blueprint_course_parent_is_immutable
+BEFORE UPDATE OF parent_blueprint_course_id, parent_blueprint_revision_number
+ON ple_data.blueprint_course
+FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_parent_change();

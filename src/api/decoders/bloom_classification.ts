@@ -1,11 +1,9 @@
 // Strict browser decoder for the exact Revision-owned Bloom Classification.
 
-import type { BloomClassificationEditNumber } from "../../../generated/api/BloomClassificationEditNumber";
-import type { BloomClassificationCorrectionRequest } from "../../../generated/api/BloomClassificationCorrectionRequest";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { BloomCognitiveProcess } from "../../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../../generated/api/BloomKnowledgeDimension";
-import { DecodeError, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
+import { decodeNullable, decodeRecord, decodeStringEnum } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
 export const BLOOM_COGNITIVE_PROCESSES = [
@@ -50,71 +48,23 @@ export function isBloomKnowledgeDimension(value: string): value is BloomKnowledg
   return BLOOM_KNOWLEDGE_DIMENSIONS.some((candidate) => candidate === value);
 }
 
-function decodeClassificationEditNumber(
-  value: unknown,
-  path: string,
-): BloomClassificationEditNumber {
-  const editNumber = decodeString(value, path);
-  if (!/^[1-9][0-9]*$/u.test(editNumber) || BigInt(editNumber) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(path, "a canonical positive PostgreSQL BIGINT decimal");
-  }
-  return editNumber;
-}
-
-/** Closed complete correction command; target identity remains owned by the route. */
-export function decodeBloomClassificationCorrectionRequest(
-  value: unknown,
-  path: string,
-): BloomClassificationCorrectionRequest {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "cognitiveProcess",
-    "knowledgeDimension",
-    "expectedClassificationEditNumber",
-  ]);
-  return {
-    cognitiveProcess: decodeStringEnum(
-      field(record, "cognitiveProcess", path),
-      `${path}.cognitiveProcess`,
-      BLOOM_COGNITIVE_PROCESSES,
-    ),
-    knowledgeDimension: decodeStringEnum(
-      field(record, "knowledgeDimension", path),
-      `${path}.knowledgeDimension`,
-      BLOOM_KNOWLEDGE_DIMENSIONS,
-    ),
-    expectedClassificationEditNumber: decodeClassificationEditNumber(
-      field(record, "expectedClassificationEditNumber", path),
-      `${path}.expectedClassificationEditNumber`,
-    ),
-  };
-}
-
-/** ASVS 1.5.2/2.2.1: accepts only the closed pair and precision-safe Edit Number. */
+/** ASVS 1.5.2/2.2.1: decodes two independently nullable Bloom dimensions. */
 export function decodeBloomClassificationView(
   value: unknown,
   path: string,
 ): BloomClassificationView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "cognitiveProcess",
-    "knowledgeDimension",
-    "classificationEditNumber",
-  ]);
+  requireOnlyFields(record, path, ["cognitiveProcess", "knowledgeDimension"]);
   return {
-    cognitiveProcess: decodeStringEnum(
+    cognitiveProcess: decodeNullable(
       field(record, "cognitiveProcess", path),
       `${path}.cognitiveProcess`,
-      BLOOM_COGNITIVE_PROCESSES,
+      (value, valuePath) => decodeStringEnum(value, valuePath, BLOOM_COGNITIVE_PROCESSES),
     ),
-    knowledgeDimension: decodeStringEnum(
+    knowledgeDimension: decodeNullable(
       field(record, "knowledgeDimension", path),
       `${path}.knowledgeDimension`,
-      BLOOM_KNOWLEDGE_DIMENSIONS,
-    ),
-    classificationEditNumber: decodeClassificationEditNumber(
-      field(record, "classificationEditNumber", path),
-      `${path}.classificationEditNumber`,
+      (value, valuePath) => decodeStringEnum(value, valuePath, BLOOM_KNOWLEDGE_DIMENSIONS),
     ),
   };
 }

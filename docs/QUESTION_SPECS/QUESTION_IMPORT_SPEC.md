@@ -40,11 +40,19 @@ none of the owner, license, source, asset, backend, or publication checks.
 All imported Questions follow the same Draft and publication workflow. Backend source handling
 preserves the appropriate representation: Native JSON for static Questions, and canonical PG or
 PGML for WeBWorK. One algorithmic source remains one Published Question.
-PLE uses `qti-package-maker-rs` as an external library for all conversion. QTI is an interchange
-path for supported static content; PLE does not build a second converter. See
-[QTI_INTERCHANGE_SPEC.md](QTI_INTERCHANGE_SPEC.md). HG leaves the representation exchanged with
-that external library undecided. Native JSON as an eventual internal source format does not
-settle the converter-to-PLE handoff format.
+PLE accepts Native JSON directly from `qti-package-maker-rs`, with no intermediate Question
+format. The Native JSON specification owns the existing unversioned source format; Question
+metadata remains separate. PLE reuses its existing Draft image storage for imported assets. QTI is
+an interchange path for supported content; PLE does not build a second converter. See
+[QTI_INTERCHANGE_SPEC.md](QTI_INTERCHANGE_SPEC.md).
+
+Preserve HTML with inline CSS in imported Native JSON display content. For an ordinary `<img
+src="...">` whose relative path refers to a file supplied with the import, locate those bytes,
+verify and hash them, store them through the existing Draft asset path, and bind the reference to the
+existing Question Image Asset tuple. The import path is temporary input used to find bytes; it is not
+a persisted asset identity. Do not require the converter to know PLE asset IDs. Display the image in
+Draft preview, published Questions, and response renderers. The final stored HTML `src` syntax
+remains unspecified.
 
 Direct SQL and store calls can serve focused schema fixtures. They do not prove import behavior.
 Import verification exercises the supported PLE API operations and checks the resulting objects.
@@ -52,17 +60,25 @@ The test transport and harness are implementation choices, not additional produc
 
 ## Current implementation evidence
 
-The authoring API currently provides Native JSON Draft creation, image upload, source and metadata
-updates, first publication, and publication of a new Revision. First publication returns a
-Question ID; the importer must obtain its exact Revision before using it elsewhere.
-The browser-facing Draft creation route currently accepts only Native JSON. WeBWorK Draft creation
-and publication already exist in the shared services and content-loading tools. PG and PGML use
-the same Draft and Question publisher model. Extending the browser-facing route is a specific
-implementation follow-up, not a missing WeBWorK lifecycle.
+The ordinary private Draft API and browser creation page currently support Native JSON, WebWork PG,
+and PGML. The API stores the selected Backend, format, source, and registered PG path as the Draft
+binding. The creation client test covers all three formats. First publication returns a Question ID;
+the importer obtains its exact Revision before using it elsewhere. See
+[Draft creation](../../crates/server/src/authoring/create.rs),
+[the creation page](../../src/pages/question_drafts_page.tsx), and
+[the creation client test](../../tests/test_question_draft_creation.mjs).
 
 The current content-loading tools call Draft storage and the shared Question publisher with
-generated IDs. That is more than raw SQL fixture loading, but it does not exercise the
-browser-facing authoring route. Keep those facts separate when assessing import coverage.
+generated IDs. That exercises supported loader paths, not the browser creation route or the
+deferred converter handoff. Keep those facts separate when assessing import coverage. Source saves,
+preview, and testing use the stored Backend and format binding; focused client and server evidence
+is in [Draft source tests](../../tests/test_draft_source_client.mjs) and
+[the preview routes](../../crates/server/src/draft_preview.rs).
+
+The accepted M01-M29 implementation and runtime status is recorded in the
+[implementation ledger](../active_plans/reports/question_spec_implementation_ledger.md). That
+acceptance does not include the later Native JSON converter integration or HTML/image rendering
+work recorded in [TODO.md](../TODO.md#future-product-capabilities).
 
 Current source evidence: [authoring.rs](../../crates/server/src/authoring.rs),
 [parameterized_publication.rs](../../crates/project-tools/src/curriculum_content/parameterized_publication.rs),
@@ -70,4 +86,6 @@ and [publication.rs](../../crates/project-tools/src/pilot_content/publication.rs
 
 The evidence owner is
 [question_backend_spec_handoff.md](../active_plans/reports/question_backend_spec_handoff.md).
+The focused Native JSON handoff documentation audit is recorded in
+[NATIVE_JSON_HANDOFF_AUDIT_2026_10_07.md](../active_plans/reports/NATIVE_JSON_HANDOFF_AUDIT_2026_10_07.md).
 HTTP error handling, retries, and new endpoint design are outside this documentation-drift pass.

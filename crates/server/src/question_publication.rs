@@ -228,6 +228,7 @@ where
             )
             .await
             .map_err(QuestionPublicationError::Store)?;
+        let reserved_published_question_id = publication_source.reserved_published_question_id;
         let source_record = publication_source.source_record;
         validate_workspace_question_source_object_record(command.workspace, &source_record)
             .map_err(QuestionPublicationError::Store)?;
@@ -250,11 +251,19 @@ where
                 &source_record.media_type,
             )
             .await?;
-        for _ in 0..PUBLICATION_IDENTITY_ATTEMPTS {
-            let question_id = self
-                .question_id_issuer
-                .issue_question_id()
-                .map_err(QuestionPublicationError::QuestionIdIssuance)?;
+        let identity_attempts = if reserved_published_question_id.is_some() {
+            1
+        } else {
+            PUBLICATION_IDENTITY_ATTEMPTS
+        };
+        for _ in 0..identity_attempts {
+            let question_id = match &reserved_published_question_id {
+                Some(question_id) => question_id.clone(),
+                None => self
+                    .question_id_issuer
+                    .issue_question_id()
+                    .map_err(QuestionPublicationError::QuestionIdIssuance)?,
+            };
             let published_question_revision_tuple = PublishedQuestionRevisionTuple {
                 published_question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
@@ -329,6 +338,9 @@ where
                         target_image_address.as_ref(),
                     )
                     .await?;
+                    if reserved_published_question_id.is_some() {
+                        return Err(QuestionPublicationError::IdentityCollisions);
+                    }
                     continue;
                 }
                 Err(NewQuestionLineagePublicationError::Store(error)) => {

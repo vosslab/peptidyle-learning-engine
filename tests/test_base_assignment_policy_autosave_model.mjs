@@ -21,6 +21,7 @@ const draft = {
   assessmentAttemptTimeLimitSeconds: 60,
   attemptLimit: null,
   activityRules: {
+    partialCreditEnabled: true,
     questionVariationRule: "newVariation",
     assessmentQuestionOrderRule: "authoredOrder",
   },

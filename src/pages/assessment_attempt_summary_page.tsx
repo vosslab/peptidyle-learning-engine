@@ -13,6 +13,7 @@ import { PageFrame } from "../components/page_frame";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { parseCourseInstanceId } from "../navigation/public_route";
+import { formatPointScore } from "../score_format";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
 import {
   useRetryRouteScope,
@@ -73,9 +74,7 @@ export function AssessmentAttemptHistoryContent(props: {
         <h2 id="assessment-attempt-score-heading">Score</h2>
         <Show when={props.history.score} fallback={<p>Your score is not available.</p>}>
           {(score) => (
-            <p>
-              {score().pointsEarned} of {score().pointsPossible} points
-            </p>
+            <p>{formatPointScore(score().pointsEarned, score().pointsPossible)} points</p>
           )}
         </Show>
       </section>
@@ -102,7 +101,7 @@ export function AssessmentAttemptHistoryContent(props: {
                     }
                   >
                     <span>
-                      {question.pointsEarned} of {question.pointsPossible} points
+                      {formatPointScore(question.pointsEarned!, question.pointsPossible!)} points
                     </span>
                   </Show>
                 </p>

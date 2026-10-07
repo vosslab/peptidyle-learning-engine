@@ -549,6 +549,52 @@ def test_compose_failures_retain_redacted_bounded_child_diagnostics(tmp_path: pa
 
 
 #============================================
+def test_rust_panic_cause_survives_long_test_output_and_redaction() -> None:
+	"""An early Rust panic and assertion remain visible after verbose test output."""
+	result = local_stack_control.models.CommandResult(
+		("cargo", "test"),
+		1,
+		"thread 'grading::rejects_secret' (32885617) panicked at private-value:41:9\n"
+		+ "assertion `left == right` failed: private-value\n"
+		+ "  left: private-value\n"
+		+ "  right: expected\n"
+		+ "test result: FAILED. rerun with cargo test --test grading\n" * 300,
+		"error: test failed, to rerun pass `--test grading`\n" + "test output omitted\n" * 300,
+	)
+	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+		result, ("private-value",)
+	)
+	assert "thread 'grading::rejects_secret' (32885617) panicked at [private]:41:9" in detail
+	assert "assertion `left == right` failed: [private]" in detail
+	assert "left: [private]" in detail
+	assert len(detail) <= 2_048
+	assert "private-value" not in detail
+	assert "test result: FAILED" not in detail
+	assert "error: test failed" not in detail
+
+
+#============================================
+def test_postgres_error_cause_survives_long_query_output_and_redaction() -> None:
+	"""A plain PostgreSQL error and its context survive bounded command output."""
+	result = local_stack_control.models.CommandResult(
+		("podman", "compose"),
+		1,
+		"SELECT fixture data;\n" * 300
+		+ "ERROR: permission denied for table course_membership\n"
+		+ "CONTEXT: SQL statement private-value\n"
+		+ "SQL statement details\n" * 300,
+		"Compose exited with status 1\n",
+	)
+	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+		result, ("private-value",)
+	)
+	assert "ERROR: permission denied for table course_membership" in detail
+	assert "CONTEXT: SQL statement [private]" in detail
+	assert len(detail) < 2_048
+	assert "private-value" not in detail
+
+
+#============================================
 def test_unspecified_private_values_keep_failure_detail_generic() -> None:
 	"""Non-Compose callers retain the safe generic message without a redaction authority."""
 	result = local_stack_control.models.CommandResult(("command",), 1, "useful child output", "useful child error")

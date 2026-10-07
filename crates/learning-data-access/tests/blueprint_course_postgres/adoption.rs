@@ -3,7 +3,7 @@
 use sqlx::{Connection, PgConnection, Row};
 
 /// The adopted Course must preserve the sealed source Revision's policy,
-/// Question pins, and immutable Pool-fork provenance. This is a durable
+/// Question pins, and ordinary Pool identity. This is a durable
 /// teaching-data integrity contract. If it fails, repair adoption persistence.
 pub(super) async fn assert_adoption_projection(
     audit_inspection: &mut PgConnection,
@@ -53,36 +53,6 @@ async fn assert_projection(
     appended_only: bool,
     adoption_revision: i64,
 ) {
-    let mut audit_transaction = audit_inspection
-        .begin()
-        .await
-        .expect("adoption audit inspection transaction");
-    sqlx::query("SET LOCAL ROLE ple_audit_owner")
-        .execute(&mut *audit_transaction)
-        .await
-        .expect("adoption audit inspection role");
-    // The audit owner has only an INSERT policy under FORCE RLS. As in the
-    // controlled tamper oracle, permit owner inspection only until rollback.
-    sqlx::query("ALTER TABLE ple_audit.course_instance_creation_event NO FORCE ROW LEVEL SECURITY")
-        .execute(&mut *audit_transaction)
-        .await
-        .expect("controlled audit owner inspection");
-    let expected_pool_owner: String = sqlx::query_scalar(
-        "SELECT assigned_instructor_account_id FROM ple_audit.course_instance_creation_event \
-         WHERE course_instance_id = $1 AND source_kind = 'adopted' \
-           AND blueprint_course_id = $2 AND blueprint_revision_number = $3",
-    )
-    .bind(course_id)
-    .bind(blueprint_course_id)
-    .bind(adoption_revision)
-    .fetch_one(&mut *audit_transaction)
-    .await
-    .expect("adoption audit projection");
-    audit_transaction
-        .rollback()
-        .await
-        .expect("restore forced audit RLS after inspection");
-
     let mut inspection = audit_inspection
         .begin()
         .await
@@ -167,6 +137,8 @@ WITH source_assessment AS (
            AND snapshot.late_work_rule::text = CASE source.content #>> '{defaults,late_work_rule}'
                WHEN 'accept' THEN 'accept' WHEN 'mark_late' THEN 'mark_late'
                WHEN 'reject' THEN 'reject' END
+           AND snapshot.partial_credit_enabled IS NOT DISTINCT FROM
+               (source.content #>> '{defaults,activity_rules,partialCreditEnabled}')::boolean
            AND snapshot.question_variation_rule::text = CASE source.content #>> '{defaults,activity_rules,questionVariationRule}'
                WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END
            AND snapshot.assessment_question_order_rule::text = CASE source.content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}'
@@ -213,8 +185,8 @@ WITH source_assessment AS (
       JOIN ple_data.assessment_entry_question AS question
         ON question.assessment_entry_id = entry.assessment_entry_id
      WHERE source.entry ->> 'kind' = 'fixed'
-), pool_forks_match AS (
-    SELECT count(*) = count(*) FILTER (WHERE fork.question_pool_id IS NOT NULL)
+), pool_ids_match AS (
+    SELECT count(*) = count(*) FILTER (WHERE pool.question_pool_id IS NOT NULL)
        AND bool_and(
            entry.entry_kind = 'question_pool'
            AND entry.availability = 'available'
@@ -223,41 +195,13 @@ WITH source_assessment AS (
            AND entry.scoring_rule::text = CASE source.entry ->> 'scoring_rule'
                WHEN 'normal' THEN 'normal' WHEN 'fullCredit' THEN 'full_credit'
                WHEN 'extraCredit' THEN 'extra_credit' WHEN 'excluded' THEN 'excluded' END
-           AND pool.selected_question_order::text = CASE source.entry #>> '{selection_rule,selectedQuestionOrder}'
-               WHEN 'questionPoolOrder' THEN 'question_pool_order' WHEN 'randomOrder' THEN 'random_order' END
            AND entry.question_attempt_limit IS NOT DISTINCT FROM
                (source.entry #>> '{question_attempt_limit,maxAttempts}')::integer
            AND entry.question_attempt_time_limit_seconds IS NOT DISTINCT FROM
                (source.entry #>> '{question_attempt_time_limit,seconds}')::integer
            AND entry.question_attempt_grace_seconds IS NOT DISTINCT FROM
                (source.entry #>> '{question_attempt_time_limit,graceSeconds}')::integer
-           AND child.question_pool_id <> root.question_pool_id
-           AND child.source_question_pool_id = root.question_pool_id
-           AND child.owner_account_id = $8
-           AND child.interchangeability_attested_by_account_id =
-               root.interchangeability_attested_by_account_id
-           AND child.interchangeability_attested_at =
-               root.interchangeability_attested_at
-           AND root.question_pool_id
-                 = source.entry ->> 'question_pool_id'
-           AND NOT EXISTS (
-               (SELECT member_position, published_question_id, question_revision_number
-                  FROM ple_data.question_pool_member
-                 WHERE question_pool_id = child.question_pool_id)
-               EXCEPT ALL
-               (SELECT member_position, published_question_id, question_revision_number
-                  FROM ple_data.question_pool_member
-                 WHERE question_pool_id = root.question_pool_id)
-           )
-           AND NOT EXISTS (
-               (SELECT member_position, published_question_id, question_revision_number
-                  FROM ple_data.question_pool_member
-                 WHERE question_pool_id = root.question_pool_id)
-               EXCEPT ALL
-               (SELECT member_position, published_question_id, question_revision_number
-                  FROM ple_data.question_pool_member
-                 WHERE question_pool_id = child.question_pool_id)
-           )
+           AND pool.question_pool_id::text = source.entry ->> 'question_pool_id'
        ) AS matches
       FROM source_entries AS source
       JOIN target_assessment AS target ON target.source_blueprint_assessment_id::text = source.source
@@ -265,33 +209,37 @@ WITH source_assessment AS (
         ON entry.assessment_id = target.assessment_id AND entry.authored_position = source.position
       LEFT JOIN ple_data.assessment_entry_pool AS pool
         ON pool.assessment_entry_id = entry.assessment_entry_id
-      LEFT JOIN ple_data.assessment_question_pool_fork AS fork
-        ON fork.assessment_entry_id = entry.assessment_entry_id AND fork.assessment_id = entry.assessment_id
-      LEFT JOIN ple_data.question_pool AS child ON child.question_pool_id = pool.question_pool_id
-      LEFT JOIN ple_data.question_pool AS root ON root.question_pool_id = child.source_question_pool_id
      WHERE source.entry ->> 'kind' = 'pool'
-), independent_pool_forks AS (
+), shared_pool_ids AS (
     SELECT NOT EXISTS (
         SELECT 1
           FROM ple_data.assessment_entry AS first_entry
           JOIN ple_data.assessment AS first_assessment ON first_assessment.assessment_id = first_entry.assessment_id
           JOIN ple_data.course_instance AS first_course ON first_course.course_instance_id = first_assessment.course_instance_id
           JOIN ple_data.assessment_entry_pool AS first_pool ON first_pool.assessment_entry_id = first_entry.assessment_entry_id
-          JOIN ple_data.assessment_entry_pool AS second_pool ON second_pool.question_pool_id = first_pool.question_pool_id
-          JOIN ple_data.assessment_entry AS second_entry ON second_entry.assessment_entry_id = second_pool.assessment_entry_id
-          JOIN ple_data.assessment AS second_assessment ON second_assessment.assessment_id = second_entry.assessment_id
-          JOIN ple_data.course_instance AS second_course ON second_course.course_instance_id = second_assessment.course_instance_id
-         WHERE first_course.course_instance_id = $1 AND second_course.course_instance_id = $4
+          JOIN ple_data.course_instance AS second_course ON second_course.course_instance_id = $4
+          JOIN ple_data.assessment AS second_assessment
+            ON second_assessment.course_instance_id = second_course.course_instance_id
+           AND second_assessment.source_blueprint_course_id = first_assessment.source_blueprint_course_id
+           AND second_assessment.source_blueprint_assessment_id = first_assessment.source_blueprint_assessment_id
+          JOIN ple_data.assessment_entry AS second_entry
+            ON second_entry.assessment_id = second_assessment.assessment_id
+           AND second_entry.authored_position = first_entry.authored_position
+          JOIN ple_data.assessment_entry_pool AS second_pool
+            ON second_pool.assessment_entry_id = second_entry.assessment_entry_id
+         WHERE first_course.course_instance_id = $1
+           AND first_pool.question_pool_id <> second_pool.question_pool_id
     ) AS matches
 )
+
 SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
        (SELECT jsonb_agg(jsonb_build_object('source', source.content, 'target', to_jsonb(target)))
           FROM source_assessment source JOIN target_assessment target
             ON target.source_blueprint_assessment_id::text = source.source) AS policy_projection,
        COALESCE((SELECT matches FROM entry_count_matches), false) AS entry_count_matches,
        COALESCE((SELECT matches FROM fixed_entries_match), false) AS fixed_entries_match,
-       COALESCE((SELECT matches FROM pool_forks_match), false) AS pool_forks_match,
-       COALESCE((SELECT matches FROM independent_pool_forks), false) AS independent_pool_forks
+       COALESCE((SELECT matches FROM pool_ids_match), false) AS pool_ids_match,
+       COALESCE((SELECT matches FROM shared_pool_ids), false) AS shared_pool_ids
 "#,
     )
     .bind(course_id)
@@ -301,7 +249,6 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
     .bind(appended_only)
     .bind(source_content)
     .bind(prior_sources)
-    .bind(&expected_pool_owner)
     .fetch_one(&mut *inspection)
     .await
     .expect("relational adoption projection");
@@ -312,8 +259,8 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
     );
     assert!(row.get::<bool, _>("entry_count_matches"));
     assert!(row.get::<bool, _>("fixed_entries_match"));
-    assert!(row.get::<bool, _>("pool_forks_match"));
-    assert!(row.get::<bool, _>("independent_pool_forks"));
+    assert!(row.get::<bool, _>("pool_ids_match"));
+    assert!(row.get::<bool, _>("shared_pool_ids"));
     inspection
         .commit()
         .await

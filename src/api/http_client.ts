@@ -15,9 +15,9 @@ import { createBlueprintCourseClient } from "./http_client/blueprint_course";
 import { createBlueprintChangeProposalClient } from "./http_client/blueprint_change_proposal";
 import { createCourseInstanceClient } from "./http_client/course_instance";
 import { createLiveCourseRosterClient } from "./http_client/course_roster";
+import { createSysadminStudentAccessClient } from "./http_client/sysadmin_student_access";
 import { createLiveInvitationExportClient } from "./http_client/invitation_export";
 import { createLiveAssessmentReleaseClient } from "./http_client/assessment_release";
-import { createAssessmentPoolForkClient } from "./http_client/assessment_pool_fork";
 import { createAssessmentStudentTimeAccommodationClient } from "./http_client/assessment_student_time_accommodation";
 import { createLiveAssessmentAttemptIssuanceClient } from "./http_client/assessment_attempt_issuance";
 import { createStudentAssessmentAttemptHistoryClient } from "./http_client/assessment_attempt_history";
@@ -29,30 +29,32 @@ import { createStudentCourseAttemptHistoryClient } from "./http_client/student_c
 import { createStudentCourseResponseStatsClient } from "./http_client/student_course_response_stats";
 import { createStudentQuestionDisplayDurationClient } from "./http_client/student_question_display_duration";
 import { createQuestionAvailabilityClient } from "./http_client/question_availability";
+import { createQuestionMetadataClient } from "./http_client/question_metadata";
 import { createQuestionWatchClient } from "./http_client/question_watch";
 import { createQuestionStarClient } from "./http_client/question_star";
 import { createQuestionForkClient } from "./http_client/question_fork";
 import { createQuestionPoolDetailClient } from "./http_client/question_pool_detail";
+import { createQuestionPoolMembersClient } from "./http_client/question_pool_members";
 import { createQuestionPoolCreationClient } from "./http_client/question_pool_creation";
+import { createQuestionPoolForkClient } from "./http_client/question_pool_fork";
 import { createQuestionPoolStewardshipClient } from "./http_client/question_pool_stewardship";
 import { createAssessmentStudentViewClient } from "./http_client/assessment_student_view";
 import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 import { createQuestionBulkMetadataClient } from "./http_client/question_bulk_metadata";
 import { createQuestionPoolSearchMetadataClient } from "./http_client/question_pool_search_metadata";
 import { createQuestionPoolSupportClient } from "./http_client/question_pool_support";
+import { createQuestionPoolMetadataClient } from "./http_client/question_pool_metadata";
 import {
   createContentClassificationClient,
   createContentDisciplineAdministrationClient,
 } from "./http_client/content_classification";
 import { createCourseStudentWorkRecoveryClient } from "./http_client/course_student_work_recovery";
 import { createLibraryWatchNotificationClient } from "./http_client/library_watch_notification";
-import { createBloomClassificationCorrectionClient } from "./http_client/bloom_classification";
 
 export {
   ApiProtocolError,
   ApiRequestError,
   AssessmentConflictError,
-  BloomClassificationConflictError,
   BlueprintCourseConflictError,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
@@ -74,9 +76,9 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createBlueprintChangeProposalClient(fetchImplementation, basePath),
     createCourseInstanceClient(fetchImplementation, basePath),
     createLiveCourseRosterClient(fetchImplementation, basePath),
+    createSysadminStudentAccessClient(fetchImplementation, basePath),
     createLiveInvitationExportClient(fetchImplementation, basePath),
     createLiveAssessmentReleaseClient(fetchImplementation, basePath),
-    createAssessmentPoolForkClient(fetchImplementation, basePath),
     createAssessmentStudentTimeAccommodationClient(fetchImplementation, basePath),
     createLiveAssessmentAttemptIssuanceClient(fetchImplementation, basePath),
     createStudentAssessmentAttemptHistoryClient(fetchImplementation, basePath),
@@ -88,22 +90,25 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createStudentCourseResponseStatsClient(fetchImplementation, basePath),
     createStudentQuestionDisplayDurationClient(fetchImplementation, basePath),
     createQuestionAvailabilityClient(fetchImplementation, basePath),
+    createQuestionMetadataClient(fetchImplementation, basePath),
     createQuestionWatchClient(fetchImplementation, basePath),
     createQuestionStarClient(fetchImplementation, basePath),
     createQuestionForkClient(fetchImplementation, basePath),
     createQuestionPoolDetailClient({ fetch: fetchImplementation, basePath }),
+    createQuestionPoolMembersClient(fetchImplementation, basePath),
     createQuestionPoolCreationClient(fetchImplementation, basePath),
+    createQuestionPoolForkClient(fetchImplementation, basePath),
     createQuestionPoolStewardshipClient(fetchImplementation, basePath),
     createAssessmentStudentViewClient(fetchImplementation, basePath),
     createAssessmentTemplateClient(fetchImplementation, basePath),
     createQuestionBulkMetadataClient(fetchImplementation, basePath),
     createQuestionPoolSearchMetadataClient(fetchImplementation, basePath),
     createQuestionPoolSupportClient(fetchImplementation, basePath),
+    createQuestionPoolMetadataClient(fetchImplementation, basePath),
     createContentClassificationClient(fetchImplementation, basePath),
     createContentDisciplineAdministrationClient(fetchImplementation, basePath),
     createCourseStudentWorkRecoveryClient(fetchImplementation, basePath),
     createLibraryWatchNotificationClient(fetchImplementation, basePath),
-    createBloomClassificationCorrectionClient(fetchImplementation, basePath),
     responses,
     requests,
   );

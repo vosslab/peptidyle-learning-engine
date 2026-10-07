@@ -166,13 +166,16 @@ pub enum AssessmentQuestionOrderRule {
     Shuffled,
 }
 
-/// The two explicit Assessment activity rules an Assessment chooses, gathered for convenience.
+/// The Assessment's grading and activity settings, gathered for convenience.
 ///
 /// A struct of independent enums rather than one combined enum: the rules vary
 /// independently, and all combinations are meaningful.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentActivityRules {
+    /// Whether recorded Backend fractions below one earn proportional points.
+    /// When disabled, only a stored fraction of one earns points.
+    pub partial_credit_enabled: bool,
     /// Whether a later Assessment Attempt reuses each selected Question Variation.
     pub question_variation_rule: AssessmentQuestionVariationRule,
     /// The server-owned Issued Question order for one Assessment Attempt.
@@ -182,6 +185,7 @@ pub struct AssessmentActivityRules {
 impl Default for AssessmentActivityRules {
     fn default() -> Self {
         Self {
+            partial_credit_enabled: true,
             question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
             assessment_question_order_rule: AssessmentQuestionOrderRule::Shuffled,
         }
@@ -203,6 +207,7 @@ mod tests {
     fn new_assessment_defaults_shuffle_questions() {
         let rules = AssessmentActivityRules::default();
 
+        assert!(rules.partial_credit_enabled);
         assert_eq!(
             rules.assessment_question_order_rule,
             AssessmentQuestionOrderRule::Shuffled
@@ -219,8 +224,9 @@ mod tests {
     }
 
     #[test]
-    fn activity_rules_round_trip_the_closed_two_field_contract() {
+    fn activity_rules_round_trip_the_closed_contract() {
         let rules = AssessmentActivityRules {
+            partial_credit_enabled: false,
             question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
             assessment_question_order_rule: AssessmentQuestionOrderRule::AuthoredOrder,
         };
@@ -229,6 +235,10 @@ mod tests {
             serde_json::from_str(&json).expect("deserialization should succeed");
         assert_eq!(restored, rules);
         assert!(json.contains(r#""questionVariationRule":"newVariation""#));
+        assert!(
+            json.contains(r#""partialCreditEnabled":false"#),
+            "serialized activity rules: {json}"
+        );
         assert!(
             serde_json::from_str::<AssessmentActivityRules>(
                 r#"{"completion":{"kind":"allCorrect"}}"#,

@@ -35,7 +35,7 @@ fn request() -> RenderRequest<'static> {
     RenderRequest {
         pg_source: b"DOCUMENT();",
         pg_path: "Library/opaque.pg",
-        published_question_revision_tuple: &QUESTION_REVISION,
+        published_question_revision_tuple: Some(&QUESTION_REVISION),
         seed: 7,
     }
 }
@@ -157,7 +157,7 @@ fn protocol_uses_embed_format_and_deployment_owned_urls() {
         RenderRequest {
             pg_source: b"DOCUMENT();",
             pg_path: "Library/a.pg",
-            published_question_revision_tuple: &revision,
+            published_question_revision_tuple: Some(&revision),
             seed: 7,
         },
         &settings.ple_origin,

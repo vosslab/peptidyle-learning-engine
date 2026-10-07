@@ -736,17 +736,18 @@ export function CourseInstancePage(): JSX.Element {
                         <p data-blueprint-origin>
                           Adopted from Blueprint{" "}
                           <A
-                            href={`/blueprint-courses/${origin().adoptedBlueprintRevisionTuple.blueprintCourseId}`}
+                            href={`/blueprint-courses/${origin().adoptedBlueprintCourseRevisionTuple.blueprintCourseId}`}
                           >
-                            {origin().adoptedBlueprintRevisionTuple.blueprintCourseId}
+                            {origin().adoptedBlueprintCourseRevisionTuple.blueprintCourseId}
                           </A>
-                          , Revision {origin().adoptedBlueprintRevisionTuple.revisionNumber}; source
-                          now Revision {origin().currentBlueprintRevisionTuple.revisionNumber}.
+                          , Revision {origin().adoptedBlueprintCourseRevisionTuple.revisionNumber};
+                          source now Revision{" "}
+                          {origin().currentBlueprintCourseRevisionTuple.revisionNumber}.
                         </p>
                         <Show
                           when={
-                            BigInt(origin().currentBlueprintRevisionTuple.revisionNumber) >
-                            BigInt(origin().adoptedBlueprintRevisionTuple.revisionNumber)
+                            BigInt(origin().currentBlueprintCourseRevisionTuple.revisionNumber) >
+                            BigInt(origin().adoptedBlueprintCourseRevisionTuple.revisionNumber)
                           }
                         >
                           <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>

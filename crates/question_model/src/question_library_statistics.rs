@@ -72,7 +72,7 @@ impl QuestionUsageTotals {
         }
     }
 
-    /// All-Revision or per-Revision Instructor projection.
+    /// Per-Revision Instructor projection.
     pub fn into_revision_statistics(
         self,
         revision_number: QuestionRevisionNumber,
@@ -258,7 +258,8 @@ impl QuestionRevisionUsageStatistics {
 pub enum QuestionStatistics {
     /// No Instructor-visible usage statistics for this reader.
     Unavailable,
-    /// All-Revision rollup, with optional per-Revision rows on Question detail.
+    /// Current-Revision Question rollup or originating-Pool outcome rollup,
+    /// with optional per-Revision rows on Question detail.
     Available {
         /// Observation count used as the blank/answered rate denominator.
         issued_count: u64,
@@ -298,7 +299,7 @@ pub enum QuestionStatistics {
         #[serde(skip_serializing_if = "Option::is_none")]
         revisions: Option<Vec<QuestionRevisionUsageStatistics>>,
         /// Pool `question_pool_statistics.issued_count` when this payload is a
-        /// Pool. Outcome counts remain the current-member Question rollup.
+        /// Pool. Outcome counts use receipts attributed to the originating Pool.
         #[serde(skip_serializing_if = "Option::is_none")]
         pool_issued_count: Option<u64>,
     },

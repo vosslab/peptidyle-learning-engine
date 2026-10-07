@@ -160,13 +160,43 @@
     });
   }
 
-  if (opaquePreview) {
-    reportOpaquePreviewHeight();
-    return;
+  function formPairs(form) {
+    return Array.from(new FormData(form), ([name, value]) => [name, String(value)]);
   }
 
-  function pairs(form) {
-    return Array.from(new FormData(form), ([name, value]) => [name, String(value)]);
+  function captureOpaqueDraftTestResponse(event) {
+    const request = event.data;
+    if (
+      event.origin !== parentOrigin ||
+      event.source !== window.parent ||
+      !isRecord(request) ||
+      !hasExactKeys(request, ["kind", "version", "captureId"]) ||
+      request.kind !== "ple.webwork.draft-test.capture" ||
+      request.version !== 1 ||
+      !isCaptureId(request.captureId)
+    )
+      return;
+    const form = document.querySelector("form");
+    if (!(form instanceof HTMLFormElement)) return;
+    // The opaque Draft frame has no form-submit or network privilege. The
+    // authenticated parent alone decides whether to ask the renderer to grade.
+    window.parent.postMessage(
+      {
+        kind: "ple.webwork.draft-test.response",
+        version: 1,
+        captureId: request.captureId,
+        pairs: formPairs(form),
+      },
+      parentOrigin,
+    );
+  }
+
+  if (opaquePreview) {
+    reportOpaquePreviewHeight();
+    if (new URLSearchParams(window.location.search).get("draftTest") === "true") {
+      window.addEventListener("message", captureOpaqueDraftTestResponse);
+    }
+    return;
   }
 
   function isCaptureId(value) {
@@ -174,7 +204,7 @@
   }
 
   function send(form, captureId) {
-    const message = { kind: responseKind, pairs: pairs(form) };
+    const message = { kind: responseKind, pairs: formPairs(form) };
     if (captureId !== undefined) message.captureId = captureId;
     window.parent.postMessage(message, parentOrigin);
   }

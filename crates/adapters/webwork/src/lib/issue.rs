@@ -138,6 +138,44 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         Ok(self.render(question_seed, source).await?.document)
     }
 
+    /// Renders one current saved Draft using its registered PG path and no Published identity.
+    pub async fn preview_draft_document(
+        &self,
+        question_seed: QuestionSeed,
+        pg_source: &[u8],
+        pg_path: &str,
+    ) -> Result<Vec<u8>, WebworkAdapterError> {
+        let rendered = self
+            .renderer
+            .render(RenderRequest {
+                pg_source,
+                pg_path,
+                published_question_revision_tuple: None,
+                seed: question_seed.value(),
+            })
+            .await
+            .map_err(WebworkAdapterError::Renderer)?;
+        if rendered.lifecycle_state.as_deref().is_some() {
+            return Err(WebworkAdapterError::Renderer(
+                RendererFailure::InvalidOutput(
+                    "WeBWorK Draft preview returned unexpected lifecycle state".into(),
+                ),
+            ));
+        }
+        Ok(rendered.document)
+    }
+
+    /// Grades one transient Draft response without Attempt or Student Work state.
+    pub async fn grade_draft_response(
+        &self,
+        question_seed: QuestionSeed,
+        pg_source: &[u8],
+        pg_path: &str,
+        response: &StudentResponse,
+    ) -> Result<grading::QuestionGradingOutcome, WebworkAdapterError> {
+        crate::grade::grade_draft(&self.renderer, question_seed, pg_source, pg_path, response).await
+    }
+
     /// Produces transient backend-owned correct answers after the caller authorizes disclosure.
     pub async fn answer_review_document(
         &self,
@@ -150,7 +188,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
             .render_answer_review(RenderRequest {
                 pg_source: source.pg_source(),
                 pg_path: source.pg_path(),
-                published_question_revision_tuple: source.published_question_revision_tuple(),
+                published_question_revision_tuple: Some(source.published_question_revision_tuple()),
                 seed: question_seed.value(),
             })
             .await
@@ -176,7 +214,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
             .render(RenderRequest {
                 pg_source: source.pg_source(),
                 pg_path: source.pg_path(),
-                published_question_revision_tuple: source.published_question_revision_tuple(),
+                published_question_revision_tuple: Some(source.published_question_revision_tuple()),
                 seed: question_seed.value(),
             })
             .await

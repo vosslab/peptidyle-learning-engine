@@ -116,6 +116,20 @@ export function AssessmentTemplateSettingsEditor(
         aria-labelledby="template-activity-heading"
       >
         <h3 id="template-activity-heading">Assessment activity</h3>
+        <label class="assessment-template-field assessment-template-field--checkbox">
+          <input
+            type="checkbox"
+            checked={props.draft.partialCreditEnabled}
+            onChange={(event) =>
+              props.onPatch({ partialCreditEnabled: event.currentTarget.checked })
+            }
+          />
+          Award partial credit
+          <small>
+            When disabled, fractional Question credit earns zero points. Full Credit entries still
+            award their points for any submitted response.
+          </small>
+        </label>
         <label class="assessment-template-field">
           Question variations on later Attempts
           <select

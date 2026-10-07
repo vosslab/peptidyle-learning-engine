@@ -1,5 +1,7 @@
 import type { PleQuestionJsonChoice, PleQuestionJsonDocument } from "./question_json_source";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
+import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
+import type { PleQuestionJsonRecordMetadata } from "./question_json_defaults";
 
 /** The local student preview deliberately excludes correctness, Question Hint, and all feedback. */
 export type PleQuestionJsonPublicPreview = {
@@ -7,22 +9,23 @@ export type PleQuestionJsonPublicPreview = {
   readonly prompt: string;
   readonly response: QuestionResponseFormat;
   readonly tags: ReadonlyArray<string>;
-  readonly questionLicense: PleQuestionJsonDocument["questionLicense"];
-  readonly language: string;
+  readonly questionLicense: QuestionLicense | null;
+  readonly language: string | null;
 };
 
 /** Projects an author source into exactly the information a student may receive. */
 export function pleQuestionJsonPublicPreview(
   source: PleQuestionJsonDocument,
+  metadata: PleQuestionJsonRecordMetadata,
 ): PleQuestionJsonPublicPreview {
   const response = pleQuestionJsonResponseFormat(source);
   return {
-    questionTitle: source.questionTitle,
+    questionTitle: metadata.questionTitle,
     prompt: source.prompt,
     response,
-    tags: source.tags,
-    questionLicense: source.questionLicense,
-    language: source.language,
+    tags: metadata.tags,
+    questionLicense: metadata.questionLicense,
+    language: metadata.language,
   };
 }
 
@@ -113,6 +116,9 @@ function multipleChoiceResponseFormat(
 }
 
 /** Serializes only the answer-free local preview, suitable for boundary tests. */
-export function serializePleQuestionJsonPublicPreview(source: PleQuestionJsonDocument): string {
-  return JSON.stringify(pleQuestionJsonPublicPreview(source));
+export function serializePleQuestionJsonPublicPreview(
+  source: PleQuestionJsonDocument,
+  metadata: PleQuestionJsonRecordMetadata,
+): string {
+  return JSON.stringify(pleQuestionJsonPublicPreview(source, metadata));
 }

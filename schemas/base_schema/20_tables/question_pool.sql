@@ -40,6 +40,8 @@ CREATE TABLE ple_data.question_pool (
     content_subtopic_id uuid,
     tags text[] NOT NULL DEFAULT ARRAY[]::text[]
         CHECK (ple_data.question_metadata_tags_are_valid(tags)),
+    bloom_cognitive_process ple_data.bloom_cognitive_process,
+    bloom_knowledge_dimension ple_data.bloom_knowledge_dimension,
     -- ASVS 2.2.1: optional current-state PLE-managed Pool support. NULL is absent.
     -- These columns are Pool text. They are not copied onto member Question Revisions.
     hint text CHECK (
@@ -64,27 +66,20 @@ CREATE TABLE ple_data.question_pool (
     FOREIGN KEY (content_topic_id, content_subtopic_id)
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
     CHECK (content_subtopic_id IS NULL OR content_topic_id IS NOT NULL),
-    interchangeability_attested_by_account_id ple_data.account_id NOT NULL
-        REFERENCES ple_private.account(account_id),
-    interchangeability_attested_at timestamptz NOT NULL,
     -- A fork is a new lineage. Its source names one published Pool; original
     -- published Pools have no source.
     source_question_pool_id ple_data.question_family_id
         REFERENCES ple_data.question_pool(question_pool_id),
     created_at timestamptz NOT NULL,
-    -- ASVS 2.3.3: private provenance for transaction-local fork attachment.
-    created_in_transaction xid8 NOT NULL DEFAULT pg_current_xact_id(),
     updated_on date NOT NULL DEFAULT CURRENT_DATE
 );
 
 CREATE TABLE ple_data.question_pool_member (
     question_pool_id ple_data.question_family_id NOT NULL
         REFERENCES ple_data.question_pool(question_pool_id),
-    member_position integer NOT NULL CHECK (member_position > 0),
     published_question_id ple_data.question_family_id NOT NULL,
     question_revision_number integer NOT NULL CHECK (question_revision_number > 0),
-    PRIMARY KEY (question_pool_id, member_position),
-    UNIQUE (question_pool_id, published_question_id),
+    PRIMARY KEY (question_pool_id, published_question_id),
     FOREIGN KEY (published_question_id, question_revision_number)
         REFERENCES ple_data.question_revision(published_question_id, revision_number),
     created_at timestamptz NOT NULL,
@@ -108,24 +103,11 @@ CREATE TABLE ple_data.question_pool_watch (
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-CREATE TABLE ple_data.question_pool_bloom (
-    question_pool_id ple_data.question_family_id NOT NULL
-        REFERENCES ple_data.question_pool(question_pool_id),
-    cognitive_process ple_data.bloom_cognitive_process NOT NULL,
-    knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
-    classification_edit_number bigint NOT NULL CHECK (classification_edit_number > 0),
-    PRIMARY KEY (question_pool_id),
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
-    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
-    CHECK (updated_at >= created_at)
-);
-
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.question_pool IS 'role: current state, Stable Question Pool lineage, current member-list Edit Number, interchangeability attestation, immutable exact source-Pool provenance for forks, and server-issued canonical public Crockford ID.';
-COMMENT ON TABLE ple_data.question_pool_member IS 'role: current state, deleted by Pool delete or member-list replace. Ordered exact Published Question Revision pins, unique per Question within a Pool; intentionally no selected count.';
+COMMENT ON TABLE ple_data.question_pool IS 'role: current state, Stable Question Pool lineage, current exact Revision tuple-set Edit Number, ordinary metadata Edit Number including independently nullable Bloom dimensions, immutable exact source-Pool provenance for forks, and server-issued canonical public Crockford ID.';
+COMMENT ON TABLE ple_data.question_pool_member IS 'role: current state, deleted by Pool delete or member-set replace. Unordered exact Published Question Revision tuples, unique per Question within a Pool; intentionally no selected count.';
 COMMENT ON TABLE ple_data.question_pool_star IS 'role: current state, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
 COMMENT ON TABLE ple_data.question_pool_watch IS 'role: current state, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
-COMMENT ON TABLE ple_data.question_pool_bloom IS 'role: current state, Current Pool Bloom classification and classification Edit Number. HUMAN_GUIDANCE.md Question Pool specifications.';
 COMMENT ON COLUMN ple_data.question_pool.content_topic_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_pool.question_type IS 'Immutable Pool Type set from its first member.';
 COMMENT ON COLUMN ple_data.question_pool.backend IS 'Immutable Pool Backend set from its first member.';
@@ -135,6 +117,8 @@ COMMENT ON COLUMN ple_data.question_pool.question_pool_metadata_edit_number IS '
 COMMENT ON COLUMN ple_data.question_pool.owner_account_id IS 'The account that created or forked this Pool lineage; Course-adoption forks use the assigned adopting Instructor.';
 COMMENT ON COLUMN ple_data.question_pool.owner_user_role IS 'Role carrier that requires the Pool owner Account to be an Instructor.';
 COMMENT ON COLUMN ple_data.question_pool.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_pool.bloom_cognitive_process IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_pool.bloom_knowledge_dimension IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_pool.source_question_pool_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_pool.hint IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_pool.general_feedback IS 'NULL means this optional fact is absent.';

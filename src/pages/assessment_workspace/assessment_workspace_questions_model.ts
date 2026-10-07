@@ -126,7 +126,9 @@ export function removeAssessmentEntry(
   return entries.filter((_entry, currentIndex) => currentIndex !== index);
 }
 
-function cognitiveProcessOrdinal(value: BloomClassificationView["cognitiveProcess"]): number {
+function cognitiveProcessOrdinal(
+  value: NonNullable<BloomClassificationView["cognitiveProcess"]>,
+): number {
   switch (value) {
     case "Remember":
       return 0;
@@ -143,7 +145,9 @@ function cognitiveProcessOrdinal(value: BloomClassificationView["cognitiveProces
   }
 }
 
-function knowledgeDimensionOrdinal(value: BloomClassificationView["knowledgeDimension"]): number {
+function knowledgeDimensionOrdinal(
+  value: NonNullable<BloomClassificationView["knowledgeDimension"]>,
+): number {
   switch (value) {
     case "Factual Knowledge":
       return 0;
@@ -156,29 +160,50 @@ function knowledgeDimensionOrdinal(value: BloomClassificationView["knowledgeDime
   }
 }
 
-/** Applies guide-order Bloom keys and the immediately prior position as the stable tie-break. */
+type CompleteBloomClassification = BloomClassificationView & {
+  readonly cognitiveProcess: NonNullable<BloomClassificationView["cognitiveProcess"]>;
+  readonly knowledgeDimension: NonNullable<BloomClassificationView["knowledgeDimension"]>;
+};
+
+function completeBloomClassification(
+  bloom: BloomClassificationView | null,
+): CompleteBloomClassification | null {
+  if (bloom === null || bloom.cognitiveProcess === null || bloom.knowledgeDimension === null) {
+    return null;
+  }
+  return {
+    cognitiveProcess: bloom.cognitiveProcess,
+    knowledgeDimension: bloom.knowledgeDimension,
+  };
+}
+
+/** Sorts complete Bloom pairs first and keeps unclassified Entries last in their prior order. */
 export function sortAssessmentEntriesByBloom(
   entries: ReadonlyArray<AssessmentEntry>,
-  bloomByEntryId: ReadonlyMap<AssessmentEntryId, BloomClassificationView>,
-): ReadonlyArray<AssessmentEntry> | undefined {
+  bloomByEntryId: ReadonlyMap<AssessmentEntryId, BloomClassificationView | null>,
+): ReadonlyArray<AssessmentEntry> {
   const decorated: Array<{
     readonly entry: AssessmentEntry;
     readonly position: number;
-    readonly bloom: BloomClassificationView;
+    readonly bloom: BloomClassificationView | null;
   }> = [];
   for (const [position, entry] of entries.entries()) {
-    const bloom = bloomByEntryId.get(entry.id);
-    if (bloom === undefined) return undefined;
+    const bloom = bloomByEntryId.get(entry.id) ?? null;
     decorated.push({ entry, position, bloom });
   }
   decorated.sort((left, right) => {
+    const leftBloom = completeBloomClassification(left.bloom);
+    const rightBloom = completeBloomClassification(right.bloom);
+    if (leftBloom === null && rightBloom !== null) return 1;
+    if (leftBloom !== null && rightBloom === null) return -1;
+    if (leftBloom === null || rightBloom === null) return left.position - right.position;
     const cognitive =
-      cognitiveProcessOrdinal(left.bloom.cognitiveProcess) -
-      cognitiveProcessOrdinal(right.bloom.cognitiveProcess);
+      cognitiveProcessOrdinal(leftBloom.cognitiveProcess) -
+      cognitiveProcessOrdinal(rightBloom.cognitiveProcess);
     if (cognitive !== 0) return cognitive;
     const knowledge =
-      knowledgeDimensionOrdinal(left.bloom.knowledgeDimension) -
-      knowledgeDimensionOrdinal(right.bloom.knowledgeDimension);
+      knowledgeDimensionOrdinal(leftBloom.knowledgeDimension) -
+      knowledgeDimensionOrdinal(rightBloom.knowledgeDimension);
     return knowledge === 0 ? left.position - right.position : knowledge;
   });
   const sorted = decorated.map((item) => item.entry);

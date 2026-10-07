@@ -2,8 +2,8 @@
 
 use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess,
-    BlueprintEditNumber, BlueprintMetadataState, BlueprintRevisionNumber, BlueprintRevisionTuple,
-    Timestamp,
+    BlueprintCourseRevisionTuple, BlueprintEditNumber, BlueprintMetadataState,
+    BlueprintRevisionNumber, Timestamp,
 };
 use serde_json::Value;
 use sqlx::Row;
@@ -33,6 +33,11 @@ pub(super) fn decode_summary(
         id: blueprint_course_id(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
+        theme: row
+            .try_get::<String, _>("theme_id")
+            .map_err(map_sqlx_error)?
+            .parse()
+            .map_err(|_| invalid("Blueprint Theme"))?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
         blueprint_edit_number: blueprint_edit_number(
             row.try_get("blueprint_edit_number")
@@ -104,7 +109,7 @@ pub(super) fn decode_course(
         .try_get("fork_source_revision_number")
         .map_err(map_sqlx_error)?;
     let fork_source_tuple = match (fork_source_blueprint_course_id, fork_source_revision_number) {
-        (Some(source), Some(number)) => Some(BlueprintRevisionTuple {
+        (Some(source), Some(number)) => Some(BlueprintCourseRevisionTuple {
             blueprint_course_id: blueprint_course_id(source)?,
             revision_number: parse_revision_number(number)?,
         }),
@@ -122,6 +127,11 @@ pub(super) fn decode_course(
         id: blueprint_course_id(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
+        theme: row
+            .try_get::<String, _>("theme_id")
+            .map_err(map_sqlx_error)?
+            .parse()
+            .map_err(|_| invalid("Blueprint Theme"))?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
         blueprint_edit_number: blueprint_edit_number(
             row.try_get("blueprint_edit_number")
@@ -173,6 +183,11 @@ pub(super) fn decode_metadata_state(
 ) -> Result<BlueprintMetadataState, StoreError> {
     Ok(BlueprintMetadataState {
         classification: decode_classification(row)?,
+        theme: row
+            .try_get::<String, _>("theme_id")
+            .map_err(map_sqlx_error)?
+            .parse()
+            .map_err(|_| invalid("Blueprint Theme"))?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,

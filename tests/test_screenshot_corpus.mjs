@@ -69,7 +69,9 @@ function expectedPrivacyProfile(capture) {
   if (capture.role === "public") return "public";
   if (capture.role === "instructor") return "instructor_answer_free";
   if (capture.role === "sysadmin") {
-    return capture.scenario === "sysadmin_support" ? "sysadmin_scoped_roster" : "sysadmin_account";
+    return ["sysadmin_support", "sysadmin_student_data_confirmation"].includes(capture.scenario)
+      ? "sysadmin_scoped_roster"
+      : "sysadmin_account";
   }
   if (capture.scenario === "student_authorization") return "authorization_denial";
   if (capture.checkpoint.startsWith("response_selected_")) return "student_selected_response";

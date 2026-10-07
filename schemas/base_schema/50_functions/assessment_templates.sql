@@ -68,14 +68,15 @@ BEGIN
     IF jsonb_typeof(activity_rules) <> 'object'
        OR ARRAY(SELECT key FROM jsonb_object_keys(activity_rules) AS key ORDER BY key)
             <> ARRAY[
-                'assessmentQuestionOrderRule', 'questionVariationRule'
+                'assessmentQuestionOrderRule', 'partialCreditEnabled', 'questionVariationRule'
             ]::text[] THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Template settings are invalid';
     END IF;
 
-    -- ASVS 2.2.1: only the two configurable activity rules are accepted.
-    IF jsonb_typeof(activity_rules -> 'questionVariationRule') <> 'string'
+    -- ASVS 2.2.1: accept the closed activity-rule object.
+    IF jsonb_typeof(activity_rules -> 'partialCreditEnabled') <> 'boolean'
+       OR jsonb_typeof(activity_rules -> 'questionVariationRule') <> 'string'
        OR activity_rules ->> 'questionVariationRule' NOT IN ('reuseVariation', 'newVariation')
        OR jsonb_typeof(activity_rules -> 'assessmentQuestionOrderRule') <> 'string'
        OR activity_rules ->> 'assessmentQuestionOrderRule' NOT IN ('authoredOrder', 'shuffled') THEN
@@ -152,6 +153,7 @@ BEGIN
                'attemptLimit', policy.assessment_attempt_limit,
                'lateWorkRule', policy.late_work_rule,
                'activityRules', jsonb_build_object(
+                   'partialCreditEnabled', policy.partial_credit_enabled,
                    'questionVariationRule', CASE policy.question_variation_rule
                        WHEN 'reuse_variation' THEN 'reuseVariation' ELSE 'newVariation' END,
                    'assessmentQuestionOrderRule', CASE policy.assessment_question_order_rule
@@ -251,7 +253,8 @@ BEGIN
         (feedback_rules ->> 'class_statistics')::ple_data.feedback_release,
         p_assessment_type::ple_data.assessment_type,
         (feedback_rules ->> 'hints')::ple_data.feedback_release,
-        (feedback_rules ->> 'worked_solutions')::ple_data.feedback_release
+        (feedback_rules ->> 'worked_solutions')::ple_data.feedback_release,
+        (activity_rules ->> 'partialCreditEnabled')::boolean
     );
 
     INSERT INTO ple_private.assessment_template (
@@ -332,7 +335,8 @@ BEGIN
         (feedback_rules ->> 'class_statistics')::ple_data.feedback_release,
         p_assessment_type::ple_data.assessment_type,
         (feedback_rules ->> 'hints')::ple_data.feedback_release,
-        (feedback_rules ->> 'worked_solutions')::ple_data.feedback_release
+        (feedback_rules ->> 'worked_solutions')::ple_data.feedback_release,
+        (activity_rules ->> 'partialCreditEnabled')::boolean
     );
 
     UPDATE ple_private.assessment_template AS template

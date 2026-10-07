@@ -6,8 +6,8 @@ import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentAttempt } from "../../generated/api/AssessmentAttempt";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
-import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectSearchPage } from "../../generated/api/LibraryObjectSearchPage";
+import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
 import type { LibraryObjectKindResponse } from "../../generated/api/LibraryObjectKindResponse";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
@@ -53,9 +53,9 @@ import type { BlueprintCourseClient } from "./blueprint_course";
 import type { BlueprintChangeProposalClient } from "./blueprint_change_proposal";
 import type { CourseInstanceClient } from "./course_instance";
 import type { LiveCourseRosterClient } from "./course_roster";
+import type { SysadminStudentAccessClient } from "./sysadmin_student_access";
 import type { LiveInvitationExportClient } from "./invitation_export";
 import type { LiveAssessmentReleaseClient } from "./assessment_release";
-import type { AssessmentPoolForkClient } from "./assessment_pool_fork";
 import type { AssessmentStudentTimeAccommodationClient } from "./assessment_student_time_accommodation";
 import type { LiveAssessmentAttemptIssuanceClient } from "./assessment_attempt_issuance";
 import type { StudentAssessmentAttemptHistoryClient } from "./assessment_attempt_history";
@@ -70,21 +70,24 @@ import type { QuestionAvailabilityClient } from "./question_availability";
 import type { QuestionWatchClient } from "./question_watch";
 import type { QuestionStarClient } from "./question_star";
 import type { QuestionPoolDetailClient } from "./question_pool_detail";
+import type { QuestionPoolMembersClient } from "./question_pool_members";
 import type { QuestionPoolCreationClient } from "./question_pool_creation";
+import type { QuestionPoolForkClient } from "./question_pool_fork";
 import type { QuestionPoolStewardshipClient } from "./question_pool_stewardship";
 import type { QuestionForkClient } from "./question_fork";
 import type { AssessmentStudentViewClient } from "./assessment_student_view";
 import type { AssessmentTemplateClient } from "./assessment_template";
 import type { QuestionBulkMetadataClient } from "./question_bulk_metadata";
 import type { QuestionPoolSearchMetadataClient } from "./question_pool_search_metadata";
+import type { QuestionMetadataClient } from "./question_metadata";
 import type { QuestionPoolSupportClient } from "./question_pool_support";
+import type { QuestionPoolMetadataClient } from "./question_pool_metadata";
 import type {
   ContentClassificationClient,
   ContentDisciplineAdministrationClient,
 } from "./content_classification";
 import type { CourseStudentWorkRecoveryClient } from "./course_student_work_recovery";
 import type { LibraryWatchNotificationClient } from "./library_watch_notification";
-import type { BloomClassificationCorrectionClient } from "./bloom_classification";
 import type { EmailCodeClient } from "./email_code";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
@@ -93,9 +96,9 @@ export interface ApiClient
     BlueprintChangeProposalClient,
     CourseInstanceClient,
     LiveCourseRosterClient,
+    SysadminStudentAccessClient,
     LiveInvitationExportClient,
     LiveAssessmentReleaseClient,
-    AssessmentPoolForkClient,
     AssessmentStudentTimeAccommodationClient,
     LiveAssessmentAttemptIssuanceClient,
     StudentAssessmentAttemptHistoryClient,
@@ -111,15 +114,18 @@ export interface ApiClient
     QuestionStarClient,
     QuestionForkClient,
     QuestionPoolDetailClient,
+    QuestionPoolMembersClient,
     QuestionPoolCreationClient,
+    QuestionPoolForkClient,
     QuestionPoolStewardshipClient,
-    BloomClassificationCorrectionClient,
     LibraryWatchNotificationClient,
     AssessmentStudentViewClient,
     AssessmentTemplateClient,
     QuestionBulkMetadataClient,
     QuestionPoolSearchMetadataClient,
+    QuestionMetadataClient,
     QuestionPoolSupportClient,
+    QuestionPoolMetadataClient,
     ContentClassificationClient,
     ContentDisciplineAdministrationClient,
     CourseStudentWorkRecoveryClient,
@@ -166,8 +172,10 @@ export interface ApiClient
   /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
   readonly listQuestions: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
-  /** Searches Question Library metadata with server-computed facets. */
-  readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
+  /** Searches mixed Library Object metadata with server-computed facets. */
+  readonly searchLibraryObjects: (
+    query: LibraryObjectSearchRequest,
+  ) => Promise<LibraryObjectSearchPage>;
   /** Resolves the authorized Library object kind for the shared detail route. */
   readonly getLibraryObjectKind: (publicId: string) => Promise<LibraryObjectKindResponse>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */

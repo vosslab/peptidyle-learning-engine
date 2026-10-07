@@ -1,6 +1,9 @@
 // Strict decoders for the closed Published Question shared-metadata boundary.
 
 import type { PublishedQuestionSharedMetadata } from "../../../generated/api/PublishedQuestionSharedMetadata";
+import type { BloomCognitiveProcess } from "../../../generated/api/BloomCognitiveProcess";
+import type { BloomKnowledgeDimension } from "../../../generated/api/BloomKnowledgeDimension";
+import type { QuestionType } from "../../../generated/api/QuestionType";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type {
   QuestionBulkMetadataUpdateResult,
@@ -15,8 +18,35 @@ import {
   decodeUuid,
 } from "../decoder";
 import { decodeQuestionId, field, requireOnlyFields } from "./shared";
+import { BLOOM_COGNITIVE_PROCESSES, BLOOM_KNOWLEDGE_DIMENSIONS } from "./bloom_classification";
 
 const MAX_SHARED_METADATA_TEXT_CODE_POINTS = 120;
+const QUESTION_TYPES: ReadonlyArray<QuestionType> = [
+  "multipleChoice",
+  "multipleAnswer",
+  "fillInBlank",
+  "multipleFillInBlank",
+  "numeric",
+  "matching",
+  "ordering",
+  "hotspot",
+];
+
+function decodeQuestionType(value: unknown, path: string): QuestionType {
+  if (typeof value === "string" && QUESTION_TYPES.includes(value as QuestionType))
+    return value as QuestionType;
+  throw new DecodeError(path, "a supported Question Type");
+}
+
+function decodeBloomValue<T extends string>(
+  value: unknown,
+  path: string,
+  allowed: ReadonlyArray<T>,
+): T {
+  if (typeof value !== "string" || !allowed.includes(value as T))
+    throw new DecodeError(path, "a supported Bloom value");
+  return value as T;
+}
 function decodeClassificationUuid(value: unknown, path: string): string {
   const uuid = decodeUuid(value, path);
   if (uuid !== uuid.toLowerCase()) throw new DecodeError(path, "a canonical lowercase UUID");
@@ -66,11 +96,16 @@ function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSh
   requireOnlyFields(record, path, [
     "questionId",
     "metadataEditNumber",
+    "questionTitle",
+    "questionDescription",
+    "questionType",
     "tags",
     "disciplineUuid",
     "subjectUuid",
     "topicUuid",
     "subtopicUuid",
+    "bloomCognitiveProcess",
+    "bloomKnowledgeDimension",
   ]);
   return {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
@@ -78,6 +113,17 @@ function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSh
       field(record, "metadataEditNumber", path),
       `${path}.metadataEditNumber`,
     ),
+    questionTitle: decodeSearchText(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+      512,
+    ),
+    questionDescription: decodeSearchText(
+      field(record, "questionDescription", path),
+      `${path}.questionDescription`,
+      4000,
+    ),
+    questionType: decodeQuestionType(field(record, "questionType", path), `${path}.questionType`),
     tags: decodeTags(field(record, "tags", path), `${path}.tags`),
     disciplineUuid: decodeClassificationUuid(
       field(record, "disciplineUuid", path),
@@ -96,6 +142,18 @@ function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSh
       field(record, "subtopicUuid", path),
       `${path}.subtopicUuid`,
       decodeClassificationUuid,
+    ),
+    bloomCognitiveProcess: decodeNullable(
+      field(record, "bloomCognitiveProcess", path),
+      `${path}.bloomCognitiveProcess`,
+      (item, itemPath) =>
+        decodeBloomValue<BloomCognitiveProcess>(item, itemPath, BLOOM_COGNITIVE_PROCESSES),
+    ),
+    bloomKnowledgeDimension: decodeNullable(
+      field(record, "bloomKnowledgeDimension", path),
+      `${path}.bloomKnowledgeDimension`,
+      (item, itemPath) =>
+        decodeBloomValue<BloomKnowledgeDimension>(item, itemPath, BLOOM_KNOWLEDGE_DIMENSIONS),
     ),
   };
 }

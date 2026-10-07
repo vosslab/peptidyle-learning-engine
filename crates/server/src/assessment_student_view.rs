@@ -380,6 +380,7 @@ async fn answer_free_presentation(
     match source {
         InstructorStudentViewSource::Ple {
             published_question_revision_tuple,
+            question_title,
             source_object_id,
             source_object_checksum,
             source_media_type,
@@ -398,7 +399,8 @@ async fn answer_free_presentation(
             )
             .await
             .map_err(|_| ())?;
-            let presentation = PleQuestionBackend::new().preview_question_json(&resolved);
+            let presentation =
+                PleQuestionBackend::new().preview_question_json(&resolved, &question_title);
             let built = question_model::presentation::build_question_presentation(
                 &presentation,
                 &crate::assessment_delivery::question_image_renditions_from_ready(
@@ -462,6 +464,7 @@ async fn answer_free_document(
     match source {
         InstructorStudentViewSource::Ple {
             published_question_revision_tuple,
+            question_title,
             source_object_id,
             source_object_checksum,
             source_media_type,
@@ -483,7 +486,8 @@ async fn answer_free_document(
                 Ok(value) => value,
                 Err(_) => return unavailable(),
             };
-            let presentation = PleQuestionBackend::new().preview_question_json(&resolved);
+            let presentation =
+                PleQuestionBackend::new().preview_question_json(&resolved, &question_title);
             let Some(author_content) = presentation.author_content else {
                 return concealed();
             };

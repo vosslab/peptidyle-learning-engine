@@ -4,9 +4,10 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeLibraryWatchNotifications } from "../src/api/decoders/library_watch_notification.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-const questionId = publishedQuestionFixture.publishedQuestion.questionId;
+const questionId = "7K3M-79QP";
+const questionPoolId = "3S8B-24DZ";
+const forkedPoolId = "2R5X-E7YA";
 
 function noStoreJson(value) {
   return new Response(JSON.stringify(value), {
@@ -14,7 +15,7 @@ function noStoreJson(value) {
   });
 }
 
-test("Library Watch inbox returns every discriminated event shape privately", async () => {
+test("Library Watch inbox decodes Revisions, Pool changes, and forks privately", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -25,46 +26,37 @@ test("Library Watch inbox returns every discriminated event shape privately", as
             targetKind: "question",
             targetPublicId: questionId,
             eventKind: "revision",
-            revisionNumber: 2,
+            questionRevisionNumber: 2,
+            questionPoolEditNumber: null,
             forkedPublicId: null,
-            activityId: null,
             occurredAt: 1_750_000_000_000,
           },
           {
             targetKind: "questionPool",
-            targetPublicId: questionId,
+            targetPublicId: questionPoolId,
             eventKind: "membersChanged",
-            revisionNumber: 5,
+            questionRevisionNumber: null,
+            questionPoolEditNumber: 5,
             forkedPublicId: null,
-            activityId: null,
             occurredAt: 1_750_000_000_004,
           },
           {
             targetKind: "question",
             targetPublicId: questionId,
             eventKind: "fork",
-            revisionNumber: 3,
+            questionRevisionNumber: 3,
+            questionPoolEditNumber: null,
             forkedPublicId: questionId,
-            activityId: null,
             occurredAt: 1_750_000_000_001,
           },
           {
             targetKind: "questionPool",
-            targetPublicId: questionId,
-            eventKind: "impactNotice",
-            revisionNumber: null,
-            forkedPublicId: null,
-            activityId: "00000000-0000-4000-8000-000000000002",
-            occurredAt: 1_750_000_000_003,
-          },
-          {
-            targetKind: "question",
-            targetPublicId: questionId,
-            eventKind: "impactNotice",
-            revisionNumber: 2,
-            forkedPublicId: null,
-            activityId: "00000000-0000-4000-8000-000000000012",
-            occurredAt: 1_750_000_000_006,
+            targetPublicId: questionPoolId,
+            eventKind: "fork",
+            questionRevisionNumber: null,
+            questionPoolEditNumber: 1,
+            forkedPublicId: forkedPoolId,
+            occurredAt: 1_750_000_000_002,
           },
         ],
       });
@@ -78,188 +70,96 @@ test("Library Watch inbox returns every discriminated event shape privately", as
       targetKind: "question",
       targetPublicId: questionId,
       eventKind: "revision",
-      revisionNumber: 2,
+      questionRevisionNumber: 2,
+      questionPoolEditNumber: null,
       forkedPublicId: null,
-      activityId: null,
       occurredAt: 1_750_000_000_000,
     },
     {
       targetKind: "questionPool",
-      targetPublicId: questionId,
+      targetPublicId: questionPoolId,
       eventKind: "membersChanged",
-      revisionNumber: 5,
+      questionRevisionNumber: null,
+      questionPoolEditNumber: 5,
       forkedPublicId: null,
-      activityId: null,
       occurredAt: 1_750_000_000_004,
     },
     {
       targetKind: "question",
       targetPublicId: questionId,
       eventKind: "fork",
-      revisionNumber: 3,
+      questionRevisionNumber: 3,
+      questionPoolEditNumber: null,
       forkedPublicId: questionId,
-      activityId: null,
       occurredAt: 1_750_000_000_001,
     },
     {
       targetKind: "questionPool",
-      targetPublicId: questionId,
-      eventKind: "impactNotice",
-      revisionNumber: null,
-      forkedPublicId: null,
-      activityId: "00000000-0000-4000-8000-000000000002",
-      occurredAt: 1_750_000_000_003,
-    },
-    {
-      targetKind: "question",
-      targetPublicId: questionId,
-      eventKind: "impactNotice",
-      revisionNumber: 2,
-      forkedPublicId: null,
-      activityId: "00000000-0000-4000-8000-000000000012",
-      occurredAt: 1_750_000_000_006,
+      targetPublicId: questionPoolId,
+      eventKind: "fork",
+      questionRevisionNumber: null,
+      questionPoolEditNumber: 1,
+      forkedPublicId: forkedPoolId,
+      occurredAt: 1_750_000_000_002,
     },
   ]);
   assert.deepEqual(
-    notifications
-      .filter((notification) => notification.targetKind === "question")
-      .map((notification) => notification.eventKind),
-    ["revision", "fork", "impactNotice"],
+    notifications.map((notification) => notification.eventKind),
+    ["revision", "membersChanged", "fork", "fork"],
   );
   assert.equal(new URL(requests[0].url).pathname, "/api/library/watch-notifications");
   assert.equal(new URL(requests[0].url).searchParams.get("limit"), "25");
 });
 
-test("Library Watch inbox rejects cross-kind evidence and recipient facts", () => {
+test("Library Watch inbox rejects incomplete evidence and recipient facts", () => {
   const invalidNotification = (patch) => {
     const notification = {
       targetKind: "question",
       targetPublicId: questionId,
       eventKind: "revision",
-      revisionNumber: 3,
+      questionRevisionNumber: 3,
+      questionPoolEditNumber: null,
       forkedPublicId: null,
-      activityId: null,
       occurredAt: 1_750_000_000_000,
     };
     patch(notification);
     return { notifications: [notification] };
   };
 
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.revisionNumber = null;
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.forkedPublicId = questionId;
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.activityId = "00000000-0000-4000-8000-000000000003";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "fork";
-          notification.forkedPublicId = null;
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "fork";
-          notification.forkedPublicId = questionId;
-          notification.activityId = "00000000-0000-4000-8000-000000000003";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "impactNotice";
-          notification.activityId = "00000000-0000-4000-8000-000000000004";
-          notification.forkedPublicId = questionId;
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "impactNotice";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.recipientAccountId = "must-not-be-delivered";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.targetKind = "unrecognized";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "unrecognized";
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.eventKind = "membersChanged";
-          notification.revisionNumber = 5;
-        }),
-      ),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeLibraryWatchNotifications(
-        invalidNotification((notification) => {
-          notification.targetKind = "questionPool";
-          notification.eventKind = "membersChanged";
-          notification.revisionNumber = 5;
-          notification.forkedPublicId = questionId;
-        }),
-      ),
-    DecodeError,
-  );
+  for (const patch of [
+    (notification) => {
+      notification.questionRevisionNumber = null;
+    },
+    (notification) => {
+      notification.forkedPublicId = questionId;
+    },
+    (notification) => {
+      notification.eventKind = "unrecognized";
+    },
+    (notification) => {
+      notification.recipientAccountId = "must-not-be-delivered";
+    },
+    (notification) => {
+      notification.targetKind = "unrecognized";
+    },
+    (notification) => {
+      notification.targetKind = "questionPool";
+    },
+    (notification) => {
+      notification.eventKind = "membersChanged";
+    },
+    (notification) => {
+      notification.eventKind = "fork";
+      notification.forkedPublicId = null;
+    },
+    (notification) => {
+      notification.questionRevisionNumber = null;
+      notification.questionPoolEditNumber = 3;
+    },
+    (notification) => {
+      notification.questionPoolEditNumber = 3;
+    },
+  ]) {
+    assert.throws(() => decodeLibraryWatchNotifications(invalidNotification(patch)), DecodeError);
+  }
 });

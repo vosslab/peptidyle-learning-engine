@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDefaultPleQuestionJsonSource } from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
+import {
+  createDefaultPleQuestionJsonDraft,
+  createDefaultPleQuestionJsonSource,
+} from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
 import {
   addMatchingPair,
   addChoice,
@@ -15,15 +18,11 @@ import {
   setChoiceText,
   setChoiceRandomization,
   setCorrectChoice,
-  setPleQuestionJsonQuestionTitle,
-  setLanguage,
   setMatchingSideText,
   setMatchingPair,
   setPleQuestionJsonResponseKind,
-  setQuestionLicense,
   setQuestionHint,
   setOutcomeFeedback,
-  setTags,
   validatePleQuestionJsonSource,
 } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
 
@@ -37,7 +36,7 @@ test("editor only follows valid load, edit, save, and publish transitions", () =
   const loaded = reducePleQuestionJsonEditor(initial, { kind: "loaded", source: source() });
   assert.equal(loaded.kind, "ready");
   assert.equal(loaded.status, "clean");
-  const edited = setPleQuestionJsonQuestionTitle(source(), "Revised title");
+  const edited = { ...source(), prompt: "Revised prompt" };
   const dirty = reducePleQuestionJsonEditor(loaded, { kind: "edit", source: edited });
   assert.equal(dirty.kind, "ready");
   assert.equal(dirty.status, "dirty");
@@ -71,7 +70,7 @@ test("Question Hint editing remains separate from outcome feedback", () => {
 
 test("a stale image upload keeps the exact local draft and can recover against a new saved baseline", () => {
   const initial = source();
-  const local = setPleQuestionJsonQuestionTitle(initial, "Local dot question");
+  const local = { ...initial, prompt: "Local dot question" };
   const loaded = reducePleQuestionJsonEditor(initialPleQuestionJsonEditorState(), {
     kind: "loaded",
     source: initial,
@@ -80,7 +79,7 @@ test("a stale image upload keeps the exact local draft and can recover against a
   const conflict = reducePleQuestionJsonEditor(dirty, { kind: "assetConflict" });
   assert.equal(conflict.kind, "conflict");
   assert.equal(conflict.localSource, local);
-  const latest = setPleQuestionJsonQuestionTitle(initial, "Other Instructor edit");
+  const latest = { ...initial, prompt: "Other Instructor edit" };
   const reloading = reducePleQuestionJsonEditor(conflict, { kind: "reloadStarted" });
   const recovered = reducePleQuestionJsonEditor(
     reducePleQuestionJsonEditor(reloading, { kind: "reloadSucceeded", source: latest }),
@@ -124,7 +123,7 @@ test("conflict and reload preserve local source while clearing protected preview
       explanation: "Instructor only",
     },
   });
-  const editedSource = setPleQuestionJsonQuestionTitle(source(), "Local only");
+  const editedSource = { ...source(), prompt: "Local only" };
   const dirty = reducePleQuestionJsonEditor(previewed, { kind: "edit", source: editedSource });
   assert.equal(dirty.kind, "ready");
   assert.equal(dirty.instructorPreview, null);
@@ -133,14 +132,14 @@ test("conflict and reload preserve local source while clearing protected preview
     { kind: "saveConflict" },
   );
   assert.equal(conflict.kind, "conflict");
-  assert.equal(conflict.localSource.questionTitle, "Local only");
+  assert.equal(conflict.localSource.prompt, "Local only");
   const reloading = reducePleQuestionJsonEditor(conflict, { kind: "reloadStarted" });
   const reloadFailed = reducePleQuestionJsonEditor(reloading, {
     kind: "reloadFailed",
     message: "Network unavailable",
   });
   assert.equal(reloadFailed.kind, "conflict");
-  assert.equal(reloadFailed.localSource.questionTitle, "Local only");
+  assert.equal(reloadFailed.localSource.prompt, "Local only");
   const reloaded = reducePleQuestionJsonEditor(reloading, {
     kind: "reloadSucceeded",
     source: source(),
@@ -189,27 +188,39 @@ test("single-choice randomization changes presentation intent without changing c
   assert.equal(setChoiceRandomization(randomized.source, true).changed, false);
 });
 
-test("metadata helpers are immutable and validation gives safe author guidance", () => {
-  const base = source();
-  const edited = setLanguage(
-    setQuestionLicense(
-      setTags(setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }), [
-        "biology",
-        "assessment",
-      ]),
-      "CC-BY-4.0",
-    ),
-    "en",
+test("native source edits remain separate from Question record metadata", () => {
+  const draft = createDefaultPleQuestionJsonDraft();
+  assert.deepEqual(draft.metadata, {
+    questionTitle: "",
+    questionDescription: "",
+    tags: [],
+    questionLicense: null,
+    questionCitation: null,
+    language: null,
+  });
+  assert.deepEqual(Object.keys(draft.source), [
+    "format",
+    "prompt",
+    "response",
+    "questionHint",
+    "feedback",
+    "externalResources",
+    "authorScript",
+  ]);
+
+  const editedSource = setQuestionHint(
+    setOutcomeFeedback(draft.source, { correct: "Good", incorrect: "Try again" }),
+    "Use the diagram labels before responding.",
   );
-  assert.equal(base.language, "en-US");
-  assert.deepEqual(edited.tags, ["biology", "assessment"]);
-  assert.equal(validatePleQuestionJsonSource(edited).valid, true);
-  const invalid = setPleQuestionJsonQuestionTitle(edited, " ");
-  const validation = validatePleQuestionJsonSource(invalid);
-  assert.equal(validation.valid, false);
-  assert.equal(validation.issues[0].field, "questionTitle");
-  assert.equal(validation.issues[0].message.includes("Untitled question"), false);
-  assert.equal(validation.issues[0].message.includes("Instructor"), false);
+  assert.deepEqual(editedSource, {
+    ...draft.source,
+    feedback: { correct: "Good", incorrect: "Try again" },
+    questionHint: "Use the diagram labels before responding.",
+  });
+  assert.equal(validatePleQuestionJsonSource(editedSource).valid, true);
+  for (const metadataField of Object.keys(draft.metadata)) {
+    assert.equal(Object.hasOwn(editedSource, metadataField), false);
+  }
 });
 
 test("matching edits preserve semantic identities and prevent duplicate pair choices", () => {

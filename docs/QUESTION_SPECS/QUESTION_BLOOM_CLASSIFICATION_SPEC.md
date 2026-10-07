@@ -36,11 +36,17 @@ the other dimension when it is unchanged. Bloom uses the same editing model as T
 separate classification counter or historical object. AI assignment should preserve an Instructor's
 correction when that deferred feature is implemented.
 
-The existing dedicated Bloom routes, classification counter, and broader editing permissions are
-implementation drift to reconcile in [TODO.md](../TODO.md#question-spec-implementation-follow-up).
-Their presence in code does not define a separate product workflow. The current API requires a
-complete pair in its request; that transport choice does not require an Instructor to supply the
-other dimension before editing an ordinary nullable metadata field.
+Current Bloom editing uses ordinary metadata saves. A Question save carries the exact Revision
+Tuple and metadata Edit Number; the complete metadata replacement includes both Bloom fields, each
+nullable. The Question editor loads their current values before saving, so changing one can leave
+the other unchanged. Pool Bloom fields use the ordinary Pool metadata save. See
+[the Question metadata route](../../crates/server/src/question_metadata.rs),
+[the Question editor](../../src/features/question_metadata/question_metadata_editor.tsx),
+[the Pool editor](../../src/components/question_pool_metadata_editor.tsx), and the
+[Question](../../tests/test_question_metadata_client.mjs) and
+[Pool](../../tests/test_question_pool_metadata_client.mjs) client tests. The client tests include a
+set value with the other dimension NULL. These source paths are implementation evidence; connected
+database and browser acceptance remain pending M29.
 
 ## Search and Assessment use
 

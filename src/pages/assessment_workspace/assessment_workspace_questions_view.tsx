@@ -5,7 +5,7 @@ import { Show, createSignal, type Accessor, type JSX, type Setter } from "solid-
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
-import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
+import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
@@ -20,11 +20,6 @@ import {
 } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { nextQuestionEditDirty } from "./assessment_workspace_questions_model";
-import {
-  type QuestionPickerProps,
-  type QuestionPickerSource,
-  type QuestionPickerSourceRepository,
-} from "../../features/question_picker";
 import {
   AssessmentContentPicker,
   type AssessmentContentPickerSelection,
@@ -63,22 +58,13 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly entryBlooms: Accessor<ReadonlyMap<AssessmentEntryId, BloomClassificationView>>;
   readonly move: (index: number, offset: -1 | 1) => void;
   readonly remove: (index: number) => void;
-  readonly poolForks: Accessor<ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>>;
-  readonly poolForkLoadFailed: Accessor<boolean>;
-  readonly pickerRepository: QuestionPickerSourceRepository;
-  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
-  readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
-  readonly questionRevisionPreviewDocumentUrl: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
-  readonly questionImageUrl: QuestionPickerProps["questionImageUrl"];
+  readonly poolDetails: Accessor<ReadonlyMap<AssessmentEntryId, QuestionPoolView>>;
+  readonly poolDetailLoadFailed: Accessor<boolean>;
   readonly assessmentContentRepository: QuestionLibraryBrowseRepository;
   readonly updatePoolSelectionCount: (
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
     selectionCount: number,
-  ) => Promise<void>;
-  readonly replacePoolMembers: (
-    entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    members: ReadonlyArray<PublishedQuestionRevisionTuple>,
-  ) => Promise<void>;
+  ) => void;
   readonly remainingQuestionCapacity: Accessor<number>;
   readonly addQuestionsById: (value: string) => Promise<boolean>;
   readonly poolImport: Accessor<
@@ -89,11 +75,9 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly setPoolSelectionCount: Setter<string>;
   readonly poolPointsPerItem: Accessor<string>;
   readonly setPoolPointsPerItem: Setter<string>;
-  readonly poolSelectedQuestionOrder: Accessor<"questionPoolOrder" | "randomOrder">;
-  readonly setPoolSelectedQuestionOrder: Setter<"questionPoolOrder" | "randomOrder">;
   readonly poolScoringRule: Accessor<"normal" | "fullCredit" | "extraCredit" | "excluded">;
   readonly setPoolScoringRule: Setter<"normal" | "fullCredit" | "extraCredit" | "excluded">;
-  readonly importPool: () => Promise<void>;
+  readonly addPool: () => void;
 }
 
 type AssessmentQuestionRecord = {
@@ -158,16 +142,10 @@ export function AssessmentWorkspaceQuestionsView(
     entryBlooms,
     move,
     remove,
-    poolForks,
-    poolForkLoadFailed,
-    pickerRepository,
-    pickerSources,
-    loadQuestionInspection,
-    questionRevisionPreviewDocumentUrl,
-    questionImageUrl,
+    poolDetails,
+    poolDetailLoadFailed,
     assessmentContentRepository,
     updatePoolSelectionCount,
-    replacePoolMembers,
     remainingQuestionCapacity,
     addQuestionsById,
     poolImport,
@@ -176,11 +154,9 @@ export function AssessmentWorkspaceQuestionsView(
     setPoolSelectionCount,
     poolPointsPerItem,
     setPoolPointsPerItem,
-    poolSelectedQuestionOrder,
-    setPoolSelectedQuestionOrder,
     poolScoringRule,
     setPoolScoringRule,
-    importPool,
+    addPool,
   } = args;
   const [assessmentContentPickerOpen, setAssessmentContentPickerOpen] = createSignal(false);
   const [questionIdBatch, setQuestionIdBatch] = createSignal("");
@@ -228,14 +204,15 @@ export function AssessmentWorkspaceQuestionsView(
             {(review) => (
               <>
                 <h3>
-                  Review Blueprint Revision {review().sourceBlueprintRevisionTuple.revisionNumber}
+                  Review Blueprint Revision{" "}
+                  {review().sourceBlueprintCourseRevisionTuple.revisionNumber}
                 </h3>
                 <p>
                   Apply replaces this Assessment's title, instructions, reusable settings, and
                   ordered Questions and Question Pools, including local customizations. Dates,
                   release status, and existing Student Work are preserved. New Attempts use the
-                  updated content. For each proposed Library source Question Pool, Apply creates a
-                  replacement Assessment-owned fork from the current source Pool shown below.
+                  updated content. A proposed Blueprint Pool copy is shown below before it becomes
+                  an ordinary reusable Pool reference in this Assessment.
                 </p>
                 <div class="assessment-workspace-grid">
                   <AssessmentBlueprintContentSummary
@@ -346,21 +323,15 @@ export function AssessmentWorkspaceQuestionsView(
               {(poolEntry) => (
                 <AssessmentPoolEntryEditor
                   entry={poolEntry()}
-                  fork={poolForks().get(poolEntry().id)}
-                  exactMembersUnavailable={poolForkLoadFailed()}
-                  pickerRepository={pickerRepository}
-                  pickerSources={pickerSources}
-                  loadQuestionInspection={loadQuestionInspection}
-                  questionRevisionPreviewDocumentUrl={questionRevisionPreviewDocumentUrl}
-                  questionImageUrl={questionImageUrl}
+                  pool={poolDetails().get(poolEntry().id)}
+                  poolUnavailable={poolDetailLoadFailed()}
                   mutationsEnabled={
                     !dirty() && !needsReload() && poolEntry().availability === "available"
                   }
                   busy={busy()}
                   onSelectionCount={(selectionCount) =>
-                    void updatePoolSelectionCount(poolEntry(), selectionCount)
+                    updatePoolSelectionCount(poolEntry(), selectionCount)
                   }
-                  onReplaceMembers={(members) => replacePoolMembers(poolEntry(), members)}
                 />
               )}
             </Show>
@@ -424,8 +395,8 @@ export function AssessmentWorkspaceQuestionsView(
           </button>
         </div>
         <p class="assessment-editor-note">
-          Choose one published Question to add its exact Revision, or a reusable Question Pool to
-          stage its existing import workflow.
+          Choose one published Question to add its exact Revision, or an existing reusable Pool to
+          reference from this Assessment.
         </p>
         <Show when={assessmentContentPickerOpen() && remainingQuestionCapacity() > 0}>
           <AssessmentContentPicker
@@ -441,10 +412,10 @@ export function AssessmentWorkspaceQuestionsView(
         </Show>
       </section>
       <section class="assessment-editor-panel" aria-labelledby="available-pools-heading">
-        <h2 id="available-pools-heading">Import a reusable Question Pool</h2>
+        <h2 id="available-pools-heading">Reference a reusable Question Pool</h2>
         <p class="assessment-editor-note">
-          Importing creates an Assessment-owned fork. It does not change the reusable Question Pool.
-          Later result pages stay available in the picker.
+          This Assessment uses the existing Pool ID. Its own selection count applies here, and its
+          owner and membership remain shared across Assessments.
         </p>
         <Show when={poolImport()}>
           {(selected) => (
@@ -472,20 +443,6 @@ export function AssessmentWorkspaceQuestionsView(
             />
           </label>
           <label class="assessment-editor-field">
-            Selected Question order
-            <select
-              value={poolSelectedQuestionOrder()}
-              onChange={(event) =>
-                setPoolSelectedQuestionOrder(
-                  event.currentTarget.value as "questionPoolOrder" | "randomOrder",
-                )
-              }
-            >
-              <option value="randomOrder">Random order</option>
-              <option value="questionPoolOrder">Question Pool order</option>
-            </select>
-          </label>
-          <label class="assessment-editor-field">
             Scoring
             <select
               value={poolScoringRule()}
@@ -501,12 +458,8 @@ export function AssessmentWorkspaceQuestionsView(
               <option value="excluded">Excluded</option>
             </select>
           </label>
-          <button
-            type="button"
-            disabled={poolImport() === undefined}
-            onClick={() => void importPool()}
-          >
-            Import Question Pool
+          <button type="button" disabled={poolImport() === undefined} onClick={addPool}>
+            Add Pool reference
           </button>
         </fieldset>
       </section>

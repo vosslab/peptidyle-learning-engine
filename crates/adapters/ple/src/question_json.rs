@@ -12,7 +12,7 @@ pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
     PleQuestionJsonRecordedTeachingContent, validate_ple_question_json_shape,
 };
-use question_model::{NativeChoiceOrder, QuestionContentBlock, QuestionMetadata};
+use question_model::{NativeChoiceOrder, QuestionContentBlock};
 use question_model::{QuestionHint, QuestionType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -35,8 +35,7 @@ const MAX_PROMPT_CHARS: usize = 65_536;
 const MAX_CHOICE_TEXT_CHARS: usize = 16_384;
 const MAX_FEEDBACK_CHARS: usize = 16_384;
 const MAX_HINT_CHARS: usize = 16_384;
-const MAX_TAG_CHARS: usize = 128;
-const MAX_METADATA_TEXT_CHARS: usize = 256;
+const MAX_UNIT_CHARS: usize = 256;
 
 /// Answer-bearing authoring document decoded from PLE Question JSON.
 ///
@@ -70,7 +69,6 @@ struct PleQuestionJsonOutcomeFeedback {
 /// Public draft plus separately persisted server-only grading and pre-response teaching content.
 #[derive(Clone)]
 pub struct PleQuestionJsonPresentation {
-    metadata: QuestionMetadata,
     prompt: Vec<QuestionContentBlock>,
     response: question_model::response::QuestionResponseFormat,
     question_type: QuestionType,
@@ -78,14 +76,6 @@ pub struct PleQuestionJsonPresentation {
 }
 
 impl PleQuestionJsonPresentation {
-    /// Returns the browser-safe Question Metadata compiled from this source.
-    pub fn metadata(&self) -> &QuestionMetadata {
-        &self.metadata
-    }
-
-    pub fn question_title(&self) -> &str {
-        &self.metadata.question_title
-    }
     pub fn prompt(&self) -> &[QuestionContentBlock] {
         &self.prompt
     }
@@ -253,10 +243,6 @@ fn validate_optional_hint(value: Option<&str>) -> Result<(), PleQuestionJsonErro
         validate_bounded_text("Question Hint", value, MAX_HINT_CHARS)?;
     }
     Ok(())
-}
-
-fn validate_metadata_text(name: &str, value: &str) -> Result<(), PleQuestionJsonError> {
-    validate_bounded_text(name, value, MAX_METADATA_TEXT_CHARS)
 }
 
 fn validate_bounded_text(

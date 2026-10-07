@@ -39,7 +39,8 @@ $$;
 CREATE FUNCTION ple_private.score_recorded_credit(
     p_normalized_credit numeric,
     p_scoring_rule ple_data.scoring_rule,
-    p_point_value numeric
+    p_point_value numeric,
+    p_partial_credit_enabled boolean DEFAULT true
 ) RETURNS TABLE (points_earned numeric, points_possible numeric)
 LANGUAGE sql IMMUTABLE
 SET search_path = pg_catalog AS $$
@@ -47,12 +48,15 @@ SET search_path = pg_catalog AS $$
                WHEN p_normalized_credit IS NULL THEN 0::numeric
                WHEN p_scoring_rule = 'full_credit' THEN p_point_value
                WHEN p_scoring_rule = 'excluded' THEN 0::numeric
-               ELSE p_point_value * p_normalized_credit
+               WHEN p_partial_credit_enabled THEN p_point_value * p_normalized_credit
+               WHEN p_normalized_credit = 1 THEN p_point_value
+               ELSE 0::numeric
            END,
            p_point_value
      WHERE (p_normalized_credit IS NULL OR p_normalized_credit BETWEEN 0 AND 1)
        AND p_scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')
        AND p_point_value >= 0
+       AND p_partial_credit_enabled IS NOT NULL
 $$;
 
 

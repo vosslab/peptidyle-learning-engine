@@ -10,8 +10,7 @@ use learning_data_access::{
     postgres::{
         Pool, PostgresAccountAppearanceStore, PostgresAccountAvatarGallery,
         PostgresAccountTimeZoneStore, PostgresArchivedStudentWorkRecoveryStore,
-        PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
-        PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
+        PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentTemplateStore,
         PostgresAuthenticationCeremonyStore, PostgresAuthoringDraftStore,
         PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
@@ -22,15 +21,16 @@ use learning_data_access::{
         PostgresCourseRosterStore, PostgresCourseThemeStore, PostgresDraftQuestionImageStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
         PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
-        PostgresLibraryImpactNoticeStore, PostgresLibraryWatchNotificationStore,
-        PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
-        PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
-        PostgresQuestionForkStore, PostgresQuestionImageDeliveryStore,
-        PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
-        PostgresQuestionPoolLibraryStore, PostgresQuestionPoolStewardshipStore,
-        PostgresQuestionPoolSupportStore, PostgresQuestionStarStore, PostgresQuestionWatchStore,
-        PostgresSessionStore, PostgresSupportCapabilityStore, ProductionLoginProfile,
-        local_development_pool, production_pool,
+        PostgresLibraryWatchNotificationStore, PostgresLiveAssessmentDeliveryStore,
+        PostgresLiveAssessmentStore, PostgresLiveStudentCourseLandingStore,
+        PostgresPublicAssetPublicationStore, PostgresQuestionForkStore,
+        PostgresQuestionImageDeliveryStore, PostgresQuestionLibraryStore,
+        PostgresQuestionMetadataStore, PostgresQuestionPoolCreationStore,
+        PostgresQuestionPoolForkStore, PostgresQuestionPoolLibraryStore,
+        PostgresQuestionPoolStewardshipStore, PostgresQuestionPoolSupportStore,
+        PostgresQuestionStarStore, PostgresQuestionWatchStore, PostgresSessionStore,
+        PostgresSysadminStudentDataStore, ProductionLoginProfile, local_development_pool,
+        production_pool,
     },
 };
 use objects::s3::S3ObjectStore;
@@ -79,17 +79,18 @@ pub async fn production_router_from_env() -> Result<Router> {
     let sysadmin_totp = local_sysadmin_totp_store_from_env(pool.clone())?;
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
     let question_bulk_metadata = PostgresBulkPublishedQuestionMetadataStore::new(pool.clone());
-    let question_pool_search_metadata =
+    let question_pool_bulk_metadata =
         PostgresBulkQuestionPoolSearchMetadataStore::new(pool.clone());
+    let question_metadata_store = PostgresQuestionMetadataStore::new(pool.clone());
     let question_pool_support = PostgresQuestionPoolSupportStore::new(pool.clone());
     let content_classification = PostgresContentClassificationStore::new(pool.clone());
     let question_pool_creation = PostgresQuestionPoolCreationStore::new(pool.clone());
+    let question_pool_fork = PostgresQuestionPoolForkStore::new(pool.clone());
     let question_pool_library = PostgresQuestionPoolLibraryStore::new(pool.clone());
     let question_pool_stewardship = PostgresQuestionPoolStewardshipStore::new(pool.clone());
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
     let question_stars = PostgresQuestionStarStore::new(pool.clone());
     let question_watches = PostgresQuestionWatchStore::new(pool.clone());
-    let library_impact_notices = PostgresLibraryImpactNoticeStore::new(pool.clone());
     let library_watch_notifications = PostgresLibraryWatchNotificationStore::new(pool.clone());
     let blueprint_stewardship = PostgresBlueprintStewardshipStore::new(pool.clone());
     let course_themes = PostgresCourseThemeStore::new(pool.clone());
@@ -97,7 +98,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let course_roster = PostgresCourseRosterStore::new(pool.clone());
     let instructor_accounts = PostgresInstructorAccountStore::new(pool.clone());
     let account_avatar_gallery = PostgresAccountAvatarGallery::new(pool.clone());
-    let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
+    let sysadmin_student_data = PostgresSysadminStudentDataStore::new(pool.clone());
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
@@ -105,9 +106,6 @@ pub async fn production_router_from_env() -> Result<Router> {
         PostgresArchivedStudentWorkRecoveryStore::new(pool.clone());
     let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
     let profile_appearance = PostgresAccountAppearanceStore::new(pool.clone());
-    let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
-    let assessment_pool_selection_counts =
-        PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
     let assessment_student_time_accommodations =
         learning_data_access::postgres::PostgresAssessmentStudentTimeAccommodationStore::new(
             pool.clone(),
@@ -123,16 +121,11 @@ pub async fn production_router_from_env() -> Result<Router> {
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
     let question_id_issuer = question_id_issuer();
-    let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
-    let assessments = PostgresLiveAssessmentStore::new(pool.clone())
-        .with_pool_id_issuer(Arc::new(question_id_issuer));
-    let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
-    let course_blueprint_publication = PostgresCourseBlueprintPublicationStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
-    let course_instances = PostgresCourseInstanceStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
+    let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone());
+    let assessments = PostgresLiveAssessmentStore::new(pool.clone());
+    let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
+    let course_blueprint_publication = PostgresCourseBlueprintPublicationStore::new(pool.clone());
+    let course_instances = PostgresCourseInstanceStore::new(pool.clone());
     let browser_boundary = production_browser_boundary_from_env()?;
     let session_config = production_session_config();
     let readiness_router = Router::new()
@@ -197,6 +190,20 @@ pub async fn production_router_from_env() -> Result<Router> {
             question_library_objects.clone(),
             Arc::clone(&webwork_adapter),
         ))
+        .merge(crate::question_metadata::question_metadata_router(
+            Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
+            Arc::new(question_metadata_store),
+        ))
+        .merge(crate::question_bulk_metadata::question_bulk_metadata_router(
+            Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
+            Arc::new(question_bulk_metadata),
+        ))
+        .merge(
+            crate::question_pool_bulk_metadata::question_pool_search_metadata_router(
+                Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
+                Arc::new(question_pool_bulk_metadata),
+            ),
+        )
         .merge(crate::question_pool_library::question_pool_library_router(
             Arc::clone(&sessions),
             question_pool_library,
@@ -207,18 +214,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             crate::question_pool_stewardship::question_pool_stewardship_router(
                 Arc::clone(&sessions),
                 question_pool_stewardship,
-            ),
-        )
-        .merge(
-            crate::question_bulk_metadata::question_bulk_metadata_router(
-                Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
-                Arc::new(question_bulk_metadata),
-            ),
-        )
-        .merge(
-            crate::question_pool_bulk_metadata::question_pool_search_metadata_router(
-                Arc::clone(&sessions) as Arc<dyn learning_data_access::SessionStore>,
-                Arc::new(question_pool_search_metadata),
             ),
         )
         .merge(crate::question_pool_support::question_pool_support_router(
@@ -232,11 +227,24 @@ pub async fn production_router_from_env() -> Result<Router> {
                 question_id_issuer,
             ),
         )
+        .merge(crate::question_pool_creation::question_pool_fork_router(
+            Arc::clone(&sessions),
+            question_pool_fork,
+            question_id_issuer,
+        ))
         .merge(crate::question_fork::question_fork_router(
             Arc::clone(&sessions),
-            question_forks,
+            question_forks.clone(),
             question_library_store.clone(),
             authoring_drafts.clone(),
+            question_library_objects.clone(),
+        ))
+        .merge(crate::question_correction_draft::question_correction_draft_router(
+            Arc::clone(&sessions),
+            question_library_store.clone(),
+            question_forks,
+            authoring_drafts.clone(),
+            draft_question_images.clone(),
             question_library_objects.clone(),
         ))
         .merge(crate::question_stewardship::question_stewardship_router(
@@ -247,22 +255,25 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             question_watches,
         ))
-        .merge(crate::library_discussion::library_impact_notice_router(
-            Arc::clone(&sessions),
-            library_impact_notices,
-        ))
         .merge(
             crate::library_watch_notification::library_watch_notification_router(
                 Arc::clone(&sessions),
                 library_watch_notifications,
             ),
         )
+        .merge(crate::draft_preview::draft_preview_router(
+            Arc::clone(&sessions),
+            authoring_drafts.clone(),
+            question_library_objects.clone(),
+            Arc::clone(&webwork_adapter),
+        ))
         .merge(crate::authoring::authoring_router(
             Arc::clone(&sessions),
             authoring_drafts,
             draft_question_images,
             authoring_publication,
             question_library_objects.clone(),
+            Arc::clone(&webwork_adapter),
             question_id_issuer,
         ))
         .merge(crate::blueprint_course::blueprint_course_router(
@@ -314,7 +325,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         ))
         .merge(crate::support_capability::support_capability_router(
             Arc::clone(&sessions),
-            support_capabilities,
+            sysadmin_student_data,
         ))
         .merge(crate::invitation_export::invitation_export_router(
             Arc::clone(&sessions),
@@ -345,17 +356,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             assessment_templates,
         ))
-        .merge(crate::assessment_pool_fork::assessment_pool_fork_router(
-            Arc::clone(&sessions),
-            assessment_pool_forks,
-            question_id_issuer,
-        ))
-        .merge(
-            crate::assessment_pool_selection_count::assessment_pool_selection_count_router(
-                Arc::clone(&sessions),
-                assessment_pool_selection_counts,
-            ),
-        )
         .merge(crate::assessment_student_time_accommodation::assessment_student_time_accommodation_router(
             Arc::clone(&sessions), assessment_student_time_accommodations,
         ))

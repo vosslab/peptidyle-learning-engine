@@ -13,21 +13,18 @@ use source_compile::{
 use std::collections::HashSet;
 
 use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
-use question_model::question_citation::QuestionCitation;
-use question_model::question_license::QuestionLicense;
 use question_model::response::QuestionType;
-use question_model::{QuestionHint, QuestionImageAssetTuple, QuestionMetadata};
+use question_model::{QuestionHint, QuestionImageAssetTuple};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use author_script::{PleQuestionJsonAuthorScript, compile_author_content, validate_author_script};
 
 use super::{
-    CompiledPleQuestionJson, MAX_PROMPT_CHARS, MAX_TAG_CHARS, PLE_QUESTION_JSON_FORMAT_NAME,
+    CompiledPleQuestionJson, MAX_PROMPT_CHARS, PLE_QUESTION_JSON_FORMAT_NAME,
     PleQuestionJsonChoice, PleQuestionJsonError, PleQuestionJsonOutcomeFeedback,
     PleQuestionJsonPresentation, PleQuestionJsonPrivateGrading, invalid, markdown_blocks,
-    validate_bounded_text, validate_markdown, validate_metadata_text, validate_optional_feedback,
-    validate_optional_hint,
+    validate_markdown, validate_optional_feedback, validate_optional_hint,
 };
 
 const MAX_BLANKS: usize = 50;
@@ -35,25 +32,17 @@ const MAX_TEXT_RESPONSE_CHARS: u32 = 16_384;
 const MAX_EXTERNAL_RESOURCES: usize = 100;
 const MAX_EXTERNAL_RESOURCE_URL_CHARS: usize = 4_096;
 
-/// Common metadata outside a closed, type-specific response object.
+/// Shared content, feedback, and resource declarations outside the response object.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct PleQuestionJsonDocumentBody {
     format: String,
-    question_title: String,
-    question_description: String,
     prompt: String,
     response: PleQuestionJsonResponse,
     #[serde(default)]
     feedback: PleQuestionJsonOutcomeFeedback,
     #[serde(default)]
     question_hint: Option<String>,
-    #[serde(default)]
-    tags: Vec<String>,
-    #[serde(default)]
-    question_license: Option<QuestionLicense>,
-    #[serde(default)]
-    question_citation: Option<QuestionCitation>,
     /// Complete, author-declared inventory of every remote URL used by this
     /// Question. It is source metadata only: this document neither fetches
     /// nor grants a browser permission for a recorded resource.
@@ -64,7 +53,6 @@ pub(super) struct PleQuestionJsonDocumentBody {
     /// receives it only through an isolated author-content runtime.
     #[serde(default)]
     author_script: Option<PleQuestionJsonAuthorScript>,
-    language: String,
 }
 
 /// One remote resource declared by a native Question author.
@@ -144,6 +132,7 @@ enum PleQuestionJsonTextResponseMatchRule {
     Exact,
     CaseInsensitive,
     Normalized,
+    Regex,
 }
 
 impl From<PleQuestionJsonTextResponseMatchRule> for TextResponseMatchRule {
@@ -152,6 +141,7 @@ impl From<PleQuestionJsonTextResponseMatchRule> for TextResponseMatchRule {
             PleQuestionJsonTextResponseMatchRule::Exact => Self::Exact,
             PleQuestionJsonTextResponseMatchRule::CaseInsensitive => Self::CaseInsensitive,
             PleQuestionJsonTextResponseMatchRule::Normalized => Self::Normalized,
+            PleQuestionJsonTextResponseMatchRule::Regex => Self::Regex,
         }
     }
 }
@@ -289,16 +279,12 @@ impl PleQuestionJsonDocumentBody {
     }
 
     pub(super) fn imported_single_choice(
-        question_title: String,
-        question_description: String,
         prompt: String,
         choices: Vec<PleQuestionJsonChoice>,
         correct_choice: String,
     ) -> Self {
         Self {
             format: PLE_QUESTION_JSON_FORMAT_NAME.to_string(),
-            question_title,
-            question_description,
             prompt,
             response: PleQuestionJsonResponse::SingleChoice {
                 choices,
@@ -307,12 +293,8 @@ impl PleQuestionJsonDocumentBody {
             },
             feedback: PleQuestionJsonOutcomeFeedback::default(),
             question_hint: None,
-            tags: Vec::new(),
-            question_license: None,
-            question_citation: None,
             external_resources: Vec::new(),
             author_script: None,
-            language: "en-US".to_string(),
         }
     }
 
@@ -320,21 +302,10 @@ impl PleQuestionJsonDocumentBody {
         if self.format != PLE_QUESTION_JSON_FORMAT_NAME {
             return Err(PleQuestionJsonError::UnsupportedFormat);
         }
-        question_model::validate_question_title(&self.question_title)
-            .map_err(PleQuestionJsonError::InvalidQuestionTitle)?;
-        if let Err(error) =
-            question_model::validate_question_description(&self.question_description)
-        {
-            return invalid(&error.to_string());
-        }
         validate_markdown("prompt", &self.prompt, MAX_PROMPT_CHARS)?;
         validate_optional_feedback(self.feedback.correct.as_deref())?;
         validate_optional_feedback(self.feedback.incorrect.as_deref())?;
         validate_optional_hint(self.question_hint.as_deref())?;
-        validate_metadata_text("language", &self.language)?;
-        for tag in &self.tags {
-            validate_bounded_text("tag", tag, MAX_TAG_CHARS)?;
-        }
         validate_external_resources(&self.external_resources)?;
         validate_author_script(self.author_script.as_ref())?;
         self.validate_response()
@@ -407,19 +378,6 @@ impl PleQuestionJsonDocumentBody {
             .and_then(QuestionHint::new);
         Ok(CompiledPleQuestionJson {
             presentation: PleQuestionJsonPresentation {
-                metadata: QuestionMetadata {
-                    question_title: self.question_title.clone(),
-                    question_description: self.question_description.clone(),
-                    tags: self
-                        .tags
-                        .iter()
-                        .cloned()
-                        .map(question_model::Tag::new)
-                        .collect(),
-                    question_license: self.question_license.clone(),
-                    question_citation: self.question_citation.clone(),
-                    language: self.language.clone(),
-                },
                 prompt,
                 response,
                 question_type,

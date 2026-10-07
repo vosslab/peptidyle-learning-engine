@@ -27,7 +27,7 @@ const dueAt = "2026-10-15T09:00:00.000";
 export interface BlueprintUpdateApplyCall {
   readonly courseInstanceId: string;
   readonly assessmentId: string;
-  readonly expectedSourceBlueprintRevisionTuple: {
+  readonly expectedSourceBlueprintCourseRevisionTuple: {
     readonly blueprintCourseId: string;
     readonly revisionNumber: string;
   };
@@ -51,6 +51,7 @@ function feedback(): LiveAssessmentWorkspace["studentFeedbackReleaseRule"] {
 
 function activity(): LiveAssessmentWorkspace["activityRules"] {
   return {
+    partialCreditEnabled: true,
     questionVariationRule: "newVariation",
     assessmentQuestionOrderRule: "authoredOrder",
   };
@@ -87,7 +88,7 @@ function daughterWorkspace(applied: boolean): LiveAssessmentWorkspace {
     origin: {
       kind: "adopted",
       source: {
-        blueprint_revision_tuple: {
+        blueprint_course_revision_tuple: {
           blueprintCourseId,
           revisionNumber: "1",
         },
@@ -135,7 +136,7 @@ function proposedReview(current: LiveAssessmentWorkspace): AssessmentBlueprintUp
   };
   return {
     assessment: current,
-    sourceBlueprintRevisionTuple: {
+    sourceBlueprintCourseRevisionTuple: {
       blueprintCourseId,
       revisionNumber: "3",
     },
@@ -212,16 +213,16 @@ function daughterCourse(): CourseInstanceView {
     },
     activeInstructorCount: 1,
     blueprintOrigin: {
-      adoptedBlueprintRevisionTuple: { blueprintCourseId, revisionNumber: "1" },
-      currentBlueprintRevisionTuple: { blueprintCourseId, revisionNumber: "3" },
+      adoptedBlueprintCourseRevisionTuple: { blueprintCourseId, revisionNumber: "1" },
+      currentBlueprintCourseRevisionTuple: { blueprintCourseId, revisionNumber: "3" },
     },
   };
 }
 
 function reviewPayload(): CourseBlueprintUpdateReview {
   return {
-    adoptedBlueprintRevisionTuple: { blueprintCourseId, revisionNumber: "1" },
-    currentBlueprintRevisionTuple: { blueprintCourseId, revisionNumber: "3" },
+    adoptedBlueprintCourseRevisionTuple: { blueprintCourseId, revisionNumber: "1" },
+    currentBlueprintCourseRevisionTuple: { blueprintCourseId, revisionNumber: "3" },
     assessments: [
       {
         assessmentId,
@@ -307,14 +308,15 @@ export function mountDaughterBlueprintApply(target: HTMLElement): void {
         loadedCourseId: string,
         loadedAssessmentId: string,
         input: {
-          readonly expectedSourceBlueprintRevisionTuple: BlueprintUpdateApplyCall["expectedSourceBlueprintRevisionTuple"];
+          readonly expectedSourceBlueprintCourseRevisionTuple: BlueprintUpdateApplyCall["expectedSourceBlueprintCourseRevisionTuple"];
           readonly expectedAssessmentEditNumber: string;
         },
       ) => {
         applies.push({
           courseInstanceId: loadedCourseId,
           assessmentId: loadedAssessmentId,
-          expectedSourceBlueprintRevisionTuple: input.expectedSourceBlueprintRevisionTuple,
+          expectedSourceBlueprintCourseRevisionTuple:
+            input.expectedSourceBlueprintCourseRevisionTuple,
           expectedAssessmentEditNumber: input.expectedAssessmentEditNumber,
         });
         applied = true;

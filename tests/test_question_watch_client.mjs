@@ -7,9 +7,8 @@ import { solidPlugin } from "esbuild-plugin-solid";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-const question = publishedQuestionFixture.publishedQuestion;
+const question = { questionId: "7K3M-79QP" };
 
 function noStoreJson(value) {
   return new Response(JSON.stringify(value), {

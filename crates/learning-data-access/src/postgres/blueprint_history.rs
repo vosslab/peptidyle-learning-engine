@@ -81,6 +81,11 @@ fn decode_entry(
             };
             Ok(BlueprintHistoryEntryView::MetadataChange {
                 classification: super::blueprint_course::decode_classification(row)?,
+                theme: row
+                    .try_get::<String, _>("theme_id")
+                    .map_err(map_sqlx_error)?
+                    .parse()
+                    .map_err(|_| invalid())?,
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 availability,

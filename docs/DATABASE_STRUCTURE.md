@@ -27,12 +27,12 @@ failure rollback.
 
 ## Schema boundaries
 
-| Schema | Responsibility |
-| --- | --- |
-| `ple_data` | Shared content, stable lineages, current teaching configuration, and public facts |
-| `ple_private` | Account-private data, opaque backend state, and FERPA-protected Student Work |
-| `ple_audit` | Only deliberately required bounded audit/support evidence |
-| `ple_api` | Narrow authenticated operations and application-safe projections |
+| Schema        | Responsibility                                                                    |
+| ------------- | --------------------------------------------------------------------------------- |
+| `ple_data`    | Shared content, stable lineages, current teaching configuration, and public facts |
+| `ple_private` | Account-private data, opaque backend state, and FERPA-protected Student Work      |
+| `ple_audit`   | Only deliberately required bounded audit/support evidence                         |
+| `ple_api`     | Narrow authenticated operations and application-safe projections                  |
 
 Runtime identities are not schema owners and receive no general DDL or RLS
 bypass. The authenticated Account and exact stored relationship are installed
@@ -98,9 +98,9 @@ unversioned.
 
 Question Pools use stable public identity plus current membership. HG defines membership
 as an unordered set of distinct Questions with exact Revision pins; editor sorting is display-only.
-The current SQL stores member positions and compares ordered arrays when saving. Its uniqueness
-constraint permits each Question ID once per Pool, with one exact Revision pin. Ordered storage
-and save comparison still need alignment before claiming unordered-set behavior is implemented. Saves compare-and-swap the Pool Edit Number. Assessment pool entries pin `question_pool_id` only. Student Work
+The SQL stores no member position and compares membership as a set when saving. Its uniqueness
+constraint permits each Question ID once per Pool, with one exact Revision pin. Save uses
+compare-and-swap on the Pool Edit Number. Assessment pool entries pin `question_pool_id` only. Student Work
 (`question_pool_selection`) stores Pool ID plus the Pool Edit Number at
 issue, and selected items keep exact Question Revision pins so later Pool
 edits do not silently change already-issued work.
@@ -112,11 +112,10 @@ Admission-only Discipline/Subject checks remain; mismatch handling, release bloc
 classification re-checks are pending. See [README.md](QUESTION_SPECS/README.md) and generated
 [SCHEMA_TABLES.md](SCHEMA_TABLES.md) for the product boundary and current SQL.
 
-`question_pool.created_in_transaction` is an internal `xid8` marker with
-default `pg_current_xact_id()`. It replaces a timestamp-based heuristic when
-a protected construction transaction must distinguish newly created Pools
-from prior or concurrent committed rows. It is not a public Pool, Assessment,
-or browser/API field.
+An Assessment Pool entry references the existing Pool ID and stores that
+Assessment's requested selection count. An explicit Pool fork creates an
+ordinary new Pool lineage and records its source in
+`question_pool.source_question_pool_id`.
 
 Frozen Assessment policy lives in content-addressed
 `ple_data.assessment_policy_snapshot`. Frozen Entry facts live in

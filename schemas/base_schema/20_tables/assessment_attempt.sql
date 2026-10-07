@@ -91,13 +91,12 @@ CREATE TABLE ple_private.question_pool_selection (
 CREATE TABLE ple_private.question_pool_selected_item (
     course_instance_id ple_data.course_instance_id NOT NULL,
     question_pool_selection_id uuid NOT NULL,
-    member_position integer NOT NULL CHECK (member_position > 0),
     selection_position integer NOT NULL CHECK (selection_position >= 0),
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     PRIMARY KEY (course_instance_id, question_pool_selection_id, selection_position),
-    UNIQUE (course_instance_id, question_pool_selection_id, member_position),
-    UNIQUE (course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number),
+    UNIQUE (course_instance_id, question_pool_selection_id, published_question_id),
+    UNIQUE (course_instance_id, question_pool_selection_id, published_question_id, revision_number),
     FOREIGN KEY (course_instance_id, question_pool_selection_id)
         REFERENCES ple_private.question_pool_selection(course_instance_id, question_pool_selection_id)
         ON DELETE CASCADE,
@@ -160,7 +159,6 @@ CREATE TABLE ple_private.issued_question (
     question_seed numeric(20, 0) CHECK (question_seed >= 0 AND question_seed <= 18446744073709551615),
     question_statistics_eligibility boolean NOT NULL,
     question_pool_selection_id uuid,
-    question_pool_member_position integer,
     PRIMARY KEY (course_instance_id, issued_question_id),
     UNIQUE (course_instance_id, assessment_attempt_id, issued_position),
     FOREIGN KEY (course_instance_id, assessment_attempt_id)
@@ -171,10 +169,9 @@ CREATE TABLE ple_private.issued_question (
     FOREIGN KEY (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
         REFERENCES ple_private.question_pool_selection(
             course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
-    FOREIGN KEY (course_instance_id, question_pool_selection_id, question_pool_member_position, published_question_id, revision_number)
+    FOREIGN KEY (course_instance_id, question_pool_selection_id, published_question_id, revision_number)
         REFERENCES ple_private.question_pool_selected_item(
-            course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number),
-    CHECK ((question_pool_selection_id IS NULL) = (question_pool_member_position IS NULL)),
+            course_instance_id, question_pool_selection_id, published_question_id, revision_number),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
@@ -405,7 +402,6 @@ COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_attempt_time_li
 COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.issued_question.question_seed IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.issued_question.question_pool_selection_id IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.issued_question.question_pool_member_position IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.delivery_toolchain.renderer_name IS 'NULL means this toolchain has no renderer.';
 COMMENT ON COLUMN ple_private.delivery_toolchain.renderer_version IS 'NULL means this toolchain has no renderer.';
 COMMENT ON COLUMN ple_private.question_attempt.question_seed IS 'NULL means this optional fact is absent.';

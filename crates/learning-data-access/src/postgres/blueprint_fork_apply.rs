@@ -23,7 +23,6 @@ impl PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         input: ApplyBlueprintForkInput,
-        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ApplyBlueprintForkResult, StoreError> {
         let encoded_request = serde_json::to_vec(&input)
             .map_err(|_| StoreError::InvalidRecord("Blueprint fork selection".into()))?;
@@ -156,46 +155,9 @@ impl PostgresBlueprintCourseStore {
                 assessments,
             });
         }
-        let mut content = StoredBlueprintCourseContent { modules };
+        let content = StoredBlueprintCourseContent { modules };
         if content.to_domain()? != applied {
             return Err(invalid());
-        }
-        // Only explicit source copies import fresh Assessment-owned Pools;
-        // untouched target Assessments keep their existing Pool ID and Edit Number.
-        let replay = sqlx::query("SELECT * FROM ple_api.blueprint_pool_write_receipt($1,$2)")
-            .bind(
-                input
-                    .expected_fork_revision_tuple
-                    .blueprint_course_id
-                    .as_string(),
-            )
-            .bind(checksum.into_bytes().to_vec())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?
-            .is_some();
-        if !replay {
-            for module in &mut content.modules {
-                for assessment in &mut module.assessments {
-                    if copied_assessments.contains_key(&assessment.blueprint_assessment_id) {
-                        let mut copied = StoredBlueprintCourseContent {
-                            modules: vec![StoredBlueprintModule {
-                                blueprint_module_id: module.blueprint_module_id,
-                                label: module.label.clone(),
-                                assessments: vec![assessment.clone()],
-                            }],
-                        };
-                        super::blueprint_pools::materialize_imported_pools(
-                            &mut transaction,
-                            &mut copied,
-                            self.pool_id_issuer.as_deref(),
-                            &mut bloom_receipts,
-                        )
-                        .await?;
-                        *assessment = copied.modules.remove(0).assessments.remove(0);
-                    }
-                }
-            }
         }
         let daughters = sqlx::query(
             "SELECT course_instance_id FROM ple_api.list_blueprint_daughter_course_ids($1)",
@@ -223,7 +185,6 @@ impl PostgresBlueprintCourseStore {
                 fork,
                 &content,
                 daughters,
-                &mut bloom_receipts,
             )
             .await?;
         let row = &rows[if input.source_short_name { 0 } else { 1 }];

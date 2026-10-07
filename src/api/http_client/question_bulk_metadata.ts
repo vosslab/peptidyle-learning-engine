@@ -4,10 +4,10 @@ import type { PublishedQuestionId } from "../../../generated/api/PublishedQuesti
 import type { PublishedQuestionSharedMetadata } from "../../../generated/api/PublishedQuestionSharedMetadata";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import {
-  decodeQuestionBulkMetadataCurrent,
   decodeQuestionBulkMetadataResult,
   validateQuestionBulkMetadataRequest,
 } from "../decoders/question_bulk_metadata";
+import { decodeQuestionBulkMetadataCurrent } from "../decoders/question_bulk_metadata";
 import { decodeQuestionId } from "../decoders/shared";
 import type { QuestionBulkMetadataClient } from "../question_bulk_metadata";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -49,7 +49,7 @@ export function createQuestionBulkMetadataClient(
   basePath: string,
 ): QuestionBulkMetadataClient {
   return {
-    getCurrentQuestionBulkMetadata: async (
+    getCurrentQuestionSharedMetadata: async (
       questionIds,
     ): Promise<ReadonlyArray<PublishedQuestionSharedMetadata>> => {
       if (
@@ -58,7 +58,7 @@ export function createQuestionBulkMetadataClient(
         new Set(questionIds).size !== questionIds.length
       ) {
         throw new ApiProtocolError(
-          "Bulk metadata read needs a bounded distinct Question selection",
+          "Shared metadata read needs a bounded distinct Question selection",
         );
       }
       const canonicalIds = questionIds.map((questionId, index) =>

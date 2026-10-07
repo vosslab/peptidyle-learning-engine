@@ -4,10 +4,6 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeApplyAssessmentBlueprintUpdateInput } from "../src/api/decoders/assessment_blueprint_update.ts";
 import { decodeLiveAssessmentAccess } from "../src/api/decoders/assessment_attempt_issuance.ts";
-import {
-  decodeAssessmentQuestionPoolSelectionCountReceipt,
-  decodeImportedAssessmentQuestionPoolFork,
-} from "../src/api/decoders/assessment_pool_fork.ts";
 import { decodeDueSoonAssessments } from "../src/api/decoders/assessment_release.ts";
 import { decodeInstructorStudentView } from "../src/api/decoders/assessment_student_view.ts";
 import { decodeAssessmentTemplate } from "../src/api/decoders/assessment_template.ts";
@@ -146,30 +142,6 @@ test("Recovered Question requires a Question Revision Tuple and rejects split si
   );
 });
 
-test("Pool fork and selection-count receipts reject leftover entry identities", () => {
-  const imported = {
-    assessmentEntryId: ENTRY,
-    questionPoolId: QUESTION_TUPLE.publishedQuestionId,
-    questionPoolEditNumber: 1,
-    assessmentEditNumber: "2",
-  };
-  assert.equal(decodeImportedAssessmentQuestionPoolFork(imported).assessmentEntryId, ENTRY);
-  assert.throws(
-    () => decodeImportedAssessmentQuestionPoolFork({ ...imported, entry: ENTRY }),
-    DecodeError,
-  );
-  const receipt = {
-    assessmentEntryId: ENTRY,
-    selectionCount: 1,
-    assessmentEditNumber: "2",
-  };
-  assert.equal(decodeAssessmentQuestionPoolSelectionCountReceipt(receipt).assessmentEntryId, ENTRY);
-  assert.throws(
-    () => decodeAssessmentQuestionPoolSelectionCountReceipt({ ...receipt, entry: ENTRY }),
-    DecodeError,
-  );
-});
-
 test("Attempt issuance rejects leftover attempt identity names", () => {
   assert.throws(
     () =>
@@ -241,6 +213,7 @@ test("Student View, Template, Pool Preview, accommodation, and availability reje
       attemptLimit: 1,
       lateWorkRule: "reject",
       activityRules: {
+        partialCreditEnabled: true,
         questionVariationRule: "reuseVariation",
         assessmentQuestionOrderRule: "authoredOrder",
       },
@@ -265,7 +238,6 @@ test("Student View, Template, Pool Preview, accommodation, and availability reje
     assessmentEntryId: ENTRY,
     questionPoolLabel: "Pool 3",
     selectionCount: 1,
-    selectionRule: { selectedQuestionOrder: "randomOrder" },
     items: [
       { questionId: QUESTION_TUPLE.publishedQuestionId, questionTitle: "Question Pool Item" },
     ],
@@ -275,6 +247,14 @@ test("Student View, Template, Pool Preview, accommodation, and availability reje
   };
   assert.equal(decodeQuestionPoolPreview(preview).assessmentEditNumber, "3");
   assert.throws(() => decodeQuestionPoolPreview({ ...preview, editNumber: "3" }), DecodeError);
+  assert.throws(
+    () =>
+      decodeQuestionPoolPreview({
+        ...preview,
+        selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
+      }),
+    DecodeError,
+  );
 
   const accommodation = {
     rosterId: "bio-301",
@@ -323,6 +303,7 @@ test("Assessment Summary, Gradebook, and Due Soon reject leftover courseId", () 
       worked_solutions: "never",
     },
     policies: {
+      partialCreditEnabled: true,
       questionVariationRule: "newVariation",
       assessmentQuestionOrderRule: "shuffled",
     },
@@ -481,11 +462,11 @@ test("Blueprint update apply rejects leftover expectedEditNumber", () => {
   );
   assert.deepEqual(
     decodeApplyAssessmentBlueprintUpdateInput({
-      expectedSourceBlueprintRevisionTuple: BLUEPRINT_TUPLE,
+      expectedSourceBlueprintCourseRevisionTuple: BLUEPRINT_TUPLE,
       expectedAssessmentEditNumber: "3",
     }),
     {
-      expectedSourceBlueprintRevisionTuple: BLUEPRINT_TUPLE,
+      expectedSourceBlueprintCourseRevisionTuple: BLUEPRINT_TUPLE,
       expectedAssessmentEditNumber: "3",
     },
   );

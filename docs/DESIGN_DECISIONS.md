@@ -359,48 +359,46 @@ lineage with immutable Question Revisions.
 **Why.** Private authoring and public reuse have different access, storage, and
 evidence needs.
 
-**Consequence.** Manual C351 Draft deletion and publication remain the only
-approved Draft-removal transitions. Automated abandoned-Draft cleanup is not a
-current feature: Human Guidance permits it but does not set its clock,
-durations, warning, recovery, reset, cancellation, or delivery-failure policy.
-No placeholder warning/recovery table, API, grant, Store, worker, generated
-seam, or test seam may remain before that product design is approved. The
-unresolved question is: **Should PLE automate cleanup of abandoned Draft
-Questions? If yes, what event starts inactivity; how long until warning; how
-long is the recovery period after a successfully delivered warning; which
-save/edit/publication/ownership events reset or cancel it; and what is the
-outcome when warning delivery fails?** Metadata edits that do not change
-Question source do not create Revisions. A substantive fork creates a new
-Question ID with attribution.
+**Consequence.** Manual Draft deletion and publication remain the current
+Draft-removal transitions. Human Guidance requires an appropriate warning and recovery period
+before cleanup. Automated expired-Draft cleanup remains deferred; no expiration period, duration,
+or cleanup schedule is set. Metadata edits that do not
+change Question source do not create Revisions. A substantive fork creates a
+new Question ID with attribution.
 
 ### Published Question forks create a new private Draft through one server command
 
-**Decision.** A fork begins from one exact Published Question Revision and creates one distinct,
-private Draft Question owned by the active Instructor who invoked it. The server resolves the
-selected source, obtains the new Question ID from the server-side cryptographically random
-allocator with its public SHA-256 checksum, and writes the Draft, ownership, exact source
-Revision, and immutable attribution in one transaction. The fork starts with the source Question's
-license, with no license choice during forking. Later publication preserves source attribution under
-[QUESTION_FORK_SPEC.md](QUESTION_SPECS/QUESTION_FORK_SPEC.md). The client
-submits no new Question ID, source facts, authorship, Draft content, or attribution payload. It
-may carry an opaque idempotency key; that key is bound to the active Instructor and exact source
-Revision so a retry returns the same Draft and a key reuse for another source is refused.
+**Decision.** A fork starts from one exact Published Question Revision and creates an ordinary
+private Draft Question with a new Question ID, its Instructor owner, and Revision 1 on publication.
+The ordinary Draft and Published Question records carry the exact immediate parent ID and Revision.
+Draft creation copies the source license, authors, metadata (including nullable Bloom fields), and
+content into the Draft. It offers no license choice and stores no second copy of the source as fork
+history. A fork of a fork points to the immediate parent Question Revision. Parent history stays
+with the parent Question.
 
-**Why.** A lineage row alone cannot create usable private authoring state, and client-selected
-identity or attribution would make provenance and collision handling untrustworthy.
+The server resolves the selected source, reserves the fork's new public Question ID, and writes the
+Draft, ownership, copied state, parent tuple, and ordinary creation receipt in one transaction. The
+private Draft has its own Draft identity. Publication uses the reserved ID and creates its Revision
+1. The receipt binds the active Instructor, request key, request fingerprint, and Draft. Retrying
+the same request returns the same Draft; reusing the key for different request content is refused.
+The receipt follows the ordinary Draft lifecycle and is removed with Draft deletion or publication.
+There is no replay workflow after publication.
 
-**Consequence.** `question_lineages.sql` supplies only the immutable Published-Revision source
-read/pin. The later-installed authoring operation owns Draft creation, access, and immutable
-fork-source storage; it cannot be placed in the earlier lineage install phase. The typed Store and
-server command authorize the active Instructor, resolve the source server-side, mint the ID, and
-perform the atomic operation. The Instructor UI exposes that command and opens only the returned
-private Draft. Publication continues through existing Question Publication Validation; a fork
-never enters the Question Library directly. The operation records no generic recovery state or
-compatibility path.
+**Why.** Draft and Published Question rows already own editable and published Question state.
+Parentage adds one relationship to those records; it does not need a fork-specific lifecycle or
+parallel source-history model. Copying the source at Draft creation lets later Draft edits remain
+independent and lets publication use the locked Draft values even if the parent later changes.
 
-**Owner.** [CONTRACTS.md](CONTRACTS.md)'s Question lineage and revision boundary;
-C319 and C876-C879 implement it in the active
-[Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md).
+**Consequence.** The fork operation reads and locks the selected source Revision, then copies its
+current values into ordinary Draft metadata, authorship, and source binding. The reservation
+registry holds the new public ID while the Draft is private. Publication reuses that ID, copies the
+locked Draft values to Revision 1, and persists the Draft's parent tuple on the new Published
+Question. The normal Question Watch event is created once when that Published Question is inserted.
+Ordinary Draft and Library readers expose the nullable parent tuple. The archived exact-source read
+path remains available; it does not become fork-history storage.
+
+**Owner.** [CONTRACTS.md](CONTRACTS.md)'s Question lineage and revision boundary and
+[QUESTION_FORK_SPEC.md](QUESTION_SPECS/QUESTION_FORK_SPEC.md).
 
 ### Bulk metadata editing is an all-or-none current-state command
 
@@ -1844,9 +1842,12 @@ Unrelease audit counts finalized `assessment_attempt_saved_response` rows as
 ### Saving changes to Question Pools
 
 **Decision.** Pools are not a Revision family. A Pool contains an unordered set of Question
-Revision Tuples for distinct Published Questions. Those Questions share one Type, Backend, Discipline,
-and Subject. Each Pool owns its search metadata and has an owner rather than an Author field;
-its compatible license is calculated from member licenses. NC and ND content remain deferred.
+Revision Tuples. A Question Pool can contain a Question ID only once. The Question Pool also has its
+own properties, defined separately from the properties of the Published Questions it contains.
+Those Questions share one Type, Backend, Discipline, and Subject. Each Pool owns its search metadata
+and has an owner rather than an Author field;
+its compatible license is calculated from member licenses. Initial release supports CC0, CC BY,
+and CC BY-SA; NC and ND Questions are excluded and may be reconsidered after release.
 Members live in `question_pool_member`; saves compare-and-swap the Pool Edit Number.
 Spreadsheet-style sorting changes only the editor display.
 
@@ -1956,6 +1957,8 @@ license evidence.
 ### Library usage statistics are retained counters, not reconstructions
 
 **Decision.** Keep Question statistics separately per Published Question Revision and per Pool.
+Pool statistics accumulate from Questions delivered through that Pool, including across changes
+to its set of Question Revision Tuples.
 Show times received by Students, graded-response count, average stored credit, full-credit
 percentage, and zero-credit percentage. Use the Backend's stored credit fraction. The agreed
 measures are specified in [QUESTION_LIBRARY_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SPEC.md#usage-statistics).
@@ -2018,6 +2021,27 @@ an uncovered unlisted surface. `--verify` regenerates the manifest in
 memory from the live replay and fails when the committed file differs.
 
 **Owner.** [HOW_TO_SCREENSHOT.md](HOW_TO_SCREENSHOT.md).
+
+### PLE accepts converter-generated Native JSON directly
+
+**Decision.** PLE accepts Native JSON directly from qti-package-maker-rs, with no intermediate
+Question format. The existing Native JSON specification owns the unversioned format; Question
+metadata stays separate. Imported image assets use existing PLE image storage and accompany the
+text-only JSON rather than a ZIP package.
+
+**Why.** Neil selected the direct Native JSON handoff and existing asset storage.
+
+**Consequence.** Use the ordinary Draft image upload and metadata paths. Converter and Draft
+integrations remain separate implementation work in [TODO.md](TODO.md#future-product-capabilities).
+Native JSON display-content strings carry HTML with inline CSS, including ordinary `img src`
+references resolved through the existing image tuple and asset storage. This does not change the
+source shape, asset identity, or author-JavaScript isolation rules; sanitization remains deferred.
+The converter supplies Native JSON and referenced files using content-relative paths; PLE resolves
+those paths and owns Question Image Asset IDs, checksums, and storage identities.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#draft-question-specifications),
+[NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md), and
+[QTI_INTERCHANGE_SPEC.md](QUESTION_SPECS/QTI_INTERCHANGE_SPEC.md).
 
 ### Question Image, QTI package, and Object are different roles
 

@@ -19,6 +19,7 @@ function template(assessmentType, attemptLimit) {
       attemptLimit,
       lateWorkRule: "reject",
       activityRules: {
+        partialCreditEnabled: true,
         questionVariationRule: "newVariation",
         assessmentQuestionOrderRule: "shuffled",
       },
@@ -53,6 +54,12 @@ test("regular Template unlimited Attempts remain unlimited without completion ga
 
   assert.equal(assessmentTypeHasOneAttempt("regular_assignment"), false);
   assert.equal(settings?.attemptLimit, null);
+  assert.equal(settings?.activityRules.partialCreditEnabled, true);
+  assert.equal(
+    assessmentTemplateSettings({ ...draft, partialCreditEnabled: false }).settings?.activityRules
+      .partialCreditEnabled,
+    false,
+  );
 });
 
 test("Template duration saves exact whole minutes and rejects fractional-minute drafts", () => {

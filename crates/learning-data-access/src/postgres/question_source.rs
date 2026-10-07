@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{ObjectId, Timestamp};
+use question_model::{ObjectId, PublishedQuestionId, Timestamp};
 use serde::Serialize;
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
@@ -66,6 +66,18 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
             )
         })?;
         let created_at_millis: i64 = row.try_get("created_at_millis").map_err(map_sqlx_error)?;
+        let reserved_published_question_id: Option<String> = row
+            .try_get("reserved_published_question_id")
+            .map_err(map_sqlx_error)?;
+        let reserved_published_question_id = reserved_published_question_id
+            .map(|value| {
+                value.parse::<PublishedQuestionId>().map_err(|_| {
+                    StoreError::InvalidRecord(
+                        "Draft Question reserved public ID is invalid".to_string(),
+                    )
+                })
+            })
+            .transpose()?;
         let source_record = ObjectRecord {
             id: object_id,
             storage_area: ObjectStorageArea::PrivateContent,
@@ -77,7 +89,10 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
             published_question_revision_tuple: None,
             created_at: Timestamp::from_unix_millis(created_at_millis),
         };
-        Ok(DraftQuestionPublicationSource { source_record })
+        Ok(DraftQuestionPublicationSource {
+            source_record,
+            reserved_published_question_id,
+        })
     }
 }
 

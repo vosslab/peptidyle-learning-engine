@@ -52,9 +52,9 @@ struct NotificationResponse {
     target_kind: TargetKindResponse,
     target_public_id: String,
     event_kind: EventKindResponse,
-    revision_number: Option<u64>,
+    question_revision_number: Option<u32>,
+    question_pool_edit_number: Option<u64>,
     forked_public_id: Option<String>,
-    activity_id: Option<String>,
     occurred_at: i64,
 }
 
@@ -71,7 +71,6 @@ enum EventKindResponse {
     Revision,
     MembersChanged,
     Fork,
-    ImpactNotice,
 }
 
 impl From<LibraryWatchTargetKind> for TargetKindResponse {
@@ -85,45 +84,50 @@ impl From<LibraryWatchTargetKind> for TargetKindResponse {
 
 impl From<LibraryWatchNotification> for NotificationResponse {
     fn from(value: LibraryWatchNotification) -> Self {
-        let (event_kind, revision_number, forked_public_id, activity_id) = match value.activity {
-            LibraryWatchActivity::Revision { revision_number } => (
-                EventKindResponse::Revision,
-                Some(revision_number),
-                None,
-                None,
-            ),
-            LibraryWatchActivity::MembersChanged { edit_number } => (
-                EventKindResponse::MembersChanged,
-                Some(edit_number),
-                None,
-                None,
-            ),
-            LibraryWatchActivity::Fork {
-                source_revision_number,
-                forked_public_id,
-            } => (
-                EventKindResponse::Fork,
-                Some(source_revision_number),
-                Some(forked_public_id.to_string()),
-                None,
-            ),
-            LibraryWatchActivity::ImpactNotice {
-                affected_revision_number,
-                impact_notice_id,
-            } => (
-                EventKindResponse::ImpactNotice,
-                affected_revision_number,
-                None,
-                Some(impact_notice_id.to_string()),
-            ),
-        };
+        let (event_kind, question_revision_number, question_pool_edit_number, forked_public_id) =
+            match value.activity {
+                LibraryWatchActivity::Revision {
+                    question_revision_number,
+                } => (
+                    EventKindResponse::Revision,
+                    Some(question_revision_number.get()),
+                    None,
+                    None,
+                ),
+                LibraryWatchActivity::MembersChanged {
+                    question_pool_edit_number,
+                } => (
+                    EventKindResponse::MembersChanged,
+                    None,
+                    Some(question_pool_edit_number.get()),
+                    None,
+                ),
+                LibraryWatchActivity::QuestionFork {
+                    source_question_revision_number,
+                    forked_public_id,
+                } => (
+                    EventKindResponse::Fork,
+                    Some(source_question_revision_number.get()),
+                    None,
+                    Some(forked_public_id.to_string()),
+                ),
+                LibraryWatchActivity::QuestionPoolFork {
+                    source_question_pool_edit_number,
+                    forked_public_id,
+                } => (
+                    EventKindResponse::Fork,
+                    None,
+                    Some(source_question_pool_edit_number.get()),
+                    Some(forked_public_id.to_string()),
+                ),
+            };
         Self {
             target_kind: value.target_kind.into(),
             target_public_id: value.target_public_id.to_string(),
             event_kind,
-            revision_number,
+            question_revision_number,
+            question_pool_edit_number,
             forked_public_id,
-            activity_id,
             occurred_at: value.occurred_at.as_unix_millis(),
         }
     }
@@ -309,73 +313,88 @@ mod tests {
     }
 
     fn notification(activity: LibraryWatchActivity) -> LibraryWatchNotification {
-        let question_id = question_model::PublishedQuestionId::from_random_identifier("0000000")
-            .expect("Question ID");
-        let target_kind = if matches!(activity, LibraryWatchActivity::MembersChanged { .. }) {
+        let public_id = question_model::LibraryObjectId::from_random_identifier("0000000")
+            .expect("Library Object ID");
+        let target_kind = if matches!(
+            activity,
+            LibraryWatchActivity::MembersChanged { .. }
+                | LibraryWatchActivity::QuestionPoolFork { .. }
+        ) {
             LibraryWatchTargetKind::QuestionPool
         } else {
             LibraryWatchTargetKind::Question
         };
         LibraryWatchNotification {
             target_kind,
-            target_public_id: question_id,
+            target_public_id: public_id,
             activity,
             occurred_at: question_model::Timestamp::from_unix_millis(1),
         }
     }
 
     #[test]
-    fn every_watch_activity_serializes_to_the_stable_wire_shape() {
-        let forked_id = question_model::PublishedQuestionId::from_random_identifier("0000001")
-            .expect("Question ID");
-        let notice_id = uuid::Uuid::from_u128(2);
+    fn every_watch_activity_serializes_target_specific_number_fields() {
+        let forked_id = question_model::LibraryObjectId::from_random_identifier("0000001")
+            .expect("Library Object ID");
         let cases = [
             (
-                LibraryWatchActivity::Revision { revision_number: 2 },
+                LibraryWatchActivity::Revision {
+                    question_revision_number: question_model::QuestionRevisionNumber::new(2)
+                        .expect("revision"),
+                },
                 "revision",
-                Some(2),
-                None,
+                "question",
+                json!(2),
+                Value::Null,
                 None,
             ),
             (
-                LibraryWatchActivity::MembersChanged { edit_number: 5 },
+                LibraryWatchActivity::MembersChanged {
+                    question_pool_edit_number: question_model::QuestionPoolEditNumber::new(5)
+                        .expect("Pool Edit Number"),
+                },
                 "membersChanged",
-                Some(5),
-                None,
+                "questionPool",
+                Value::Null,
+                json!(5),
                 None,
             ),
             (
-                LibraryWatchActivity::Fork {
-                    source_revision_number: 3,
+                LibraryWatchActivity::QuestionFork {
+                    source_question_revision_number: question_model::QuestionRevisionNumber::new(3)
+                        .expect("revision"),
                     forked_public_id: forked_id.clone(),
                 },
                 "fork",
-                Some(3),
+                "question",
+                json!(3),
+                Value::Null,
                 Some(forked_id.to_string()),
-                None,
             ),
             (
-                LibraryWatchActivity::ImpactNotice {
-                    affected_revision_number: None,
-                    impact_notice_id: notice_id,
+                LibraryWatchActivity::QuestionPoolFork {
+                    source_question_pool_edit_number: question_model::QuestionPoolEditNumber::new(
+                        7,
+                    )
+                    .expect("Pool Edit Number"),
+                    forked_public_id: forked_id.clone(),
                 },
-                "impactNotice",
-                None,
-                None,
-                Some(notice_id.to_string()),
+                "fork",
+                "questionPool",
+                Value::Null,
+                json!(7),
+                Some(forked_id.to_string()),
             ),
         ];
 
-        for (activity, event_kind, revision, forked, activity_id) in cases {
+        for (activity, event_kind, target_kind, question_revision, pool_edit, forked) in cases {
             let response = serde_json::to_value(NotificationResponse::from(notification(activity)))
                 .expect("Watch response serializes");
             assert_eq!(response["eventKind"], event_kind);
-            if event_kind == "membersChanged" {
-                assert_eq!(response["targetKind"], "questionPool");
-            }
-            assert_eq!(response["revisionNumber"], option_number(revision));
+            assert_eq!(response["targetKind"], target_kind);
+            assert_eq!(response["questionRevisionNumber"], question_revision);
+            assert_eq!(response["questionPoolEditNumber"], pool_edit);
             assert_eq!(response["forkedPublicId"], option_string(forked));
-            assert_eq!(response["activityId"], option_string(activity_id));
             assert_eq!(
                 response
                     .as_object()
@@ -384,11 +403,11 @@ mod tests {
                     .map(String::as_str)
                     .collect::<std::collections::BTreeSet<_>>(),
                 [
-                    "activityId",
                     "eventKind",
                     "forkedPublicId",
                     "occurredAt",
-                    "revisionNumber",
+                    "questionPoolEditNumber",
+                    "questionRevisionNumber",
                     "targetKind",
                     "targetPublicId",
                 ]
@@ -398,27 +417,31 @@ mod tests {
         }
     }
 
-    fn option_number(value: Option<u64>) -> Value {
-        value.map_or(Value::Null, |number| json!(number))
-    }
-
     fn option_string(value: Option<String>) -> Value {
         value.map_or(Value::Null, Value::String)
     }
 
     #[test]
-    fn notification_response_uses_canonical_display_question_ids() {
-        let question_id = question_model::PublishedQuestionId::from_random_identifier("0000000")
-            .expect("Question ID");
-        let response = serde_json::to_value(NotificationResponse::from(notification(
-            LibraryWatchActivity::Fork {
-                source_revision_number: 3,
-                forked_public_id: question_id.clone(),
+    fn notification_response_serializes_a_pool_fork_with_library_object_ids() {
+        let source_pool_id = question_model::LibraryObjectId::from_random_identifier("0000000")
+            .expect("source Pool ID");
+        let forked_pool_id = question_model::LibraryObjectId::from_random_identifier("0000001")
+            .expect("forked Pool ID");
+        let response = serde_json::to_value(NotificationResponse::from(LibraryWatchNotification {
+            target_kind: LibraryWatchTargetKind::QuestionPool,
+            target_public_id: source_pool_id.clone(),
+            activity: LibraryWatchActivity::QuestionPoolFork {
+                source_question_pool_edit_number: question_model::QuestionPoolEditNumber::new(3)
+                    .expect("Pool Edit Number"),
+                forked_public_id: forked_pool_id.clone(),
             },
-        )))
+            occurred_at: question_model::Timestamp::from_unix_millis(1),
+        }))
         .expect("Watch response serializes");
 
-        assert_eq!(response["forkedPublicId"], question_id.to_string());
+        assert_eq!(response["targetKind"], "questionPool");
+        assert_eq!(response["targetPublicId"], source_pool_id.to_string());
+        assert_eq!(response["forkedPublicId"], forked_pool_id.to_string());
     }
 
     #[test]

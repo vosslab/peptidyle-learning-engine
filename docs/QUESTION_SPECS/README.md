@@ -79,6 +79,7 @@ and Student Work evidence. Published Question forks remain in
 | [QUESTION_IMPORT_SPEC.md](QUESTION_IMPORT_SPEC.md) | Import workflow, Drafts, publication, generated PLE identities, source mapping, readback, and current implementation evidence |
 | [QUESTION_EXPORT_SPEC.md](QUESTION_EXPORT_SPEC.md) | Eligible content, format choices, attribution, loss |
 | [QTI_INTERCHANGE_SPEC.md](QTI_INTERCHANGE_SPEC.md) | Format mapping and reuse of Rust QTI Package Maker |
+| [NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md) | Concrete qti-package-maker-rs writer handoff against existing Native JSON and asset contracts |
 
 [BIOLOGY_PROBLEMS_SPECS/README.md](../BIOLOGY_PROBLEMS_SPECS/README.md) owns source inventory and
 base Course mappings. [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](../BLUEPRINT_COURSE_IMPORT_API_SPEC.md)
@@ -103,8 +104,10 @@ it matters rather than silently completing missing product rules. The earlier
 [HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](../active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
 retains the reasons and strength of decisions already made.
 
-Explicit deferrals remain in force: Instructor bulk editing, optional feedback timing, regrading after Native JSON answer
-changes, initial AI/Bloom assignment, NC/ND support, later Backends, and undefined Sysadmin work.
+Explicit deferrals remain in force: Instructor bulk editing, optional feedback timing, evaluating
+previously submitted Native JSON responses again after an answer-key or grading-rule correction,
+initial AI/Bloom assignment, future reconsideration of NC/ND Questions, later Backends, and
+undefined Sysadmin work.
 Missing code for settled behavior belongs in the implementation gap report, not the decision queue.
 These files specify intended behavior and concrete contracts; passing documentation checks does
 not establish runtime compliance. Coverage, contradictions corrected, and verification are in

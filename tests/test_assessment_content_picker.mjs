@@ -2,6 +2,33 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assessmentContentPickerSelection } from "../src/features/assessment_content_picker/assessment_content_picker_model.ts";
+import {
+  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+} from "../src/pages/library_page_model.ts";
+import { questionLibrarySearchDefinition } from "../src/pages/question_library_search_definition.ts";
+
+test("Assessment content picker starts from the shared mixed Library search definition", async () => {
+  let request;
+  const definition = questionLibrarySearchDefinition({
+    async search(query, cursor, pageSize) {
+      request = { query, cursor, pageSize };
+      return {
+        items: [],
+        nextCursor: null,
+        aggregates: [],
+        facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+      };
+    },
+  });
+  assert.equal(definition.initialQuery.kind, "both");
+  assert.equal(definition.initialQuery.questions, "inNoPool");
+  await definition.fetchPage(definition.initialQuery, null, 50);
+  assert.equal(request.query.kind, "both");
+  assert.equal(request.query.questions, "inNoPool");
+  assert.equal(request.cursor, null);
+  assert.equal(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.kind, "both");
+});
 
 function question(id, revisionNumber, title) {
   return {

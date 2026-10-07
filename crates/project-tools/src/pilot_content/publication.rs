@@ -289,18 +289,7 @@ async fn publish_plan(
 }
 
 fn initial_shared_tags(question: &PublicationSource) -> Result<Vec<question_model::Tag>> {
-    match question.backend {
-        Backend::Webwork => Ok(Vec::new()),
-        Backend::PleQuestionJson => {
-            let document =
-                adapter_ple::question_json::PleQuestionJsonDocument::parse(&question.source_bytes)
-                    .context("parsing canonical Pilot PLE Question JSON for shared tags")?;
-            let compiled = document
-                .compile()
-                .context("compiling canonical Pilot PLE Question JSON for shared tags")?;
-            Ok(compiled.presentation().metadata().tags.clone())
-        }
-    }
+    Ok(question.metadata.tags.clone())
 }
 
 fn pilot_license(value: &str) -> Result<QuestionLicense> {
@@ -327,9 +316,7 @@ fn existing_publication(
     let Some(entry) = matching.into_iter().next() else {
         return Ok(None);
     };
-    if entry.question_title != question.question_title
-        || entry.question_description != question.question_description
-        || entry.backend != question_backend(question.backend)
+    if entry.backend != question_backend(question.backend)
         || entry.question_format != question.question_format
         || entry.webwork_pg_path != question.webwork_pg_path
         || entry.question_type != question_type(question.question_type)
@@ -357,8 +344,8 @@ async fn matching_or_new_draft(
         .await
         .context("listing ordinary Authoring Drafts")?
     {
-        if summary.title != question.question_title
-            || summary.description != question.question_description
+        if summary.metadata.question_title != question.metadata.question_title
+            || summary.metadata.question_description != question.metadata.question_description
         {
             continue;
         }
@@ -371,7 +358,7 @@ async fn matching_or_new_draft(
         {
             ensure!(
                 draft.source_record.media_type == question.source_media_type
-                    && draft.question_type == question_type(question.question_type),
+                    && draft.question_type == Some(question_type(question.question_type)),
                 "ordinary Draft provenance conflicts with reviewed Pilot source {}",
                 question.slug
             );
@@ -399,10 +386,8 @@ async fn matching_or_new_draft(
                 source_record,
                 question_format: question.question_format,
                 webwork_pg_path: question.webwork_pg_path.clone(),
-                question_type: question_type(question.question_type),
-                title: question.question_title.clone(),
-                description: question.question_description.clone(),
-                language: question.language.clone(),
+                question_type: Some(question_type(question.question_type)),
+                metadata: question.metadata.clone(),
             },
         )
         .await

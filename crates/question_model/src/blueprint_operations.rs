@@ -205,11 +205,9 @@ pub enum BlueprintAssessmentEntryContent {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
     question_pool_id: crate::QuestionPoolId,
-    question_pool_edit_number: crate::QuestionPoolEditNumber,
     selection_count: std::num::NonZeroU32,
     points_per_item: AssessmentPointValue,
     scoring_rule: AssessmentEntryScoringRule,
-    selection_rule: crate::QuestionPoolSelectionRule,
     question_attempt_limit: QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
@@ -218,11 +216,9 @@ impl BlueprintQuestionPoolContent {
     pub fn new(pool: ReusablePoolView) -> Result<Self, BlueprintCourseValidationError> {
         Ok(Self {
             question_pool_id: pool.question_pool_id,
-            question_pool_edit_number: pool.question_pool_edit_number,
             selection_count: pool.selection_count,
             points_per_item: pool.points_per_item,
             scoring_rule: pool.scoring_rule,
-            selection_rule: pool.selection_rule,
             question_attempt_limit: pool.question_attempt_limit,
             question_attempt_time_limit: pool.question_attempt_time_limit,
         })
@@ -232,10 +228,6 @@ impl BlueprintQuestionPoolContent {
         &self.question_pool_id
     }
 
-    /// Returns the current-state Pool Edit Number.
-    pub fn question_pool_edit_number(&self) -> crate::QuestionPoolEditNumber {
-        self.question_pool_edit_number
-    }
     /// Returns the number of Question Pool Items selected for one Assessment Attempt.
     pub fn selection_count(&self) -> std::num::NonZeroU32 {
         self.selection_count
@@ -247,10 +239,6 @@ impl BlueprintQuestionPoolContent {
     /// Returns the scoring treatment copied to every selected Question.
     pub fn scoring_rule(&self) -> AssessmentEntryScoringRule {
         self.scoring_rule
-    }
-    /// Returns the complete reviewed selection behavior.
-    pub fn selection_rule(&self) -> crate::QuestionPoolSelectionRule {
-        self.selection_rule
     }
     /// Returns the uniform Question Attempt retry bound copied to selected Questions.
     pub fn question_attempt_limit(&self) -> &QuestionAttemptLimit {
@@ -353,11 +341,9 @@ enum EncodedEntry<'a> {
     },
     Pool {
         question_pool_id: &'a crate::QuestionPoolId,
-        question_pool_edit_number: crate::QuestionPoolEditNumber,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
-        selection_rule: crate::QuestionPoolSelectionRule,
         question_attempt_limit: &'a QuestionAttemptLimit,
         question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
     },
@@ -413,11 +399,9 @@ fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessme
                 },
                 BlueprintAssessmentEntryContent::Pool(pool) => EncodedEntry::Pool {
                     question_pool_id: &pool.question_pool_id,
-                    question_pool_edit_number: pool.question_pool_edit_number,
                     selection_count: pool.selection_count,
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,
-                    selection_rule: pool.selection_rule,
                     question_attempt_limit: &pool.question_attempt_limit,
                     question_attempt_time_limit: &pool.question_attempt_time_limit,
                 },
@@ -432,26 +416,18 @@ mod wire_tests {
     use super::*;
 
     #[test]
-    fn question_pool_keeps_the_pool_id_and_edit_number() {
+    fn question_pool_content_keeps_the_ordinary_pool_id() {
         let question_pool_id: crate::QuestionPoolId = "7K3M-19QX".parse().expect("Pool ID");
-        let question_pool_edit_number =
-            crate::QuestionPoolEditNumber::new(1).expect("Pool Edit Number");
         let pool = BlueprintQuestionPoolContent::new(ReusablePoolView {
             question_pool_id: question_pool_id.clone(),
-            question_pool_edit_number,
             selection_count: std::num::NonZeroU32::new(1).expect("positive count"),
             points_per_item: AssessmentPointValue::from_whole(1),
             scoring_rule: AssessmentEntryScoringRule::Normal,
-            selection_rule: crate::QuestionPoolSelectionRule {
-                selected_question_order:
-                    crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-            },
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         })
         .expect("current Pool identity is valid");
 
         assert_eq!(pool.question_pool_id(), &question_pool_id);
-        assert_eq!(pool.question_pool_edit_number(), question_pool_edit_number);
     }
 }

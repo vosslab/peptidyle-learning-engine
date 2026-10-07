@@ -4,7 +4,6 @@ use std::collections::BTreeSet;
 
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentTitle, QuestionAttemptTimeLimit,
-    QuestionPoolSelectedQuestionOrder,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -16,23 +15,21 @@ use crate::blueprint_course::{
     StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry,
 };
 use crate::{
-    CourseInstanceCreationSource, CourseInstancePoolIdIssuer, CreateCourseInstanceInput,
-    SaveLiveAssessmentInput, StoreError, StoredBlueprintCourseContent,
+    CourseInstanceCreationSource, CreateCourseInstanceInput, SaveLiveAssessmentInput, StoreError,
+    StoredBlueprintCourseContent,
 };
 
 pub(super) async fn creation_assessments(
     transaction: &mut Transaction<'_, Postgres>,
     input: &CreateCourseInstanceInput,
-    pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
-    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
     let (blueprint_course, blueprint_revision_number) = match &input.source {
         CourseInstanceCreationSource::Empty => return Ok(Value::Array(Vec::new())),
         CourseInstanceCreationSource::Adopted {
-            blueprint_revision_tuple,
+            blueprint_course_revision_tuple,
         } => (
-            &blueprint_revision_tuple.blueprint_course_id,
-            &blueprint_revision_tuple.revision_number,
+            &blueprint_course_revision_tuple.blueprint_course_id,
+            &blueprint_course_revision_tuple.revision_number,
         ),
     };
     let row = sqlx::query("SELECT * FROM ple_api.load_course_instance_blueprint($1, $2)")
@@ -51,22 +48,14 @@ pub(super) async fn creation_assessments(
     if content.checksum()?.as_bytes() != checksum.as_slice() {
         return Err(invalid("Blueprint Content Checksum"));
     }
-    materialize(&content, pool_id_issuer, bloom_receipts)
+    materialize(&content)
 }
 
-pub(super) fn materialize(
-    content: &StoredBlueprintCourseContent,
-    pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
-    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
-) -> Result<Value, StoreError> {
+pub(super) fn materialize(content: &StoredBlueprintCourseContent) -> Result<Value, StoreError> {
     let mut assessments = Vec::new();
     for module in &content.modules {
         for assessment in &module.assessments {
-            assessments.push(materialize_assessment(
-                assessment,
-                pool_id_issuer,
-                bloom_receipts,
-            )?);
+            assessments.push(materialize_assessment(assessment)?);
         }
     }
     Ok(Value::Array(assessments))
@@ -108,21 +97,17 @@ pub(super) fn reusable_assessment_projection(
             StoredBlueprintAssessmentEntry::Fixed { .. } => fixed_entry_json(position, entry)?,
             StoredBlueprintAssessmentEntry::Pool {
                 question_pool_id,
-                question_pool_edit_number,
                 selection_count,
                 points_per_item,
                 scoring_rule,
-                selection_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => pool_entry_json(
                 position,
                 question_pool_id,
-                *question_pool_edit_number,
                 *selection_count,
                 points_per_item,
                 *scoring_rule,
-                selection_rule.selected_question_order,
                 *question_attempt_limit,
                 *question_attempt_time_limit,
             )?,
@@ -138,8 +123,6 @@ pub(super) fn reusable_assessment_projection(
 /// Materializes one retained member with new teaching identities only after semantic comparison.
 pub(super) fn materialize_assessment(
     assessment: &StoredBlueprintAssessment,
-    pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
-    _bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
     let mut member = reusable_assessment_projection(assessment)?;
     let entries = member["entries"]
@@ -148,14 +131,6 @@ pub(super) fn materialize_assessment(
     for entry in entries {
         entry["assessmentEntryId"] =
             json!(AssessmentEntryId::from_uuid(random_uuid()?).to_string());
-        if entry["kind"] == "question_pool" {
-            let issuer = pool_id_issuer.ok_or_else(|| {
-                StoreError::Unavailable(
-                    "Question Pool fork identity issuer is unavailable".to_string(),
-                )
-            })?;
-            entry["forkQuestionPoolId"] = json!(issuer.issue_question_pool_id()?.as_str());
-        }
     }
     Ok(member)
 }
@@ -213,12 +188,10 @@ fn fixed_entry_json(
 #[allow(clippy::too_many_arguments)]
 fn pool_entry_json(
     position: usize,
-    source_question_pool_id: &question_model::QuestionPoolId,
-    question_pool_edit_number: question_model::QuestionPoolEditNumber,
+    question_pool_id: &question_model::QuestionPoolId,
     selection_count: std::num::NonZeroU32,
     points_per_item: &question_model::AssessmentPointValue,
     scoring_rule: question_model::AssessmentEntryScoringRule,
-    selected_question_order: QuestionPoolSelectedQuestionOrder,
     question_attempt_limit: question_model::QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
 ) -> Result<Value, StoreError> {
@@ -228,12 +201,10 @@ fn pool_entry_json(
         "authoredPosition": position,
         "kind": "question_pool",
         "availability": "available",
-        "sourceQuestionPoolId": source_question_pool_id.as_str(),
-        "sourceQuestionPoolEditNumber": question_pool_edit_number.get(),
+        "questionPoolId": question_pool_id.as_str(),
         "selectionCount": selection_count.get(),
         "pointsPerItem": points_per_item.to_string(),
         "scoringRule": pool_scoring_rule(scoring_rule),
-        "selectedQuestionOrder": pool_selected_question_order(selected_question_order),
         "questionAttemptLimit": question_attempt_limit.max_attempts,
         "questionAttemptTimeLimitSeconds": seconds,
         "questionAttemptGraceSeconds": grace_seconds,
@@ -256,13 +227,6 @@ fn pool_scoring_rule(value: question_model::AssessmentEntryScoringRule) -> &'sta
         question_model::AssessmentEntryScoringRule::FullCredit => "full_credit",
         question_model::AssessmentEntryScoringRule::ExtraCredit => "extra_credit",
         question_model::AssessmentEntryScoringRule::Excluded => "excluded",
-    }
-}
-
-fn pool_selected_question_order(value: QuestionPoolSelectedQuestionOrder) -> &'static str {
-    match value {
-        QuestionPoolSelectedQuestionOrder::QuestionPoolOrder => "question_pool_order",
-        QuestionPoolSelectedQuestionOrder::RandomOrder => "random_order",
     }
 }
 
@@ -289,7 +253,7 @@ mod tests {
 
     use super::{materialize, newly_added_assessments};
     use crate::{
-        PoolBloomPreparationReceipts, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
+        StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
         StoredBlueprintAssessmentEntry, StoredBlueprintCourseContent, StoredBlueprintModule,
     };
 
@@ -345,8 +309,7 @@ mod tests {
             module(1, vec![membrane.clone()]),
             module(2, vec![groups.clone()]),
         ]);
-        let payload = materialize(&content, None, &mut PoolBloomPreparationReceipts::default())
-            .expect("daughter copy payload");
+        let payload = materialize(&content).expect("daughter copy payload");
         let members = payload
             .as_array()
             .expect("one member per Blueprint Assessment");
@@ -382,12 +345,7 @@ mod tests {
             additions.modules[0].assessments[0].blueprint_assessment_id,
             groups.blueprint_assessment_id
         );
-        let payload = materialize(
-            &additions,
-            None,
-            &mut PoolBloomPreparationReceipts::default(),
-        )
-        .expect("newly added copy payload");
+        let payload = materialize(&additions).expect("newly added copy payload");
         let members = payload.as_array().expect("only the new Assessment");
         assert_eq!(members.len(), 1);
         assert_eq!(

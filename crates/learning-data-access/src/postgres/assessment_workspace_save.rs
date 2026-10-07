@@ -25,6 +25,7 @@ pub(super) fn assessment_values_json(input: &SaveLiveAssessmentInput) -> Result<
         "assessment_title": input.title.as_str(), "assessment_instructions": input.instructions.as_str(),
         "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
         "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
+        "partial_credit_enabled": input.activity_rules.partial_credit_enabled,
         "question_variation_rule": activity[0], "assessment_question_order_rule": activity[1],
         "feedback_per_item_correctness": feedback[0], "feedback_submitted_response": feedback[1], "feedback_question_answer": feedback[2], "feedback_question_answer_explanation": feedback[3], "feedback_class_statistics": feedback[4], "feedback_hints": feedback[5], "feedback_worked_solutions": feedback[6]
     }))
@@ -37,6 +38,7 @@ pub(super) fn base_assessment_policy_values_json(input: &SaveBaseAssessmentPolic
     json!({
         "assessment_instructions": input.instructions.as_str(), "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
         "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
+        "partial_credit_enabled": input.activity_rules.partial_credit_enabled,
         "question_variation_rule": activity[0], "assessment_question_order_rule": activity[1],
         "feedback_per_item_correctness": feedback[0], "feedback_submitted_response": feedback[1], "feedback_question_answer": feedback[2], "feedback_question_answer_explanation": feedback[3], "feedback_class_statistics": feedback[4], "feedback_hints": feedback[5], "feedback_worked_solutions": feedback[6]
     })
@@ -55,7 +57,7 @@ fn entry_json(entry: &AssessmentEntry, position: usize) -> Result<Value, StoreEr
     let position = i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?;
     match entry {
         AssessmentEntry::FixedQuestion(value) => { let (seconds, grace_seconds) = question_time_limit(&value.question_attempt_time_limit)?; Ok(json!({ "assessmentEntryId": value.id.to_string(), "authoredPosition": position, "kind": "fixed_question", "availability": entry_availability(value.availability), "scoringRule": scoring_rule(value.scoring_rule), "questionId": value.published_question_revision_tuple.published_question_id.as_str(), "revisionNumber": value.published_question_revision_tuple.revision_number.get(), "pointsPossible": value.points_possible.to_string(), "questionAttemptLimit": value.question_attempt_limit.max_attempts, "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds })) }
-        AssessmentEntry::QuestionPool(value) => { let (seconds, grace_seconds) = question_time_limit(&value.question_attempt_time_limit)?; Ok(json!({ "assessmentEntryId": value.id.to_string(), "authoredPosition": position, "kind": "question_pool", "availability": entry_availability(value.availability), "scoringRule": scoring_rule(value.scoring_rule), "questionPoolId": value.question_pool_id.as_str(), "questionPoolEditNumber": value.question_pool_edit_number.get(), "selectionCount": value.selection_count.get(), "pointsPerItem": value.points_per_item.to_string(), "selectedQuestionOrder": selected_question_order(value.selection_rule.selected_question_order), "questionAttemptLimit": value.question_attempt_limit.max_attempts, "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds })) }
+        AssessmentEntry::QuestionPool(value) => { let (seconds, grace_seconds) = question_time_limit(&value.question_attempt_time_limit)?; Ok(json!({ "assessmentEntryId": value.id.to_string(), "authoredPosition": position, "kind": "question_pool", "availability": entry_availability(value.availability), "scoringRule": scoring_rule(value.scoring_rule), "questionPoolId": value.question_pool_id.as_str(), "selectionCount": value.selection_count.get(), "pointsPerItem": value.points_per_item.to_string(), "questionAttemptLimit": value.question_attempt_limit.max_attempts, "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds })) }
     }
 }
 #[rustfmt::skip]
@@ -65,8 +67,6 @@ fn entry_availability(v: AssessmentEntryAvailability) -> &'static str { match v 
 #[rustfmt::skip]
 fn scoring_rule(v: AssessmentEntryScoringRule) -> &'static str { match v { AssessmentEntryScoringRule::Normal => "normal", AssessmentEntryScoringRule::FullCredit => "full_credit", AssessmentEntryScoringRule::ExtraCredit => "extra_credit", AssessmentEntryScoringRule::Excluded => "excluded" } }
 #[rustfmt::skip]
-fn selected_question_order(v: question_model::QuestionPoolSelectedQuestionOrder) -> &'static str { match v { question_model::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder => "question_pool_order", question_model::QuestionPoolSelectedQuestionOrder::RandomOrder => "random_order" } }
-
 #[cfg(test)]
 mod tests {
     use super::assessment_entries_json;
@@ -80,7 +80,7 @@ mod tests {
             .expect("test Question Pool random identity is canonical");
         let entries: Vec<AssessmentEntry> = serde_json::from_value(serde_json::json!([
             {"kind":"fixedQuestion","id":"00000000-0000-0000-0000-000000000001","publishedQuestionRevisionTuple":{"publishedQuestionId":question_id,"revisionNumber":2},"pointsPossible":"3.5","availability":"available","scoringRule":"normal","questionAttemptLimit":{"maxAttempts":2},"questionAttemptTimeLimit":{"kind":"limited","seconds":90,"graceSeconds":5}},
-            {"kind":"questionPool","id":"00000000-0000-0000-0000-000000000002","questionPoolId":question_pool_id,"questionPoolEditNumber":1,"availability":"retired","scoringRule":"extraCredit","selectionCount":1,"pointsPerItem":"2","selectionRule":{"selectedQuestionOrder":"randomOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}
+            {"kind":"questionPool","id":"00000000-0000-0000-0000-000000000002","questionPoolId":question_pool_id,"questionPoolEditNumber":1,"availability":"retired","scoringRule":"extraCredit","selectionCount":1,"pointsPerItem":"2","questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}
         ])).expect("mixed exact-pinned entries deserialize");
         let value = assessment_entries_json(&entries).expect("entries encode for PostgreSQL");
         assert_eq!(
@@ -90,8 +90,9 @@ mod tests {
         assert_eq!(value[0]["revisionNumber"], 2);
         assert_eq!(value[0]["questionId"], question_id.as_str());
         assert_eq!(value[0]["questionAttemptGraceSeconds"], 5);
-        assert_eq!(value[1]["selectedQuestionOrder"], "random_order");
+        assert!(value[1].get("selectedQuestionOrder").is_none());
         assert_eq!(value[1]["questionPoolId"], question_pool_id.as_str());
-        assert_eq!(value[1]["questionPoolEditNumber"], 1);
+        assert_eq!(value[1]["selectionCount"], 1);
+        assert!(value[1].get("questionPoolEditNumber").is_none());
     }
 }

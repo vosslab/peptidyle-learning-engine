@@ -34,7 +34,7 @@ function recordedFetch(handler) {
   return { requests, fetchImplementation };
 }
 
-test("sysadmin installation course inspection shows instructor and status", async () => {
+test("sysadmin installation course inspection shows course metadata without Student records", async () => {
   const { requests, fetchImplementation } = recordedFetch(async (request) => {
     const url = new URL(request.url);
     if (url.pathname === "/api/sysadmin/courses" && request.method === "GET") {
@@ -91,6 +91,15 @@ test("sysadmin installation course inspection shows instructor and status", asyn
       null,
       50,
     ),
+    DecodeError,
+  );
+  const revealingStudentAccount = recordedFetch(async () =>
+    noStoreJson({ courses: [{ ...inspection, studentAccountId: "U0000035E" }], nextCursor: null }),
+  );
+  await assert.rejects(
+    createHttpApiClient({
+      fetch: revealingStudentAccount.fetchImplementation,
+    }).listInstallationCourses("", null, 50),
     DecodeError,
   );
   await assert.rejects(

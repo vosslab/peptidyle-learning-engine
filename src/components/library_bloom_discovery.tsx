@@ -57,12 +57,12 @@ export function LibraryBloomDiscovery(props: {
           Cognitive Process
           <select
             value={props.query().bloomCognitiveProcess ?? ""}
+            disabled={props.disabled}
             onChange={(event) =>
               props.onChange({
                 bloomCognitiveProcess: selectedCognitiveProcess(event.currentTarget.value),
               })
             }
-            disabled={props.disabled}
           >
             <option value="">Any</option>
             <For each={BLOOM_COGNITIVE_PROCESSES}>
@@ -74,12 +74,12 @@ export function LibraryBloomDiscovery(props: {
           Knowledge Dimension
           <select
             value={props.query().bloomKnowledgeDimension ?? ""}
+            disabled={props.disabled}
             onChange={(event) =>
               props.onChange({
                 bloomKnowledgeDimension: selectedKnowledgeDimension(event.currentTarget.value),
               })
             }
-            disabled={props.disabled}
           >
             <option value="">Any</option>
             <For each={BLOOM_KNOWLEDGE_DIMENSIONS}>

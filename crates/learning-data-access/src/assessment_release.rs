@@ -24,7 +24,7 @@ use crate::{SessionTokenHash, StoreError};
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentBlueprintUpdateReview {
     pub assessment: LiveAssessmentWorkspace,
-    pub source_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
+    pub source_blueprint_course_revision_tuple: question_model::BlueprintCourseRevisionTuple,
     pub proposed: Option<AssessmentBlueprintUpdateContent>,
     pub cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
 }
@@ -34,9 +34,9 @@ pub struct AssessmentBlueprintUpdateReview {
 #[serde(rename_all = "camelCase")]
 pub struct CourseBlueprintUpdateReview {
     /// Immutable creation pin, not a claim that the whole Course has applied a Revision.
-    pub adopted_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
+    pub adopted_blueprint_course_revision_tuple: question_model::BlueprintCourseRevisionTuple,
     /// Current readable parent Blueprint Revision offered for review.
-    pub current_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
+    pub current_blueprint_course_revision_tuple: question_model::BlueprintCourseRevisionTuple,
     pub assessments: Vec<CourseAssessmentBlueprintUpdateSummary>,
 }
 
@@ -87,11 +87,9 @@ pub enum AssessmentBlueprintUpdateEntry {
     },
     QuestionPool {
         question_pool_id: question_model::QuestionPoolId,
-        question_pool_edit_number: question_model::QuestionPoolEditNumber,
         selection_count: NonZeroU32,
         points_per_item: question_model::AssessmentPointValue,
         scoring_rule: question_model::AssessmentEntryScoringRule,
-        selection_rule: question_model::QuestionPoolSelectionRule,
         question_attempt_limit: question_model::QuestionAttemptLimit,
         question_attempt_time_limit: question_model::QuestionAttemptTimeLimit,
     },
@@ -102,7 +100,8 @@ pub enum AssessmentBlueprintUpdateEntry {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyAssessmentBlueprintUpdateInput {
     // ASVS 1.5.2, 2.2.1: the browser cannot choose source identities or content.
-    pub expected_source_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
+    pub expected_source_blueprint_course_revision_tuple:
+        question_model::BlueprintCourseRevisionTuple,
     pub expected_assessment_edit_number: AssessmentEditNumber,
 }
 
@@ -363,6 +362,28 @@ pub enum AssessmentReleaseIssue {
     DueDateAfterClose,
 }
 
+/// Answer-free details for one current Question Pool release problem.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssessmentPoolReleaseIssueDetail {
+    pub assessment_position: u32,
+    pub pool_title: String,
+    pub question_pool_id: String,
+    pub selection_count: u32,
+    pub issue: AssessmentPoolReleaseIssueKind,
+}
+
+/// Closed Pool problem kinds produced by the trusted release helper.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssessmentPoolReleaseIssueKind {
+    InsufficientItems,
+    MemberUnavailable,
+    MemberBackendMismatch,
+    MemberTypeMismatch,
+    MemberClassificationMismatch,
+}
+
 /// Calculated release validation changes neither Assessment nor Student work.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -371,6 +392,8 @@ pub struct AssessmentReleaseValidation {
     pub can_release: bool,
     /// All current release blockers in the small release boundary.
     pub issues: Vec<AssessmentReleaseIssue>,
+    /// Current Pool problems, projected without Assessment Entry identifiers or answers.
+    pub pool_issues: Vec<AssessmentPoolReleaseIssueDetail>,
 }
 
 #[cfg(test)]
@@ -380,8 +403,8 @@ mod tests {
         SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
     };
     use question_model::{
-        AssessmentEditNumber, AssessmentTitle, BlueprintCourseId, BlueprintRevisionNumber,
-        BlueprintRevisionTuple,
+        AssessmentEditNumber, AssessmentTitle, BlueprintCourseId, BlueprintCourseRevisionTuple,
+        BlueprintRevisionNumber,
     };
 
     #[test]
@@ -406,9 +429,9 @@ mod tests {
     }
 
     #[test]
-    fn apply_blueprint_update_requires_source_blueprint_revision_tuple() {
+    fn apply_blueprint_update_requires_source_blueprint_course_revision_tuple() {
         let json = serde_json::json!({
-            "expectedSourceBlueprintRevisionTuple": {
+            "expectedSourceBlueprintCourseRevisionTuple": {
                 "blueprintCourseId": "BPABCDEFGJ",
                 "revisionNumber": "2"
             },
@@ -418,7 +441,7 @@ mod tests {
             serde_json::from_value(json).expect("canonical apply input");
         assert_eq!(
             input
-                .expected_source_blueprint_revision_tuple
+                .expected_source_blueprint_course_revision_tuple
                 .blueprint_course_id,
             "BPABCDEFGJ"
                 .parse::<BlueprintCourseId>()
@@ -426,7 +449,7 @@ mod tests {
         );
         assert_eq!(
             input
-                .expected_source_blueprint_revision_tuple
+                .expected_source_blueprint_course_revision_tuple
                 .revision_number,
             BlueprintRevisionNumber::new(2).expect("revision")
         );
@@ -437,13 +460,13 @@ mod tests {
             }))
             .is_err()
         );
-        let _ = BlueprintRevisionTuple {
+        let _ = BlueprintCourseRevisionTuple {
             blueprint_course_id: input
-                .expected_source_blueprint_revision_tuple
+                .expected_source_blueprint_course_revision_tuple
                 .blueprint_course_id
                 .clone(),
             revision_number: input
-                .expected_source_blueprint_revision_tuple
+                .expected_source_blueprint_course_revision_tuple
                 .revision_number,
         };
     }
@@ -606,15 +629,8 @@ pub trait LiveAssessmentStore: Send + Sync {
         course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
         input: ApplyAssessmentBlueprintUpdateInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let _ = (
-            session_token_hash,
-            course_instance_id,
-            assessment_id,
-            input,
-            bloom_receipts,
-        );
+        let _ = (session_token_hash, course_instance_id, assessment_id, input);
         Err(StoreError::Unavailable(
             "Blueprint Assessment updates are unavailable".to_string(),
         ))

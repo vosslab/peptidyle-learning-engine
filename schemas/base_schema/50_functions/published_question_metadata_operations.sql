@@ -2,14 +2,161 @@
 
 SET LOCAL ROLE ple_private_owner;
 
--- Bulk metadata is deliberately a narrow Question Library command.  It does
--- not accept source, Revision, availability, ownership, or arbitrary JSON
--- mutations.  Title and Description stay on the individual Question.
--- Discipline, Subject, Topic, Subtopic, and Tags are the shared patch.
--- The command updates Published Question metadata and does not insert a
--- Question Revision.  One transaction locks and validates the whole selection
--- before writing, then returns its result in canonical Question-ID order
--- (ASVS 2.2.1, 2.3.3).
+-- Ordinary owner/Sysadmin replacement for the metadata child of the current
+-- Question Revision. The Revision Tuple and metadata Edit Number are both
+-- checked while the lineage and metadata row are locked (ASVS 2.3.3, 8.3.1).
+CREATE FUNCTION ple_private.replace_published_question_metadata(
+    p_published_question_id text,
+    p_expected_question_revision_number integer,
+    p_expected_metadata_edit_number bigint,
+    p_question_title text,
+    p_question_description text,
+    p_language text,
+    p_tags text[],
+    p_content_discipline_id uuid,
+    p_content_subject_id uuid,
+    p_content_topic_id uuid,
+    p_content_subtopic_id uuid,
+    p_question_type ple_data.question_type,
+    p_bloom_cognitive_process ple_data.bloom_cognitive_process,
+    p_bloom_knowledge_dimension ple_data.bloom_knowledge_dimension
+) RETURNS TABLE(published_question_id text, revision_number integer, metadata_edit_number bigint)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    actor_id text;
+    current_revision_number integer;
+    current_availability text;
+    current_discipline_id uuid;
+    current_backend ple_data.question_backend;
+    native_question_type ple_data.question_type;
+BEGIN
+    IF p_published_question_id IS NULL
+       OR p_expected_question_revision_number IS NULL OR p_expected_question_revision_number < 1
+       OR p_expected_metadata_edit_number IS NULL OR p_expected_metadata_edit_number < 1
+       OR p_question_title IS NULL OR p_question_title <> btrim(p_question_title)
+       OR char_length(p_question_title) NOT BETWEEN 1 AND 512 OR p_question_title ~ '[[:cntrl:]]'
+       OR p_question_description IS NULL OR p_question_description <> btrim(p_question_description)
+       OR char_length(p_question_description) NOT BETWEEN 1 AND 4000 OR p_question_description ~ '[[:cntrl:]]'
+       OR (p_language IS NOT NULL AND (
+           p_language <> btrim(p_language) OR char_length(p_language) NOT BETWEEN 2 AND 35
+       ))
+       OR p_tags IS NULL OR NOT ple_data.question_metadata_tags_are_valid(p_tags)
+       OR p_content_discipline_id IS NULL OR p_content_subject_id IS NULL
+       OR p_question_type IS NULL
+       OR (p_content_subtopic_id IS NOT NULL AND p_content_topic_id IS NULL) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Published Question metadata replacement is invalid';
+    END IF;
+    IF NOT (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Owner or Sysadmin authority is required';
+    END IF;
+    actor_id := ple_api.current_session_account_id();
+    IF actor_id IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Owner or Sysadmin authority is required';
+    END IF;
+    SELECT lineage.availability::text INTO current_availability
+      FROM ple_data.published_question AS lineage
+     WHERE lineage.published_question_id = p_published_question_id
+     FOR UPDATE;
+    IF NOT FOUND OR current_availability <> 'available' THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Published Question metadata target is not available';
+    END IF;
+    IF NOT ple_api.current_session_account_is_sysadmin()
+       AND NOT EXISTS (
+           SELECT 1 FROM ple_data.question_current_owner
+            WHERE question_current_owner.published_question_id = p_published_question_id
+              AND owner_account_id = actor_id
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Owner authority is required';
+    END IF;
+    SELECT max(revision.revision_number) INTO current_revision_number
+      FROM ple_data.question_revision AS revision
+     WHERE revision.published_question_id = p_published_question_id;
+    IF current_revision_number IS DISTINCT FROM p_expected_question_revision_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Published Question Revision Tuple is stale';
+    END IF;
+    SELECT source_binding.backend, source_binding.native_question_type
+      INTO current_backend, native_question_type
+      FROM ple_private.question_revision_source_binding AS source_binding
+     WHERE source_binding.published_question_id = p_published_question_id
+       AND source_binding.revision_number = p_expected_question_revision_number;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Published Question Revision Tuple is stale';
+    END IF;
+    IF current_backend = 'ple' AND native_question_type IS DISTINCT FROM p_question_type THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Native Question Type must match its source interaction';
+    END IF;
+    SELECT metadata.content_discipline_id INTO current_discipline_id
+      FROM ple_data.question_revision_metadata AS metadata
+     WHERE metadata.published_question_id = p_published_question_id
+       AND metadata.revision_number = p_expected_question_revision_number
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Published Question Revision Tuple is stale';
+    END IF;
+    IF current_discipline_id IS DISTINCT FROM p_content_discipline_id THEN
+        PERFORM ple_private.require_active_content_discipline(p_content_discipline_id);
+    END IF;
+    RETURN QUERY
+    UPDATE ple_data.question_revision_metadata AS metadata
+       SET question_title = p_question_title,
+           question_description = p_question_description,
+           language = COALESCE(p_language, metadata.language),
+           tags = p_tags,
+           content_discipline_id = p_content_discipline_id,
+           content_subject_id = p_content_subject_id,
+           content_topic_id = p_content_topic_id,
+           content_subtopic_id = p_content_subtopic_id,
+           question_type = p_question_type,
+           bloom_cognitive_process = p_bloom_cognitive_process,
+           bloom_knowledge_dimension = p_bloom_knowledge_dimension,
+           metadata_edit_number = metadata.metadata_edit_number + 1,
+           updated_at = pg_catalog.clock_timestamp()
+     WHERE metadata.published_question_id = p_published_question_id
+       AND metadata.revision_number = p_expected_question_revision_number
+       AND metadata.metadata_edit_number = p_expected_metadata_edit_number
+     RETURNING metadata.published_question_id::text, metadata.revision_number,
+               metadata.metadata_edit_number;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Published Question metadata Edit Number is stale';
+    END IF;
+END
+$$;
+
+SET LOCAL ROLE ple_api_owner;
+
+-- Public enum labels arrive as bound text and are cast at this trusted SQL
+-- boundary before the unchanged private typed operation (ASVS 1.2.4).
+CREATE FUNCTION ple_api.replace_published_question_metadata(
+    p_published_question_id text,
+    p_expected_question_revision_number integer,
+    p_expected_metadata_edit_number bigint,
+    p_question_title text,
+    p_question_description text,
+    p_language text,
+    p_tags text[],
+    p_content_discipline_id uuid,
+    p_content_subject_id uuid,
+    p_content_topic_id uuid,
+    p_content_subtopic_id uuid,
+    p_question_type text,
+    p_bloom_cognitive_process text,
+    p_bloom_knowledge_dimension text
+) RETURNS TABLE(published_question_id text, revision_number integer, metadata_edit_number bigint)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private AS $$
+    SELECT * FROM ple_private.replace_published_question_metadata(
+        p_published_question_id, p_expected_question_revision_number,
+        p_expected_metadata_edit_number, p_question_title, p_question_description,
+        p_language, p_tags, p_content_discipline_id, p_content_subject_id,
+        p_content_topic_id, p_content_subtopic_id,
+        p_question_type::ple_data.question_type,
+        p_bloom_cognitive_process::ple_data.bloom_cognitive_process,
+        p_bloom_knowledge_dimension::ple_data.bloom_knowledge_dimension)
+$$;
+
 CREATE FUNCTION ple_private.bulk_replace_published_question_metadata(
     p_selection jsonb, p_patch jsonb
 ) RETURNS TABLE(published_question_id text, metadata_edit_number bigint)
@@ -170,9 +317,14 @@ BEGIN
     LOOP
         SELECT metadata.metadata_edit_number, lineage.availability
           INTO current_metadata_edit_number, current_availability
-          FROM ple_data.published_question_metadata AS metadata
+          FROM ple_data.question_revision_metadata AS metadata
           JOIN ple_data.published_question AS lineage ON lineage.published_question_id = metadata.published_question_id
          WHERE metadata.published_question_id = selected.selected_question_id
+           AND metadata.revision_number = (
+               SELECT max(revision.revision_number)
+                 FROM ple_data.question_revision AS revision
+                WHERE revision.published_question_id = metadata.published_question_id
+           )
          FOR UPDATE OF metadata, lineage;
         IF NOT FOUND OR current_availability <> 'available' THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
@@ -185,11 +337,16 @@ BEGIN
     END LOOP;
     IF set_discipline AND EXISTS (
         SELECT 1
-          FROM ple_data.published_question_metadata AS metadata
+          FROM ple_data.question_revision_metadata AS metadata
          WHERE metadata.published_question_id IN (
              SELECT value ->> 'questionId'
                FROM jsonb_array_elements(normalized_selection) AS element(value)
          )
+           AND metadata.revision_number = (
+               SELECT max(revision.revision_number)
+                 FROM ple_data.question_revision AS revision
+                WHERE revision.published_question_id = metadata.published_question_id
+           )
            AND metadata.content_discipline_id IS DISTINCT FROM (normalized_patch ->> 'disciplineUuid')::uuid
     ) THEN
         PERFORM ple_private.require_active_content_discipline(
@@ -197,7 +354,7 @@ BEGIN
     END IF;
 
     WITH updated AS (
-        UPDATE ple_data.published_question_metadata AS metadata
+        UPDATE ple_data.question_revision_metadata AS metadata
            SET question_title = COALESCE(replacement.question_title, metadata.question_title),
                question_description = COALESCE(replacement.question_description, metadata.question_description),
                tags = CASE WHEN set_tags THEN normalized_tags ELSE metadata.tags END,
@@ -214,6 +371,11 @@ BEGIN
                 FROM jsonb_array_elements(normalized_selection) AS element(value)
           ) AS replacement
          WHERE metadata.published_question_id = replacement.published_question_id
+           AND metadata.revision_number = (
+               SELECT max(revision.revision_number)
+                 FROM ple_data.question_revision AS revision
+                WHERE revision.published_question_id = metadata.published_question_id
+           )
          RETURNING metadata.published_question_id, metadata.metadata_edit_number
     )
     SELECT jsonb_agg(jsonb_build_object(

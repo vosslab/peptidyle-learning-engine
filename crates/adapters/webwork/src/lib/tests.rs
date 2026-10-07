@@ -48,7 +48,7 @@ impl WebworkRenderer for RecordedRenderer {
         assert_eq!(request.seed, 17);
         assert_eq!(
             request.published_question_revision_tuple,
-            &published_question_revision_tuple()
+            Some(&published_question_revision_tuple())
         );
         self.render(request).await
     }

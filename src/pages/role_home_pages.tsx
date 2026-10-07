@@ -86,7 +86,7 @@ export function SysadminHomePage(): JSX.Element {
       headingId="sysadmin-home-heading"
       eyebrow="System administration"
       title="System administration"
-      lede="Create a Course for an Instructor to teach, find Courses across the installation, or open an account or scoped course-support operation."
+      lede="Create a Course for an Instructor to teach, find Courses across the installation, or manage Instructor Accounts."
     >
       <SysadminCourseCreation />
       <nav class="card-grid" aria-label="System administration tools">
@@ -116,13 +116,6 @@ export function SysadminHomePage(): JSX.Element {
           <p>Create and manage Instructor Account access.</p>
           <A class="primary-link" href="/sysadmin/instructor-accounts">
             Open Instructor Accounts
-          </A>
-        </article>
-        <article class="course-card">
-          <h2>Scoped course roster support</h2>
-          <p>Open one Instructor-issued support capability.</p>
-          <A class="primary-link" href="/sysadmin/support-roster">
-            Open scoped roster support
           </A>
         </article>
       </nav>

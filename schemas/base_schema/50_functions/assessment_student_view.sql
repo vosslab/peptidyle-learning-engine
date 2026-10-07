@@ -6,12 +6,13 @@ SET LOCAL ROLE ple_private_owner;
 --
 -- The Assessment manifest reuses the existing authorized workspace projection.
 -- This function is the narrower second read: it rechecks the current Assessment
--- Edit Number and one exact fixed pin or exact Assessment-owned Pool member.
+-- Edit Number and one exact fixed pin or exact member of the referenced Pool.
 CREATE FUNCTION ple_private.load_instructor_student_view_source_binding(
     p_published_question_id text,
     p_question_revision_number integer
 ) RETURNS TABLE (
     backend text,
+    question_title text,
     source_object_record_id uuid,
     source_object_checksum text,
     source_media_type text,
@@ -20,6 +21,7 @@ CREATE FUNCTION ple_private.load_instructor_student_view_source_binding(
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
     SELECT source.backend,
+           revision_metadata.question_title,
            source.source_object_record_id,
            source.source_object_checksum,
            object_record.media_type,
@@ -28,6 +30,9 @@ SET search_path = pg_catalog, ple_private AS $$
       JOIN ple_private.object_record AS object_record
         ON object_record.object_record_id = source.source_object_record_id
        AND encode(object_record.sha256, 'hex') = source.source_object_checksum
+      JOIN ple_data.question_revision_metadata AS revision_metadata
+        ON revision_metadata.published_question_id = source.published_question_id
+       AND revision_metadata.revision_number = source.revision_number
      WHERE source.published_question_id = p_published_question_id
        AND source.revision_number = p_question_revision_number
 $$;
@@ -62,6 +67,7 @@ CREATE FUNCTION ple_api.load_instructor_student_view_question_source(
     p_question_revision_number integer
 ) RETURNS TABLE (
     backend text,
+    question_title text,
     source_object_record_id uuid,
     source_object_checksum text,
     source_media_type text,
@@ -142,6 +148,7 @@ BEGIN
 
     RETURN QUERY
     SELECT source.backend,
+           source.question_title,
            source.source_object_record_id,
            source.source_object_checksum,
            source.source_media_type,
@@ -170,4 +177,3 @@ BEGIN
     END IF;
 END
 $$;
-

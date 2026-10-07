@@ -9,17 +9,35 @@ import {
   type RecordContent,
   type RecordListState,
 } from "../components/record_list/record_list";
-import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
-import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../features/ple_question_json_authoring/question_json_source";
-import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
+import { decodePublishedQuestionRevisionTuple } from "../api/decoders/shared";
+import {
+  createQuestionDraftCreationClient,
+  isAllowedWebworkPgPath,
+  isQuestionDraftCreationFormat,
+  QUESTION_DRAFT_CREATION_FORMATS,
+  type QuestionDraftCreationFormat,
+} from "../api/question_draft_creation";
+import "./question_drafts_page.css";
 
 type DraftSummary = {
   readonly draftQuestionId: DraftQuestionRouteId;
   readonly draftQuestionEditNumber: string;
   readonly questionTitle: string;
   readonly questionDescription: string;
+  readonly parentPublishedQuestionRevisionTuple: PublishedQuestionRevisionTuple | null;
 };
+
+function isParentRevisionTuple(value: unknown): value is PublishedQuestionRevisionTuple | null {
+  if (value === null) return true;
+  try {
+    decodePublishedQuestionRevisionTuple(value, "draft.parentPublishedQuestionRevisionTuple", true);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function isDraftQuestionEditNumber(value: unknown): value is string {
   return (
@@ -91,35 +109,27 @@ function isDraftList(value: unknown): value is { readonly items: ReadonlyArray<D
     if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
     const summary = item as Record<string, unknown>;
     return (
-      Object.keys(summary).length === 4 &&
+      Object.keys(summary).length === 5 &&
       typeof summary.draftQuestionId === "string" &&
       parseDraftQuestionId(summary.draftQuestionId) !== null &&
       isDraftQuestionEditNumber(summary.draftQuestionEditNumber) &&
       typeof summary.questionTitle === "string" &&
-      typeof summary.questionDescription === "string"
+      typeof summary.questionDescription === "string" &&
+      isParentRevisionTuple(summary.parentPublishedQuestionRevisionTuple)
     );
   });
-}
-
-function createdDraftId(value: unknown): DraftQuestionRouteId | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  if (
-    Object.keys(record).length !== 2 ||
-    typeof record.draftQuestionId !== "string" ||
-    !isDraftQuestionEditNumber(record.draftQuestionEditNumber)
-  ) {
-    return null;
-  }
-  return parseDraftQuestionId(record.draftQuestionId);
 }
 
 /** Lists only the signed-in Instructor's private Draft Questions. */
 export function QuestionDraftsPage(): JSX.Element {
   const navigate = useNavigate();
   const [drafts, { refetch }] = createResource(listDrafts);
+  const draftCreationClient = createQuestionDraftCreationClient();
   const draftsLoadFailed = createMemo(() => drafts.error !== undefined);
   const [creating, setCreating] = createSignal(false);
+  const [creationFormat, setCreationFormat] =
+    createSignal<QuestionDraftCreationFormat>("pleQuestionJson");
+  const [webworkPgPath, setWebworkPgPath] = createSignal("");
   const [deleting, setDeleting] = createSignal(false);
   const [pendingDelete, setPendingDelete] = createSignal<DraftSummary>();
   const [deleteMessage, setDeleteMessage] = createSignal<string>();
@@ -144,22 +154,11 @@ export function QuestionDraftsPage(): JSX.Element {
     setCreating(true);
     setMessage(undefined);
     try {
-      const response = await fetch("/api/authoring/drafts", {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type": PLE_QUESTION_JSON_MEDIA_TYPE,
-        },
-        body: serializePleQuestionJsonSource(createDefaultPleQuestionJsonSource()),
-        credentials: "same-origin",
-        cache: "no-store",
+      const created = await draftCreationClient.createDraft({
+        format: creationFormat(),
+        ...(creationFormat() === "pleQuestionJson" ? {} : { webworkPgPath: webworkPgPath() }),
       });
-      if (!response.ok) throw new Error("A new private draft could not be created.");
-      const draftQuestionId = createdDraftId(await response.json());
-      if (draftQuestionId === null) {
-        throw new Error("A new private draft returned an invalid response.");
-      }
-      navigate(`/authoring/drafts/${encodeURIComponent(draftQuestionId)}`);
+      navigate(`/authoring/drafts/${encodeURIComponent(created.draftQuestionId)}`);
     } catch (error: unknown) {
       setMessage({
         kind: "error",
@@ -233,17 +232,61 @@ export function QuestionDraftsPage(): JSX.Element {
       eyebrow="Private instructor authoring"
       title="My Draft Questions"
       lede="Draft Questions stay in your Authoring Workspace until you publish a validated question."
-      actions={
-        <button
-          class="primary-action"
-          type="button"
-          disabled={creating()}
-          onClick={() => void createDraft()}
-        >
-          {creating() ? "Creating private draft..." : "New Draft Question"}
-        </button>
-      }
     >
+      <section class="question-draft-creation" aria-labelledby="question-draft-creation-heading">
+        <h2 id="question-draft-creation-heading">Create a private Draft Question</h2>
+        <p>Choose the source format for this Draft. Its Backend, format, and PG path stay fixed.</p>
+        <form
+          class="question-draft-creation__form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createDraft();
+          }}
+        >
+          <label class="question-draft-creation__field">
+            <span>Question source format</span>
+            <select
+              value={creationFormat()}
+              disabled={creating()}
+              onChange={(event) => {
+                const selected = event.currentTarget.value;
+                if (isQuestionDraftCreationFormat(selected)) setCreationFormat(selected);
+              }}
+            >
+              {QUESTION_DRAFT_CREATION_FORMATS.map(({ format, label }) => (
+                <option value={format}>{label}</option>
+              ))}
+            </select>
+          </label>
+          <Show when={creationFormat() !== "pleQuestionJson"}>
+            <label class="question-draft-creation__field">
+              <span>Registered WebWork PG path</span>
+              <input
+                type="text"
+                value={webworkPgPath()}
+                disabled={creating()}
+                aria-describedby="question-draft-webwork-path-help"
+                aria-invalid={!isAllowedWebworkPgPath(webworkPgPath())}
+                onInput={(event) => setWebworkPgPath(event.currentTarget.value)}
+              />
+            </label>
+            <p id="question-draft-webwork-path-help">
+              Enter the allowed relative PG path for the configured WebWork Library. This path
+              becomes part of the Draft binding.
+            </p>
+          </Show>
+          <button
+            class="primary-action"
+            type="submit"
+            disabled={
+              creating() ||
+              (creationFormat() !== "pleQuestionJson" && !isAllowedWebworkPgPath(webworkPgPath()))
+            }
+          >
+            {creating() ? "Creating private draft..." : "Create Draft Question"}
+          </button>
+        </form>
+      </section>
       <Show when={message()}>
         {(value) => (
           <p class={value().kind === "error" ? "inline-error" : "calm-status"} role="status">

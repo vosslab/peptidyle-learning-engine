@@ -2,8 +2,7 @@
 use super::canonical_exchange::CanonicalBlueprintAssessment;
 use crate::{
     BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintCourseContent,
-    BlueprintModuleId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionPoolEditNumber,
-    QuestionPoolId,
+    BlueprintModuleId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionPoolId,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -109,10 +108,7 @@ impl std::error::Error for BlueprintComparisonError {}
 pub fn compare_blueprint_courses(
     left: &BlueprintCourseContent,
     right: &BlueprintCourseContent,
-    pool_memberships: &BTreeMap<
-        (QuestionPoolId, QuestionPoolEditNumber),
-        Vec<PublishedQuestionRevisionTuple>,
-    >,
+    pool_memberships: &BTreeMap<QuestionPoolId, Vec<PublishedQuestionRevisionTuple>>,
 ) -> Result<BlueprintComparison, BlueprintComparisonError> {
     let left = inventory(left, pool_memberships)?;
     let right = inventory(right, pool_memberships)?;
@@ -150,10 +146,7 @@ pub fn compare_blueprint_courses(
 
 fn inventory(
     content: &BlueprintCourseContent,
-    pool_memberships: &BTreeMap<
-        (QuestionPoolId, QuestionPoolEditNumber),
-        Vec<PublishedQuestionRevisionTuple>,
-    >,
+    pool_memberships: &BTreeMap<QuestionPoolId, Vec<PublishedQuestionRevisionTuple>>,
 ) -> Result<BlueprintComparisonInventory, BlueprintComparisonError> {
     let mut inventory = BlueprintComparisonInventory {
         modules: Vec::new(),
@@ -191,10 +184,7 @@ fn inventory(
                     }
                     BlueprintAssessmentEntryContent::Pool(pool) => {
                         let members = pool_memberships
-                            .get(&(
-                                pool.question_pool_id().clone(),
-                                pool.question_pool_edit_number(),
-                            ))
+                            .get(pool.question_pool_id())
                             .ok_or(BlueprintComparisonError::MissingPoolMembership)?;
                         let member_ids: BTreeSet<_> = members
                             .iter()

@@ -146,10 +146,12 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         .await
         .map_err(map_sqlx_error)?;
         let draft_question_uuid = crate::DraftQuestionUuid::from_uuid(
-            row.try_get("draft_question_uuid").map_err(map_sqlx_error)?,
+            row.try_get("draft_question_id").map_err(map_sqlx_error)?,
         );
-        let workspace =
-            WorkspaceId::from_uuid(row.try_get("workspace_id").map_err(map_sqlx_error)?);
+        let workspace = WorkspaceId::from_uuid(
+            row.try_get("authoring_workspace_id")
+                .map_err(map_sqlx_error)?,
+        );
         let created_new: bool = row.try_get("created_new").map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(ForkedPublishedQuestionDraft {

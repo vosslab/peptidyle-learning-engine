@@ -1,7 +1,5 @@
 {
   "format": "pleQuestionJson",
-  "questionTitle": "Favorite color",
-  "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {
     "kind": "singleChoice",
@@ -27,9 +25,5 @@
   "feedback": {
     "correct": "Exactly right.",
     "incorrect": "Try thinking of a cool color."
-  },
-  "tags": ["example"],
-  "questionLicense": "CC-BY-SA-4.0",
-  "questionCitation": null,
-  "language": "en-US"
+  }
 }

@@ -58,12 +58,31 @@ pub(super) fn project(
                 prompts, choices, ..
             },
         ) => {
-            let rows = matches
+            let mut answered = std::collections::BTreeMap::new();
+            for pair in &matches {
+                if answered
+                    .insert(pair.prompt.clone(), pair.choice.clone())
+                    .is_some()
+                {
+                    return None;
+                }
+            }
+            if answered
+                .keys()
+                .any(|prompt_id| !prompts.iter().any(|prompt| prompt.id == *prompt_id))
+            {
+                return None;
+            }
+            let rows = prompts
                 .iter()
-                .map(|pair| {
-                    let prompt = prompts.iter().find(|prompt| prompt.id == pair.prompt)?;
-                    let choice = choices.iter().find(|choice| choice.id == pair.choice)?;
-                    Some(vec![block_text(&prompt.body), block_text(&choice.body)])
+                .map(|prompt| {
+                    let response = match answered.get(&prompt.id) {
+                        Some(choice_id) => {
+                            block_text(&choices.iter().find(|choice| choice.id == *choice_id)?.body)
+                        }
+                        None => "Unanswered".to_string(),
+                    };
+                    Some(vec![block_text(&prompt.body), response])
                 })
                 .collect::<Option<Vec<_>>>()?;
             Some(vec![QuestionContentBlock::Table {
@@ -138,7 +157,10 @@ fn block_text(blocks: &[QuestionContentBlock]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::presentation::{PresentationResponseItemId, PresentedQuestionChoice};
+    use question_model::presentation::{
+        InspectedMatchPair, PresentationResponseItemId, PresentedMatchingChoice,
+        PresentedMatchingPrompt, PresentedQuestionChoice,
+    };
 
     fn presentation_item_id(value: &str) -> PresentationResponseItemId {
         PresentationResponseItemId::parse(value).expect("valid Presentation Response Item ID")
@@ -151,6 +173,76 @@ mod tests {
                 body: text("Readable selected answer".to_string()),
             }],
         }
+    }
+
+    #[test]
+    fn matching_history_shows_authored_prompts_with_omitted_answers_labeled() {
+        let id = |value| presentation_item_id(value);
+        let format = QuestionPresentationResponseFormat::Matching {
+            prompts: vec![
+                PresentedMatchingPrompt {
+                    id: id("a101"),
+                    body: text("Prompt one".to_string()),
+                },
+                PresentedMatchingPrompt {
+                    id: id("a102"),
+                    body: text("Prompt two".to_string()),
+                },
+            ],
+            choices: vec![
+                PresentedMatchingChoice {
+                    id: id("b101"),
+                    body: text("Choice one".to_string()),
+                },
+                PresentedMatchingChoice {
+                    id: id("b102"),
+                    body: text("Choice two".to_string()),
+                },
+            ],
+            reuse_choices: false,
+        };
+        let response = StudentResponseInspection::Matching {
+            matches: vec![InspectedMatchPair {
+                prompt: id("a101"),
+                choice: id("b102"),
+            }],
+        };
+
+        assert_eq!(
+            project(response, &format),
+            Some(vec![QuestionContentBlock::Table {
+                headers: vec!["Prompt".to_string(), "Your match".to_string()],
+                rows: vec![
+                    vec!["Prompt one".to_string(), "Choice two".to_string()],
+                    vec!["Prompt two".to_string(), "Unanswered".to_string()],
+                ],
+                description: "Your matching response".to_string(),
+            }])
+        );
+    }
+
+    #[test]
+    fn matching_history_fails_closed_on_unrecognized_saved_ids() {
+        let id = |value| presentation_item_id(value);
+        let format = QuestionPresentationResponseFormat::Matching {
+            prompts: vec![PresentedMatchingPrompt {
+                id: id("a101"),
+                body: text("Prompt".to_string()),
+            }],
+            choices: vec![PresentedMatchingChoice {
+                id: id("b101"),
+                body: text("Choice".to_string()),
+            }],
+            reuse_choices: false,
+        };
+        let response = StudentResponseInspection::Matching {
+            matches: vec![InspectedMatchPair {
+                prompt: id("a101"),
+                choice: id("b102"),
+            }],
+        };
+
+        assert_eq!(project(response, &format), None);
     }
 
     #[test]

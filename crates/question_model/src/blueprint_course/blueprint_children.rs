@@ -124,6 +124,8 @@ pub struct CreateBlueprintCourseInput {
     pub short_name: String,
     /// Descriptive Blueprint Course name used in headings and listings.
     pub long_name: String,
+    /// Starting Theme for this reusable Blueprint Course.
+    pub theme: crate::Theme,
     /// Ordered labelled curriculum modules.
     pub modules: Vec<CreateBlueprintModuleInput>,
 }
@@ -342,6 +344,7 @@ mod tests {
             },
             short_name: "Short".to_string(),
             long_name: "Long Blueprint Name".to_string(),
+            theme: crate::Theme::default(),
             modules: Vec::new(),
         };
 

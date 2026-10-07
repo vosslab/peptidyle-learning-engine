@@ -267,7 +267,15 @@ def _launch_diagnostic(output: str) -> str:
 	# output before it is full of "failed" and "not installed" noise, so that line
 	# comes first when present.
 	child_errors = [
-		line.strip() for line in output.splitlines() if line.startswith("ERROR: ")
+		line[match.start():].strip()
+		for line in output.splitlines()
+		for match in re.finditer(r"(?i)\b(?:ERROR|Error):\s+", line)
+		if (
+			match.start() > 0 or line.startswith("ERROR: ")
+		) and re.search(
+			r"(?i)^Error:\s*executing\b.*\bcompose\b",
+			line[match.start():].strip(),
+		) is None
 	]
 	if child_errors:
 		return _redact_supervisor_diagnostic(child_errors[-1])

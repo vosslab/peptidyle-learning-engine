@@ -1,30 +1,19 @@
 //! Shared authenticated transaction boundary for current Assessment operations.
 
 use super::{Pool, connection::map_sqlx_error};
-use crate::{CourseInstancePoolIdIssuer, SessionTokenHash, StoreError};
+use crate::{SessionTokenHash, StoreError};
 use sqlx::{Postgres, Transaction};
-use std::sync::Arc;
 
 /// PostgreSQL Store for the direct-Instructor Assessment Workspace.
 #[derive(Clone)]
 pub struct PostgresLiveAssessmentStore {
     pool: Pool,
-    pub(super) pool_id_issuer: Option<Arc<dyn CourseInstancePoolIdIssuer>>,
 }
 
 impl PostgresLiveAssessmentStore {
     /// Binds the attested API pool to Assessment Workspace procedures.
     pub fn new(pool: Pool) -> Self {
-        Self {
-            pool,
-            pool_id_issuer: None,
-        }
-    }
-
-    /// Adds the process-held identity issuer needed only for changed reusable Pools.
-    pub fn with_pool_id_issuer(mut self, issuer: Arc<dyn CourseInstancePoolIdIssuer>) -> Self {
-        self.pool_id_issuer = Some(issuer);
-        self
+        Self { pool }
     }
 
     pub(super) async fn begin(

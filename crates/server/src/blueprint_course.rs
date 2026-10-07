@@ -26,9 +26,9 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    BlueprintCourseId, BlueprintCourseView, BlueprintEditNumber, BlueprintRevisionNumber,
-    BlueprintRevisionTuple, CreateBlueprintCourseInput, RenameBlueprintCourseInput,
-    ReplaceBlueprintCourseContentInput, RequestChecksum,
+    BlueprintCourseId, BlueprintCourseRevisionTuple, BlueprintCourseView, BlueprintEditNumber,
+    BlueprintRevisionNumber, BlueprintThemeUpdate, CreateBlueprintCourseInput,
+    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -154,6 +154,10 @@ pub fn blueprint_course_router(
             put(update_classification),
         )
         .route(
+            "/api/course-blueprints/{blueprint_course_id}/theme",
+            put(update_theme),
+        )
+        .route(
             "/api/course-blueprints/{blueprint_course_id}/publish",
             post(publish_blueprint),
         )
@@ -241,6 +245,34 @@ async fn update_classification(
     }
 }
 
+async fn update_theme(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path(blueprint_course_id): Path<String>,
+    Json(update): Json<BlueprintThemeUpdate>,
+) -> Response {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let expected = match expected_edit_number(&headers) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let session = match instructor_or_sysadmin_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .blueprints
+        .update_blueprint_theme(session, blueprint_course_id, expected, update.theme)
+        .await
+    {
+        Ok(value) => metadata_response(value),
+        Err(error) => store_error_response(error),
+    }
+}
+
 async fn create_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
@@ -259,7 +291,7 @@ async fn create_blueprint(
     };
     let receipt = match state
         .blueprints
-        .create_blueprint_course(session, checksum, input, Default::default())
+        .create_blueprint_course(session, checksum, input)
         .await
     {
         Ok(value) => value,
@@ -268,7 +300,7 @@ async fn create_blueprint(
     match load_view(
         &state,
         session,
-        receipt.blueprint_revision_tuple.blueprint_course_id,
+        receipt.blueprint_course_revision_tuple.blueprint_course_id,
     )
     .await
     {
@@ -315,7 +347,6 @@ async fn save_blueprint(
             expected,
             checksum,
             input,
-            Default::default(),
         )
         .await
     {
@@ -373,13 +404,13 @@ async fn load_revision(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let blueprint_revision_tuple = BlueprintRevisionTuple {
+    let blueprint_course_revision_tuple = BlueprintCourseRevisionTuple {
         blueprint_course_id,
         revision_number,
     };
     let record = match state
         .blueprints
-        .load_blueprint_revision(session, blueprint_revision_tuple.clone())
+        .load_blueprint_revision(session, blueprint_course_revision_tuple.clone())
         .await
     {
         Ok(value) => value,
@@ -388,7 +419,7 @@ async fn load_revision(
     match content_modules(&state, session, &record.content).await {
         Ok(modules) => crate::auth::no_store(
             Json(BlueprintRevisionView {
-                blueprint_revision_tuple,
+                blueprint_course_revision_tuple,
                 modules,
             })
             .into_response(),
@@ -622,6 +653,32 @@ pub(super) async fn instructor_session_hash(
     .await
     {
         Ok(session) if session.record.user_role == question_model::UserRole::Instructor => {
+            Ok(session.session_hash)
+        }
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Blueprint Course authentication unavailable",
+        ))),
+    }
+}
+
+async fn instructor_or_sysadmin_session_hash(
+    state: &BlueprintCourseRouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    match resolve_session(
+        state.sessions.as_ref(),
+        joined_cookie_header(headers).as_deref(),
+    )
+    .await
+    {
+        Ok(session)
+            if matches!(
+                session.record.user_role,
+                question_model::UserRole::Instructor | question_model::UserRole::Sysadmin
+            ) =>
+        {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

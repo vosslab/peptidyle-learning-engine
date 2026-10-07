@@ -57,7 +57,7 @@ async function createSecondCourseThroughVisibleControls(
   page: Page,
   shortName: string,
   longName: string,
-): Promise<void> {
+): Promise<Page> {
   await page.locator('button[aria-controls="create-course-instance"]').click();
   await page.getByLabel("Course short name").fill(shortName);
   await page.getByLabel("Course long name").fill(longName);
@@ -73,8 +73,13 @@ async function createSecondCourseThroughVisibleControls(
     has: page.getByRole("heading", { name: longName, exact: true }),
   });
   await expect(course).toHaveCount(1);
+  const openedCoursePage = page.waitForEvent("popup");
   await course.getByRole("link", { name: "Open Course", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1, name: longName, exact: true })).toBeVisible();
+  const coursePage = await openedCoursePage;
+  await expect(
+    coursePage.getByRole("heading", { level: 1, name: longName, exact: true }),
+  ).toBeVisible();
+  return coursePage;
 }
 
 test.describe("Course Appearance propagation on the production PLE stack", () => {
@@ -110,49 +115,56 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
       );
       const instructor = await instructorContext.newPage();
       configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
+      let instructorCourse = instructor;
 
       await test.step("Instructor opens the admitted Appearance task and saves the theme", async () => {
         await chooseSeededIdentity(instructor, /Elena Rivera/u);
-        await selectVisibleCourse(instructor, seededCourseTitle);
-        await openAppearanceFromCourseActions(instructor);
-        await instructor.getByRole("radio", { name: /^Forest/u }).check();
-        await instructor.getByRole("button", { name: "Save theme", exact: true }).click();
+        instructorCourse = await selectVisibleCourse(instructor, seededCourseTitle);
+        await openAppearanceFromCourseActions(instructorCourse);
+        await instructorCourse.getByRole("radio", { name: /^Forest/u }).check();
+        await instructorCourse.getByRole("button", { name: "Save theme", exact: true }).click();
         await expect(
-          instructor.locator(".course-appearance-form").first().getByRole("status"),
+          instructorCourse.locator(".course-appearance-form").first().getByRole("status"),
         ).toContainText("Theme saved.");
-        await expectSavedTheme(instructor, savedTheme);
+        await expectSavedTheme(instructorCourse, savedTheme);
       });
 
       await test.step("Instructor uploads and saves a real PNG banner independently", async () => {
-        await instructor.locator("[data-course-banner-file]").setInputFiles({
+        await instructorCourse.locator("[data-course-banner-file]").setInputFiles({
           name: "course-appearance-propagation.png",
           mimeType: "image/png",
           buffer: validPng,
         });
-        await expect(instructor.locator("[data-course-banner-local-preview]")).toBeVisible();
-        await instructor.getByRole("button", { name: /^(?:Save|Replace) banner$/u }).click();
+        await expect(instructorCourse.locator("[data-course-banner-local-preview]")).toBeVisible();
+        await instructorCourse.getByRole("button", { name: /^(?:Save|Replace) banner$/u }).click();
         await expect(
-          instructor.locator(".course-appearance-form").last().getByRole("status"),
+          instructorCourse.locator(".course-appearance-form").last().getByRole("status"),
         ).toContainText("Banner saved.");
-        await expect(instructor.locator("[data-course-banner-saved-preview]")).toBeVisible();
+        await expect(instructorCourse.locator("[data-course-banner-saved-preview]")).toBeVisible();
       });
 
       await test.step("Instructor saves the theme again and keeps the saved banner before reload", async () => {
-        await instructor.getByRole("radio", { name: /^Grass/u }).check();
-        await instructor.getByRole("button", { name: "Save theme", exact: true }).click();
+        await instructorCourse.getByRole("radio", { name: /^Grass/u }).check();
+        await instructorCourse.getByRole("button", { name: "Save theme", exact: true }).click();
         await expect(
-          instructor.locator(".course-appearance-form").first().getByRole("status"),
+          instructorCourse.locator(".course-appearance-form").first().getByRole("status"),
         ).toContainText("Theme saved.");
-        await expectSavedTheme(instructor, "grass");
-        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(1);
+        await expectSavedTheme(instructorCourse, "grass");
+        await expect(
+          instructorCourse.locator("[data-course-banner-saved-preview] img"),
+        ).toHaveCount(1);
       });
 
       await test.step("Instructor reload proves the stored theme and saved banner", async () => {
-        await instructor.reload();
-        await expect(instructor.locator('[data-route-surface="courseAppearance"]')).toBeVisible();
-        await expect(instructor.getByRole("radio", { name: /^Grass/u })).toBeChecked();
-        await expectSavedTheme(instructor, "grass");
-        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(1);
+        await instructorCourse.reload();
+        await expect(
+          instructorCourse.locator('[data-route-surface="courseAppearance"]'),
+        ).toBeVisible();
+        await expect(instructorCourse.getByRole("radio", { name: /^Grass/u })).toBeChecked();
+        await expectSavedTheme(instructorCourse, "grass");
+        await expect(
+          instructorCourse.locator("[data-course-banner-saved-preview] img"),
+        ).toHaveCount(1);
       });
 
       await test.step("Enrolled Student opens the normal Course home and receives its saved appearance", async () => {
@@ -166,9 +178,9 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         const student = await studentContext.newPage();
         configureContextAndPage(studentContext, student, actionTimeoutMs);
         await chooseSeededIdentity(student, /Mary Okafor/u);
-        await enterStudentCourse(student, seededCourseTitle);
-        await expectSavedTheme(student, "grass");
-        const banner = student.locator(".course-entry-banner");
+        const studentCourse = await enterStudentCourse(student, seededCourseTitle);
+        await expectSavedTheme(studentCourse, "grass");
+        const banner = studentCourse.locator(".course-entry-banner");
         await expect(banner).toHaveCount(1);
         await expect(banner).toBeVisible();
         await expect(banner).toHaveJSProperty("complete", true);
@@ -178,26 +190,26 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
       });
 
       await test.step("A second Instructor Course retains the default appearance", async () => {
-        await signOutVisible(instructor);
-        await instructor
+        await signOutVisible(instructorCourse);
+        await instructorCourse
           .getByRole("button", { name: /Assume the role of .*Elena Rivera/iu })
           .click();
-        await instructor.getByRole("link", { name: "Courses", exact: true }).click();
+        await instructorCourse.getByRole("link", { name: "Courses", exact: true }).click();
         await expect(
-          instructor.getByRole("heading", { name: "My Active Courses", exact: true }),
+          instructorCourse.getByRole("heading", { name: "My Active Courses", exact: true }),
         ).toBeVisible();
         const secondCourseShortName = "Appearance";
         const secondCourseLongName = `Appearance isolation ${scenarioInput.namespace}`;
-        await createSecondCourseThroughVisibleControls(
-          instructor,
+        instructorCourse = await createSecondCourseThroughVisibleControls(
+          instructorCourse,
           secondCourseShortName,
           secondCourseLongName,
         );
-        await openAppearanceFromCourseActions(instructor);
-        await expect(instructor.getByRole("radio", { name: /^Grass/u })).toBeChecked();
-        await expect(instructor.locator("[data-course-banner-saved-preview]")).toHaveCount(0);
+        await openAppearanceFromCourseActions(instructorCourse);
+        await expect(instructorCourse.getByRole("radio", { name: /^Grass/u })).toBeChecked();
+        await expect(instructorCourse.locator("[data-course-banner-saved-preview]")).toHaveCount(0);
         await expect(
-          instructor.getByRole("button", { name: "Remove banner", exact: true }),
+          instructorCourse.getByRole("button", { name: "Remove banner", exact: true }),
         ).toHaveCount(0);
       });
     } finally {

@@ -1,8 +1,10 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { PleQuestionJsonPublicationRequest } from "./question_json_repository";
 import { decodeUuid } from "../../api/decoder";
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
-import { decodeQuestionLineageView, isAvailablePleQuestionSummary } from "../../api/decoders";
+import { decodeQuestionLineageView } from "../../api/decoders";
+import { decodePublishedQuestionRevisionTuple } from "../../api/decoders/shared";
 import { isQuestionAuthorship } from "../../api/question_authorship";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
 import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./question_json_source";
@@ -84,6 +86,12 @@ export interface PleQuestionJsonClient {
   publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
+    expectedDraftQuestionEditNumber: string,
+  ): Promise<QuestionSummary>;
+  publishRevision(
+    draftQuestion: DraftQuestionRouteId,
+    parent: PublishedQuestionRevisionTuple,
+    reasonForEdit: string,
     expectedDraftQuestionEditNumber: string,
   ): Promise<QuestionSummary>;
 }
@@ -192,6 +200,10 @@ function sourcePath(draftQuestion: DraftQuestionRouteId): string {
 
 function publishPath(draftQuestion: DraftQuestionRouteId): string {
   return `/api/authoring/drafts/${encodedId(draftQuestion)}/publish`;
+}
+
+function publishRevisionPath(draftQuestion: DraftQuestionRouteId): string {
+  return `/api/authoring/drafts/${encodedId(draftQuestion)}/publish-revision`;
 }
 
 function publishedQuestionPath(questionId: string): string {
@@ -385,6 +397,37 @@ export function createPleQuestionJsonClient(
     return { draftQuestionEditNumber: draftQuestionEditNumberFromResponse(response, path) };
   }
 
+  async function publishedQuestionSummary(
+    questionId: string,
+    publicationPath: string,
+  ): Promise<QuestionSummary> {
+    const summaryPath = publishedQuestionPath(questionId);
+    const summaryResponse = await fetchImplementation(
+      sameOriginPath(basePath, summaryPath),
+      requestInit("GET", { accept: "application/json" }),
+    );
+    if (!summaryResponse.ok)
+      throw new PleQuestionJsonRequestError(summaryResponse.status, summaryPath);
+    requireJson(summaryResponse, summaryPath);
+    // This strict lineage decoder delegates the summary to decodeQuestionSummary,
+    // including the Native and WebWork Backend/format contract.
+    const { summary } = decodeQuestionLineageView(
+      decodeJson(await boundedText(summaryResponse, summaryPath), summaryPath),
+      summaryPath,
+    );
+    if (summary.questionId !== questionId) {
+      throw new PleQuestionJsonProtocolError(
+        `Question publication response ${publicationPath} did not confirm the published Question ID`,
+      );
+    }
+    if (summary.backend !== "ple" && summary.backend !== "webwork") {
+      throw new PleQuestionJsonProtocolError(
+        `Question publication response ${publicationPath} must use a supported Question Backend`,
+      );
+    }
+    return summary;
+  }
+
   async function publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
@@ -434,27 +477,60 @@ export function createPleQuestionJsonClient(
       decodeJson(await boundedText(response, path), path),
       path,
     );
-    const summaryPath = publishedQuestionPath(questionId);
-    const summaryResponse = await fetchImplementation(
-      sameOriginPath(basePath, summaryPath),
-      requestInit("GET", { accept: "application/json" }),
-    );
-    if (!summaryResponse.ok)
-      throw new PleQuestionJsonRequestError(summaryResponse.status, summaryPath);
-    requireJson(summaryResponse, summaryPath);
-    const { summary } = decodeQuestionLineageView(
-      decodeJson(await boundedText(summaryResponse, summaryPath), summaryPath),
-      summaryPath,
-    );
-    if (!isAvailablePleQuestionSummary(summary)) {
+    const summary = await publishedQuestionSummary(questionId, path);
+    if (summary.availability.availability !== "available") {
       throw new PleQuestionJsonProtocolError(
-        "PLE Question JSON publication response must be an available PLE Question Library summary",
+        `Question publication response ${path} must be an available Question Library summary`,
       );
     }
     return summary;
   }
 
-  return { load, save, publish, uploadQuestionImage, questionImagePreviewPath };
+  async function publishRevision(
+    draftQuestion: DraftQuestionRouteId,
+    parent: PublishedQuestionRevisionTuple,
+    reasonForEdit: string,
+    expectedDraftQuestionEditNumber: string,
+  ): Promise<QuestionSummary> {
+    const path = publishRevisionPath(draftQuestion);
+    const requestPath = sameOriginPath(basePath, path);
+    const response = await fetchImplementation(
+      requestPath,
+      requestInit(
+        "POST",
+        {
+          accept: "application/json",
+          "content-type": "application/json",
+          "if-match": ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path),
+        },
+        JSON.stringify({
+          questionId: parent.publishedQuestionId,
+          parentRevisionNumber: parent.revisionNumber,
+          reasonForEdit,
+        }),
+      ),
+    );
+    if (response.status === 409 || response.status === 412 || response.status === 428)
+      throw new PleQuestionJsonConflictError(response.status, path);
+    if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
+    requireJson(response, path);
+    const publishedRevision = publishedQuestionRevision(
+      decodeJson(await boundedText(response, path), path),
+      path,
+    );
+    if (
+      publishedRevision.publishedQuestionId !== parent.publishedQuestionId ||
+      publishedRevision.revisionNumber !== parent.revisionNumber + 1
+    ) {
+      throw new PleQuestionJsonProtocolError(
+        `Question Revision publication ${path} did not create the requested successor Revision`,
+      );
+    }
+
+    return await publishedQuestionSummary(publishedRevision.publishedQuestionId, path);
+  }
+
+  return { load, save, publish, publishRevision, uploadQuestionImage, questionImagePreviewPath };
 }
 
 function publishedQuestionId(value: unknown, path: string): string {
@@ -480,4 +556,23 @@ function publishedQuestionId(value: unknown, path: string): string {
     );
   }
   return canonicalQuestionId;
+}
+
+function publishedQuestionRevision(value: unknown, path: string): PublishedQuestionRevisionTuple {
+  const tuple =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>).publishedQuestionRevisionTuple
+      : undefined;
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1 ||
+    !Object.prototype.hasOwnProperty.call(value, "publishedQuestionRevisionTuple")
+  ) {
+    throw new PleQuestionJsonProtocolError(
+      `Question Revision publication ${path} must return only a Published Question Revision Tuple`,
+    );
+  }
+  return decodePublishedQuestionRevisionTuple(tuple, `${path}.publishedQuestionRevisionTuple`);
 }

@@ -5,8 +5,8 @@ mod search;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
-    BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionId,
+    AccountId, BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension,
+    MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionId,
     PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QuestionAuthor,
     QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
     QuestionAvailabilityEditNumber, QuestionBackend, QuestionRevisionNumber,
@@ -110,12 +110,12 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .await?;
         let row = sqlx::query(
             "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, d.is_retired AS discipline_is_retired, st.name AS subtopic_name \
-             FROM ple_api.list_question_library_entries() q \
+             FROM ple_api.load_question_library_lineage($1) q \
              JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.content_discipline_id = q.content_discipline_id \
              LEFT JOIN LATERAL ple_api.list_content_subtopics(q.content_topic_id) st ON st.content_subtopic_id = q.content_subtopic_id \
              JOIN LATERAL ple_api.list_content_subjects(q.content_discipline_id) s ON s.content_subject_id = q.content_subject_id \
              LEFT JOIN LATERAL ple_api.list_content_topics(q.content_subject_id) t ON t.content_topic_id = q.content_topic_id \
-             WHERE q.published_question_id = $1 AND q.availability = 'available'",
+             WHERE q.published_question_id = $1",
         )
         .bind(question_id.as_str())
         .fetch_optional(&mut *transaction)
@@ -155,56 +155,20 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        let entry = row
-            .as_ref()
-            .map(decode_entry)
-            .transpose()?
-            .ok_or(StoreError::NotFound)?;
+        let row = row.as_ref().ok_or(StoreError::NotFound)?;
+        let mut entry = decode_entry(row)?;
+        entry.revision_general_feedback = row
+            .try_get("revision_general_feedback")
+            .map_err(map_sqlx_error)?;
+        entry.revision_hint = row.try_get("revision_hint").map_err(map_sqlx_error)?;
+        entry.revision_worked_solution = row
+            .try_get("revision_worked_solution")
+            .map_err(map_sqlx_error)?;
         if entry.published_question_revision_tuple != *published_question_revision_tuple {
             return Err(invalid("Question Library exact revision"));
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
-    }
-
-    async fn correct_question_revision_bloom(
-        &self,
-        session_token_hash: SessionTokenHash,
-        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
-        expected_edit_number: BloomClassificationEditNumber,
-        cognitive_process: BloomCognitiveProcess,
-        knowledge_dimension: BloomKnowledgeDimension,
-    ) -> Result<BloomClassificationView, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
-        // ASVS 1.2.4/15.4.2: bind the entire typed command to the database-owned
-        // row-locking CAS function; stale commands are returned and never retried.
-        let row = sqlx::query(
-            "SELECT cognitive_process AS bloom_cognitive_process, \
-                    knowledge_dimension AS bloom_knowledge_dimension, \
-                    classification_edit_number AS bloom_classification_edit_number \
-             FROM ple_api.correct_question_revision_bloom($1, $2, $3, $4, $5)",
-        )
-        .bind(
-            published_question_revision_tuple
-                .published_question_id
-                .as_str(),
-        )
-        .bind(
-            i32::try_from(published_question_revision_tuple.revision_number.get())
-                .map_err(|_| invalid("Question Revision Number"))?,
-        )
-        .bind(expected_edit_number.value() as i64)
-        .bind(cognitive_process.as_str())
-        .bind(knowledge_dimension.as_str())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let bloom = decode_bloom(&row)?.ok_or_else(|| invalid("Bloom Classification"))?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(bloom)
     }
 
     async fn load_current_published_question_shared_metadata(
@@ -231,8 +195,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         // interpolated into the SQL statement.
         let rows = sqlx::query(
             "SELECT published_question_id, metadata_edit_number, tags, \
-                    content_discipline_id, content_subject_id, \
-                    content_topic_id, content_subtopic_id \
+        content_discipline_id, content_subject_id, \
+        question_title, question_description, question_type, \
+                    content_topic_id, content_subtopic_id, \
+                    bloom_cognitive_process, bloom_knowledge_dimension \
              FROM ple_api.load_current_published_question_shared_metadata($1)",
         )
         .bind(&canonical_ids)
@@ -289,7 +255,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
 }
 
 impl PostgresQuestionLibraryStore {
-    /// All-Revision usage rollup for one page of Question Library IDs.
+    /// Current-Revision usage rollup for one page of Question Library IDs.
     pub async fn load_question_usage_statistics(
         &self,
         session_token_hash: SessionTokenHash,
@@ -472,6 +438,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             published_question_id: question_id,
             revision_number,
         },
+        parent_published_question_revision_tuple: decode_parent_revision_tuple(row)?,
         backend,
         question_format,
         question_type,
@@ -481,6 +448,8 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         question_description: row
             .try_get("question_description")
             .map_err(map_sqlx_error)?,
+        language: row.try_get("language").map_err(map_sqlx_error)?,
+        question_citation: decode_citation(row)?,
         shared_metadata,
         discipline_name: row.try_get("discipline_name").map_err(map_sqlx_error)?,
         discipline_is_retired: row
@@ -494,6 +463,9 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             .try_get("authored_by_current_account")
             .map_err(map_sqlx_error)?,
         viewer_may_archive: row.try_get("viewer_may_archive").map_err(map_sqlx_error)?,
+        viewer_may_edit_metadata: row
+            .try_get("viewer_may_edit_metadata")
+            .map_err(map_sqlx_error)?,
         question_license,
         availability,
         availability_edit_number,
@@ -501,7 +473,41 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
         webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
+        revision_general_feedback: None,
+        revision_hint: None,
+        revision_worked_solution: None,
     })
+}
+
+fn decode_parent_revision_tuple(
+    row: &sqlx::postgres::PgRow,
+) -> Result<Option<PublishedQuestionRevisionTuple>, StoreError> {
+    let parent_id: Option<String> = row
+        .try_get("parent_published_question_id")
+        .map_err(map_sqlx_error)?;
+    let parent_revision: Option<i32> = row
+        .try_get("parent_revision_number")
+        .map_err(map_sqlx_error)?;
+    match (parent_id, parent_revision) {
+        (None, None) => Ok(None),
+        (Some(parent_id), Some(parent_revision)) if parent_revision > 0 => {
+            let published_question_id = parent_id
+                .parse::<PublishedQuestionId>()
+                .map_err(|_| invalid("Question Parent Revision Tuple"))?;
+            let revision_number = QuestionRevisionNumber::new(parent_revision as u32)
+                .map_err(|_| invalid("Question Parent Revision Tuple"))?;
+            Ok(Some(PublishedQuestionRevisionTuple {
+                published_question_id,
+                revision_number,
+            }))
+        }
+        _ => Err(invalid("Question Parent Revision Tuple")),
+    }
+}
+
+fn decode_citation(row: &sqlx::postgres::PgRow) -> Result<Option<String>, StoreError> {
+    row.try_get::<Option<String>, _>("citation_text")
+        .map_err(map_sqlx_error)
 }
 
 fn decode_bloom(
@@ -513,33 +519,18 @@ fn decode_bloom(
     let knowledge_dimension = row
         .try_get::<Option<String>, _>("bloom_knowledge_dimension")
         .map_err(map_sqlx_error)?;
-    let classification_edit_number = row
-        .try_get::<Option<i64>, _>("bloom_classification_edit_number")
-        .map_err(map_sqlx_error)?;
-    let (cognitive_process, knowledge_dimension, classification_edit_number) = match (
-        cognitive_process,
-        knowledge_dimension,
-        classification_edit_number,
-    ) {
-        (None, None, None) => return Ok(None),
-        (Some(cognitive_process), Some(knowledge_dimension), Some(classification_edit_number)) => (
-            cognitive_process,
-            knowledge_dimension,
-            classification_edit_number,
-        ),
-        _ => return Err(invalid("Bloom Classification")),
-    };
+    if cognitive_process.is_none() && knowledge_dimension.is_none() {
+        return Ok(None);
+    }
     Ok(Some(BloomClassificationView {
         cognitive_process: cognitive_process
-            .parse::<BloomCognitiveProcess>()
+            .map(|value| value.parse::<BloomCognitiveProcess>())
+            .transpose()
             .map_err(|_| invalid("Bloom Cognitive Process"))?,
         knowledge_dimension: knowledge_dimension
-            .parse::<BloomKnowledgeDimension>()
+            .map(|value| value.parse::<BloomKnowledgeDimension>())
+            .transpose()
             .map_err(|_| invalid("Bloom Knowledge Dimension"))?,
-        classification_edit_number: u64::try_from(classification_edit_number)
-            .ok()
-            .and_then(BloomClassificationEditNumber::new)
-            .ok_or_else(|| invalid("Bloom Classification Edit Number"))?,
     }))
 }
 
@@ -569,6 +560,14 @@ fn decode_shared_metadata(
     Ok(PublishedQuestionSharedMetadata {
         question_id,
         metadata_edit_number,
+        question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
+        question_description: row
+            .try_get("question_description")
+            .map_err(map_sqlx_error)?,
+        question_type: serde_json::from_value(serde_json::Value::String(
+            row.try_get("question_type").map_err(map_sqlx_error)?,
+        ))
+        .map_err(|_| invalid("Question Type"))?,
         tags,
         discipline_uuid: row
             .try_get("content_discipline_id")
@@ -576,6 +575,18 @@ fn decode_shared_metadata(
         subject_uuid: row.try_get("content_subject_id").map_err(map_sqlx_error)?,
         topic_uuid: row.try_get("content_topic_id").map_err(map_sqlx_error)?,
         subtopic_uuid: row.try_get("content_subtopic_id").map_err(map_sqlx_error)?,
+        bloom_cognitive_process: row
+            .try_get::<Option<String>, _>("bloom_cognitive_process")
+            .map_err(map_sqlx_error)?
+            .map(|value| value.parse::<BloomCognitiveProcess>())
+            .transpose()
+            .map_err(|_| invalid("Bloom Cognitive Process"))?,
+        bloom_knowledge_dimension: row
+            .try_get::<Option<String>, _>("bloom_knowledge_dimension")
+            .map_err(map_sqlx_error)?
+            .map(|value| value.parse::<BloomKnowledgeDimension>())
+            .transpose()
+            .map_err(|_| invalid("Bloom Knowledge Dimension"))?,
     })
 }
 

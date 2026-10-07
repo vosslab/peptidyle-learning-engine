@@ -8,15 +8,14 @@ use question_model::{
     BlueprintAssessmentContent, BlueprintAssessmentContentInput, BlueprintAssessmentEditChoice,
     BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintAvailability,
     BlueprintCourseContent, BlueprintCourseId, BlueprintCourseModuleContent,
-    BlueprintCourseReadAccess, BlueprintCourseValidationError, BlueprintEditNumber,
-    BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleId,
+    BlueprintCourseReadAccess, BlueprintCourseRevisionTuple, BlueprintCourseValidationError,
+    BlueprintEditNumber, BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleId,
     BlueprintQuestionPoolContent, BlueprintRevisionContent, BlueprintRevisionNumber,
-    BlueprintRevisionTuple, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
-    CreateBlueprintCourseReceipt, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend, QuestionPoolId,
-    QuestionPoolSelectionRule, QuestionType, RenameBlueprintCourseInput,
-    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView,
-    SaveBlueprintCourseReceipt,
+    CanonicalBlueprintCourse, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionBackend, QuestionPoolId, QuestionType,
+    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
+    ReusablePoolView, SaveBlueprintCourseReceipt,
 };
 use serde::{Deserialize, Serialize};
 
@@ -119,8 +118,8 @@ pub struct StoredBlueprintPromotion {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyBlueprintForkInput {
-    pub expected_source_revision_tuple: BlueprintRevisionTuple,
-    pub expected_fork_revision_tuple: BlueprintRevisionTuple,
+    pub expected_source_revision_tuple: BlueprintCourseRevisionTuple,
+    pub expected_fork_revision_tuple: BlueprintCourseRevisionTuple,
     pub expected_source_blueprint_edit_number: BlueprintEditNumber,
     pub expected_fork_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: bool,
@@ -142,11 +141,12 @@ pub struct StoredBlueprintCourse {
     pub id: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
+    pub theme: question_model::Theme,
     pub availability: BlueprintAvailability,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub current_revision_number: BlueprintRevisionNumber,
     /// Exact immutable ancestry, filtered by current source visibility.
-    pub fork_source_tuple: Option<BlueprintRevisionTuple>,
+    pub fork_source_tuple: Option<BlueprintCourseRevisionTuple>,
     pub read_access: BlueprintCourseReadAccess,
     /// The exact current immutable Revision content.
     pub content: StoredBlueprintCourseContent,
@@ -159,6 +159,7 @@ pub struct StoredBlueprintCourseSummary {
     pub id: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
+    pub theme: question_model::Theme,
     pub availability: BlueprintAvailability,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub current_revision_number: BlueprintRevisionNumber,
@@ -184,7 +185,7 @@ pub struct StoredBlueprintCourseSummary {
 /// Exact immutable Blueprint Revision content, including after lineage archive.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintRevision {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub content: StoredBlueprintCourseContent,
 }
 
@@ -236,11 +237,9 @@ pub enum StoredBlueprintAssessmentEntry {
     },
     Pool {
         question_pool_id: question_model::QuestionPoolId,
-        question_pool_edit_number: question_model::QuestionPoolEditNumber,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
-        selection_rule: QuestionPoolSelectionRule,
         question_attempt_limit: QuestionAttemptLimit,
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
@@ -446,30 +445,10 @@ impl StoredBlueprintAssessmentContent {
                 }
                 question_model::BlueprintAssessmentEntryInput::Pool(value) => {
                     Ok(StoredBlueprintAssessmentEntry::Pool {
-                        question_pool_id: match &value.pool {
-                            question_model::BlueprintPoolInputChoice::Import {
-                                question_pool_id,
-                                ..
-                            }
-                            | question_model::BlueprintPoolInputChoice::Retained {
-                                question_pool_id,
-                                ..
-                            } => question_pool_id.clone(),
-                        },
-                        question_pool_edit_number: match &value.pool {
-                            question_model::BlueprintPoolInputChoice::Import {
-                                question_pool_edit_number,
-                                ..
-                            }
-                            | question_model::BlueprintPoolInputChoice::Retained {
-                                question_pool_edit_number,
-                                ..
-                            } => *question_pool_edit_number,
-                        },
+                        question_pool_id: value.question_pool_id,
                         selection_count: value.selection_count,
                         points_per_item: value.points_per_item,
                         scoring_rule: value.scoring_rule,
-                        selection_rule: value.selection_rule,
                         question_attempt_limit: value.question_attempt_limit,
                         question_attempt_time_limit: value.question_attempt_time_limit,
                     })
@@ -508,21 +487,17 @@ impl StoredBlueprintAssessmentContent {
                 }),
                 StoredBlueprintAssessmentEntry::Pool {
                     question_pool_id,
-                    question_pool_edit_number,
                     selection_count,
                     points_per_item,
                     scoring_rule,
-                    selection_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => Ok(BlueprintAssessmentEntryContent::Pool(
                     BlueprintQuestionPoolContent::new(ReusablePoolView {
                         question_pool_id: question_pool_id.clone(),
-                        question_pool_edit_number: *question_pool_edit_number,
                         selection_count: *selection_count,
                         points_per_item: *points_per_item,
                         scoring_rule: *scoring_rule,
-                        selection_rule: *selection_rule,
                         question_attempt_limit: *question_attempt_limit,
                         question_attempt_time_limit: *question_attempt_time_limit,
                     })
@@ -596,6 +571,13 @@ pub trait BlueprintCourseStore: Send + Sync {
         expected_edit_number: BlueprintEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<BlueprintMetadataState, StoreError>;
+    async fn update_blueprint_theme(
+        &self,
+        session: SessionTokenHash,
+        id: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
+        theme: question_model::Theme,
+    ) -> Result<BlueprintMetadataState, StoreError>;
     async fn load_blueprint_pool_members(
         &self,
         session: SessionTokenHash,
@@ -614,7 +596,6 @@ pub trait BlueprintCourseStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         input: ApplyBlueprintForkInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ApplyBlueprintForkResult, StoreError>;
     async fn list_blueprint_courses(
         &self,
@@ -629,7 +610,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn load_blueprint_revision(
         &self,
         session: SessionTokenHash,
-        blueprint_revision_tuple: BlueprintRevisionTuple,
+        blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     ) -> Result<StoredBlueprintRevision, StoreError>;
     /// Reads the current authorized Blueprint as complete reusable exchange data.
     async fn export_blueprint_course(
@@ -638,20 +619,18 @@ pub trait BlueprintCourseStore: Send + Sync {
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<CanonicalBlueprintCourse, StoreError>;
     /// Creates a distinct actor-owned Private Blueprint through the ordinary
-    /// Revision 1 transaction, allocating fresh child and Pool identities.
+    /// Revision 1 transaction, preserving direct references to existing Pools.
     async fn import_blueprint_course(
         &self,
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         exchange: CanonicalBlueprintCourse,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
     async fn create_blueprint_course(
         &self,
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         input: CreateBlueprintCourseInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
     async fn save_blueprint_course(
         &self,
@@ -660,7 +639,6 @@ pub trait BlueprintCourseStore: Send + Sync {
         expected_revision_number: BlueprintRevisionNumber,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError>;
     async fn rename_blueprint_course(
         &self,
@@ -719,14 +697,9 @@ fn requested_pool_ids(input: &BlueprintAssessmentContentInput) -> Vec<QuestionPo
         .entries
         .iter()
         .filter_map(|entry| match entry {
-            question_model::BlueprintAssessmentEntryInput::Pool(value) => match &value.pool {
-                question_model::BlueprintPoolInputChoice::Import {
-                    question_pool_id, ..
-                }
-                | question_model::BlueprintPoolInputChoice::Retained {
-                    question_pool_id, ..
-                } => Some(question_pool_id.clone()),
-            },
+            question_model::BlueprintAssessmentEntryInput::Pool(value) => {
+                Some(value.question_pool_id.clone())
+            }
             question_model::BlueprintAssessmentEntryInput::Fixed(_) => None,
         })
         .collect()

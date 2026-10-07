@@ -1,7 +1,7 @@
 //! Typed PostgreSQL binding for bounded Question Library discovery.
 
 use question_model::{
-    LibraryQuestionMembership, LibrarySearchKind, PublishedQuestionId, QuestionBackend,
+    LibrarySearchKind, PublishedQuestionFilter, PublishedQuestionId, QuestionBackend,
     QuestionLicense, QuestionType,
 };
 use sqlx::Row;
@@ -28,7 +28,7 @@ impl PostgresQuestionLibraryStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.search_question_library_entries(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, \
-                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)",
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
         )
         .bind(
             request
@@ -61,9 +61,9 @@ impl PostgresQuestionLibraryStore {
             LibrarySearchKind::Questions => "questions",
             LibrarySearchKind::Pools => "pools",
         })
-        .bind(match request.membership {
-            LibraryQuestionMembership::NoPool => "no_pool",
-            LibraryQuestionMembership::All => "all",
+        .bind(match request.questions {
+            PublishedQuestionFilter::InNoPool => "no_pool",
+            PublishedQuestionFilter::All => "all",
         })
         .bind(
             request
@@ -71,7 +71,6 @@ impl PostgresQuestionLibraryStore {
                 .as_ref()
                 .map(question_model::AccountId::as_str),
         )
-        .bind(request.has_capability_filter)
         .bind(sort_name(request.sort))
         .bind(after_title(request.after.as_ref()))
         .bind(after_published_at(request.after.as_ref()))
@@ -272,9 +271,8 @@ mod tests {
     fn request() -> QuestionLibrarySearchRequest {
         QuestionLibrarySearchRequest {
             kind: LibrarySearchKind::Questions,
-            membership: LibraryQuestionMembership::All,
+            questions: PublishedQuestionFilter::All,
             owner_account_id: None,
-            has_capability_filter: false,
             exact_question_id: None,
             text_terms: Vec::new(),
             author_names: Vec::new(),

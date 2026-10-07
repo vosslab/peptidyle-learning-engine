@@ -1,9 +1,124 @@
--- One Instructor command for Question Pool Topic, Subtopic, and Tags.
--- Discipline and Subject stay the values established by the first member.
+-- Ordinary single-Pool metadata operations.
 
 SET LOCAL ROLE ple_private_owner;
 
--- ASVS 2.3.3 and 15.4.2: compare and advance metadata tokens under canonical Pool locks.
+CREATE FUNCTION ple_private.replace_question_pool_metadata(
+    p_question_pool_id text, p_expected_question_pool_metadata_edit_number bigint,
+    p_title text, p_description text, p_topic_uuid uuid, p_subtopic_uuid uuid,
+    p_tags text[], p_bloom_cognitive_process ple_data.bloom_cognitive_process,
+    p_bloom_knowledge_dimension ple_data.bloom_knowledge_dimension
+) RETURNS TABLE(question_pool_id text, question_pool_metadata_edit_number bigint)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    actor_id text;
+    current_pool ple_data.question_pool%ROWTYPE;
+BEGIN
+    IF p_question_pool_id IS NULL
+       OR p_expected_question_pool_metadata_edit_number IS NULL
+       OR p_expected_question_pool_metadata_edit_number < 1
+       OR p_title IS NULL OR p_title <> btrim(p_title)
+       OR char_length(p_title) NOT BETWEEN 1 AND 512 OR p_title ~ '[[:cntrl:]]'
+       OR p_description IS NULL OR p_description <> btrim(p_description)
+       OR char_length(p_description) NOT BETWEEN 1 AND 4000 OR p_description ~ '[[:cntrl:]]'
+       OR p_tags IS NULL OR NOT ple_data.question_metadata_tags_are_valid(p_tags)
+       OR (p_subtopic_uuid IS NOT NULL AND p_topic_uuid IS NULL) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool metadata replacement is invalid';
+    END IF;
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin()) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Pool Owner or Sysadmin authority is required';
+    END IF;
+    actor_id := ple_api.current_session_account_id();
+    IF actor_id IS NULL
+       OR (ple_api.current_session_account_is_instructor()
+           AND ple_private.instructor_display_name(actor_id) IS NULL) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Pool Owner or Sysadmin authority is required';
+    END IF;
+    SELECT pool.* INTO current_pool
+      FROM ple_data.question_pool AS pool
+     WHERE pool.question_pool_id = p_question_pool_id
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Pool metadata target is not available';
+    END IF;
+    IF NOT ple_api.current_session_account_is_sysadmin()
+       AND current_pool.owner_account_id::text IS DISTINCT FROM actor_id THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Pool Owner authority is required';
+    END IF;
+    IF current_pool.question_pool_metadata_edit_number
+       <> p_expected_question_pool_metadata_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Question Pool metadata Edit Number is stale';
+    END IF;
+    RETURN QUERY
+    UPDATE ple_data.question_pool AS pool
+       SET title = p_title,
+           description = p_description,
+           content_topic_id = p_topic_uuid,
+           content_subtopic_id = p_subtopic_uuid,
+           tags = p_tags,
+           bloom_cognitive_process = p_bloom_cognitive_process,
+           bloom_knowledge_dimension = p_bloom_knowledge_dimension,
+           question_pool_metadata_edit_number = pool.question_pool_metadata_edit_number + 1,
+           updated_on = CURRENT_DATE
+     WHERE pool.question_pool_id = p_question_pool_id
+     RETURNING pool.question_pool_id::text, pool.question_pool_metadata_edit_number;
+END
+$$;
+
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.replace_question_pool_metadata(
+    p_question_pool_id text, p_expected_question_pool_metadata_edit_number bigint,
+    p_title text, p_description text, p_topic_uuid uuid, p_subtopic_uuid uuid,
+    p_tags text[], p_bloom_cognitive_process text,
+    p_bloom_knowledge_dimension text
+) RETURNS TABLE(question_pool_id text, question_pool_metadata_edit_number bigint)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private AS $$
+    SELECT * FROM ple_private.replace_question_pool_metadata(
+        p_question_pool_id, p_expected_question_pool_metadata_edit_number,
+        p_title, p_description, p_topic_uuid, p_subtopic_uuid, p_tags,
+        p_bloom_cognitive_process::ple_data.bloom_cognitive_process,
+        p_bloom_knowledge_dimension::ple_data.bloom_knowledge_dimension)
+$$;
+
+CREATE FUNCTION ple_api.read_current_question_pool_metadata(p_question_pool_id text)
+RETURNS TABLE (
+    question_pool_id text, question_pool_metadata_edit_number bigint,
+    title text, description text, topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    bloom_cognitive_process text, bloom_knowledge_dimension text
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    actor_id text;
+BEGIN
+    actor_id := ple_api.current_session_account_id();
+    IF actor_id IS NULL
+       OR NOT (ple_api.current_session_account_is_instructor()
+               OR ple_api.current_session_account_is_sysadmin())
+       OR (ple_api.current_session_account_is_instructor()
+           AND ple_private.instructor_display_name(actor_id) IS NULL) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Current Question Pool metadata requires an active Library reader';
+    END IF;
+    RETURN QUERY
+    SELECT pool.question_pool_id::text, pool.question_pool_metadata_edit_number,
+           pool.title, pool.description, pool.content_topic_id, pool.content_subtopic_id,
+           pool.tags, pool.bloom_cognitive_process::text, pool.bloom_knowledge_dimension::text
+      FROM ple_data.question_pool AS pool
+     WHERE pool.question_pool_id = p_question_pool_id;
+END
+$$;
+
+SET LOCAL ROLE ple_private_owner;
+
 CREATE FUNCTION ple_private.bulk_replace_question_pool_search_metadata(
     p_selection jsonb, p_patch jsonb
 ) RETURNS TABLE(question_pool_id text, question_pool_metadata_edit_number bigint)
@@ -121,6 +236,7 @@ BEGIN
         SELECT pool.question_pool_metadata_edit_number INTO v_current_edit_number
           FROM ple_data.question_pool AS pool
          WHERE pool.question_pool_id = v_selected.selected_pool_id
+           AND pool.owner_account_id::text = ple_api.current_session_account_id()
          FOR UPDATE;
         IF NOT FOUND THEN
             RAISE EXCEPTION USING ERRCODE = '42501',

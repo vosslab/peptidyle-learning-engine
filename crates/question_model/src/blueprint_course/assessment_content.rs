@@ -1,6 +1,5 @@
 //! Reusable Blueprint Assessment input and answer-free view contracts.
 
-use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
 use serde::{Deserialize, Serialize};
@@ -10,8 +9,7 @@ use crate::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ORDERED_ENTRIES, PublishedQuestionRevisionTuple, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectionRule,
-    QuestionSearchResult, StudentFeedbackReleaseRule,
+    QuestionAttemptTimeLimit, QuestionPoolId, QuestionSearchResult, StudentFeedbackReleaseRule,
     is_valid_base_assessment_attempt_time_limit_seconds,
 };
 
@@ -68,52 +66,18 @@ pub struct ReusableFixedQuestionInput {
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
-/// Explicit source import or retained Assessment-owned Pool edit.
-/// ASVS 1.5.2: only the reviewed input alternatives and fields are accepted.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintPoolInputChoice {
-    /// Copy the current source Pool membership into a fresh Assessment-owned Pool.
-    Import {
-        question_pool_id: QuestionPoolId,
-        question_pool_edit_number: QuestionPoolEditNumber,
-    },
-    /// Retain a Pool already owned by the Assessment being replaced.
-    Retained {
-        question_pool_id: QuestionPoolId,
-        question_pool_edit_number: QuestionPoolEditNumber,
-        /// Null preserves members; an ordered list replaces current Pool membership.
-        #[serde(deserialize_with = "deserialize_blueprint_pool_members")]
-        members: Option<Vec<PublishedQuestionRevisionTuple>>,
-        /// Explicit interchangeability review for newly submitted member content.
-        #[serde(rename = "interchangeabilityAttested")]
-        interchangeability_attested: bool,
-    },
-}
-
-fn deserialize_blueprint_pool_members<'de, D>(
-    deserializer: D,
-) -> Result<Option<Vec<PublishedQuestionRevisionTuple>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Option::<Vec<PublishedQuestionRevisionTuple>>::deserialize(deserializer)
-}
-
-/// One Question Pool Assessment Entry with an explicit ownership operation.
+/// One Question Pool reference with Assessment-local selection and scoring policy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolInput {
-    /// Exact source import or explicit retained Assessment-owned Pool edit.
-    pub pool: BlueprintPoolInputChoice,
+    /// Existing ordinary Pool used by this Blueprint Assessment.
+    pub question_pool_id: QuestionPoolId,
     /// Positive number of Pool members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,
     /// Points copied for every selected Question Pool Item.
     pub points_per_item: AssessmentPointValue,
     /// Scoring rule copied for every selected Question Pool Item.
     pub scoring_rule: AssessmentEntryScoringRule,
-    /// Complete reviewed selection behavior.
-    pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound copied for every selected Question Pool Item.
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Uniform Question Attempt timing copied for every selected Question Pool Item.
@@ -122,34 +86,6 @@ pub struct ReusablePoolInput {
 
 impl ReusablePoolInput {
     fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        if let BlueprintPoolInputChoice::Retained {
-            members: Some(members),
-            interchangeability_attested,
-            ..
-        } = &self.pool
-        {
-            // ASVS 2.2.1, 2.2.3: bound related authored members and selection together.
-            if members.is_empty()
-                || members.len() > crate::MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
-            {
-                return Err(BlueprintCourseValidationError::InvalidQuestionPoolItems);
-            }
-            if self.selection_count.get() as usize > members.len() {
-                return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
-            }
-            let mut questions = BTreeSet::new();
-            if members
-                .iter()
-                .any(|member| !questions.insert(member.published_question_id.clone()))
-            {
-                return Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem);
-            }
-            if !interchangeability_attested {
-                return Err(
-                    BlueprintCourseValidationError::QuestionPoolInterchangeabilityNotAttested,
-                );
-            }
-        }
         Ok(())
     }
 }
@@ -237,15 +173,12 @@ pub struct ReusableQuestionView {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
     pub question_pool_id: QuestionPoolId,
-    pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Positive number of Pool members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,
     /// Points copied for every selected Question Pool Item.
     pub points_per_item: AssessmentPointValue,
     /// Scoring rule copied for every selected Question Pool Item.
     pub scoring_rule: AssessmentEntryScoringRule,
-    /// Complete reviewed selection behavior.
-    pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound copied for every selected Question Pool Item.
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Uniform Question Attempt timing copied for every selected Question Pool Item.

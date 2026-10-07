@@ -113,7 +113,7 @@ assert_concealed "$(request "$path" "$sysadmin_cookie")"
 created="$(request "$path" "$instructor_cookie" POST '{"assessmentType":"practice_question_assignment","title":"M10 released Assessment","instructions":"Release this Assessment for list evidence."}')"
 require_status "Released Assessment creation" "$created" 201
 read -r assessment initial_edit < <(workspace_id_and_edit_number "$(response_body "$created")")
-picker="$(request "/api/questions/search?authorship=any&page_size=50" "$instructor_cookie")"
+picker="$(request "/api/library-objects/search?authorship=any&page_size=50" "$instructor_cookie")"
 require_status "Assessment Question picker" "$picker" 200
 published_question_revision_tuple="$(picker_published_question_revision_tuple "$(response_body "$picker")")"
 payload="$(save_payload "$(response_body "$created")" "$published_question_revision_tuple" "M10 released Assessment")"

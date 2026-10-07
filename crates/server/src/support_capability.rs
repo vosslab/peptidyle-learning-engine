@@ -1,9 +1,4 @@
-//! Direct-Instructor issuance and revocation of closed support capabilities.
-//!
-//! Student roster profiles, exact Course identity, and one Course Assessment
-//! are supported. SQL checks the original issuer's current exact Course
-//! authority at issuance and use. There is no generic resource reader and no
-//! content editor.
+//! Confirmed, audited Sysadmin access to one named Student roster record.
 
 use crate::auth::{AuthError, resolve_session};
 use axum::{
@@ -11,183 +6,66 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::post,
 };
 use learning_data_access::{
-    IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError, SupportRepairCapabilityStore,
-    postgres::{PostgresSessionStore, PostgresSupportCapabilityStore},
+    ConfirmedStudentDataAccess, SessionTokenHash, StoreError, SysadminStudentDataStore,
+    postgres::{PostgresSessionStore, PostgresSysadminStudentDataStore},
 };
-use question_model::{AssessmentId, CourseInstanceId, UserRole};
+use question_model::{CourseInstanceId, UserRole};
 use std::{str::FromStr, sync::Arc};
-use uuid::Uuid;
 
 #[derive(Clone)]
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
-    support: PostgresSupportCapabilityStore,
+    student_data: PostgresSysadminStudentDataStore,
 }
 
 pub fn support_capability_router(
     sessions: Arc<PostgresSessionStore>,
-    support: PostgresSupportCapabilityStore,
+    student_data: PostgresSysadminStudentDataStore,
 ) -> Router {
     Router::new()
-        .route("/api/support-repair-capabilities", post(issue_repair))
         .route(
-            "/api/support-repair-capabilities/{capability_id}/revoke",
-            post(revoke_repair),
+            "/api/sysadmin/course-instances/{course_instance_id}/roster/{roster_id}/student-data",
+            post(read_student_data),
         )
-        .route(
-            "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}",
-            get(read_repair_course),
-        )
-        .route(
-            "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}/assessments/{assessment_id}",
-            get(read_repair_content),
-        )
-        .route(
-            "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}/roster/{roster_id}",
-            get(read_repair_roster_entry),
-        )
-        .with_state(RouteState { sessions, support })
+        .with_state(RouteState {
+            sessions,
+            student_data,
+        })
 }
 
-/// C26 exposes one named Student record only after the resource-owning Store
-/// atomically consumes an active repair capability.  It is intentionally not a
-/// Course roster list or a generic resource reader.
-async fn read_repair_roster_entry(
+/// ASVS 2.2.2/2.3.3/8.3.1/16.2.1/16.2.5: validate at the trusted server,
+/// then let the Store commit the protected read and minimal audit event together.
+async fn read_student_data(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path((capability_id, course_instance_id, roster_id)): Path<(String, String, String)>,
+    Path((course_instance_id, roster_id)): Path<(String, String)>,
+    Json(confirmation): Json<ConfirmedStudentDataAccess>,
 ) -> Response {
-    let capability_id = match Uuid::parse_str(&capability_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let course = match CourseInstanceId::from_str(&course_instance_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
     let token = match sysadmin_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
+    if let Err(error) = confirmation.validate() {
+        return store_error_response(error);
+    }
+    let course_instance_id = match CourseInstanceId::from_str(&course_instance_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
     match state
-        .support
-        .read_course_roster_entry_repair_support(token, capability_id, course, roster_id)
+        .student_data
+        .read_sysadmin_student_roster_record(token, course_instance_id, roster_id, confirmation)
         .await
     {
-        Ok(Some(entry)) => crate::auth::no_store(Json(entry).into_response()),
+        Ok(Some(record)) => crate::auth::no_store(Json(record).into_response()),
         Ok(None) => concealed(),
         Err(error) => store_error_response(error),
     }
 }
 
-/// ASVS 8.2.1/8.2.2/8.2.3/14.2.6/16.5.1: the Course projection is consumed only
-/// by the named capability. A missing or mismatched capability is concealed.
-async fn read_repair_course(
-    State(state): State<RouteState>,
-    headers: HeaderMap,
-    Path((capability_id, course_instance_id)): Path<(String, String)>,
-) -> Response {
-    let capability_id = match Uuid::parse_str(&capability_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let course = match CourseInstanceId::from_str(&course_instance_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let token = match sysadmin_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .support
-        .read_course_repair_support(token, capability_id, course)
-        .await
-    {
-        Ok(Some(course)) => crate::auth::no_store(Json(course).into_response()),
-        Ok(None) => concealed(),
-        Err(error) => store_error_response(error),
-    }
-}
-
-/// ASVS 8.2.1/8.2.2/8.2.3/14.2.6/16.5.1: the Assessment projection is consumed
-/// only by the named capability. A missing or mismatched capability is concealed.
-async fn read_repair_content(
-    State(state): State<RouteState>,
-    headers: HeaderMap,
-    Path((capability_id, course_instance_id, assessment_id)): Path<(String, String, String)>,
-) -> Response {
-    let capability_id = match Uuid::parse_str(&capability_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let course = match CourseInstanceId::from_str(&course_instance_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let assessment = match AssessmentId::from_str(&assessment_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let token = match sysadmin_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .support
-        .read_course_content_repair_support(token, capability_id, course, assessment)
-        .await
-    {
-        Ok(Some(content)) => crate::auth::no_store(Json(content).into_response()),
-        Ok(None) => concealed(),
-        Err(error) => store_error_response(error),
-    }
-}
-
-async fn issue_repair(
-    State(state): State<RouteState>,
-    headers: HeaderMap,
-    Json(input): Json<IssueSupportRepairCapabilityInput>,
-) -> Response {
-    let token = match instructor_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .support
-        .issue_support_repair_capability(token, input)
-        .await
-    {
-        Ok(receipt) => crate::auth::no_store((StatusCode::CREATED, Json(receipt)).into_response()),
-        Err(error) => store_error_response(error),
-    }
-}
-
-async fn revoke_repair(
-    State(state): State<RouteState>,
-    headers: HeaderMap,
-    Path(capability_id): Path<String>,
-) -> Response {
-    let capability_id = match Uuid::parse_str(&capability_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let token = match instructor_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .support
-        .revoke_support_repair_capability(token, capability_id)
-        .await
-    {
-        Ok(receipt) => crate::auth::no_store(Json(receipt).into_response()),
-        Err(error) => store_error_response(error),
-    }
-}
 async fn sysadmin_session_hash(
     state: &RouteState,
     headers: &HeaderMap,
@@ -202,68 +80,44 @@ async fn sysadmin_session_hash(
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,
-            "Support capability authentication unavailable",
+            "Student-data access authentication unavailable",
         ))),
     }
 }
 
-async fn instructor_session_hash(
-    state: &RouteState,
-    headers: &HeaderMap,
-) -> Result<SessionTokenHash, Box<Response>> {
-    match resolve_session(
-        state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
-    )
-    .await
-    {
-        // ASVS 8.2.1: the procedure repeats current direct membership atomically.
-        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
-        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
-        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Support capability authentication unavailable",
-        ))),
-    }
-}
 fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
+    let values: Vec<_> = headers.get_all(COOKIE).iter().cloned().collect();
+    if values.is_empty() {
+        return None;
+    }
+    let mut joined = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            joined.extend_from_slice(b"; ");
+        }
+        joined.extend_from_slice(value.as_bytes());
+    }
+    String::from_utf8(joined).ok()
 }
+
+fn concealed() -> Response {
+    route_error(StatusCode::NOT_FOUND, "Student record not found")
+}
+
 fn store_error_response(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
-        StoreError::Conflict | StoreError::RetryableTransaction => route_error(
-            StatusCode::PRECONDITION_FAILED,
-            "Support capability changed",
-        ),
-        StoreError::LifecycleConflict => route_error(
-            StatusCode::CONFLICT,
-            "Support capability lifecycle conflict",
-        ),
         StoreError::InvalidRecord(_) => route_error(
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Support capability is invalid",
+            "Student-data access request is invalid",
         ),
-        StoreError::AlreadyExists => {
-            route_error(StatusCode::CONFLICT, "Support capability conflict")
-        }
-        StoreError::AssessmentActivity(_)
-        | StoreError::TimedOut
-        | StoreError::LeaseLost
-        | StoreError::Unavailable(_) => route_error(
+        StoreError::Forbidden | StoreError::NotFound => concealed(),
+        _ => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
-            "Support capability unavailable",
+            "Student-data access is temporarily unavailable",
         ),
     }
 }
-fn concealed() -> Response {
-    route_error(StatusCode::NOT_FOUND, "Support capability not found")
-}
+
 fn route_error(status: StatusCode, message: &'static str) -> Response {
-    crate::auth::no_store((status, message).into_response())
+    crate::auth::no_store((status, Json(serde_json::json!({"error": message}))).into_response())
 }

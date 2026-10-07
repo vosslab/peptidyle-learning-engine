@@ -266,6 +266,8 @@ pub struct NativePleIssuanceSource {
     pub assessment_entry_id: String,
     pub position: u32,
     pub question_id: PublishedQuestionId,
+    /// Title from this exact Question Revision's metadata record.
+    pub question_title: String,
     pub revision_number: u32,
     pub source_object_id: String,
     pub source_object_address: serde_json::Value,

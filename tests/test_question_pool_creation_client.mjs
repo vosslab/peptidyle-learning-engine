@@ -17,7 +17,7 @@ function createdPoolResponse(value) {
   });
 }
 
-test("Question Pool creation sends explicit metadata and attested ordered pins with an Edit Number 1 receipt", async () => {
+test("Question Pool creation sends explicit metadata and the exact Revision tuple set", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -33,7 +33,6 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
       { publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 },
       { publishedQuestionId: SECOND_QUESTION, revisionNumber: 7 },
     ],
-    interchangeabilityAttested: true,
     tags: ["membrane", "bilayer"],
   });
 
@@ -50,7 +49,6 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
       { publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 },
       { publishedQuestionId: SECOND_QUESTION, revisionNumber: 7 },
     ],
-    interchangeabilityAttested: true,
     tags: ["membrane", "bilayer"],
   });
 
@@ -63,7 +61,6 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
       title: "Interchangeable genetics questions",
       description: "Practice reading inheritance patterns.",
       members: [{ publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 }],
-      interchangeabilityAttested: true,
     }),
     DecodeError,
   );
@@ -81,7 +78,6 @@ test("Question Pool creation rejects missing or noncanonical metadata before tra
     title: "Pool",
     description: "Learning goal",
     members: [{ publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 }],
-    interchangeabilityAttested: true,
   };
   for (const patch of [
     { title: undefined },
@@ -96,5 +92,15 @@ test("Question Pool creation rejects missing or noncanonical metadata before tra
   ]) {
     await assert.rejects(client.createQuestionPool({ ...valid, ...patch }), DecodeError);
   }
+  await assert.rejects(
+    client.createQuestionPool({
+      ...valid,
+      members: [
+        { publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 },
+        { publishedQuestionId: FIRST_QUESTION, revisionNumber: 4 },
+      ],
+    }),
+    /one Revision per Question/u,
+  );
   assert.equal(requests, 0);
 });

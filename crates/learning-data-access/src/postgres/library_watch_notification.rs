@@ -1,7 +1,7 @@
 //! PostgreSQL adapter for the private Library Watch outbox and inbox.
 
 use async_trait::async_trait;
-use question_model::{PublishedQuestionId, Timestamp};
+use question_model::{LibraryObjectId, QuestionPoolEditNumber, QuestionRevisionNumber, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -57,60 +57,72 @@ fn target_kind(value: String) -> Result<LibraryWatchTargetKind, StoreError> {
     }
 }
 
-fn positive_u64(value: i64, name: &str) -> Result<u64, StoreError> {
-    let value = u64::try_from(value).map_err(|_| StoreError::InvalidRecord(name.to_owned()))?;
-    if value == 0 {
-        return Err(StoreError::InvalidRecord(name.to_owned()));
-    }
-    Ok(value)
+fn decode_question_revision_number(value: i64) -> Result<QuestionRevisionNumber, StoreError> {
+    let value = u32::try_from(value).map_err(|_| {
+        StoreError::InvalidRecord("Library Watch Question Revision Number".to_owned())
+    })?;
+    QuestionRevisionNumber::new(value)
+        .map_err(|_| StoreError::InvalidRecord("Library Watch Question Revision Number".to_owned()))
 }
 
-fn question_id(value: String, name: &str) -> Result<PublishedQuestionId, StoreError> {
+fn decode_question_pool_edit_number(value: i64) -> Result<QuestionPoolEditNumber, StoreError> {
+    let value = u64::try_from(value).map_err(|_| {
+        StoreError::InvalidRecord("Library Watch Question Pool Edit Number".to_owned())
+    })?;
+    QuestionPoolEditNumber::new(value).map_err(|_| {
+        StoreError::InvalidRecord("Library Watch Question Pool Edit Number".to_owned())
+    })
+}
+
+fn library_object_id(value: String, name: &str) -> Result<LibraryObjectId, StoreError> {
     value
-        .parse::<PublishedQuestionId>()
+        .parse::<LibraryObjectId>()
         .map_err(|_| StoreError::InvalidRecord(name.to_owned()))
 }
 
 // ASVS 2.2.1/2.2.3: consume the nullable SQL projection once and expose only
 // complete, allowlisted Watch activity variants to downstream callers.
 fn watch_activity(
+    target_kind: LibraryWatchTargetKind,
     event_kind: String,
-    revision_number: Option<i64>,
+    question_revision_number: Option<i64>,
+    question_pool_edit_number: Option<i64>,
     forked_public_id: Option<String>,
-    activity_id: Option<uuid::Uuid>,
 ) -> Result<LibraryWatchActivity, StoreError> {
     match (
+        target_kind,
         event_kind.as_str(),
-        revision_number,
+        question_revision_number,
+        question_pool_edit_number,
         forked_public_id,
-        activity_id,
     ) {
-        ("revision", Some(revision_number), None, None) => Ok(LibraryWatchActivity::Revision {
-            revision_number: positive_u64(revision_number, "Library Watch revision number")?,
-        }),
-        // ASVS 5.1.1: a membership edit carries the Pool Edit Number and no fork or activity id.
-        ("members_changed", Some(edit_number), None, None) => {
+        (LibraryWatchTargetKind::Question, "revision", Some(number), None, None) => {
+            Ok(LibraryWatchActivity::Revision {
+                question_revision_number: decode_question_revision_number(number)?,
+            })
+        }
+        // ASVS 5.1.1: a membership edit carries the Pool Edit Number and no fork evidence.
+        (LibraryWatchTargetKind::QuestionPool, "members_changed", None, Some(number), None) => {
             Ok(LibraryWatchActivity::MembersChanged {
-                edit_number: positive_u64(edit_number, "Library Watch Pool Edit Number")?,
+                question_pool_edit_number: decode_question_pool_edit_number(number)?,
             })
         }
-        ("fork", Some(source_revision_number), Some(forked_public_id), None) => {
-            Ok(LibraryWatchActivity::Fork {
-                source_revision_number: positive_u64(
-                    source_revision_number,
-                    "Library Watch source Revision number",
-                )?,
-                forked_public_id: question_id(forked_public_id, "Library Watch fork ID")?,
+        (LibraryWatchTargetKind::Question, "fork", Some(number), None, Some(forked_public_id)) => {
+            Ok(LibraryWatchActivity::QuestionFork {
+                source_question_revision_number: decode_question_revision_number(number)?,
+                forked_public_id: library_object_id(forked_public_id, "Library Watch fork ID")?,
             })
         }
-        ("impact_notice", affected_revision_number, None, Some(impact_notice_id)) => {
-            Ok(LibraryWatchActivity::ImpactNotice {
-                affected_revision_number: affected_revision_number
-                    .map(|value| positive_u64(value, "Library Watch affected Revision number"))
-                    .transpose()?,
-                impact_notice_id,
-            })
-        }
+        (
+            LibraryWatchTargetKind::QuestionPool,
+            "fork",
+            None,
+            Some(number),
+            Some(forked_public_id),
+        ) => Ok(LibraryWatchActivity::QuestionPoolFork {
+            source_question_pool_edit_number: decode_question_pool_edit_number(number)?,
+            forked_public_id: library_object_id(forked_public_id, "Library Watch fork ID")?,
+        }),
         _ => Err(StoreError::InvalidRecord(
             "Library Watch activity".to_owned(),
         )),
@@ -126,36 +138,23 @@ fn notification(row: &sqlx::postgres::PgRow) -> Result<LibraryWatchNotification,
     }
     let target_kind = target_kind(row.try_get("target_kind").map_err(map_sqlx_error)?)?;
     let activity = watch_activity(
+        target_kind,
         row.try_get("event_kind").map_err(map_sqlx_error)?,
-        row.try_get("revision_number").map_err(map_sqlx_error)?,
+        row.try_get("question_revision_number")
+            .map_err(map_sqlx_error)?,
+        row.try_get("question_pool_edit_number")
+            .map_err(map_sqlx_error)?,
         row.try_get("forked_public_id").map_err(map_sqlx_error)?,
-        row.try_get("activity_id").map_err(map_sqlx_error)?,
     )?;
-    // ASVS 5.1.1: membership edits belong to a Question Pool, never a Published Question.
-    require_pool_membership_target(target_kind, &activity)?;
     Ok(LibraryWatchNotification {
         target_kind,
-        target_public_id: question_id(
+        target_public_id: library_object_id(
             row.try_get("target_public_id").map_err(map_sqlx_error)?,
             "Library Watch target ID",
         )?,
         activity,
         occurred_at: Timestamp::from_unix_millis(occurred_at_millis),
     })
-}
-
-fn require_pool_membership_target(
-    target_kind: LibraryWatchTargetKind,
-    activity: &LibraryWatchActivity,
-) -> Result<(), StoreError> {
-    if matches!(activity, LibraryWatchActivity::MembersChanged { .. })
-        && target_kind != LibraryWatchTargetKind::QuestionPool
-    {
-        return Err(StoreError::InvalidRecord(
-            "Library Watch membership edit requires a Question Pool".to_owned(),
-        ));
-    }
-    Ok(())
 }
 
 #[async_trait]
@@ -189,86 +188,156 @@ mod tests {
 
     #[test]
     fn watch_activity_accepts_each_complete_variant() {
-        let notice_id = uuid::Uuid::from_u128(2);
-        assert_eq!(
-            watch_activity("revision".to_owned(), Some(1), None, None),
-            Ok(LibraryWatchActivity::Revision { revision_number: 1 })
-        );
-        assert_eq!(
-            watch_activity("members_changed".to_owned(), Some(2), None, None),
-            Ok(LibraryWatchActivity::MembersChanged { edit_number: 2 })
-        );
-        assert!(
-            require_pool_membership_target(
-                LibraryWatchTargetKind::QuestionPool,
-                &LibraryWatchActivity::MembersChanged { edit_number: 2 },
-            )
-            .is_ok()
-        );
-        assert!(
-            require_pool_membership_target(
-                LibraryWatchTargetKind::Question,
-                &LibraryWatchActivity::MembersChanged { edit_number: 2 },
-            )
-            .is_err()
-        );
+        let forked_public_id = || {
+            "1234-H567"
+                .parse::<LibraryObjectId>()
+                .expect("fixture ID should be valid")
+        };
         assert_eq!(
             watch_activity(
-                "fork".to_owned(),
-                Some(2),
-                Some("1234-H567".to_owned()),
+                LibraryWatchTargetKind::Question,
+                "revision".to_owned(),
+                Some(1),
                 None,
+                None
             ),
-            Ok(LibraryWatchActivity::Fork {
-                source_revision_number: 2,
-                forked_public_id: "1234-H567".parse().expect("fixture ID should be valid"),
+            Ok(LibraryWatchActivity::Revision {
+                question_revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             })
         );
         assert_eq!(
-            watch_activity("impact_notice".to_owned(), None, None, Some(notice_id),),
-            Ok(LibraryWatchActivity::ImpactNotice {
-                affected_revision_number: None,
-                impact_notice_id: notice_id,
+            watch_activity(
+                LibraryWatchTargetKind::QuestionPool,
+                "members_changed".to_owned(),
+                None,
+                Some(2),
+                None
+            ),
+            Ok(LibraryWatchActivity::MembersChanged {
+                question_pool_edit_number: QuestionPoolEditNumber::new(2)
+                    .expect("Pool Edit Number"),
+            })
+        );
+        assert_eq!(
+            watch_activity(
+                LibraryWatchTargetKind::Question,
+                "fork".to_owned(),
+                Some(2),
+                None,
+                Some("1234-H567".to_owned())
+            ),
+            Ok(LibraryWatchActivity::QuestionFork {
+                source_question_revision_number: QuestionRevisionNumber::new(2).expect("revision"),
+                forked_public_id: forked_public_id(),
+            })
+        );
+        assert_eq!(
+            watch_activity(
+                LibraryWatchTargetKind::QuestionPool,
+                "fork".to_owned(),
+                None,
+                Some(3),
+                Some("1234-H567".to_owned())
+            ),
+            Ok(LibraryWatchActivity::QuestionPoolFork {
+                source_question_pool_edit_number: QuestionPoolEditNumber::new(3)
+                    .expect("Pool Edit Number"),
+                forked_public_id: forked_public_id(),
             })
         );
     }
 
     #[test]
     fn watch_activity_rejects_cross_variant_evidence() {
-        let activity_id = uuid::Uuid::from_u128(1);
-        assert!(watch_activity("revision".to_owned(), None, None, None).is_err());
         assert!(
             watch_activity(
+                LibraryWatchTargetKind::Question,
+                "revision".to_owned(),
+                None,
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            watch_activity(
+                LibraryWatchTargetKind::Question,
                 "revision".to_owned(),
                 Some(1),
-                Some("1234-H567".to_owned()),
                 None,
+                Some("1234-H567".to_owned()),
             )
             .is_err()
         );
-        assert!(watch_activity("fork".to_owned(), Some(1), None, None).is_err());
-        assert!(watch_activity("improvement_thread".to_owned(), Some(1), None, None,).is_err());
         assert!(
             watch_activity(
-                "impact_notice".to_owned(),
+                LibraryWatchTargetKind::Question,
+                "fork".to_owned(),
+                Some(1),
                 None,
-                Some("1234-H567".to_owned()),
-                Some(activity_id),
+                None
             )
             .is_err()
         );
-        assert!(watch_activity("revision".to_owned(), Some(0), None, None).is_err());
-        assert!(watch_activity("members_changed".to_owned(), None, None, None).is_err());
         assert!(
             watch_activity(
+                LibraryWatchTargetKind::Question,
+                "unknown".to_owned(),
+                None,
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            watch_activity(
+                LibraryWatchTargetKind::Question,
+                "revision".to_owned(),
+                Some(0),
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            watch_activity(
+                LibraryWatchTargetKind::QuestionPool,
                 "members_changed".to_owned(),
+                None,
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            watch_activity(
+                LibraryWatchTargetKind::QuestionPool,
+                "members_changed".to_owned(),
+                None,
                 Some(2),
                 Some("1234-H567".to_owned()),
-                None,
             )
             .is_err()
         );
-        assert!(watch_activity("members_changed".to_owned(), Some(0), None, None).is_err());
-        assert!(watch_activity("unknown".to_owned(), None, None, None).is_err());
+        assert!(
+            watch_activity(
+                LibraryWatchTargetKind::QuestionPool,
+                "members_changed".to_owned(),
+                None,
+                Some(0),
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            watch_activity(
+                LibraryWatchTargetKind::Question,
+                "revision".to_owned(),
+                Some(1),
+                Some(1),
+                None
+            )
+            .is_err()
+        );
     }
 }

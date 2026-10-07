@@ -55,8 +55,6 @@ mod tests {
 
     const QUESTION_JSON: &str = r#"{
   "format": "pleQuestionJson",
-  "questionTitle": "Favorite color",
-  "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {
     "kind": "singleChoice",
@@ -67,11 +65,7 @@ mod tests {
     ],
     "correctChoice": "blue"
   },
-  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."},
-  "tags": ["example"],
-  "questionLicense": "CC-BY-SA-4.0",
-  "questionCitation": null,
-  "language": "en-US"
+  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."}
 }"#;
 
     #[tokio::test]

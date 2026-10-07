@@ -34,7 +34,7 @@ Those documents must preserve the meanings established by Human Guidance.
 - Use **Id** for one value that is the canonical identity of one object.
 - Use **Tuple** for multiple values that together identify one exact object, state, or version.
   Current examples are `PublishedQuestionRevisionTuple { publishedQuestionId, revisionNumber }`,
-  `BlueprintRevisionTuple { blueprintCourseId, revisionNumber }`,
+  `BlueprintCourseRevisionTuple { blueprintCourseId, revisionNumber }`,
   `QuestionImageAssetTuple { questionImageAssetId, checksum }`, and
   `CourseRosterTuple { courseInstanceId, rosterId }`.
 - Use **Reference** only for a genuine indirect, scoped, or external locator.
@@ -132,14 +132,14 @@ for administrative work. That access is recorded for audit.
 Public IDs are the canonical human-facing identifiers for PLE objects that
 need them. Human Guidance names them **IDs**, not references:
 
-| Object | Product name | Canonical form |
-| --- | --- | --- |
-| Account | Account ID | `UXXXXXXXZ` |
-| Course Instance | Course Instance ID | `CIXXXXXXXZ` |
-| Assessment | Assessment ID | `AXXXXXXXZ` |
-| Blueprint Course | Blueprint Course ID | `BPXXXXXXXZ` |
-| Published Question | Question ID | `XXXX-ZXXX` |
-| Question Pool | Pool ID | `XXXX-ZXXX` |
+| Object             | Product name        | Canonical form |
+| ------------------ | ------------------- | -------------- |
+| Account            | Account ID          | `UXXXXXXXZ`    |
+| Course Instance    | Course Instance ID  | `CIXXXXXXXZ`   |
+| Assessment         | Assessment ID       | `AXXXXXXXZ`    |
+| Blueprint Course   | Blueprint Course ID | `BPXXXXXXXZ`   |
+| Published Question | Question ID         | `XXXX-ZXXX`    |
+| Question Pool      | Pool ID             | `XXXX-ZXXX`    |
 
 Prefixed IDs use seven cryptographically random Crockford Base32 characters
 plus embedded checksum `Z`; `Z` is a calculated placeholder, not a literal
@@ -242,8 +242,9 @@ Number** may protect concurrent saves but does not create Draft Revisions.
 
 **Question Publication Validation** checks Discipline, Subject, and all other
 required Library metadata before a Draft becomes a Published Question. Drafts
-are outside the Question Library. Instructors may delete them; abandoned-Draft
-cleanup requires an appropriate warning and recovery period.
+are outside the Question Library. Instructors may delete them. Cleanup of expired
+Drafts requires an appropriate warning and recovery period; automation remains deferred,
+and no expiration period or duration is set.
 
 **Published Question** is a stable reusable Question lineage in the Question
 Library. Its **Question ID** has the canonical form `XXXX-ZXXX`.
@@ -301,7 +302,8 @@ lists nor Watch information. Stars and Watches are not Student Work.
 Published Question Revision and for each Question Pool. They show how often Students received a
 Published Question Revision or a Question from a Pool and how much credit they earned: graded-response
 count, average stored credit, full-credit percentage, and zero-credit percentage.
-Question results describe each Revision separately. Cross-Revision rollups are not
+Pool statistics accumulate from Questions delivered through that Pool, including across changes
+to its set of Question Revision Tuples. Question results describe each Revision separately. Cross-Revision rollups are not
 approved intended behavior. Removing names alone does not
 make statistics anonymous. Shared statistics must prevent identification or
 reconstruction of individual Student activity; Course-specific analysis remains
@@ -376,8 +378,9 @@ WeBWorK renderer files keep their own identities.
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications).
 
 **Question Pool** is a published reusable collection with a stable **Pool ID**
-(`XXXX-ZXXX`). It contains an unordered set of Question Revision Tuples plus Pool metadata.
-A Question Pool cannot contain two Revisions of the same Published Question.
+(`XXXX-ZXXX`). It contains an unordered set of Question Revision Tuples. A Question Pool can contain
+a Question ID only once. The Question Pool also has its own properties, defined separately from the
+properties of the Published Questions it contains.
 When the set of Question Revision Tuples changes, saving advances the Pool's **Edit Number**.
 Changes take effect when the Instructor saves them. There is no undo after saving.
 The counter identifies no historical Pool.
@@ -396,7 +399,8 @@ Pool separately. A Pool has no separate Author field.
 Members retain their owners and authors. PLE calculates one compatible Pool license
 from exact member-Revision licenses and rejects incompatible combinations; that calculated value is
 the **calculated Pool license**. Member licenses remain intact.
-NC and ND content are deferred.
+Initial release supports CC0, CC BY, and CC BY-SA. NC and ND Questions are excluded and may be
+reconsidered after release.
 
 A Pool must continue to meet its requirements. Show the specific problem, such as a Published
 Question with a different Discipline or Subject, duplicate Questions, or another unmet requirement.
@@ -578,6 +582,11 @@ five source colors: Canvas, Surface, Secondary, Accent, or Highlight.
 **Course Theme** is the Theme an Instructor assigns to a Course. Course pages
 use their Course Theme; global Instructor pages use the Personal Theme; other
 global pages use the default `grass` Theme.
+
+**Blueprint Theme** is ordinary mutable Blueprint metadata and uses the
+Blueprint Edit Number. Creating or forking a Blueprint starts with its selected
+or copied Theme. A Course adopted from a Blueprint copies the Blueprint's
+persisted Theme once; later Course Theme changes remain independent.
 
 **Display Mode** is Light or Dark. **Display Mode Preference** is an Account's
 nullable explicit Light or Dark choice. When it is unset, the document follows
@@ -826,7 +835,7 @@ Do not keep a parallel UUID primary key, a `reference` JSON field for a
 public ID, or a `public_reference` SQL alias beside a public ID. Composite
 Published Question Revision Tuple JSON is the field `publishedQuestionRevisionTuple` with members
 `{publishedQuestionId, revisionNumber}`. Blueprint Course Revision Tuple JSON is the field
-`blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
+`blueprintCourseRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
 Question Image Asset Tuple JSON is the field `questionImageAssetTuple` with members
 `{questionImageAssetId, checksum}`. Course Roster Tuple JSON is the field
 `courseRosterTuple` with members `{courseInstanceId, rosterId}`. Domain clocks
@@ -836,8 +845,8 @@ use qualified names such as `assessmentEditNumber`, `blueprintEditNumber`,
 JSON `id` is only the immediate identity of a resource at its own root.
 Nested identities use the precise `...Id`, `...Tuple`, or `...Number`. An
 exact immutable Blueprint or Published Question revision is the named Tuple
-`blueprintRevisionTuple` or `publishedQuestionRevisionTuple`, including Course
-Instance adoption (`blueprintRevisionTuple`) and provenance
-(`adoptedBlueprintRevisionTuple`, `currentBlueprintRevisionTuple`). An
+`blueprintCourseRevisionTuple` or `publishedQuestionRevisionTuple`, including Course
+Instance adoption (`blueprintCourseRevisionTuple`) and provenance
+(`adoptedBlueprintCourseRevisionTuple`, `currentBlueprintCourseRevisionTuple`). An
 HTTP `ETag` is only a quoted encoding of an explicitly named Edit Number or
 Revision Number; domain fields do not store ETag-shaped values.

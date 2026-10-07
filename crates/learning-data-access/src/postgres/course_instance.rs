@@ -1,10 +1,8 @@
 //! PostgreSQL persistence for Course Instance creation and initial teaching team.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintRevisionNumber, BlueprintRevisionTuple, CourseDate, CourseInstanceId,
+    AccountId, BlueprintCourseRevisionTuple, BlueprintRevisionNumber, CourseDate, CourseInstanceId,
     CourseMembershipRole, CourseSummary, CourseTerm, Theme,
 };
 use serde::{Deserialize, Serialize};
@@ -15,12 +13,12 @@ use super::connection::{map_sqlx_error, parse_course_instance_id};
 use crate::course_instance::CourseInstanceBlueprintOrigin;
 use crate::{
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceLifecycleState,
-    CourseInstancePoolIdIssuer, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
-    CourseRetentionLifecycleState, CreateCourseInstanceInput, CreatedCourseInstance, Cursor,
-    DiscoveryPageRequest, InstallationCourseInspection, Page, SessionTokenHash, StoreError,
+    CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CourseRetentionLifecycleState,
+    CreateCourseInstanceInput, CreatedCourseInstance, Cursor, DiscoveryPageRequest,
+    InstallationCourseInspection, Page, SessionTokenHash, StoreError,
 };
 
-const ADOPTION_POOL_IDENTITY_ATTEMPTS: usize = 8;
+const COURSE_CREATION_IDENTITY_ATTEMPTS: usize = 8;
 const LOAD_COURSE_INSTANCE_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
      term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, course_theme, \
      course_lifecycle_state, course_edit_number, content_discipline_id, \
@@ -49,27 +47,12 @@ struct InstallationCourseCursor {
 #[derive(Clone)]
 pub struct PostgresCourseInstanceStore {
     pool: Pool,
-    pool_id_issuer: Option<Arc<dyn CourseInstancePoolIdIssuer>>,
 }
 
 impl PostgresCourseInstanceStore {
     /// Binds the attested API pool to Course Instance procedures.
     pub fn new(pool: Pool) -> Self {
-        Self {
-            pool,
-            pool_id_issuer: None,
-        }
-    }
-
-    /// Adds the process-held issuer required only when a Blueprint contains a
-    /// reusable Question Pool.  Empty and fixed-Question-only Course creation
-    /// deliberately remain independent of this capability.
-    pub fn with_question_pool_id_issuer(
-        mut self,
-        pool_id_issuer: Arc<dyn CourseInstancePoolIdIssuer>,
-    ) -> Self {
-        self.pool_id_issuer = Some(pool_id_issuer);
-        self
+        Self { pool }
     }
 
     async fn begin_authenticated_application_transaction(
@@ -224,39 +207,36 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         &self,
         session_token_hash: SessionTokenHash,
         input: CreateCourseInstanceInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreatedCourseInstance, StoreError> {
         input.validate()?;
-        for attempt in 0..ADOPTION_POOL_IDENTITY_ATTEMPTS {
-            // A rolled-back identity collision leaves SQL receipts unconsumed.
-            let mut attempt_bloom_receipts = bloom_receipts.clone();
+        for attempt in 0..COURSE_CREATION_IDENTITY_ATTEMPTS {
             let mut transaction = self
                 .begin_authenticated_application_transaction(session_token_hash)
                 .await?;
             reject_term_after_active_lifetime(&mut transaction, &input.term).await?;
-            let assessments = super::course_blueprint_adoption::creation_assessments(
-                &mut transaction,
-                &input,
-                self.pool_id_issuer.as_deref(),
-                &mut attempt_bloom_receipts,
-            )
-            .await?;
+            let assessments =
+                super::course_blueprint_adoption::creation_assessments(&mut transaction, &input)
+                    .await?;
             let (source_kind, blueprint_course_id, blueprint_revision_number) = match &input.source
             {
                 CourseInstanceCreationSource::Empty => ("empty", None, None),
                 CourseInstanceCreationSource::Adopted {
-                    blueprint_revision_tuple,
+                    blueprint_course_revision_tuple,
                 } => (
                     "adopted",
-                    Some(blueprint_revision_tuple.blueprint_course_id.to_string()),
                     Some(
-                        i64::try_from(blueprint_revision_tuple.revision_number.value())
+                        blueprint_course_revision_tuple
+                            .blueprint_course_id
+                            .to_string(),
+                    ),
+                    Some(
+                        i64::try_from(blueprint_course_revision_tuple.revision_number.value())
                             .map_err(|_| invalid("Blueprint Revision"))?,
                     ),
                 ),
             };
             let row = sqlx::query(
-            "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_instance_id, short_name, long_name, course_theme, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_lifecycle_state, course_edit_number, \
              content_discipline_id, content_subject_id, \
              content_topic_id, content_subtopic_id, tags \
@@ -293,7 +273,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 Err(error) => {
                     let error = map_sqlx_error(error);
                     if matches!(error, StoreError::AlreadyExists)
-                        && attempt + 1 < ADOPTION_POOL_IDENTITY_ATTEMPTS
+                        && attempt + 1 < COURSE_CREATION_IDENTITY_ATTEMPTS
                     {
                         continue;
                     }
@@ -319,14 +299,14 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                         row.try_get("term_starts_on").map_err(map_sqlx_error)?,
                         row.try_get("term_ends_on").map_err(map_sqlx_error)?,
                     )?,
-                    theme: Theme::default(),
+                    theme: theme(row.try_get("course_theme").map_err(map_sqlx_error)?)?,
                 },
             };
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(record);
         }
         Err(StoreError::Unavailable(
-            "Question Pool fork identity collision retries were exhausted".to_string(),
+            "Course creation identity retry limit was exhausted".to_string(),
         ))
     }
 
@@ -572,11 +552,11 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                 .parse()
                 .map_err(|_| invalid("Blueprint Course ID"))?;
             Some(CourseInstanceBlueprintOrigin {
-                adopted_blueprint_revision_tuple: BlueprintRevisionTuple {
+                adopted_blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
                     blueprint_course_id: blueprint_course_id.clone(),
                     revision_number: parse_revision_number(adopted)?,
                 },
-                current_blueprint_revision_tuple: BlueprintRevisionTuple {
+                current_blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
                     blueprint_course_id,
                     revision_number: parse_revision_number(current)?,
                 },

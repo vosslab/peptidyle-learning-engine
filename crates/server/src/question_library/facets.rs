@@ -8,12 +8,12 @@ use question_model::{
     QuestionSearchFacets,
 };
 
-/// Folds database backend counts through the existing adapter declarations.
-/// The database owns every metadata aggregate; capability declarations remain
-/// at this adapter boundary because they are not Question-source metadata.
+/// Folds mixed Library Object backend counts through the existing adapter declarations.
+/// The database owns metadata aggregates; capability declarations remain at this
+/// adapter boundary because they describe Backend behavior, not object metadata.
 pub(super) fn from_store(facets: QuestionLibrarySearchFacets) -> QuestionSearchFacets {
     let mut capabilities = BTreeMap::<Capability, u64>::new();
-    for backend_facet in &facets.question_backends {
+    for backend_facet in &facets.backends {
         for capability in backend_capabilities(backend_facet.backend).declared() {
             *capabilities.entry(capability).or_default() += backend_facet.count;
         }

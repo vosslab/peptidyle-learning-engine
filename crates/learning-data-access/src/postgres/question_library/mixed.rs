@@ -73,6 +73,18 @@ pub(super) fn decode_search_entry(row: &PgRow) -> Result<Option<LibrarySearchEnt
                 topic_uuid: row.try_get("content_topic_id").map_err(map_sqlx_error)?,
                 subtopic_uuid: row.try_get("content_subtopic_id").map_err(map_sqlx_error)?,
                 tags: row.try_get("tags").map_err(map_sqlx_error)?,
+                bloom_cognitive_process: row
+                    .try_get::<Option<String>, _>("bloom_cognitive_process")
+                    .map_err(map_sqlx_error)?
+                    .map(|value| value.parse::<question_model::BloomCognitiveProcess>())
+                    .transpose()
+                    .map_err(|_| invalid("Bloom Cognitive Process"))?,
+                bloom_knowledge_dimension: row
+                    .try_get::<Option<String>, _>("bloom_knowledge_dimension")
+                    .map_err(map_sqlx_error)?
+                    .map(|value| value.parse::<question_model::BloomKnowledgeDimension>())
+                    .transpose()
+                    .map_err(|_| invalid("Bloom Knowledge Dimension"))?,
             };
             let summary = QuestionPoolLibrarySummary {
                 metadata,

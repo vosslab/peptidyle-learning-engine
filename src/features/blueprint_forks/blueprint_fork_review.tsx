@@ -19,8 +19,8 @@ import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { emptyRecognitionTitles, type RecognitionTitleMaps } from "../../api/recognition_titles";
 import {
   comparisonRecognitionIds,
-  labeledPoolRecognition,
   labeledQuestionRecognition,
+  recognitionTitle,
   recognizedIdList,
 } from "../recognition_label";
 import { recognitionTitlesResource } from "../recognition_titles_load";
@@ -168,17 +168,17 @@ export function AssessmentSnapshot(props: {
                     </Show>
                     <Show when={entry.kind === "pool" ? entry : undefined}>
                       {(pool) => {
-                        const line = labeledPoolRecognition(
+                        const title = recognitionTitle(
                           titles().pools.get(pool().question_pool_id),
-                          pool().question_pool_id,
-                          pool().question_pool_edit_number,
+                          "Question Pool",
                         );
                         return (
                           <>
-                            <p>{line.title}</p>
+                            <p>{title}</p>
                             <p>
-                              {line.identifier}; select {pool().selection_count};{" "}
-                              {pool().points_per_item} points per Question.
+                              Question Pool ID {pool().question_pool_id}; select{" "}
+                              {pool().selection_count}; {pool().points_per_item} points per
+                              Question.
                             </p>
                           </>
                         );
@@ -189,7 +189,6 @@ export function AssessmentSnapshot(props: {
                         scoring_rule: entry.scoring_rule,
                         question_attempt_limit: entry.question_attempt_limit,
                         question_attempt_time_limit: entry.question_attempt_time_limit,
-                        ...(entry.kind === "pool" ? { selection_rule: entry.selection_rule } : {}),
                       }}
                     />
                   </li>

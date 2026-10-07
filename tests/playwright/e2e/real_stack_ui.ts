@@ -112,17 +112,22 @@ export function courseChoice(page: Page, title: string): Locator {
     .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
-export async function selectVisibleCourse(page: Page, title: string): Promise<void> {
+export async function selectVisibleCourse(page: Page, title: string): Promise<Page> {
   const choice = courseChoice(page, title);
   await expect(choice).toHaveCount(1);
+  const openedCoursePage = page.waitForEvent("popup");
   await choice.getByRole("link", { name: "Open Course", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  const coursePage = await openedCoursePage;
+  await expect(
+    coursePage.getByRole("heading", { level: 1, name: title, exact: true }),
+  ).toBeVisible();
+  return coursePage;
 }
 
 /** Enter a Student's Course through the always available Courses destination. */
-export async function enterStudentCourse(page: Page, title: string): Promise<void> {
+export async function enterStudentCourse(page: Page, title: string): Promise<Page> {
   const currentCourse = page.getByRole("heading", { level: 1, name: title, exact: true });
-  if (await currentCourse.isVisible().catch(() => false)) return;
+  if (await currentCourse.isVisible().catch(() => false)) return page;
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
@@ -130,8 +135,13 @@ export async function enterStudentCourse(page: Page, title: string): Promise<voi
   await expect(page.getByRole("heading", { name: "Your courses", exact: true })).toBeVisible();
   const choice = courseChoice(page, title);
   await expect(choice).toHaveCount(1);
+  const openedCoursePage = page.waitForEvent("popup");
   await choice.getByRole("link", { name: "Open Course", exact: true }).click();
-  await expect(currentCourse).toBeVisible();
+  const coursePage = await openedCoursePage;
+  await expect(
+    coursePage.getByRole("heading", { level: 1, name: title, exact: true }),
+  ).toBeVisible();
+  return coursePage;
 }
 
 export type RouteDataSurface = "assignmentOverview" | "assignmentAttempt";

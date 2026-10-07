@@ -1,6 +1,3 @@
-import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
-import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
-
 /**
  * The answer-bearing PLE Question JSON authoring contract. The server
  * derives its separate PLE Question JSON Public Content Checksum when it
@@ -102,7 +99,8 @@ export type PleQuestionJsonMatch = {
   readonly choice: string;
 };
 
-export type PleQuestionJsonTextResponseMatchRule = "exact" | "caseInsensitive" | "normalized";
+export type PleQuestionJsonTextResponseMatchRule =
+  "exact" | "caseInsensitive" | "normalized" | "regex";
 
 export type PleQuestionJsonBlank = {
   readonly id: string;
@@ -203,19 +201,11 @@ export type PleQuestionJsonResponse =
 
 export type PleQuestionJsonDocument = {
   readonly format: typeof PLE_QUESTION_JSON_FORMAT;
-  readonly questionTitle: string;
-  /** Instructor-facing discovery summary, excluded from the student preview. */
-  readonly questionDescription: string;
   readonly prompt: string;
   readonly response: PleQuestionJsonResponse;
   /** Learner-requested instructional support before a response; separate from outcome feedback. */
   readonly questionHint: string | null;
   readonly feedback: PleQuestionJsonOutcomeFeedback;
-  readonly tags: ReadonlyArray<string>;
-  /** Unset drafts remain editable; publication requires an exact Question License. */
-  readonly questionLicense: QuestionLicense | null;
-  readonly questionCitation: QuestionCitation | null;
   readonly externalResources: ReadonlyArray<PleQuestionJsonExternalResource>;
   readonly authorScript: PleQuestionJsonAuthorScript | null;
-  readonly language: string;
 };

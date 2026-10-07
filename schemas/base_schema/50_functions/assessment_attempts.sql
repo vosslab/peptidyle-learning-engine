@@ -113,7 +113,6 @@ BEGIN
           JOIN ple_data.question_pool_member AS member
             ON member.question_pool_id = selection.question_pool_id
          WHERE selection.question_pool_selection_id = NEW.question_pool_selection_id
-           AND member.member_position = NEW.member_position
            AND member.published_question_id = NEW.published_question_id
            AND member.question_revision_number = NEW.revision_number
     ) THEN
@@ -146,19 +145,19 @@ SET search_path = pg_catalog, ple_private AS $$
 DECLARE selection_id uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.question_pool_selection_id ELSE NEW.question_pool_selection_id END;
 BEGIN
     IF EXISTS (
-        (SELECT item.member_position, item.published_question_id, item.revision_number
+        (SELECT item.published_question_id, item.revision_number
            FROM ple_private.question_pool_selected_item AS item
           WHERE item.question_pool_selection_id = selection_id
          EXCEPT
-         SELECT issued.question_pool_member_position, issued.published_question_id, issued.revision_number
+         SELECT issued.published_question_id, issued.revision_number
            FROM ple_private.issued_question AS issued
           WHERE issued.question_pool_selection_id = selection_id)
         UNION ALL
-        (SELECT issued.question_pool_member_position, issued.published_question_id, issued.revision_number
+        (SELECT issued.published_question_id, issued.revision_number
            FROM ple_private.issued_question AS issued
           WHERE issued.question_pool_selection_id = selection_id
          EXCEPT
-         SELECT item.member_position, item.published_question_id, item.revision_number
+         SELECT item.published_question_id, item.revision_number
            FROM ple_private.question_pool_selected_item AS item
           WHERE item.question_pool_selection_id = selection_id)
     ) THEN
@@ -244,4 +243,3 @@ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate
 
 CREATE CONSTRAINT TRIGGER issued_question_pool_source_is_exact AFTER INSERT OR UPDATE OR DELETE ON ple_private.issued_question
 DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selection_issues();
-

@@ -4,22 +4,24 @@ from e2e_browser_scenario_contract import ScenarioContract
 import e2e_browser_scenarios_auth as auth
 import e2e_browser_scenarios_course_appearance as course_appearance
 import e2e_browser_scenarios_instructor as instructor
+import e2e_browser_scenarios_sysadmin_student_data_access as sysadmin_student_data_access
 
 
 def contracts() -> tuple[ScenarioContract, ...]:
 	"""Return real-stack scenario families in fixed execution order."""
 	return (
 		auth.contracts()
-			+ instructor.contracts()
-			+ course_appearance.contracts()
-			+ (
-				ScenarioContract(
-					scenario_id="ui_backbone_parity",
-					spec_path="tests/playwright/e2e/ui_backbone_parity.spec.ts",
-					personas=("elena_instructor", "mary_student"),
-					baseline_reads=("seeded_accounts", "base_course"),
-					ui_creates=(),
-					visible_observation="page_frame_coursework_and_library_structure",
-				),
-			)
+		+ instructor.contracts()
+		+ course_appearance.contracts()
+		+ sysadmin_student_data_access.contracts()
+		+ (
+			ScenarioContract(
+				scenario_id="ui_backbone_parity",
+				spec_path="tests/playwright/e2e/ui_backbone_parity.spec.ts",
+				personas=("elena_instructor", "mary_student"),
+				baseline_reads=("seeded_accounts", "base_course"),
+				ui_creates=(),
+				visible_observation="page_frame_coursework_and_library_structure",
+			),
 		)
+	)

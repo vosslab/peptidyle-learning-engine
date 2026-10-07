@@ -14,9 +14,9 @@ use question_model::{
 use uuid::Uuid;
 
 use super::super::{
-    MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS, MAX_METADATA_TEXT_CHARS,
-    PleQuestionJsonChoice, PleQuestionJsonError, invalid, markdown_blocks, validate_bounded_text,
-    validate_choice_id, validate_markdown, validate_optional_feedback,
+    MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS, MAX_UNIT_CHARS, PleQuestionJsonChoice,
+    PleQuestionJsonError, invalid, markdown_blocks, validate_bounded_text, validate_choice_id,
+    validate_markdown, validate_optional_feedback,
 };
 use super::{
     MAX_BLANKS, MAX_TEXT_RESPONSE_CHARS, PleQuestionJsonBlank, PleQuestionJsonHotspotRegion,
@@ -355,7 +355,7 @@ pub(super) fn validate_numeric(
         PleQuestionJsonNumericResponseTolerance::SignificantFigures { .. } => {}
     }
     if let Some(unit) = unit {
-        validate_bounded_text("numeric unit", unit, MAX_METADATA_TEXT_CHARS)?;
+        validate_bounded_text("numeric unit", unit, MAX_UNIT_CHARS)?;
     }
     Ok(())
 }

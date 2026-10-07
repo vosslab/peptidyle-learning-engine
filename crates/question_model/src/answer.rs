@@ -58,6 +58,8 @@ pub enum TextResponseMatchRule {
     CaseInsensitive,
     /// Comparison after trimming and collapsing whitespace, and folding case.
     Normalized,
+    /// The response matches when it contains a match for an author-supplied regular expression.
+    Regex,
 }
 
 /// How many choices a student may select.
@@ -101,5 +103,9 @@ mod tests {
         let json = serde_json::to_string(&TextResponseMatchRule::CaseInsensitive)
             .expect("serialization works");
         assert_eq!(json, r#""caseInsensitive""#);
+        assert_eq!(
+            serde_json::to_string(&TextResponseMatchRule::Regex).expect("serialization works"),
+            r#""regex""#
+        );
     }
 }

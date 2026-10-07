@@ -186,6 +186,9 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       assessmentQuestionOrderRule: shuffled ? "shuffled" : "authoredOrder",
     }));
   }
+  function updatePartialCredit(enabled: boolean): void {
+    setActivityRules((current) => ({ ...current, partialCreditEnabled: enabled }));
+  }
   function updateFeedback(field: (typeof FEEDBACK_FIELDS)[number][0], value: string): void {
     if (
       value === "during_attempt" ||
@@ -709,6 +712,22 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           <label class="assessment-workspace-choice">
             <input
               type="checkbox"
+              checked={activityRules().partialCreditEnabled}
+              onChange={(event) => {
+                updatePartialCredit(event.currentTarget.checked);
+                recordDraft();
+              }}
+            />
+            <span>Award partial credit</span>
+          </label>
+          <p>
+            When enabled, stored fractional Backend credit earns proportional points. When disabled,
+            only full stored credit earns points. The Full Credit entry rule remains a separate
+            setting.
+          </p>
+          <label class="assessment-workspace-choice">
+            <input
+              type="checkbox"
               checked={activityRules().assessmentQuestionOrderRule === "shuffled"}
               onChange={(event) => {
                 updateOrder(event.currentTarget.checked);
@@ -806,7 +825,31 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                 fallback={<p>All current release requirements are met.</p>}
               >
                 <ul>
-                  <For each={validation().issues}>
+                  <For each={validation().poolIssues}>
+                    {(poolIssue) => (
+                      <li>
+                        Assessment position {poolIssue.assessmentPosition}: Question Pool "
+                        {poolIssue.poolTitle}" ({poolIssue.questionPoolId}) requests{" "}
+                        {poolIssue.selectionCount} Question
+                        {poolIssue.selectionCount === 1 ? "" : "s"};{" "}
+                        {poolIssue.issue === "insufficientItems"
+                          ? "it has too few valid Questions."
+                          : poolIssue.issue === "memberUnavailable"
+                            ? "a member Question or its Revision metadata is unavailable."
+                            : poolIssue.issue === "memberBackendMismatch"
+                              ? "a member Question uses an unsupported or different Backend."
+                              : poolIssue.issue === "memberTypeMismatch"
+                                ? "a member Question has a different Type."
+                                : "a member Question has a different Discipline or Subject."}
+                      </li>
+                    )}
+                  </For>
+                  <For
+                    each={validation().issues.filter(
+                      (issue) =>
+                        issue !== "questionUnavailable" || validation().poolIssues.length === 0,
+                    )}
+                  >
                     {(issue) => (
                       <li>
                         {issue === "noPublishedQuestions"

@@ -2,6 +2,19 @@
 
 SET LOCAL ROLE ple_data_owner;
 
+CREATE FUNCTION ple_data.reject_published_question_parent_change()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF NEW.parent_published_question_id IS DISTINCT FROM OLD.parent_published_question_id
+       OR NEW.parent_revision_number IS DISTINCT FROM OLD.parent_revision_number THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Published Question parent Revision is immutable';
+    END IF;
+    RETURN NEW;
+END
+$$;
+
 CREATE FUNCTION ple_data.reject_question_stewardship_change()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data AS $$
@@ -29,14 +42,16 @@ BEGIN
         JOIN LATERAL (SELECT state FROM ple_private.account_state_event
             WHERE account_id = account.account_id ORDER BY occurred_at DESC, event_id DESC LIMIT 1
         ) AS state_event ON state_event.state = 'active'
-        WHERE account.account_id = NEW.editor_account_id AND account.user_role = 'instructor')
+        WHERE account.account_id = NEW.editor_account_id
+          AND account.user_role IN ('instructor', 'sysadmin'))
        OR NOT EXISTS (SELECT 1 FROM ple_private.account AS account
         JOIN LATERAL (SELECT state FROM ple_private.account_state_event
             WHERE account_id = account.account_id ORDER BY occurred_at DESC, event_id DESC LIMIT 1
         ) AS state_event ON state_event.state = 'active'
-        WHERE account.account_id = NEW.accepted_by_account_id AND account.user_role = 'instructor') THEN
+        WHERE account.account_id = NEW.accepted_by_account_id
+          AND account.user_role IN ('instructor', 'sysadmin')) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Revision editor and accepter must be Active Instructor Accounts';
+            MESSAGE = 'Question Revision editor and accepter must be Active Instructor or Sysadmin Accounts';
     END IF;
     RETURN NEW;
 END
@@ -252,8 +267,16 @@ BEGIN
            metadata.question_title,
            floor(extract(epoch FROM star.starred_at) * 1000000)::bigint
       FROM ple_data.question_star AS star
-      JOIN ple_data.published_question_metadata AS metadata
+      JOIN LATERAL (
+          SELECT accepted.revision_number
+            FROM ple_data.question_revision_acceptance AS accepted
+           WHERE accepted.published_question_id = star.published_question_id
+           ORDER BY accepted.revision_number DESC
+           LIMIT 1
+      ) AS latest ON true
+      JOIN ple_data.question_revision_metadata AS metadata
         ON metadata.published_question_id = star.published_question_id
+       AND metadata.revision_number = latest.revision_number
      WHERE star.instructor_account_id = actor_id
        AND (p_after_starred_at_micros IS NULL OR
             star.starred_at <
@@ -366,9 +389,10 @@ CREATE TRIGGER question_ownership_event_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.question_ownership_event
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_stewardship_change();
 
-CREATE TRIGGER question_fork_source_is_immutable
-BEFORE UPDATE OR DELETE ON ple_data.question_fork_source
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_stewardship_change();
+CREATE TRIGGER published_question_parent_is_immutable
+BEFORE UPDATE OF parent_published_question_id, parent_revision_number
+ON ple_data.published_question
+FOR EACH ROW EXECUTE FUNCTION ple_data.reject_published_question_parent_change();
 
 CREATE TRIGGER question_revision_acceptance_is_valid
 BEFORE INSERT ON ple_data.question_revision_acceptance

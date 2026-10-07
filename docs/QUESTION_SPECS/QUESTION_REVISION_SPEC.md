@@ -60,9 +60,11 @@ past metadata value.
 | Change a Native JSON interaction | Publish the changed source as a new complete Revision. |
 | Fork another Instructor's Question | Create a separate Draft; publication creates its own ID and Revision 1. |
 
-## Deferred regrading
+## Deferred evaluation after a correction
 
-Rechecking submitted Native JSON responses after an answer-key correction remains deferred.
-Metadata editing does not require regrading. Assessment point and partial-credit settings operate
-on stored grading outcomes; see [QUESTION_BACKEND_SPEC.md](QUESTION_BACKEND_SPEC.md).
+Evaluating previously submitted Native JSON responses again after an answer-key or grading-rule
+correction remains deferred. If implemented, the new grading result replaces the previous result.
+Metadata edits leave grading results unchanged. Assessment point-value and partial-credit changes
+recalculate awarded points from stored Backend credit without another Backend evaluation; see
+[QUESTION_BACKEND_SPEC.md](QUESTION_BACKEND_SPEC.md).
 Implementation alignment belongs in [TODO.md](../TODO.md#question-spec-implementation-follow-up).

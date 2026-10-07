@@ -738,13 +738,12 @@ test("UUIDs should never appear in visible content, navigation URLs, or copyable
     targetKind: "question",
     targetPublicId: "7K3M-79QP",
     occurredAt: 1700000000000,
-    eventKind: "impactNotice",
-    revisionNumber: null,
+    eventKind: "revision",
+    revisionNumber: 2,
     forkedPublicId: null,
-    activityId: uuid,
   });
   const notificationText = `${notification.title}\n${notification.description}\n${JSON.stringify(notification.details)}`;
-  assert.match(notificationText, /Impact notice activity/);
+  assert.match(notificationText, /New Revision/);
   assert.match(notificationText, /7K3M-79QP/);
   assert.doesNotMatch(notificationText, /aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/);
   assert.equal(notification.actions.length, 1);
@@ -757,7 +756,6 @@ test("UUIDs should never appear in visible content, navigation URLs, or copyable
     eventKind: "membersChanged",
     revisionNumber: 3,
     forkedPublicId: null,
-    activityId: null,
   });
   assert.equal(poolNotification.actions[0].href, "/library/3S8B-24DZ");
   assert.equal(poolNotification.actions[0].label, "Open Question Pool");

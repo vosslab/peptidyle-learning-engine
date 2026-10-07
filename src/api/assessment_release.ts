@@ -12,7 +12,7 @@ import type { AssessmentActivityRules } from "../../generated/api/AssessmentActi
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
-import type { BlueprintRevisionTuple } from "../../generated/api/BlueprintRevisionTuple";
+import type { BlueprintCourseRevisionTuple } from "../../generated/api/BlueprintCourseRevisionTuple";
 import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
 import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
 import type { QuestionPoolAssessmentEntry } from "../../generated/api/QuestionPoolAssessmentEntry";
@@ -20,7 +20,10 @@ import type { BloomClassificationView } from "../../generated/api/BloomClassific
 
 export type AssessmentBlueprintUpdateEntry =
   | ({ readonly kind: "fixedQuestion" } & Omit<FixedQuestionAssessmentEntry, "id" | "availability">)
-  | ({ readonly kind: "questionPool" } & Omit<QuestionPoolAssessmentEntry, "id" | "availability">);
+  | ({ readonly kind: "questionPool" } & Omit<
+      QuestionPoolAssessmentEntry,
+      "id" | "availability" | "questionPoolEditNumber"
+    >);
 
 export interface AssessmentBlueprintUpdateContent {
   readonly assessmentType: AssessmentType;
@@ -32,7 +35,7 @@ export interface AssessmentBlueprintUpdateContent {
 
 export interface AssessmentBlueprintUpdateReview {
   readonly assessment: LiveAssessmentWorkspace;
-  readonly sourceBlueprintRevisionTuple: BlueprintRevisionTuple;
+  readonly sourceBlueprintCourseRevisionTuple: BlueprintCourseRevisionTuple;
   readonly proposed: AssessmentBlueprintUpdateContent | null;
   readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
 }
@@ -46,15 +49,15 @@ export interface CourseAssessmentBlueprintUpdateSummary {
   readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
 }
 
-/** Derived together from one parent Revision; adoptedBlueprintRevisionTuple is the immutable creation pin. */
+/** Derived together from one parent Revision; adoptedBlueprintCourseRevisionTuple is the immutable creation pin. */
 export interface CourseBlueprintUpdateReview {
-  readonly adoptedBlueprintRevisionTuple: BlueprintRevisionTuple;
-  readonly currentBlueprintRevisionTuple: BlueprintRevisionTuple;
+  readonly adoptedBlueprintCourseRevisionTuple: BlueprintCourseRevisionTuple;
+  readonly currentBlueprintCourseRevisionTuple: BlueprintCourseRevisionTuple;
   readonly assessments: ReadonlyArray<CourseAssessmentBlueprintUpdateSummary>;
 }
 
 export interface ApplyAssessmentBlueprintUpdateInput {
-  readonly expectedSourceBlueprintRevisionTuple: BlueprintRevisionTuple;
+  readonly expectedSourceBlueprintCourseRevisionTuple: BlueprintCourseRevisionTuple;
   readonly expectedAssessmentEditNumber: AssessmentEditNumber;
 }
 
@@ -170,6 +173,7 @@ export interface SaveBaseAssessmentPolicyInput {
 
 export interface AssessmentReleaseValidation {
   readonly canRelease: boolean;
+  readonly poolIssues: ReadonlyArray<AssessmentPoolReleaseIssueDetail>;
   readonly issues: ReadonlyArray<
     | "noPublishedQuestions"
     | "questionCountExceeded"
@@ -180,6 +184,19 @@ export interface AssessmentReleaseValidation {
     | "availabilityAfterDueDate"
     | "dueDateAfterClose"
   >;
+}
+
+export interface AssessmentPoolReleaseIssueDetail {
+  readonly assessmentPosition: number;
+  readonly poolTitle: string;
+  readonly questionPoolId: string;
+  readonly selectionCount: number;
+  readonly issue:
+    | "insufficientItems"
+    | "memberUnavailable"
+    | "memberBackendMismatch"
+    | "memberTypeMismatch"
+    | "memberClassificationMismatch";
 }
 
 /** Released-only aggregate of Student Work removed by an Unrelease confirmation. */

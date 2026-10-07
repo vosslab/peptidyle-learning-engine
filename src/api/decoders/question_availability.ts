@@ -15,12 +15,16 @@ import { decodeQuestionSummary } from "./question_library";
 /** Strict current lineage plus its session-derived Archive affordance. */
 export function decodeQuestionLineageView(value: unknown, path = "response"): QuestionLineageView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["summary", "viewerMayArchive"]);
+  requireOnlyFields(record, path, ["summary", "viewerMayArchive", "viewerMayEditMetadata"]);
   return {
     summary: decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
     viewerMayArchive: decodeBoolean(
       field(record, "viewerMayArchive", path),
       `${path}.viewerMayArchive`,
+    ),
+    viewerMayEditMetadata: decodeBoolean(
+      field(record, "viewerMayEditMetadata", path),
+      `${path}.viewerMayEditMetadata`,
     ),
   };
 }

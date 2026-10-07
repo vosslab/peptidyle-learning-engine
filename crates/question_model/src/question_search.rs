@@ -8,7 +8,7 @@ use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
 use crate::{
     AccountId, BloomCognitiveProcess, BloomKnowledgeDimension, Capability,
-    LibraryQuestionMembership, LibrarySearchCategoryCounts, LibrarySearchKind,
+    LibrarySearchCategoryCounts, LibrarySearchKind, PublishedQuestionFilter,
 };
 
 /// Maximum rows in one broad Question, Pool, or Blueprint discovery page.
@@ -58,7 +58,7 @@ pub enum QuestionSearchAuthorship {
 /// Visible deterministic order for Question Library discovery.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum QuestionSearchSort {
+pub enum LibraryObjectSearchSort {
     /// Order by Question Title, then stable public Question ID.
     #[default]
     TitleAscending,
@@ -146,20 +146,20 @@ pub struct QuestionSearchBloomKnowledgeDimensionFacet {
     pub count: u64,
 }
 
-/// Strict, bounded Question Search request carried across the browser boundary.
+/// Strict, bounded Library Object Search request carried across the browser boundary.
 ///
 /// The server normalizes this value before paging and aggregation. The cursor
 /// is opaque and tied to that normalized query; positional paging is not
 /// representable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct QuestionSearchRequest {
+pub struct LibraryObjectSearchRequest {
     /// Result kinds admitted before the global sort and page.
     #[serde(default)]
     pub kind: LibrarySearchKind,
-    /// Restricts Question rows by membership across every Pool, including forks.
+    /// Restricts Question rows by membership in every Pool, including forks.
     #[serde(default)]
-    pub membership: LibraryQuestionMembership,
+    pub questions: PublishedQuestionFilter,
     /// Current Question owner or immutable Pool owner.
     #[serde(default)]
     pub owner_account_id: Option<AccountId>,
@@ -210,26 +210,26 @@ pub struct QuestionSearchRequest {
     pub authorship: QuestionSearchAuthorship,
     /// Visible deterministic result order.
     #[serde(default)]
-    pub sort: QuestionSearchSort,
+    pub sort: LibraryObjectSearchSort,
     /// Opaque continuation cursor from this exact normalized query.
     pub cursor: Option<String>,
     /// Requested bounded page size. `None` selects the server default.
     pub page_size: Option<u16>,
 }
 
-/// Normalized D1 filter and order meaning retained by a personal saved search.
+/// Normalized D1 filter and order meaning for a Question Search query.
 ///
-/// Pagination is intentionally absent: running a saved search always starts a
-/// fresh current-Question Search with a server-selected page size.
+/// Pagination is intentionally absent: a new search starts at the first page
+/// with a server-selected page size.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct QuestionSearchFilter {
+pub struct LibraryObjectSearchFilter {
     /// Result kinds admitted before the global sort and page.
     #[serde(default)]
     pub kind: LibrarySearchKind,
-    /// Restricts Question rows by membership across every Pool, including forks.
+    /// Restricts Question rows by membership in every Pool, including forks.
     #[serde(default)]
-    pub membership: LibraryQuestionMembership,
+    pub questions: PublishedQuestionFilter,
     /// Current Question owner or immutable Pool owner.
     #[serde(default)]
     pub owner_account_id: Option<AccountId>,
@@ -258,21 +258,23 @@ pub struct QuestionSearchFilter {
     pub question_licenses: Vec<QuestionLicense>,
     pub authorship: QuestionSearchAuthorship,
     #[serde(default)]
-    pub sort: QuestionSearchSort,
+    pub sort: LibraryObjectSearchSort,
 }
 
-impl QuestionSearchFilter {
+impl LibraryObjectSearchFilter {
     /// Normalizes durable filter meaning through the D1 query normalizer.
-    pub fn normalized(self) -> Result<Self, QuestionSearchRequestError> {
-        Self::from_query(QuestionSearchRequest::from(self).normalized()?)
+    pub fn normalized(self) -> Result<Self, LibraryObjectSearchRequestError> {
+        Self::from_query(LibraryObjectSearchRequest::from(self).normalized()?)
     }
 
     /// Drops cursor and page-size continuation state from one D1 query.
-    pub fn from_query(query: QuestionSearchRequest) -> Result<Self, QuestionSearchRequestError> {
+    pub fn from_query(
+        query: LibraryObjectSearchRequest,
+    ) -> Result<Self, LibraryObjectSearchRequestError> {
         let query = query.normalized()?;
         Ok(Self {
             kind: query.kind,
-            membership: query.membership,
+            questions: query.questions,
             owner_account_id: query.owner_account_id,
             text: query.text,
             author_names: query.author_names,
@@ -296,16 +298,16 @@ impl QuestionSearchFilter {
     }
 
     /// Starts a fresh D1 query without continuation state.
-    pub fn fresh_query(&self) -> QuestionSearchRequest {
-        QuestionSearchRequest::from(self.clone())
+    pub fn fresh_query(&self) -> LibraryObjectSearchRequest {
+        LibraryObjectSearchRequest::from(self.clone())
     }
 }
 
-impl From<QuestionSearchFilter> for QuestionSearchRequest {
-    fn from(filter: QuestionSearchFilter) -> Self {
+impl From<LibraryObjectSearchFilter> for LibraryObjectSearchRequest {
+    fn from(filter: LibraryObjectSearchFilter) -> Self {
         Self {
             kind: filter.kind,
-            membership: filter.membership,
+            questions: filter.questions,
             owner_account_id: filter.owner_account_id,
             text: filter.text,
             author_names: filter.author_names,
@@ -331,11 +333,11 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
     }
 }
 
-impl Default for QuestionSearchRequest {
+impl Default for LibraryObjectSearchRequest {
     fn default() -> Self {
         Self {
             kind: LibrarySearchKind::Questions,
-            membership: LibraryQuestionMembership::All,
+            questions: PublishedQuestionFilter::All,
             owner_account_id: None,
             text: None,
             author_names: Vec::new(),
@@ -354,16 +356,16 @@ impl Default for QuestionSearchRequest {
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
             authorship: QuestionSearchAuthorship::Any,
-            sort: QuestionSearchSort::TitleAscending,
+            sort: LibraryObjectSearchSort::TitleAscending,
             cursor: None,
             page_size: None,
         }
     }
 }
 
-/// Rejection reason for a Question Search request.
+/// Rejection reason for a Library Object search request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionSearchRequestError {
+pub enum LibraryObjectSearchRequestError {
     /// Text or a controlled-term component was blank after normalization.
     BlankFilter,
     /// A string field or filter values exceeded the bounded contract.
@@ -376,7 +378,7 @@ pub enum QuestionSearchRequestError {
     InvalidCrossDiscipline,
 }
 
-impl std::fmt::Display for QuestionSearchRequestError {
+impl std::fmt::Display for LibraryObjectSearchRequestError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BlankFilter => formatter.write_str("Question Search filter must not be blank"),
@@ -394,9 +396,9 @@ impl std::fmt::Display for QuestionSearchRequestError {
     }
 }
 
-impl std::error::Error for QuestionSearchRequestError {}
+impl std::error::Error for LibraryObjectSearchRequestError {}
 
-impl QuestionSearchRequest {
+impl LibraryObjectSearchRequest {
     /// Returns the stable Published Question lineage ID named in the text field.
     pub fn exact_question_id(&self) -> Option<PublishedQuestionId> {
         self.text.as_deref()?.parse::<PublishedQuestionId>().ok()
@@ -411,22 +413,22 @@ impl QuestionSearchRequest {
     /// combine with every other active filter using AND. Within Question Author names,
     /// backends, tags, Question Types, and Question Licenses, values combine using
     /// OR. Capabilities retain every-value-matches semantics.
-    pub fn normalized(mut self) -> Result<Self, QuestionSearchRequestError> {
+    pub fn normalized(mut self) -> Result<Self, LibraryObjectSearchRequestError> {
         // ASVS 2.2.1 and 2.2.3: validate the selection structure without inferring parents.
         // The trusted service must additionally validate vocabulary identities and associations.
         if (self.subject_uuid.is_some() && self.discipline_uuid.is_none())
             || (self.topic_uuid.is_some() && self.subject_uuid.is_none())
             || (self.subtopic_uuid.is_some() && self.topic_uuid.is_none())
         {
-            return Err(QuestionSearchRequestError::IncompleteClassificationChain);
+            return Err(LibraryObjectSearchRequestError::IncompleteClassificationChain);
         }
         if self.cross_discipline && (self.discipline_uuid.is_none() || self.subject_uuid.is_none())
         {
-            return Err(QuestionSearchRequestError::InvalidCrossDiscipline);
+            return Err(LibraryObjectSearchRequestError::InvalidCrossDiscipline);
         }
         self.text = self
             .text
-            .map(|text| normalize_text(text, 256))
+            .map(|text| normalize_question_search_text(text, 256))
             .transpose()?
             .filter(|text| !text.is_empty());
         normalize_text_filters(
@@ -442,7 +444,7 @@ impl QuestionSearchRequest {
             || self.backends.len() > QuestionBackend::ALL.len()
             || self.question_types.len() > MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS
         {
-            return Err(QuestionSearchRequestError::TooLarge);
+            return Err(LibraryObjectSearchRequestError::TooLarge);
         }
         self.capabilities.sort();
         self.capabilities.dedup();
@@ -453,7 +455,7 @@ impl QuestionSearchRequest {
         self.question_types.sort();
         self.question_types.dedup();
         if self.cursor.as_ref().is_some_and(String::is_empty) {
-            return Err(QuestionSearchRequestError::EmptyCursor);
+            return Err(LibraryObjectSearchRequestError::EmptyCursor);
         }
         Ok(self)
     }
@@ -463,14 +465,14 @@ fn normalize_text_filters(
     filters: &mut Vec<String>,
     maximum_filters: usize,
     maximum_characters: usize,
-) -> Result<(), QuestionSearchRequestError> {
+) -> Result<(), LibraryObjectSearchRequestError> {
     if filters.len() > maximum_filters {
-        return Err(QuestionSearchRequestError::TooLarge);
+        return Err(LibraryObjectSearchRequestError::TooLarge);
     }
     for filter in filters.iter_mut() {
         *filter = normalize_text(std::mem::take(filter), maximum_characters)?;
         if filter.is_empty() {
-            return Err(QuestionSearchRequestError::BlankFilter);
+            return Err(LibraryObjectSearchRequestError::BlankFilter);
         }
     }
     filters.sort();
@@ -481,10 +483,26 @@ fn normalize_text_filters(
 fn normalize_text(
     value: String,
     maximum_characters: usize,
-) -> Result<String, QuestionSearchRequestError> {
+) -> Result<String, LibraryObjectSearchRequestError> {
     let normalized = normalized_question_search_group_value(&value);
     if normalized.chars().count() > maximum_characters {
-        return Err(QuestionSearchRequestError::TooLarge);
+        return Err(LibraryObjectSearchRequestError::TooLarge);
+    }
+    Ok(normalized)
+}
+
+fn normalize_question_search_text(
+    value: String,
+    maximum_characters: usize,
+) -> Result<String, LibraryObjectSearchRequestError> {
+    let whitespace_normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let normalized = if whitespace_normalized.parse::<PublishedQuestionId>().is_ok() {
+        whitespace_normalized
+    } else {
+        whitespace_normalized.to_lowercase()
+    };
+    if normalized.chars().count() > maximum_characters {
+        return Err(LibraryObjectSearchRequestError::TooLarge);
     }
     Ok(normalized)
 }
@@ -588,20 +606,20 @@ mod tests {
     }
 
     #[test]
-    fn authored_scope_and_visible_sort_survive_saved_search_conversion() {
-        let query = QuestionSearchRequest {
+    fn authored_scope_and_visible_sort_survive_filter_conversion() {
+        let query = LibraryObjectSearchRequest {
             authorship: QuestionSearchAuthorship::AuthoredByCurrentAccount,
-            sort: QuestionSearchSort::PublishedNewest,
+            sort: LibraryObjectSearchSort::PublishedNewest,
             bloom_cognitive_process: Some(BloomCognitiveProcess::Analyze),
             bloom_knowledge_dimension: Some(BloomKnowledgeDimension::ProceduralKnowledge),
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         };
         assert_eq!(
             serde_json::to_value(&query).expect("query serializes")["authorship"],
             serde_json::json!("authoredByCurrentAccount")
         );
-        let filter =
-            QuestionSearchFilter::from_query(query).expect("filter produces normalized D1 meaning");
+        let filter = LibraryObjectSearchFilter::from_query(query)
+            .expect("filter produces normalized D1 meaning");
         assert_eq!(
             filter.authorship,
             QuestionSearchAuthorship::AuthoredByCurrentAccount
@@ -610,10 +628,10 @@ mod tests {
             filter.fresh_query().authorship,
             QuestionSearchAuthorship::AuthoredByCurrentAccount
         );
-        assert_eq!(filter.sort, QuestionSearchSort::PublishedNewest);
+        assert_eq!(filter.sort, LibraryObjectSearchSort::PublishedNewest);
         assert_eq!(
             filter.fresh_query().sort,
-            QuestionSearchSort::PublishedNewest
+            LibraryObjectSearchSort::PublishedNewest
         );
         assert_eq!(
             filter.fresh_query().bloom_cognitive_process,
@@ -626,8 +644,8 @@ mod tests {
     }
 
     #[test]
-    fn classification_identity_survives_normalization_and_saved_search_round_trip() {
-        let query = QuestionSearchRequest {
+    fn classification_identity_survives_normalization_and_filter_round_trip() {
+        let query = LibraryObjectSearchRequest {
             discipline_uuid: Some(Uuid::from_u128(1)),
             subject_uuid: Some(Uuid::from_u128(2)),
             topic_uuid: Some(Uuid::from_u128(3)),
@@ -638,12 +656,13 @@ mod tests {
             topics: vec![" Inheritance ".to_string()],
             cursor: Some("continuation".to_string()),
             page_size: Some(25),
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         }
         .normalized()
         .expect("complete classification selection normalizes");
-        let filter = QuestionSearchFilter::from_query(query.clone()).expect("selection retained");
-        let restored: QuestionSearchFilter =
+        let filter =
+            LibraryObjectSearchFilter::from_query(query.clone()).expect("selection retained");
+        let restored: LibraryObjectSearchFilter =
             serde_json::from_value(serde_json::to_value(&filter).expect("filter serializes"))
                 .expect("filter deserializes");
         assert_eq!(restored.normalized().expect("filter normalizes"), filter);
@@ -657,51 +676,82 @@ mod tests {
     }
 
     #[test]
+    fn canonical_library_object_ids_keep_case_through_text_normalization() {
+        let question_id =
+            PublishedQuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
+        let pool_id =
+            crate::QuestionPoolId::from_random_identifier("BCDEFGH").expect("canonical Pool ID");
+
+        for public_id in [question_id.to_string(), pool_id.to_string()] {
+            let normalized = LibraryObjectSearchRequest {
+                text: Some(public_id.clone()),
+                ..LibraryObjectSearchRequest::default()
+            }
+            .normalized()
+            .expect("canonical Library Object ID normalizes");
+
+            assert_eq!(normalized.text.as_deref(), Some(public_id.as_str()));
+            assert_eq!(
+                normalized.exact_question_id().map(|id| id.to_string()),
+                Some(public_id)
+            );
+        }
+
+        let normalized_text = LibraryObjectSearchRequest {
+            text: Some("  ENZYME   Inhibitor  ".to_owned()),
+            ..LibraryObjectSearchRequest::default()
+        }
+        .normalized()
+        .expect("ordinary search text normalizes");
+        assert_eq!(normalized_text.text.as_deref(), Some("enzyme inhibitor"));
+    }
+
+    #[test]
     fn classification_selection_requires_parent_chain_and_explicit_cross_subject() {
         for query in [
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 subject_uuid: Some(Uuid::from_u128(2)),
-                ..QuestionSearchRequest::default()
+                ..LibraryObjectSearchRequest::default()
             },
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 discipline_uuid: Some(Uuid::from_u128(1)),
                 topic_uuid: Some(Uuid::from_u128(3)),
-                ..QuestionSearchRequest::default()
+                ..LibraryObjectSearchRequest::default()
             },
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 discipline_uuid: Some(Uuid::from_u128(1)),
                 subject_uuid: Some(Uuid::from_u128(2)),
                 subtopic_uuid: Some(Uuid::from_u128(4)),
-                ..QuestionSearchRequest::default()
+                ..LibraryObjectSearchRequest::default()
             },
         ] {
             assert_eq!(
                 query.normalized(),
-                Err(QuestionSearchRequestError::IncompleteClassificationChain)
+                Err(LibraryObjectSearchRequestError::IncompleteClassificationChain)
             );
         }
         for discipline_uuid in [None, Some(Uuid::from_u128(1))] {
             assert_eq!(
-                QuestionSearchRequest {
+                LibraryObjectSearchRequest {
                     discipline_uuid,
                     cross_discipline: true,
-                    ..QuestionSearchRequest::default()
+                    ..LibraryObjectSearchRequest::default()
                 }
                 .normalized(),
-                Err(QuestionSearchRequestError::InvalidCrossDiscipline)
+                Err(LibraryObjectSearchRequestError::InvalidCrossDiscipline)
             );
         }
         for query in [
-            QuestionSearchRequest::default(),
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest::default(),
+            LibraryObjectSearchRequest {
                 discipline_uuid: Some(Uuid::from_u128(1)),
-                ..QuestionSearchRequest::default()
+                ..LibraryObjectSearchRequest::default()
             },
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 discipline_uuid: Some(Uuid::from_u128(1)),
                 subject_uuid: Some(Uuid::from_u128(2)),
                 cross_discipline: true,
-                ..QuestionSearchRequest::default()
+                ..LibraryObjectSearchRequest::default()
             },
         ] {
             assert!(query.normalized().is_ok());
@@ -710,11 +760,11 @@ mod tests {
 
     #[test]
     fn question_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
-        let query = QuestionSearchRequest {
+        let query = LibraryObjectSearchRequest {
             question_types: vec![QuestionType::FillInBlank],
             cursor: Some("opaque-cursor".to_string()),
             page_size: Some(25),
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         };
         let query_json = serde_json::to_value(&query).expect("query serializes");
         assert_eq!(
@@ -724,8 +774,8 @@ mod tests {
         assert_eq!(query_json["page_size"], serde_json::json!(25));
         assert!(query_json.get("responseFamilies").is_none());
 
-        let filter =
-            QuestionSearchFilter::from_query(query).expect("filter produces normalized D1 meaning");
+        let filter = LibraryObjectSearchFilter::from_query(query)
+            .expect("filter produces normalized D1 meaning");
         let filter_json = serde_json::to_value(&filter).expect("filter serializes");
         assert_eq!(
             filter_json["question_types"],
@@ -757,13 +807,13 @@ mod tests {
                 .remove(field);
         }
         assert_eq!(
-            serde_json::from_value::<QuestionSearchRequest>(empty_selection_query)
+            serde_json::from_value::<LibraryObjectSearchRequest>(empty_selection_query)
                 .expect("omitted optional selection means unrestricted"),
-            serde_json::from_value::<QuestionSearchRequest>(query_json.clone())
+            serde_json::from_value::<LibraryObjectSearchRequest>(query_json.clone())
                 .expect("explicit empty selection deserializes")
         );
         assert_eq!(
-            serde_json::from_value::<QuestionSearchFilter>(empty_selection_filter)
+            serde_json::from_value::<LibraryObjectSearchFilter>(empty_selection_filter)
                 .expect("omitted optional selection means unrestricted"),
             filter
         );
@@ -779,24 +829,24 @@ mod tests {
         ] {
             let mut rejected_query = query_json.clone();
             rejected_query[field] = value.clone();
-            assert!(serde_json::from_value::<QuestionSearchRequest>(rejected_query).is_err());
+            assert!(serde_json::from_value::<LibraryObjectSearchRequest>(rejected_query).is_err());
             let mut rejected_filter = filter_json.clone();
             rejected_filter[field] = value;
-            assert!(serde_json::from_value::<QuestionSearchFilter>(rejected_filter).is_err());
+            assert!(serde_json::from_value::<LibraryObjectSearchFilter>(rejected_filter).is_err());
         }
 
         for retired_field in ["publication_scopes", "publicationScopes"] {
             let mut rejected_query = query_json.clone();
             rejected_query[retired_field] = serde_json::json!(["public"]);
             assert!(
-                serde_json::from_value::<QuestionSearchRequest>(rejected_query).is_err(),
+                serde_json::from_value::<LibraryObjectSearchRequest>(rejected_query).is_err(),
                 "query rejects retired {retired_field}"
             );
 
             let mut rejected_filter = filter_json.clone();
             rejected_filter[retired_field] = serde_json::json!(["public"]);
             assert!(
-                serde_json::from_value::<QuestionSearchFilter>(rejected_filter).is_err(),
+                serde_json::from_value::<LibraryObjectSearchFilter>(rejected_filter).is_err(),
                 "filter rejects retired {retired_field}"
             );
         }

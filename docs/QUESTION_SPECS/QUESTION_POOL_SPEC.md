@@ -29,10 +29,12 @@ Published Question forks have a separate Draft/Revision lifecycle described in
 
 ## Membership
 
-A Question Pool is an unordered set of Question Revision Tuples plus its metadata.
+A Question Pool contains an unordered set of Question Revision Tuples. A Question Pool can contain a
+Question ID only once. The Question Pool also has its own properties, defined separately from the
+properties of the Published Questions it contains.
 
-A Question Pool cannot contain two Revisions of the same Published Question. For example,
-`(Q, 1)` and `(Q, 2)` are different Question Revision Tuples, but cannot coexist in one Pool.
+For example, `(Q, 1)` and `(Q, 2)` are different Question Revision Tuples, but cannot coexist in
+one Pool.
 Pools contain only Published Questions.
 
 Published Questions offer **Create Pool from Question**. The creation view shows the starting
@@ -67,12 +69,15 @@ Question Type, and Backend are the common member values. PLE calculates the lice
 Text search and Topic, Subtopic, Tag, and Bloom filters match the Pool's own text and metadata.
 Each member retains its own metadata, source, and rights information. Shared field requirements
 are in [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_LIBRARY_METADATA_SPEC.md).
+Store calculated Pool metadata on the Pool. Keep these values up to date when the Pool is created or
+saved. Search reads the stored values. A periodic backend cron job for recalculating Pool metadata is
+deferred.
 Optional Question Feedback timing and initial AI Bloom assignment remain deferred.
 
 ## License
 
-Current Pool and Published Question support is limited to CC0, CC BY, and CC BY-SA. NC and ND
-content are deferred. A Pool cannot use `Mixed` as its license.
+Initial release supports CC0, CC BY, and CC BY-SA Questions. NC and ND Questions are excluded and
+may be reconsidered after release. A Pool cannot use `Mixed` as its license.
 
 PLE calculates the Pool license from its Questions when the Pool is created and whenever
 its set of Question Revision Tuples changes. The owner does not choose it manually. The Questions
@@ -95,16 +100,8 @@ replace, or grant rights beyond any member's original license. The Pool's calcul
 value used when filtering Pool results by license; member license filters continue to apply to
 member Question results.
 
-### Deferred licenses
-
-The user supplied a future compatibility example: public-domain, CC BY, CC BY-NC, and CC BY-NC-SA
-members yield CC BY-NC-SA; adding CC BY-SA is incompatible. NC acceptance is currently deferred
-while its hosted-use policy is unresolved. The example therefore records required future
-compatibility work, not a currently accepted member combination.
-
-ND support is also deferred. When ND support is added, PLE must block forks of ND Questions. Whether Pools may
-reference an unchanged ND Question remains deferred. This specification does not admit NC or ND content by implication. See the
-[question specification open questions](../active_plans/decisions/question_specs_open_questions.md).
+The initial release excludes NC and ND Questions. Reconsider them after release; no future Pool
+compatibility or fork behavior is established here.
 
 ## Assessment references and selection
 

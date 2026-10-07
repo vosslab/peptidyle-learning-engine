@@ -21,11 +21,10 @@ struct CurrentPoolEntry {
     id: AssessmentEntryId,
     authored_position: i32,
     selection_count: usize,
-    random_selected_order: bool,
     candidates: Vec<QuestionPoolSelectedItem>,
     question_pool_id: QuestionPoolId,
     question_pool_edit_number: QuestionPoolEditNumber,
-    candidate_backends: BTreeMap<u32, QuestionBackend>,
+    candidate_backends: BTreeMap<PublishedQuestionRevisionTuple, QuestionBackend>,
 }
 
 pub(super) async fn start_current_assessment_attempt(
@@ -77,8 +76,8 @@ pub(super) async fn start_current_assessment_attempt(
     let rows = sqlx::query(
         "SELECT student_record_id, assessment_id, assessment_entry_id, entry_kind, authored_position, \
          fixed_question_id, fixed_revision_number, question_pool_id, question_pool_edit_number, \
-         member_position, pool_question_id, pool_question_revision_number, question_backend, selection_count, \
-         pool_selection_rule, assessment_question_order_rule \
+         pool_question_id, pool_question_revision_number, question_backend, selection_count, \
+         assessment_question_order_rule \
          FROM ple_api.prepare_current_assessment_attempt_start($1, $2)",
     )
         .bind(course_instance_id.as_string())
@@ -155,7 +154,6 @@ fn current_attempt_start_from_rows(
                         id: entry,
                         authored_position,
                         selection_count: 0,
-                        random_selected_order: false,
                         candidates: Vec::new(),
                         question_pool_id: question_pool_id.clone(),
                         question_pool_edit_number,
@@ -170,23 +168,18 @@ fn current_attempt_start_from_rows(
                         "Question Pool selection count is invalid".to_string(),
                     )
                 })?;
-                pool.random_selected_order = row
-                    .try_get::<String, _>("pool_selection_rule")
-                    .map_err(map_sqlx_error)?
-                    == "random_order";
-                let member_position = row_member_position(&row)?;
+                let tuple = row_published_question_revision_tuple(
+                    &row,
+                    "pool_question_id",
+                    "pool_question_revision_number",
+                )?;
                 let candidate = QuestionPoolSelectedItem {
                     question_pool_id: pool.question_pool_id.clone(),
                     question_pool_edit_number: pool.question_pool_edit_number,
-                    member_position,
-                    published_question_revision_tuple: row_published_question_revision_tuple(
-                        &row,
-                        "pool_question_id",
-                        "pool_question_revision_number",
-                    )?,
+                    published_question_revision_tuple: tuple.clone(),
                 };
                 pool.candidate_backends
-                    .insert(member_position, row_question_backend(&row)?);
+                    .insert(tuple, row_question_backend(&row)?);
                 pool.candidates.push(candidate);
             }
             _ => {
@@ -204,7 +197,7 @@ fn current_attempt_start_from_rows(
         for item in &selected_items {
             let backend = *pool
                 .candidate_backends
-                .get(&item.member_position)
+                .get(&item.published_question_revision_tuple)
                 .ok_or_else(|| {
                     StoreError::InvalidRecord(
                         "Question Pool Item backend is unavailable".to_string(),
@@ -215,7 +208,6 @@ fn current_attempt_start_from_rows(
                 PreparedIssuedQuestion::QuestionPoolItem {
                     assessment_entry: pool.id,
                     question_pool_selection_index: index,
-                    member_position: item.member_position,
                     published_question_revision_tuple: item
                         .published_question_revision_tuple
                         .clone(),
@@ -304,18 +296,6 @@ fn row_pool(
     Ok((question_pool_id, question_pool_edit_number))
 }
 
-fn row_member_position(row: &sqlx::postgres::PgRow) -> Result<u32, StoreError> {
-    let stored = row
-        .try_get::<i32, _>("member_position")
-        .map_err(map_sqlx_error)?;
-    let stored = u32::try_from(stored).map_err(|_| {
-        StoreError::InvalidRecord("Question Pool member position is invalid".to_string())
-    })?;
-    stored.checked_sub(1).ok_or_else(|| {
-        StoreError::InvalidRecord("Question Pool member position is invalid".to_string())
-    })
-}
-
 fn row_question_backend(row: &sqlx::postgres::PgRow) -> Result<QuestionBackend, StoreError> {
     match row
         .try_get::<String, _>("question_backend")
@@ -349,24 +329,15 @@ fn select_pool_items_with_rng(
         ));
     }
     let mut selected = pool.candidates.clone();
+    selected.sort_by(|left, right| {
+        left.published_question_revision_tuple
+            .cmp(&right.published_question_revision_tuple)
+    });
     for position in 0..pool.selection_count {
         let index = position + unbiased_index(selected.len() - position, &mut random_u64)?;
         selected.swap(position, index);
     }
     selected.truncate(pool.selection_count);
-    if pool.random_selected_order {
-        for position in 0..selected.len() {
-            let index = position + unbiased_index(selected.len() - position, &mut random_u64)?;
-            selected.swap(position, index);
-        }
-    } else {
-        selected.sort_by_key(|item| {
-            pool.candidates
-                .iter()
-                .position(|candidate| candidate.member_position == item.member_position)
-                .expect("selected pool item came from candidates")
-        });
-    }
     Ok(selected)
 }
 
@@ -404,23 +375,22 @@ mod tests {
         QuestionPoolSelectedItem {
             question_pool_id: pool_id(),
             question_pool_edit_number: pool_edit_number(),
-            member_position: value,
             published_question_revision_tuple: PublishedQuestionRevisionTuple {
-                published_question_id: "0000-4000"
-                    .parse::<PublishedQuestionId>()
-                    .expect("question ID"),
+                published_question_id: PublishedQuestionId::from_random_identifier(
+                    ["0000000", "0000001", "0000002"][(value - 1) as usize],
+                )
+                .expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
         }
     }
 
     #[test]
-    fn pool_selection_uses_injected_entropy_without_replacement_then_keeps_pool_order() {
+    fn pool_selection_uses_injected_entropy_without_replacement() {
         let pool = CurrentPoolEntry {
             id: AssessmentEntryId::from_uuid(Uuid::nil()),
             authored_position: 0,
             selection_count: 2,
-            random_selected_order: false,
             candidates: vec![pool_item(1), pool_item(2), pool_item(3)],
             question_pool_id: pool_id(),
             question_pool_edit_number: pool_edit_number(),
@@ -432,33 +402,26 @@ mod tests {
         assert_eq!(
             selected
                 .iter()
-                .map(|item| item.member_position)
+                .map(|item| item
+                    .published_question_revision_tuple
+                    .published_question_id
+                    .as_str())
                 .collect::<Vec<_>>(),
-            vec![2, 3]
+            vec!["0000-4000", "0000-W001"]
         );
-    }
 
-    #[test]
-    fn pool_selection_uses_injected_entropy_for_configured_random_order() {
-        let pool = CurrentPoolEntry {
-            id: AssessmentEntryId::from_uuid(Uuid::nil()),
-            authored_position: 0,
-            selection_count: 2,
-            random_selected_order: true,
-            candidates: vec![pool_item(1), pool_item(2), pool_item(3)],
-            question_pool_id: pool_id(),
-            question_pool_edit_number: pool_edit_number(),
-            candidate_backends: BTreeMap::new(),
-        };
-        let mut entropy = [1_u64, 1, 1, 0].into_iter();
+        let mut entropy = [2_u64, 0].into_iter();
         let selected = select_pool_items_with_rng(&pool, || Ok(entropy.next().expect("entropy")))
             .expect("selection");
         assert_eq!(
             selected
                 .iter()
-                .map(|item| item.member_position)
+                .map(|item| item
+                    .published_question_revision_tuple
+                    .published_question_id
+                    .as_str())
                 .collect::<Vec<_>>(),
-            vec![3, 2]
+            vec!["0000-W001", "0000-4000"]
         );
     }
 }

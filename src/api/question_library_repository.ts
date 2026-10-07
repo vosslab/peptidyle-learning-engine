@@ -1,6 +1,6 @@
-// question_library_repository.ts - converts the generated Question Library search contract for the Library UI.
+// question_library_repository.ts - maps mixed Library Object search results into browser rows.
 
-import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { Capability } from "../../generated/api/Capability";
@@ -15,7 +15,7 @@ import {
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
 import { RECORD_PAGE_SIZES } from "../components/record_list/record_page_sizes";
-import { validateCanonicalQuestionIdSyntax } from "../question_id";
+import { normalizeHumanEnteredQuestionId, validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
 import { isProductionQuestionBackend, PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 import {
@@ -117,14 +117,14 @@ function selectedQuestionLicense(value: string | null): Array<QuestionLicense> {
   return [selected];
 }
 
-function selectedBackend(value: string | null): QuestionSearchRequest["backends"] {
+function selectedBackend(value: string | null): LibraryObjectSearchRequest["backends"] {
   if (value === null) return [];
   const selected = PRODUCTION_QUESTION_BACKENDS.find((candidate) => candidate === value);
   if (selected === undefined) throw new Error("Question Library backend selection is invalid");
   return [selected];
 }
 
-function selectedQuestionType(value: string | null): QuestionSearchRequest["question_types"] {
+function selectedQuestionType(value: string | null): LibraryObjectSearchRequest["question_types"] {
   if (value === null) return [];
   const selected = QUESTION_TYPES.find((candidate) => candidate === value);
   if (selected === undefined)
@@ -151,7 +151,7 @@ function selectedBloomKnowledgeDimension(value: string | null): BloomKnowledgeDi
 }
 
 function facets(
-  page: Awaited<ReturnType<ApiClient["searchQuestionLibrary"]>>,
+  page: Awaited<ReturnType<ApiClient["searchLibraryObjects"]>>,
 ): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> {
   return [
     ...page.facets.authorNames.map((facet) => ({
@@ -209,18 +209,19 @@ function facets(
   ];
 }
 
-/** Builds the one closed Question Library search request used by Library and source-aware pickers. */
-export function questionSearchRequest(
+/** Builds the one closed Library Object search request used by Library and source-aware pickers. */
+export function libraryObjectSearchRequest(
   query: QuestionLibraryBrowseQuery,
   cursor: string | null,
   authorship: QuestionSearchAuthorship = "any",
   pageSize?: QuestionLibraryPageSize,
-): QuestionSearchRequest {
+): LibraryObjectSearchRequest {
   return {
     kind: query.kind,
-    membership: query.membership,
+    questions: query.questions,
     owner_account_id: query.ownerAccountId,
-    text: query.search === "" ? null : query.search,
+    text:
+      query.search === "" ? null : (normalizeHumanEnteredQuestionId(query.search) ?? query.search),
     ...libraryClassificationFilter(query),
     author_names: selectedPublicText(query.authorName),
     backends: selectedBackend(query.backend),
@@ -250,8 +251,8 @@ export function createQuestionLibraryRepository(
       cursor: string | null,
       pageSize?: QuestionLibraryPageSize,
     ): Promise<unknown> {
-      const search = questionSearchRequest(query, cursor, authorship, pageSize);
-      const page = await client.searchQuestionLibrary(search);
+      const search = libraryObjectSearchRequest(query, cursor, authorship, pageSize);
+      const page = await client.searchLibraryObjects(search);
       return {
         items: page.items.map((item) => {
           if (item.kind === "pool") {
@@ -281,6 +282,13 @@ export function createQuestionLibraryRepository(
           return {
             kind: "question" as const,
             displayId: question.summary.questionId,
+            title: question.summary.metadata.questionTitle,
+            description: question.summary.metadata.questionDescription,
+            ownerAccountId: item.ownerAccountId,
+            questionType: question.summary.questionType,
+            backend: question.summary.backend,
+            tags: question.summary.metadata.tags,
+            license: question.summary.metadata.questionLicense,
             publishedQuestionRevisionTuple: question.summary.publishedQuestionRevisionTuple,
             questionTitle: question.summary.metadata.questionTitle,
             summary: question.summary.metadata.questionDescription,

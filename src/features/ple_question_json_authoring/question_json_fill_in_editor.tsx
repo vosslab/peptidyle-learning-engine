@@ -1,6 +1,6 @@
 // question_json_fill_in_editor.tsx - compact private controls for accepted text responses.
 
-import { Index, Show, type JSX } from "solid-js";
+import { For, Index, Show, type JSX } from "solid-js";
 
 import {
   addFillInAnswer,
@@ -14,15 +14,20 @@ import type {
   PleQuestionJsonFillInResponse,
   PleQuestionJsonTextResponseMatchRule,
 } from "./question_json_source";
+import { PLE_QUESTION_JSON_TEXT_RESPONSE_MATCH_MODES } from "./question_json_match_modes";
 
 const MATCH_MODE_HELP: Readonly<Record<PleQuestionJsonTextResponseMatchRule, string>> = {
   exact: "Students must use the same capitalization and spacing.",
   caseInsensitive: "Students may vary capitalization; spelling and spacing still need to match.",
   normalized: "Students may vary capitalization and ordinary spacing.",
+  regex:
+    "Each listed answer is a regular expression. Patterns match anywhere unless anchored; case behavior comes from the pattern.",
 };
 
 function isTextResponseMatchRule(value: string): value is PleQuestionJsonTextResponseMatchRule {
-  return value === "exact" || value === "caseInsensitive" || value === "normalized";
+  return (
+    value === "exact" || value === "caseInsensitive" || value === "normalized" || value === "regex"
+  );
 }
 
 export interface PleQuestionJsonFillInEditorProps {
@@ -106,9 +111,9 @@ export function PleQuestionJsonFillInEditor(props: PleQuestionJsonFillInEditorPr
             }
           }}
         >
-          <option value="exact">Exact text</option>
-          <option value="caseInsensitive">Ignore capitalization</option>
-          <option value="normalized">Ignore capitalization and ordinary spacing</option>
+          <For each={PLE_QUESTION_JSON_TEXT_RESPONSE_MATCH_MODES}>
+            {(mode) => <option value={mode.value}>{mode.label}</option>}
+          </For>
         </select>
         <span class="ple-question-json-authoring__help">
           {MATCH_MODE_HELP[props.response().matchMode]}

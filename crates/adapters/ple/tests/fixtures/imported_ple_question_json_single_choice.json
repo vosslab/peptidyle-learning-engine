@@ -1,7 +1,5 @@
 {
   "format": "pleQuestionJson",
-  "questionTitle": "Favorite color",
-  "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {
     "kind": "singleChoice",
@@ -17,9 +15,5 @@
     ],
     "correctChoice": "blue"
   },
-  "feedback": {},
-  "tags": [],
-  "questionLicense": null,
-  "questionCitation": null,
-  "language": "en-US"
+  "feedback": {}
 }

@@ -106,5 +106,6 @@ test("student route access and staff image management follow User Role", () => {
     assert.equal(userRoleMayAccessRoute(routeId, "student"), false, routeId);
     assert.equal(userRoleMayAccessRoute(routeId, "instructor"), true, routeId);
   }
+  assert.equal(userRoleMayAccessRoute("questionDraftEditor", "sysadmin"), true);
   assert.equal(userRoleMayAccessRoute("profile", "student"), true);
 });

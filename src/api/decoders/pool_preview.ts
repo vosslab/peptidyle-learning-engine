@@ -40,25 +40,9 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     "assessmentEntryId",
     "questionPoolLabel",
     "selectionCount",
-    "selectionRule",
     "items",
     "selectedItems",
   ]);
-  const selectionRuleRecord = decodeRecord(
-    field(record, "selectionRule", path),
-    `${path}.selectionRule`,
-  );
-  requireOnlyFields(selectionRuleRecord, `${path}.selectionRule`, ["selectedQuestionOrder"]);
-  const selectedQuestionOrder = decodeString(
-    field(selectionRuleRecord, "selectedQuestionOrder", `${path}.selectionRule`),
-    `${path}.selectionRule.selectedQuestionOrder`,
-  );
-  if (selectedQuestionOrder !== "questionPoolOrder" && selectedQuestionOrder !== "randomOrder") {
-    throw new DecodeError(
-      `${path}.selectionRule.selectedQuestionOrder`,
-      "questionPoolOrder or randomOrder",
-    );
-  }
   return {
     assessmentId: decodeString(field(record, "assessmentId", path), `${path}.assessmentId`),
     assessmentEditNumber: decodeAssessmentEditNumber(
@@ -77,7 +61,6 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
       field(record, "selectionCount", path),
       `${path}.selectionCount`,
     ),
-    selectionRule: { selectedQuestionOrder },
     items: decodeArray(field(record, "items", path), `${path}.items`, decodePreviewItem),
     selectedItems: decodeArray(
       field(record, "selectedItems", path),

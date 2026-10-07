@@ -27,6 +27,7 @@ CREATE TABLE ple_data.assessment_policy_snapshot (
         assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0
     ),
     late_work_rule ple_data.late_work_rule NOT NULL,
+    partial_credit_enabled boolean NOT NULL,
     question_variation_rule ple_data.question_variation_rule NOT NULL,
     assessment_question_order_rule ple_data.question_order_rule NOT NULL,
     feedback_per_item_correctness ple_data.feedback_release NOT NULL,
@@ -155,7 +156,6 @@ CREATE TABLE ple_data.assessment_entry_pool (
     points_per_item numeric NOT NULL CHECK (
         points_per_item BETWEEN 0 AND 1000000000.9999 AND scale(points_per_item) <= 4
     ),
-    selected_question_order ple_data.selected_question_order NOT NULL,
     UNIQUE (assessment_entry_id, assessment_id),
     UNIQUE (assessment_entry_id, assessment_id, question_pool_id),
     FOREIGN KEY (assessment_entry_id, assessment_id)
@@ -179,39 +179,18 @@ ALTER TABLE ple_data.assessment_entry
 
 
 
--- A Pool imported into an Assessment is owned by exactly one Assessment Entry.
--- This cyclic, deferred association deliberately makes it impossible for the
--- ordinary current-content save to attach a published Pool, another fork, or
--- an arbitrary browser-provided lineage.  The trusted import boundary creates
--- the entry, copies current source members once, and this association atomically.
-CREATE TABLE ple_data.assessment_question_pool_fork (
-    assessment_entry_id uuid NOT NULL,
-    assessment_id ple_data.assessment_id NOT NULL,
-    question_pool_id ple_data.question_family_id NOT NULL UNIQUE
-        REFERENCES ple_data.question_pool(question_pool_id),
-    PRIMARY KEY (assessment_entry_id),
-    UNIQUE (assessment_entry_id, assessment_id, question_pool_id),
-    FOREIGN KEY (assessment_entry_id, assessment_id)
-        REFERENCES ple_data.assessment_entry(assessment_entry_id, assessment_id)
-        DEFERRABLE INITIALLY DEFERRED,
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
-    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
-    CHECK (updated_at >= created_at)
-);
-
-
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.assessment_policy_snapshot IS 'role: snapshot, deleted by nothing (shared, immutable). HUMAN_GUIDANCE.md Assessment Attempt snapshots.';
 COMMENT ON TABLE ple_data.assessment IS 'role: current state, Current Course Assessment aggregate with qualified Edit Number; released saves govern future Assessment Attempts.';
 COMMENT ON TABLE ple_data.assessment_entry IS 'role: current state, Stable current Assessment Entry identity, kind, scoring, availability, and per-question attempt limits.';
 COMMENT ON TABLE ple_data.assessment_entry_question IS 'role: current state, Fixed-question Assessment Entry pin: exact Published Question Revision and points possible.';
-COMMENT ON TABLE ple_data.assessment_entry_pool IS 'role: current state, Question Pool Assessment Entry policy: Pool ID pin, selection count, points per item, and selected-question order.';
-COMMENT ON TABLE ple_data.assessment_question_pool_fork IS 'role: current state, One Assessment Entry-owned fork Pool lineage; import copies current source members once.';
+COMMENT ON TABLE ple_data.assessment_entry_pool IS 'role: current state, Question Pool Assessment Entry policy: Pool ID pin, selection count, and points per item.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.available_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.due_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.closes_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_time_limit_seconds IS 'Optional base Attempt duration override in seconds; non-NULL values represent 1 to 720 whole minutes. NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_policy_snapshot.partial_credit_enabled IS 'Whether stored fractional Backend credit earns proportional points under the current Assessment policy.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_course_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_revision_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_assessment_id IS 'NULL means this optional fact is absent.';

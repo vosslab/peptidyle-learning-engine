@@ -3,7 +3,7 @@
 use super::*;
 use learning_data_access::LibrarySearchEntry;
 use question_model::{
-    AccountId, LibraryQuestionMembership, LibrarySearchKind, LibrarySearchResult,
+    AccountId, LibrarySearchKind, LibrarySearchResult, PublishedQuestionFilter,
     QuestionPoolEditNumber, QuestionPoolId, QuestionPoolLibrarySummary, QuestionPoolMetadata,
     QuestionPoolMetadataEditNumber,
 };
@@ -33,6 +33,8 @@ fn pool() -> QuestionPoolLibrarySummary {
             topic_uuid: None,
             subtopic_uuid: None,
             tags: vec!["pool-only".to_owned()],
+            bloom_cognitive_process: None,
+            bloom_knowledge_dimension: None,
         },
     }
 }
@@ -67,20 +69,20 @@ async fn pool_only_page_never_reads_question_source_or_statistics() {
         inner: MemoryObjectStore::default(),
         reads: Mutex::new(Vec::new()),
     };
-    let response = search_question_library(
+    let response = search_library_objects(
         &store,
         &objects,
         SessionTokenHash::compute(b"reader"),
         true,
-        QuestionSearchRequest {
+        LibraryObjectSearchRequest {
             kind: LibrarySearchKind::Pools,
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         },
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let bytes = to_bytes(response.into_body(), 65_536).await.expect("body");
-    let page: QuestionSearchPage = serde_json::from_slice(&bytes).expect("mixed page");
+    let page: LibraryObjectSearchPage = serde_json::from_slice(&bytes).expect("mixed page");
     assert_eq!(
         page.items,
         vec![LibrarySearchResult::Pool {
@@ -113,20 +115,20 @@ async fn mixed_projection_keeps_store_order_and_question_owner() {
             owner_account_id: owner(),
         },
     ]);
-    let response = search_question_library(
+    let response = search_library_objects(
         &store,
         &objects,
         SessionTokenHash::compute(b"reader"),
         true,
-        QuestionSearchRequest {
+        LibraryObjectSearchRequest {
             kind: LibrarySearchKind::Both,
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         },
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let bytes = to_bytes(response.into_body(), 65_536).await.expect("body");
-    let page: QuestionSearchPage = serde_json::from_slice(&bytes).expect("mixed page");
+    let page: LibraryObjectSearchPage = serde_json::from_slice(&bytes).expect("mixed page");
     assert!(matches!(page.items[0], LibrarySearchResult::Pool { .. }));
     let LibrarySearchResult::Question {
         question,
@@ -144,27 +146,29 @@ async fn mixed_projection_keeps_store_order_and_question_owner() {
 #[test]
 fn mixed_query_transport_is_closed_and_defaults_to_questions_all() {
     let parse = |suffix: &str| {
-        let uri: Uri = format!("/api/questions/search{suffix}")
+        let uri: Uri = format!("/api/library-objects/search{suffix}")
             .parse()
             .expect("URI");
-        Query::<QuestionSearchQuery>::try_from_uri(&uri)
+        Query::<LibraryObjectSearchQuery>::try_from_uri(&uri)
             .ok()
-            .and_then(|query| QuestionSearchRequest::try_from(query.0).ok())
+            .and_then(|query| LibraryObjectSearchRequest::try_from(query.0).ok())
     };
     let default = parse("").expect("defaults");
     assert_eq!(default.kind, LibrarySearchKind::Questions);
-    assert_eq!(default.membership, LibraryQuestionMembership::All);
+    assert_eq!(default.questions, PublishedQuestionFilter::All);
     let query = parse(&format!(
-        "?kind=both&membership=noPool&owner_account_id={}",
+        "?kind=both&questions=inNoPool&owner_account_id={}&text=type%3Amultiple+choice",
         owner()
     ))
     .expect("mixed filters");
     assert_eq!(query.kind, LibrarySearchKind::Both);
-    assert_eq!(query.membership, LibraryQuestionMembership::NoPool);
+    assert_eq!(query.questions, PublishedQuestionFilter::InNoPool);
     assert_eq!(query.owner_account_id, Some(owner()));
+    assert_eq!(query.text.as_deref(), Some("type:multiple choice"));
     for invalid in [
         "?kind=other",
-        "?membership=none",
+        "?questions=none",
+        "?membership=all",
         "?owner_account_id=invalid",
     ] {
         assert!(parse(invalid).is_none(), "{invalid}");
@@ -172,18 +176,18 @@ fn mixed_query_transport_is_closed_and_defaults_to_questions_all() {
 }
 
 #[test]
-fn pool_backends_do_not_inflate_question_capability_counts() {
+fn capability_facets_count_matching_questions_and_pools_by_their_common_backend() {
     let mut counts = empty_search_facets();
     counts.backends = vec![question_model::QuestionSearchBackendFacet {
         backend: QuestionBackend::Ple,
         count: 7,
     }];
-    counts.question_backends = vec![question_model::QuestionSearchBackendFacet {
-        backend: QuestionBackend::Ple,
-        count: 2,
-    }];
     let facets = facets::from_store(counts);
     assert_eq!(facets.backends[0].count, 7);
-    assert!(!facets.capabilities.is_empty());
-    assert!(facets.capabilities.iter().all(|facet| facet.count == 2));
+    assert!(facets.capabilities.iter().any(|facet| facet.capability
+        == question_model::Capability::ClientRendering
+        && facet.count == 7));
+    assert!(facets.capabilities.iter().any(|facet| facet.capability
+        == question_model::Capability::ServerGrading
+        && facet.count == 7));
 }

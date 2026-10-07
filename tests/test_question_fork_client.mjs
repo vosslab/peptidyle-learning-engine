@@ -3,9 +3,8 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-const source = publishedQuestionFixture.publishedQuestion.publishedQuestionRevisionTuple;
+const source = { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 };
 const retryKey = "9f1f2d1f-6d23-4fc2-930f-2bdad8d15fcb";
 
 function createdDraftResponse(value, status = 201) {

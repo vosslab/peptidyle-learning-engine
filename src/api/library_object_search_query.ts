@@ -1,0 +1,325 @@
+// library_object_search_query.ts - strict Library Object search request serialization.
+
+import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
+import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
+import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
+import { MAX_DISCOVERY_PAGE_SIZE } from "../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
+import { validateCanonicalPublicId, validateCanonicalQuestionIdSyntax } from "../question_id";
+import { appendLibraryClassificationParameters } from "./library_classification_filter";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+} from "./decoders/bloom_classification";
+import { PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
+
+const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
+const MAX_QUESTION_SEARCH_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
+const LIBRARY_OBJECT_SEARCH_CAPABILITIES = [
+  "algorithmicGeneration",
+  "clientRendering",
+  "serverGrading",
+  "partialCredit",
+  "hints",
+  "questionAttemptTimeLimit",
+  "printExport",
+  "offlinePreview",
+] as const;
+const QUESTION_LICENSES = ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"] as const;
+const QUESTION_SEARCH_QUESTION_TYPES = [
+  "multipleChoice",
+  "multipleAnswer",
+  "fillInBlank",
+  "multipleFillInBlank",
+  "numeric",
+  "matching",
+  "ordering",
+  "hotspot",
+] as const;
+const LIBRARY_OBJECT_SEARCH_QUERY_FIELDS = [
+  "kind",
+  "questions",
+  "owner_account_id",
+  "text",
+  "author_names",
+  "backends",
+  "tags",
+  "subjects",
+  "topics",
+  "discipline_uuid",
+  "subject_uuid",
+  "topic_uuid",
+  "subtopic_uuid",
+  "cross_discipline",
+  "bloom_cognitive_process",
+  "bloom_knowledge_dimension",
+  "question_types",
+  "capabilities",
+  "question_licenses",
+  "evidence",
+  "authorship",
+  "sort",
+  "cursor",
+  "page_size",
+] as const;
+
+function libraryObjectSearchEnum(
+  value: string,
+  allowed: ReadonlyArray<string>,
+  fieldName: string,
+): string {
+  if (!allowed.includes(value)) {
+    throw new Error(`${fieldName} must be a supported Question Library value`);
+  }
+  return value;
+}
+
+function libraryObjectSearchFilterText(value: string, fieldName: string, maximum: number): string {
+  if (value.trim().length === 0 || Array.from(value).length > maximum) {
+    throw new Error(
+      `${fieldName} must contain non-whitespace text no longer than ${maximum} characters`,
+    );
+  }
+  return value;
+}
+
+function normalizedLibraryObjectSearchFilterText(
+  value: string,
+  fieldName: string,
+  maximum: number,
+): string {
+  const normalized = value.trim().split(/\s+/u).join(" ").toLowerCase();
+  if (normalized.length === 0 || Array.from(normalized).length > maximum) {
+    throw new Error(
+      `${fieldName} must contain non-whitespace text no longer than ${maximum} characters`,
+    );
+  }
+  return normalized;
+}
+
+function boundedLibraryObjectSearchFilterValues(
+  values: ReadonlyArray<string>,
+  maximum: number,
+  fieldName: string,
+): void {
+  if (values.length > maximum) {
+    throw new Error(`${fieldName} must contain at most ${maximum} entries`);
+  }
+}
+
+function libraryObjectSearchCursor(value: string): string {
+  if (value.length === 0) {
+    throw new Error("Question Library cursor must not be empty");
+  }
+  return value;
+}
+
+/**
+ * ASVS 2.2.1: validates and serializes the only bounded, allowlisted
+ * cursor-based Library Object search request shape.
+ */
+export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): string {
+  for (const field of Object.keys(query)) {
+    if (
+      !LIBRARY_OBJECT_SEARCH_QUERY_FIELDS.includes(
+        field as (typeof LIBRARY_OBJECT_SEARCH_QUERY_FIELDS)[number],
+      )
+    ) {
+      throw new Error(`Question Library search query contains unknown field: ${field}`);
+    }
+  }
+  const parameters = new URLSearchParams();
+  appendLibraryClassificationParameters(parameters, query);
+  parameters.set(
+    "kind",
+    libraryObjectSearchEnum(query.kind, ["questions", "pools", "both"], "Question Library kind"),
+  );
+  parameters.set(
+    "questions",
+    libraryObjectSearchEnum(query.questions, ["all", "inNoPool"], "Published Question filter"),
+  );
+  if (query.owner_account_id !== null) {
+    const ownerAccountId = validateCanonicalPublicId("account", query.owner_account_id);
+    if (ownerAccountId === null) {
+      throw new Error("Question Library owner_account_id must be a canonical Account ID");
+    }
+    parameters.set("owner_account_id", ownerAccountId);
+  }
+  if (query.text !== null) {
+    parameters.set(
+      "text",
+      libraryObjectSearchFilterText(
+        query.text,
+        "Question Library text",
+        MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS,
+      ),
+    );
+  }
+  boundedLibraryObjectSearchFilterValues(
+    query.author_names,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+    "Question Library author names",
+  );
+  for (const authorName of query.author_names) {
+    parameters.append(
+      "author_names",
+      normalizedLibraryObjectSearchFilterText(authorName, "Question Library author name", 120),
+    );
+  }
+  boundedLibraryObjectSearchFilterValues(
+    query.backends,
+    PRODUCTION_QUESTION_BACKENDS.length,
+    "Question Library backends",
+  );
+  for (const backend of query.backends) {
+    parameters.append(
+      "backends",
+      libraryObjectSearchEnum(backend, PRODUCTION_QUESTION_BACKENDS, "Question Library backend"),
+    );
+  }
+  boundedLibraryObjectSearchFilterValues(
+    query.tags,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    "Question Library tags",
+  );
+  for (const tag of query.tags) {
+    parameters.append(
+      "tags",
+      normalizedLibraryObjectSearchFilterText(tag, "Question Library tag", 256),
+    );
+  }
+  boundedLibraryObjectSearchFilterValues(
+    query.subjects,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    "Question Library subjects",
+  );
+  for (const subject of query.subjects) {
+    parameters.append(
+      "subjects",
+      normalizedLibraryObjectSearchFilterText(subject, "Question Library subject", 256),
+    );
+  }
+  boundedLibraryObjectSearchFilterValues(
+    query.topics,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    "Question Library topics",
+  );
+  for (const topic of query.topics) {
+    parameters.append(
+      "topics",
+      normalizedLibraryObjectSearchFilterText(topic, "Question Library topic", 256),
+    );
+  }
+  if (query.bloom_cognitive_process !== null) {
+    parameters.set(
+      "bloom_cognitive_process",
+      libraryObjectSearchEnum(
+        query.bloom_cognitive_process,
+        BLOOM_COGNITIVE_PROCESSES,
+        "Question Library Bloom Cognitive Process",
+      ),
+    );
+  }
+  if (query.bloom_knowledge_dimension !== null) {
+    parameters.set(
+      "bloom_knowledge_dimension",
+      libraryObjectSearchEnum(
+        query.bloom_knowledge_dimension,
+        BLOOM_KNOWLEDGE_DIMENSIONS,
+        "Question Library Bloom Knowledge Dimension",
+      ),
+    );
+  }
+  boundedLibraryObjectSearchFilterValues(
+    query.question_types,
+    QUESTION_SEARCH_QUESTION_TYPES.length,
+    "Question Library question_types",
+  );
+  for (const questionType of query.question_types) {
+    parameters.append(
+      "question_types",
+      libraryObjectSearchEnum(
+        questionType,
+        QUESTION_SEARCH_QUESTION_TYPES,
+        "Question Library Question Type",
+      ),
+    );
+  }
+  if (query.capabilities.length > LIBRARY_OBJECT_SEARCH_CAPABILITIES.length) {
+    throw new Error(
+      "Question Library capabilities must contain at most the supported capability count",
+    );
+  }
+  for (const capability of query.capabilities) {
+    parameters.append(
+      "capabilities",
+      libraryObjectSearchEnum(
+        capability,
+        LIBRARY_OBJECT_SEARCH_CAPABILITIES,
+        "Question Library capability",
+      ),
+    );
+  }
+  if (query.question_licenses.length > QUESTION_LICENSES.length) {
+    throw new Error("Question Library Question Licenses must contain at most the supported count");
+  }
+  for (const questionLicense of query.question_licenses) {
+    parameters.append(
+      "question_licenses",
+      libraryObjectSearchEnum(
+        questionLicense,
+        QUESTION_LICENSES,
+        "Question Library Question License",
+      ),
+    );
+  }
+  const authorship = libraryObjectSearchEnum(
+    query.authorship,
+    ["any", "authoredByCurrentAccount"],
+    "Question Library authorship scope",
+  );
+  // Keep the current visible source explicit in every cursor-bound request.
+  // `any` is a closed scope, not an omitted identity fallback.
+  parameters.set("authorship", authorship);
+  parameters.set(
+    "sort",
+    libraryObjectSearchEnum(
+      query.sort,
+      ["titleAscending", "publishedNewest"],
+      "Question Library sort",
+    ),
+  );
+  if (query.cursor !== null) {
+    parameters.set("cursor", libraryObjectSearchCursor(query.cursor));
+  }
+  if (query.page_size !== null) {
+    if (
+      !Number.isSafeInteger(query.page_size) ||
+      query.page_size < 1 ||
+      query.page_size > MAX_QUESTION_SEARCH_PAGE_SIZE
+    ) {
+      throw new Error(
+        `Question Library page_size must be a safe integer between 1 and ${MAX_QUESTION_SEARCH_PAGE_SIZE}`,
+      );
+    }
+    parameters.set("page_size", String(query.page_size));
+  }
+  const suffix = parameters.size === 0 ? "" : `?${parameters.toString()}`;
+  return `/api/library-objects/search${suffix}`;
+}
+
+/** Serializes one exact canonical Question ID after local checksum validation. */
+export function questionIdPath(questionId: string): string {
+  const canonicalQuestionId = validateCanonicalQuestionIdSyntax(questionId);
+  if (canonicalQuestionId === null)
+    throw new Error("Question ID must use canonical Crockford entry syntax");
+  return `/api/questions/by-id/${encodeURIComponent(canonicalQuestionId)}`;
+}
+
+/** Serializes one canonical public ID for the authenticated Library kind lookup. */
+export function libraryObjectKindPath(publicId: string): string {
+  const canonicalPublicId = validateCanonicalQuestionIdSyntax(publicId);
+  if (canonicalPublicId === null) {
+    throw new Error("Library object ID must use canonical Crockford entry syntax");
+  }
+  return `/api/library/${encodeURIComponent(canonicalPublicId)}/kind`;
+}

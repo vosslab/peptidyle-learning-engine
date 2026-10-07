@@ -52,9 +52,9 @@ pub enum StudentResponseFormatIssue {
         /// Submitted Unicode scalar values.
         actual_length: u64,
     },
-    /// A multi-blank response does not name every declared slot exactly once.
+    /// A multi-blank response repeats a slot or names a slot absent from the Question.
     BlankSlotsMismatch,
-    /// A matching response does not name every prompt exactly once.
+    /// A matching response repeats or names a prompt absent from the Question Response Format.
     MatchingPromptsMismatch,
     /// A matching response repeats a choice where the Question Response Format requires a permutation.
     DuplicateMatchChoice {
@@ -340,8 +340,7 @@ fn validate_presented_multi_blank(
     let actual: BTreeSet<_> = answers.iter().map(|answer| answer.slot.clone()).collect();
     if expected.len() != blanks.len()
         || actual.len() != answers.len()
-        || answers.len() != blanks.len()
-        || actual != expected
+        || !actual.is_subset(&expected)
     {
         issues.push(StudentResponseFormatIssue::BlankSlotsMismatch);
         return;
@@ -350,7 +349,7 @@ fn validate_presented_multi_blank(
         let blank = blanks
             .iter()
             .find(|blank| blank.id.as_str() == answer.slot.as_str())
-            .expect("validated blank slot set is exact");
+            .expect("validated response slots exist in the Question");
         validate_text_length(blank.max_characters, &answer.text, issues);
     }
 }
@@ -372,8 +371,8 @@ fn validate_presented_matching<
     let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
     if expected_prompts.len() != prompts.len()
         || actual_prompts.len() != matches.len()
-        || matches.len() != prompts.len()
-        || actual_prompts != expected_prompts
+        || matches.len() > prompts.len()
+        || !actual_prompts.is_subset(&expected_prompts)
     {
         issues.push(StudentResponseFormatIssue::MatchingPromptsMismatch);
     }
@@ -426,8 +425,7 @@ fn validate_multi_blank(
     let actual: BTreeSet<_> = answers.iter().map(|answer| answer.slot.clone()).collect();
     if expected.len() != blanks.len()
         || actual.len() != answers.len()
-        || answers.len() != blanks.len()
-        || actual != expected
+        || !actual.is_subset(&expected)
     {
         issues.push(StudentResponseFormatIssue::BlankSlotsMismatch);
         return;
@@ -436,7 +434,7 @@ fn validate_multi_blank(
         let blank = blanks
             .iter()
             .find(|blank| blank.id == answer.slot)
-            .expect("validated slot set is exact");
+            .expect("validated response slots exist in the Question");
         let actual_length = count(answer.text.chars());
         if actual_length > u64::from(blank.max_length) {
             issues.push(StudentResponseFormatIssue::TextTooLong {
@@ -457,8 +455,8 @@ fn validate_matching(
     let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
     if expected_prompts.len() != prompts.len()
         || actual_prompts.len() != matches.len()
-        || matches.len() != prompts.len()
-        || actual_prompts != expected_prompts
+        || matches.len() > prompts.len()
+        || !actual_prompts.is_subset(&expected_prompts)
     {
         issues.push(StudentResponseFormatIssue::MatchingPromptsMismatch);
     }
@@ -575,6 +573,7 @@ fn count(values: impl Iterator) -> u64 {
 mod tests {
     use super::*;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
+    use question_model::presentation::{PresentationResponseItemId, PresentedTextEntrySlot};
     use question_model::response::{
         HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
         StudentHotspotSelection, StudentMatch, StudentTextEntry, TextEntrySlot,
@@ -723,36 +722,6 @@ mod tests {
 
     #[test]
     fn compound_flat_responses_refuse_stale_slots_pairs_and_regions() {
-        let multi_blank = QuestionResponseFormat::MultiBlank {
-            blanks: vec![
-                TextEntrySlot {
-                    id: ResponseItemId::new("first"),
-                    label: Vec::new(),
-                    match_mode: TextResponseMatchRule::Normalized,
-                    max_length: 4,
-                },
-                TextEntrySlot {
-                    id: ResponseItemId::new("second"),
-                    label: Vec::new(),
-                    match_mode: TextResponseMatchRule::Exact,
-                    max_length: 4,
-                },
-            ],
-        };
-        assert_eq!(
-            validate_response_format(
-                &multi_blank,
-                &StudentResponse::MultiBlank {
-                    answers: vec![StudentTextEntry {
-                        slot: ResponseItemId::new("first"),
-                        text: "value".to_string(),
-                    }],
-                },
-            )
-            .issues,
-            vec![StudentResponseFormatIssue::BlankSlotsMismatch]
-        );
-
         let matching = QuestionResponseFormat::Matching {
             prompts: vec![matching_prompt("dna"), matching_prompt("rna")],
             choices: vec![matching_choice("deoxy"), matching_choice("ribose")],
@@ -814,6 +783,80 @@ mod tests {
                 region: ResponseItemId::new("unknown"),
             }]
         );
+    }
+
+    #[test]
+    fn multi_blank_responses_allow_subsets_and_reject_duplicate_or_unknown_slots() {
+        let response_format = QuestionResponseFormat::MultiBlank {
+            blanks: vec![
+                TextEntrySlot {
+                    id: ResponseItemId::new("0001"),
+                    label: Vec::new(),
+                    match_mode: TextResponseMatchRule::Exact,
+                    max_length: 8,
+                },
+                TextEntrySlot {
+                    id: ResponseItemId::new("0002"),
+                    label: Vec::new(),
+                    match_mode: TextResponseMatchRule::Exact,
+                    max_length: 8,
+                },
+            ],
+        };
+        let presentation = QuestionPresentationResponseFormat::MultiFillIn {
+            blanks: vec![
+                PresentedTextEntrySlot {
+                    id: PresentationResponseItemId::parse("0001").expect("valid presentation ID"),
+                    label: Vec::new(),
+                    max_characters: 8,
+                },
+                PresentedTextEntrySlot {
+                    id: PresentationResponseItemId::parse("0002").expect("valid presentation ID"),
+                    label: Vec::new(),
+                    max_characters: 8,
+                },
+            ],
+        };
+        let partial = StudentResponse::MultiBlank {
+            answers: vec![StudentTextEntry {
+                slot: ResponseItemId::new("0001"),
+                text: "value".to_string(),
+            }],
+        };
+        let empty = StudentResponse::MultiBlank {
+            answers: Vec::new(),
+        };
+        assert!(validate_response_format(&response_format, &partial).is_valid());
+        assert!(validate_response_format(&response_format, &empty).is_valid());
+        assert!(validate_presentation_response_format(&presentation, &partial).is_valid());
+        assert!(validate_presentation_response_format(&presentation, &empty).is_valid());
+
+        for answers in [
+            vec![
+                StudentTextEntry {
+                    slot: ResponseItemId::new("0001"),
+                    text: "one".to_string(),
+                },
+                StudentTextEntry {
+                    slot: ResponseItemId::new("0001"),
+                    text: "two".to_string(),
+                },
+            ],
+            vec![StudentTextEntry {
+                slot: ResponseItemId::new("stale"),
+                text: "value".to_string(),
+            }],
+        ] {
+            let response = StudentResponse::MultiBlank { answers };
+            assert_eq!(
+                validate_response_format(&response_format, &response).issues,
+                vec![StudentResponseFormatIssue::BlankSlotsMismatch]
+            );
+            assert_eq!(
+                validate_presentation_response_format(&presentation, &response).issues,
+                vec![StudentResponseFormatIssue::BlankSlotsMismatch]
+            );
+        }
     }
 
     #[test]

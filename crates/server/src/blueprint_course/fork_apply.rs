@@ -54,7 +54,6 @@ pub(super) async fn apply_fork_update(
                 source_long_name: request.source_long_name,
                 selection: request.selection,
             },
-            Default::default(),
         )
         .await
     {
@@ -64,10 +63,10 @@ pub(super) async fn apply_fork_update(
     };
     // ASVS 2.3.3/8.2.3: project only the result committed together, not a later
     // reload; actor identity and private ordinary-Save receipt fields stay internal.
-    let revision_number = result.save.blueprint_revision_tuple.revision_number;
+    let revision_number = result.save.blueprint_course_revision_tuple.revision_number;
     let mut response = crate::auth::no_store(
         Json(BlueprintForkApplyResponse {
-            blueprint_revision_tuple: result.save.blueprint_revision_tuple,
+            blueprint_course_revision_tuple: result.save.blueprint_course_revision_tuple,
             changed: result.save.changed,
             metadata: result.metadata,
         })

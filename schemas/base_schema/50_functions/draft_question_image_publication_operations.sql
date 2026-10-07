@@ -47,7 +47,7 @@ BEGIN
     -- ASVS 8.2.2, 8.3.1, 15.4.2: repeat owner and locked Draft checks, not caller checksum authority.
     PERFORM 1 FROM ple_private.draft_question AS draft
      WHERE draft.draft_question_id = p_draft_uuid AND draft.authoring_workspace_id = p_authoring_workspace_id
-       AND ple_api.current_session_account_is_instructor()
+       AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin())
        AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)
      FOR UPDATE;
     IF NOT FOUND THEN

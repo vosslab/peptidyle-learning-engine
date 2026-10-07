@@ -18,9 +18,8 @@ import {
   lateWorkRule,
   optionalPositiveInteger,
   pointValue,
-  poolSelectionRule,
 } from "./assessment_release";
-import { blueprintRevisionTuple } from "./blueprint_course";
+import { blueprintCourseRevisionTuple } from "./blueprint_course";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import {
   decodeAssessmentTitle,
@@ -37,13 +36,13 @@ export function decodeApplyAssessmentBlueprintUpdateInput(
 ): ApplyAssessmentBlueprintUpdateInput {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "expectedSourceBlueprintRevisionTuple",
+    "expectedSourceBlueprintCourseRevisionTuple",
     "expectedAssessmentEditNumber",
   ]);
   return {
-    expectedSourceBlueprintRevisionTuple: blueprintRevisionTuple(
-      field(record, "expectedSourceBlueprintRevisionTuple", path),
-      `${path}.expectedSourceBlueprintRevisionTuple`,
+    expectedSourceBlueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+      field(record, "expectedSourceBlueprintCourseRevisionTuple", path),
+      `${path}.expectedSourceBlueprintCourseRevisionTuple`,
     ),
     expectedAssessmentEditNumber: editNumber(
       field(record, "expectedAssessmentEditNumber", path),
@@ -64,14 +63,7 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
     path,
     kind === "fixedQuestion"
       ? [...sharedFields, "publishedQuestionRevisionTuple", "pointsPossible"]
-      : [
-          ...sharedFields,
-          "questionPoolId",
-          "questionPoolEditNumber",
-          "selectionCount",
-          "pointsPerItem",
-          "selectionRule",
-        ],
+      : [...sharedFields, "questionPoolId", "selectionCount", "pointsPerItem"],
   );
   const settings = {
     scoringRule: decodeStringEnum(field(record, "scoringRule", path), `${path}.scoringRule`, [
@@ -116,12 +108,7 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
       field(record, "questionPoolId", path),
       `${path}.questionPoolId`,
     ),
-    questionPoolEditNumber: decodePositiveInteger(
-      field(record, "questionPoolEditNumber", path),
-      `${path}.questionPoolEditNumber`,
-    ),
     pointsPerItem: pointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
-    selectionRule: poolSelectionRule(field(record, "selectionRule", path), `${path}.selectionRule`),
   };
 }
 
@@ -189,7 +176,7 @@ export function decodeAssessmentBlueprintUpdateReview(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessment",
-    "sourceBlueprintRevisionTuple",
+    "sourceBlueprintCourseRevisionTuple",
     "proposed",
     "cannotApplyReason",
   ]);
@@ -221,9 +208,9 @@ export function decodeAssessmentBlueprintUpdateReview(
     assessment,
     proposed,
     cannotApplyReason,
-    sourceBlueprintRevisionTuple: blueprintRevisionTuple(
-      field(record, "sourceBlueprintRevisionTuple", path),
-      `${path}.sourceBlueprintRevisionTuple`,
+    sourceBlueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+      field(record, "sourceBlueprintCourseRevisionTuple", path),
+      `${path}.sourceBlueprintCourseRevisionTuple`,
     ),
   };
 }

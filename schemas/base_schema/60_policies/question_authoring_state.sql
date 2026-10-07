@@ -26,9 +26,13 @@ ALTER TABLE ple_private.question_revision_source_binding ENABLE ROW LEVEL SECURI
 
 ALTER TABLE ple_private.question_revision_source_binding FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE ple_private.draft_question_fork_source ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.draft_question_authorship ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE ple_private.draft_question_fork_source FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.draft_question_authorship FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_private.draft_question_creation_receipt ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_private.draft_question_creation_receipt FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.question_folder ENABLE ROW LEVEL SECURITY;
 
@@ -37,10 +41,6 @@ ALTER TABLE ple_private.question_folder FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_folder_entry ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.question_folder_entry FORCE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_private.saved_question_search ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_private.saved_question_search FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.workspace_import ENABLE ROW LEVEL SECURITY;
 
@@ -68,7 +68,10 @@ CREATE POLICY draft_source_private_owner_access ON ple_private.draft_question_so
 CREATE POLICY revision_source_private_owner_access ON ple_private.question_revision_source_binding
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
-CREATE POLICY draft_fork_private_owner_access ON ple_private.draft_question_fork_source
+CREATE POLICY draft_authorship_private_owner_access ON ple_private.draft_question_authorship
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY draft_creation_receipt_private_owner_access ON ple_private.draft_question_creation_receipt
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY question_folder_private_owner_access ON ple_private.question_folder
@@ -77,12 +80,8 @@ CREATE POLICY question_folder_private_owner_access ON ple_private.question_folde
 CREATE POLICY question_folder_entry_private_owner_access ON ple_private.question_folder_entry
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
-CREATE POLICY saved_question_search_private_owner_access ON ple_private.saved_question_search
-    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-
 CREATE POLICY workspace_import_private_owner_access ON ple_private.workspace_import
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY workspace_import_item_result_private_owner_access ON ple_private.workspace_import_item_result
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-

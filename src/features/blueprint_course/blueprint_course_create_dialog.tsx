@@ -5,6 +5,7 @@ import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
+import type { Theme } from "../../../generated/api/Theme";
 import {
   ASSESSMENT_TYPE_OPTIONS,
   assessmentTypePresentation,
@@ -18,6 +19,8 @@ import {
   type CourseClassificationDraft,
 } from "../../components/course_classification_fields";
 import { decodeCourseClassification } from "../../api/decoders/course_classification";
+import { useAppearance } from "../../appearance/appearance_context";
+import { ThemeChooser } from "../../appearance/theme_chooser";
 import {
   QuestionPicker,
   type QuestionPickerSelection,
@@ -42,8 +45,10 @@ function detailPath(blueprintCourseId: string): string {
 /** Keeps incomplete Blueprint Course working state in the browser until it has reusable content. */
 export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogProps): JSX.Element {
   const navigate = useNavigate();
+  const appearance = useAppearance();
   const [shortName, setShortName] = createSignal("Untitled Blueprint");
   const [longName, setLongName] = createSignal("Untitled Blueprint Course");
+  const [theme, setTheme] = createSignal<Theme>("grass");
   const [classification, setClassification] = createSignal<CourseClassificationDraft>(
     emptyCourseClassification(),
   );
@@ -78,6 +83,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
       classification: decodeCourseClassification(classification()),
       short_name: shortName(),
       long_name: longName(),
+      theme: theme(),
       modules: [
         {
           label: moduleLabel(),
@@ -219,6 +225,19 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
             setDirty(true);
           }}
         />
+        <fieldset disabled={busy()}>
+          <legend>Starting Blueprint Theme</legend>
+          <ThemeChooser
+            name="blueprint-course-theme"
+            selectedTheme={theme}
+            mode={() => appearance.appearance().mode}
+            disabled={busy}
+            onSelect={(value) => {
+              setTheme(value);
+              setDirty(true);
+            }}
+          />
+        </fieldset>
         <label>
           First module label
           <input

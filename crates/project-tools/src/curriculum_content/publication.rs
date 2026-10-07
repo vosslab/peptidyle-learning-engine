@@ -268,17 +268,20 @@ async fn create_blueprint(
 ) -> Result<(question_model::BlueprintCourseId, BlueprintRevisionNumber)> {
     let checksum = request_checksum(input)?;
     let receipt = store
-        .create_blueprint_course(session, checksum, input.clone(), Default::default())
+        .create_blueprint_course(session, checksum, input.clone())
         .await
         .context("creating canonical Genetics Blueprint Course")?;
     ensure!(
-        receipt.blueprint_revision_tuple.revision_number == BlueprintRevisionNumber::INITIAL,
+        receipt.blueprint_course_revision_tuple.revision_number == BlueprintRevisionNumber::INITIAL,
         "canonical Genetics Blueprint creation did not return Revision 1"
     );
     let loaded = store
         .load_blueprint_course(
             session,
-            receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
+            receipt
+                .blueprint_course_revision_tuple
+                .blueprint_course_id
+                .clone(),
         )
         .await
         .context("reloading canonical Genetics Blueprint Course")?;

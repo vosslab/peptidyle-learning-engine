@@ -4,7 +4,7 @@ import type { Locator, Page } from "playwright";
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionType } from "../../../generated/api/QuestionType";
-import { decodeQuestionSearchPage } from "../../../src/api/decoders/question_library";
+import { decodeLibraryObjectSearchPage } from "../../../src/api/decoders/question_library";
 import { decodeStudentAssessmentAttemptPresentation } from "../../../src/api/decoders/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptPresentation } from "../../../src/api/assessment_attempt_navigation";
 import { catalogScreenshotFilename } from "./filenames";
@@ -165,17 +165,39 @@ async function questionLibrary(page: Page): Promise<void> {
 /** Observe answer-free metadata from a real visible search; no API writes or private-source reads. */
 async function discover(page: Page, example: Example): Promise<QuestionSummary | undefined> {
   await questionLibrary(page);
-  const loaded = page.waitForResponse((response) => {
+  const initialSearchLoaded = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.origin === new URL(page.url()).origin &&
-      url.pathname === "/api/questions/search" &&
-      response.status() === 200
+      url.pathname === "/api/library-objects/search" &&
+      url.searchParams.get("text") === example.title
     );
   });
   await page.getByLabel("Search Question Library").fill(example.title);
   await page.getByLabel("Search Question Library").press("Enter");
-  const search = decodeQuestionSearchPage(await (await loaded).json());
+  let response = await initialSearchLoaded;
+  if (!response.ok()) throw new Error(`Question search failed: HTTP ${response.status()}`);
+  // Search filters become visible after the initial search. Include Questions already assigned
+  // to a Pool so earlier preparation in this same run cannot hide an installed example.
+  const questionsFilter = page.getByRole("combobox", {
+    name: "Question membership",
+    exact: true,
+  });
+  if ((await questionsFilter.inputValue()) !== "all") {
+    const allQuestionsLoaded = page.waitForResponse((result) => {
+      const url = new URL(result.url());
+      return (
+        url.origin === new URL(page.url()).origin &&
+        url.pathname === "/api/library-objects/search" &&
+        url.searchParams.get("text") === example.title &&
+        url.searchParams.get("questions") === "all"
+      );
+    });
+    await questionsFilter.selectOption("all");
+    response = await allQuestionsLoaded;
+    if (!response.ok()) throw new Error(`Question search failed: HTTP ${response.status()}`);
+  }
+  const search = decodeLibraryObjectSearchPage(await response.json());
   const matches = search.items
     .flatMap((item) => (item.kind === "question" ? [item.question.summary] : []))
     .filter(
@@ -252,7 +274,8 @@ async function publish(page: Page, example: Example): Promise<void> {
     await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
   }
   await draftHeading.waitFor();
-  await page.getByRole("button", { name: "New Draft Question", exact: true }).click();
+  await page.getByLabel("Question source format").selectOption("pleQuestionJson");
+  await page.getByRole("button", { name: "Create Draft Question", exact: true }).click();
   await page.getByLabel("Question Title", { exact: true }).fill(example.title);
   await page.getByLabel("Student-facing prompt", { exact: true }).fill(example.prompt);
   await page.getByLabel("Question License").selectOption("CC-BY-4.0");
@@ -274,8 +297,12 @@ async function publish(page: Page, example: Example): Promise<void> {
   await page
     .getByLabel("Question Description for Instructors", { exact: true })
     .fill(example.title);
-  await page.getByRole("button", { name: "Save private draft", exact: true }).click();
-  await page.getByText("Private draft saved. It is not published.", { exact: true }).waitFor();
+  const saveMetadata = page.getByRole("button", { name: "Save Question metadata", exact: true });
+  await saveMetadata.click();
+  await page
+    .getByRole("status", { name: "Private draft status", exact: true })
+    .getByText("Private draft saved. It is not published.", { exact: true })
+    .waitFor();
   await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
   await page.getByLabel("Question Authors").fill("Live Demo Instructor");
   await page

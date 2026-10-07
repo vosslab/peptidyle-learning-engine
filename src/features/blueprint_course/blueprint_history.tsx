@@ -18,7 +18,7 @@ import {
 import { RecordSequence } from "../../components/record_list/record_sequence";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 import type { RecognitionTitleMaps } from "../../api/recognition_titles";
-import { labeledPoolRecognition, labeledQuestionRecognition } from "../recognition_label";
+import { labeledQuestionRecognition, recognitionTitle } from "../recognition_label";
 import { recognitionTitlesResource } from "../recognition_titles_load";
 
 interface HistoryProps {
@@ -62,7 +62,7 @@ function historicalEntryId(entry: BlueprintAssessmentEntryView): string {
     const tuple = entry.question.published_question_revision_tuple;
     return `question-${tuple.publishedQuestionId}-${tuple.revisionNumber}`;
   }
-  return `pool-${entry.question_pool_id}-${entry.question_pool_edit_number}`;
+  return `pool-${entry.question_pool_id}`;
 }
 
 function historyEntryId(entry: BlueprintHistoryEntryView): string {
@@ -98,21 +98,15 @@ function historicalEntryContent(
       actions: [],
     };
   }
-  const line = labeledPoolRecognition(
-    titles.pools.get(entry.question_pool_id),
-    entry.question_pool_id,
-    entry.question_pool_edit_number,
-  );
   return {
-    title: line.title,
+    title: recognitionTitle(titles.pools.get(entry.question_pool_id), "Question Pool"),
     details: [
       { kind: "text", label: "Question Pool ID", value: entry.question_pool_id },
-      { kind: "text", label: "Edit", value: String(entry.question_pool_edit_number) },
       { kind: "text", label: "Questions selected", value: String(entry.selection_count) },
       { kind: "text", label: "Points per Question", value: String(entry.points_per_item) },
       {
         kind: "text",
-        value: `${scoring}; selected Question order ${entry.selection_rule.selectedQuestionOrder}`,
+        value: scoring,
       },
     ],
     actions: [],
@@ -158,8 +152,8 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
       const result = await props.client.getBlueprintRevision(props.view.id, number);
       if (currentRequest !== request) return;
       if (
-        result.blueprintRevisionTuple.blueprintCourseId !== props.view.id ||
-        result.blueprintRevisionTuple.revisionNumber !== number
+        result.blueprintCourseRevisionTuple.blueprintCourseId !== props.view.id ||
+        result.blueprintCourseRevisionTuple.revisionNumber !== number
       )
         throw new Error("Unexpected Blueprint Revision");
       setRevision(result);
@@ -315,6 +309,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
       title: `${entry.longName} (${entry.shortName}) - ${entry.availability}`,
       details: [
         { kind: "text", value: `Recorded ${props.formatDateTime(entry.recordedAt)}` },
+        { kind: "text", value: `Theme: ${entry.theme}` },
         { kind: "courseClassification", value: entry.classification },
       ],
       actions: [],

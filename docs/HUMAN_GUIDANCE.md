@@ -33,8 +33,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Automatic WeBWorK Question Type detection is deferred. Assign the Type manually for now.
 - System-wide settings are deferred; the settings themselves have not been defined.
 - System-wide settings should have their own area, separate from user and Course administration.
-- Regrading submitted responses after a Native JSON answer-key correction is deferred for now.
-- When implemented, regrading replaces the previous grading result rather than keeping old grading results. Changing the answer key back runs grading again.
+- Evaluating previously submitted Native JSON responses again after an answer-key or grading-rule correction is deferred for now.
+- When implemented, a new evaluation replaces the previous grading result rather than keeping old results. Changing the answer key or grading rule back runs grading again.
 - The decision about when optional Question Feedback is shown is deferred until I better understand how feedback is used in PLE.
 - all automated daemon backends are deferred until final server location
 - all automated AI/LLM backends are deferred until final server location
@@ -54,22 +54,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - public API for instructors to use AI to control their classes.
 - public API perhaps modeled after BrickLink OAuth `https://www.bricklink.com/v3/api.page?page=auth`
-- I am developing a rust version of qti-package-maker for importing content to Native JSON, see
-  `~/nsh/PROBLEMS/qti-package-maker-rs/`; so do not implement here;
-- decide what format we want to receive from the new qti-package-maker; since we are not publishing the Native
-  JSON, should we take BBQ text format `bbq_text_upload`, or something more parsable;
-- list of engines is here: `https://github.com/vosslab/qti-package-maker-rs/blob/main/docs/ENGINES.md`;
-- we could build a QTI v2.1 style JSON or human editable YAML format, or something closer to our Native JSON
-  format.
 
-### Deferred content licenses
+### Initial content licenses
 
-- Support for CC BY-NC and CC BY-NC-SA content is deferred.
-- Support for Creative Commons NoDerivatives licenses is planned but deferred.
-  When supported, ND Questions must be blocked from forking.
-- When NC content is supported, a Pool containing public-domain, CC BY, CC BY-NC,
-  and CC BY-NC-SA Questions has a CC BY-NC-SA license and cannot accept a CC BY-SA
-  Question because it is incompatible.
+- Initial release supports CC0, CC BY, and CC BY-SA Questions. NC and ND Questions are not allowed;
+  reconsider them after the initial release.
 
 ## Development principles
 
@@ -80,6 +69,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Read and learn the core principles in docs/REPO_STYLE.md
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
 - Prefer the smallest coherent design that meets actual requirements and known failure modes.
+- Keep configuration simple. Add options, parameters, modes, overrides, and extension points only
+  for demonstrated needs. Prefer sensible fixed behavior for internal implementation choices.
+- When callers need different behavior, first consider whether the shared design can handle it
+  automatically or whether the tasks are genuinely different. When in doubt, use the simpler shared design.
 - Complexity must earn its place.
 - Time should be used efficiently. Agents and tokens are cheap; wall time is not.
 - Hard work should be broken into small, independently completable tasks.
@@ -95,7 +88,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   useful, recover gracefully, and tell me what is happening while I wait. I am impatient.
 - Classify one-time checks separately from permanent tests.
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
-- Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
+- Robust software continues to function despite imperfect inputs, data, state, or behavior. Handle
+  imperfections according to their context and impact, recovering gracefully and preserving useful
+  operation whenever possible.
 - Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.
 - Plans should be finishable by the manager and subagents without additional human interaction.
 - Prefer more small, independently verifiable milestones over a few large milestones.
@@ -1096,8 +1091,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Draft Questions use current state rather than immutable Revisions.
 - Draft Questions autosave with a visible saved status so Instructors can return to unfinished work.
 - Saving a Draft Question replaces its previous working state.
+- PLE accepts Native JSON directly from qti-package-maker-rs for imports, with no intermediate
+  Question format. Keep Question metadata separate. Store imported image assets in existing PLE
+  image storage, alongside the text-only JSON rather than in a ZIP package.
 - **Instructors** can delete Draft Questions they no longer need.
-- PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
+- PLE may clean up expired Draft Questions after an appropriate warning and recovery period.
+  Automated cleanup remains deferred, and no expiration period is set.
 - A Draft Question must pass Question Publication Validation before becoming a Published Question.
 - Question Publication Validation requires Discipline, Subject, and all other required Question
   Library metadata before publication.
@@ -1137,6 +1136,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Question metadata belongs on the Question record, not in Native JSON.
 - Native JSON contains the Question content needed to display and grade the Question.
+- Native JSON display content, including prompts, displayed choices, and similar text, uses HTML
+  with inline CSS when needed for presentation.
+- The converter supplies Native JSON and its referenced files; PLE resolves image references and
+  owns Question Image Asset IDs, checksums, and storage. The converter knows content-relative paths,
+  not PLE asset IDs or storage identities.
 - The native PLE JSON Question format is private, unversioned, and unpublished.
 - Stored native JSON Questions may be upgraded together when the internal format changes.
 - The native PLE JSON Question format is internal and strictly validated. It has no external API.
@@ -1207,7 +1211,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PLE stores the immutable credit fraction as the grading outcome.
 - When PLE requests a grading outcome, the Question Backend returns the result in that response.
 - Assessment scores are calculated from stored credit fractions and current Question point values.
-- Changing Question point values recalculates scores without another Question Backend interaction.
+- Changing Question point values or partial-credit settings recalculates scores without another Question Backend interaction.
 
 #### WeBWorK source and algorithmic Questions
 
@@ -1244,6 +1248,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Published Questions have metadata specific to the individual Question.
 - Published Question metadata includes Title and Description.
 - Published Question metadata includes its owner, authors, license, and citation.
+- Citation is optional text.
 - Published Questions can include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
 - Published Questions also use the shared Question Library metadata required for publication.
@@ -1356,6 +1361,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question Pools have metadata specific to the individual Question Pool.
 - Question Pool metadata includes its own Title, Description, Topic, Subtopic, Tags,
   and both Bloom dimensions: Knowledge Dimension and Cognitive Process.
+- Store calculated Pool metadata on the Pool. Keep these values up to date when the Pool is created
+  or saved. Search reads the stored values.
+- Defer a periodic backend cron job for recalculating Pool metadata.
 - The first Published Question establishes the Question Pool's Discipline and Subject.
 - Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
   Topic and Subtopic do not have to match.
@@ -1423,6 +1431,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   records.
 - Statistics show how often Students received each Published Question Revision or Questions from
   each Pool and how much credit they earned.
+- Pool statistics accumulate from Questions delivered through that Pool. Changing its set of
+  Question Revision Tuples leaves the Pool's prior statistics in place.
 - Include the number of graded responses, average earned credit, and percentages earning full credit and zero credit.
 - Use the stored Question credit fraction for these statistics; Assessment settings determine awarded points separately.
 - Removing Student names alone does not make statistics anonymous.

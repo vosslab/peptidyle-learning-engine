@@ -1,10 +1,10 @@
 // Shared read-only Library classification identity and cascade contract.
 
-import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
 
 export type LibraryClassificationFilter = Readonly<
   Pick<
-    QuestionSearchRequest,
+    LibraryObjectSearchRequest,
     "discipline_uuid" | "subject_uuid" | "topic_uuid" | "subtopic_uuid" | "cross_discipline"
   >
 >;

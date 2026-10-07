@@ -368,10 +368,6 @@
   overflow-wrap: anywhere;
 }
 
-.library-page .question-pool-attestation {
-  max-inline-size: 68rem;
-}
-
 .library-page .question-pool-create-actions {
   margin: 0;
 }

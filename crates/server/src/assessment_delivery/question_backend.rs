@@ -90,7 +90,7 @@ impl<S: ObjectStore> BasicQuestionBackend<S> for PleQuestionBackendAdapter {
         ))?;
         let resolved = resolve_source(objects, source).await?;
         let issued = backend
-            .issue_question_json(&resolved)
+            .issue_question_json(&resolved, &source.question_title)
             .map_err(|_| StartError::Invalid)?;
         let presentation =
             build_question_presentation(&issued.presentation, &question_image_renditions(source))
@@ -291,8 +291,6 @@ mod tests {
 
     const QUESTION_JSON: &str = r#"{
   "format": "pleQuestionJson",
-  "questionTitle": "Favorite color",
-  "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {
     "kind": "singleChoice",
@@ -302,11 +300,7 @@ mod tests {
     ],
     "correctChoice": "blue"
   },
-  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."},
-  "tags": ["example"],
-  "questionLicense": "CC-BY-SA-4.0",
-  "questionCitation": null,
-  "language": "en-US"
+  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."}
 }"#;
     const PG_SOURCE: &[u8] = b"DOCUMENT();\nBEGIN_TEXT\nOpaque\nEND_TEXT\nENDDOCUMENT();\n";
     const PAYLOAD: &[u8] = br#"[["AnSwEr0001","blue"]]"#;
@@ -355,7 +349,7 @@ mod tests {
             self.render(RenderRequest {
                 pg_source: request.pg_source,
                 pg_path: request.pg_path,
-                published_question_revision_tuple: request.published_question_revision_tuple,
+                published_question_revision_tuple: Some(request.published_question_revision_tuple),
                 seed: request.seed,
             })
             .await
@@ -434,6 +428,7 @@ mod tests {
                     assessment_entry_id: "entry".to_string(),
                     position: 1,
                     question_id: revision.published_question_id.clone(),
+                    question_title: "Peptide bond".to_string(),
                     revision_number: 1,
                     source_object_id: ple_object.as_uuid().to_string(),
                     source_object_address: serde_json::json!({}),

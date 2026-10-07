@@ -29,41 +29,53 @@ if (!fs.existsSync(bridgePath)) {
 
 const bridge = await import(bridgePath);
 
-// One committed, answer-free fixture set drives the native Rust, generated Node,
-// and real-browser Wasm checks. It belongs to the Wasm package instead of
-// `tests/fixtures/` because it is part of this boundary's durable contract.
-const { cases: pleQuestionJsonParityCases } = JSON.parse(
-  fs.readFileSync(
-    path.join(repoRoot, "crates", "wasm", "ple_question_json_response_format_fixture_set.json"),
-    "utf8",
-  ),
-);
-
-for (const parityCase of pleQuestionJsonParityCases) {
-  const check = JSON.parse(
+const responseFormat = {
+  kind: "matching",
+  prompts: [{ id: "p", body: [{ kind: "text", markdown: "Prompt" }] }],
+  choices: [{ id: "c", body: [{ kind: "text", markdown: "Choice" }] }],
+};
+const completeResponse = { kind: "matching", matches: [{ prompt: "p", choice: "c" }] };
+const blankResponse = { kind: "matching", matches: [] };
+assert.deepEqual(
+  JSON.parse(
     bridge.validate_response_format(
-      JSON.stringify(parityCase.responseFormat),
-      JSON.stringify(parityCase.response),
+      JSON.stringify(responseFormat),
+      JSON.stringify(completeResponse),
     ),
-  );
-  assert.deepEqual(
-    check,
-    parityCase.expectedCheck,
-    `ple-question-json-v2 Node parity: ${parityCase.name}`,
-  );
-}
-
-const repeatedCase = pleQuestionJsonParityCases.find(
-  ({ name }) => name === "ple-question-json-v2-matching-full-permutation",
+  ),
+  { issues: [] },
+  "complete public matching response is valid",
 );
-assert.ok(repeatedCase, "ple-question-json-v2 repeated-call test case is present");
+assert.deepEqual(
+  JSON.parse(
+    bridge.validate_response_format(JSON.stringify(responseFormat), JSON.stringify(blankResponse)),
+  ),
+  { issues: [] },
+  "blank public matching response is allowed",
+);
+assert.deepEqual(
+  JSON.parse(
+    bridge.validate_response_format(
+      JSON.stringify({
+        kind: "multipleChoice",
+        choices: [{ id: "a", body: [{ kind: "text", markdown: "A" }] }],
+        selection: { kind: "exactlyOne" },
+      }),
+      JSON.stringify({ kind: "multipleChoice", selected: [] }),
+    ),
+  ),
+  {
+    issues: [{ kind: "selectionCount", expected: { kind: "exactlyOne" }, actual: 0 }],
+  },
+  "empty exactly-one response reports its selection-count issue",
+);
 const firstRepeatedCheck = bridge.validate_response_format(
-  JSON.stringify(repeatedCase.responseFormat),
-  JSON.stringify(repeatedCase.response),
+  JSON.stringify(responseFormat),
+  JSON.stringify(completeResponse),
 );
 const secondRepeatedCheck = bridge.validate_response_format(
-  JSON.stringify(repeatedCase.responseFormat),
-  JSON.stringify(repeatedCase.response),
+  JSON.stringify(responseFormat),
+  JSON.stringify(completeResponse),
 );
 assert.equal(
   secondRepeatedCheck,
@@ -156,18 +168,15 @@ assert.throws(
   "unsafe browser duration values are rejected at the boundary",
 );
 
-const fixture = JSON.parse(
-  fs.readFileSync(
-    path.join(repoRoot, "tests", "fixtures", "published_question", "fixture_set.json"),
-    "utf8",
-  ),
-);
 const capabilityViolations = JSON.parse(
   bridge.validate_assessment_config(
     JSON.stringify({
       questions: [
         {
-          publishedQuestionRevisionTuple: fixture.questionSummary.publishedQuestionRevisionTuple,
+          publishedQuestionRevisionTuple: {
+            publishedQuestionId: "AAAA-2BBB",
+            revisionNumber: 1,
+          },
           questionBackendCapabilities: [],
         },
       ],

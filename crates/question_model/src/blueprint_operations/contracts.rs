@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// One exact Blueprint Course and immutable Blueprint Revision pair.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct BlueprintRevisionTuple {
+pub struct BlueprintCourseRevisionTuple {
     pub blueprint_course_id: BlueprintCourseId,
     pub revision_number: BlueprintRevisionNumber,
 }
@@ -20,17 +20,17 @@ pub struct BlueprintRevisionTuple {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentSource {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub blueprint_assessment_id: BlueprintAssessmentId,
 }
 
 impl BlueprintAssessmentSource {
     pub const fn new(
-        blueprint_revision_tuple: BlueprintRevisionTuple,
+        blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
         blueprint_assessment_id: BlueprintAssessmentId,
     ) -> Self {
         Self {
-            blueprint_revision_tuple,
+            blueprint_course_revision_tuple,
             blueprint_assessment_id,
         }
     }
@@ -134,16 +134,24 @@ pub struct RenameBlueprintCourseInput {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintMetadataState {
     pub classification: crate::CourseClassification,
+    pub theme: crate::Theme,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
     pub blueprint_edit_number: BlueprintEditNumber,
 }
 
+/// Strict request for one independent Blueprint Theme metadata edit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintThemeUpdate {
+    pub theme: crate::Theme,
+}
+
 /// Durable receipt for atomic lineage and Revision 1 creation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateBlueprintCourseReceipt {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
@@ -153,7 +161,7 @@ pub struct CreateBlueprintCourseReceipt {
 /// Durable receipt for a changed or canonical no-op Save.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveBlueprintCourseReceipt {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub changed: bool,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
@@ -190,7 +198,7 @@ mod tests {
     fn creation_receipt_identifies_revision_one() {
         let blueprint = BlueprintCourseId::new("BP7K3M2QXH").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
-            blueprint_revision_tuple: BlueprintRevisionTuple {
+            blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
                 blueprint_course_id: blueprint.clone(),
                 revision_number: BlueprintRevisionNumber::INITIAL,
             },
@@ -201,18 +209,18 @@ mod tests {
         };
 
         assert_eq!(
-            receipt.blueprint_revision_tuple.blueprint_course_id,
+            receipt.blueprint_course_revision_tuple.blueprint_course_id,
             blueprint
         );
         assert_eq!(
-            receipt.blueprint_revision_tuple.revision_number,
+            receipt.blueprint_course_revision_tuple.revision_number,
             BlueprintRevisionNumber::INITIAL
         );
     }
 
     #[test]
-    fn blueprint_revision_tuple_round_trips_course_id_and_revision_number() {
-        let tuple = BlueprintRevisionTuple {
+    fn blueprint_course_revision_tuple_round_trips_course_id_and_revision_number() {
+        let tuple = BlueprintCourseRevisionTuple {
             blueprint_course_id: BlueprintCourseId::new("BP7K3M2QXH")
                 .expect("valid Blueprint Course"),
             revision_number: BlueprintRevisionNumber::INITIAL,
@@ -222,33 +230,33 @@ mod tests {
         assert_eq!(json["revisionNumber"], "1");
         assert!(json.get("reference").is_none());
         assert!(json.get("blueprint_course_id").is_none());
-        let decoded: BlueprintRevisionTuple =
+        let decoded: BlueprintCourseRevisionTuple =
             serde_json::from_value(json).expect("tuple deserializes from its members");
         assert_eq!(decoded, tuple);
     }
 
     #[test]
-    fn blueprint_revision_tuple_rejects_legacy_reference_json() {
+    fn blueprint_course_revision_tuple_rejects_legacy_reference_json() {
         assert!(
-            serde_json::from_str::<BlueprintRevisionTuple>(
+            serde_json::from_str::<BlueprintCourseRevisionTuple>(
                 r#"{"reference":{"blueprintCourseId":"BP7K3M2QXH","revisionNumber":"1"}}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_str::<BlueprintRevisionTuple>(
+            serde_json::from_str::<BlueprintCourseRevisionTuple>(
                 r#"{"blueprintCourseId":"BP7K3M2QXH","revisionNumber":"1","reference":"BP7K3M2QXH"}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_str::<BlueprintRevisionTuple>(
+            serde_json::from_str::<BlueprintCourseRevisionTuple>(
                 r#"{"blueprint_course_id":"BP7K3M2QXH","revision":"1"}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_value::<BlueprintRevisionTuple>(serde_json::json!("1")).is_err(),
+            serde_json::from_value::<BlueprintCourseRevisionTuple>(serde_json::json!("1")).is_err(),
             "a lone Revision Number is not a Blueprint Course Revision Tuple"
         );
     }

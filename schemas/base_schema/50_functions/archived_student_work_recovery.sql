@@ -58,7 +58,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               'pool', CASE WHEN pool.question_pool_selection_id IS NOT NULL THEN
                   jsonb_build_object('question_pool_id', pool.question_pool_id,
                       'question_pool_edit_number', pool.question_pool_edit_number,
-                      'question_pool_member_position', selected.member_position,
                       'selection_position', selected.selection_position) END,
               'attempt', CASE WHEN attempt.question_attempt_id IS NOT NULL THEN
                   jsonb_build_object('issued_at', attempt.issued_at,
@@ -106,7 +105,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
              AND pool.assessment_entry_id = issued.assessment_entry_id
             LEFT JOIN ple_private.question_pool_selected_item AS selected
               ON selected.question_pool_selection_id = pool.question_pool_selection_id
-             AND selected.member_position = issued.question_pool_member_position
              AND selected.published_question_id = issued.published_question_id
              AND selected.revision_number = issued.revision_number
             LEFT JOIN ple_private.question_attempt AS attempt ON attempt.issued_question_id = issued.issued_question_id

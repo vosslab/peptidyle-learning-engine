@@ -3,8 +3,6 @@
 export function source() {
   return {
     format: "pleQuestionJson",
-    questionTitle: "Favorite color",
-    questionDescription: "Instructor-facing color-choice example.",
     prompt: "What is my favorite color?",
     response: {
       kind: "singleChoice",
@@ -17,11 +15,18 @@ export function source() {
     },
     questionHint: "Compare each choice before responding.",
     feedback: { correct: "Exactly right.", incorrect: "Try again." },
+    externalResources: [],
+    authorScript: null,
+  };
+}
+
+export function recordMetadata() {
+  return {
+    questionTitle: "Favorite color",
+    questionDescription: "Instructor-facing color-choice example.",
     tags: ["example"],
     questionLicense: "CC-BY-SA-4.0",
     questionCitation: null,
-    externalResources: [],
-    authorScript: null,
     language: "en-US",
   };
 }

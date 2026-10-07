@@ -31,8 +31,6 @@ pub enum QuestionStewardshipEvent {
         source_question: PublishedQuestionId,
         fork_revision_tuple: PublishedQuestionRevisionTuple,
     },
-    /// A maintained impact notice concerns the named Question lineage.
-    ImpactNotice { question: PublishedQuestionId },
 }
 
 impl QuestionStewardshipEvent {
@@ -45,7 +43,6 @@ impl QuestionStewardshipEvent {
             Self::ForkPublished {
                 source_question, ..
             } => source_question,
-            Self::ImpactNotice { question } => question,
         }
     }
 }

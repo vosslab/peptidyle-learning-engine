@@ -125,7 +125,7 @@ test("source-bound picker sends UUID eligibility and leaves an eligible Question
   assert.deepEqual(
     requests.map(({ query, cursor }) => ({
       kind: query.kind,
-      membership: query.membership,
+      questions: query.questions,
       disciplineUuid: query.discipline_uuid,
       subjectUuid: query.subject_uuid,
       questionType: query.questionType,
@@ -135,7 +135,7 @@ test("source-bound picker sends UUID eligibility and leaves an eligible Question
     [
       {
         kind: "questions",
-        membership: "all",
+        questions: "all",
         disciplineUuid: eligibility.disciplineUuid,
         subjectUuid: eligibility.subjectUuid,
         questionType: "multipleChoice",

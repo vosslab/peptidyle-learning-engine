@@ -79,8 +79,7 @@ not to global search metadata. HG establishes no required Question or Pool langu
 
 ## Citation
 
-Citation belongs on the Question record. Its format remains deferred until attribution and import
-are worked through. HG does not yet choose a URL, text, DOI, or structured format.
+Citation belongs on the Question record as one optional text value.
 
 ## Concrete text constraints
 
@@ -93,7 +92,6 @@ not new teaching requirements. Values are trimmed and contain no control charact
 | Question or Pool Description | 1-4000 characters, trimmed, no control characters |
 | Each present Hint, Question Feedback, Worked Solution | 1-4000 characters, trimmed, no control characters |
 | Author display name | 1-120 characters, trimmed, no control characters |
-| Citation (current implementation) | URL up to 2048 characters and/or text up to 4000; at least one nonempty when supplied |
 
 The schema references are [published_question.sql](../../schemas/base_schema/20_tables/published_question.sql)
 and [question_pool.sql](../../schemas/base_schema/20_tables/question_pool.sql). Classification
@@ -103,10 +101,12 @@ consistent across API validation and persistence.
 
 ## Current implementation evidence: language
 
-The existing [published_question.sql](../../schemas/base_schema/20_tables/published_question.sql)
-requires non-NULL language text of 2-35 trimmed characters. This is an existing storage constraint,
-not an approved product requirement. Required language was removed from the product field table;
-implementation reconciliation is recorded in [TODO.md](../TODO.md).
+The current schema stores `language` as nullable text and checks its trimmed length when present.
+The Question model represents its absence as `Option<String>`. See
+[published_question.sql](../../schemas/base_schema/20_tables/published_question.sql),
+[question_content.rs](../../crates/question_model/src/question_content.rs), and
+[authoring tests](../../crates/server/src/authoring_tests.rs). This implementation evidence does
+not make language a required Instructor input.
 
 ## Ownership of detailed rules
 

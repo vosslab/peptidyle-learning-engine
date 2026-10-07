@@ -1,6 +1,6 @@
 //! Shape, key, and evaluation helpers for PLE Question JSON Private Grading.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use question_model::QuestionContentBlock;
 use question_model::QuestionEvaluation;
@@ -8,6 +8,7 @@ use question_model::answer::ResponseSelectionRule;
 use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemId, StudentResponse,
 };
+use regex_lite::Regex;
 
 use crate::AnswerKey;
 
@@ -94,9 +95,7 @@ pub(super) fn validate_response_for_type(
     }
 }
 
-/// Evaluates one structurally valid PLE response without a generic Question
-/// container or Assessment scoring rule. PLE Question JSON evaluates each
-/// valid response all-or-nothing, returning normalized credit of zero or one.
+/// Evaluates one structurally valid PLE response without an Assessment scoring rule.
 pub(super) fn evaluate_response(
     response_format: &QuestionResponseFormat,
     response: &StudentResponse,
@@ -108,14 +107,17 @@ pub(super) fn evaluate_response(
             PleQuestionJsonGradingError::InvalidResponse(check.issues),
         ));
     }
-    let correct = match (response_format, response, key) {
+    let credit = match (response_format, response, key) {
         (
             QuestionResponseFormat::Numeric { tolerance, .. },
             StudentResponse::Numeric { value },
             AnswerKey::Numeric { expected },
-        ) => numeric_is_correct(*value, *expected, tolerance)?,
+        ) => f64::from(numeric_is_correct(*value, *expected, tolerance)?),
         (
-            QuestionResponseFormat::MultipleChoice { choices, .. },
+            QuestionResponseFormat::MultipleChoice {
+                choices,
+                selection: question_model::answer::ResponseSelectionRule::ExactlyOne,
+            },
             StudentResponse::MultipleChoice { selected },
             AnswerKey::MultipleChoice { correct },
         ) => {
@@ -125,38 +127,63 @@ pub(super) fn evaluate_response(
                     "multiple-choice key names an unavailable choice",
                 ));
             }
-            selected.iter().cloned().collect::<BTreeSet<_>>() == *correct
+            f64::from(selected.iter().cloned().collect::<BTreeSet<_>>() == *correct)
         }
         (
             QuestionResponseFormat::ShortText { match_mode, .. },
             StudentResponse::ShortText { text },
             AnswerKey::ShortText { accepted },
-        ) => accepted
-            .iter()
-            .any(|value| text_matches(text, value, *match_mode)),
+        ) => f64::from(
+            accepted
+                .iter()
+                .any(|value| text_matches(text, value, *match_mode)),
+        ),
         (
             QuestionResponseFormat::MultiBlank { blanks },
             StudentResponse::MultiBlank { answers },
             AnswerKey::MultiBlank { accepted },
         ) => {
-            if accepted.len() != blanks.len()
+            if blanks.is_empty()
+                || accepted.len() != blanks.len()
                 || blanks.iter().any(|blank| !accepted.contains_key(&blank.id))
             {
                 return Err(invalid_grading(
                     "multi-blank key must name every available slot exactly once",
                 ));
             }
-            answers.iter().all(|answer| {
-                let blank = blanks
-                    .iter()
-                    .find(|blank| blank.id == answer.slot)
-                    .expect("format validation proved the slot set");
-                accepted.get(&answer.slot).is_some_and(|values| {
-                    values
-                        .iter()
-                        .any(|value| text_matches(&answer.text, value, blank.match_mode))
+            let correct_blanks = blanks
+                .iter()
+                .filter(|blank| {
+                    let Some(answer) = answers.iter().find(|answer| answer.slot == blank.id) else {
+                        return false;
+                    };
+                    accepted.get(&blank.id).is_some_and(|values| {
+                        values
+                            .iter()
+                            .any(|value| text_matches(&answer.text, value, blank.match_mode))
+                    })
                 })
-            })
+                .count();
+            correct_blanks as f64 / blanks.len() as f64
+        }
+        (
+            QuestionResponseFormat::MultipleChoice {
+                choices,
+                selection: question_model::answer::ResponseSelectionRule::AtLeastOne,
+            },
+            StudentResponse::MultipleChoice { selected },
+            AnswerKey::MultipleChoice { correct },
+        ) => {
+            let available: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
+            if !correct.is_subset(&available) {
+                return Err(invalid_grading(
+                    "multiple-answer key names an unavailable choice",
+                ));
+            }
+            let selected: BTreeSet<_> = selected.iter().cloned().collect();
+            let tp = selected.intersection(correct).count();
+            let fp = selected.difference(correct).count();
+            super::multiple_answer::multiple_answer_credit_fraction(tp, fp, correct.len())
         }
         (
             QuestionResponseFormat::Matching { prompts, choices },
@@ -175,7 +202,9 @@ pub(super) fn evaluate_response(
             }
             matches
                 .iter()
-                .all(|pair| correct.get(&pair.prompt) == Some(&pair.choice))
+                .filter(|pair| correct.get(&pair.prompt) == Some(&pair.choice))
+                .count() as f64
+                / prompts.len() as f64
         }
         (
             QuestionResponseFormat::Ordering { items },
@@ -189,7 +218,14 @@ pub(super) fn evaluate_response(
                     "ordering key must contain every available item exactly once",
                 ));
             }
-            order == correct
+            let ranks: BTreeMap<_, _> = correct
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(rank, id)| (id, rank))
+                .collect();
+            let submitted_ranks: Vec<_> = order.iter().map(|id| ranks[id]).collect();
+            super::ordering::ordering_credit_fraction(&submitted_ranks)
         }
         (
             QuestionResponseFormat::Hotspot { regions, .. },
@@ -200,11 +236,13 @@ pub(super) fn evaluate_response(
             if !correct.is_subset(&available) {
                 return Err(invalid_grading("hotspot key names an unavailable region"));
             }
-            selections
-                .iter()
-                .map(|selection| selection.region.clone())
-                .collect::<BTreeSet<_>>()
-                == *correct
+            f64::from(
+                selections
+                    .iter()
+                    .map(|selection| selection.region.clone())
+                    .collect::<BTreeSet<_>>()
+                    == *correct,
+            )
         }
         _ => {
             return Err(PleQuestionJsonError::Grading(
@@ -212,7 +250,7 @@ pub(super) fn evaluate_response(
             ));
         }
     };
-    QuestionEvaluation::new(correct, f64::from(correct)).map_err(|error| {
+    QuestionEvaluation::new(credit == 1.0, credit).map_err(|error| {
         PleQuestionJsonError::Grading(PleQuestionJsonGradingError::InvalidSource(
             error.to_string(),
         ))
@@ -275,6 +313,9 @@ fn text_matches(
     expected: &str,
     rule: question_model::answer::TextResponseMatchRule,
 ) -> bool {
+    if actual.trim().is_empty() {
+        return false;
+    }
     match rule {
         question_model::answer::TextResponseMatchRule::Exact => actual == expected,
         question_model::answer::TextResponseMatchRule::CaseInsensitive => {
@@ -283,7 +324,27 @@ fn text_matches(
         question_model::answer::TextResponseMatchRule::Normalized => {
             normalize_text(actual) == normalize_text(expected)
         }
+        question_model::answer::TextResponseMatchRule::Regex => {
+            Regex::new(expected).is_ok_and(|pattern| pattern.is_match(actual))
+        }
     }
+}
+
+fn validate_text_response_patterns(
+    match_mode: question_model::answer::TextResponseMatchRule,
+    accepted: &[String],
+) -> Result<(), PleQuestionJsonError> {
+    if match_mode != question_model::answer::TextResponseMatchRule::Regex {
+        return Ok(());
+    }
+    for pattern in accepted {
+        Regex::new(pattern).map_err(|error| {
+            invalid_grading(&format!(
+                "invalid accepted-answer regular expression: {error}"
+            ))
+        })?;
+    }
+    Ok(())
 }
 
 fn normalize_text(value: &str) -> String {
@@ -404,9 +465,11 @@ pub(super) fn validate_key_against_response(
             }
             Ok(())
         }
-        (QuestionResponseFormat::ShortText { .. }, AnswerKey::ShortText { accepted })
-            if !accepted.is_empty() =>
-        {
+        (
+            QuestionResponseFormat::ShortText { match_mode, .. },
+            AnswerKey::ShortText { accepted },
+        ) if !accepted.is_empty() => {
+            validate_text_response_patterns(*match_mode, accepted)?;
             Ok(())
         }
         (QuestionResponseFormat::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
@@ -416,6 +479,15 @@ pub(super) fn validate_key_against_response(
                 || accepted.values().any(Vec::is_empty)
             {
                 return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
+            }
+            for blank in blanks {
+                let values = accepted
+                    .get(&blank.id)
+                    .expect("validated key names every blank");
+                if values.is_empty() {
+                    return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
+                }
+                validate_text_response_patterns(blank.match_mode, values)?;
             }
             Ok(())
         }

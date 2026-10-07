@@ -3,8 +3,8 @@
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::QuestionLibrarySearchCursorPosition;
 use question_model::{
-    LibraryObjectId, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, QuestionSearchFilter,
-    QuestionSearchRequest, QuestionSearchSort,
+    LibraryObjectId, LibraryObjectSearchFilter, LibraryObjectSearchRequest,
+    LibraryObjectSearchSort, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -35,7 +35,7 @@ enum CursorPosition {
 
 /// Decodes a cursor before the route requests any source material.
 pub(super) fn decode_position(
-    query: &QuestionSearchRequest,
+    query: &LibraryObjectSearchRequest,
 ) -> Result<Option<QuestionLibrarySearchCursorPosition>, ()> {
     query
         .cursor
@@ -62,7 +62,7 @@ pub(super) fn decode_position(
 /// validated continuation position.
 pub(super) fn encode_position(
     position: QuestionLibrarySearchCursorPosition,
-    query: &QuestionSearchRequest,
+    query: &LibraryObjectSearchRequest,
 ) -> String {
     let position = match position {
         QuestionLibrarySearchCursorPosition::TitleAscending { title, public_id } => {
@@ -84,7 +84,7 @@ pub(super) fn encode_position(
     URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("Question Library cursor serializes"))
 }
 
-fn decode_cursor(value: &str, query: &QuestionSearchRequest) -> Result<Cursor, ()> {
+fn decode_cursor(value: &str, query: &LibraryObjectSearchRequest) -> Result<Cursor, ()> {
     if value.len() > MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES {
         return Err(());
     }
@@ -94,10 +94,10 @@ fn decode_cursor(value: &str, query: &QuestionSearchRequest) -> Result<Cursor, (
     }
     let cursor = serde_json::from_slice::<Cursor>(&bytes).map_err(|_| ())?;
     let valid_position = match (query.sort, &cursor.position) {
-        (QuestionSearchSort::TitleAscending, CursorPosition::TitleAscending { title, .. }) => {
+        (LibraryObjectSearchSort::TitleAscending, CursorPosition::TitleAscending { title, .. }) => {
             !title.is_empty()
         }
-        (QuestionSearchSort::PublishedNewest, CursorPosition::PublishedNewest { .. }) => true,
+        (LibraryObjectSearchSort::PublishedNewest, CursorPosition::PublishedNewest { .. }) => true,
         _ => false,
     };
     if cursor.version != CURSOR_VERSION
@@ -110,8 +110,8 @@ fn decode_cursor(value: &str, query: &QuestionSearchRequest) -> Result<Cursor, (
     Ok(cursor)
 }
 
-fn query_digest(query: &QuestionSearchRequest) -> [u8; 32] {
-    let filter = QuestionSearchFilter::from_query(query.clone())
+fn query_digest(query: &LibraryObjectSearchRequest) -> [u8; 32] {
+    let filter = LibraryObjectSearchFilter::from_query(query.clone())
         .expect("normalized Question Library query remains a valid filter");
     Sha256::digest(serde_json::to_vec(&filter).expect("Question Library filter serializes")).into()
 }
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn cursor_binds_the_query_and_sort_before_store_search() {
-        let query = QuestionSearchRequest::default()
+        let query = LibraryObjectSearchRequest::default()
             .normalized()
             .expect("query");
         let cursor = encode_position(
@@ -137,15 +137,15 @@ mod tests {
             &query,
         );
         assert!(
-            decode_position(&QuestionSearchRequest {
+            decode_position(&LibraryObjectSearchRequest {
                 cursor: Some(cursor.clone()),
                 ..query.clone()
             })
             .is_ok()
         );
         assert!(
-            decode_position(&QuestionSearchRequest {
-                sort: QuestionSearchSort::PublishedNewest,
+            decode_position(&LibraryObjectSearchRequest {
+                sort: LibraryObjectSearchSort::PublishedNewest,
                 cursor: Some(cursor),
                 ..query
             })
@@ -155,33 +155,33 @@ mod tests {
 
     #[test]
     fn mixed_cursor_binds_kind_membership_owner_and_rejects_old_version() {
-        let query = QuestionSearchRequest::default();
+        let query = LibraryObjectSearchRequest::default();
         let token = encode_position(
             QuestionLibrarySearchCursorPosition::PublishedNewest {
                 published_at_millis: 1_700_000_000_123,
                 public_id: public_id("P100001"),
             },
-            &QuestionSearchRequest {
-                sort: QuestionSearchSort::PublishedNewest,
+            &LibraryObjectSearchRequest {
+                sort: LibraryObjectSearchSort::PublishedNewest,
                 ..query.clone()
             },
         );
-        let original = QuestionSearchRequest {
-            sort: QuestionSearchSort::PublishedNewest,
+        let original = LibraryObjectSearchRequest {
+            sort: LibraryObjectSearchSort::PublishedNewest,
             cursor: Some(token.clone()),
             ..query
         };
         assert!(decode_position(&original).is_ok());
         for changed in [
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 kind: question_model::LibrarySearchKind::Both,
                 ..original.clone()
             },
-            QuestionSearchRequest {
-                membership: question_model::LibraryQuestionMembership::NoPool,
+            LibraryObjectSearchRequest {
+                questions: question_model::PublishedQuestionFilter::InNoPool,
                 ..original.clone()
             },
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 owner_account_id: Some(question_model::AccountId::from_debug_serial(91)),
                 ..original.clone()
             },
@@ -194,7 +194,7 @@ mod tests {
         envelope["version"] = serde_json::json!(2);
         let retired = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&envelope).expect("JSON"));
         assert!(
-            decode_position(&QuestionSearchRequest {
+            decode_position(&LibraryObjectSearchRequest {
                 cursor: Some(retired),
                 ..original
             })

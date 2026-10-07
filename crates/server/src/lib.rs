@@ -9,10 +9,6 @@
 pub(crate) mod archived_student_work_recovery;
 /// Student Assessment Access and answer-free initial delivery routes.
 pub(crate) mod assessment_delivery;
-/// Closed Instructor commands for Assessment-owned immutable Question Pool forks.
-mod assessment_pool_fork;
-/// Count-only Instructor command for an Assessment-owned Question Pool entry.
-mod assessment_pool_selection_count;
 /// Direct-Instructor Assessment Workspace and immutable release routes.
 pub(crate) mod assessment_release;
 mod assessment_student_time_accommodation;
@@ -31,7 +27,6 @@ pub(crate) mod author_content_document_route;
 /// Private Authoring Workspace and Draft Question routes.
 pub mod authoring;
 mod authoring_source;
-/// Server-owned Bloom classifier and candidate-bound publication preparation.
 /// Instructor-owned reusable Blueprint Course routes.
 pub(crate) mod blueprint_course;
 /// Active-Instructor Blueprint Course Star and private Watch routes.
@@ -49,6 +44,8 @@ pub mod course_retention_notification_delivery;
 pub mod course_retention_worker;
 /// Course Roster Import, invitation claim, and access-revocation routes.
 pub(crate) mod course_roster;
+/// Private Draft preview and transient response testing routes.
+mod draft_preview;
 mod draft_question_images;
 /// Readiness probe support for the executable process.
 pub mod health;
@@ -59,8 +56,6 @@ pub(crate) mod instructor_account;
 pub mod instructor_setup_email_delivery;
 /// Protected direct-Instructor invitation-mailer export route.
 pub(crate) mod invitation_export;
-/// Retained Question and Pool impact notices.
-mod library_discussion;
 mod library_search_terms;
 /// Private self-only Question and Pool Watch notification inbox.
 mod library_watch_notification;
@@ -74,16 +69,21 @@ pub(crate) mod profile_avatar;
 pub(crate) mod profile_settings;
 /// One-shot immutable public Question Image publisher with no HTTP surface.
 pub mod public_asset_publisher;
-/// Active-Instructor atomic shared Published Question metadata edits.
+/// Active-Instructor bounded Published Question metadata commands.
 mod question_bulk_metadata;
+/// Active-Instructor atomic shared Published Question metadata edits.
+/// Owner and Sysadmin Draft entry for correcting a current Published Question.
+mod question_correction_draft;
 /// Active-Instructor Published Question to private Draft fork command.
 mod question_fork;
 /// Authorized immutable public Question Image redirect route.
 pub(crate) mod question_image_delivery;
 /// Instructor Question Library browse and answer-free detail routes.
 mod question_library;
-/// Active-Instructor Topic, Subtopic, and Tag edits for many Question Pools.
+mod question_metadata;
+/// Active-Instructor bounded Question Pool search metadata commands.
 mod question_pool_bulk_metadata;
+/// Active-Instructor Topic, Subtopic, and Tag edits for many Question Pools.
 /// Active-Instructor reusable Published Question Pool creation.
 mod question_pool_creation;
 /// Published Pool Library browse/current detail and owned fork detail routes.

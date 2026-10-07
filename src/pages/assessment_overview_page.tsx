@@ -31,6 +31,7 @@ import {
   assessmentAttemptPath,
   assessmentAttemptRouteState,
 } from "../navigation/assessment_attempt_route";
+import { formatPointScore } from "../score_format";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 
 function previousAttemptContent(
@@ -52,7 +53,7 @@ function previousAttemptContent(
         value:
           attempt.score === undefined
             ? "Score pending"
-            : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`,
+            : `${formatPointScore(attempt.score.pointsEarned, attempt.score.pointsPossible)} points`,
       },
     ],
     actions: [

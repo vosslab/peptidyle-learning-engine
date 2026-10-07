@@ -40,7 +40,7 @@ rerelease_latest_unreleased_current_assignment() {
 # question-control type: WeBWorK remains opaque to PLE and to this shell test.
 published_published_question_revision_tuple() {
 	local instructor="$1" backend="$2" listed
-	listed="$(request "/api/questions/search?backends=$backend&authorship=any&page_size=50" "$instructor")"
+	listed="$(request "/api/library-objects/search?backends=$backend&authorship=any&page_size=50" "$instructor")"
 	if [ "$(response_status "$listed")" != 200 ]; then
 		echo "Instructor $backend Question Library search returned HTTP $(response_status "$listed"), expected 200" >&2
 		return 1
@@ -50,7 +50,9 @@ import json, re, sys
 value=json.loads(sys.argv[1]); backend=sys.argv[2]
 items=value.get("items")
 if not isinstance(items,list) or not items: raise SystemExit("Question Library has no selected backend Question")
-summary=items[0].get("summary") if isinstance(items[0],dict) else None
+question=next((item for item in items if isinstance(item,dict) and item.get("kind")=="question"),None)
+result=question.get("question") if isinstance(question,dict) else None
+summary=result.get("summary") if isinstance(result,dict) else None
 question_revision=summary.get("publishedQuestionRevisionTuple") if isinstance(summary,dict) else None
 if not isinstance(summary,dict) or summary.get("backend") != backend or not isinstance(question_revision,dict):
     raise SystemExit("Question Library did not return the selected backend")
@@ -64,7 +66,7 @@ print(json.dumps(question_revision,separators=(",",":")))
 
 canonical_native_published_question_revision_tuple() {
 	local instructor="$1" listed
-	listed="$(request '/api/questions/search?backends=ple&authorship=any&page_size=20' "$instructor")"
+	listed="$(request '/api/library-objects/search?backends=ple&authorship=any&page_size=20' "$instructor")"
 	if [ "$(response_status "$listed")" != 200 ]; then
 		echo "Canonical native Question Library search returned HTTP $(response_status "$listed"), expected 200" >&2
 		return 1
@@ -73,7 +75,8 @@ canonical_native_published_question_revision_tuple() {
 import json,re,sys
 items=json.loads(sys.argv[1]).get("items",[])
 for item in items:
-    summary=item.get("summary") if isinstance(item,dict) else None
+    result=item.get("question") if isinstance(item,dict) and item.get("kind")=="question" else None
+    summary=result.get("summary") if isinstance(result,dict) else None
     metadata=summary.get("metadata") if isinstance(summary,dict) else None
     question_revision=summary.get("publishedQuestionRevisionTuple") if isinstance(summary,dict) else None
     if (isinstance(metadata,dict) and metadata.get("questionTitle")=="Genetics Chapter 1: Phenylalanine metabolism"
@@ -198,7 +201,7 @@ print(json.dumps(score,separators=(",",":")))
 assert_renderer_fraction_matches_submission() {
 	local attempt="$1" score="$2" postgres observed
 	postgres="$(service_id postgres)"
-	observed="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "SELECT json_build_object('pointsEarned', sum(score.points_earned), 'pointsPossible', sum(score.points_possible))::text FROM ple_private.grading_result AS result JOIN ple_private.question_attempt AS question_attempt ON question_attempt.question_attempt_id=result.question_attempt_id JOIN ple_private.issued_question AS issued ON issued.issued_question_id=question_attempt.issued_question_id JOIN ple_private.assessment_attempt AS assessment_attempt ON assessment_attempt.assessment_attempt_id=issued.assessment_attempt_id JOIN ple_private.assessment_entry_snapshot AS snapshot ON snapshot.assessment_entry_snapshot_id=issued.assessment_entry_snapshot_id CROSS JOIN LATERAL ple_private.score_recorded_credit(result.normalized_credit, snapshot.scoring_rule, coalesce((SELECT question.points_possible FROM ple_data.assessment_entry_question AS question WHERE question.assessment_entry_id=issued.assessment_entry_id), (SELECT pool.points_per_item FROM ple_data.assessment_entry_pool AS pool WHERE pool.assessment_entry_id=issued.assessment_entry_id), snapshot.points)) AS score WHERE assessment_attempt.assessment_attempt_id='$attempt'::uuid")"
+	observed="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "SELECT json_build_object('pointsEarned', sum(score.points_earned), 'pointsPossible', sum(score.points_possible))::text FROM ple_private.grading_result AS result JOIN ple_private.question_attempt AS question_attempt ON question_attempt.question_attempt_id=result.question_attempt_id JOIN ple_private.issued_question AS issued ON issued.issued_question_id=question_attempt.issued_question_id JOIN ple_private.assessment_attempt AS assessment_attempt ON assessment_attempt.assessment_attempt_id=issued.assessment_attempt_id JOIN ple_data.assessment AS assessment ON assessment.assessment_id=assessment_attempt.assessment_id JOIN ple_data.assessment_policy_snapshot AS policy ON policy.assessment_policy_snapshot_id=assessment.assessment_policy_snapshot_id JOIN ple_private.assessment_entry_snapshot AS snapshot ON snapshot.assessment_entry_snapshot_id=issued.assessment_entry_snapshot_id CROSS JOIN LATERAL ple_private.score_recorded_credit(result.normalized_credit, snapshot.scoring_rule, coalesce((SELECT question.points_possible FROM ple_data.assessment_entry_question AS question WHERE question.assessment_entry_id=issued.assessment_entry_id), (SELECT pool.points_per_item FROM ple_data.assessment_entry_pool AS pool WHERE pool.assessment_entry_id=issued.assessment_entry_id), snapshot.points), policy.partial_credit_enabled) AS score WHERE assessment_attempt.assessment_attempt_id='$attempt'::uuid")"
 	python3 -c '
 import json,sys
 expected=json.loads(sys.argv[1]); actual=json.loads(sys.argv[2])

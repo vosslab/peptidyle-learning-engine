@@ -14,6 +14,9 @@ pub(super) fn activity_rules(
 ) -> Result<AssessmentActivityRules, StoreError> {
     let value = |column| row.try_get::<String, _>(column).map_err(map_sqlx_error);
     Ok(AssessmentActivityRules {
+        partial_credit_enabled: row
+            .try_get::<bool, _>("partial_credit_enabled")
+            .map_err(map_sqlx_error)?,
         question_variation_rule: match value("question_variation_rule")?.as_str() {
             "reuse_variation" => AssessmentQuestionVariationRule::ReuseVariation,
             "new_variation" => AssessmentQuestionVariationRule::NewVariation,

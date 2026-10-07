@@ -8,6 +8,7 @@ import {
   removeMultiFillBlank,
   reorderMultiFillBlanks,
   setMultiFillBlankAnswer,
+  setMultiFillBlankMaxLength,
 } from "../src/features/ple_question_json_authoring/question_json_multi_fill_in_editor_model.ts";
 import {
   addOrderingItem,
@@ -101,6 +102,34 @@ test("MULTI-FIB accepted answer edits enforce their blank-specific maximum", () 
   const refused = setMultiFillBlankAnswer(edited.source, "blank_b", 0, "chromosome 17");
   assert.equal(refused.changed, false);
   assert.match(refused.error ?? "", /Maximum length|1 to 8/);
+});
+
+test("MULTI-FIB regex patterns use the pattern limit instead of the Student response limit", () => {
+  const initial = source({
+    kind: "multiFillIn",
+    blanks: [{ id: "blank_a", label: "Pattern", answers: ["a"], matchMode: "regex", maxLength: 1 }],
+  });
+  const pattern = `(?:${"a".repeat(20)})`;
+  const edited = setMultiFillBlankAnswer(initial, "blank_a", 0, pattern);
+  assert.equal(edited.changed, true);
+
+  const lengthChanged = setMultiFillBlankMaxLength(edited.source, "blank_a", 2);
+  assert.equal(lengthChanged.changed, true);
+  assert.deepEqual(
+    lengthChanged.source.response.kind === "multiFillIn"
+      ? lengthChanged.source.response.blanks[0]
+      : undefined,
+    { id: "blank_a", label: "Pattern", answers: [pattern], matchMode: "regex", maxLength: 2 },
+  );
+
+  const withAlternative = addMultiFillBlankAnswer(lengthChanged.source, "blank_a");
+  assert.equal(withAlternative.changed, true);
+  assert.deepEqual(
+    withAlternative.source.response.kind === "multiFillIn"
+      ? withAlternative.source.response.blanks[0]?.answers
+      : [],
+    [pattern, "Alternative answer"],
+  );
 });
 
 test("MULTI-FIB answer suggestions terminate when maxLength is one", () => {

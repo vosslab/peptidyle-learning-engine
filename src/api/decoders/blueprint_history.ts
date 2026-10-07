@@ -1,6 +1,7 @@
 // Strict, bounded decoding for immutable Blueprint history and recorded metadata.
 import type { BlueprintHistoryEntryView } from "../../../generated/api/BlueprintHistoryEntryView";
 import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintHistoryPageView";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
 import { decodeBlueprintRevisionNumber, text } from "./blueprint_course";
 import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
@@ -29,6 +30,7 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
       "availability",
       "recordedAt",
       "classification",
+      "theme",
     ]);
     return {
       kind,
@@ -37,6 +39,7 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
         field(record, "classification", path),
         `${path}.classification`,
       ),
+      theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
       longName: text(field(record, "longName", path), `${path}.longName`),
       availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
         "private",

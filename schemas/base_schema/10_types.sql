@@ -26,9 +26,6 @@ CREATE TYPE ple_data.question_variation_rule AS ENUM (
 CREATE TYPE ple_data.question_order_rule AS ENUM (
     'authored_order', 'shuffled'
 );
-CREATE TYPE ple_data.selected_question_order AS ENUM (
-    'question_pool_order', 'random_order'
-);
 CREATE TYPE ple_data.feedback_release AS ENUM (
     'during_attempt', 'after_submit', 'after_due', 'after_close',
     'after_all_students_complete', 'never'
@@ -56,7 +53,7 @@ CREATE TYPE ple_data.library_object_kind AS ENUM (
     'question', 'question_pool'
 );
 CREATE TYPE ple_data.library_watch_event_kind AS ENUM (
-    'revision', 'members_changed', 'fork', 'impact_notice'
+    'revision', 'members_changed', 'fork'
 );
 CREATE TYPE ple_data.media_type AS ENUM (
     'image/png', 'image/jpeg', 'image/webp'
@@ -111,9 +108,6 @@ CREATE TYPE ple_data.license_spdx AS ENUM (
 CREATE TYPE ple_data.correction_reason AS ENUM (
     'critical_correctness_flaw', 'security_flaw'
 );
-CREATE TYPE ple_data.notice_state AS ENUM (
-    'active', 'cancelled'
-);
 CREATE TYPE ple_data.delivery_state AS ENUM (
     'available', 'pending', 'retired'
 );
@@ -125,7 +119,7 @@ CREATE TYPE ple_data.invitation_response AS ENUM (
 );
 CREATE TYPE ple_data.roster_event_kind AS ENUM (
     'invitation_created', 'invitation_claimed', 'student_access_revoked',
-    'student_access_restored'
+    'student_access_restored', 'sysadmin_student_data_accessed'
 );
 CREATE TYPE ple_data.ownership_event_kind AS ENUM (
     'initial', 'transferred'
@@ -171,12 +165,6 @@ CREATE TYPE ple_data.retention_action_kind AS ENUM (
 CREATE TYPE ple_data.retention_failure_kind AS ENUM (
     'not_configured', 'provider_rejected', 'provider_transient'
 );
-CREATE TYPE ple_data.repair_result AS ENUM (
-    'issued', 'revoked', 'used'
-);
-CREATE TYPE ple_data.support_repair_resource_class AS ENUM (
-    'student', 'course', 'content'
-);
 CREATE TYPE ple_data.watch_notification_event_kind AS ENUM (
     'revision', 'published', 'archived', 'restored'
 );
@@ -199,7 +187,6 @@ GRANT USAGE ON TYPE
     ple_data.late_work_rule,
     ple_data.question_variation_rule,
     ple_data.question_order_rule,
-    ple_data.selected_question_order,
     ple_data.feedback_release,
     ple_data.scoring_rule,
     ple_data.entry_kind,
@@ -226,7 +213,6 @@ GRANT USAGE ON TYPE
     ple_data.public_id_object_kind,
     ple_data.license_spdx,
     ple_data.correction_reason,
-    ple_data.notice_state,
     ple_data.delivery_state,
     ple_data.cleanup_disposition,
     ple_data.invitation_response,
@@ -245,25 +231,16 @@ GRANT USAGE ON TYPE
     ple_data.issued_capability,
     ple_data.retention_action_kind,
     ple_data.retention_failure_kind,
-    ple_data.repair_result,
-    ple_data.support_repair_resource_class,
     ple_data.watch_notification_event_kind,
     ple_data.auth_rate_scope,
     ple_data.email_challenge_purpose,
     ple_data.passkey_ceremony_kind
     TO ple_private_owner, ple_audit_owner, ple_api_owner;
 
-SET LOCAL ROLE ple_private_owner;
-
-CREATE TYPE ple_private.bloom_preparation_target_kind AS ENUM (
-    'question_revision', 'question_pool'
-);
-
-GRANT USAGE ON TYPE ple_private.bloom_preparation_target_kind
-    TO ple_data_owner, ple_audit_owner, ple_api_owner;
-
 -- Public-ID checksum and domains. One CHECK per identity shape, reused by
 -- every column that stores that identity (DATABASE_STYLE.md Types).
+
+SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.crockford_checksum_character(p_checksum_input text)
 RETURNS text LANGUAGE sql IMMUTABLE STRICT

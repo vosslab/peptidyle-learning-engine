@@ -2,7 +2,6 @@
 
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
-import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
 import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/api/AssessmentType";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
@@ -10,13 +9,15 @@ import type { BlueprintCourseSummaryView } from "../../../generated/api/Blueprin
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvailability";
-import type { BlueprintRevisionTuple } from "../../../generated/api/BlueprintRevisionTuple";
+import type { BlueprintCourseRevisionTuple } from "../../../generated/api/BlueprintCourseRevisionTuple";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
 import type { BlueprintEditNumber } from "../../../generated/api/BlueprintEditNumber";
 import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
+import type { BlueprintThemeUpdate } from "../../../generated/api/BlueprintThemeUpdate";
+import { THEME_VALUES, type Theme } from "../../../generated/api/Theme";
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { RenameBlueprintCourseInput } from "../../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
@@ -109,6 +110,7 @@ export function defaults(value: unknown, path: string): unknown {
   ]);
   const policies = decodeRecord(field(record, "activity_rules", path), `${path}.activity_rules`);
   requireOnlyFields(policies, `${path}.activity_rules`, [
+    "partialCreditEnabled",
     "questionVariationRule",
     "assessmentQuestionOrderRule",
   ]);
@@ -129,6 +131,10 @@ export function defaults(value: unknown, path: string): unknown {
       ["accept", "mark_late", "reject"],
     ),
     activity_rules: {
+      partialCreditEnabled: decodeBoolean(
+        field(policies, "partialCreditEnabled", `${path}.activity_rules`),
+        `${path}.activity_rules.partialCreditEnabled`,
+      ),
       questionVariationRule: decodeStringEnum(
         field(policies, "questionVariationRule", `${path}.activity_rules`),
         `${path}.activity_rules.questionVariationRule`,
@@ -189,7 +195,6 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
     "selection_count",
     "points_per_item",
     "scoring_rule",
-    "selection_rule",
     "question_attempt_limit",
     "question_attempt_time_limit",
   ]);
@@ -199,9 +204,8 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   );
   if (selectionCount > 4_294_967_295)
     throw new DecodeError(`${path}.selection_count`, "a positive u32 selection count");
-  authoringPool(field(record, "pool", path), `${path}.pool`, selectionCount);
+  authoringPool(field(record, "pool", path), `${path}.pool`);
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
-  selectionRule(field(record, "selection_rule", path), `${path}.selection_rule`);
   decodeQuestionAttemptLimit(
     field(record, "question_attempt_limit", path),
     `${path}.question_attempt_limit`,
@@ -215,73 +219,11 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   return { kind };
 }
 
-function authoringPool(value: unknown, path: string, selectionCount: number): void {
-  // ASVS 1.5.2, 2.2.1: closed input alternatives; no obsolete Pool ID alias.
+function authoringPool(value: unknown, path: string): void {
+  // ASVS 1.5.2, 2.2.1: a Blueprint keeps the ordinary Pool identity and local draw policy.
   const record = decodeRecord(value, path);
-  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "import",
-    "retained",
-  ]);
-  requireOnlyFields(
-    record,
-    path,
-    kind === "import"
-      ? ["kind", "question_pool_id", "question_pool_edit_number"]
-      : [
-          "kind",
-          "question_pool_id",
-          "question_pool_edit_number",
-          "members",
-          "interchangeabilityAttested",
-        ],
-  );
+  requireOnlyFields(record, path, ["question_pool_id"]);
   questionPoolId(field(record, "question_pool_id", path), `${path}.question_pool_id`);
-  decodePositiveInteger(
-    field(record, "question_pool_edit_number", path),
-    `${path}.question_pool_edit_number`,
-  );
-  if (kind === "import") return;
-  const attested = decodeBoolean(
-    field(record, "interchangeabilityAttested", path),
-    `${path}.interchangeabilityAttested`,
-  );
-  const members = decodeNullable(
-    field(record, "members", path),
-    `${path}.members`,
-    (memberValue, memberPath) =>
-      decodeBoundedArray(
-        memberValue,
-        memberPath,
-        MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-        (item, itemPath) => {
-          const member = decodePublishedQuestionRevisionTuple(item, itemPath, true);
-          if (member.revisionNumber > 4_294_967_295)
-            throw new DecodeError(
-              `${itemPath}.revisionNumber`,
-              "a positive u32 Question Revision Number",
-            );
-          return member;
-        },
-      ),
-  );
-  if (members === null) return;
-  if (members.length === 0) throw new DecodeError(`${path}.members`, "at least one Pool member");
-  // ASVS 2.2.3: related member count, identity and review must agree.
-  if (new Set(members.map((member) => member.publishedQuestionId)).size !== members.length)
-    throw new DecodeError(`${path}.members`, "unique Question IDs");
-  if (selectionCount > members.length)
-    throw new DecodeError(path, "a selection count within the authored member count");
-  if (!attested)
-    throw new DecodeError(`${path}.interchangeabilityAttested`, "true for authored members");
-}
-
-export function selectionRule(value: unknown, path: string): void {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["selectedQuestionOrder"]);
-  decodeStringEnum(field(record, "selectedQuestionOrder", path), `${path}.selectedQuestionOrder`, [
-    "questionPoolOrder",
-    "randomOrder",
-  ]);
 }
 
 export function assessmentType(value: unknown, path: string): AssessmentType {
@@ -332,8 +274,15 @@ export function decodeCreateBlueprintCourseInput(
   path = "request",
 ): CreateBlueprintCourseInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["short_name", "long_name", "modules", "classification"]);
+  requireOnlyFields(record, path, [
+    "short_name",
+    "long_name",
+    "modules",
+    "classification",
+    "theme",
+  ]);
   decodeCourseClassification(field(record, "classification", path), `${path}.classification`);
+  decodeTheme(field(record, "theme", path), `${path}.theme`);
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
@@ -463,21 +412,15 @@ function contentView(value: unknown, path: string): void {
         requireOnlyFields(entry, entryPath, [
           "kind",
           "question_pool_id",
-          "question_pool_edit_number",
           "selection_count",
           "points_per_item",
           "scoring_rule",
-          "selection_rule",
           "question_attempt_limit",
           "question_attempt_time_limit",
         ]);
         questionPoolId(
           field(entry, "question_pool_id", entryPath),
           `${entryPath}.question_pool_id`,
-        );
-        decodePositiveInteger(
-          field(entry, "question_pool_edit_number", entryPath),
-          `${entryPath}.question_pool_edit_number`,
         );
         decodePositiveInteger(
           field(entry, "selection_count", entryPath),
@@ -490,7 +433,6 @@ function contentView(value: unknown, path: string): void {
           "extraCredit",
           "excluded",
         ]);
-        selectionRule(field(entry, "selection_rule", entryPath), `${entryPath}.selection_rule`);
         decodeQuestionAttemptLimit(
           field(entry, "question_attempt_limit", entryPath),
           `${entryPath}.question_attempt_limit`,
@@ -522,7 +464,10 @@ export function blueprintEditNumber(value: unknown, path: string): BlueprintEdit
   return decoded;
 }
 
-export function blueprintRevisionTuple(value: unknown, path: string): BlueprintRevisionTuple {
+export function blueprintCourseRevisionTuple(
+  value: unknown,
+  path: string,
+): BlueprintCourseRevisionTuple {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blueprintCourseId", "revisionNumber"]);
   return {
@@ -548,6 +493,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     "availability",
     "blueprint_edit_number",
     "classification",
+    "theme",
     "current_revision_tuple",
     "read_access",
     "owner_account_id",
@@ -588,6 +534,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       field(record, "classification", path),
       `${path}.classification`,
     ),
+    theme: decodeTheme(field(record, "theme", path), `${path}.theme`),
     total_students_ever_enrolled: totalStudents,
     id: blueprintCourseId(field(record, "id", path), `${path}.id`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
@@ -597,7 +544,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       field(record, "blueprint_edit_number", path),
       `${path}.blueprint_edit_number`,
     ),
-    current_revision_tuple: blueprintRevisionTuple(
+    current_revision_tuple: blueprintCourseRevisionTuple(
       field(record, "current_revision_tuple", path),
       `${path}.current_revision_tuple`,
     ),
@@ -679,6 +626,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "availability",
     "blueprint_edit_number",
     "classification",
+    "theme",
     "current_revision_tuple",
     "fork_source_tuple",
     "read_access",
@@ -690,6 +638,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
       field(record, "classification", path),
       `${path}.classification`,
     ),
+    theme: decodeTheme(field(record, "theme", path), `${path}.theme`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
@@ -697,7 +646,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
       field(record, "blueprint_edit_number", path),
       `${path}.blueprint_edit_number`,
     ),
-    current_revision_tuple: blueprintRevisionTuple(
+    current_revision_tuple: blueprintCourseRevisionTuple(
       field(record, "current_revision_tuple", path),
       `${path}.current_revision_tuple`,
     ),
@@ -708,7 +657,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     fork_source_tuple: decodeNullable(
       field(record, "fork_source_tuple", path),
       `${path}.fork_source_tuple`,
-      blueprintRevisionTuple,
+      blueprintCourseRevisionTuple,
     ),
     modules: modules(field(record, "modules", path), `${path}.modules`),
   };
@@ -719,11 +668,11 @@ export function decodeBlueprintRevisionView(
   path = "response",
 ): BlueprintRevisionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintRevisionTuple", "modules"]);
+  requireOnlyFields(record, path, ["blueprintCourseRevisionTuple", "modules"]);
   return {
-    blueprintRevisionTuple: blueprintRevisionTuple(
-      field(record, "blueprintRevisionTuple", path),
-      `${path}.blueprintRevisionTuple`,
+    blueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+      field(record, "blueprintCourseRevisionTuple", path),
+      `${path}.blueprintCourseRevisionTuple`,
     ),
     modules: modules(field(record, "modules", path), `${path}.modules`),
   };
@@ -757,12 +706,14 @@ export function decodeBlueprintMetadataState(
     "availability",
     "blueprint_edit_number",
     "classification",
+    "theme",
   ]);
   return {
     classification: decodeCourseClassification(
       field(record, "classification", path),
       `${path}.classification`,
     ),
+    theme: decodeTheme(field(record, "theme", path), `${path}.theme`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
@@ -771,6 +722,16 @@ export function decodeBlueprintMetadataState(
       `${path}.blueprint_edit_number`,
     ),
   };
+}
+
+function decodeTheme(value: unknown, path: string): Theme {
+  return decodeStringEnum(value, path, THEME_VALUES);
+}
+
+export function decodeBlueprintThemeUpdate(value: unknown, path = "request"): BlueprintThemeUpdate {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["theme"]);
+  return { theme: decodeTheme(field(record, "theme", path), `${path}.theme`) };
 }
 
 export function decodeRenameBlueprintCourseInput(
@@ -816,11 +777,11 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     shortName: text(field(record, "shortName", path), `${path}.shortName`),
     longName: text(field(record, "longName", path), `${path}.longName`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    currentRevisionTuple: blueprintRevisionTuple(
+    currentRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "currentRevisionTuple", path),
       `${path}.currentRevisionTuple`,
     ),
-    sourceRevisionTuple: blueprintRevisionTuple(
+    sourceRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "sourceRevisionTuple", path),
       `${path}.sourceRevisionTuple`,
     ),

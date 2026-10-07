@@ -9,22 +9,22 @@ use sha2::{Digest, Sha256};
 use crate::question_license::QuestionLicense;
 use crate::question_tag::Tag;
 use crate::{
-    CourseInstanceId, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
-    Timestamp,
+    BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId, QuestionBackendCapabilities,
+    QuestionMetadata, QuestionRevisionNumber, Timestamp,
 };
 
 pub use crate::question_search::{
-    MAX_DISCOVERY_PAGE_SIZE, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
+    LibraryObjectSearchFilter, LibraryObjectSearchRequest, LibraryObjectSearchRequestError,
+    LibraryObjectSearchSort, MAX_DISCOVERY_PAGE_SIZE, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS, MAX_QUESTION_SEARCH_BACKEND_FACETS,
     MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
     MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
     QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
     QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
-    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
-    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchSort,
-    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet,
-    QuestionTypeFacet, normalized_question_search_group_value,
+    QuestionSearchFacets, QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet,
+    QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionTypeFacet,
+    normalized_question_search_group_value,
 };
 pub use crate::response::QuestionType;
 
@@ -194,9 +194,9 @@ pub struct PublishedQuestionRevisionTuple {
 
 /// Browser-safe current shared metadata for one Published Question.
 ///
-/// This is current search metadata, not a Question Revision or metadata
-/// history record. It includes only the fields the bulk metadata workflow can
-/// read and replace.
+/// This is the current shared metadata snapshot, not a metadata history
+/// record. The editor reads all replaceable values with the matching edit
+/// number before it saves.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PublishedQuestionSharedMetadata {
@@ -204,6 +204,12 @@ pub struct PublishedQuestionSharedMetadata {
     pub question_id: PublishedQuestionId,
     /// Current compare-and-swap number for the shared metadata.
     pub metadata_edit_number: u64,
+    /// Current exact-revision Question Title used with this edit number.
+    pub question_title: String,
+    /// Current exact-revision Question Description used with this edit number.
+    pub question_description: String,
+    /// Current Question Type used with this metadata Edit Number.
+    pub question_type: QuestionType,
     /// Current complete tag set.
     pub tags: Vec<Tag>,
     /// Current canonical Discipline identity.
@@ -214,6 +220,10 @@ pub struct PublishedQuestionSharedMetadata {
     pub topic_uuid: Option<uuid::Uuid>,
     /// Current optional Subtopic identity.
     pub subtopic_uuid: Option<uuid::Uuid>,
+    /// Current optional Bloom Cognitive Process.
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    /// Current optional Bloom Knowledge Dimension.
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
 }
 
 /// Current selection availability for a stable Published Question lineage.
@@ -441,6 +451,8 @@ pub struct QuestionSummary {
     /// Current accepted Revision for ordinary routes, or the exact resolved
     /// Revision for an exact-detail route. Independent of selection availability.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    /// Exact immediate source Revision for a forked Question lineage.
+    pub parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation, for Instructor identification
@@ -461,7 +473,7 @@ pub struct QuestionSummary {
     pub availability: QuestionAvailability,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
-    /// Exact Bloom Classification and its independent correction Edit Number, when assigned.
+    /// Exact-revision Bloom display projection when assigned; either member may be null.
     pub bloom: Option<crate::BloomClassificationView>,
 }
 
@@ -476,6 +488,8 @@ pub struct QuestionLineageView {
     pub summary: QuestionSummary,
     /// Whether the current viewer is the current owner allowed to request Archive.
     pub viewer_may_archive: bool,
+    /// Whether the current viewer may edit metadata on the current available Revision.
+    pub viewer_may_edit_metadata: bool,
 }
 
 impl QuestionSummary {
@@ -563,7 +577,7 @@ pub struct QuestionUseDetails {
 /// Bounded search page with aggregates from the same Question Search snapshot.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchPage {
+pub struct LibraryObjectSearchPage {
     /// At most the request's validated page size of context-free discovery rows.
     pub items: Vec<crate::LibrarySearchResult>,
     /// Opaque continuation token, bound to the normalized query.
@@ -650,7 +664,7 @@ mod tests {
 
     #[test]
     fn question_search_normalizes_equivalent_filters_and_bounds_hostile_input() {
-        let query = QuestionSearchRequest {
+        let query = LibraryObjectSearchRequest {
             text: Some("  Peptide\tBond  ".to_string()),
             author_names: vec![
                 "  Dr. Ada  Lovelace ".to_string(),
@@ -664,7 +678,7 @@ mod tests {
             question_types: vec![QuestionType::MultipleChoice; 2],
             capabilities: vec![Capability::Hints, Capability::Hints],
             question_licenses: vec![QuestionLicense::CcBy4_0, QuestionLicense::CcBy4_0],
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         }
         .normalized()
         .expect("equivalent filters normalize");
@@ -676,9 +690,9 @@ mod tests {
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
         assert!(
-            QuestionSearchRequest {
+            LibraryObjectSearchRequest {
                 text: Some("x".repeat(257)),
-                ..QuestionSearchRequest::default()
+                ..LibraryObjectSearchRequest::default()
             }
             .normalized()
             .is_err()
@@ -694,6 +708,13 @@ mod tests {
                     published_question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
+                parent_published_question_revision_tuple: Some(PublishedQuestionRevisionTuple {
+                    published_question_id: "BPFX-Y001"
+                        .parse()
+                        .expect("fixture parent Question ID parses"),
+                    revision_number: QuestionRevisionNumber::new(3)
+                        .expect("positive parent Revision"),
+                }),
                 backend: QuestionBackend::Ple,
                 question_format: crate::QuestionFormat::PleQuestionJson,
                 question_type: QuestionType::MultipleChoice,
@@ -705,7 +726,7 @@ mod tests {
                     tags: Vec::new(),
                     question_license: Some(QuestionLicense::Cc0_1_0),
                     question_citation: None,
-                    language: "en".to_string(),
+                    language: Some("en".to_string()),
                 },
                 authorship: crate::QuestionAuthorship::new(vec![crate::QuestionAuthor {
                     display_name: crate::QuestionAuthorDisplayName::new(
@@ -718,9 +739,8 @@ mod tests {
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
                 bloom: Some(crate::BloomClassificationView {
-                    cognitive_process: crate::BloomCognitiveProcess::Understand,
-                    knowledge_dimension: crate::BloomKnowledgeDimension::ConceptualKnowledge,
-                    classification_edit_number: crate::BloomClassificationEditNumber::INITIAL,
+                    cognitive_process: Some(crate::BloomCognitiveProcess::Understand),
+                    knowledge_dimension: Some(crate::BloomKnowledgeDimension::ConceptualKnowledge),
                 }),
             },
             discipline_name: "Biology".to_string(),
@@ -744,6 +764,13 @@ mod tests {
         assert_eq!(
             wire.get("subjectName"),
             Some(&serde_json::json!("Genetics"))
+        );
+        assert_eq!(
+            wire["summary"]["parentPublishedQuestionRevisionTuple"],
+            serde_json::json!({
+                "publishedQuestionId": "BPFX-Y001",
+                "revisionNumber": 3,
+            })
         );
         assert!(wire.get("source").is_none());
         assert!(wire.get("response").is_none());

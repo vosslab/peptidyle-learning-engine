@@ -7,8 +7,8 @@ use question_model::blueprint_course::{
     BlueprintForkApplyModuleLayout, BlueprintForkApplySelection,
 };
 use question_model::{
-    BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleId,
-    BlueprintRevisionNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse, Timestamp,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintCourseRevisionTuple, BlueprintEditNumber,
+    BlueprintModuleId, BlueprintRevisionNumber, CanonicalBlueprintCourse, Timestamp,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -172,7 +172,6 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         input: AcceptBlueprintChangeProposalInput,
-        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<AcceptedBlueprintChangeProposal, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
@@ -259,8 +258,18 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             .map_err(map_sqlx_error)?;
         let classification =
             decode_classification(&rows[if source_classification { 0 } else { 1 }])?;
-        let reviewed =
-            CanonicalBlueprintCourse::export(short_name, long_name, classification, &applied);
+        let target_theme: question_model::Theme = rows[1]
+            .try_get::<String, _>("theme_id")
+            .map_err(map_sqlx_error)?
+            .parse()
+            .map_err(|_| invalid())?;
+        let reviewed = CanonicalBlueprintCourse::export_with_theme(
+            short_name,
+            long_name,
+            classification,
+            target_theme,
+            &applied,
+        );
         let comparison = canonical(&rows[1])?;
         // Local identities are absent from the canonical projection. Check before
         // Pool forks so fresh local allocations cannot manufacture a teaching change.
@@ -282,34 +291,11 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
                 ))
             })
             .collect::<Result<BTreeMap<_, _>, StoreError>>()?;
-        let mut content = if content_changed {
+        let content = if content_changed {
             selected_stored_content(&source, &target, &applied, &copied_assessments)?
         } else {
             target.clone()
         };
-        if content_changed {
-            for module in &mut content.modules {
-                for assessment in &mut module.assessments {
-                    if copied_assessments.contains_key(&assessment.blueprint_assessment_id) {
-                        let mut copied = StoredBlueprintCourseContent {
-                            modules: vec![StoredBlueprintModule {
-                                blueprint_module_id: module.blueprint_module_id,
-                                label: module.label.clone(),
-                                assessments: vec![assessment.clone()],
-                            }],
-                        };
-                        super::blueprint_pools::materialize_imported_pools(
-                            &mut transaction,
-                            &mut copied,
-                            self.pool_id_issuer.as_deref(),
-                            &mut bloom_receipts,
-                        )
-                        .await?;
-                        *assessment = copied.modules.remove(0).assessments.remove(0);
-                    }
-                }
-            }
-        }
         let evidence = BlueprintChangeProposalAcceptedDecision {
             decision: input.decision,
             applied_selection: selection,
@@ -482,7 +468,7 @@ async fn read_accepted_in_transaction(
         accepted_at: Timestamp::from_unix_millis(
             row.try_get("accepted_at_ms").map_err(map_sqlx_error)?,
         ),
-        target_revision_tuple: blueprint_revision_tuple(&row)?,
+        target_revision_tuple: blueprint_course_revision_tuple(&row)?,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -545,13 +531,13 @@ async fn read_sources_in_transaction(
         created_at: Timestamp::from_unix_millis(
             source.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
-        source_revision_tuple: blueprint_revision_tuple(source)?,
+        source_revision_tuple: blueprint_course_revision_tuple(source)?,
         source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             source
                 .try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        target_revision_tuple: blueprint_revision_tuple(target)?,
+        target_revision_tuple: blueprint_course_revision_tuple(target)?,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             target
                 .try_get("blueprint_edit_number")
@@ -563,11 +549,11 @@ async fn read_sources_in_transaction(
     };
     let revisions = [
         StoredBlueprintRevision {
-            blueprint_revision_tuple: proposal.source_revision_tuple.clone(),
+            blueprint_course_revision_tuple: proposal.source_revision_tuple.clone(),
             content: source_content,
         },
         StoredBlueprintRevision {
-            blueprint_revision_tuple: proposal.target_revision_tuple.clone(),
+            blueprint_course_revision_tuple: proposal.target_revision_tuple.clone(),
             content: target_content,
         },
     ];
@@ -593,22 +579,28 @@ fn canonical_content(
     content: &StoredBlueprintCourseContent,
 ) -> Result<CanonicalBlueprintCourse, StoreError> {
     // Existing immutable metadata events are the authority, never today's names.
-    Ok(CanonicalBlueprintCourse::export(
+    let theme: question_model::Theme = row
+        .try_get::<String, _>("theme_id")
+        .map_err(map_sqlx_error)?
+        .parse()
+        .map_err(|_| invalid())?;
+    Ok(CanonicalBlueprintCourse::export_with_theme(
         row.try_get::<String, _>("short_name")
             .map_err(map_sqlx_error)?,
         row.try_get::<String, _>("long_name")
             .map_err(map_sqlx_error)?,
         decode_classification(row)?,
+        theme,
         &content.to_domain()?,
     ))
 }
 
-fn blueprint_revision_tuple(
+fn blueprint_course_revision_tuple(
     row: &sqlx::postgres::PgRow,
-) -> Result<BlueprintRevisionTuple, StoreError> {
+) -> Result<BlueprintCourseRevisionTuple, StoreError> {
     let blueprint_course_id: String = row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
     let revision_number: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
-    Ok(BlueprintRevisionTuple {
+    Ok(BlueprintCourseRevisionTuple {
         blueprint_course_id: blueprint_course_id
             .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
@@ -639,7 +631,7 @@ fn proposal_summary(
         (Some(at), Some(revision_number), Some(edit_number)) => {
             Some(BlueprintChangeProposalAcceptedSummary {
                 accepted_at: Timestamp::from_unix_millis(at),
-                target_revision_tuple: BlueprintRevisionTuple {
+                target_revision_tuple: BlueprintCourseRevisionTuple {
                     blueprint_course_id: target.blueprint_course_id.clone(),
                     revision_number: BlueprintRevisionNumber::new(
                         u64::try_from(revision_number).map_err(|_| invalid())?,
@@ -683,10 +675,10 @@ fn summary_tuple(
     row: &sqlx::postgres::PgRow,
     name: &str,
     number: &str,
-) -> Result<BlueprintRevisionTuple, StoreError> {
+) -> Result<BlueprintCourseRevisionTuple, StoreError> {
     let value: String = row.try_get(name).map_err(map_sqlx_error)?;
     let revision_number: i64 = row.try_get(number).map_err(map_sqlx_error)?;
-    Ok(BlueprintRevisionTuple {
+    Ok(BlueprintCourseRevisionTuple {
         blueprint_course_id: value.parse().map_err(|_| invalid())?,
         revision_number: BlueprintRevisionNumber::new(
             u64::try_from(revision_number).map_err(|_| invalid())?,

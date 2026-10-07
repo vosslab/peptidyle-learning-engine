@@ -37,10 +37,6 @@ ALTER TABLE ple_data.assessment_entry_pool ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.assessment_entry_pool FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE ple_data.assessment_question_pool_fork ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.assessment_question_pool_fork FORCE ROW LEVEL SECURITY;
-
 CREATE POLICY assessment_data_owner_access ON ple_data.assessment
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
@@ -51,9 +47,6 @@ CREATE POLICY assessment_entry_question_data_owner_access ON ple_data.assessment
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY assessment_entry_pool_data_owner_access ON ple_data.assessment_entry_pool
-    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
-
-CREATE POLICY assessment_question_pool_fork_data_owner_access ON ple_data.assessment_question_pool_fork
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY assessment_private_owner_lookup ON ple_data.assessment
@@ -73,9 +66,6 @@ CREATE POLICY assessment_entry_question_private_owner_lookup ON ple_data.assessm
     FOR SELECT TO ple_private_owner USING (true);
 
 CREATE POLICY assessment_entry_pool_private_owner_lookup ON ple_data.assessment_entry_pool
-    FOR SELECT TO ple_private_owner USING (true);
-
-CREATE POLICY assessment_question_pool_fork_private_owner_lookup ON ple_data.assessment_question_pool_fork
     FOR SELECT TO ple_private_owner USING (true);
 
 CREATE POLICY assessment_api_owner_read ON ple_data.assessment
@@ -112,13 +102,5 @@ CREATE POLICY assessment_entry_pool_api_owner_read ON ple_data.assessment_entry_
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
          WHERE assessment.assessment_id = assessment_entry_pool.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
-    ));
-
-CREATE POLICY assessment_question_pool_fork_api_owner_read ON ple_data.assessment_question_pool_fork
-    FOR SELECT TO ple_api_owner
-    USING (EXISTS (
-        SELECT 1 FROM ple_data.assessment
-         WHERE assessment.assessment_id = assessment_question_pool_fork.assessment_id
            AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
     ));

@@ -11,6 +11,7 @@ import {
   sortAssessmentEntriesByBloom,
   withFixedQuestionPointValues,
 } from "../src/pages/assessment_workspace/assessment_workspace_questions_model.ts";
+import { selectedAssessmentEntryContent } from "../src/pages/assessment_workspace/assessment_workspace_selected_entry.ts";
 import { assessmentPolicySaveInput } from "../src/pages/assessment_workspace/assessment_workspace_policy_model.ts";
 import { resolveQuestionIdBatch } from "../src/pages/assessment_workspace/assessment_question_id_batch.ts";
 
@@ -32,7 +33,6 @@ const pool = {
   scoringRule: "normal",
   selectionCount: 1,
   pointsPerItem: "2",
-  selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   questionAttemptLimit: { maxAttempts: 2 },
   questionAttemptTimeLimit: { kind: "limited", seconds: 60, graceSeconds: 5 },
   items: [
@@ -58,7 +58,6 @@ test("Questions editing retains pool identity, item pin, availability, and polic
     publishedQuestionId: "2R5X-E7YA",
     revisionNumber: 3,
   });
-  assert.equal(moved[0].selectionRule.selectedQuestionOrder, "questionPoolOrder");
   assert.equal(moved[0].questionAttemptTimeLimit.seconds, 60);
 });
 
@@ -104,7 +103,6 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
       {
         cognitiveProcess: "Evaluate",
         knowledgeDimension: "Factual Knowledge",
-        classificationEditNumber: "2",
       },
     ],
     [
@@ -112,7 +110,6 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
       {
         cognitiveProcess: "Apply",
         knowledgeDimension: "Conceptual Knowledge",
-        classificationEditNumber: "4",
       },
     ],
     [
@@ -120,7 +117,6 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
       {
         cognitiveProcess: "Remember",
         knowledgeDimension: "Metacognitive Knowledge",
-        classificationEditNumber: "1",
       },
     ],
     [
@@ -128,7 +124,6 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
       {
         cognitiveProcess: "Apply",
         knowledgeDimension: "Conceptual Knowledge",
-        classificationEditNumber: "9",
       },
     ],
   ]);
@@ -148,7 +143,46 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
   assert.equal(sortAssessmentEntriesByBloom(sorted, bloomByEntryId), sorted);
   const partiallyClassified = new Map(bloomByEntryId);
   partiallyClassified.delete(tiedPool.id);
-  assert.equal(sortAssessmentEntriesByBloom(entries, partiallyClassified), undefined);
+  assert.deepEqual(
+    sortAssessmentEntriesByBloom(entries, partiallyClassified).map((entry) => entry.id),
+    [firstFixed.id, tiedFixed.id, laterFixed.id, tiedPool.id],
+  );
+  const incomplete = new Map(bloomByEntryId);
+  incomplete.set(tiedPool.id, {
+    cognitiveProcess: "Apply",
+    knowledgeDimension: null,
+  });
+  assert.deepEqual(
+    sortAssessmentEntriesByBloom(entries, incomplete).map((entry) => entry.id),
+    [firstFixed.id, tiedFixed.id, laterFixed.id, tiedPool.id],
+  );
+});
+
+test("Assessment Entry display labels each absent Bloom dimension", () => {
+  const content = selectedAssessmentEntryContent({
+    entry: fixed,
+    entryNumber: 1,
+    questionTitle: () => "Amino acid charge",
+    poolTitle: () => "Protein questions",
+    description: () => "Use the supplied pH.",
+    bloom: { cognitiveProcess: "Apply", knowledgeDimension: null },
+    removeDisabled: false,
+    remove: () => undefined,
+  });
+  assert.ok(
+    content.details.some(
+      (fact) =>
+        fact.kind === "text" && fact.label === "Bloom Cognitive Process" && fact.value === "Apply",
+    ),
+  );
+  assert.ok(
+    content.details.some(
+      (fact) =>
+        fact.kind === "text" &&
+        fact.label === "Bloom Knowledge Dimension" &&
+        fact.value === "Not assigned",
+    ),
+  );
 });
 
 test("Questions removal changes only the chosen stable Entry", () => {
@@ -183,6 +217,7 @@ test("Policy save retains normalized Entries and the current availability and cl
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
+      partialCreditEnabled: true,
       questionVariationRule: "newVariation",
       assessmentQuestionOrderRule: "authoredOrder",
     },

@@ -46,7 +46,7 @@ BEGIN
     -- ASVS 8.2.1-8.2.2, 8.3.1, 15.4.2: current owner and ordinary CAS under the same row lock.
     SELECT * INTO draft FROM ple_private.draft_question AS question
      WHERE question.draft_question_id = p_draft_question_uuid
-       AND ple_api.current_session_account_is_instructor()
+       AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin())
        AND ple_private.current_session_is_authoring_workspace_owner(question.authoring_workspace_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -78,7 +78,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
       JOIN ple_private.draft_question_image AS image USING (draft_question_id, authoring_workspace_id)
       JOIN ple_private.object_record AS record ON record.object_record_id = image.source_object_record_id
      WHERE draft.draft_question_id = p_draft_question_uuid AND image.question_image_asset_id = p_question_image_asset_id
-       AND ple_api.current_session_account_is_instructor()
+       AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin())
        AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)
 $$;
 
@@ -99,4 +99,3 @@ RETURNS TABLE(object_record_id uuid, object_address jsonb, sha256 bytea, size_by
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
     SELECT * FROM ple_private.load_draft_question_image(p_draft_question_uuid,p_question_image_asset_id)
 $$;
-

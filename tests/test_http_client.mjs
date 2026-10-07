@@ -5,7 +5,6 @@ import test from "node:test";
 
 import { MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS } from "../generated/api/MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS.ts";
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
@@ -14,6 +13,45 @@ import {
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import { createRecordingFetch, jsonResponse } from "./http_client_test_support.mjs";
+
+const courseInstanceId = "CI000001AE";
+const assessmentId = "A000001AT";
+const attemptId = "0198e000-0000-7000-8000-000000000030";
+
+function questionSummary() {
+  return {
+    questionId: "7K3M-79QP",
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
+    parentPublishedQuestionRevisionTuple: null,
+    backend: "ple",
+    questionFormat: "pleQuestionJson",
+    questionType: "multipleChoice",
+    capabilities: ["clientRendering", "serverGrading"],
+    metadata: {
+      questionTitle: "Peptide bond resonance",
+      questionDescription: "Identify the bond with partial double-bond character.",
+      tags: [],
+      questionLicense: null,
+      questionCitation: null,
+      language: null,
+    },
+    authorship: { authors: [{ displayName: "Test Author", accountId: null }] },
+    availability: { availability: "available" },
+    publishedAt: 1_786_000_000_000,
+    bloom: null,
+  };
+}
+
+function questionAttemptView() {
+  return {
+    id: attemptId,
+    issuedQuestion: "0198e000-0000-7000-8000-000000000040",
+    finalizedResponse: null,
+    state: "open",
+    timing: { issuedAt: 1_786_000_001_100, deadline: null, finalizedAt: null },
+    issuedCapability: "notApplicable",
+  };
+}
 
 test("Question image URLs require and retain the exact Question Revision identity", () => {
   const client = createHttpApiClient({ basePath: "/live" });
@@ -57,10 +95,7 @@ test("an issued iMathAS Question Backend Question Presentation accepts only its 
 });
 
 test("Question Library pages remain bounded and do not disclose an Answer Key", () => {
-  const question = {
-    ...publishedQuestionFixture.publishedQuestion,
-    questionFormat: "pleQuestionJson",
-  };
+  const question = questionSummary();
   const page = { items: [question], nextCursor: null };
   assert.deepEqual(decodeQuestionPage(page), page);
   assert.throws(() => decodeQuestionPage({ ...page, answerKey: "secret" }), DecodeError);
@@ -71,10 +106,7 @@ test("Question Library pages remain bounded and do not disclose an Answer Key", 
 });
 
 test("Question Title and Question Description remain bounded at the strict Question Library boundary", () => {
-  const summary = {
-    ...publishedQuestionFixture.publishedQuestion,
-    questionFormat: "pleQuestionJson",
-  };
+  const summary = questionSummary();
   const pageWithMetadata = (metadata) => ({
     items: [
       {
@@ -107,13 +139,7 @@ test("Question Title and Question Description remain bounded at the strict Quest
 });
 
 test("Student Question Attempt decoding accepts every generated issued capability and rejects retired values", () => {
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const {
-    questionPoolSelectionPosition: _position,
-    reproduction: _reproduction,
-    ...attemptView
-  } = attempt;
+  const attemptView = questionAttemptView();
   for (const issuedCapability of [
     "questionPresentation",
     "pleQuestionJsonPresentation",
@@ -139,13 +165,7 @@ test("Student Question Attempt decoding accepts every generated issued capabilit
 // return through a Student attempt view. A failure means keep this wire
 // contract closed rather than add a legacy-field compatibility path.
 test("Student Question Attempt decoding rejects legacy reproduction fields", () => {
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const {
-    questionPoolSelectionPosition: _position,
-    reproduction: _reproduction,
-    ...attemptView
-  } = attempt;
+  const attemptView = questionAttemptView();
   for (const field of ["reproduction", "question_seed", "generated_parameter_sha256"]) {
     assert.throws(
       () => decodeStudentQuestionAttemptView({ ...attemptView, [field]: "server-only" }),
@@ -156,18 +176,14 @@ test("Student Question Attempt decoding rejects legacy reproduction fields", () 
 });
 
 test("iMathAS Question Backend launch returns its strict same-origin Assessment route", async () => {
-  const course = publishedQuestionFixture.course;
-  const assessment = publishedQuestionFixture.assessment;
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const launchUrl = `/api/course-instances/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
+  const launchUrl = `/api/course-instances/${courseInstanceId}/assessments/${assessmentId}/attempts/${attemptId}/imathas-question-backend/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ launchUrl }),
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
   assert.deepEqual(
-    await client.beginImathasQuestionBackendLaunch(course.id, assessment.id, attempt.id),
+    await client.beginImathasQuestionBackendLaunch(courseInstanceId, assessmentId, attemptId),
     {
       launchUrl,
     },
@@ -178,18 +194,14 @@ test("iMathAS Question Backend launch returns its strict same-origin Assessment 
 });
 
 test("iMathAS Question Backend launch rejects noncanonical Assessment routes", async () => {
-  const course = publishedQuestionFixture.course;
-  const assessment = publishedQuestionFixture.assessment;
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const expected = `/api/course-instances/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
+  const expected = `/api/course-instances/${courseInstanceId}/assessments/${assessmentId}/attempts/${attemptId}/imathas-question-backend/launch`;
   const routes = [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
     `//foreign.example${expected}`,
-    expected.replace(course.id, "other-course"),
-    expected.replace(assessment.id, "other-assessment"),
-    expected.replace(attempt.id, "other-attempt"),
+    expected.replace(courseInstanceId, "other-course"),
+    expected.replace(assessmentId, "other-assessment"),
+    expected.replace(attemptId, "other-attempt"),
     "/api/health",
     `${expected}?token=secret`,
     `${expected}#fragment`,
@@ -199,7 +211,7 @@ test("iMathAS Question Backend launch rejects noncanonical Assessment routes", a
       fetch: async () => jsonResponse({ launchUrl }),
     });
     await assert.rejects(
-      client.beginImathasQuestionBackendLaunch(course.id, assessment.id, attempt.id),
+      client.beginImathasQuestionBackendLaunch(courseInstanceId, assessmentId, attemptId),
       DecodeError,
       launchUrl,
     );

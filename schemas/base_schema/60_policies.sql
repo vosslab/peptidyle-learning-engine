@@ -8,7 +8,6 @@
 \ir 60_policies/question_pools.sql
 \ir 60_policies/question_stewardship.sql
 \ir 60_policies/question_pool_stewardship.sql
-\ir 60_policies/library_discussions.sql
 \ir 60_policies/question_watch_notifications.sql
 \ir 60_policies/object_records.sql
 \ir 60_policies/question_authoring_state.sql
@@ -26,7 +25,6 @@
 \ir 60_policies/course_media.sql
 \ir 60_policies/profile_media.sql
 \ir 60_policies/assessments.sql
-\ir 60_policies/question_bloom.sql
 \ir 60_policies/assessment_templates.sql
 \ir 60_policies/course_blueprint_publication.sql
 \ir 60_policies/assessment_attempts.sql

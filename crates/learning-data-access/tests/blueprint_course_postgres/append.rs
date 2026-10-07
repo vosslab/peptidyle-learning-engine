@@ -2,16 +2,6 @@
 
 use super::*;
 
-struct AppendPoolIds(AtomicUsize);
-
-impl CourseInstancePoolIdIssuer for AppendPoolIds {
-    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError> {
-        let index = self.0.fetch_add(1, Ordering::SeqCst);
-        QuestionPoolId::from_random_identifier(format!("AP{index:05}"))
-            .map_err(|_| StoreError::InvalidRecord("append fixture Pool ID".into()))
-    }
-}
-
 pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     // Regression: adding a reusable Assessment must not overwrite customized
     // live Assessments or move a daughter's original adoption pin. Repair the
@@ -19,21 +9,17 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let mut inspection = adoption_inspection_connection().await;
     let url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&url).expect("append application pool");
-    let ids = Arc::new(AppendPoolIds(AtomicUsize::new(0)));
-    let courses = PostgresCourseInstanceStore::new(application.clone())
-        .with_question_pool_id_issuer(ids.clone());
-    let store =
-        PostgresBlueprintCourseStore::new(application.clone()).with_question_pool_id_issuer(ids);
+    let courses = PostgresCourseInstanceStore::new(application.clone());
+    let store = PostgresBlueprintCourseStore::new(application.clone());
     let created = store
         .create_blueprint_course(
             token(),
             question_model::RequestChecksum::from_bytes([0x61; 32]),
             content_input("Revision one Assessment"),
-            Default::default(),
         )
         .await
         .expect("owner creates append fixture Blueprint through the application Store");
-    let blueprint = created.blueprint_revision_tuple.blueprint_course_id;
+    let blueprint = created.blueprint_course_revision_tuple.blueprint_course_id;
     let blueprint_number = blueprint_course_id_text(&blueprint).await;
     let private = store
         .load_blueprint_course(token(), blueprint.clone())
@@ -68,10 +54,11 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                         CourseInstanceCreationSource::Empty
                     } else {
                         CourseInstanceCreationSource::Adopted {
-                            blueprint_revision_tuple: question_model::BlueprintRevisionTuple {
-                                blueprint_course_id: blueprint.clone(),
-                                revision_number: BlueprintRevisionNumber::INITIAL,
-                            },
+                            blueprint_course_revision_tuple:
+                                question_model::BlueprintCourseRevisionTuple {
+                                    blueprint_course_id: blueprint.clone(),
+                                    revision_number: BlueprintRevisionNumber::INITIAL,
+                                },
                         }
                     },
                     short_name: format!("APPEND-{index}"),
@@ -79,7 +66,6 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                     term: term.clone(),
                     assigned_instructor_account_id: None,
                 },
-                Default::default(),
             )
             .await
             .expect("create append fixture Course");
@@ -192,13 +178,12 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             BlueprintRevisionNumber::INITIAL,
             checksum,
             input.clone(),
-            Default::default(),
         )
         .await
         .expect("normal Store Save appends new Assessment");
     assert!(receipt.changed);
     assert_eq!(
-        receipt.blueprint_revision_tuple.revision_number,
+        receipt.blueprint_course_revision_tuple.revision_number,
         BlueprintRevisionNumber::new(2).expect("Revision two")
     );
     for (course, independent) in [
@@ -227,7 +212,6 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             BlueprintRevisionNumber::INITIAL,
             checksum,
             input.clone(),
-            Default::default(),
         )
         .await
         .expect("changed Save replay");
@@ -239,15 +223,14 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                 blueprint.clone(),
                 BlueprintRevisionNumber::INITIAL,
                 question_model::RequestChecksum::from_bytes([0x63; 32]),
-                input,
-                Default::default(),
+                input
             )
             .await
             .is_err(),
         "stale Save rejected"
     );
     let head = store
-        .load_blueprint_revision(token(), receipt.blueprint_revision_tuple.clone())
+        .load_blueprint_revision(token(), receipt.blueprint_course_revision_tuple.clone())
         .await
         .expect("sealed new Revision");
     let no_op_input = ReplaceBlueprintCourseContentInput {
@@ -280,10 +263,9 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .save_blueprint_course(
             token(),
             blueprint,
-            receipt.blueprint_revision_tuple.revision_number,
+            receipt.blueprint_course_revision_tuple.revision_number,
             question_model::RequestChecksum::from_bytes([0x64; 32]),
             no_op_input,
-            Default::default(),
         )
         .await
         .expect("no-op Save");

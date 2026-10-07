@@ -168,7 +168,7 @@ Questions ribbon opens that personal collection.
 ### Watched
 
 Watched opens the current Instructor's private Watch activity inbox. It shows
-new Revisions, public forks, improvement-thread activity, and impact notices
+new Revisions, public Question and Pool forks, and Pool Edit Number changes
 for watched Published Questions and Question Pools.
 
 ### Overview

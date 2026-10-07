@@ -15,6 +15,7 @@ import {
 } from "../decoder";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import { decodeCourseClassification } from "./course_classification";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
 import {
   assessmentType,
@@ -22,8 +23,7 @@ import {
   defaults,
   pointValue,
   questionId,
-  blueprintRevisionTuple,
-  selectionRule,
+  blueprintCourseRevisionTuple,
   text,
 } from "./blueprint_course";
 
@@ -82,11 +82,9 @@ function canonicalAssessment(value: unknown, path: string): void {
           : [
               "kind",
               "question_pool_id",
-              "question_pool_edit_number",
               "selection_count",
               "points_per_item",
               "scoring_rule",
-              "selection_rule",
               "question_attempt_limit",
               "question_attempt_time_limit",
             ],
@@ -104,15 +102,10 @@ function canonicalAssessment(value: unknown, path: string): void {
       } else {
         questionId(field(entry, "question_pool_id", entryPath), `${entryPath}.question_pool_id`);
         decodePositiveInteger(
-          field(entry, "question_pool_edit_number", entryPath),
-          `${entryPath}.question_pool_edit_number`,
-        );
-        decodePositiveInteger(
           field(entry, "selection_count", entryPath),
           `${entryPath}.selection_count`,
         );
         pointValue(field(entry, "points_per_item", entryPath), `${entryPath}.points_per_item`);
-        selectionRule(field(entry, "selection_rule", entryPath), `${entryPath}.selection_rule`);
       }
       decodeStringEnum(field(entry, "scoring_rule", entryPath), `${entryPath}.scoring_rule`, [
         "normal",
@@ -145,12 +138,17 @@ export function decodeCanonicalBlueprintCourse(
   requireOnlyFields(record, path, ["metadata", "modules"]);
   const metadataPath = `${path}.metadata`;
   const metadata = decodeRecord(field(record, "metadata", path), metadataPath);
-  requireOnlyFields(metadata, metadataPath, ["short_name", "long_name", "classification"]);
+  requireOnlyFields(metadata, metadataPath, ["short_name", "long_name", "classification", "theme"]);
   text(field(metadata, "short_name", metadataPath), `${metadataPath}.short_name`);
   text(field(metadata, "long_name", metadataPath), `${metadataPath}.long_name`);
   const classification = decodeCourseClassification(
     field(metadata, "classification", metadataPath),
     `${metadataPath}.classification`,
+  );
+  const theme = decodeStringEnum(
+    field(metadata, "theme", metadataPath),
+    `${metadataPath}.theme`,
+    THEME_VALUES,
   );
   const modules = decodeBoundedArray(
     field(record, "modules", path),
@@ -177,6 +175,7 @@ export function decodeCanonicalBlueprintCourse(
       short_name: text(field(metadata, "short_name", metadataPath), `${metadataPath}.short_name`),
       long_name: text(field(metadata, "long_name", metadataPath), `${metadataPath}.long_name`),
       classification,
+      theme,
     },
     modules,
   };
@@ -202,7 +201,10 @@ function side(input: unknown, path: string): BlueprintComparisonSide {
     "modules",
     "assessments",
   ]);
-  blueprintRevisionTuple(field(row, "currentRevisionTuple", path), `${path}.currentRevisionTuple`);
+  blueprintCourseRevisionTuple(
+    field(row, "currentRevisionTuple", path),
+    `${path}.currentRevisionTuple`,
+  );
   const namesPath = `${path}.names`;
   const names = decodeRecord(field(row, "names", path), namesPath);
   requireOnlyFields(names, namesPath, ["shortName", "longName"]);

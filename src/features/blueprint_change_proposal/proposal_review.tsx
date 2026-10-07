@@ -8,7 +8,6 @@ import type { RecognitionTitleMaps } from "../../api/recognition_titles";
 import {
   canonicalCourseRecognitionIds,
   comparisonRecognitionIds,
-  labeledPoolRecognition,
   labeledQuestionRecognition,
   mergeRecognitionIdSets,
   recognizedIdList,
@@ -177,12 +176,13 @@ export function ProposalReview(props: {
                 <h4>{value().names.longName}</h4>
                 <p>
                   Short name: {value().names.shortName}. Blueprint{" "}
-                  {value().blueprintRevisionTuple.blueprintCourseId}; frozen Revision{" "}
-                  {value().blueprintRevisionTuple.revisionNumber}; edit{" "}
+                  {value().blueprintCourseRevisionTuple.blueprintCourseId}; frozen Revision{" "}
+                  {value().blueprintCourseRevisionTuple.revisionNumber}; edit{" "}
                   {value().blueprintEditNumber}.
                 </p>
                 <p>Exact classification identities below use current vocabulary labels.</p>
                 <CourseClassificationSummary value={value().classification} />
+                <p>Blueprint Theme: {value().theme}.</p>
                 <For each={[...value().modules].sort((a, b) => a.position - b.position)}>
                   {(module) => (
                     <section>
@@ -519,6 +519,7 @@ function AcceptedResult(props: {
         {props.value.resultingJson.metadata.short_name}.
       </p>
       <CourseClassificationSummary value={props.value.resultingJson.metadata.classification} />
+      <p>Blueprint Theme: {props.value.resultingJson.metadata.theme}.</p>
       <h4>Exact applied copies and destinations</h4>
       <For
         each={props.value.appliedSelection.sourceModuleLabels}
@@ -603,11 +604,11 @@ function AcceptedResult(props: {
                                 entry.published_question_revision_tuple.publishedQuestionId,
                                 entry.published_question_revision_tuple.revisionNumber,
                               )
-                            : labeledPoolRecognition(
-                                props.titles.pools.get(entry.question_pool_id),
-                                entry.question_pool_id,
-                                entry.question_pool_edit_number,
-                              );
+                            : {
+                                title:
+                                  props.titles.pools.get(entry.question_pool_id) ?? "Question Pool",
+                                identifier: `Question Pool ID ${entry.question_pool_id}`,
+                              };
                         const rest =
                           entry.kind === "fixed"
                             ? `${entry.points_possible} points`

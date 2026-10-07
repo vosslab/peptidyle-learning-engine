@@ -91,6 +91,7 @@ pub(super) fn detail(
                 proposal.source_blueprint_edit_number,
                 source_names,
                 source_metadata.classification().clone(),
+                source_metadata.theme(),
             ),
             target: side(
                 comparison.right,
@@ -98,6 +99,7 @@ pub(super) fn detail(
                 proposal.target_blueprint_edit_number,
                 target_names,
                 target_metadata.classification().clone(),
+                target_metadata.theme(),
             ),
             assessment_relationships: comparison
                 .relationships
@@ -118,23 +120,25 @@ pub(super) fn detail(
 
 fn side(
     inventory: BlueprintComparisonInventory,
-    blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
+    blueprint_course_revision_tuple: question_model::BlueprintCourseRevisionTuple,
     blueprint_edit_number: question_model::BlueprintEditNumber,
     names: BlueprintComparisonNames,
     classification: question_model::CourseClassification,
+    theme: question_model::Theme,
 ) -> BlueprintChangeProposalSideView {
     let projected = super::fork_review::comparison_side(
         inventory,
-        blueprint_revision_tuple.clone(),
+        blueprint_course_revision_tuple.clone(),
         names.short_name,
         names.long_name,
         blueprint_edit_number,
     );
     BlueprintChangeProposalSideView {
-        blueprint_revision_tuple,
+        blueprint_course_revision_tuple,
         blueprint_edit_number,
         names: projected.names,
         classification,
+        theme,
         modules: projected.modules,
         assessments: projected.assessments,
     }

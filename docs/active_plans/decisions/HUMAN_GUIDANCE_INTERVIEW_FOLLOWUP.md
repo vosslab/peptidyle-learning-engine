@@ -903,3 +903,24 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
   supersedes the proposed deadline. Initial AI classification remains deferred under existing HG.
 - Firmness: no time-limit enforcement is explicit. Missing Bloom is not a publication failure;
   missing Question Type or another required field is. Existing Instructor Bloom corrections remain.
+
+### October 7 clarifications superseding earlier open wording
+
+- Initial release accepts CC0, CC BY, and CC BY-SA Questions. NC and ND Questions are not allowed;
+  reconsider both after initial release. Earlier entries describing current NC support or future ND
+  fork rules are superseded and do not define release behavior.
+- PLE accepts Native JSON directly from qti-package-maker-rs, with no intermediate Question format.
+  The Native JSON specification owns the existing unversioned format; metadata remains separate.
+  Imported image assets use existing PLE image storage and accompany text-only JSON rather than a
+  ZIP package. The converter supplies Native JSON and referenced files using content-relative paths;
+  PLE resolves them and owns Question Image Asset IDs, checksums, and storage. This sets the product
+  boundary; converter integration remains implementation work.
+- Native JSON display-content strings use HTML with inline CSS, including prompts, displayed choices,
+  and similar content. Ordinary HTML image references resolve through existing Question image asset
+  tuples and storage. This does not authorize unrestricted JavaScript; existing author-script
+  isolation and RDKit rules continue. The amount of sanitization remains deferred.
+- Use "expired Draft cleanup" in current guidance. Preserve the existing warning and recovery
+  period requirement. Automated cleanup remains deferred, and no expiration period or duration is
+  set; this wording creates no new expiry policy.
+- Pool statistics accumulate from Questions delivered through that Pool. Changing its set of
+  Question Revision Tuples leaves the Pool's prior statistics in place.

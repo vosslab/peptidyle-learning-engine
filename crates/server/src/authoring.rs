@@ -9,19 +9,18 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use adapter_webwork::renderer_contract::RendererFailure;
+use adapter_webwork::{HttpWebworkRenderer, WebworkAdapter, WebworkAdapterError};
 use axum::{
     Json, Router,
     body::Bytes,
     extract::{DefaultBodyLimit, Path, State},
-    http::{
-        HeaderMap, HeaderValue, StatusCode,
-        header::{CONTENT_TYPE, ETAG},
-    },
+    http::{HeaderMap, StatusCode, header::ETAG},
     response::{IntoResponse, Response},
     routing::{delete, get, post},
 };
 use learning_data_access::{
-    AuthoringDraftStore, CreateAuthoringDraftInput, DeleteAuthoringDraftInput, DraftQuestionUuid,
+    AuthoringDraft, AuthoringDraftStore, DeleteAuthoringDraftInput,
     SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput, StoreError,
     postgres::{
         PostgresAuthoringDraftStore, PostgresDraftQuestionImageStore,
@@ -30,13 +29,18 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    PublishedQuestionRevisionTuple, QuestionFormat, QuestionRevisionReason, Timestamp,
+    PublishedQuestionRevisionTuple, QuestionAuthorDisplayName, QuestionBackend, QuestionMetadata,
+    QuestionRevisionReason, QuestionType, Timestamp, generation::QuestionSeed,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    authoring_source::{load_verified_source, put_workspace_source, validated_source},
+    authoring_source::{
+        PublicationSourceBinding, PublicationSourceValidationError, inspect_source,
+        load_verified_source, matches_source_content_type, publication_source_binding,
+        put_workspace_source, source_response_headers, validated_native_publication_source,
+    },
     question_publication::{
         DraftQuestionImageContext, ExistingQuestionRevisionPublicationCommand,
         ExistingQuestionRevisionPublisher, NewQuestionLineagePublicationCommand,
@@ -44,13 +48,14 @@ use crate::{
     },
 };
 
+mod create;
 mod http;
+pub(crate) use http::{
+    authoring_session_hash, expected_edit_number, parse_draft_question_uuid, private_store_error,
+};
 use http::{
     edit_number_response, etag, existing_parent_published_question_revision_tuple,
-    is_ple_question_json_request, publication_error, question_authorship,
-};
-pub(crate) use http::{
-    expected_edit_number, instructor_session_hash, parse_draft_question_uuid, private_store_error,
+    publication_error, question_authorship,
 };
 
 pub(crate) const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
@@ -63,6 +68,7 @@ pub(crate) struct AuthoringRouteState {
     pub(crate) draft_question_images: Arc<PostgresDraftQuestionImageStore>,
     publication: PostgresDraftQuestionSourceBindingStore,
     pub(crate) objects: S3ObjectStore,
+    webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     question_id_issuer: RandomQuestionIdIssuer,
 }
 
@@ -73,10 +79,14 @@ pub fn authoring_router(
     draft_question_images: PostgresDraftQuestionImageStore,
     publication: PostgresDraftQuestionSourceBindingStore,
     objects: S3ObjectStore,
+    webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     question_id_issuer: RandomQuestionIdIssuer,
 ) -> Router {
     Router::new()
-        .route("/api/authoring/drafts", get(list_drafts).post(create_draft))
+        .route(
+            "/api/authoring/drafts",
+            get(list_drafts).merge(create::route()),
+        )
         .route(
             "/api/authoring/drafts/{draft_question_id}",
             delete(delete_draft),
@@ -113,6 +123,7 @@ pub fn authoring_router(
             draft_question_images: Arc::new(draft_question_images),
             publication,
             objects,
+            webwork,
             question_id_issuer,
         })
 }
@@ -124,6 +135,8 @@ struct DraftSummaryResponse {
     draft_question_edit_number: String,
     question_title: String,
     question_description: String,
+    parent_published_question_revision_tuple:
+        Option<question_model::PublishedQuestionRevisionTuple>,
 }
 
 #[derive(Debug, Serialize)]
@@ -141,9 +154,12 @@ struct CreatedDraftResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DraftGeneralFeedbackResponse {
+    metadata: QuestionMetadata,
+    question_type: Option<QuestionType>,
     general_feedback: Option<String>,
     hint: Option<String>,
     worked_solution: Option<String>,
+    authors: Vec<QuestionAuthorDisplayName>,
 }
 
 /// A missing key stays `None`. A present JSON null becomes `Some(None)` so a
@@ -158,11 +174,30 @@ where
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DraftGeneralFeedbackRequest {
+    metadata: QuestionMetadata,
+    #[serde(default, deserialize_with = "present_optional_question_type")]
+    question_type: Option<Option<QuestionType>>,
     general_feedback: Option<String>,
     #[serde(default, deserialize_with = "present_optional_text")]
     hint: Option<Option<String>>,
     #[serde(default, deserialize_with = "present_optional_text")]
     worked_solution: Option<Option<String>>,
+}
+
+fn present_optional_question_type<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<QuestionType>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Some(Option::<QuestionType>::deserialize(deserializer)?))
+}
+
+fn allows_question_type_write(
+    question_backend: QuestionBackend,
+    requested_question_type: Option<Option<QuestionType>>,
+) -> bool {
+    requested_question_type.is_none() || question_backend == QuestionBackend::Webwork
 }
 
 /// Omitted Hint and Worked Solution leave the stored texts unchanged.
@@ -214,7 +249,7 @@ struct PublishedRevisionDraftResponse {
 }
 
 async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMap) -> Response {
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -229,87 +264,14 @@ async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMa
                             .edit_number
                             .as_postgres_bigint()
                             .to_string(),
-                        question_title: draft.title,
-                        question_description: draft.description,
+                        question_title: draft.metadata.question_title,
+                        question_description: draft.metadata.question_description,
+                        parent_published_question_revision_tuple: draft
+                            .parent_published_question_revision_tuple,
                     })
                     .collect(),
             })
             .into_response(),
-        ),
-        Err(error) => private_store_error(error),
-    }
-}
-
-async fn create_draft(
-    State(state): State<AuthoringRouteState>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    if !is_ple_question_json_request(&headers) {
-        return private_error(
-            StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            "Draft Question source media type is required",
-        );
-    }
-    let session_hash = match instructor_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    let source = match validated_source(&body) {
-        Ok(source) => source,
-        Err(response) => return *response,
-    };
-    if source.hotspot_surface.is_some() {
-        return private_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Create a Draft Question before uploading its HOTSPOT image",
-        );
-    }
-    let workspace = match state
-        .drafts
-        .ensure_own_authoring_workspace(session_hash, Uuid::now_v7())
-        .await
-    {
-        Ok(workspace) => workspace,
-        Err(error) => return private_store_error(error),
-    };
-    let source_record =
-        match put_workspace_source(&state.objects, workspace, source.bytes.clone()).await {
-            Ok(record) => record,
-            Err(()) => {
-                return private_error(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "Authoring storage is unavailable",
-                );
-            }
-        };
-    let created = state
-        .drafts
-        .create_authoring_draft(
-            session_hash,
-            workspace,
-            CreateAuthoringDraftInput {
-                draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
-                source_record,
-                question_format: QuestionFormat::PleQuestionJson,
-                webwork_pg_path: None,
-                question_type: source.question_type,
-                title: source.title,
-                description: source.description,
-                language: source.language,
-            },
-        )
-        .await;
-    match created {
-        Ok(draft) => crate::auth::no_store(
-            (
-                StatusCode::CREATED,
-                Json(CreatedDraftResponse {
-                    draft_question_id: draft.draft_question_uuid.as_uuid(),
-                    draft_question_edit_number: draft.edit_number.as_postgres_bigint().to_string(),
-                }),
-            )
-                .into_response(),
         ),
         Err(error) => private_store_error(error),
     }
@@ -328,7 +290,7 @@ async fn delete_draft(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -361,7 +323,7 @@ async fn load_source(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -383,10 +345,16 @@ async fn load_source(
         }
     };
     let mut response = crate::auth::no_store(source.into_response());
-    response.headers_mut().insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static(PLE_QUESTION_JSON_MEDIA_TYPE),
-    );
+    let source_headers = match source_response_headers(&draft) {
+        Ok(headers) => headers,
+        Err(()) => {
+            return private_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authoring draft is unavailable",
+            );
+        }
+    };
+    response.headers_mut().extend(source_headers);
     match etag(draft.edit_number) {
         Ok(value) => response.headers_mut().insert(ETAG, value),
         Err(()) => {
@@ -405,12 +373,6 @@ async fn save_source(
     Path(draft_question_id): Path<String>,
     body: Bytes,
 ) -> Response {
-    if !is_ple_question_json_request(&headers) {
-        return private_error(
-            StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            "Draft Question source media type is required",
-        );
-    }
     let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -419,12 +381,8 @@ async fn save_source(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
-        Err(response) => return *response,
-    };
-    let source = match validated_source(&body) {
-        Ok(source) => source,
         Err(response) => return *response,
     };
     let current = match state
@@ -441,19 +399,23 @@ async fn save_source(
             "Draft Question changed before this save",
         );
     }
-    if let Some(surface) = &source.hotspot_surface
-        && let Err(error) = crate::draft_question_images::require_surface(
-            state.draft_question_images.as_ref(),
-            session_hash,
-            draft_question_uuid,
-            surface,
-        )
-        .await
-    {
-        return private_store_error(error);
+    let Some(media_type) = current.source_media_type() else {
+        return private_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Authoring draft is unavailable",
+        );
+    };
+    if !matches_source_content_type(&headers, media_type) {
+        return private_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "Draft Question source media type does not match its registered binding",
+        );
     }
+    let question_type = inspect_source(&body, current.question_backend);
     let source_record =
-        match put_workspace_source(&state.objects, current.workspace, source.bytes.clone()).await {
+        match put_workspace_source(&state.objects, current.workspace, body.to_vec(), media_type)
+            .await
+        {
             Ok(record) => record,
             Err(()) => {
                 return private_error(
@@ -462,6 +424,11 @@ async fn save_source(
                 );
             }
         };
+    let question_type = match current.question_backend {
+        QuestionBackend::Ple => question_type,
+        QuestionBackend::Webwork => current.question_type,
+        QuestionBackend::Imathas => None,
+    };
     match state
         .drafts
         .save_authoring_draft(
@@ -470,11 +437,7 @@ async fn save_source(
                 draft_question_uuid,
                 expected_edit_number,
                 source_record,
-                question_type: source.question_type,
-                title: source.title,
-                description: source.description,
-                language: source.language,
-                hotspot_surface: source.hotspot_surface,
+                question_type,
             },
         )
         .await
@@ -500,7 +463,7 @@ async fn load_general_feedback(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -513,9 +476,12 @@ async fn load_general_feedback(
             Ok(etag) => {
                 let mut response = crate::auth::no_store(
                     Json(DraftGeneralFeedbackResponse {
+                        metadata: draft.metadata,
+                        question_type: draft.question_type,
                         general_feedback: draft.general_feedback,
                         hint: draft.hint,
                         worked_solution: draft.worked_solution,
+                        authors: draft.authors,
                     })
                     .into_response(),
                 );
@@ -545,10 +511,32 @@ async fn save_general_feedback(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
+    if request.question_type.is_some() {
+        let draft = match state
+            .drafts
+            .load_authoring_draft(session_hash, draft_question_uuid)
+            .await
+        {
+            Ok(draft) => draft,
+            Err(error) => return private_store_error(error),
+        };
+        if draft.edit_number != expected_edit_number {
+            return private_error(
+                StatusCode::PRECONDITION_FAILED,
+                "Draft Question changed before this save",
+            );
+        }
+        if !allows_question_type_write(draft.question_backend, request.question_type) {
+            return private_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Question Type is source-derived for Native Drafts",
+            );
+        }
+    }
     // ASVS 2.2.1: general feedback alone must not clear Hint or Worked Solution.
     // ASVS 8.2.3: these texts are authored fields, not backend source.
     let (hint, worked_solution, replace_support) =
@@ -563,16 +551,18 @@ async fn save_general_feedback(
         };
     match state
         .drafts
-        .save_authoring_draft_general_feedback(
+        .save_authoring_draft_general_feedback_with_question_type(
             session_hash,
             SaveAuthoringDraftGeneralFeedbackInput {
                 draft_question_uuid,
                 expected_edit_number,
+                metadata: request.metadata,
                 general_feedback: request.general_feedback,
                 hint,
                 worked_solution,
                 replace_support,
             },
+            request.question_type,
         )
         .await
     {
@@ -582,6 +572,67 @@ async fn save_general_feedback(
             "Draft Question changed before this save",
         ),
         Err(error) => private_store_error(error),
+    }
+}
+
+async fn validate_publication_source(
+    state: &AuthoringRouteState,
+    draft: &AuthoringDraft,
+    bytes: &[u8],
+) -> Result<(), PublicationSourceValidationError> {
+    match publication_source_binding(draft)? {
+        PublicationSourceBinding::Native => {
+            validated_native_publication_source(draft, bytes)?;
+            Ok(())
+        }
+        PublicationSourceBinding::Webwork { pg_path, .. } => {
+            std::str::from_utf8(bytes)
+                .map_err(|_| PublicationSourceValidationError::InvalidSource)?;
+            state
+                .webwork
+                .preview_draft_document(QuestionSeed::new(0), bytes, pg_path)
+                .await
+                .map(|_| ())
+                .map_err(|error| match error {
+                    WebworkAdapterError::UnsupportedSource | WebworkAdapterError::InvalidPgPath => {
+                        PublicationSourceValidationError::InvalidBinding
+                    }
+                    WebworkAdapterError::Renderer(RendererFailure::InvalidOutput(_)) => {
+                        PublicationSourceValidationError::InvalidSource
+                    }
+                    WebworkAdapterError::SourceChecksumMismatch
+                    | WebworkAdapterError::UntrustedSource
+                    | WebworkAdapterError::ObjectStore(_)
+                    | WebworkAdapterError::Renderer(_) => {
+                        PublicationSourceValidationError::RendererUnavailable
+                    }
+                })
+        }
+    }
+}
+
+fn publication_source_error(error: PublicationSourceValidationError) -> Response {
+    match error {
+        PublicationSourceValidationError::InvalidBinding => private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Draft Question source binding is invalid for publication",
+        ),
+        PublicationSourceValidationError::MissingWebworkType => private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "WebWork Draft Question requires a saved Question Type before publication",
+        ),
+        PublicationSourceValidationError::InvalidSource => private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Draft Question cannot be published",
+        ),
+        PublicationSourceValidationError::NativeTypeMismatch => private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Draft Question type declaration does not match its PLE source",
+        ),
+        PublicationSourceValidationError::RendererUnavailable => private_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "WebWork source validation is unavailable",
+        ),
     }
 }
 
@@ -621,7 +672,7 @@ async fn publish_draft(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -642,20 +693,8 @@ async fn publish_draft(
             );
         }
     };
-    let source = match validated_source(&bytes) {
-        Ok(source) => source,
-        Err(_) => {
-            return private_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Draft Question cannot be published",
-            );
-        }
-    };
-    if source.question_type != draft.question_type {
-        return private_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Draft Question type declaration does not match its PLE source",
-        );
+    if let Err(error) = validate_publication_source(&state, &draft, &bytes).await {
+        return publication_source_error(error);
     }
     let authorship = match question_authorship(request.authors) {
         Ok(authorship) => authorship,
@@ -666,18 +705,26 @@ async fn publish_draft(
             );
         }
     };
-    let Some(question_license) = source.license else {
+    let Some(question_license) = draft.metadata.question_license.clone() else {
         return private_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Draft Question requires a Question License before publication",
         );
     };
+    if draft.metadata.validate_question_title().is_err()
+        || draft.metadata.validate_question_description().is_err()
+    {
+        return private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Draft Question requires a Title and Description before publication",
+        );
+    }
     let command = NewQuestionLineagePublicationCommand {
         draft_question_uuid: draft.draft_question_uuid,
         expected_draft_question_edit_number: expected_edit_number,
         workspace: draft.workspace,
         question_authorship: authorship,
-        initial_shared_tags: source.tags,
+        initial_shared_tags: draft.metadata.tags.clone(),
         discipline_uuid,
         subject_uuid,
         topic_uuid,
@@ -739,7 +786,7 @@ async fn publish_revision_draft(
             );
         }
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -760,20 +807,11 @@ async fn publish_revision_draft(
             );
         }
     };
-    let source = match validated_source(&bytes) {
-        Ok(source) => source,
-        Err(_) => {
-            return private_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Draft Question cannot be published",
-            );
-        }
-    };
-    if source.question_type != draft.question_type {
-        return private_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Draft Question type declaration does not match its PLE source",
-        );
+    if let Err(error) = validate_publication_source(&state, &draft, &bytes).await {
+        return publication_source_error(error);
+    }
+    if let Err(message) = validate_revision_publication_metadata(&draft.metadata) {
+        return private_error(StatusCode::UNPROCESSABLE_ENTITY, message);
     }
     let publisher = ExistingQuestionRevisionPublisher::new(
         state.objects.clone(),
@@ -807,6 +845,18 @@ async fn publish_revision_draft(
     }
 }
 
+fn validate_revision_publication_metadata(metadata: &QuestionMetadata) -> Result<(), &'static str> {
+    if metadata.question_license.is_none() {
+        return Err("Draft Question requires a Question License before publication");
+    }
+    if metadata.validate_question_title().is_err()
+        || metadata.validate_question_description().is_err()
+    {
+        return Err("Draft Question requires a Title and Description before publication");
+    }
+    Ok(())
+}
+
 pub(crate) fn concealed() -> Response {
     crate::auth::no_store(
         (
@@ -830,73 +880,5 @@ pub(crate) fn now() -> Timestamp {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::question_publication::QuestionIdIssuer;
-    use question_model::QuestionRevisionNumber;
-
-    #[test]
-    fn same_lineage_publication_requires_a_server_validated_positive_parent_revision() {
-        let issuer = RandomQuestionIdIssuer::new();
-        let question_id = issuer.issue_question_id().expect("issued Question ID");
-
-        assert_eq!(
-            existing_parent_published_question_revision_tuple(question_id.to_string(), 1),
-            Ok(PublishedQuestionRevisionTuple {
-                published_question_id: question_id.clone(),
-                revision_number: QuestionRevisionNumber::new(1)
-                    .expect("positive Question Revision Number"),
-            })
-        );
-        assert!(
-            existing_parent_published_question_revision_tuple(question_id.to_string(), 0).is_err()
-        );
-        assert!(
-            existing_parent_published_question_revision_tuple("0000-X000".to_string(), 1).is_err()
-        );
-    }
-
-    #[test]
-    fn published_questions_include_optional_hint_feedback_and_worked_solution() {
-        let feedback_only: DraftGeneralFeedbackRequest =
-            serde_json::from_str(r#"{"generalFeedback":"Keep the units."}"#).expect("feedback");
-        let (hint, worked_solution, replace_support) =
-            authored_support_replacement(feedback_only.hint, feedback_only.worked_solution)
-                .expect("omitted support leaves the stored texts");
-        assert!(hint.is_none());
-        assert!(worked_solution.is_none());
-        assert!(!replace_support);
-
-        let support: DraftGeneralFeedbackRequest = serde_json::from_str(
-            r#"{"generalFeedback":"Keep the units.","hint":"Count alleles.","workedSolution":"Show the cross."}"#,
-        )
-        .expect("support");
-        let (hint, worked_solution, replace_support) =
-            authored_support_replacement(support.hint, support.worked_solution)
-                .expect("both support keys replace the stored texts");
-        assert_eq!(hint.as_deref(), Some("Count alleles."));
-        assert_eq!(worked_solution.as_deref(), Some("Show the cross."));
-        assert!(replace_support);
-
-        let cleared: DraftGeneralFeedbackRequest =
-            serde_json::from_str(r#"{"generalFeedback":null,"hint":null,"workedSolution":null}"#)
-                .expect("clear");
-        let (hint, worked_solution, replace_support) =
-            authored_support_replacement(cleared.hint, cleared.worked_solution)
-                .expect("present nulls clear both texts");
-        assert!(hint.is_none());
-        assert!(worked_solution.is_none());
-        assert!(replace_support);
-
-        let one_key: DraftGeneralFeedbackRequest =
-            serde_json::from_str(r#"{"generalFeedback":null,"hint":"Count alleles."}"#)
-                .expect("one key");
-        assert!(authored_support_replacement(one_key.hint, one_key.worked_solution).is_err());
-        assert!(
-            serde_json::from_str::<DraftGeneralFeedbackRequest>(
-                r#"{"generalFeedback":null,"hint":null,"workedSolution":null,"source":"backend"}"#
-            )
-            .is_err()
-        );
-    }
-}
+#[path = "authoring_tests.rs"]
+mod tests;

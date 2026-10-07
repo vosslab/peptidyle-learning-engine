@@ -20,7 +20,7 @@ pub struct PostgresQuestionPoolCreationStore {
 }
 
 impl PostgresQuestionPoolCreationStore {
-    /// Binds the attested API pool to the narrow Pool-create procedure.
+    /// Binds the authenticated API pool to the narrow Pool-create procedure.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -81,12 +81,11 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
             .map_err(CreateQuestionPoolError::Store)?;
         let row = sqlx::query(
             "SELECT question_pool_id, question_pool_edit_number \
-             FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6, $7)",
+             FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6)",
         )
         .bind(input.question_pool_id.as_str())
         .bind(member_question_ids)
         .bind(member_revision_numbers)
-        .bind(input.interchangeability_attested)
         // ASVS 1.2.4: Pool text remains query data, never SQL source.
         .bind(input.title)
         .bind(input.description)
@@ -137,7 +136,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
     }
 }
 
-fn map_create_question_pool_error(error: sqlx::Error) -> CreateQuestionPoolError {
+pub(super) fn map_create_question_pool_error(error: sqlx::Error) -> CreateQuestionPoolError {
     if let sqlx::Error::Database(database_error) = &error
         && is_question_pool_identity_collision(
             database_error.code().as_deref(),

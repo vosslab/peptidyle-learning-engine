@@ -65,7 +65,7 @@ async fn read_support(
     Path(question_pool_id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let session = match instructor_session_hash(&state, &headers).await {
+    let session = match pool_support_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -94,7 +94,7 @@ async fn save_support(
             "Question Pool support requires JSON",
         );
     }
-    let session = match instructor_session_hash(&state, request.headers()).await {
+    let session = match pool_support_session_hash(&state, request.headers()).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -187,18 +187,25 @@ fn support_response(support: QuestionPoolPleManagedSupport) -> Response {
     )
 }
 
-async fn instructor_session_hash(
+async fn pool_support_session_hash(
     state: &RouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
-    // ASVS 8.2.1: the trusted service boundary permits only an Instructor session.
+    // ASVS 8.2.1: Pool support is shared with Instructors and available to Sysadmins.
     match resolve_session(
         state.sessions.as_ref(),
         joined_cookie_header(headers).as_deref(),
     )
     .await
     {
-        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
+        Ok(session)
+            if matches!(
+                session.record.user_role,
+                UserRole::Instructor | UserRole::Sysadmin
+            ) =>
+        {
+            Ok(session.session_hash)
+        }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

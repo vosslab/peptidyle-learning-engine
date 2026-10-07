@@ -11,8 +11,6 @@ mod account_time_zone;
 mod archived_student_work_recovery;
 mod assessment_attempt;
 mod assessment_delivery;
-mod assessment_pool_fork;
-mod assessment_pool_selection_count;
 mod assessment_release;
 mod assessment_student_time_accommodation;
 mod assessment_student_view;
@@ -21,7 +19,6 @@ mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
-mod bloom_preparation;
 mod blueprint_change_proposal;
 mod blueprint_course;
 mod blueprint_history;
@@ -37,30 +34,30 @@ mod draft_question_images;
 mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
-mod library_discussion;
 mod library_watch_notification;
 mod live_gradebook;
 mod live_student_course_landing;
-mod pool_bloom_preparation;
 pub use archived_student_work_recovery::{
     ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion, RecoverySummary,
 };
 mod object_record;
 mod pagination;
 pub mod postgres;
-mod question_bulk_metadata;
 mod question_image_delivery;
 mod question_image_publication;
-mod question_pool_bulk_metadata;
 mod question_pool_support;
 pub use content_classification::{
     ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
     ContentDisciplineAdministrationStore, ContentDisciplineDiscoveryStore,
     ContentDisciplineRequest, ContentDisciplineRequestStore, ContentSubjectCreation,
 };
+mod question_bulk_metadata;
 mod question_fork;
 mod question_library;
+mod question_metadata;
+mod question_pool_bulk_metadata;
 mod question_pool_creation;
+mod question_pool_fork;
 mod question_pool_library;
 mod question_pool_stewardship;
 pub use question_pool_stewardship::{
@@ -106,13 +103,6 @@ pub use assessment_delivery::{
     StudentAssessmentAttemptHistoryResponseSource, StudentAssessmentAttemptPresentationEvidence,
     StudentAssessmentAttemptPresentationSource, StudentAssessmentAttemptSavedResponse,
 };
-pub use assessment_pool_fork::{
-    AppendAssessmentPoolForkMembersInput, AppendedAssessmentPoolFork, AssessmentPoolForkStore,
-    ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
-};
-pub use assessment_pool_selection_count::{
-    AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
-};
 pub use assessment_release::{
     ApplyAssessmentBlueprintUpdateInput, AssessmentBlueprintUpdateCannotApplyReason,
     AssessmentBlueprintUpdateContent, AssessmentBlueprintUpdateEntry,
@@ -150,10 +140,6 @@ pub use authoring::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
     DeleteAuthoringDraftInput, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
 };
-pub use bloom_preparation::{
-    BloomClassificationPreparationStore, BloomPreparationCandidate, BloomPreparationReceiptId,
-    BloomPreparationTargetKind, PrepareBloomClassificationInput,
-};
 pub use blueprint_change_proposal::{
     AcceptBlueprintChangeProposalInput, AcceptedBlueprintChangeProposal,
     BlueprintChangeProposalAcceptedDecision, BlueprintChangeProposalAcceptedSummary,
@@ -190,9 +176,9 @@ pub use course_banner::{
 pub use course_blueprint_publication::CourseBlueprintPublicationStore;
 pub use course_instance::{
     CourseClassificationUpdate, CourseCreationInstructor, CourseInstanceCreationSource,
-    CourseInstanceLifecycleState, CourseInstancePoolIdIssuer, CourseInstanceStore,
-    CourseInstanceSummary, CourseInstanceView, CourseRetentionLifecycleState,
-    CreateCourseInstanceInput, CreatedCourseInstance, InstallationCourseInspection,
+    CourseInstanceLifecycleState, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
+    CourseRetentionLifecycleState, CreateCourseInstanceInput, CreatedCourseInstance,
+    InstallationCourseInspection,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
@@ -231,10 +217,6 @@ pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
 };
-pub use library_discussion::{
-    LibraryImpactNotice, LibraryImpactNoticeLifecycle, LibraryImpactNoticeStore,
-    LibraryObjectTarget,
-};
 pub use library_watch_notification::{
     LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,
 };
@@ -252,7 +234,6 @@ pub use object_record::{
 pub use pagination::{
     Cursor, DiscoveryPageRequest, DiscoveryPageSize, Page, PageRequest, PageSize, PaginationError,
 };
-pub use pool_bloom_preparation::PoolBloomPreparationReceipts;
 pub use question_bulk_metadata::{
     BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
     BulkPublishedQuestionMetadataResult, BulkPublishedQuestionMetadataSelection,
@@ -262,7 +243,9 @@ pub use question_fork::{
     ForkPublishedQuestionImageInput, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
     PublishedQuestionForkImage, QuestionForkStore,
 };
-pub use question_image_delivery::{QuestionImageDeliveryStore, ReadyQuestionImageDelivery};
+pub use question_image_delivery::{
+    QuestionImageDeliveryResolution, QuestionImageDeliveryStore, ReadyQuestionImageDelivery,
+};
 pub use question_image_publication::{
     ClaimedQuestionImagePublication, PublicAssetPublicationStore,
 };
@@ -273,6 +256,7 @@ pub use question_library::{
     QuestionLibrarySearchSort, QuestionLibraryStore, QuestionLibraryTextField,
     QuestionLibraryTextTerm,
 };
+pub use question_metadata::QuestionMetadataStore;
 pub use question_pool_bulk_metadata::{
     BulkQuestionPoolSearchMetadataInput, BulkQuestionPoolSearchMetadataPatch,
     BulkQuestionPoolSearchMetadataResult, BulkQuestionPoolSearchMetadataSelection,
@@ -282,9 +266,8 @@ pub use question_pool_creation::{
     CreateQuestionPoolError, CreateQuestionPoolInput, CreatedQuestionPool,
     QuestionPoolCreationStore,
 };
-pub use question_pool_library::{
-    AssessmentQuestionPoolForkRecord, PublishedQuestionPool, QuestionPoolLibraryStore,
-};
+pub use question_pool_fork::QuestionPoolForkStore;
+pub use question_pool_library::{PublishedQuestionPool, QuestionPoolLibraryStore};
 pub use question_pool_support::{QuestionPoolPleManagedSupport, QuestionPoolSupportStore};
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSource, DraftQuestionPublicationSourceStore,
@@ -309,7 +292,6 @@ pub use session::{
 };
 pub use store_error::StoreError;
 pub use support_capability::{
-    IssueSupportRepairCapabilityInput, SupportCourseContent, SupportCourseRosterEntry,
-    SupportRepairCapabilityReceipt, SupportRepairCapabilityStore,
-    SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
+    ConfirmedStudentDataAccess, StudentDataAccessAuditReceipt, SysadminStudentDataStore,
+    SysadminStudentRosterRecord, SysadminStudentRosterState,
 };

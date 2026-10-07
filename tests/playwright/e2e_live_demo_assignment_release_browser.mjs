@@ -21,7 +21,7 @@ const assessmentTitle = `Browser current Assessment ${runId}`;
 const assessmentDurationOverrideLabel = /^Assessment duration override in minutes\b/u;
 const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
 const context = await browser.newContext();
-const page = await context.newPage();
+let page = await context.newPage();
 
 async function assertAnswerFreePreview(target) {
   for (const name of [/response/i, /submit/i, /start assessment/i, /student attempt/i]) {
@@ -108,7 +108,9 @@ try {
   const createdCourse = page.getByRole("listitem").filter({
     has: page.getByRole("heading", { name: courseLongName, exact: true }),
   });
+  const openedCourse = page.waitForEvent("popup");
   await createdCourse.getByRole("link", { name: "Open Course", exact: true }).click();
+  page = await openedCourse;
   await page.waitForURL(/\/courses\/CI[0-9A-HJKMNP-TV-Z]{8}$/u);
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
 

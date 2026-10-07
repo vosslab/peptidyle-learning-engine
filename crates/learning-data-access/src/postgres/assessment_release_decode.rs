@@ -5,11 +5,10 @@ use question_model::{
     AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
     AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentStatus,
     AssessmentTitle, AssessmentType, BlueprintAssessmentId, BlueprintAssessmentSource,
-    BlueprintCourseId, BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
+    BlueprintCourseId, BlueprintCourseRevisionTuple, BlueprintRevisionNumber, CourseInstanceId,
     FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, PublishedQuestionRevisionTuple,
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolAssessmentEntry,
-    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectedQuestionOrder,
-    QuestionPoolSelectionRule, QuestionRevisionNumber, Timestamp,
+    QuestionPoolEditNumber, QuestionPoolId, QuestionRevisionNumber, Timestamp,
 };
 use sqlx::Row;
 
@@ -53,7 +52,6 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
         }
         if kind != "question_pool" { return Err(invalid("Assessment Entry kind")); }
         let selection_count = u32::try_from(row.try_get::<i32, _>("selection_count").map_err(map_sqlx_error)?).map_err(|_| invalid("Question Pool selection count"))?;
-        let selection_rule = QuestionPoolSelectionRule { selected_question_order: selected_question_order_from_row(row.try_get("selected_question_order").map_err(map_sqlx_error)?)? };
         let question_pool_id = question_pool_id(row.try_get("question_pool_id").map_err(map_sqlx_error)?)?;
         let question_pool_edit_number = QuestionPoolEditNumber::new(
             u64::try_from(row.try_get::<i64, _>("question_pool_edit_number").map_err(map_sqlx_error)?)
@@ -63,7 +61,7 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
             id, question_pool_id, question_pool_edit_number, availability, scoring_rule,
             selection_count: std::num::NonZeroU32::new(selection_count)
                 .ok_or_else(|| invalid("Question Pool selection count"))?,
-            points_per_item: point_value(row, "points_per_item")?, selection_rule,
+            points_per_item: point_value(row, "points_per_item")?,
             question_attempt_limit: policy.0, question_attempt_time_limit: policy.1,
         }));
         while let Some(member_row) = rows.get(index) {
@@ -111,11 +109,6 @@ pub(super) fn assessment_type(value: String) -> Result<AssessmentType, StoreErro
 pub(super) fn entry_scoring_rule(value: String) -> Result<AssessmentEntryScoringRule, StoreError> {
     match value.as_str() { "normal" => Ok(AssessmentEntryScoringRule::Normal), "full_credit" => Ok(AssessmentEntryScoringRule::FullCredit), "extra_credit" => Ok(AssessmentEntryScoringRule::ExtraCredit), "excluded" => Ok(AssessmentEntryScoringRule::Excluded), _ => Err(invalid("Assessment Entry scoring rule")) }
 }
-#[rustfmt::skip]
-pub(super) fn selected_question_order_from_row(value: String) -> Result<QuestionPoolSelectedQuestionOrder, StoreError> {
-    match value.as_str() { "question_pool_order" => Ok(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder), "random_order" => Ok(QuestionPoolSelectedQuestionOrder::RandomOrder), _ => Err(invalid("Question Pool selected question order")) }
-}
-
 pub(super) fn assessment_origin(
     row: &sqlx::postgres::PgRow,
 ) -> Result<AssessmentOrigin, StoreError> {
@@ -141,7 +134,7 @@ pub(super) fn assessment_origin(
                 .ok_or_else(|| invalid("Assessment Origin"))?;
             Ok(AssessmentOrigin::Adopted {
                 source: BlueprintAssessmentSource::new(
-                    BlueprintRevisionTuple {
+                    BlueprintCourseRevisionTuple {
                         blueprint_course_id: course_id,
                         revision_number: revision,
                     },

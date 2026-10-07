@@ -424,24 +424,6 @@ pub struct FixedQuestionAssessmentEntry {
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
-/// Order used for the selected Questions from one Question Pool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum QuestionPoolSelectedQuestionOrder {
-    /// Preserve Question Pool Item order after deterministic selection.
-    QuestionPoolOrder,
-    /// Deterministically shuffle selected Question Pool Items from the server selection entropy.
-    RandomOrder,
-}
-
-/// Complete reviewed selection behavior for one Question Pool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionPoolSelectionRule {
-    /// Order used when the selected Questions are issued.
-    pub selected_question_order: QuestionPoolSelectedQuestionOrder,
-}
-
 /// Positive sequential Pool Edit Number on one current-state Question Pool.
 ///
 /// Pools have no Revision family. This counter uses PostgreSQL `BIGINT` and is
@@ -543,8 +525,6 @@ pub struct QuestionPoolAssessmentEntry {
     pub selection_count: NonZeroU32,
     /// Uniform current points for each selected Question Pool Item.
     pub points_per_item: AssessmentPointValue,
-    /// Instructor-owned ordering behavior for the selected Questions.
-    pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound for every Question selected from this pool.
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Uniform Question Attempt timing for every Question selected from this pool.
@@ -580,17 +560,6 @@ mod tests {
 
     fn local(value: &str) -> LocalDateAndTime {
         LocalDateAndTime::parse(value).expect("valid local wall-clock value")
-    }
-
-    #[test]
-    fn question_pool_selection_rule_contains_only_instructor_owned_order() {
-        let rule = QuestionPoolSelectionRule {
-            selected_question_order: QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-        };
-        assert_eq!(
-            rule.selected_question_order,
-            QuestionPoolSelectedQuestionOrder::QuestionPoolOrder
-        );
     }
 
     #[test]

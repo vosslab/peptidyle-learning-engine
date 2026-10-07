@@ -68,6 +68,8 @@ fn webwork_question_library_entry(
                 .published_question_id
                 .clone(),
             published_question_revision_tuple: entry.published_question_revision_tuple,
+            parent_published_question_revision_tuple: entry
+                .parent_published_question_revision_tuple,
             backend: entry.backend,
             question_format: entry.question_format,
             question_type: entry.question_type,
@@ -77,8 +79,8 @@ fn webwork_question_library_entry(
                 question_description: entry.question_description,
                 tags,
                 question_license: Some(entry.question_license),
-                question_citation: None,
-                language: "en".to_string(),
+                question_citation: entry.question_citation,
+                language: entry.language,
             },
             authorship: entry.authorship,
             availability: entry.availability,
@@ -117,18 +119,18 @@ async fn resolved_ple_question<O: ObjectStore>(
         .map_err(|_| ())?;
     let compiled = document.compile().map_err(|_| ())?;
     let presentation = compiled.presentation();
-    let mut metadata = presentation.metadata().clone();
-    // ASVS 8.2.3: title and description are already fields of this authorized library row.
-    // The immutable source keeps its own copy. A metadata edit does not create a Revision.
-    if metadata.question_license.as_ref() != Some(&entry.question_license)
-        || presentation.question_type() != entry.question_type
-    {
+    if presentation.question_type() != entry.question_type {
         return Err(());
     }
-    metadata.question_title = entry.question_title.clone();
-    metadata.question_description = entry.question_description.clone();
-    metadata.tags = entry.shared_metadata.tags.clone();
-    metadata.question_license = Some(entry.question_license.clone());
+    // All Question metadata comes from this exact, authorized Revision row.
+    let metadata = question_model::QuestionMetadata {
+        question_title: entry.question_title.clone(),
+        question_description: entry.question_description.clone(),
+        tags: entry.shared_metadata.tags.clone(),
+        question_license: Some(entry.question_license.clone()),
+        question_citation: entry.question_citation.clone(),
+        language: entry.language.clone(),
+    };
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
             question_id: entry
@@ -136,6 +138,8 @@ async fn resolved_ple_question<O: ObjectStore>(
                 .published_question_id
                 .clone(),
             published_question_revision_tuple: entry.published_question_revision_tuple,
+            parent_published_question_revision_tuple: entry
+                .parent_published_question_revision_tuple,
             backend: entry.backend,
             question_format: entry.question_format,
             question_type: entry.question_type,

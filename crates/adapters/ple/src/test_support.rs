@@ -23,8 +23,6 @@ pub(crate) struct StoredResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct StoredSingleChoiceQuestion {
-    pub(crate) question_title: String,
-    pub(crate) question_description: String,
     pub(crate) prompt: String,
     pub(crate) response: StoredResponse,
 }

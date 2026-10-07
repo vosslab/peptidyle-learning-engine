@@ -121,7 +121,6 @@ pub(super) async fn accept(
                 expected_target_blueprint_edit_number: input.expected_target_blueprint_edit_number,
                 decision: change_proposal_view::store_decision(input.decision),
             },
-            Default::default(),
         )
         .await
     {

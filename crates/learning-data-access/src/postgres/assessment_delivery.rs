@@ -566,7 +566,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 webwork_sources: Vec::new(),
             });
         }
-        let rows = sqlx::query("SELECT issued_question_id, assessment_entry_id::text, issued_position, published_question_id, revision_number, backend, source_object_record_id, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, generated_parameter_sha256, question_attempt_id, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions FROM ple_api.prepare_student_assessment_attempt_presentation($1)")
+        let rows = sqlx::query("SELECT issued_question_id, assessment_entry_id::text, issued_position, published_question_id, revision_number, question_title, backend, source_object_record_id, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, generated_parameter_sha256, question_attempt_id, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions FROM ple_api.prepare_student_assessment_attempt_presentation($1)")
             .bind(started.assessment_attempt.as_uuid())
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let first = rows.first().ok_or_else(|| {
@@ -630,6 +630,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                         assessment_entry_id: common.1,
                         position: common.2,
                         question_id: common.3,
+                        question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
                         revision_number: common.4,
                         source_object_id: common.5,
                         source_object_address: row

@@ -19,16 +19,15 @@ pub(super) async fn assert_actual_role_round_trip(
             token(),
             RequestChecksum::from_bytes([0x29; 32]),
             exported.clone(),
-            Default::default(),
         )
         .await
         .expect("owner imports canonical reusable Blueprint content");
     assert_ne!(
-        imported.blueprint_revision_tuple.blueprint_course_id, blueprint_course_id,
+        imported.blueprint_course_revision_tuple.blueprint_course_id, blueprint_course_id,
         "canonical import creates a distinct local Blueprint lineage"
     );
     assert_eq!(
-        imported.blueprint_revision_tuple.revision_number,
+        imported.blueprint_course_revision_tuple.revision_number,
         BlueprintRevisionNumber::INITIAL,
         "canonical import starts the new lineage at Revision 1"
     );
@@ -36,7 +35,7 @@ pub(super) async fn assert_actual_role_round_trip(
         .load_blueprint_course(
             token(),
             imported
-                .blueprint_revision_tuple
+                .blueprint_course_revision_tuple
                 .blueprint_course_id
                 .clone(),
         )
@@ -64,7 +63,7 @@ pub(super) async fn assert_actual_role_round_trip(
         .export_blueprint_course(
             token(),
             imported
-                .blueprint_revision_tuple
+                .blueprint_course_revision_tuple
                 .blueprint_course_id
                 .clone(),
         )
@@ -128,39 +127,28 @@ pub(super) async fn assert_actual_role_round_trip(
                     (
                         question_model::CanonicalBlueprintAssessmentEntry::Pool {
                             question_pool_id: source_pool_id,
-                            question_pool_edit_number: source_edit_number,
                             selection_count: source_count,
                             points_per_item: source_points,
                             scoring_rule: source_scoring,
-                            selection_rule: source_selection,
                             question_attempt_limit: source_limit,
                             question_attempt_time_limit: source_time_limit,
                         },
                         question_model::CanonicalBlueprintAssessmentEntry::Pool {
                             question_pool_id: imported_pool_id,
-                            question_pool_edit_number: imported_edit_number,
                             selection_count: imported_count,
                             points_per_item: imported_points,
                             scoring_rule: imported_scoring,
-                            selection_rule: imported_selection,
                             question_attempt_limit: imported_limit,
                             question_attempt_time_limit: imported_time_limit,
                         },
                     ) => {
-                        assert_ne!(
-                            imported_pool_id, source_pool_id,
-                            "canonical import creates a fresh local Pool identity"
-                        );
                         assert_eq!(
-                            question_pool_member_pins(imported_pool_id).await,
-                            question_pool_member_pins(source_pool_id).await,
-                            "canonical import preserves the exact ordered Pool member pins"
+                            imported_pool_id, source_pool_id,
+                            "canonical Blueprint copy preserves the ordinary Pool identity"
                         );
-                        assert_eq!(imported_edit_number, source_edit_number);
                         assert_eq!(imported_count, source_count);
                         assert_eq!(imported_points, source_points);
                         assert_eq!(imported_scoring, source_scoring);
-                        assert_eq!(imported_selection, source_selection);
                         assert_eq!(imported_limit, source_limit);
                         assert_eq!(imported_time_limit, source_time_limit);
                     }

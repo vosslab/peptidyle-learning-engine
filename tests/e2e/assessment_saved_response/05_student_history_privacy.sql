@@ -73,6 +73,9 @@ DECLARE
     owned_state text;
     saved_response jsonb;
     previous_attempts jsonb;
+    history_points_earned numeric;
+    history_points_possible numeric;
+    access_score jsonb;
     denial_count integer := 0;
 BEGIN
     SELECT history.course_instance_id, history.state
@@ -90,6 +93,19 @@ BEGIN
       FROM ple_api.read_student_assessment_access(course_id, assessment_id) AS access;
     IF previous_attempts::text NOT LIKE '%' || attempt_id::text || '%' THEN
         RAISE EXCEPTION 'owning Student could not see the Attempt on the Course Assessment';
+    END IF;
+    SELECT coalesce(sum((item ->> 'pointsEarned')::numeric), 0),
+           coalesce(sum((item ->> 'pointsPossible')::numeric), 0)
+      INTO history_points_earned, history_points_possible
+      FROM ple_api.read_student_assessment_attempt_history(attempt_id) AS history,
+           jsonb_array_elements(history.grading_results) AS item;
+    SELECT item -> 'score' INTO access_score
+      FROM jsonb_array_elements(previous_attempts) AS item
+     WHERE item ->> 'assessmentAttemptId' = attempt_id::text;
+    IF access_score IS NULL
+       OR (access_score ->> 'pointsEarned')::numeric IS DISTINCT FROM history_points_earned
+       OR (access_score ->> 'pointsPossible')::numeric IS DISTINCT FROM history_points_possible THEN
+        RAISE EXCEPTION 'Course Assessment score did not match the owning Student Attempt history';
     END IF;
     IF NOT ple_api.current_session_account_is_course_member(course_id)
        OR NOT ple_api.current_session_account_owns_student_record(course_id, owned_record)

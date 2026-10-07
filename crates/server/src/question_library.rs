@@ -13,7 +13,7 @@ use adapter_webwork::{
 };
 use axum::{
     Json, Router,
-    extract::{Path, State, rejection::JsonRejection},
+    extract::{Path, State},
     http::{
         HeaderMap, StatusCode,
         header::{COOKIE, IF_MATCH},
@@ -29,9 +29,9 @@ use learning_data_access::{
 };
 use objects::{ObjectStore, s3::S3ObjectStore};
 use question_model::{
-    BloomClassificationCorrectionRequest, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    QuestionBackend, QuestionBloomCorrectionReceipt, QuestionLineageView, QuestionSearchPage,
-    QuestionSearchRequest, QuestionSearchResult, QuestionStatistics,
+    LibraryObjectSearchPage, LibraryObjectSearchRequest, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionBackend, QuestionLineageView, QuestionSearchResult,
+    QuestionStatistics,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -45,7 +45,7 @@ const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
 mod classification;
 mod mixed_search;
-use mixed_search::search_question_library;
+use mixed_search::search_library_objects;
 mod facets;
 mod paging;
 mod query;
@@ -82,7 +82,10 @@ pub fn question_library_router(
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Router {
     Router::new()
-        .route("/api/questions/search", get(search_questions))
+        .route(
+            "/api/library-objects/search",
+            get(search_library_objects_route),
+        )
         .route(
             "/api/library/{public_id}/kind",
             get(mixed_search::library_object_kind),
@@ -95,10 +98,6 @@ pub fn question_library_router(
         .route(
             "/api/questions/by-id/{question_id}/revisions/{revision_number}",
             get(question_revision_details),
-        )
-        .route(
-            "/api/questions/by-id/{question_id}/revisions/{revision_number}/bloom",
-            post(correct_question_revision_bloom),
         )
         .route(
             "/api/questions/by-id/{question_id}/revisions/{revision_number}/preview-document",
@@ -138,13 +137,13 @@ struct QuestionAvailabilityResponse {
     question_availability_edit_number: question_model::QuestionAvailabilityEditNumber,
 }
 
-use query::QuestionSearchQuery;
-async fn search_questions(
+use query::LibraryObjectSearchQuery;
+async fn search_library_objects_route(
     State(state): State<QuestionLibraryRouteState>,
     headers: HeaderMap,
-    Query(query): Query<QuestionSearchQuery>,
+    Query(query): Query<LibraryObjectSearchQuery>,
 ) -> Response {
-    let query = match QuestionSearchRequest::try_from(query) {
+    let query = match LibraryObjectSearchRequest::try_from(query) {
         Ok(query) => query,
         Err((status, message)) => return route_error(status, message),
     };
@@ -157,7 +156,7 @@ async fn search_questions(
     {
         return response;
     }
-    search_question_library(
+    search_library_objects(
         &state.store,
         &state.objects,
         session_hash,
@@ -190,7 +189,7 @@ impl QuestionLibraryPageStatistics for PostgresQuestionLibraryStore {
     }
 }
 
-fn eligible_backends(query: &QuestionSearchRequest) -> QuestionLibraryBackendRestriction {
+fn eligible_backends(query: &LibraryObjectSearchRequest) -> QuestionLibraryBackendRestriction {
     if query.backends.is_empty() && query.capabilities.is_empty() {
         return QuestionLibraryBackendRestriction::Any;
     }
@@ -230,11 +229,13 @@ async fn resolve_question(
     };
     let edit_number = entry.availability_edit_number;
     let viewer_may_archive = entry.viewer_may_archive;
+    let viewer_may_edit_metadata = entry.viewer_may_edit_metadata;
     match summary_from_entry(&state.objects, entry).await {
         Ok(summary) => question_response(
             Json(QuestionLineageView {
                 summary,
                 viewer_may_archive,
+                viewer_may_edit_metadata,
             })
             .into_response(),
             edit_number,
@@ -341,62 +342,6 @@ async fn question_revision_details(
     };
     let detail = usage_statistics::details_from_resolved(resolved, evidence);
     question_response(Json(detail).into_response(), edit_number)
-}
-
-async fn correct_question_revision_bloom(
-    State(state): State<QuestionLibraryRouteState>,
-    headers: HeaderMap,
-    Path((question_id, revision_number)): Path<(String, String)>,
-    payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
-) -> Response {
-    let published_question_revision_tuple =
-        match verified_published_question_revision_tuple(&question_id, &revision_number) {
-            Some(published_question_revision_tuple) => published_question_revision_tuple,
-            None => return concealed(),
-        };
-    // ASVS 8.2.1/8.3.1: only an active Instructor reaches correction;
-    // a Sysadmin retains the read-only Library surface and receives concealment.
-    let session_hash = match instructor_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    // ASVS 1.5.2/2.2.1: serde rejects missing, unknown, or open-string fields.
-    let Json(request) = match payload {
-        Ok(value) => value,
-        Err(_) => {
-            return route_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Bloom correction is invalid",
-            );
-        }
-    };
-    let bloom = match state
-        .store
-        .correct_question_revision_bloom(
-            session_hash,
-            &published_question_revision_tuple,
-            request.expected_classification_edit_number,
-            request.cognitive_process,
-            request.knowledge_dimension,
-        )
-        .await
-    {
-        Ok(value) => value,
-        Err(StoreError::InvalidRecord(_)) => {
-            return route_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Bloom correction is invalid",
-            );
-        }
-        Err(error) => return store_error_response(error),
-    };
-    crate::auth::no_store(
-        Json(QuestionBloomCorrectionReceipt {
-            published_question_revision_tuple,
-            bloom,
-        })
-        .into_response(),
-    )
 }
 
 /// Renders one ephemeral, answer-free WeBWorK example for the exact Revision.
@@ -515,7 +460,7 @@ async fn transition_question_availability(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(state, headers).await {
+    let (session_hash, _) = match library_reader_session_hash(state, headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -611,21 +556,6 @@ async fn load_verified_question_library_entry(
         .load_published_question_library_entry(session_hash, &question_id)
         .await
         .map(Some)
-}
-
-async fn instructor_session_hash(
-    state: &QuestionLibraryRouteState,
-    headers: &HeaderMap,
-) -> Result<SessionTokenHash, Box<Response>> {
-    let cookie_header = joined_cookie_header(headers);
-    match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
-        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
-        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
-        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Question Library authentication unavailable",
-        ))),
-    }
 }
 
 async fn library_reader_session_hash(

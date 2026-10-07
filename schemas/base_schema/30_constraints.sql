@@ -2,6 +2,14 @@
 
 SET LOCAL ROLE ple_data_owner;
 
+-- A Published Question records one exact parent Revision on the ordinary
+-- lineage. The deferred FK permits atomic Question + Revision 1 creation.
+ALTER TABLE ple_data.published_question
+    ADD CONSTRAINT published_question_parent_revision_fk
+    FOREIGN KEY (parent_published_question_id, parent_revision_number)
+    REFERENCES ple_data.question_revision (published_question_id, revision_number)
+    DEFERRABLE INITIALLY DEFERRED;
+
 SET LOCAL ROLE ple_private_owner;
 
 -- Account-owned Instructor appearance refers to the shared data-owned Theme
@@ -9,6 +17,22 @@ SET LOCAL ROLE ple_private_owner;
 ALTER TABLE ple_private.instructor_personal_theme
     ADD CONSTRAINT instructor_personal_theme_theme_fkey
     FOREIGN KEY (theme_id) REFERENCES ple_data.theme (theme_id);
+
+ALTER TABLE ple_private.draft_question
+    ADD CONSTRAINT draft_question_parent_revision_fk
+    FOREIGN KEY (parent_published_question_id, parent_revision_number)
+    REFERENCES ple_data.question_revision (published_question_id, revision_number);
+
+ALTER TABLE ple_private.draft_question_metadata
+    ADD CONSTRAINT draft_question_metadata_subject_discipline_fk
+    FOREIGN KEY (content_subject_id, content_discipline_id)
+    REFERENCES ple_data.content_subject_discipline(content_subject_id, content_discipline_id),
+    ADD CONSTRAINT draft_question_metadata_subject_topic_fk
+    FOREIGN KEY (content_subject_id, content_topic_id)
+    REFERENCES ple_data.content_topic(content_subject_id, content_topic_id),
+    ADD CONSTRAINT draft_question_metadata_topic_subtopic_fk
+    FOREIGN KEY (content_topic_id, content_subtopic_id)
+    REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id);
 
 ALTER TABLE ple_private.draft_question_source_binding
     ADD CONSTRAINT draft_question_source_binding_object_record_exists
@@ -23,6 +47,15 @@ SET LOCAL ROLE ple_data_owner;
 ALTER TABLE ple_data.blueprint_course
     ADD CONSTRAINT blueprint_course_current_revision_fk
     FOREIGN KEY (blueprint_course_id, current_blueprint_revision_number)
+    REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_id, blueprint_revision_number
+    ) DEFERRABLE INITIALLY DEFERRED;
+
+-- A fork records its exact parent Revision directly on the ordinary child
+-- lineage. The deferred FK permits atomic Blueprint + Revision 1 creation.
+ALTER TABLE ple_data.blueprint_course
+    ADD CONSTRAINT blueprint_course_parent_revision_fk
+    FOREIGN KEY (parent_blueprint_course_id, parent_blueprint_revision_number)
     REFERENCES ple_data.blueprint_course_revision (
         blueprint_course_id, blueprint_revision_number
     ) DEFERRABLE INITIALLY DEFERRED;
@@ -62,14 +95,6 @@ ALTER TABLE ple_data.course_instance
         OR (current_course_banner_id IS NOT NULL AND course_banner_alternative_kind = 'informative'
             AND char_length(btrim(course_banner_alternative_text)) BETWEEN 1 AND 160)
     );
-
-ALTER TABLE ple_data.assessment_entry_pool
-    ADD CONSTRAINT assessment_entry_owns_exact_question_pool_fork
-    FOREIGN KEY (
-        assessment_entry_id, assessment_id, question_pool_id
-    ) REFERENCES ple_data.assessment_question_pool_fork (
-        assessment_entry_id, assessment_id, question_pool_id
-    ) DEFERRABLE INITIALLY DEFERRED;
 
 SET LOCAL ROLE ple_private_owner;
 

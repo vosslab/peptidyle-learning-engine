@@ -200,7 +200,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         let render_request = RenderRequest {
             pg_source: request.pg_source,
             pg_path: request.pg_path,
-            published_question_revision_tuple: request.published_question_revision_tuple,
+            published_question_revision_tuple: Some(request.published_question_revision_tuple),
             seed: request.seed,
         };
         validate_render_request(render_request)?;
@@ -221,6 +221,9 @@ impl WebworkRenderer for HttpWebworkRenderer {
         &self,
         request: RenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        if request.published_question_revision_tuple.is_none() {
+            return Err(bad("answer review requires a published Question Revision"));
+        }
         validate_render_request(request)?;
         let value = self
             .rpc(super::protocol::answer_review_fields(

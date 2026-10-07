@@ -66,14 +66,14 @@ fn project_comparison(
     Ok(BlueprintComparisonView {
         left: comparison_side(
             comparison.left,
-            sources.left.blueprint_revision_tuple,
+            sources.left.blueprint_course_revision_tuple,
             sources.left_short_name,
             sources.left_long_name,
             sources.left_blueprint_edit_number,
         ),
         right: comparison_side(
             comparison.right,
-            sources.right.blueprint_revision_tuple,
+            sources.right.blueprint_course_revision_tuple,
             sources.right_short_name,
             sources.right_long_name,
             sources.right_blueprint_edit_number,
@@ -95,7 +95,7 @@ fn project_comparison(
 
 pub(super) fn comparison_side(
     inventory: BlueprintComparisonInventory,
-    current_revision_tuple: question_model::BlueprintRevisionTuple,
+    current_revision_tuple: question_model::BlueprintCourseRevisionTuple,
     short_name: String,
     long_name: String,
     blueprint_edit_number: question_model::BlueprintEditNumber,

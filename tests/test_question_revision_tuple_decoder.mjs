@@ -3,7 +3,10 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodePublishedQuestionRevisionTuple } from "../src/api/decoders/shared.ts";
-import { blueprintRevisionTuple } from "../src/api/decoders/blueprint_course.ts";
+import {
+  blueprintCourseRevisionTuple,
+  decodeBlueprintRevisionView,
+} from "../src/api/decoders/blueprint_course.ts";
 
 const TUPLE = { publishedQuestionId: "ABCD-XEFG", revisionNumber: 1 };
 const BLUEPRINT_TUPLE = { blueprintCourseId: "BP7K3M2QXH", revisionNumber: "1" };
@@ -37,8 +40,18 @@ test("Question Revision Tuple rejects leftover reference JSON", () => {
 
 test("Blueprint Course Revision Tuple decodes blueprintCourseId plus revisionNumber", () => {
   assert.deepEqual(
-    blueprintRevisionTuple(BLUEPRINT_TUPLE, "blueprintRevisionTuple"),
+    blueprintCourseRevisionTuple(BLUEPRINT_TUPLE, "blueprintCourseRevisionTuple"),
     BLUEPRINT_TUPLE,
+  );
+  const view = { blueprintCourseRevisionTuple: BLUEPRINT_TUPLE, modules: [] };
+  assert.deepEqual(decodeBlueprintRevisionView(view), view);
+  assert.throws(
+    () => decodeBlueprintRevisionView({ blueprintRevisionTuple: BLUEPRINT_TUPLE, modules: [] }),
+    DecodeError,
+  );
+  assert.throws(
+    () => decodeBlueprintRevisionView({ ...view, blueprintRevisionTuple: BLUEPRINT_TUPLE }),
+    DecodeError,
   );
 });
 
@@ -81,16 +94,20 @@ test("Blueprint Assessment fixed entry rejects leftover published_question Tuple
 
 test("Blueprint Course Revision Tuple rejects leftover reference and snake_case members", () => {
   assert.throws(
-    () => blueprintRevisionTuple({ reference: BLUEPRINT_TUPLE }, "blueprintRevisionTuple"),
+    () =>
+      blueprintCourseRevisionTuple({ reference: BLUEPRINT_TUPLE }, "blueprintCourseRevisionTuple"),
     DecodeError,
   );
   assert.throws(
     () =>
-      blueprintRevisionTuple(
+      blueprintCourseRevisionTuple(
         { blueprint_course_id: "BP7K3M2QXH", revision: "1" },
-        "blueprintRevisionTuple",
+        "blueprintCourseRevisionTuple",
       ),
     DecodeError,
   );
-  assert.throws(() => blueprintRevisionTuple("1", "blueprintRevisionTuple"), DecodeError);
+  assert.throws(
+    () => blueprintCourseRevisionTuple("1", "blueprintCourseRevisionTuple"),
+    DecodeError,
+  );
 });

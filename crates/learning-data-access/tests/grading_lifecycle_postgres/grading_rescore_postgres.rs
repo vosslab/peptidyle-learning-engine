@@ -10,13 +10,14 @@ use super::{
 
 async fn store_color_outcome(
     pool: &PgPool,
-    source: &ResolvedPleQuestionJsonSource,
-    response: &StudentResponse,
+    grading_input: (&ResolvedPleQuestionJsonSource, &StudentResponse),
     entry_id: Uuid,
     attempt_id: Uuid,
     issued_id: Uuid,
     question_attempt_id: Uuid,
+    normalized_credit_override: Option<f64>,
 ) -> (AttemptFixture, Uuid, f64) {
+    let (source, response) = grading_input;
     let fixture = make_attempt(pool, entry_id, attempt_id, issued_id, question_attempt_id).await;
     let saved_response = serde_json::to_value(response).expect("saved response JSON");
     let mut save_tx = pool.begin().await.expect("response transaction");
@@ -58,7 +59,8 @@ async fn store_color_outcome(
         .expect("prepared response");
     let graded_response: StudentResponse =
         serde_json::from_value(prepared_response.clone()).expect("prepared response decodes");
-    let backend_credit = grade_credit(source, &graded_response);
+    let backend_credit =
+        normalized_credit_override.unwrap_or_else(|| grade_credit(source, &graded_response));
     let score = sqlx::query(
         "SELECT points_earned, points_possible \
          FROM ple_api.commit_student_assessment_attempt_finalization( \
@@ -89,6 +91,7 @@ async fn save_current_points(
     fixture: &AttemptFixture,
     entry_id: Uuid,
     points: &str,
+    partial_credit_enabled: bool,
 ) {
     let course_id = COURSE_INSTANCE_ID
         .get()
@@ -114,7 +117,7 @@ async fn save_current_points(
     .fetch_one(&mut *tx)
     .await
     .expect("Assessment Edit Number");
-    let values: serde_json::Value = sqlx::query_scalar(
+    let mut values: serde_json::Value = sqlx::query_scalar(
         "SELECT jsonb_build_object( \
             'assessment_title', snapshot.assessment_title, \
             'assessment_instructions', snapshot.assessment_instructions, \
@@ -124,6 +127,7 @@ async fn save_current_points(
             'assessment_attempt_time_limit_seconds', snapshot.assessment_attempt_time_limit_seconds, \
             'assessment_attempt_limit', snapshot.assessment_attempt_limit, \
             'late_work_rule', snapshot.late_work_rule, \
+            'partial_credit_enabled', snapshot.partial_credit_enabled, \
             'question_variation_rule', snapshot.question_variation_rule, \
             'assessment_question_order_rule', snapshot.assessment_question_order_rule, \
             'feedback_per_item_correctness', snapshot.feedback_per_item_correctness, \
@@ -142,6 +146,7 @@ async fn save_current_points(
     .fetch_one(&mut *tx)
     .await
     .expect("current Assessment policy");
+    values["partial_credit_enabled"] = partial_credit_enabled.into();
     sqlx::query("SET LOCAL ROLE ple_api_owner")
         .execute(&mut *tx)
         .await
@@ -223,29 +228,29 @@ async fn current_point_values_recalculate_stored_credit_without_another_backend_
     let correct_entry = Uuid::from_u128(0xf5810000000000000000000000000001);
     let (correct_fixture, correct_question_attempt, correct_credit) = store_color_outcome(
         &pool,
-        &source,
-        &correct,
+        (&source, &correct),
         correct_entry,
         Uuid::from_u128(0xf5800000000000000000000000000001),
         Uuid::from_u128(0xf5820000000000000000000000000001),
         Uuid::from_u128(0xf5830000000000000000000000000001),
+        None,
     )
     .await;
     let incorrect_entry = Uuid::from_u128(0xf5850000000000000000000000000001);
     let (incorrect_fixture, incorrect_question_attempt, incorrect_credit) = store_color_outcome(
         &pool,
-        &source,
-        &incorrect,
+        (&source, &incorrect),
         incorrect_entry,
         Uuid::from_u128(0xf5840000000000000000000000000001),
         Uuid::from_u128(0xf5860000000000000000000000000001),
         Uuid::from_u128(0xf5870000000000000000000000000001),
+        None,
     )
     .await;
     assert_eq!(correct_credit, 1.0);
     assert_eq!(incorrect_credit, 0.0);
-    save_current_points(&pool, &correct_fixture, correct_entry, "5").await;
-    save_current_points(&pool, &incorrect_fixture, incorrect_entry, "5").await;
+    save_current_points(&pool, &correct_fixture, correct_entry, "5", true).await;
+    save_current_points(&pool, &incorrect_fixture, incorrect_entry, "5", true).await;
     let (correct_earned, correct_possible) =
         submitted_score_without_backend_work(&pool, correct_fixture.attempt_id).await;
     let (incorrect_earned, incorrect_possible) =
@@ -254,6 +259,52 @@ async fn current_point_values_recalculate_stored_credit_without_another_backend_
     assert_eq!(correct_possible, 5.0);
     assert_eq!(incorrect_earned, incorrect_credit * 5.0);
     assert_eq!(incorrect_possible, 5.0);
+    save_current_points(&pool, &correct_fixture, correct_entry, "5", false).await;
+    save_current_points(&pool, &incorrect_fixture, incorrect_entry, "5", false).await;
+    let (correct_after_disable, _) =
+        submitted_score_without_backend_work(&pool, correct_fixture.attempt_id).await;
+    let (incorrect_after_disable, _) =
+        submitted_score_without_backend_work(&pool, incorrect_fixture.attempt_id).await;
+    assert_eq!(correct_after_disable, 5.0);
+    assert_eq!(incorrect_after_disable, 0.0);
+    save_current_points(&pool, &correct_fixture, correct_entry, "5", true).await;
+    save_current_points(&pool, &incorrect_fixture, incorrect_entry, "5", true).await;
+    let (correct_after_enable, _) =
+        submitted_score_without_backend_work(&pool, correct_fixture.attempt_id).await;
+    let (incorrect_after_enable, _) =
+        submitted_score_without_backend_work(&pool, incorrect_fixture.attempt_id).await;
+    assert_eq!(correct_after_enable, 5.0);
+    assert_eq!(incorrect_after_enable, 0.0);
+    let fractional_entry = Uuid::from_u128(0xf5890000000000000000000000000001);
+    let (fractional_fixture, fractional_question_attempt, fractional_credit) = store_color_outcome(
+        &pool,
+        (&source, &incorrect),
+        fractional_entry,
+        Uuid::from_u128(0xf5880000000000000000000000000001),
+        Uuid::from_u128(0xf58a0000000000000000000000000001),
+        Uuid::from_u128(0xf58b0000000000000000000000000001),
+        Some(0.5),
+    )
+    .await;
+    assert_eq!(fractional_credit, 0.5);
+    save_current_points(&pool, &fractional_fixture, fractional_entry, "5", true).await;
+    assert_eq!(
+        submitted_score_without_backend_work(&pool, fractional_fixture.attempt_id).await,
+        (2.5, 5.0),
+        "the current Assessment awards proportional points when enabled"
+    );
+    save_current_points(&pool, &fractional_fixture, fractional_entry, "5", false).await;
+    assert_eq!(
+        submitted_score_without_backend_work(&pool, fractional_fixture.attempt_id).await,
+        (0.0, 5.0),
+        "disabling partial credit rescales the stored fraction without regrading"
+    );
+    save_current_points(&pool, &fractional_fixture, fractional_entry, "5", true).await;
+    assert_eq!(
+        submitted_score_without_backend_work(&pool, fractional_fixture.attempt_id).await,
+        (2.5, 5.0),
+        "reenabling partial credit restores proportional points"
+    );
     let mut stored_tx = pool.begin().await.expect("stored credit transaction");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *stored_tx)
@@ -262,6 +313,7 @@ async fn current_point_values_recalculate_stored_credit_without_another_backend_
     for (question_attempt_id, backend_credit) in [
         (correct_question_attempt, correct_credit),
         (incorrect_question_attempt, incorrect_credit),
+        (fractional_question_attempt, fractional_credit),
     ] {
         let stored_credit: f64 = sqlx::query_scalar(
             "SELECT normalized_credit::float8 FROM ple_private.grading_result \

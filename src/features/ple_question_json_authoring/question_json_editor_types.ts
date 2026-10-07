@@ -1,6 +1,7 @@
 // Public composition contract for the ple-question-json editor surface.
 
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { WasmFacade } from "../../wasm/index";
 import type { ContentClassificationClient } from "../../api/content_classification";
 import type { PleQuestionJsonRead, PleQuestionJsonClient } from "./question_json_client";
@@ -49,6 +50,8 @@ export interface PleQuestionJsonEditorPageProps {
   readonly classificationClient: ContentClassificationClient;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
+  /** Exact Published Revision this ordinary Draft corrects, when opened from the Owner action. */
+  readonly correctionParent?: PublishedQuestionRevisionTuple;
   /** Same-route QTI conversion may move focus into the newly replaced draft. */
   readonly focusHeadingOnMount?: boolean;
   /** Clears the route's one-shot focus request after the unlocked heading receives it. */

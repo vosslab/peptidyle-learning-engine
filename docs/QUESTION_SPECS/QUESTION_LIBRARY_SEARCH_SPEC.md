@@ -94,15 +94,15 @@ including when a result page is empty.
 
 ## Current search implementation evidence
 
-`GET /api/questions/search` currently serves combined Library search. The table records the
-implemented parameter names and values. Align these names with PLE product vocabulary when
-updating the implementation; their current use creates no compatibility requirement. The naming
-follow-up is in [TODO.md](../TODO.md#question-spec-implementation-follow-up).
+`GET /api/library-objects/search` currently serves combined Library search. The table records the
+implemented request names and values. The request, route, client, and filter field use the
+Library Object and Questions in no Pool vocabulary. They do not settle the tentative initial
+filter choice; see the [M24 implementation report](../active_plans/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
 
 | Parameters | Values |
 | --- | --- |
 | `kind` | `both`, `questions`, `pools` |
-| `membership` | `noPool`, `all`; applies to Question rows |
+| `questions` | `inNoPool`, `all`; applies to Question rows |
 | `owner_account_id` | Canonical Account ID, when supplied |
 | `text` | Current search text, at most 256 Unicode scalar values |
 | `author_names`, `backends`, `tags`, `subjects`, `topics`, `question_types`, `question_licenses`, `capabilities` | Repeated values from the corresponding allowed set or normalized text |
@@ -113,7 +113,7 @@ follow-up is in [TODO.md](../TODO.md#question-spec-implementation-follow-up).
 | `sort` | `titleAscending` or `publishedNewest` |
 | `cursor`, `page_size` | Opaque cursor and bounded page size |
 
-For example, `GET /api/questions/search?kind=both&membership=noPool&text=meiosis&sort=titleAscending&page_size=50`
+For example, `GET /api/library-objects/search?kind=both&questions=inNoPool&text=meiosis&sort=titleAscending&page_size=50`
 requests Questions in no Pool plus Pools matching meiosis. This is the tentative default candidate
 in HG; the final default remains open. Exact shared request types and limits live in
 [question_search.rs](../../crates/question_model/src/question_search.rs); response kinds are in

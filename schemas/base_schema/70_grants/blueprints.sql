@@ -3,6 +3,7 @@
 SET LOCAL ROLE ple_data_owner;
 
 REVOKE ALL ON FUNCTION ple_data.course_classification_tags_are_valid(text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.reject_blueprint_course_parent_change() FROM PUBLIC;
 
 
 -- Course retention updates are checked against this shared immutable validator.
@@ -51,10 +52,3 @@ GRANT EXECUTE ON FUNCTION ple_data.blueprint_content_question_pins(jsonb),
     ple_data.validate_blueprint_content(jsonb),
     ple_data.validate_blueprint_question_selection(text, bigint, jsonb)
 TO ple_api_owner;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
-    ple_data.blueprint_course_fork, ple_data.blueprint_course_fork_receipt
-TO ple_api_owner;
-
-REVOKE ALL ON FUNCTION ple_data.reject_blueprint_course_fork_change() FROM PUBLIC;
-

@@ -51,7 +51,7 @@ CREATE UNIQUE INDEX content_subject_global_name_unique
 CREATE INDEX published_question_available_discovery_idx
     ON ple_data.published_question(published_question_id) WHERE availability = 'available';
 
-CREATE INDEX published_question_metadata_search_idx ON ple_data.published_question_metadata
+CREATE INDEX question_revision_metadata_search_idx ON ple_data.question_revision_metadata
     USING gin (to_tsvector('simple', question_title || ' ' || question_description));
 
 CREATE UNIQUE INDEX question_ownership_event_initial_once
@@ -62,9 +62,6 @@ CREATE INDEX question_star_instructor_collection_idx
 
 CREATE INDEX question_watch_instructor_collection_idx
     ON ple_data.question_watch(instructor_account_id, watched_at DESC, published_question_id);
-
-CREATE INDEX library_impact_notice_object_idx
-    ON ple_data.library_impact_notice(object_kind, public_object_id, created_at DESC, impact_notice_id);
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -87,11 +84,17 @@ SET LOCAL ROLE ple_data_owner;
 CREATE INDEX blueprint_course_available_owner_idx
     ON ple_data.blueprint_course (availability, owner_account_id, blueprint_course_id);
 
+CREATE INDEX blueprint_course_theme_id_fk_idx
+    ON ple_data.blueprint_course (theme_id);
+
+CREATE INDEX blueprint_metadata_event_theme_id_fk_idx
+    ON ple_data.blueprint_metadata_event (theme_id);
+
 CREATE INDEX blueprint_revision_question_pin_question_idx
     ON ple_data.blueprint_revision_question_pin (published_question_id, question_revision_number);
 
-CREATE INDEX blueprint_course_fork_source_idx ON ple_data.blueprint_course_fork (
-    source_blueprint_course_id, source_blueprint_revision_number
+CREATE INDEX blueprint_course_parent_idx ON ple_data.blueprint_course (
+    parent_blueprint_course_id, parent_blueprint_revision_number, blueprint_course_id
 );
 
 CREATE INDEX blueprint_course_star_instructor_collection_idx
@@ -244,15 +247,6 @@ CREATE INDEX instructor_account_creation_event_created_instr_838b23f7_fk_idx
 CREATE INDEX object_cleanup_receipt_object_cleanup_manifest__f9f85e91_fk_idx
     ON ple_audit.object_cleanup_receipt (object_cleanup_manifest_id, disposition);
 
-CREATE INDEX support_repair_capability_event_issuer_account_id_fk_idx
-    ON ple_audit.support_repair_capability_event (issuer_account_id);
-
-CREATE INDEX support_repair_capability_event_support_repair__975ebcdb_fk_idx
-    ON ple_audit.support_repair_capability_event (support_repair_capability_id);
-
-CREATE INDEX support_repair_capability_event_sysadmin_account_id_fk_idx
-    ON ple_audit.support_repair_capability_event (sysadmin_account_id);
-
 SET LOCAL ROLE ple_data_owner;
 
 CREATE INDEX assessment_source_blueprint_course_id_a95c83d2_fk_idx
@@ -314,12 +308,6 @@ CREATE INDEX blueprint_course_owner_account_id_fk_idx
 
 CREATE INDEX blueprint_course_create_receipt_blueprint_cours_a188b3c4_fk_idx
     ON ple_data.blueprint_course_create_receipt (blueprint_course_id, blueprint_revision_number);
-
-CREATE INDEX blueprint_course_fork_receipt_source_blueprint__840527c5_fk_idx
-    ON ple_data.blueprint_course_fork_receipt (source_blueprint_course_id, source_blueprint_revision_number);
-
-CREATE INDEX blueprint_course_fork_receipt_blueprint_course_id_fk_idx
-    ON ple_data.blueprint_course_fork_receipt (blueprint_course_id);
 
 CREATE INDEX blueprint_course_save_receipt_actor_account_id_fk_idx
     ON ple_data.blueprint_course_save_receipt (actor_account_id);
@@ -393,23 +381,17 @@ CREATE INDEX forced_question_correction_approved_by_account__198a0268_fk_idx
 CREATE INDEX forced_question_correction_replacement_question_67ad7428_fk_idx
     ON ple_data.forced_question_correction (replacement_question_id, replacement_revision_number);
 
-CREATE INDEX library_impact_notice_cancelled_by_account_id_fk_idx
-    ON ple_data.library_impact_notice (cancelled_by_account_id);
-
-CREATE INDEX library_impact_notice_created_by_account_id_fk_idx
-    ON ple_data.library_impact_notice (created_by_account_id);
-
 CREATE INDEX profile_image_delivery_object_record_id_fk_idx
     ON ple_data.profile_image_delivery (object_record_id);
 
-CREATE INDEX published_question_metadata_content_subject_id_2904f118_fk_idx
-    ON ple_data.published_question_metadata (content_subject_id, content_discipline_id);
+CREATE INDEX question_revision_metadata_content_subject_id_2904f118_fk_idx
+    ON ple_data.question_revision_metadata (content_subject_id, content_discipline_id);
 
-CREATE INDEX published_question_metadata_content_subject_id_eed7807b_fk_idx
-    ON ple_data.published_question_metadata (content_subject_id, content_topic_id);
+CREATE INDEX question_revision_metadata_content_subject_id_eed7807b_fk_idx
+    ON ple_data.question_revision_metadata (content_subject_id, content_topic_id);
 
-CREATE INDEX published_question_metadata_content_topic_id_4033d80b_fk_idx
-    ON ple_data.published_question_metadata (content_topic_id, content_subtopic_id);
+CREATE INDEX question_revision_metadata_content_topic_id_4033d80b_fk_idx
+    ON ple_data.question_revision_metadata (content_topic_id, content_subtopic_id);
 
 CREATE INDEX question_image_delivery_object_delivery_id_72e8beb7_fk_idx
     ON ple_data.question_image_delivery (object_delivery_id, object_record_id);
@@ -423,8 +405,8 @@ CREATE INDEX question_availability_event_actor_account_id_fk_idx
 CREATE INDEX question_change_event_recorded_by_account_id_fk_idx
     ON ple_data.question_change_event (recorded_by_account_id);
 
-CREATE INDEX question_fork_source_source_question_id_e7bd1bc8_fk_idx
-    ON ple_data.question_fork_source (source_question_id, source_revision_number);
+CREATE INDEX published_question_parent_revision_fk_idx
+    ON ple_data.published_question (parent_published_question_id, parent_revision_number);
 
 CREATE INDEX question_ownership_event_owner_account_id_fk_idx
     ON ple_data.question_ownership_event (owner_account_id);
@@ -441,8 +423,6 @@ CREATE INDEX question_pool_content_subject_id_content_topic_id_fk_idx
 CREATE INDEX question_pool_content_topic_id_content_subtopic_id_fk_idx
     ON ple_data.question_pool (content_topic_id, content_subtopic_id);
 
-CREATE INDEX question_pool_interchangeability_attested_by_account_id_fk_idx
-    ON ple_data.question_pool (interchangeability_attested_by_account_id);
 
 CREATE INDEX question_pool_owner_account_id_owner_user_role_fk_idx
     ON ple_data.question_pool (owner_account_id, owner_user_role);
@@ -452,9 +432,6 @@ CREATE INDEX question_pool_source_question_pool_id_fk_idx
 
 CREATE INDEX question_pool_member_published_question_id_c92544b6_fk_idx
     ON ple_data.question_pool_member (published_question_id, question_revision_number);
-
-CREATE INDEX question_pool_member_statistics_published_question_id_fk_idx
-    ON ple_data.question_pool_member_statistics (published_question_id);
 
 CREATE INDEX question_pool_star_instructor_account_id_fk_idx
     ON ple_data.question_pool_star (instructor_account_id);
@@ -578,8 +555,14 @@ CREATE INDEX draft_question_authoring_workspace_id_fk_idx
 CREATE INDEX draft_question_image_draft_question_id_b5a44014_fk_idx
     ON ple_private.draft_question_image (draft_question_id, authoring_workspace_id);
 
-CREATE INDEX draft_question_fork_source_source_question_id_86c817bf_fk_idx
-    ON ple_private.draft_question_fork_source (source_question_id, source_revision_number);
+CREATE INDEX draft_question_parent_revision_fk_idx
+    ON ple_private.draft_question (parent_published_question_id, parent_revision_number);
+
+CREATE INDEX draft_question_authorship_author_account_id_fk_idx
+    ON ple_private.draft_question_authorship (author_account_id);
+
+CREATE INDEX draft_question_metadata_content_subject_id_content_discipline_id_fk_idx
+    ON ple_private.draft_question_metadata (content_subject_id, content_discipline_id);
 
 CREATE INDEX draft_question_source_binding_source_object_record_id_fk_idx
     ON ple_private.draft_question_source_binding (source_object_record_id);
@@ -588,7 +571,7 @@ CREATE INDEX email_authentication_challenge_target_account_id_fk_idx
     ON ple_private.email_authentication_challenge (target_account_id);
 
 CREATE INDEX issued_question_course_instance_id_31d5d1c2_fk_idx
-    ON ple_private.issued_question (course_instance_id, question_pool_selection_id, question_pool_member_position, published_question_id, revision_number);
+    ON ple_private.issued_question (course_instance_id, question_pool_selection_id, published_question_id, revision_number);
 
 CREATE INDEX issued_question_course_instance_id_b08795ae_fk_idx
     ON ple_private.issued_question (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id);
@@ -650,20 +633,14 @@ CREATE INDEX question_statistics_observation_receipt_course__d3f8d499_fk_idx
 CREATE INDEX question_statistics_observation_receipt_publish_de307fa4_fk_idx
     ON ple_private.question_statistics_observation_receipt (published_question_id, revision_number);
 
-CREATE INDEX saved_question_search_owner_account_id_fk_idx
-    ON ple_private.saved_question_search (owner_account_id);
+CREATE INDEX question_statistics_observation_receipt_pool_id_fk_idx
+    ON ple_private.question_statistics_observation_receipt (question_pool_id);
 
 CREATE INDEX student_assessment_accommodation_assessment_id_d947306c_fk_idx
     ON ple_private.student_assessment_accommodation (assessment_id, course_instance_id);
 
 CREATE INDEX student_assessment_accommodation_student_record_5951ea54_fk_idx
     ON ple_private.student_assessment_accommodation (student_record_id, course_instance_id);
-
-CREATE INDEX support_repair_capability_sysadmin_account_id_49d4b3ce_fk_idx
-    ON ple_private.support_repair_capability (sysadmin_account_id, sysadmin_role);
-
-CREATE INDEX support_repair_capability_issuer_account_id_fk_idx
-    ON ple_private.support_repair_capability (issuer_account_id);
 
 CREATE INDEX sysadmin_totp_attestation_account_id_fk_idx
     ON ple_private.sysadmin_totp_attestation (account_id);

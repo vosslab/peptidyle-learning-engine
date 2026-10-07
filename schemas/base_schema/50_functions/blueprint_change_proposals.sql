@@ -95,7 +95,7 @@ RETURNS TABLE (
     target_is_stale boolean, source_position integer, blueprint_course_id text,
     revision_number bigint, blueprint_edit_number bigint, content jsonb, content_checksum bytea,
     short_name text, long_name text, content_discipline_id uuid, content_subject_id uuid,
-    content_topic_id uuid, content_subtopic_id uuid, tags text[], can_accept boolean
+    content_topic_id uuid, content_subtopic_id uuid, tags text[], theme_id text, can_accept boolean
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     -- ASVS 8.2.2, 8.3.2: submission intentionally shares the exact proposed
@@ -109,7 +109,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            basis.position, course.blueprint_course_id, basis.revision_number::bigint,
            basis.blueprint_edit_number, revision.content, revision.content_checksum,
            event.short_name, event.long_name, event.content_discipline_id, event.content_subject_id,
-           event.content_topic_id, event.content_subtopic_id, event.tags,
+           event.content_topic_id, event.content_subtopic_id, event.tags, event.theme_id,
            target.owner_account_id = ple_api.current_session_account_id()
                AND target.availability <> 'archived'
                AND target.current_blueprint_revision_number = proposal.target_revision_number
@@ -396,7 +396,7 @@ RETURNS TABLE (
     blueprint_change_proposal_id uuid, actor_account_id text, accepted_at_ms bigint, decision jsonb,
     blueprint_course_id text, revision_number bigint, blueprint_edit_number bigint,
     content jsonb, content_checksum bytea, short_name text, long_name text,
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[], theme_id text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT acceptance.blueprint_change_proposal_id, acceptance.actor_account_id,
@@ -404,7 +404,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            target.blueprint_course_id, acceptance.resulting_revision_number::bigint,
            acceptance.resulting_blueprint_edit_number, revision.content, revision.content_checksum,
            event.short_name, event.long_name, event.content_discipline_id, event.content_subject_id,
-           event.content_topic_id, event.content_subtopic_id, event.tags
+           event.content_topic_id, event.content_subtopic_id, event.tags, event.theme_id
       FROM ple_data.blueprint_change_proposal_acceptance AS acceptance
       JOIN ple_data.blueprint_course AS target
         ON target.blueprint_course_id = acceptance.target_blueprint_course_id

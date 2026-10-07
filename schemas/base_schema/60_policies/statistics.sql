@@ -10,10 +10,6 @@ ALTER TABLE ple_data.question_pool_statistics ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.question_pool_statistics FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE ple_data.question_pool_member_statistics ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.question_pool_member_statistics FORCE ROW LEVEL SECURITY;
-
 CREATE POLICY question_revision_statistics_data_owner_access
     ON ple_data.question_revision_statistics
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
@@ -22,18 +18,12 @@ CREATE POLICY question_pool_statistics_data_owner_access
     ON ple_data.question_pool_statistics
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
-CREATE POLICY question_pool_member_statistics_data_owner_access
-    ON ple_data.question_pool_member_statistics
-    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
-
 CREATE POLICY question_revision_statistics_api_read
     ON ple_data.question_revision_statistics FOR SELECT TO ple_api_owner USING (true);
 
 CREATE POLICY question_pool_statistics_api_read
     ON ple_data.question_pool_statistics FOR SELECT TO ple_api_owner USING (true);
 
-CREATE POLICY question_pool_member_statistics_api_read
-    ON ple_data.question_pool_member_statistics FOR SELECT TO ple_api_owner USING (true);
 
 SET LOCAL ROLE ple_private_owner;
 

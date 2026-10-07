@@ -18,6 +18,7 @@ import type { BlueprintMetadataState } from "../../generated/api/BlueprintMetada
 import type { CreateBlueprintCourseInput } from "../../generated/api/CreateBlueprintCourseInput";
 import type { RenameBlueprintCourseInput } from "../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/ReplaceBlueprintCourseContentInput";
+import type { BlueprintThemeUpdate } from "../../generated/api/BlueprintThemeUpdate";
 import type { CursorPage } from "./contracts";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { CanonicalBlueprintCourse } from "../../generated/api/CanonicalBlueprintCourse";
@@ -63,6 +64,11 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   readonly updateBlueprintCourseClassification: (
     blueprintCourseId: BlueprintCourseId,
     classification: CourseClassification,
+    expectedBlueprintEditNumber: BlueprintEditNumber,
+  ) => Promise<BlueprintMetadataTransition>;
+  readonly updateBlueprintCourseTheme: (
+    blueprintCourseId: BlueprintCourseId,
+    update: BlueprintThemeUpdate,
     expectedBlueprintEditNumber: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly listBlueprintHistory: (

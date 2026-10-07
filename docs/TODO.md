@@ -9,62 +9,97 @@ are in [ROADMAP.md](ROADMAP.md).
 
 ## Question-spec implementation follow-up
 
-The Question-spec review remains documentation work. Record code changes here for later execution.
-Neil chose to retain the already-written removal of "Used in my Courses"; offline checks passed.
-The finding-by-finding reconciliation is in the
+The approved 29-milestone Question-spec implementation is complete locally. All 35 scoped
+behaviors below have decisive evidence and passed M29 integration acceptance. Per-item evidence and
+independent reviews are in the [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+The inventory, dependencies, and acceptance criteria are in the [implementation plan](active_plans/active/question_spec_implementation_plan.md)
+and [execution ledger](active_plans/reports/question_spec_implementation_ledger.md). A milestone is
+accepted only after its listed dependencies and evidence gates pass. Existing deferred decisions
+remain in the [decision log](active_plans/decisions/question_spec_implementation_uncertainties.md).
+Neil chose to retain the already-written removal of "Used in my Courses"; offline checks passed. The
+finding-by-finding reconciliation is in the
 [decision review](active_plans/reports/QUESTION_SPEC_SETTLED_DECISIONS_REVIEW_2026_10_05.md#implementation-follow-up-reconciliation).
-The items below specify later alignment work; this pass changes documentation only.
 
-- [ ] Align implementation names with PLE product vocabulary across SQL, Rust, TypeScript, JSON,
-      API routes, clients, tests, and generated contracts. Review the combined Library route
-      `/api/questions/search` and its `membership` / `LibraryQuestionMembership` filter names
-      against Library Object and Questions in no Pool. Rename where needed to make the intended
-      concept clear. Rename `BlueprintRevisionTuple` and related identifiers to match Blueprint
-      Course Revision Tuple, using each language's normal casing. Update producers and consumers
-      together. PLE is pre-production; change the design directly. Current names are evidence,
-      not compatibility requirements. Sources:
+- [x] Align implementation names with PLE product vocabulary across SQL, Rust, TypeScript, JSON,
+      API routes, clients, tests, and generated contracts. Blueprint Course Revision Tuple names
+      are implemented; see the [M02 verification report](active_plans/reports/question_spec_m02_tuple_names.md).
+      The combined Library route `/api/library-objects/search`, `questions`, and
+      `PublishedQuestionFilter` now use Library Object and Questions in no Pool names across the
+      producers and consumers. See the [M24 results report](active_plans/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
+      PLE is pre-production; change the design directly. Sources:
       [question_search.rs](../crates/question_model/src/question_search.rs) and
       [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs).
 
-- [ ] Remove manually written Question/Pool impact notices from schema, SQL operations and grants,
-      domain/API types, clients, and their tests. Neil chose the existing fork-and-fix workflow;
-      this is removal of an unwanted feature, not a notice-permissions redesign. Preserve Watch
-      notifications for Revisions, forks, and Pool membership changes. Source evidence:
-      [library_discussion.sql](../schemas/base_schema/20_tables/library_discussion.sql) and
-      [library_discussion_operations.sql](../schemas/base_schema/50_functions/library_discussion_operations.sql).
-      The [authority audit](active_plans/reports/QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md#stored-notice-history)
-      traces the August HG wording, September implementation, and October partial removal.
+- [x] Remove manually written Question/Pool impact notices from schema, SQL operations and grants,
+      domain/API types, clients, and their tests. Preserve settled Watch notifications for
+      Revisions, Question forks, Pool Edit Number changes, and Pool forks; Change Proposals remain
+      separate. Watch events carry Question Revision Number or Pool Edit Number across SQL, Rust,
+      API, and TypeScript. Source/review and all three connected Watch selectors pass in the
+      canonical database baseline. See the
+      [M14 removal report](active_plans/reports/QUESTION_SPEC_M14_NOTICES.md) and current
+      [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
 
-- [ ] When the set of Question Revision Tuples in a Pool changes, saving advances
+- [x] When the set of Question Revision Tuples in a Pool changes, saving advances
       the Pool's Edit Number (R04).
       Remove the additional attestation checkbox, required request flag, and dedicated attester/time
       storage from Pool creation and member editing. Update SQL, Rust/API types, browser forms,
       clients, fixtures, and tests together. Preserve owner/Sysadmin checks, membership constraints,
-      and the ordinary Edit Number. Evidence: [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql),
+      and the ordinary Edit Number. Pool member display sorting is spreadsheet-style and changes
+      only displayed rows; remove the unsupported persisted Assessment Pool order field and all
+      `QuestionPoolOrder` user choices. Canonical tuple sorting remains an internal sampling detail.
+      Evidence: [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql),
       [question_pool_create_dialog.tsx](../src/components/question_pool_create_dialog.tsx), and
       [test_question_pool_creation_client.mjs](../tests/test_question_pool_creation_client.mjs).
+      Order-correction implementation and evidence: [M09 order correction report](active_plans/reports/QUESTION_SPEC_M09_ORDER_CORRECTION.md).
       Verify that valid members save without an additional certification input.
-- [ ] Align Pool-use validation with unreleased Assessment Save (F03). In
-      [assessment_pool_forks.sql](../schemas/base_schema/50_functions/assessment_pool_forks.sql),
-      member Save currently raises after removal when the selection count exceeds membership;
-      [assessment_pool_selection.sql](../schemas/base_schema/50_functions/assessment_pool_selection.sql)
-      also rejects a larger count immediately. Allow that temporary mismatch to save, show it on
-      the affected Assessment, and block release until resolved. Align UI gates and rejection
-      tests with this behavior. Retain Pool membership rules and established post-issue limits.
-      Verify the example of two valid Pool members and an unreleased Assessment requesting three.
-- [ ] Align Question metadata edits with reporting Pool problems (R03). Preserve a valid Question
+      The ordinary Owner/Sysadmin Pool editor now has Add/Remove/Save and local table sorting. Its
+      isolated Playwright check verifies that sorting an edited draft leaves its exact Save tuple
+      set and acknowledged Edit Number unchanged. Connected PostgreSQL selectors 01-07/09 now pass
+      direct Pool Save, shared references, fork/privacy/retired-Pool behavior, and Owner/Sysadmin
+      authority; see `output_question_spec/assessment_saved_response_current_20261007.log`. The
+      M05 nullable Pool Bloom and M06 non-owner read/use/fork criteria now pass in
+      `output_question_spec/final_proofs/metadata_nonowner_proof_origin_20261007.log`; fresh
+      database and final integration acceptance passed under M29.
+- [x] Align Pool-use validation with unreleased Assessment Save (F03). In
+      [assessments.sql](../schemas/base_schema/50_functions/assessments.sql), remove the current
+      save-time rejection when an Assessment's requested `selection_count` exceeds its ordinary
+      Pool's current membership. An unreleased Assessment with two valid Pool members and a
+      requested count of three must save; report the specific insufficiency on that Assessment
+      and block release through [assessment_release_validation.sql](../schemas/base_schema/50_functions/assessment_release_validation.sql).
+      Keep Pool membership rules and established post-issue limits. The current M12 PostgreSQL
+      proof passes the two-member/request-three Save and blocked-release case; see
+      `output_question_spec/m12_release_current_20261007.log`.
+- [x] Align Question metadata edits with reporting Pool problems (R03). Preserve a valid Question
       classification correction, show which Pool requirements are not met, and block affected release.
       The inspected metadata write does not reject edits merely because of Pool membership;
       [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql) checks classification
       on admission, while [assessment_release_validation.sql](../schemas/base_schema/50_functions/assessment_release_validation.sql)
       counts members without checking their current classification. Complete the mismatch display
-      and release checks against current valid members. Verify that correction saves, unreleased
-      Assessment release is blocked, and already-released Assessments continue under HG's rule.
-- [ ] Align the ordinary Question availability state with
+      and release checks against current valid members. Current M12 assertions prove the correction
+      saves, reports the invalid Pool member, blocks release, and allows release after correction.
+      See `m12_release_current_20261007.log`; the already-released Assessment rule remains part of
+      the M03/M11 dependent acceptance.
+- [x] Align the ordinary Question availability state with
       [PUBLISHED_QUESTION_SPEC.md](QUESTION_SPECS/PUBLISHED_QUESTION_SPEC.md#archive): archived
       Questions are read-only, outside normal discovery, preserved with existing references,
-      and available to restore or fork.
-- [ ] Align Question statistics with the agreed measures: times received by Students,
+      and available to restore or fork. The permitted production-browser authoring scenario now
+      verifies read-only state, discovery exclusion, retained source tuple/metadata on fork,
+      restoration, and return to discovery; see the [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+- [x] Complete the remaining Question Pool acceptance gates. M09-M11 source work is complete:
+      Pool storage uses exact Question Revision Tuples; Assessments and Blueprint/Course operations
+      preserve ordinary Pool IDs with Assessment-local counts; only explicit ordinary Pool forks
+      copy current metadata, including both Bloom dimensions; and Attempts retain their exact
+      selected Question Revision Tuples. See the [M09 Pool storage report](active_plans/reports/QUESTION_SPEC_M09_POOL_STORAGE.md),
+      [M10 Pool references report](active_plans/reports/QUESTION_SPEC_M10_POOL_REFERENCES.md), and
+      [M11 Pool operations report](active_plans/reports/QUESTION_SPEC_M11_POOL_OPERATIONS.md).
+      Connected Pool Save/editor, shared-reference/API readback, Blueprint persistence/adoption/update,
+      explicit fork independence, and issued-tuple fairness checks pass. M12 request-count,
+      classification mismatch, and release-blocking runtime proofs also pass. M04/M05/M06 specific
+      criteria also pass; the connected Native metadata, Pool Bloom, and non-owner permission proof
+      is in `output_question_spec/final_proofs/metadata_nonowner_proof_origin_20261007.log`.
+      Fresh database and final integration acceptance passed under M29; see the
+      [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+- [x] Align Question statistics with the agreed measures: times received by Students,
       graded-response count, average stored credit, full-credit percentage, and zero-credit
       percentage. Preserve per-Revision/per-Pool storage and existing privacy requirements.
       Assess the current statistics and display against
@@ -74,30 +109,35 @@ The items below specify later alignment work; this pass changes documentation on
       per Revision. Count delivery separately from graded responses: a delivered Question in an
       unsubmitted Attempt contributes to times received, while a graded response contributes its
       stored credit.
-      Current [statistics.sql](../schemas/base_schema/50_functions/statistics.sql) increments
-      `issued_count` during submission collection, exposes Question-wide rollups, and derives Pool
-      outcomes from current members across Revisions. Align collection, SQL reads, API/display, and
-      tests with actual delivery and graded-response measures for the referenced Revision or Pool.
-      A Pool's own outcomes describe deliveries from that Pool, rather than all uses of its current
-      members. Preserve privacy-safe aggregation and ordinary duplicate-count protection. Verify
+      Current connected delivery/origin/retry SQL proof and five-student Revision/Pool display proof
+      pass in `output_question_spec/statistics_current_20261007.log` and
+      `output_question_spec/m23_available_final_20261007.log`. The final UI proof stores 0.5 credit
+      while awarding zero points with partial credit disabled; separate scoring/display proof covers
+      all five Native formats. Remaining status follows M11 dependency criteria in the
+      [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+      Pool statistics accumulate from Questions delivered through that Pool, including across
+      changes to its set of Question Revision Tuples. Preserve privacy-safe aggregation and
+      ordinary duplicate-count protection. Verify
       delivery without submission, a submitted fractional response, and separate Revision/Pool
       totals. Existing extra counters may remain internal engineering details; they do not define
       additional displayed measures or a derived difficulty rating.
-- [ ] Reconcile existing Question-language gates with HG: required language has no established
+- [x] Reconcile existing Question-language gates with HG: required language has no established
       product authority. Review the Published Question schema, Native JSON decoder/validator,
       authoring forms, and publication paths so current storage requirements do not become
       required Instructor input by accident. Preserve supplied language metadata. See
       [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md#current-implementation-evidence-language)
       and [NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md#current-implementation-evidence-language).
-- [ ] Provide Draft autosave with a visible saved status. Align creation, import, and saving with
+- [x] Provide Draft autosave with a visible saved status. Align creation, import, and saving with
       the absence of content and metadata requirements.
       Preserve empty, incomplete, and broken working content for every Backend. Preview and test
       errors leave that content available to save and edit; publication checks complete source
       and required metadata. Inspect editor, API, and storage checks against
       [DRAFT_QUESTION_SPEC.md](QUESTION_SPECS/DRAFT_QUESTION_SPEC.md). Verify saving and reopening
       unfinished Native JSON and PG/PGML Drafts, including the visible saved status, then successful
-      publication after completion. Automated abandoned-Draft cleanup remains deferred.
-- [ ] Align Question storage and editing with complete Revision records: keep metadata on the
+      publication after completion. Automated expired-Draft cleanup remains deferred; eventual
+      cleanup requires an appropriate warning and recovery period. No expiration period is set.
+      This work remains outside the accepted implementation plan.
+- [x] Align Question storage and editing with complete Revision records: keep metadata on the
       record and permit ordinary in-place metadata corrections while source and grading changes
       create a new complete Revision. Carry attributes forward at publication. Audit schema,
       publication, reads, search, and save permissions against
@@ -111,160 +151,177 @@ The items below specify later alignment work; this pass changes documentation on
       correction appears consistently in detail and search without changing source or Revision.
       Native JSON holds the Backend's rendering, response, and grading material. Q31 records
       the decision in the [question log](active_plans/decisions/question_specs_open_questions.md).
-- [ ] Fold Bloom fields and saves into ordinary Question/Pool metadata editing and concurrency.
-      Existing dedicated classification tables, counters, routes, and browser types need alignment;
-      update generated schema documentation with that implementation. Preserve owner/Sysadmin
-      editing and pending NULL values. Permit correcting either dimension while the other remains
-      NULL or keeps its existing value. The current `validate_bloom_pair` in
-      [question_bloom.sql](../schemas/base_schema/50_functions/question_bloom.sql) rejects NULL;
-      align the validator, schema, request/response types, forms, and tests with ordinary nullable
-      fields. Verify a one-dimension correction with the other absent, unchanged Revision, ordinary
-      concurrency, and owner/Sysadmin permissions. Enable the Assessment's Bloom sorting action
-      when some entries lack Bloom; use a consistent ordinary placement for unclassified entries.
-      That placement is an implementation detail, not another product interview.
-      See
+      Connected M04 evidence passes Native detail/search with unchanged source/Revision Tuple and
+      supplied-language publication in `output_question_spec/final_proofs/metadata_nonowner_proof_origin_20261007.log`.
+- [x] Verify ordinary nullable Bloom metadata edits and Assessment sorting. Current Question and
+      Pool writes use the ordinary metadata functions in
+      [published_question_metadata_operations.sql](../schemas/base_schema/50_functions/published_question_metadata_operations.sql)
+      and [question_pool_search_metadata.sql](../schemas/base_schema/50_functions/question_pool_search_metadata.sql).
+      The shared field contract is in
+      [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md#shared-field-table);
+      Bloom-specific behavior is in
       [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md).
-- [ ] Question Pool model alignment: implement [QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md).
-      Treat this as a direct pre-production schema correction. The source audit confirms drift
-      across SQL, Rust, TypeScript, tests, and fixtures; see
-      [FORK_MODEL_CODE_AUDIT_2026_10_05.md](active_plans/reports/FORK_MODEL_CODE_AUDIT_2026_10_05.md).
-      Adding a Pool stores its existing ID and an Assessment-entry selection count. Reconcile code,
-      API, schema, UI, tests, and terminology that assign Pool ownership to an Assessment or fork
-      implicitly during Assessment/Blueprint/Course assembly. Explicit forking creates a regular
-      Pool with a new ID, Instructor owner, copied current Question Revision Tuples and metadata,
-      Edit Number 1, and parent pointer. Current
-      Pool edits affect future selections across references; existing Attempts keep their selected
-      Questions. Preserve Question ID + Revision and Pool ID + Edit Number in Student Work, with
-      the Edit Number used only as a concurrency/change counter. Verify that saving updates the Pool with no undo,
-      and that sorting changes only the editor display. Before release, save incomplete Assessment editing
-      state, show when an Assessment requests more Questions than a Pool can provide, and block
-      release until resolved; apply
-      established post-issue restrictions afterward. Update tests for these settled semantics.
-- [ ] Remove the special Assessment-owned Pool association and attachment rules:
-      `assessment_question_pool_fork`, its unique Pool constraint, required foreign key and
-      source-parent trigger, and Blueprint restrictions on sharing an existing Pool. Replace
-      `BlueprintPoolInputChoice` copy-on-add behavior and the Assessment-owned Pool API/view with
-      ordinary Pool references and explicit fork creation. Cover Course adoption and Blueprint
-      updates, regenerate API types/schema docs, and update tests and fixtures that currently
-      require automatic forks. Verify that one original or forked Pool can serve multiple
-      Assessments while retaining its Instructor owner and existing Attempt selections.
-- [ ] Store Question and Blueprint parent references with the ordinary object records. Fold
+      Preserve owner/Sysadmin editing and pending NULL values. The Question selector already proves
+      a one-dimension correction with source/Revision preservation, ordinary concurrency, and
+      owner/Sysadmin permissions. Pools have no Revision; evidence for ordinary nullable Pool Bloom
+      correction passes connected edit/readback; Assessment sorting passes its complete test.
+      `metadata_nonowner_proof_origin_20261007.log` records the Pool check. Pools have no Revision.
+      This is settled, not another product interview; fresh-database integration passed under M29.
+- [x] Implement direct ordinary Pool references for Assessments and Assessment-local selection
+      counts, removing the special Assessment-owned Pool association and its fork-only API/editor
+      paths. The connected selector proves two Assessments save and read back the same direct Pool ID
+      at counts 1 and 2 while the Pool owner remains unchanged (`03_course_pool_forks.sql` 390-471);
+      see the [M10 Pool references report](active_plans/reports/QUESTION_SPEC_M10_POOL_REFERENCES.md).
+- [x] Store Question and Blueprint parent references with the ordinary object records. Fold
       `question_fork_source`, `draft_question_fork_source`, and `blueprint_course_fork` into their
       respective ordinary records, retaining the exact source Revision where applicable and
       carrying Draft source attribution through publication. Keep normal Draft/publication and
       Blueprint lifecycles, new identities, and child Revision 1; retain parent history at the
       parent. Verify fork-of-fork records the immediate source, not a copied history.
-- [ ] Review retry bookkeeping currently held in `draft_question_fork_source` and
+- [x] Review retry bookkeeping currently held in `draft_question_fork_source` and
       `blueprint_course_fork_receipt` while simplifying the fork tables. Preserve repeated-request
       handling through ordinary creation behavior; request records are not product object types.
       The audit separates this concern from the confirmed Assessment Pool ownership error.
-- [ ] Preserve all current Pool metadata during an explicit fork, including assigned Bloom.
-      The inspected SQL constructor copies members and ordinary metadata columns but omits the
-      separate Bloom row. Align this with the ordinary metadata cleanup and verify independent
-      subsequent edits of parent and child.
-- [ ] Allow corrections to Backend Question Type classification as ordinary metadata edits and
+- [x] Preserve all current Pool metadata during an explicit fork, including both Bloom dimensions.
+      M11 implementation and review evidence are in the
+      [M11 Pool operations report](active_plans/reports/QUESTION_SPEC_M11_POOL_OPERATIONS.md);
+      connected PostgreSQL checks also prove Edit Number 1, exact tuple copy, both Bloom dimensions,
+      and independent parent/fork membership (`04_blueprint_pool_forks.sql` 259-325).
+- [x] Allow corrections to Backend Question Type classification as ordinary metadata edits and
       report affected Pool mismatches under the release rules. Native JSON Type follows its source interaction; changing
       that interaction remains a source Revision. Inspect existing publication and metadata
       restrictions against [QUESTION_TYPE_SPEC.md](QUESTION_SPECS/QUESTION_TYPE_SPEC.md).
-      WeBWorK Type is assigned manually for now; automatic PG/PGML detection is deferred.
-- [ ] Apply the Assessment partial-credit setting to stored Backend credit fractions for all
+      WeBWorK Type is assigned manually for now; automatic PG/PGML detection is deferred outside this plan.
+      M12 mismatch reporting/release checks and M06 non-owner/owner permission evidence pass; fresh-database integration passed under M29.
+- [x] Apply the Assessment partial-credit setting to stored Backend credit fractions for all
       Attempts, including submitted Attempts. Enable partial credit for new Assessments.
       Store the earned fraction with the setting either
       on or off; off awards full credit for one and zero for smaller fractions. Recalculate all
       affected scores and the highest Attempt when the setting changes, without Backend regrading.
       Verify both toggle directions preserve stored fractions and give consistent Student scores.
       See [QUESTION_BACKEND_SPEC.md](QUESTION_SPECS/QUESTION_BACKEND_SPEC.md#stored-credit-and-awarded-points).
-- [ ] Implement proportional Native JSON Matching credit: correct pairs divided by all prompts,
-      equal weight, wrong or blank pairs zero, no additional deduction. Native JSON currently returns only
-      zero or one and rejects incomplete Matching responses. Verify partial answers survive
-      saving and submission, shuffled display retains the keyed identities, and fractional credit
-      reaches Assessment scores and Student displays. Keep grading in the Question Backend;
-      other Question Types require their own settled rules. See [QUESTION_TYPE_SPEC.md](QUESTION_SPECS/QUESTION_TYPE_SPEC.md).
-- [ ] Add regular-expression answer matching to Native JSON FIB and reuse it for every MULTI-FIB
-      blank. Current `text_matches` supports only exact, case-insensitive, and normalized matching.
-      Align source validation, Draft response testing, and grading; preserve accepted-answer lists.
-- [ ] Grade Native JSON MULTI-FIB as independent FIBs, with equal stored credit per correct blank.
+- [x] Verify connected Native JSON Matching behavior: proportional credit is correct pairs divided
+      by all prompts, with equal weight, wrong or blank pairs worth zero, and no additional
+      deduction. The source now grades proportionally and accepts incomplete Matching responses.
+      Verify partial answers survive saving and submission, shuffled display retains keyed
+      identities, and fractional credit reaches Assessment scores and Student displays. Keep
+      grading in the Question Backend; other Question Types require their own settled rules. See
+      [QUESTION_TYPE_SPEC.md](QUESTION_SPECS/QUESTION_TYPE_SPEC.md).
+- [x] Complete connected acceptance for regular-expression answer matching in Native JSON FIB and
+      MULTI-FIB. Current source validation, authoring, and grading implement regex matching; source
+      tests cover valid and invalid patterns. Verify saved responses and scores through the
+      connected Question and Assessment workflows. Preserve accepted-answer lists.
+- [x] Grade Native JSON MULTI-FIB as independent FIBs, with equal stored credit per correct blank.
       Verify wrong and unanswered blanks earn zero and remain in the denominator, and saved
       scores reflect the resulting credit.
-- [ ] Implement the settled Native JSON Multiple Answer linear choice-count scoring rule in
+- [x] Implement the settled Native JSON Multiple Answer linear choice-count scoring rule in
       [MULTIPLE_ANSWER_SCORING_SPEC.md](QUESTION_SPECS/MULTIPLE_ANSWER_SCORING_SPEC.md).
       Backends grade their own Questions. Apply the Assessment Instructor's partial-credit setting
       when calculating scores. Verify score bounds, correct-selection and incorrect-selection
       behavior, saved scores, and display. New Assessments start with partial credit enabled.
-- [ ] Implement Native JSON ORDER partial credit as the equal-weight average of correct-position
+- [x] Implement Native JSON ORDER partial credit as the equal-weight average of correct-position
       and correctly ordered-pair fractions. Store the earned fraction with either setting. Follow
       [ORDER_SCORING_SPEC.md](QUESTION_SPECS/ORDER_SCORING_SPEC.md).
       Verify stable item identity, the worked example, permutation and swap tables, reversed
       orders, and fractional credit through saved scores and Student displays. Keep the existing
       complete-permutation response validation. New Assessments start with partial credit enabled.
-- [ ] Align Published Question content and metadata editing with the owner-or-Sysadmin rule.
+- [x] Align Published Question content and metadata editing with the owner-or-Sysadmin rule.
       Every Instructor may read, add to an Assessment, or fork any Published Question. The
-      existing bulk-metadata SQL checks Instructor status and available targets without a Question
-      owner check. Check Sysadmin content editing as well as metadata access. Preserve automated
+      remaining focused evidence is that a non-owner Instructor can read, use, and fork while
+      server permissions and UI controls restrict edits to the owner or Sysadmin. Check Sysadmin
+      content editing as well as metadata access. Preserve automated
       metadata assignment as a future direction; its AI work is
-      deferred. See [QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md](QUESTION_SPECS/QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md).
-- [ ] Restrict Instructor Bloom corrections to the owning Instructor for Questions and Pools.
+      deferred outside this plan. Connected non-owner read/use/fork and owner-only edit checks pass in
+      `output_question_spec/final_proofs/metadata_nonowner_proof_origin_20261007.log`; fresh-database integration passed under M29. See [QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md](QUESTION_SPECS/QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md).
+- [x] Restrict Instructor Bloom corrections to the owning Instructor for Questions and Pools.
       Sysadmins may also correct Bloom on Questions and Pools.
       Audit the API, database checks, and displayed edit controls against the corrected rule;
-      Library read access alone must not grant editing. Verify that another Instructor can still
-      fork the content. See [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md).
-- [ ] Reconcile existing Sysadmin access checks with full administrative authority, including
+      Library read access alone must not grant editing. Connected checks pass non-owner read/use/fork,
+      rejected direct metadata writes, and ordinary Pool Bloom edit/readback; fresh-database integration
+      passed under M29. See [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md).
+- [x] Reconcile existing Sysadmin access checks with full administrative authority, including
       Course and Student records. Authorize administrative operations through the Sysadmin role
       and apply the confirmation and audit rule below. Keep unproven tools deferred. See
       [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md).
-      Update the old Sysadmin bullet wording in `devel/human_guidance_checklist.py`'s
-      runtime-evidence requirement list when reconciling the implementation audit tooling.
-- [ ] Add confirmation before a Sysadmin accesses FERPA-sensitive Student data, stating that
+      The checklist tool now uses HG's current access, confirmation, and audit wording; its
+      diff and consistency checks pass. Final integration review passed; see the implementation ledger.
+- [x] Add confirmation before a Sysadmin accesses FERPA-sensitive Student data, stating that
       access is needed for administrative work. Record that access for audit. Keep full Sysadmin
       authority. Verify that protected data appears after confirmation, cancelling leaves it
       undisclosed, and confirmed access is recorded. Inspect current UI, server access checks,
-      and audit recording, then align the affected code and tests. This is intended behavior;
-      implementation has not been verified in this documentation pass.
-- [ ] Extend browser-facing Question authoring to use the shared Draft and publication services
-      for PG/PGML as well as Native JSON. PG/PGML Draft creation and publication already exist in
-      the content-loading tools; `crates/server/src/authoring.rs` currently accepts only Native
-      JSON. Complete the same workflow: import or write a Draft, preview it, test it, refine it,
-      add the metadata, then publish. The existing
-      WeBWorK renderer and evaluator should serve Draft testing; the published-Question inspection
-      preview does not prove that this authoring workflow works. Verify it end-to-end in later
-      implementation work; see [DRAFT_QUESTION_SPEC.md](QUESTION_SPECS/DRAFT_QUESTION_SPEC.md).
-- [ ] Carry the Blueprint Course Theme into a Course created from it; the Instructor can then
+      and audit recording. The canonical production-browser scenario and Support journey passed in
+      `output_question_spec/production_browser_permitted_20261007.log`, including direct-request
+      role checks, confirmation, cancellation, and recorded access. The final screenshot corpus
+      also captures the confirmation form and checks cancellation without a Student-data request.
+- [x] Complete connected acceptance for shared Draft authoring across Native JSON, PG, and PGML.
+      Current source includes WebWork Draft preview, response testing, and publication paths in
+      addition to Native JSON authoring. Verify import or write, preview, testing, refinement,
+      metadata, and publication end to end; see
+      [DRAFT_QUESTION_SPEC.md](QUESTION_SPECS/DRAFT_QUESTION_SPEC.md).
+- [x] Carry the Blueprint Course Theme into a Course created from it; the Instructor can then
       change the Course Theme independently. Audit the existing create/adopt path and add the
       missing Blueprint Theme support. See [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](BLUEPRINT_COURSE_IMPORT_API_SPEC.md).
-- [ ] Carry shared Library Object fields through the combined result and browser rows. The
+- [x] Carry shared Library Object fields through the combined result and browser rows. The
       [Library Object audit](active_plans/audits/library_object_documentation_audit_2026_10_05.md)
       records missing Question owner, Type, Backend, and Tags in the browser row and different
       shapes for common fields. Align the Rust/API/decoder/row/display boundary with
       [LIBRARY_OBJECT_SPEC.md](QUESTION_SPECS/LIBRARY_OBJECT_SPEC.md); retain kind-specific Revision
-      and Pool fields. Verify common fields survive both result paths. Separate summary types
-      are an implementation choice, not by themselves a defect.
-- [ ] Apply shared Type search semantics to both Library Object kinds. In
+      and Pool fields. The passing mixed-search matrix and Library proof cover common result fields,
+      both result kinds, picker rows, and detail reads. Separate summary types are an implementation
+      choice, not by themselves a defect; final integration review passed under M29.
+- [x] Apply shared Type search semantics to both Library Object kinds. In
       [question_library_operations.sql](../schemas/base_schema/50_functions/question_library_operations.sql),
-      structured Type filtering includes Pools but Type text matching is Question-only. Align
-      query handling and tests with each object's own Type. Keep Pool Author exclusion because
-      Pools have no Author. This does not settle the tentative default result filter or mixed
-      batch picker operations; Instructor bulk editing remains deferred.
-- [ ] Verify and complete the supported Question import and Blueprint assembly path using
+      structured Type filtering includes Pools but Type text matching is Question-only. Query
+      handling and the canonical mixed-search matrix now cover each object's own Type. Keep Pool
+      Author exclusion because Pools have no Author. This does not settle the tentative default
+      result filter or mixed batch picker operations; Instructor bulk editing remains deferred outside this plan.
+      Final integration review passed under M29.
+- [x] Verify and complete the supported Question import and Blueprint assembly path using
       generated PLE IDs and API readback. Existing content loaders already use shared Draft and
       publication services; direct-store/SQL fixtures do not establish the whole workflow. Track
       missing caller coverage against [QUESTION_IMPORT_SPEC.md](QUESTION_SPECS/QUESTION_IMPORT_SPEC.md)
       and [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](BLUEPRINT_COURSE_IMPORT_API_SPEC.md). Preserve content,
       attribution, exact Question references, and reusable Pool references. Converter handoff
-      remains deferred; use the external Rust library when that boundary is implemented.
-- [ ] Correct stale saved-search comments and test names in
+      remains deferred outside this plan; use the external Rust library when that boundary is implemented.
+- [x] Correct stale saved-search comments and test names in
       [question_search.rs](../crates/question_model/src/question_search.rs) to describe ordinary
-      filter normalization. Preserve useful parsing/round-trip checks. The targeted current
-      search found terminology remnants, not a saved-search database table; remove any actual
-      permanent prompt/result storage only if found when tracing callers. Search state remains
-      temporary, as specified by HG.
-- [ ] Finish clean-database verification of the filter removal: install the revised base schema
-      and run the existing Question Library filtering and pagination test. The prior run was
-      interrupted before completion; it is not passing evidence.
-- [ ] Restart the Live Demo, verify Library search and Question pickers, and capture the affected
-      screens. The Live Demo was stopped for database verification and remains stopped.
+      filter normalization. The targeted source trace found no remaining saved-search callers or
+      persistent prompt/result storage; useful parsing/round-trip checks remain. Fresh-schema filter
+      and pagination checks and temporary search discard/reopen pass. See the
+      [M25 report](active_plans/reports/QUESTION_SPEC_M25_SEARCH_STORAGE.md); final integration
+      review passed under M29.
+- [x] Verify the revised filter schema with the existing Question Library filtering and pagination
+      selector. `question_library_search_filters_and_pages_in_postgresql` and its mixed-search matrix
+      passed in `output_question_spec/database_baseline_final_retry_20261007.log`; the clean full
+      acceptance retry also passed in `output_question_spec/all_test_clean_retry_20261007.log`.
+- [x] Complete final visual and integration review for Library search and Question pickers. The
+      canonical production-browser suite and fresh full screenshot corpus pass.
+      `output_question_spec/canonical_screenshots_all_controls_20261007.log` records 257 captures,
+      the generated atlas, and clean shutdown of the owned Demo. Corrected capture-contract SPEC/QUALITY reviews and representative independent visual review pass;
+      distinct fresh final integration QUALITY passed.
 
 ## Future product capabilities
 
+- [ ] Integrate imports that accept Native JSON directly from qti-package-maker-rs.
+      Bind verified image bytes to the existing QuestionImageAssetTuple (logical asset ID and
+      SHA-256 checksum) and make the corresponding asset available through existing Draft storage.
+      Preserve that logical identity independently of physical object-store identity, and save
+      Question metadata through the ordinary Draft metadata path. Reuse existing import and asset
+      storage; prefer assets alongside text-only JSON over a ZIP package. This is separate future
+      integration work; it does not reopen the accepted 29-milestone Question-spec implementation.
+      Preserve and display authored HTML with inline CSS in Native JSON display content through
+      authoring, preview, and live prompt, choice, and response rendering. For ordinary HTML image
+      references relative to supplied import files, locate, verify, hash, and store the bytes, then
+      bind them to the existing QuestionImageAssetTuple; the import path is not persisted identity,
+      and the converter need not know PLE asset IDs. Add focused visual behavior checks for prompt and
+      choice images when implemented. Current text escaping is implementation drift. Current
+      publication binds one HOTSPOT surface image and does not enumerate ordinary prompt and choice
+      image references. The HOTSPOT converter-side pre-binding shape is a shared implementation
+      question; keep using the existing asset model, with PLE computing or verifying the tuple
+      checksum. Transport details and final stored HTML `src` syntax remain implementation work;
+      sanitization details are deferred. Existing
+      author-JavaScript isolation and RDKit rules remain in force.
+      See [Native JSON converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md).
 - [ ] Configure an external email provider and verify inbox delivery for the
       implemented SMTP email-code sign-in path. The optional Gmail API adapter
       remains future work under

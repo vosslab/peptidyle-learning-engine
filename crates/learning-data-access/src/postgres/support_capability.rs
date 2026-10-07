@@ -1,26 +1,25 @@
-//! PostgreSQL Store for the closed support registry.
+//! PostgreSQL Store for confirmed Sysadmin Student-data access.
 
 use async_trait::async_trait;
-use question_model::{AccountId, CourseInstanceId, Timestamp};
+use question_model::{CourseInstanceId, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
-use uuid::Uuid;
 
 use super::{Pool, connection::map_sqlx_error};
-use crate::random_uuid::random_uuid_v4;
 use crate::{
-    CourseRosterEntryState, IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError,
-    SupportRepairCapabilityReceipt, SupportRepairCapabilityStore,
-    SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
+    ConfirmedStudentDataAccess, SessionTokenHash, StoreError, StudentDataAccessAuditReceipt,
+    SysadminStudentDataStore, SysadminStudentRosterRecord, SysadminStudentRosterState,
 };
 
 #[derive(Clone)]
-pub struct PostgresSupportCapabilityStore {
+pub struct PostgresSysadminStudentDataStore {
     pool: Pool,
 }
-impl PostgresSupportCapabilityStore {
+
+impl PostgresSysadminStudentDataStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
+
     async fn begin(
         &self,
         token: SessionTokenHash,
@@ -50,224 +49,74 @@ impl PostgresSupportCapabilityStore {
 }
 
 #[async_trait]
-impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
-    async fn issue_support_repair_capability(
+impl SysadminStudentDataStore for PostgresSysadminStudentDataStore {
+    async fn read_sysadmin_student_roster_record(
         &self,
         token: SessionTokenHash,
-        input: IssueSupportRepairCapabilityInput,
-    ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
-        input.validate()?;
-        let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT support_repair_capability_id AS capability_id, sysadmin_account_id, resource_class, resource_path, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_support_repair_capability($1, $2, $3, $4, $5)")
-            .bind(input.sysadmin_id.as_string())
-            .bind(input.resource_class.database_name())
-            .bind(&input.resource_path).bind(&input.purpose).bind(random_uuid()?)
-            .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
-            .ok_or(StoreError::NotFound)?;
-        let receipt = decode_repair(&row)?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(receipt)
-    }
-
-    async fn revoke_support_repair_capability(
-        &self,
-        token: SessionTokenHash,
-        capability_id: Uuid,
-    ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT support_repair_capability_id AS capability_id, sysadmin_account_id, resource_class, resource_path, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_support_repair_capability($1)")
-            .bind(capability_id).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
-            .ok_or(StoreError::NotFound)?;
-        let receipt = decode_repair(&row)?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(receipt)
-    }
-
-    async fn record_support_repair_capability_use(
-        &self,
-        token: SessionTokenHash,
-        capability_id: Uuid,
-        resource_class: SupportRepairResourceClass,
-        resource_path: String,
-    ) -> Result<SupportRepairCapabilityUseReceipt, StoreError> {
-        if resource_path != resource_path.trim()
-            || !(1..=512).contains(&resource_path.chars().count())
-            || resource_path.chars().any(char::is_control)
-        {
-            return Err(StoreError::InvalidRecord(
-                "Support resource path is invalid".to_string(),
-            ));
-        }
-        let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT audit_event_id, support_repair_capability_id AS capability_id, resource_class, resource_path, used_at_millis FROM ple_api.record_support_repair_capability_use($1, $2, $3)")
-            .bind(capability_id).bind(resource_class.database_name()).bind(&resource_path)
-            .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
-            .ok_or(StoreError::NotFound)?;
-        let receipt = SupportRepairCapabilityUseReceipt {
-            audit_event_id: row.try_get("audit_event_id").map_err(map_sqlx_error)?,
-            capability_id: row.try_get("capability_id").map_err(map_sqlx_error)?,
-            resource_class: decode_resource_class(
-                row.try_get("resource_class").map_err(map_sqlx_error)?,
-            )?,
-            resource_path: row.try_get("resource_path").map_err(map_sqlx_error)?,
-            used_at: Timestamp::from_unix_millis(
-                row.try_get("used_at_millis").map_err(map_sqlx_error)?,
-            ),
-        };
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(receipt)
-    }
-
-    async fn read_course_roster_entry_repair_support(
-        &self,
-        token: SessionTokenHash,
-        capability_id: Uuid,
         course_instance_id: CourseInstanceId,
         roster_id: String,
-    ) -> Result<Option<crate::SupportCourseRosterEntry>, StoreError> {
+        confirmation: ConfirmedStudentDataAccess,
+    ) -> Result<Option<SysadminStudentRosterRecord>, StoreError> {
+        confirmation.validate()?;
+        if roster_id != roster_id.trim()
+            || !(1..=128).contains(&roster_id.chars().count())
+            || !roster_id
+                .chars()
+                .all(|character| character.is_ascii_alphanumeric() || "._-".contains(character))
+        {
+            return Err(StoreError::InvalidRecord(
+                "Roster ID is invalid".to_string(),
+            ));
+        }
+
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT roster_id, state FROM ple_api.read_course_roster_entry_repair_support($1, $2, $3)",
+            "SELECT course_instance_id, student_account_id, roster_id, roster_name, state, event_id, occurred_at_millis FROM ple_api.read_sysadmin_student_roster_record($1, $2, $3)",
         )
-        .bind(capability_id)
-        .bind(course_instance_id.as_string())
-        .bind(roster_id)
+        .bind(course_instance_id.to_string())
+        .bind(&roster_id)
+        .bind(confirmation.administrative_access_confirmed)
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let entry = row
-            .map(|row| {
-                let state: String = row.try_get("state").map_err(map_sqlx_error)?;
-                let state = match state.as_str() {
-                    "invitation_pending" => CourseRosterEntryState::InvitationPending,
-                    "active_student" => CourseRosterEntryState::ActiveStudent,
-                    _ => return Err(invalid("Course Roster state")),
-                };
-                Ok(crate::SupportCourseRosterEntry {
-                    roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
-                    state,
-                })
-            })
-            .transpose()?;
+
+        let Some(row) = row else {
+            tx.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        };
+        let record = SysadminStudentRosterRecord {
+            course_instance_id: row
+                .try_get::<String, _>("course_instance_id")
+                .map_err(map_sqlx_error)?
+                .parse()
+                .map_err(|_| StoreError::InvalidRecord("Course Instance ID is invalid".into()))?,
+            student_account_id: row
+                .try_get::<String, _>("student_account_id")
+                .map_err(map_sqlx_error)?
+                .parse()
+                .map_err(|_| StoreError::InvalidRecord("Student Account ID is invalid".into()))?,
+            roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
+            roster_name: row.try_get("roster_name").map_err(map_sqlx_error)?,
+            state: decode_state(row.try_get("state").map_err(map_sqlx_error)?)?,
+            audit: StudentDataAccessAuditReceipt {
+                event_id: row.try_get("event_id").map_err(map_sqlx_error)?,
+                occurred_at: Timestamp::from_unix_millis(
+                    row.try_get("occurred_at_millis").map_err(map_sqlx_error)?,
+                ),
+            },
+        };
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(entry)
-    }
-
-    async fn read_course_repair_support(
-        &self,
-        token: SessionTokenHash,
-        capability_id: Uuid,
-        course_instance_id: CourseInstanceId,
-    ) -> Result<Option<crate::InstallationCourseInspection>, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let row = sqlx::query(
-            "SELECT course_instance_id, short_name, long_name, \
-             term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, \
-             course_lifecycle_state, retention_lifecycle_state, instructor_display_names \
-             FROM ple_api.read_course_repair_support($1, $2)",
-        )
-        .bind(capability_id)
-        .bind(course_instance_id.as_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        let course = row
-            .as_ref()
-            .map(super::course_instance::decode_installation_course)
-            .transpose()?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(course)
-    }
-
-    async fn read_course_content_repair_support(
-        &self,
-        token: SessionTokenHash,
-        capability_id: Uuid,
-        course_instance_id: CourseInstanceId,
-        assessment_id: question_model::AssessmentId,
-    ) -> Result<Option<crate::SupportCourseContent>, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let row = sqlx::query(
-            "SELECT assessment_id, assessment_type, title, status \
-             FROM ple_api.read_course_content_repair_support($1, $2, $3)",
-        )
-        .bind(capability_id)
-        .bind(course_instance_id.as_string())
-        .bind(assessment_id.as_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        let content = row.as_ref().map(decode_content).transpose()?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(content)
+        Ok(Some(record))
     }
 }
-fn invalid(label: &str) -> StoreError {
-    StoreError::InvalidRecord(format!("database returned an invalid {label}"))
-}
 
-fn decode_repair(
-    row: &sqlx::postgres::PgRow,
-) -> Result<SupportRepairCapabilityReceipt, StoreError> {
-    let sysadmin_id = AccountId::new(
-        row.try_get::<String, _>("sysadmin_account_id")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid("Sysadmin Account ID"))?;
-    Ok(SupportRepairCapabilityReceipt {
-        capability_id: row.try_get("capability_id").map_err(map_sqlx_error)?,
-        sysadmin_id,
-        resource_class: decode_resource_class(
-            row.try_get("resource_class").map_err(map_sqlx_error)?,
-        )?,
-        resource_path: row.try_get("resource_path").map_err(map_sqlx_error)?,
-        purpose: row.try_get("purpose").map_err(map_sqlx_error)?,
-        expires_at: Timestamp::from_unix_millis(
-            row.try_get("expires_at_millis").map_err(map_sqlx_error)?,
-        ),
-        revoked_at: row
-            .try_get::<Option<i64>, _>("revoked_at_millis")
-            .map_err(map_sqlx_error)?
-            .map(Timestamp::from_unix_millis),
-    })
-}
-
-fn decode_content(row: &sqlx::postgres::PgRow) -> Result<crate::SupportCourseContent, StoreError> {
-    let assessment_id: String = row.try_get("assessment_id").map_err(map_sqlx_error)?;
-    let assessment_type: String = row.try_get("assessment_type").map_err(map_sqlx_error)?;
-    let status: String = row.try_get("status").map_err(map_sqlx_error)?;
-    let title: String = row.try_get("title").map_err(map_sqlx_error)?;
-    if title.chars().any(char::is_control) {
-        return Err(invalid("Assessment title"));
-    }
-    Ok(crate::SupportCourseContent {
-        assessment_id: question_model::AssessmentId::new(assessment_id)
-            .map_err(|_| invalid("Assessment ID"))?,
-        assessment_type: question_model::AssessmentType::parse(&assessment_type)
-            .ok_or_else(|| invalid("Assessment Type"))?,
-        title: question_model::AssessmentTitle::try_new(title)
-            .map_err(|_| invalid("Assessment title"))?,
-        status: match status.as_str() {
-            "unreleased" => question_model::AssessmentStatus::Unreleased,
-            "released" => question_model::AssessmentStatus::Released,
-            "closed" => question_model::AssessmentStatus::Closed,
-            "archived" => question_model::AssessmentStatus::Archived,
-            _ => return Err(invalid("Assessment status")),
-        },
-    })
-}
-
-fn decode_resource_class(value: String) -> Result<SupportRepairResourceClass, StoreError> {
+fn decode_state(value: String) -> Result<SysadminStudentRosterState, StoreError> {
     match value.as_str() {
-        "student" => Ok(SupportRepairResourceClass::Student),
-        "course" => Ok(SupportRepairResourceClass::Course),
-        "content" => Ok(SupportRepairResourceClass::Content),
-        _ => Err(invalid("Support repair resource class")),
+        "active_student" => Ok(SysadminStudentRosterState::ActiveStudent),
+        "invitation_pending" => Ok(SysadminStudentRosterState::InvitationPending),
+        "removed" => Ok(SysadminStudentRosterState::Removed),
+        _ => Err(StoreError::InvalidRecord(
+            "Student roster state is invalid".to_string(),
+        )),
     }
-}
-
-fn random_uuid() -> Result<Uuid, StoreError> {
-    random_uuid_v4(|_| {
-        StoreError::Unavailable("Support capability randomness unavailable".to_string())
-    })
 }

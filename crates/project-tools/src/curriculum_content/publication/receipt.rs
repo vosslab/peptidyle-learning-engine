@@ -5,7 +5,7 @@ use super::{Manifest, SourceRevisions};
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct ReceiptBlueprintRevisionTuple {
+pub(super) struct ReceiptBlueprintCourseRevisionTuple {
     blueprint_course_id: String,
     revision_number: u64,
 }
@@ -13,7 +13,7 @@ pub(super) struct ReceiptBlueprintRevisionTuple {
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Receipt {
-    pub(super) blueprint_revision_tuple: ReceiptBlueprintRevisionTuple,
+    pub(super) blueprint_course_revision_tuple: ReceiptBlueprintCourseRevisionTuple,
     pub(super) source_repository: String,
     pub(super) source_revision: String,
     pub(super) topics: Vec<ReceiptTopic>,
@@ -42,7 +42,7 @@ pub(super) struct ReceiptQuestion {
 
 impl Receipt {
     pub(crate) fn blueprint_course_id(&self) -> &str {
-        &self.blueprint_revision_tuple.blueprint_course_id
+        &self.blueprint_course_revision_tuple.blueprint_course_id
     }
 
     pub(crate) fn installation_summary(&self) -> String {
@@ -53,8 +53,8 @@ impl Receipt {
             .sum::<usize>();
         format!(
             "Genetics Blueprint {} revision {}: {} topics, {} canonical Questions",
-            self.blueprint_revision_tuple.blueprint_course_id,
-            self.blueprint_revision_tuple.revision_number,
+            self.blueprint_course_revision_tuple.blueprint_course_id,
+            self.blueprint_course_revision_tuple.revision_number,
             self.topics.len(),
             question_count
         )
@@ -108,7 +108,7 @@ impl Receipt {
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
-            blueprint_revision_tuple: ReceiptBlueprintRevisionTuple {
+            blueprint_course_revision_tuple: ReceiptBlueprintCourseRevisionTuple {
                 blueprint_course_id,
                 revision_number,
             },

@@ -30,6 +30,7 @@ CREATE FUNCTION ple_private.prepare_assessment_attempt_finalization(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
+DECLARE current_partial_credit_enabled boolean;
 DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
 DECLARE resolved_kind text;
 BEGIN
@@ -40,6 +41,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt is unavailable';
     END IF;
+    SELECT policy.partial_credit_enabled INTO current_partial_credit_enabled
+      FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+     WHERE assessment.assessment_id = assessment_attempt_row.assessment_id;
     resolved_kind := CASE WHEN assessment_attempt_row.expires_at IS NOT NULL
                                 AND now_value >= assessment_attempt_row.expires_at
                           THEN 'deadline' ELSE 'student' END;
@@ -68,7 +74,7 @@ BEGIN
               result.normalized_credit, snapshot.scoring_rule,
               ple_private.current_assessment_entry_points(
                   issued.assessment_entry_id, snapshot.points
-              )
+              ), current_partial_credit_enabled
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
@@ -247,6 +253,7 @@ CREATE FUNCTION ple_private.commit_assessment_attempt_finalization(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
+DECLARE current_partial_credit_enabled boolean;
 DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
 DECLARE resolved_kind text;
 DECLARE accepted_count integer;
@@ -272,6 +279,11 @@ BEGIN
     PERFORM ple_private.lock_assessment_for_student_work(assessment_attempt_row.assessment_id);
     SELECT * INTO assessment_attempt_row FROM ple_private.assessment_attempt AS assessment_attempt
      WHERE assessment_attempt.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id FOR UPDATE;
+    SELECT policy.partial_credit_enabled INTO current_partial_credit_enabled
+      FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+     WHERE assessment.assessment_id = assessment_attempt_row.assessment_id;
     now_value := pg_catalog.clock_timestamp();
     resolved_kind := CASE WHEN assessment_attempt_row.expires_at IS NOT NULL
                                 AND now_value >= assessment_attempt_row.expires_at
@@ -302,7 +314,7 @@ BEGIN
               result.normalized_credit, snapshot.scoring_rule,
               ple_private.current_assessment_entry_points(
                   issued.assessment_entry_id, snapshot.points
-              )
+              ), current_partial_credit_enabled
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
@@ -403,7 +415,7 @@ BEGIN
           result.normalized_credit, snapshot.scoring_rule,
           ple_private.current_assessment_entry_points(
               issued.assessment_entry_id, snapshot.points
-          )
+          ), current_partial_credit_enabled
       ) AS score
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
 END $$;

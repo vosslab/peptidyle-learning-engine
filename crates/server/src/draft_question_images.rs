@@ -25,7 +25,7 @@ use question_model::{ObjectId, QuestionImageAssetId, QuestionImageAssetTuple};
 use serde::Serialize;
 
 use crate::authoring::{
-    AuthoringRouteState, concealed, expected_edit_number, instructor_session_hash, now,
+    AuthoringRouteState, authoring_session_hash, concealed, expected_edit_number, now,
     parse_draft_question_uuid, private_error, private_store_error,
 };
 
@@ -53,7 +53,7 @@ pub(crate) async fn upload(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let session_hash = match instructor_session_hash(&state, headers).await {
+    let session_hash = match authoring_session_hash(&state, headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -236,7 +236,7 @@ pub(crate) async fn preview(
         }
         _ => return concealed(),
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match authoring_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };

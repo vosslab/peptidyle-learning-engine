@@ -5,8 +5,8 @@ import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
-import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectSearchPage } from "../../generated/api/LibraryObjectSearchPage";
+import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
@@ -28,7 +28,10 @@ interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
 export interface ApplicationApi<Client extends ApiClient = ApiClient> {
   readonly client: Client;
   readonly queries: {
-    readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
+    readonly libraryObjectSearch: QueryFunction<
+      [LibraryObjectSearchRequest],
+      LibraryObjectSearchPage
+    >;
     readonly questionDetails: QueryFunction<[PublishedQuestionId], QuestionDetails>;
     readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
     readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
@@ -57,9 +60,9 @@ export function createApplicationApi<Client extends ApiClient>(
   return {
     client,
     queries: {
-      questionSearch: query(
-        (search: QuestionSearchRequest) => client.searchQuestionLibrary(search),
-        "question-search",
+      libraryObjectSearch: query(
+        (search: LibraryObjectSearchRequest) => client.searchLibraryObjects(search),
+        "library-object-search",
       ),
       questionDetails: query(
         (questionId: PublishedQuestionId) => client.getQuestionDetails(questionId),

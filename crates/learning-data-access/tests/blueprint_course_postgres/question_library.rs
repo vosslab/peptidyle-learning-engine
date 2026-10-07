@@ -15,9 +15,8 @@ fn nonmatching_question_id() -> String {
 pub(super) fn request() -> QuestionLibrarySearchRequest {
     QuestionLibrarySearchRequest {
         kind: question_model::LibrarySearchKind::Questions,
-        membership: question_model::LibraryQuestionMembership::All,
+        questions: question_model::PublishedQuestionFilter::All,
         owner_account_id: None,
-        has_capability_filter: false,
         exact_question_id: None,
         text_terms: vec![QuestionLibraryTextTerm {
             field: QuestionLibraryTextField::Any,
@@ -83,8 +82,8 @@ pub(super) async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool)
     .expect("Question Library lineages");
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
-         (published_question_id, revision_number, backend, question_type, published_at) \
-         SELECT question_id, 1, 'ple', 'multipleChoice', '2026-09-25 12:00:00+00'::timestamptz \
+         (published_question_id, revision_number, backend, published_at) \
+         SELECT question_id, 1, 'ple', '2026-09-25 12:00:00+00'::timestamptz \
            FROM unnest($1::text[]) question(question_id)",
     )
     .bind(&question_ids)
@@ -92,10 +91,10 @@ pub(super) async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool)
     .await
     .expect("Question Library revisions");
     sqlx::query(
-        "INSERT INTO ple_data.published_question_metadata (\
-             published_question_id, question_title, question_description, language, tags, \
+        "INSERT INTO ple_data.question_revision_metadata (\
+             published_question_id, revision_number, question_title, question_description, language, question_type, tags, \
              content_discipline_id, content_subject_id, created_at, updated_at\
-         ) SELECT question_id, $2, 'P1 literal %_\\ fixture description', 'en', ARRAY[$3], \
+         ) SELECT question_id, 1, $2, 'P1 literal %_\\ fixture description', 'en', 'multipleChoice', ARRAY[$3], \
                   $4, $5, statement_timestamp(), statement_timestamp() \
              FROM unnest($1::text[]) question(question_id)",
     )
@@ -131,9 +130,9 @@ pub(super) async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool)
     .expect("Question Library source records");
     sqlx::query(
         "INSERT INTO ple_private.question_revision_source_binding (\
-             published_question_id, revision_number, backend, question_format, \
+             published_question_id, revision_number, backend, native_question_type, question_format, \
              source_object_record_id, source_object_checksum, created_at\
-         ) SELECT question_id, 1, 'ple', 'pleQuestionJson', object_id, repeat('a1', 32), \
+         ) SELECT question_id, 1, 'ple', 'multipleChoice', 'pleQuestionJson', object_id, repeat('a1', 32), \
                   '2026-09-25 12:00:00+00'::timestamptz \
            FROM unnest($1::text[], $2::uuid[]) row(question_id, object_id)",
     )
@@ -192,18 +191,27 @@ pub(super) async fn insert_question_library_rows(admin: &sqlx::postgres::PgPool)
     .execute(&mut *transaction)
     .await
     .expect("Question Library initial ownership");
-    sqlx::query(
-        "INSERT INTO ple_data.question_revision_bloom (\
-             published_question_id, revision_number, cognitive_process, knowledge_dimension, \
-             classification_edit_number\
-         ) VALUES ($1, 1, 'Remember', 'Factual Knowledge', 1), \
-                  ($2, 1, 'Create', 'Metacognitive Knowledge', 1)",
-    )
-    .bind(&question_ids[0])
-    .bind(&question_ids[FIXTURE_ROWS - 1])
-    .execute(&mut *transaction)
-    .await
-    .expect("Question Library Bloom classifications");
+    for (question_id, cognitive_process, knowledge_dimension) in [
+        (&question_ids[0], "Remember", "Factual Knowledge"),
+        (
+            &question_ids[FIXTURE_ROWS - 1],
+            "Create",
+            "Metacognitive Knowledge",
+        ),
+    ] {
+        sqlx::query(
+            "UPDATE ple_data.question_revision_metadata \
+                SET bloom_cognitive_process = $2::ple_data.bloom_cognitive_process, \
+                    bloom_knowledge_dimension = $3::ple_data.bloom_knowledge_dimension \
+              WHERE published_question_id = $1 AND revision_number = 1",
+        )
+        .bind(question_id)
+        .bind(cognitive_process)
+        .bind(knowledge_dimension)
+        .execute(&mut *transaction)
+        .await
+        .expect("Question Library Bloom metadata");
+    }
     transaction
         .commit()
         .await
@@ -231,18 +239,18 @@ pub(super) async fn insert_nonmatching_question_library_row(admin: &sqlx::postgr
     .expect("nonmatching Question lineage");
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
-         (published_question_id, revision_number, backend, question_type, published_at) \
-         VALUES ($1, 1, 'ple', 'numeric', '2026-09-25 12:00:00+00'::timestamptz)",
+         (published_question_id, revision_number, backend, published_at) \
+         VALUES ($1, 1, 'ple', '2026-09-25 12:00:00+00'::timestamptz)",
     )
     .bind(&question_id)
     .execute(&mut *transaction)
     .await
     .expect("nonmatching Question revision");
     sqlx::query(
-        "INSERT INTO ple_data.published_question_metadata (\
-             published_question_id, question_title, question_description, language, tags, \
+        "INSERT INTO ple_data.question_revision_metadata (\
+             published_question_id, revision_number, question_title, question_description, language, question_type, tags, \
              content_discipline_id, content_subject_id, created_at, updated_at\
-         ) VALUES ($1, 'Decoy outside Question title', 'Decoy outside description', 'en', \
+         ) VALUES ($1, 1, 'Decoy outside Question title', 'Decoy outside description', 'en', 'numeric', \
                   ARRAY[$2], $3, $4, statement_timestamp(), statement_timestamp())",
     )
     .bind(&question_id)
@@ -275,9 +283,9 @@ pub(super) async fn insert_nonmatching_question_library_row(admin: &sqlx::postgr
     .expect("nonmatching Question source record");
     sqlx::query(
         "INSERT INTO ple_private.question_revision_source_binding (\
-             published_question_id, revision_number, backend, question_format, \
+             published_question_id, revision_number, backend, native_question_type, question_format, \
              source_object_record_id, source_object_checksum, created_at\
-         ) VALUES ($1, 1, 'ple', 'pleQuestionJson', $2, repeat('c3', 32), \
+         ) VALUES ($1, 1, 'ple', 'numeric', 'pleQuestionJson', $2, repeat('c3', 32), \
                   '2026-09-25 12:00:00+00'::timestamptz)",
     )
     .bind(&question_id)
@@ -395,13 +403,14 @@ async fn add_facet_bounds(admin: &sqlx::postgres::PgPool) {
                FROM unnest($1::text[], $2::uuid[], $3::uuid[]) WITH ORDINALITY \
                     AS row(question_id, subject_id, topic_id, ordinal) \
          ) \
-         UPDATE ple_data.published_question_metadata AS metadata \
+         UPDATE ple_data.question_revision_metadata AS metadata \
             SET tags = ARRAY['p1 metadata tag', format('P2 facet Tag %s', fixture.ordinal)], \
                 content_subject_id = fixture.subject_id, \
                 content_topic_id = fixture.topic_id, \
                 updated_at = statement_timestamp() \
            FROM fixture \
-          WHERE metadata.published_question_id = fixture.question_id",
+          WHERE metadata.published_question_id = fixture.question_id \
+            AND metadata.revision_number = 1",
     )
     .bind(&question_ids)
     .bind(&subject_ids)
@@ -816,6 +825,7 @@ async fn question_library_search_filters_and_pages_in_postgresql() {
         discipline_only.items.is_empty(),
         "unqualified text does not search Discipline"
     );
+    mixed::assert_mixed_search_matrix(&admin, &store).await;
     add_facet_bounds(&admin).await;
     let bounded_facets = store
         .search_published_question_library_entries(

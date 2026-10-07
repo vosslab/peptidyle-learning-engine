@@ -68,7 +68,7 @@ The Browse exact-filter policy is deliberately Library-local in `LibraryPage.dis
 `LibraryBulkActions` is explicitly Question-only:
 
 - `questionLibraryBulkSelectionRequest()` validates `PublishedQuestionId` values and says its command is Question-only (`question_library_repository.ts:63-101`).
-- It fetches `getCurrentQuestionBulkMetadata(questionIds)` and renders `QuestionBulkMetadataEditor` (`library_bulk_actions.tsx:124-145, 214-224`).
+- It fetches `getCurrentQuestionSharedMetadata(questionIds)` and renders `QuestionBulkMetadataEditor` (`library_bulk_actions.tsx:124-145, 214-224`).
 - Its title cache and selection method assume `row.questionTitle` and every selected row can be a Question (`:67-77, 90-102`).
 
 For M12, preserve one shared selection maximum of 1000 at the `SearchState` level, then partition selected mixed rows by kind in the Library bulk controller. Continue the existing Question editor only for selected Question rows. Route selected Pool rows to the already-existing Pool metadata editor/client path from the deleted discovery panel, with Pool-specific metadata restrictions preserved. Do not widen Question bulk API types to accept Pool IDs.

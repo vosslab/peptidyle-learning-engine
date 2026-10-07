@@ -13,13 +13,15 @@ REVOKE ALL ON ALL TABLES IN SCHEMA ple_data FROM PUBLIC;
 
 GRANT INSERT, SELECT ON ple_data.question_revision_acceptance,
     ple_data.question_revision_authorship, ple_data.question_revision_license,
-    ple_data.question_ownership_event, ple_data.question_fork_source TO ple_private_owner;
+    ple_data.question_revision_citation,
+    ple_data.question_ownership_event TO ple_private_owner;
 
 GRANT SELECT ON ple_data.question_current_owner TO ple_private_owner;
 
 GRANT SELECT ON ple_data.question_revision_acceptance TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_data.reject_question_stewardship_change(),
+    ple_data.reject_published_question_parent_change(),
     ple_data.validate_question_revision_acceptance(),
     ple_data.validate_question_ownership_event(), ple_data.validate_question_publication(),
     ple_data.set_current_question_star(text, boolean),

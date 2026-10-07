@@ -137,8 +137,9 @@ pub struct RenderRequest<'a> {
     pub pg_source: &'a [u8],
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
-    /// Exact immutable Question Revision selected by the server.
-    pub published_question_revision_tuple: &'a question_model::PublishedQuestionRevisionTuple,
+    /// Exact immutable Question Revision selected by the server. Draft preview has no tuple.
+    pub published_question_revision_tuple:
+        Option<&'a question_model::PublishedQuestionRevisionTuple>,
     /// Deterministic attempt seed.
     pub seed: u64,
 }
@@ -169,8 +170,9 @@ pub struct GradeRequest<'a> {
     pub pg_source: &'a [u8],
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
-    /// Exact immutable Question Revision selected by the server.
-    pub published_question_revision_tuple: &'a question_model::PublishedQuestionRevisionTuple,
+    /// Exact immutable Question Revision selected by the server. Draft testing has no tuple.
+    pub published_question_revision_tuple:
+        Option<&'a question_model::PublishedQuestionRevisionTuple>,
     /// Deterministic attempt seed.
     pub seed: u64,
     /// Canonical bounded JSON `[name, value]` pairs from the backend document.

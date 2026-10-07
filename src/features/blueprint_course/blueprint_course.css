@@ -118,6 +118,20 @@
   width: 100%;
 }
 
+.blueprint-course-form-grid .blueprint-course-form-checkbox {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.blueprint-course-form-grid .blueprint-course-form-checkbox input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+}
+
+.blueprint-course-form-grid .blueprint-course-form-checkbox small {
+  grid-column: 2;
+}
+
 .blueprint-course-content-editor > fieldset {
   margin: 0;
 }

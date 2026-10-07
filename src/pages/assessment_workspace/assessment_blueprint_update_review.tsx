@@ -79,27 +79,18 @@ function assessmentEntryContent(props: {
 
   const poolLabel =
     props.poolRole === "assessmentOwned"
-      ? "Assessment-owned Question Pool"
+      ? "Current Assessment Pool reference"
       : "Library source Question Pool";
   return {
     title: props.poolTitle(props.entry.questionPoolId),
     description: poolLabel,
     details: [
       { kind: "text", label: "Question Pool ID", value: props.entry.questionPoolId },
-      { kind: "text", label: "Edit", value: String(props.entry.questionPoolEditNumber) },
       { kind: "text", label: "Selection count", value: `${props.entry.selectionCount}` },
       {
         kind: "text",
         label: "Points per Question",
         value: `${props.entry.pointsPerItem} points`,
-      },
-      {
-        kind: "text",
-        label: "Selected Question order",
-        value:
-          props.entry.selectionRule.selectedQuestionOrder === "randomOrder"
-            ? "Random selected Question order"
-            : "Question Pool order",
       },
       ...commonDetails,
     ],
@@ -108,6 +99,7 @@ function assessmentEntryContent(props: {
 }
 
 const ACTIVITY_LABELS = [
+  ["partialCreditEnabled", "Partial credit"],
   ["questionVariationRule", "Question variation"],
   ["assessmentQuestionOrderRule", "Question order"],
 ] as const;
@@ -123,6 +115,10 @@ const FEEDBACK_LABELS = [
 
 function settingCopy(value: string): string {
   return value.replace(/_/gu, " ").replace(/([a-z])([A-Z])/gu, "$1 $2");
+}
+
+function activitySettingCopy(value: boolean | string): string {
+  return typeof value === "boolean" ? (value ? "Enabled" : "Disabled") : settingCopy(value);
 }
 
 /** One complete labeled presentation, reused for current and proposed content without HTML interpretation. */
@@ -180,7 +176,7 @@ export function AssessmentBlueprintContentSummary(props: {
           {([field, label]) => (
             <div>
               <dt>{label}</dt>
-              <dd>{settingCopy(defaults().activity_rules[field])}</dd>
+              <dd>{activitySettingCopy(defaults().activity_rules[field])}</dd>
             </div>
           )}
         </For>

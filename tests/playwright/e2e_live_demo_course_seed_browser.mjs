@@ -50,24 +50,21 @@ async function enterSeededStudentCourse(page) {
     name: courseLongName,
     exact: true,
   });
-  if (await courseHeading.isVisible()) return;
+  if (await courseHeading.isVisible()) return page;
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
   await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
-  const courseCard = page
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: courseLongName, exact: true }) });
-  await expect(courseCard).toHaveCount(1);
-  await courseCard.getByRole("link", { name: "Open Course", exact: true }).click();
-  await expect(courseHeading).toBeVisible();
+  return selectVisibleCourse(page, courseLongName);
 }
 
 async function openAssessment(page) {
   const card = studentAssessmentCard(page);
   await expect(card).toHaveCount(1);
+  const openedAssessment = page.waitForEvent("popup");
   await card.getByRole("link", { name: `Open ${assessmentTypeLabel}`, exact: true }).click();
+  return await openedAssessment;
 }
 
 async function expectRosterRow(page, rosterId) {
@@ -103,91 +100,101 @@ async function expectAttempt(page) {
 }
 
 async function resumeAttempt(page) {
+  const openedAttempt = page.waitForEvent("popup");
   await studentAssessmentCard(page)
     .getByRole("link", { name: `Resume ${assessmentTypeLabel}`, exact: true })
     .click();
-  await expectAttempt(page);
+  const attemptPage = await openedAttempt;
+  await expectAttempt(attemptPage);
+  return attemptPage;
 }
 
 async function startAttempt(page) {
-  await openAssessment(page);
-  await expect(page.locator('[data-route-surface="assessmentOverview"]')).toBeVisible();
-  await page.getByRole("button", { name: `Start ${assessmentTypeLabel}`, exact: true }).click();
-  await expectAttempt(page);
+  const assessmentPage = await openAssessment(page);
+  await expect(assessmentPage.locator('[data-route-surface="assessmentOverview"]')).toBeVisible();
+  await assessmentPage
+    .getByRole("button", { name: `Start ${assessmentTypeLabel}`, exact: true })
+    .click();
+  await expectAttempt(assessmentPage);
+  return assessmentPage;
 }
 
 async function verifyElena(page) {
   await chooseSeededIdentity(page, /Elena Rivera/u);
-  await selectVisibleCourse(page, courseLongName);
-  const card = instructorAssessmentRow(page);
+  const coursePage = await selectVisibleCourse(page, courseLongName);
+  const card = instructorAssessmentRow(coursePage);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("Assessment 1", { exact: true })).toBeVisible();
   await expect(card.getByText("Released", { exact: true })).toBeVisible();
-  const assessmentId = await discoverAssessmentId(page);
+  const assessmentId = await discoverAssessmentId(coursePage);
+  const openedAssessment = coursePage.waitForEvent("popup");
   await card.getByRole("link", { name: "Edit Assessment", exact: true }).click();
-  await expect(page.locator('.page-frame[data-route-surface="assessmentWorkspace"]')).toBeVisible();
+  const assessmentPage = await openedAssessment;
   await expect(
-    page.getByRole("heading", { name: "Assessment Question Editor", exact: true }),
+    assessmentPage.locator('.page-frame[data-route-surface="assessmentWorkspace"]'),
   ).toBeVisible();
-  await expect(page.getByLabel("Assessment title")).toHaveValue(assessmentTitle);
-  await page.goBack();
-  await page.getByRole("link", { name: "Open Students", exact: true }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Students", exact: true }),
+    assessmentPage.getByRole("heading", { name: "Assessment Question Editor", exact: true }),
   ).toBeVisible();
-  await expectRosterRow(page, "BIO301-MARY");
-  await expectRosterRow(page, "BIO301-JACK");
-  await expectRosterRow(page, "BIO301-AVERY");
+  await expect(assessmentPage.getByLabel("Assessment title")).toHaveValue(assessmentTitle);
+  await assessmentPage.close();
+  await coursePage.getByRole("link", { name: "Open Students", exact: true }).click();
+  await expect(
+    coursePage.getByRole("heading", { level: 1, name: "Students", exact: true }),
+  ).toBeVisible();
+  await expectRosterRow(coursePage, "BIO301-MARY");
+  await expectRosterRow(coursePage, "BIO301-JACK");
+  await expectRosterRow(coursePage, "BIO301-AVERY");
 
-  await page.goBack();
-  await page.getByRole("link", { name: "Gradebook", exact: true }).click();
-  await expect(page.locator('[data-route-surface="gradebook"]')).toBeVisible();
+  await coursePage.goBack();
+  await coursePage.getByRole("link", { name: "Gradebook", exact: true }).click();
+  await expect(coursePage.locator('[data-route-surface="gradebook"]')).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Gradebook", exact: true }),
+    coursePage.getByRole("heading", { level: 1, name: "Gradebook", exact: true }),
   ).toBeVisible();
   await expectGradebookRow(
-    page,
+    coursePage,
     "Mary",
     "BIO301-MARY",
     "Completed and scored",
     "3 / 4",
     assessmentId,
   );
-  await expectGradebookRow(page, "Jack", "BIO301-JACK", "In progress", "-", assessmentId);
-  await expectGradebookRow(page, "Avery", "BIO301-AVERY", "Not started", "-", assessmentId);
-  await signOutVisible(page);
+  await expectGradebookRow(coursePage, "Jack", "BIO301-JACK", "In progress", "-", assessmentId);
+  await expectGradebookRow(coursePage, "Avery", "BIO301-AVERY", "Not started", "-", assessmentId);
+  await signOutVisible(coursePage);
 }
 
 async function verifyMary(page) {
   await chooseSeededIdentity(page, /Mary Okafor/u);
-  await enterSeededStudentCourse(page);
-  const card = studentAssessmentCard(page);
+  const coursePage = await enterSeededStudentCourse(page);
+  const card = studentAssessmentCard(coursePage);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("Completed", { exact: true }).first()).toBeVisible();
-  await signOutVisible(page);
+  await signOutVisible(coursePage);
 }
 
 async function verifyJack(page) {
   await chooseSeededIdentity(page, /Jack Nguyen/u);
-  await enterSeededStudentCourse(page);
-  const card = studentAssessmentCard(page);
+  const coursePage = await enterSeededStudentCourse(page);
+  const card = studentAssessmentCard(coursePage);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("In progress", { exact: true }).first()).toBeVisible();
   await expect(card.getByText(/questions graded/u)).toHaveCount(0);
   await expect(card.getByText(/Score/u)).toHaveCount(0);
-  await resumeAttempt(page);
-  await signOutVisible(page);
+  const attemptPage = await resumeAttempt(coursePage);
+  await signOutVisible(attemptPage);
 }
 
 async function verifyAvery(page) {
   await chooseSeededIdentity(page, /Avery Thompson/u);
-  await enterSeededStudentCourse(page);
-  const card = studentAssessmentCard(page);
+  const coursePage = await enterSeededStudentCourse(page);
+  const card = studentAssessmentCard(coursePage);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("Available", { exact: true }).first()).toBeVisible();
   await expect(card.getByText("Not started", { exact: true })).toBeVisible();
-  await startAttempt(page);
-  await signOutVisible(page);
+  const attemptPage = await startAttempt(coursePage);
+  await signOutVisible(attemptPage);
 }
 
 const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });

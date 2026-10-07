@@ -60,7 +60,7 @@ pub(super) async fn import(
     };
     let receipt = match state
         .blueprints
-        .import_blueprint_course(session, checksum, exchange, Default::default())
+        .import_blueprint_course(session, checksum, exchange)
         .await
     {
         Ok(value) => value,
@@ -69,7 +69,7 @@ pub(super) async fn import(
     match load_view(
         &state,
         session,
-        receipt.blueprint_revision_tuple.blueprint_course_id,
+        receipt.blueprint_course_revision_tuple.blueprint_course_id,
     )
     .await
     {

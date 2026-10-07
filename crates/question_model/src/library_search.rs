@@ -14,11 +14,11 @@ pub enum LibrarySearchKind {
     Pools,
 }
 
-/// Membership restriction for Question rows; Pool rows are unaffected.
+/// Restriction for included Published Questions; Pool rows are unaffected.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum LibraryQuestionMembership {
-    NoPool,
+pub enum PublishedQuestionFilter {
+    InNoPool,
     #[default]
     All,
 }
@@ -30,7 +30,7 @@ pub struct LibraryObjectKindResponse {
     pub kind: LibraryObjectKind,
 }
 
-/// Counts after domain filters, before kind, membership, and cursor restrictions.
+/// Counts after domain filters, before kind, Published Question filtering, and cursor restrictions.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LibrarySearchCategoryCounts {

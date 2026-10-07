@@ -1,6 +1,6 @@
 //! Browser-safe response projections for immutable Blueprint Revisions.
 
-use question_model::{BlueprintCourseView, BlueprintModuleView, BlueprintRevisionTuple};
+use question_model::{BlueprintCourseRevisionTuple, BlueprintCourseView, BlueprintModuleView};
 use serde::{Deserialize, Serialize};
 
 /// A saved Revision or an exact recorded metadata state, without actor identities.
@@ -18,6 +18,7 @@ pub enum BlueprintHistoryEntryView {
     },
     MetadataChange {
         classification: question_model::CourseClassification,
+        theme: question_model::Theme,
         short_name: String,
         long_name: String,
         availability: question_model::BlueprintAvailability,
@@ -55,9 +56,9 @@ pub struct BlueprintKnownForkView {
     pub short_name: String,
     pub long_name: String,
     pub availability: question_model::BlueprintAvailability,
-    pub current_revision_tuple: BlueprintRevisionTuple,
+    pub current_revision_tuple: BlueprintCourseRevisionTuple,
     /// Source Blueprint Course Revision Tuple at fork creation, not a last-applied update marker.
-    pub source_revision_tuple: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintCourseRevisionTuple,
     pub owner_display_name: String,
 }
 
@@ -76,7 +77,7 @@ pub struct BlueprintComparisonView {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonSide {
-    pub current_revision_tuple: BlueprintRevisionTuple,
+    pub current_revision_tuple: BlueprintCourseRevisionTuple,
     pub names: BlueprintComparisonNames,
     pub blueprint_edit_number: question_model::BlueprintEditNumber,
     pub modules: Vec<BlueprintComparisonModule>,
@@ -124,7 +125,7 @@ pub struct BlueprintComparisonAssessment {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintRevisionView {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub modules: Vec<BlueprintModuleView>,
 }
 
@@ -140,8 +141,8 @@ pub struct BlueprintCourseSaveResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyRequest {
-    pub expected_source_revision_tuple: BlueprintRevisionTuple,
-    pub expected_fork_revision_tuple: BlueprintRevisionTuple,
+    pub expected_source_revision_tuple: BlueprintCourseRevisionTuple,
+    pub expected_fork_revision_tuple: BlueprintCourseRevisionTuple,
     pub expected_source_blueprint_edit_number: question_model::BlueprintEditNumber,
     pub expected_fork_blueprint_edit_number: question_model::BlueprintEditNumber,
     pub source_short_name: bool,
@@ -153,7 +154,7 @@ pub struct BlueprintForkApplyRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyResponse {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub changed: bool,
     pub metadata: question_model::BlueprintMetadataState,
 }
@@ -166,7 +167,7 @@ mod tests {
     #[test]
     fn revision_view_keeps_the_exact_immutable_tuple() {
         let view = BlueprintRevisionView {
-            blueprint_revision_tuple: BlueprintRevisionTuple {
+            blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
                 blueprint_course_id: "BPABCDEFGJ"
                     .parse::<BlueprintCourseId>()
                     .expect("Blueprint Course ID"),
@@ -175,8 +176,25 @@ mod tests {
             modules: Vec::new(),
         };
 
-        let wire = serde_json::to_value(view).expect("view serializes");
-        assert_eq!(wire["blueprintRevisionTuple"]["revisionNumber"], "3");
+        let wire = serde_json::to_value(&view).expect("view serializes");
+        assert_eq!(
+            wire["blueprintCourseRevisionTuple"]["blueprintCourseId"],
+            "BPABCDEFGJ"
+        );
+        assert_eq!(wire["blueprintCourseRevisionTuple"]["revisionNumber"], "3");
+        assert_eq!(
+            serde_json::from_value::<BlueprintRevisionView>(wire.clone())
+                .expect("view deserializes"),
+            view
+        );
+        let mut old_wire = wire.clone();
+        old_wire["blueprintRevisionTuple"] = old_wire["blueprintCourseRevisionTuple"].clone();
+        assert!(serde_json::from_value::<BlueprintRevisionView>(old_wire.clone()).is_err());
+        old_wire
+            .as_object_mut()
+            .expect("view object")
+            .remove("blueprintCourseRevisionTuple");
+        assert!(serde_json::from_value::<BlueprintRevisionView>(old_wire).is_err());
     }
 
     #[test]
@@ -189,11 +207,11 @@ mod tests {
             short_name: "Fork".to_string(),
             long_name: "Fork Course".to_string(),
             availability: question_model::BlueprintAvailability::Private,
-            current_revision_tuple: BlueprintRevisionTuple {
+            current_revision_tuple: BlueprintCourseRevisionTuple {
                 blueprint_course_id: blueprint_course_id.clone(),
                 revision_number: BlueprintRevisionNumber::new(2).expect("revision"),
             },
-            source_revision_tuple: BlueprintRevisionTuple {
+            source_revision_tuple: BlueprintCourseRevisionTuple {
                 blueprint_course_id: BlueprintCourseId::from_debug_serial(2),
                 revision_number: BlueprintRevisionNumber::new(1).expect("revision"),
             },

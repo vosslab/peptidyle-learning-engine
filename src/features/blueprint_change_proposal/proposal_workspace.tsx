@@ -332,6 +332,7 @@ export function ProposalTargetTools(props: {
                     {props.target.blueprint_edit_number}.
                   </p>
                   <CourseClassificationSummary value={source().classification} />
+                  <p>Source Blueprint Theme: {source().theme}.</p>
                   <p>
                     The exact proposed teaching structure, instructions, settings and Question/Pool
                     pins are shared with the receiving Instructor, including when your source is

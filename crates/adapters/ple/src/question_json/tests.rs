@@ -9,6 +9,41 @@ const SINGLE_CHOICE_SOURCE: &[u8] =
     include_bytes!("../../tests/fixtures/ple_question_json_single_choice.json");
 
 #[test]
+fn native_document_contains_content_only_and_rejects_record_metadata() {
+    let source: serde_json::Value =
+        serde_json::from_slice(SINGLE_CHOICE_SOURCE).expect("fixture parses");
+    let object = source.as_object().expect("source object");
+    for key in [
+        "questionTitle",
+        "questionDescription",
+        "tags",
+        "questionLicense",
+        "questionCitation",
+        "language",
+    ] {
+        assert!(!object.contains_key(key), "Native source must omit {key}");
+        let mut with_record_metadata = source.clone();
+        with_record_metadata[key] = match key {
+            "tags" => json!(["record-owned tag"]),
+            "questionLicense" => json!("CC-BY-4.0"),
+            "questionCitation" => json!(null),
+            "language" => json!("en"),
+            _ => json!("record-owned value"),
+        };
+        let encoded = serde_json::to_vec(&with_record_metadata).expect("source encodes");
+        assert!(
+            PleQuestionJsonDocument::parse(&encoded).is_err(),
+            "Native source must reject {key}"
+        );
+    }
+    let compiled = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE)
+        .expect("content-only source parses")
+        .compile()
+        .expect("content-only source compiles");
+    assert!(!compiled.presentation().prompt().is_empty());
+}
+
+#[test]
 fn source_compiles_private_evaluation_from_its_exact_content() {
     let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
     let compiled = document.compile().expect("source compiles");
@@ -66,6 +101,56 @@ fn exact_text_answers_fit_the_student_utf16_response_limit() {
     });
     let normalized = serde_json::to_vec(&source).expect("source encodes");
     assert!(PleQuestionJsonDocument::parse(&normalized).is_ok());
+}
+
+#[test]
+fn fib_regex_mode_compiles_patterns_and_reports_invalid_syntax() {
+    let mut source: serde_json::Value =
+        serde_json::from_slice(SINGLE_CHOICE_SOURCE).expect("fixture parses");
+    source["response"] = json!({
+        "kind": "fillIn",
+        "answers": ["^ATP$"],
+        "matchMode": "regex",
+        "maxLength": 16
+    });
+    let encoded = serde_json::to_vec(&source).expect("source encodes");
+    let document = PleQuestionJsonDocument::parse(&encoded).expect("regex source parses");
+    let compiled = document.compile().expect("valid regex compiles");
+    assert!(matches!(
+        compiled.presentation().response(),
+        QuestionResponseFormat::ShortText {
+            match_mode: question_model::answer::TextResponseMatchRule::Regex,
+            ..
+        }
+    ));
+    assert_eq!(
+        serde_json::to_value(compiled.presentation().response()).expect("response encodes"),
+        json!({
+            "kind": "shortText",
+            "matchMode": "regex",
+            "maxLength": 16
+        })
+    );
+    let result = compiled
+        .private()
+        .evaluate(
+            compiled.private().public_content_checksum(),
+            compiled.presentation().question_type(),
+            compiled.presentation().response(),
+            &StudentResponse::ShortText {
+                text: "ATP".to_string(),
+            },
+        )
+        .expect("valid regex response evaluates");
+    assert_eq!(result.evaluation.normalized_credit(), 1.0);
+
+    source["response"]["answers"] = json!(["["]);
+    let invalid = serde_json::to_vec(&source).expect("invalid source encodes");
+    let document = PleQuestionJsonDocument::parse(&invalid).expect("source shape parses");
+    assert!(
+        document.compile().is_err(),
+        "invalid regex must fail compilation"
+    );
 }
 
 #[test]
@@ -130,8 +215,6 @@ fn teaching_projection_keeps_selected_choice_feedback_without_an_outcome() {
 fn choice_randomization_is_choice_owned_and_defaults_when_omitted() {
     let source = br#"{
         "format": "pleQuestionJson",
-        "questionTitle": "Randomize choices",
-        "questionDescription": "A native choice question.",
         "prompt": "Choose one.",
         "response": {
             "kind": "singleChoice",
@@ -141,8 +224,7 @@ fn choice_randomization_is_choice_owned_and_defaults_when_omitted() {
             ],
             "correctChoice": "a",
             "randomizeChoices": true
-        },
-        "language": "en"
+        }
     }"#;
     let compiled = PleQuestionJsonDocument::parse(source)
         .expect("choice randomization parses")
@@ -155,8 +237,6 @@ fn choice_randomization_is_choice_owned_and_defaults_when_omitted() {
 
     let non_choice_source = br#"{
         "format": "pleQuestionJson",
-        "questionTitle": "No choice order",
-        "questionDescription": "A fill-in question.",
         "prompt": "Enter the answer.",
         "response": {
             "kind": "fillIn",
@@ -164,8 +244,7 @@ fn choice_randomization_is_choice_owned_and_defaults_when_omitted() {
             "matchMode": "exact",
             "maxLength": 16,
             "randomizeChoices": true
-        },
-        "language": "en"
+        }
     }"#;
     assert!(PleQuestionJsonDocument::parse(non_choice_source).is_err());
 }
@@ -191,16 +270,13 @@ fn source_checksum_refuses_a_substituted_presentation() {
 fn external_image_resource_is_distinguishable_from_nonvisual_resources() {
     let image_source = br#"{
         "format": "pleQuestionJson",
-        "questionTitle": "Interpret the figure",
-        "questionDescription": "A native visual question.",
         "prompt": "Use the referenced figure.",
         "response": {
             "kind": "singleChoice",
             "choices": [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}],
             "correctChoice": "a"
         },
-        "externalResources": [{"url": "https://example.edu/figure", "kind": "image"}],
-        "language": "en"
+        "externalResources": [{"url": "https://example.edu/figure", "kind": "image"}]
     }"#;
     let link_source = image_source
         .windows(b"\"image\"".len())
@@ -231,8 +307,6 @@ fn external_image_resource_is_distinguishable_from_nonvisual_resources() {
 fn hotspot_publication_retargets_the_complete_question_image_asset_tuple() {
     let source = br#"{
         "format": "pleQuestionJson",
-        "questionTitle": "Locate the active site",
-        "questionDescription": "A hotspot question.",
         "prompt": "Select the active site.",
         "response": {
             "kind": "hotspot",
@@ -250,8 +324,7 @@ fn hotspot_publication_retargets_the_complete_question_image_asset_tuple() {
                 "height": 20
             }],
             "correctRegions": ["active-site"]
-        },
-        "language": "en"
+        }
     }"#;
     let replacement = QuestionImageAssetTuple {
         question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(2)),
@@ -304,10 +377,7 @@ fn changing_source_answer_grading_or_question_image_changes_the_revision_source_
 
     let numeric = json!({
         "format": "pleQuestionJson",
-        "questionTitle": "Membrane thickness",
-        "questionDescription": "A numeric question.",
         "prompt": "What is the thickness in nanometers?",
-        "language": "en",
         "response": {
             "kind": "numeric",
             "answer": 7.5,
@@ -334,8 +404,6 @@ fn changing_source_answer_grading_or_question_image_changes_the_revision_source_
 
     let hotspot = br#"{
         "format": "pleQuestionJson",
-        "questionTitle": "Locate the active site",
-        "questionDescription": "A hotspot question.",
         "prompt": "Select the active site.",
         "response": {
             "kind": "hotspot",
@@ -350,8 +418,7 @@ fn changing_source_answer_grading_or_question_image_changes_the_revision_source_
                 "x": 10, "y": 10, "width": 20, "height": 20
             }],
             "correctRegions": ["active-site"]
-        },
-        "language": "en"
+        }
     }"#;
     let hotspot_document = PleQuestionJsonDocument::parse(hotspot).expect("hotspot source parses");
     let hotspot_checksum = hotspot_document

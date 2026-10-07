@@ -1430,6 +1430,7 @@ version = "26.10.0"
 dependencies = [
  "domain",
  "question_model",
+ "regex-lite",
  "serde",
  "serde_json",
  "sha2 0.11.0",

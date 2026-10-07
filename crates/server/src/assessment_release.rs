@@ -167,7 +167,7 @@ async fn apply_blueprint_update(
     };
     match state
         .assessments
-        .apply_assessment_blueprint_update(token, course, assessment, input, Default::default())
+        .apply_assessment_blueprint_update(token, course, assessment, input)
         .await
     {
         Ok(value) => workspace_response(StatusCode::OK, &value),

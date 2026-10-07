@@ -2,18 +2,19 @@ use async_trait::async_trait;
 use axum::body::to_bytes;
 use axum::http::{HeaderValue, StatusCode, Uri};
 use learning_data_access::{
-    QuestionLibrarySearchCursorPosition, QuestionLibrarySearchFacets, QuestionLibrarySearchPage,
+    QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
+    QuestionLibrarySearchFacets, QuestionLibrarySearchPage,
 };
 use objects::{
     ObjectAddress, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, SignedUrl, StoredObject,
     memory::MemoryObjectStore,
 };
 use question_model::{
-    BloomCognitiveProcess, BloomKnowledgeDimension, ObjectId, PublishedQuestionRevisionTuple,
+    BloomCognitiveProcess, BloomKnowledgeDimension, LibraryObjectSearchPage,
+    LibraryObjectSearchSort, ObjectId, PublishedQuestionRevisionTuple,
     PublishedQuestionSharedMetadata, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
     QuestionAvailability, QuestionFormat, QuestionLicense, QuestionRevisionNumber,
-    QuestionSearchPage, QuestionSearchSort, QuestionStatistics, QuestionType, SourceObjectChecksum,
-    Tag, Timestamp,
+    QuestionStatistics, QuestionType, SourceObjectChecksum, Tag, Timestamp,
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -94,19 +95,6 @@ impl QuestionLibraryStore for LookupCountingStore {
             "not used by this contract".to_string(),
         ))
     }
-
-    async fn correct_question_revision_bloom(
-        &self,
-        _: SessionTokenHash,
-        _: &PublishedQuestionRevisionTuple,
-        _: question_model::BloomClassificationEditNumber,
-        _: BloomCognitiveProcess,
-        _: BloomKnowledgeDimension,
-    ) -> Result<question_model::BloomClassificationView, StoreError> {
-        Err(StoreError::Unavailable(
-            "not used by this contract".to_string(),
-        ))
-    }
 }
 
 #[tokio::test]
@@ -149,9 +137,9 @@ fn availability_transitions_require_one_canonical_strong_edit_number() {
 }
 
 #[test]
-fn question_search_query_accepts_repeated_filter_values() {
+fn library_object_search_query_accepts_repeated_filter_values() {
     let uri: Uri = concat!(
-        "/api/questions/search?backends=ple&backends=webwork",
+        "/api/library-objects/search?backends=ple&backends=webwork",
         "&author_names=Ada&author_names=Grace",
         "&tags=protein&tags=structure",
         "&question_types=multipleChoice&question_types=fillInBlank",
@@ -163,10 +151,10 @@ fn question_search_query_accepts_repeated_filter_values() {
     .parse()
     .expect("test URI parses");
 
-    let query = Query::<QuestionSearchQuery>::try_from_uri(&uri)
+    let query = Query::<LibraryObjectSearchQuery>::try_from_uri(&uri)
         .expect("repeated filters decode")
         .0;
-    let request = QuestionSearchRequest::try_from(query).expect("valid query request");
+    let request = LibraryObjectSearchRequest::try_from(query).expect("valid query request");
 
     assert_eq!(
         request.backends,
@@ -186,44 +174,73 @@ fn question_search_query_accepts_repeated_filter_values() {
 }
 
 #[test]
-fn question_search_query_accepts_single_filter_values_and_defaults() {
+fn library_object_search_query_accepts_single_filter_values_and_defaults() {
     let uri: Uri = concat!(
-        "/api/questions/search?backends=ple&author_names=Ada&tags=protein",
+        "/api/library-objects/search?backends=ple&author_names=Ada&tags=protein",
         "&question_types=multipleChoice&capabilities=hints",
         "&question_licenses=CC-BY-4.0&sort=publishedNewest"
     )
     .parse()
     .expect("test URI parses");
 
-    let query = Query::<QuestionSearchQuery>::try_from_uri(&uri)
+    let query = Query::<LibraryObjectSearchQuery>::try_from_uri(&uri)
         .expect("single filters decode")
         .0;
-    let request = QuestionSearchRequest::try_from(query).expect("valid query request");
+    let request = LibraryObjectSearchRequest::try_from(query).expect("valid query request");
 
     assert_eq!(request.backends, vec![QuestionBackend::Ple]);
     assert_eq!(request.author_names, vec!["ada"]);
     assert_eq!(request.tags, vec!["protein"]);
-    assert_eq!(request.sort, QuestionSearchSort::PublishedNewest);
+    assert_eq!(request.sort, LibraryObjectSearchSort::PublishedNewest);
 
-    let default_uri: Uri = "/api/questions/search".parse().expect("test URI parses");
-    let default_query = Query::<QuestionSearchQuery>::try_from_uri(&default_uri)
+    let default_uri: Uri = "/api/library-objects/search"
+        .parse()
+        .expect("test URI parses");
+    let default_query = Query::<LibraryObjectSearchQuery>::try_from_uri(&default_uri)
         .expect("omitted filters decode")
         .0;
     let default_request =
-        QuestionSearchRequest::try_from(default_query).expect("valid default query request");
+        LibraryObjectSearchRequest::try_from(default_query).expect("valid default query request");
     assert!(default_request.backends.is_empty());
     assert!(default_request.author_names.is_empty());
-    assert_eq!(default_request.sort, QuestionSearchSort::TitleAscending);
+    assert_eq!(
+        default_request.sort,
+        LibraryObjectSearchSort::TitleAscending
+    );
     assert_eq!(default_request.page_size, Some(DEFAULT_PAGE_SIZE));
 }
 
 #[test]
+fn backend_capability_filter_becomes_one_shared_backend_predicate() {
+    let query = LibraryObjectSearchRequest {
+        capabilities: vec![question_model::Capability::ClientRendering],
+        ..LibraryObjectSearchRequest::default()
+    };
+    assert_eq!(
+        eligible_backends(&query),
+        QuestionLibraryBackendRestriction::Only(vec![QuestionBackend::Ple]),
+    );
+    let query = LibraryObjectSearchRequest {
+        capabilities: vec![
+            question_model::Capability::ClientRendering,
+            question_model::Capability::ServerGrading,
+        ],
+        ..LibraryObjectSearchRequest::default()
+    };
+    assert_eq!(
+        eligible_backends(&query),
+        QuestionLibraryBackendRestriction::Only(vec![QuestionBackend::Ple]),
+        "all requested capabilities constrain the common Backend value",
+    );
+}
+
+#[test]
 fn question_search_page_size_accepts_250_and_rejects_outside_discovery_bounds() {
-    let accepted_uri: Uri = "/api/questions/search?page_size=250"
+    let accepted_uri: Uri = "/api/library-objects/search?page_size=250"
         .parse()
         .expect("test URI parses");
-    let accepted = QuestionSearchRequest::try_from(
-        Query::<QuestionSearchQuery>::try_from_uri(&accepted_uri)
+    let accepted = LibraryObjectSearchRequest::try_from(
+        Query::<LibraryObjectSearchQuery>::try_from_uri(&accepted_uri)
             .expect("transport")
             .0,
     )
@@ -231,12 +248,12 @@ fn question_search_page_size_accepts_250_and_rejects_outside_discovery_bounds() 
     assert_eq!(accepted.page_size, Some(250));
 
     for rejected_size in [0, 251] {
-        let rejected_uri: Uri = format!("/api/questions/search?page_size={rejected_size}")
+        let rejected_uri: Uri = format!("/api/library-objects/search?page_size={rejected_size}")
             .parse()
             .expect("test URI parses");
         assert!(
-            QuestionSearchRequest::try_from(
-                Query::<QuestionSearchQuery>::try_from_uri(&rejected_uri)
+            LibraryObjectSearchRequest::try_from(
+                Query::<LibraryObjectSearchQuery>::try_from_uri(&rejected_uri)
                     .expect("transport")
                     .0,
             )
@@ -246,7 +263,7 @@ fn question_search_page_size_accepts_250_and_rejects_outside_discovery_bounds() 
 }
 
 #[test]
-fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields() {
+fn library_object_search_query_rejects_scalar_parameter_pollution_and_invalid_fields() {
     for query in [
         "text=one&text=two",
         "page_size=10&page_size=20",
@@ -265,12 +282,12 @@ fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields()
         "bloom_knowledge_dimension=Factual%20Knowledge&bloom_knowledge_dimension=Procedural%20Knowledge",
         "bloomCognitiveProcess=Analyze",
     ] {
-        let uri: Uri = format!("/api/questions/search?{query}")
+        let uri: Uri = format!("/api/library-objects/search?{query}")
             .parse()
             .expect("test URI parses");
-        let rejected = match Query::<QuestionSearchQuery>::try_from_uri(&uri) {
+        let rejected = match Query::<LibraryObjectSearchQuery>::try_from_uri(&uri) {
             Err(_) => true,
-            Ok(Query(transport)) => QuestionSearchRequest::try_from(transport).is_err(),
+            Ok(Query(transport)) => LibraryObjectSearchRequest::try_from(transport).is_err(),
         };
         assert!(rejected, "query must reject: {query}");
     }
@@ -278,9 +295,9 @@ fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields()
 
 #[test]
 fn hierarchy_http_transport_preserves_the_tuple_and_rejects_incomplete_chains() {
-    let uri: Uri = "/api/questions/search?discipline_uuid=00000000-0000-0000-0000-000000000001&subject_uuid=00000000-0000-0000-0000-000000000002&topic_uuid=00000000-0000-0000-0000-000000000003&subtopic_uuid=00000000-0000-0000-0000-000000000004&cross_discipline=true&tags=review".parse().expect("URI");
-    let request = QuestionSearchRequest::try_from(
-        Query::<QuestionSearchQuery>::try_from_uri(&uri)
+    let uri: Uri = "/api/library-objects/search?discipline_uuid=00000000-0000-0000-0000-000000000001&subject_uuid=00000000-0000-0000-0000-000000000002&topic_uuid=00000000-0000-0000-0000-000000000003&subtopic_uuid=00000000-0000-0000-0000-000000000004&cross_discipline=true&tags=review".parse().expect("URI");
+    let request = LibraryObjectSearchRequest::try_from(
+        Query::<LibraryObjectSearchQuery>::try_from_uri(&uri)
             .expect("transport")
             .0,
     )
@@ -295,12 +312,12 @@ fn hierarchy_http_transport_preserves_the_tuple_and_rejects_incomplete_chains() 
         "subject_uuid=00000000-0000-0000-0000-000000000002",
         "cross_discipline=true",
     ] {
-        let uri: Uri = format!("/api/questions/search?{suffix}")
+        let uri: Uri = format!("/api/library-objects/search?{suffix}")
             .parse()
             .expect("URI");
         assert!(
-            QuestionSearchRequest::try_from(
-                Query::<QuestionSearchQuery>::try_from_uri(&uri)
+            LibraryObjectSearchRequest::try_from(
+                Query::<LibraryObjectSearchQuery>::try_from_uri(&uri)
                     .expect("transport")
                     .0
             )
@@ -311,8 +328,6 @@ fn hierarchy_http_transport_preserves_the_tuple_and_rejects_incomplete_chains() 
 
 const PAGE_SOURCE: &str = r#"{
   "format": "pleQuestionJson",
-  "questionTitle": "Favorite color",
-  "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {
     "kind": "singleChoice",
@@ -322,11 +337,7 @@ const PAGE_SOURCE: &str = r#"{
     ],
     "correctChoice": "blue"
   },
-  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."},
-  "tags": ["example"],
-  "questionLicense": "CC-BY-SA-4.0",
-  "questionCitation": null,
-  "language": "en-US"
+  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."}
 }"#;
 
 struct RecordingObjects {
@@ -445,19 +456,6 @@ impl QuestionLibraryStore for PageOnlyLibrary {
     ) -> Result<learning_data_access::PublishedQuestionAvailability, StoreError> {
         Err(StoreError::Unavailable("restore is not search".into()))
     }
-
-    async fn correct_question_revision_bloom(
-        &self,
-        _: SessionTokenHash,
-        _: &PublishedQuestionRevisionTuple,
-        _: question_model::BloomClassificationEditNumber,
-        _: BloomCognitiveProcess,
-        _: BloomKnowledgeDimension,
-    ) -> Result<question_model::BloomClassificationView, StoreError> {
-        Err(StoreError::Unavailable(
-            "bloom correction is not search".into(),
-        ))
-    }
 }
 
 #[async_trait]
@@ -478,7 +476,6 @@ impl QuestionLibraryPageStatistics for PageOnlyLibrary {
 fn empty_search_facets() -> QuestionLibrarySearchFacets {
     QuestionLibrarySearchFacets {
         categories: question_model::LibrarySearchCategoryCounts::default(),
-        question_backends: Vec::new(),
         author_names: Vec::new(),
         author_names_truncated: false,
         backends: Vec::new(),
@@ -524,6 +521,7 @@ async fn stored_library_entry(
         .expect("source object");
     let entry = PublishedQuestionLibraryEntry {
         published_question_revision_tuple,
+        parent_published_question_revision_tuple: None,
         backend: QuestionBackend::Ple,
         question_format: QuestionFormat::PleQuestionJson,
         question_type: QuestionType::MultipleChoice,
@@ -531,14 +529,23 @@ async fn stored_library_entry(
         bloom: None,
         question_title: "Favorite color".to_string(),
         question_description: "Instructor-facing color-choice example.".to_string(),
+        language: Some("en".to_string()),
+        question_citation: Some(
+            "Example question source. https://example.test/favorite-color".to_string(),
+        ),
         shared_metadata: PublishedQuestionSharedMetadata {
             question_id: published_question_id,
             metadata_edit_number: 1,
+            question_title: "Favorite color".to_string(),
+            question_description: "Instructor-facing color-choice example.".to_string(),
+            question_type: QuestionType::MultipleChoice,
             tags: vec![Tag::new("example")],
             discipline_uuid: uuid::Uuid::nil(),
             subject_uuid: uuid::Uuid::nil(),
             topic_uuid: None,
             subtopic_uuid: None,
+            bloom_cognitive_process: None,
+            bloom_knowledge_dimension: None,
         },
         subject_name: "Colors".to_string(),
         topic_name: None,
@@ -552,6 +559,7 @@ async fn stored_library_entry(
         .expect("authorship"),
         authored_by_current_account: false,
         viewer_may_archive: false,
+        viewer_may_edit_metadata: false,
         question_license: QuestionLicense::CcBySa4_0,
         availability: QuestionAvailability::Available,
         availability_edit_number: question_model::QuestionAvailabilityEditNumber::INITIAL,
@@ -560,6 +568,9 @@ async fn stored_library_entry(
             .expect("checksum"),
         source_media_type: adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE.to_string(),
         webwork_pg_path: None,
+        revision_general_feedback: None,
+        revision_hint: None,
+        revision_worked_solution: None,
     };
     (entry, address)
 }
@@ -592,9 +603,9 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
         statistics_ids: Mutex::new(Vec::new()),
         statistics_calls: AtomicUsize::new(0),
     };
-    let query = QuestionSearchRequest::try_from(
-        Query::<QuestionSearchQuery>::try_from_uri(
-            &"/api/questions/search".parse::<Uri>().expect("URI"),
+    let query = LibraryObjectSearchRequest::try_from(
+        Query::<LibraryObjectSearchQuery>::try_from_uri(
+            &"/api/library-objects/search".parse::<Uri>().expect("URI"),
         )
         .expect("query")
         .0,
@@ -602,12 +613,12 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
     .expect("normalized search");
     let session = SessionTokenHash::compute(b"instructor session");
 
-    let rejected = search_question_library(
+    let rejected = search_library_objects(
         &store,
         &objects,
         session,
         true,
-        QuestionSearchRequest {
+        LibraryObjectSearchRequest {
             cursor: Some("not-a-cursor".to_string()),
             ..query.clone()
         },
@@ -618,19 +629,20 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
     assert_eq!(store.list_calls.load(Ordering::SeqCst), 0);
     assert!(objects.reads.lock().expect("reads").is_empty());
 
-    let response = search_question_library(&store, &objects, session, true, query.clone()).await;
+    let response = search_library_objects(&store, &objects, session, true, query.clone()).await;
     assert_eq!(response.status(), StatusCode::OK);
     let bytes = to_bytes(response.into_body(), 65_536)
         .await
         .expect("page body");
-    let page: QuestionSearchPage = serde_json::from_slice(&bytes).expect("existing page shape");
+    let page: LibraryObjectSearchPage =
+        serde_json::from_slice(&bytes).expect("existing page shape");
     assert_eq!(page.items.len(), 1);
     let question_model::LibrarySearchResult::Question { question, .. } = &page.items[0] else {
         panic!("Question-only request returned Pool");
     };
     assert_eq!(question.summary.question_id, page_id);
     assert_eq!(question.evidence, QuestionStatistics::Unavailable);
-    let decoded = paging::decode_position(&QuestionSearchRequest {
+    let decoded = paging::decode_position(&LibraryObjectSearchRequest {
         cursor: page.next_cursor.clone(),
         ..query
     })
@@ -656,7 +668,7 @@ async fn question_search_resolves_native_source_only_for_the_returned_page() {
 }
 
 #[tokio::test]
-async fn native_library_read_uses_current_title_and_description_without_a_new_revision() {
+async fn native_library_read_uses_exact_record_metadata_without_a_new_revision() {
     let objects = RecordingObjects {
         inner: MemoryObjectStore::default(),
         reads: Mutex::new(Vec::new()),
@@ -676,6 +688,15 @@ async fn native_library_read_uses_current_title_and_description_without_a_new_re
         resolved.summary.metadata.question_description,
         "Library description after metadata edit."
     );
+    assert_eq!(resolved.summary.metadata.language.as_deref(), Some("en"));
+    assert_eq!(
+        resolved.summary.metadata.question_citation,
+        entry.question_citation
+    );
+    assert_eq!(
+        resolved.summary.metadata.question_license,
+        Some(entry.question_license.clone())
+    );
     assert_eq!(
         resolved.prompt,
         vec![question_model::QuestionContentBlock::Text {
@@ -683,12 +704,14 @@ async fn native_library_read_uses_current_title_and_description_without_a_new_re
         }]
     );
 
-    let mut wrong_license = entry.clone();
-    wrong_license.question_license = QuestionLicense::CcBy4_0;
-    assert!(
-        answer_free_question_library_entry(&objects, wrong_license)
-            .await
-            .is_err()
+    let mut changed_record_license = entry.clone();
+    changed_record_license.question_license = QuestionLicense::CcBy4_0;
+    let resolved = answer_free_question_library_entry(&objects, changed_record_license)
+        .await
+        .expect("license comes from the exact record");
+    assert_eq!(
+        resolved.summary.metadata.question_license,
+        Some(QuestionLicense::CcBy4_0)
     );
 
     let mut wrong_type = entry;

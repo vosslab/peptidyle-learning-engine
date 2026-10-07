@@ -166,7 +166,7 @@ CREATE FUNCTION ple_private.prepare_student_assessment_attempt_presentation(
 ) RETURNS TABLE (
     assessment_attempt_id uuid, issued_question_id uuid, issued_position integer,
     assessment_entry_id uuid, assessment_content_entry_index integer,
-    published_question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_title text, question_seed numeric,
     generated_parameter_sha256 text, backend text,
     issued_capability text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
@@ -179,7 +179,8 @@ BEGIN
     RETURN QUERY
     SELECT issued.assessment_attempt_id::uuid, issued.issued_question_id::uuid, issued.issued_position::integer,
            issued.assessment_entry_id::uuid, issued.assessment_content_entry_index::integer,
-           issued.published_question_id::text, issued.revision_number::integer, issued.question_seed::numeric,
+           issued.published_question_id::text, issued.revision_number::integer, revision_metadata.question_title::text,
+           issued.question_seed::numeric,
            assessment_attempt.generated_parameter_sha256::text, source.backend::text,
            CASE source.backend WHEN 'ple' THEN 'ple_question_json_presentation'
                                WHEN 'webwork' THEN 'webwork_presentation' END,
@@ -200,6 +201,9 @@ BEGIN
       JOIN ple_private.question_revision_source_binding AS source
         ON source.published_question_id = issued.published_question_id
        AND source.revision_number = issued.revision_number
+      JOIN ple_data.question_revision_metadata AS revision_metadata
+        ON revision_metadata.published_question_id = issued.published_question_id
+       AND revision_metadata.revision_number = issued.revision_number
       JOIN ple_private.object_record AS object_record
         ON object_record.object_record_id = source.source_object_record_id
       LEFT JOIN ple_private.question_attempt AS assessment_attempt
@@ -227,6 +231,7 @@ BEGIN
      GROUP BY issued.assessment_attempt_id, issued.issued_question_id, issued.issued_position,
               issued.assessment_entry_id, issued.assessment_content_entry_index,
               issued.published_question_id, issued.revision_number, issued.question_seed,
+              revision_metadata.question_title,
               assessment_attempt.generated_parameter_sha256, source.backend,
               source.source_object_record_id, object_record.object_address, source.source_object_checksum,
               source.webwork_pg_path, assessment_attempt.question_attempt_id, binding.presentation_nonce,
@@ -468,6 +473,12 @@ BEGIN
             SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.question_image_asset_id, decode(supplied.question_image_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
               FROM jsonb_to_recordset(item -> 'question_images') AS supplied(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
         END IF;
+        PERFORM ple_private.capture_issued_question_statistics_observation(
+            assessment_attempt_row.course_instance_id,
+            issued_row.issued_question_id,
+            NULL,
+            clock_timestamp()
+        );
     END LOOP;
     SET CONSTRAINTS ALL IMMEDIATE;
     RETURN QUERY
@@ -489,7 +500,7 @@ END $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidence(
     p_assessment_attempt_id uuid, p_issued_position integer
 ) RETURNS TABLE (
-    published_question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_title text, question_seed numeric,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
     question_image_renditions jsonb, response_item_bindings jsonb
@@ -508,7 +519,8 @@ BEGIN
     END IF;
     PERFORM ple_private.require_owned_assessment_attempt_for_presentation(assessment_attempt_id_value);
     RETURN QUERY
-    SELECT issued.published_question_id::text, issued.revision_number::integer, question_attempt.question_seed::numeric,
+    SELECT issued.published_question_id::text, issued.revision_number::integer,
+           revision_metadata.question_title::text, question_attempt.question_seed::numeric,
            question_attempt.generated_parameter_sha256::text,
            binding.presentation_nonce::text,
            encode(binding.presentation_checksum, 'hex')::text,
@@ -526,6 +538,9 @@ BEGIN
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
+      JOIN ple_data.question_revision_metadata AS revision_metadata
+        ON revision_metadata.published_question_id = issued.published_question_id
+       AND revision_metadata.revision_number = issued.revision_number
       LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition
         ON rendition.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
@@ -538,7 +553,8 @@ BEGIN
       ) AS response_item_bindings ON true
      WHERE issued.assessment_attempt_id = assessment_attempt_id_value
        AND issued.issued_position = p_issued_position
-     GROUP BY issued.published_question_id, issued.revision_number, question_attempt.question_seed,
+     GROUP BY issued.published_question_id, issued.revision_number, revision_metadata.question_title,
+              question_attempt.question_seed,
               question_attempt.generated_parameter_sha256,
               binding.presentation_nonce, binding.presentation_checksum, binding.presentation, binding.author_content,
               response_item_bindings.response_item_bindings;
@@ -691,7 +707,7 @@ CREATE FUNCTION ple_api.prepare_student_assessment_attempt_presentation(uuid)
 RETURNS TABLE (
     assessment_attempt_id uuid, issued_question_id uuid, issued_position integer,
     assessment_entry_id uuid, assessment_content_entry_index integer,
-    published_question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_title text, question_seed numeric,
     generated_parameter_sha256 text, backend text,
     issued_capability text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
@@ -700,7 +716,7 @@ RETURNS TABLE (
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT assessment_attempt_id, issued_question_id, issued_position + 1,
            assessment_entry_id, assessment_content_entry_index,
-           published_question_id, revision_number, question_seed, generated_parameter_sha256, backend,
+           published_question_id, revision_number, question_title, question_seed, generated_parameter_sha256, backend,
            issued_capability, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path,
            question_attempt_id, presentation_nonce, presentation_checksum,

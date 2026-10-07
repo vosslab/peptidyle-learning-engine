@@ -21,7 +21,13 @@ const bridgeSource = readFileSync(new URL("../src/public/ple_bridge.js", import.
 
 function loadBridge(
   entries = [],
-  { opaque = false, formBottom = 0, bodyBorderBottom = 0, bodyPaddingBottom = 0 } = {},
+  {
+    opaque = false,
+    draftTest = false,
+    formBottom = 0,
+    bodyBorderBottom = 0,
+    bodyPaddingBottom = 0,
+  } = {},
 ) {
   const documentListeners = new Map();
   const windowListeners = new Map();
@@ -60,6 +66,7 @@ function loadBridge(
     Number,
     ResizeObserver,
     String,
+    URLSearchParams,
     document: {
       addEventListener: (name, listener) => documentListeners.set(name, listener),
       body: { children: [form] },
@@ -75,7 +82,7 @@ function loadBridge(
         borderBottomWidth: `${bodyBorderBottom}px`,
         paddingBottom: `${bodyPaddingBottom}px`,
       }),
-      location: { origin: "https://ple.test" },
+      location: { origin: "https://ple.test", search: draftTest ? "?draftTest=true" : "" },
       parent,
       addEventListener: (name, listener) => windowListeners.set(name, listener),
     },
@@ -196,6 +203,41 @@ test("opaque preview reports only deduplicated, bounded renderer height", () => 
   bridge.observers[0].callback();
   assert.deepEqual(JSON.parse(JSON.stringify(bridge.sent.at(-1))), {
     message: { kind: "ple.webwork.preview.resize", version: 1, height: 254 },
+    origin: "https://ple.test",
+  });
+});
+
+test("opaque Draft preview returns a closed transient response only to its parent", () => {
+  const bridge = loadBridge([["AnSwEr0001", "correct"]], {
+    opaque: true,
+    draftTest: true,
+    formBottom: 240,
+  });
+  const receive = bridge.windowListeners.get("message");
+  const capture = {
+    kind: "ple.webwork.draft-test.capture",
+    version: 1,
+    captureId: "0123456789abcdef",
+  };
+
+  assert.equal(bridge.documentListeners.size, 0, "opaque Draft forms have no submit handler");
+  receive({ data: capture, origin: "https://other.test", source: bridge.parent });
+  receive({ data: capture, origin: "https://ple.test", source: {} });
+  receive({
+    data: { ...capture, captureId: "invalid" },
+    origin: "https://ple.test",
+    source: bridge.parent,
+  });
+  assert.equal(bridge.sent.length, 1, "only the preview height was reported");
+
+  receive({ data: capture, origin: "https://ple.test", source: bridge.parent });
+  assert.deepEqual(JSON.parse(JSON.stringify(bridge.sent.at(-1))), {
+    message: {
+      kind: "ple.webwork.draft-test.response",
+      version: 1,
+      captureId: "0123456789abcdef",
+      pairs: [["AnSwEr0001", "correct"]],
+    },
     origin: "https://ple.test",
   });
 });

@@ -1,5 +1,7 @@
 // Shared strict decoders for published Question Pool metadata and summary rows.
 
+import type { BloomCognitiveProcess } from "../../../generated/api/BloomCognitiveProcess";
+import type { BloomKnowledgeDimension } from "../../../generated/api/BloomKnowledgeDimension";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
@@ -16,7 +18,11 @@ import {
   decodeStringEnum,
   decodeUuid,
 } from "../decoder";
-import { decodeBloomClassificationView } from "./bloom_classification";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+  decodeBloomClassificationView,
+} from "./bloom_classification";
 import { decodeAccountId, decodeQuestionId, field, requireOnlyFields } from "./shared";
 
 function decodePoolQuestionType(value: unknown, path: string): QuestionType {
@@ -74,6 +80,8 @@ export function decodeQuestionPoolMetadata(value: unknown, path: string): Questi
     "topicUuid",
     "subtopicUuid",
     "tags",
+    "bloomCognitiveProcess",
+    "bloomKnowledgeDimension",
   ]);
   const tags = decodeArray(field(record, "tags", path), `${path}.tags`, (item, itemPath) =>
     decodeQuestionPoolText(item, itemPath, 120),
@@ -113,6 +121,18 @@ export function decodeQuestionPoolMetadata(value: unknown, path: string): Questi
     topicUuid,
     subtopicUuid,
     tags,
+    bloomCognitiveProcess: decodeNullable(
+      field(record, "bloomCognitiveProcess", path),
+      `${path}.bloomCognitiveProcess`,
+      (item, itemPath) =>
+        decodeStringEnum<BloomCognitiveProcess>(item, itemPath, BLOOM_COGNITIVE_PROCESSES),
+    ),
+    bloomKnowledgeDimension: decodeNullable(
+      field(record, "bloomKnowledgeDimension", path),
+      `${path}.bloomKnowledgeDimension`,
+      (item, itemPath) =>
+        decodeStringEnum<BloomKnowledgeDimension>(item, itemPath, BLOOM_KNOWLEDGE_DIMENSIONS),
+    ),
   };
 }
 

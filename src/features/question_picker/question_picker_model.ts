@@ -258,14 +258,14 @@ export function questionLibraryPickerRepository(
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
       if (request.source.kind === "library" || request.source.kind === "sharedLibrary") {
         return await library.search(
-          { ...request.query, kind: "questions", membership: "all" },
+          { ...request.query, kind: "questions", questions: "all" },
           request.cursor,
           request.pageSize,
         );
       }
       if (request.source.kind === "mine") {
         return await myQuestions.search(
-          { ...request.query, kind: "questions", membership: "all" },
+          { ...request.query, kind: "questions", questions: "all" },
           request.cursor,
           request.pageSize,
         );
@@ -333,10 +333,10 @@ function selectedBlueprintAssessment(
   ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
 >["modules"][number]["assessments"][number] {
   if (
-    blueprintRevision.blueprintRevisionTuple.blueprintCourseId !==
-      source.blueprint_revision_tuple.blueprintCourseId ||
-    blueprintRevision.blueprintRevisionTuple.revisionNumber !==
-      source.blueprint_revision_tuple.revisionNumber
+    blueprintRevision.blueprintCourseRevisionTuple.blueprintCourseId !==
+      source.blueprint_course_revision_tuple.blueprintCourseId ||
+    blueprintRevision.blueprintCourseRevisionTuple.revisionNumber !==
+      source.blueprint_course_revision_tuple.revisionNumber
   ) {
     throw new Error(
       "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",
@@ -389,8 +389,8 @@ export function blueprintCourseQuestionPickerRepository(
       const pageSize = request.pageSize ?? 50;
       const source = request.source.source;
       const revision = await client.getBlueprintRevision(
-        source.blueprint_revision_tuple.blueprintCourseId,
-        source.blueprint_revision_tuple.revisionNumber,
+        source.blueprint_course_revision_tuple.blueprintCourseId,
+        source.blueprint_course_revision_tuple.revisionNumber,
       );
       const matched = sourceRowsMatchQuery(
         contentRows(selectedBlueprintAssessment(source, revision).content),
@@ -439,7 +439,7 @@ function pickerQuery(
   const normalized = normalizeQuestionLibraryBrowseQuery({
     ...query.libraryQuery,
     kind: "questions",
-    membership: "all",
+    questions: "all",
     discipline_uuid: eligibility?.disciplineUuid ?? query.libraryQuery.discipline_uuid,
     subject_uuid: eligibility?.subjectUuid ?? query.libraryQuery.subject_uuid,
     questionType: eligibility?.questionType ?? query.libraryQuery.questionType,

@@ -166,7 +166,9 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
 
   const queries = {
     courses: queryFunction("courses", () => Promise.resolve({ items: [], nextCursor: null })),
-    questionSearch: queryFunction("question-search", () => Promise.reject(new Error("unused"))),
+    libraryObjectSearch: queryFunction("library-object-search", () =>
+      Promise.reject(new Error("unused")),
+    ),
     questionDetails: queryFunction("question-details", () => Promise.reject(new Error("unused"))),
     gradebook: queryFunction("gradebook", () => Promise.reject(new Error("unused"))),
     assessments: queryFunction("assessments", () => Promise.reject(new Error("unused"))),

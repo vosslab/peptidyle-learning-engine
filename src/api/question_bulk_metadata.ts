@@ -29,9 +29,9 @@ export interface QuestionBulkMetadataUpdateResult {
   readonly metadataEditNumber: number;
 }
 
-/** The only browser operations for reading and replacing shared search metadata. */
+/** Browser operations for reading and replacing shared search metadata. */
 export interface QuestionBulkMetadataClient {
-  readonly getCurrentQuestionBulkMetadata: (
+  readonly getCurrentQuestionSharedMetadata: (
     questionIds: ReadonlyArray<PublishedQuestionId>,
   ) => Promise<ReadonlyArray<PublishedQuestionSharedMetadata>>;
   readonly updateQuestionBulkMetadata: (

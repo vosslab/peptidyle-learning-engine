@@ -1,208 +1,91 @@
-// Exact-member editor for one Assessment-owned Question Pool fork.
+// Current reusable Pool detail and Assessment-local selection count.
 
-import { Show, createSignal, type JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
-import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
-import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
-import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
-import {
-  QuestionPicker,
-  type QuestionPickerEligibility,
-  type QuestionPickerProps,
-  type QuestionPickerSelection,
-  type QuestionPickerSource,
-  type QuestionPickerSourceRepository,
-} from "../../features/question_picker";
-import { labeledQuestionRecognition } from "../../features/recognition_label";
-import { questionRevisionKey } from "./assessment_workspace_questions_model";
-import { CourseClassificationSummary } from "../../components/course_classification_summary";
+import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { RecordContent } from "../../components/record_list/record_list";
-import type { QuestionPoolMemberView } from "../../../generated/api/QuestionPoolMemberView";
-import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
 import { RecordSequence } from "../../components/record_list/record_sequence";
+import { CourseClassificationSummary } from "../../components/course_classification_summary";
 
 export interface AssessmentPoolEntryEditorProps {
   readonly entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>;
-  readonly fork: AssessmentQuestionPoolForkView | undefined;
-  readonly exactMembersUnavailable: boolean;
-  readonly pickerRepository: QuestionPickerSourceRepository;
-  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
-  readonly loadQuestionInspection?: QuestionPickerProps["loadQuestionInspection"];
-  readonly questionRevisionPreviewDocumentUrl?: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
-  readonly questionImageUrl?: QuestionPickerProps["questionImageUrl"];
+  readonly pool: QuestionPoolView | undefined;
+  readonly poolUnavailable: boolean;
   readonly mutationsEnabled: boolean;
   readonly busy: boolean;
   readonly onSelectionCount: (selectionCount: number) => void;
-  readonly onReplaceMembers: (
-    members: ReadonlyArray<PublishedQuestionRevisionTuple>,
-  ) => Promise<void>;
 }
 
-/** Question title for recognition, with the public Question ID kept as a labeled identifier. */
-export function assessmentPoolMemberContent(member: QuestionPoolMemberView): RecordContent {
-  const revision = member.publishedQuestionRevisionTuple;
-  return {
-    title: member.question.question_library.summary.metadata.questionTitle,
-    details: [
-      { kind: "text", label: "Question ID", value: revision.publishedQuestionId },
-      { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
-    ],
-    actions: [],
-  };
-}
-
-/** Renders exact immutable fork members and only the two permitted Assessment-owned mutations. */
+/** Renders one shared Pool and edits only the Assessment's requested count. */
 export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps): JSX.Element {
-  const [attested, setAttested] = createSignal(false);
-  const [pickerOpen, setPickerOpen] = createSignal(false);
-  let pickerTrigger: HTMLButtonElement | undefined;
-  const poolEligibility = (): QuestionPickerEligibility | undefined => {
-    const fork = props.fork;
-    if (fork === undefined) return undefined;
-    return {
-      disciplineUuid: fork.metadata.disciplineUuid,
-      subjectUuid: fork.metadata.subjectUuid,
-      questionType: fork.questionType,
-      backend: fork.backend,
-    };
-  };
-
   function submitSelectionCount(value: string): void {
     const selectionCount = Number(value);
-    if (
-      !Number.isSafeInteger(selectionCount) ||
-      selectionCount < 1 ||
-      props.fork === undefined ||
-      selectionCount > props.fork.members.length
-    ) {
+    if (!Number.isSafeInteger(selectionCount) || selectionCount < 1 || props.pool === undefined) {
       return;
     }
     if (selectionCount !== props.entry.selectionCount) props.onSelectionCount(selectionCount);
   }
 
-  function append(selection: QuestionPickerSelection): void {
-    setPickerOpen(false);
-    const candidate = selection.questions[0];
-    if (candidate === undefined || !attested() || !props.mutationsEnabled || props.busy) return;
-    const publishedQuestionRevisionTuple = candidate.row.publishedQuestionRevisionTuple;
-    const members =
-      props.fork?.members.map((member) => member.publishedQuestionRevisionTuple) ?? [];
-    if (
-      members.some(
-        (member) =>
-          questionRevisionKey(member) === questionRevisionKey(publishedQuestionRevisionTuple),
-      )
-    ) {
-      return;
-    }
-    void props.onReplaceMembers([...members, publishedQuestionRevisionTuple]);
-    setAttested(false);
-  }
-
-  function replaceMembers(members: ReadonlyArray<PublishedQuestionRevisionTuple>): Promise<void> {
-    if (!attested() || !props.mutationsEnabled || props.busy) return Promise.resolve();
-    const replacement = props.onReplaceMembers(members);
-    setAttested(false);
-    return replacement;
-  }
-
   return (
-    <section class="assessment-pool-fork" aria-labelledby={`assessment-pool-${props.entry.id}`}>
+    <section
+      class="assessment-pool-reference"
+      aria-labelledby={`assessment-pool-${props.entry.id}`}
+    >
       <h3 id={`assessment-pool-${props.entry.id}`}>
-        {props.fork?.metadata.title ?? "Question Pool"}
+        {props.pool?.metadata.title ?? "Question Pool"}
       </h3>
       <p>
         Question Pool ID {props.entry.questionPoolId}, Edit {props.entry.questionPoolEditNumber}
       </p>
       <Show
-        when={props.fork}
+        when={props.pool}
         fallback={
           <p class="assessment-editor-note">
-            {props.exactMembersUnavailable
-              ? "This Assessment's exact pinned Pool members could not load. Reload the Assessment and try again."
-              : "Loading this Assessment's exact pinned Pool members..."}
+            {props.poolUnavailable
+              ? "This reusable Question Pool could not load. Reload the Assessment and try again."
+              : "Loading the current reusable Question Pool..."}
           </p>
         }
       >
-        {(fork) => (
+        {(pool) => (
           <>
-            <p>{fork().metadata.description}</p>
-            <CourseClassificationSummary value={fork().metadata} />
-            <Show when={fork().bloom}>
-              {(bloom) => (
-                <p>
-                  Bloom Cognitive Process: {bloom().cognitiveProcess}; Bloom Knowledge Dimension:{" "}
-                  {bloom().knowledgeDimension}
-                </p>
-              )}
-            </Show>
+            <p>{pool().metadata.description}</p>
+            <CourseClassificationSummary value={pool().metadata} />
             <p>
-              This Assessment owns this imported Pool fork. It selects {props.entry.selectionCount}{" "}
-              of {fork().members.length} exact pinned Questions.
+              Owner {pool().ownerAccountId}; {pool().members.length} current Questions; Bloom
+              Cognitive Process: {pool().bloom?.cognitiveProcess ?? "Not assigned"}; Bloom Knowledge
+              Dimension: {pool().bloom?.knowledgeDimension ?? "Not assigned"}.
             </p>
-            <label>
-              <input
-                type="checkbox"
-                disabled={!props.mutationsEnabled || props.busy}
-                checked={attested()}
-                onChange={(event) => setAttested(event.currentTarget.checked)}
-              />
-              These Questions are interchangeable assessments of the intended learning.
-            </label>
+            <p>
+              This Assessment selects {props.entry.selectionCount} Questions from this shared Pool.
+              Pool edits affect future selections; existing Attempts keep their selected Questions.
+            </p>
             <RecordSequence
-              rows={fork().members.map((member, index) => ({ member, index }))}
+              rows={pool().members.map((member, index) => ({ member, index }))}
               content={(record): RecordContent => ({
-                ...assessmentPoolMemberContent(record.member),
-                actions: [
+                title: record.member.question.question_library.summary.metadata.questionTitle,
+                details: [
                   {
-                    id: "remove-member",
-                    kind: "command",
-                    label: "Remove",
-                    disabled:
-                      !props.mutationsEnabled ||
-                      props.busy ||
-                      !attested() ||
-                      fork().members.length <= props.entry.selectionCount,
-                    onClick: (): void =>
-                      void replaceMembers(
-                        fork()
-                          .members.filter((_member, index) => index !== record.index)
-                          .map((member) => member.publishedQuestionRevisionTuple),
-                      ),
+                    kind: "text",
+                    label: "Question ID",
+                    value: record.member.publishedQuestionRevisionTuple.publishedQuestionId,
+                  },
+                  {
+                    kind: "text",
+                    label: "Revision",
+                    value: String(record.member.publishedQuestionRevisionTuple.revisionNumber),
                   },
                 ],
+                actions: [],
               })}
               recordId={(record) =>
-                questionRevisionKey(record.member.publishedQuestionRevisionTuple)
+                record.member.publishedQuestionRevisionTuple.publishedQuestionId
               }
               state={{ kind: "ready" }}
-              ariaLabel="Ordered Assessment Pool members"
-              emptyState={{ title: "No Pool members are available." }}
-              reorder={{
-                onMove: (sourceIndex, destinationIndex): Promise<void> =>
-                  replaceMembers(
-                    reorderedRecordListRows(fork().members, sourceIndex, destinationIndex).map(
-                      (member) => member.publishedQuestionRevisionTuple,
-                    ),
-                  ),
-                recordLabel: (record): string => {
-                  const revision = record.member.publishedQuestionRevisionTuple;
-                  const line = labeledQuestionRecognition(
-                    record.member.question.question_library.summary.metadata.questionTitle,
-                    revision.publishedQuestionId,
-                    revision.revisionNumber,
-                  );
-                  return `${line.title} (${line.identifier})`;
-                },
-                isDisabled: (): boolean => !props.mutationsEnabled || props.busy || !attested(),
-              }}
+              ariaLabel="Current reusable Pool members"
+              emptyState={{ title: "This Question Pool has no current members." }}
             />
-            <Show when={fork().members.length <= props.entry.selectionCount}>
-              <p class="assessment-editor-note">
-                Lower the selection count before removing a Pool member.
-              </p>
-            </Show>
             <fieldset disabled={!props.mutationsEnabled || props.busy}>
               <legend>Questions selected for each Attempt</legend>
               <label class="assessment-editor-field">
@@ -210,49 +93,13 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                 <input
                   type="number"
                   min="1"
-                  max={fork().members.length}
                   value={props.entry.selectionCount}
                   onChange={(event) => submitSelectionCount(event.currentTarget.value)}
                 />
               </label>
               <p class="assessment-editor-note">
-                This changes only this Assessment-owned Pool entry.
+                This count belongs to this Assessment. Save Questions to keep the change.
               </p>
-            </fieldset>
-            <fieldset
-              disabled={
-                !props.mutationsEnabled ||
-                props.busy ||
-                fork().members.length >= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
-              }
-            >
-              <legend>Add one pinned Question</legend>
-              <button
-                type="button"
-                ref={(element) => (pickerTrigger = element)}
-                disabled={!attested()}
-                onClick={() => setPickerOpen(true)}
-              >
-                Choose a published Question
-              </button>
-              <Show when={pickerOpen()}>
-                <QuestionPicker
-                  repository={props.pickerRepository}
-                  sources={props.pickerSources}
-                  eligibility={poolEligibility()}
-                  mode="one"
-                  maximumSelection={1}
-                  trigger={pickerTrigger}
-                  title="Add one pinned Question"
-                  confirmLabel="Add pinned Question"
-                  instructions="The selected Question is appended with its exact Published Revision. Inspect a Question before adding it. Cancel leaves this Pool unchanged."
-                  loadQuestionInspection={props.loadQuestionInspection}
-                  questionRevisionPreviewDocumentUrl={props.questionRevisionPreviewDocumentUrl}
-                  questionImageUrl={props.questionImageUrl}
-                  onConfirm={append}
-                  onCancel={() => setPickerOpen(false)}
-                />
-              </Show>
             </fieldset>
           </>
         )}
@@ -260,7 +107,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
       <Show when={!props.mutationsEnabled}>
         <p class="assessment-editor-note">
           {props.entry.availability === "available"
-            ? "Save or reload the pending Assessment changes before changing this Pool."
+            ? "Save or reload the pending Assessment changes before editing its selection count."
             : "This retained unavailable Pool Entry is read-only."}
         </p>
       </Show>

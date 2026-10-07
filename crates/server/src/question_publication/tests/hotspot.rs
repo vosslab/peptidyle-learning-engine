@@ -61,9 +61,8 @@ async fn fixture(
         .await
         .expect("private Draft dot image");
     let source = serde_json::to_vec(&serde_json::json!({
-        "format": "pleQuestionJson", "questionTitle": "Click the dot",
-        "questionDescription": "Select the dot in the image.", "prompt": "Click the dot.",
-        "language": "en", "response": { "kind": "hotspot",
+        "format": "pleQuestionJson", "prompt": "Click the dot.",
+        "response": { "kind": "hotspot",
             "surface": { "questionImageAssetId": question_image_asset_id, "checksum": image_record.sha256.to_string(),
                 "description": "One black dot on white" },
             "regions": [{ "id": "dot", "label": "Dot", "x": 5000, "y": 5000,

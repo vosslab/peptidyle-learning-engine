@@ -9,10 +9,12 @@ import {
   MAX_QUESTION_PICKER_SELECTION_CAP,
   inspectQuestionPickerRow,
   moveQuestionPickerSelection,
+  questionLibraryPickerRepository,
   questionPickerInspectionView,
   questionPickerSelection,
   toggleQuestionPickerSelection,
 } from "../src/features/question_picker/question_picker_model.ts";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../src/pages/library_page_model.ts";
 
 function row(displayId, questionTitle = "Question", revisionNumber = 1) {
   return {
@@ -23,7 +25,6 @@ function row(displayId, questionTitle = "Question", revisionNumber = 1) {
     bloom: {
       cognitiveProcess: "Understand",
       knowledgeDimension: "Conceptual Knowledge",
-      classificationEditNumber: "1",
     },
     disciplineName: "Biology",
     disciplineIsRetired: false,
@@ -48,6 +49,30 @@ function questionIdFor(index) {
   const checksum = alphabet[createHash("sha256").update(identifier, "ascii").digest()[0] >>> 3];
   return `${identifier.slice(0, 4)}-${checksum}${identifier.slice(4)}`;
 }
+
+test("Pool contents Question picker reuses mixed Library search with a Questions-only request", async () => {
+  const calls = [];
+  const repository = {
+    async search(query, cursor, pageSize) {
+      calls.push({ query, cursor, pageSize });
+      return { items: [], nextCursor: null, aggregates: [], facetTruncation: {} };
+    },
+  };
+  const picker = questionLibraryPickerRepository(repository, repository);
+  await picker.search({
+    source: { kind: "sharedLibrary", label: "Question Library" },
+    query: {
+      ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+      kind: "both",
+      questions: "inNoPool",
+    },
+    cursor: null,
+    pageSize: 50,
+  });
+  assert.equal(calls[0].query.kind, "questions");
+  assert.equal(calls[0].query.questions, "all");
+  assert.equal(calls[0].pageSize, 50);
+});
 
 test("Question Picker preserves public Question ID order and safe row metadata", () => {
   const selection = questionPickerSelection("many", 200, [

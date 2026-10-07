@@ -1,27 +1,24 @@
 //! PostgreSQL Course Instance to Blueprint Course publication.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleId,
-    BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
-    CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput, RequestChecksum,
-    Timestamp,
+    AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintCourseRevisionTuple,
+    BlueprintEditNumber, BlueprintModuleId, BlueprintRevisionNumber, CourseEditNumber,
+    CourseInstanceId, CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput,
+    RequestChecksum, Timestamp,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use sqlx::{Row, postgres::PgRow, types::Json};
 
+use super::Pool;
 use super::blueprint_course::{
     PostgresBlueprintCourseStore, classification_tags, encode_content, random_uuid,
 };
 use super::connection::map_sqlx_error;
-use super::{Pool, blueprint_pools};
 use crate::{
-    CourseBlueprintPublicationStore, CourseInstancePoolIdIssuer, SessionTokenHash, StoreError,
-    StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintCourseContent,
-    StoredBlueprintModule,
+    CourseBlueprintPublicationStore, SessionTokenHash, StoreError, StoredBlueprintAssessment,
+    StoredBlueprintAssessmentContent, StoredBlueprintCourseContent, StoredBlueprintModule,
 };
 
 /// PostgreSQL implementation of atomic Course reusable-structure publication.
@@ -35,14 +32,6 @@ impl PostgresCourseBlueprintPublicationStore {
         Self {
             blueprints: PostgresBlueprintCourseStore::new(pool),
         }
-    }
-
-    pub fn with_question_pool_id_issuer(
-        mut self,
-        issuer: Arc<dyn CourseInstancePoolIdIssuer>,
-    ) -> Self {
-        self.blueprints = self.blueprints.with_question_pool_id_issuer(issuer);
-        self
     }
 }
 
@@ -60,7 +49,6 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         source_course_instance_id: CourseInstanceId,
         request_checksum: RequestChecksum,
         input: CreateBlueprintFromCourseInstanceInput,
-        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(|error| {
             StoreError::InvalidRecord(format!("Course Blueprint request is invalid: {error}"))
@@ -71,8 +59,8 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
             .await?;
         let actor = super::blueprint_course::current_actor(&mut transaction).await?;
 
-        // ASVS 2.3.3: a retry resolves before any fresh child or Pool identity
-        // is issued, preventing committed orphan Pool forks.
+        // ASVS 2.3.3: a retry resolves before any fresh child identity is
+        // issued, preventing committed orphan children.
         if let Some(row) = sqlx::query(
             "SELECT blueprint_course_id, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
@@ -93,29 +81,22 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         // locks Course metadata plus all current Assessment rows before this
         // server-owned projection is decoded.
         let row = sqlx::query(
-            "SELECT course_blueprint_edit_number, source_snapshot, source_assessments \
+            "SELECT course_edit_number, source_snapshot, source_assessments \
              FROM ple_api.load_course_blueprint_publication_source($1)",
         )
         .bind(source_course_instance_id.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let expected_course_blueprint_edit_number: uuid::Uuid = row
-            .try_get("course_blueprint_edit_number")
-            .map_err(map_sqlx_error)?;
+        let expected_course_edit_number = CourseEditNumber::from_edit_number(
+            row.try_get("course_edit_number").map_err(map_sqlx_error)?,
+        );
         let Json(source_snapshot): Json<Value> =
             row.try_get("source_snapshot").map_err(map_sqlx_error)?;
         let Json(source_assessments): Json<Vec<SourceAssessment>> =
             row.try_get("source_assessments").map_err(map_sqlx_error)?;
 
-        let mut content = publication_content(source_assessments)?;
-        blueprint_pools::materialize_imported_pools(
-            &mut transaction,
-            &mut content,
-            self.blueprints.pool_id_issuer.as_deref(),
-            &mut bloom_receipts,
-        )
-        .await?;
+        let content = publication_content(source_assessments)?;
         let encoded = encode_content(&content)?;
         let checksum = content.checksum()?;
         let classification = input.classification;
@@ -126,9 +107,9 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
                  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
         )
         .bind(source_course_instance_id.as_string())
-        .bind(expected_course_blueprint_edit_number)
+        .bind(expected_course_edit_number.as_i64())
         .bind(source_snapshot)
-        .bind(random_uuid()?)
+        .bind(Option::<String>::None)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(input.short_name)
         .bind(input.long_name)
@@ -192,7 +173,7 @@ fn decode_receipt(
     .and_then(BlueprintRevisionNumber::new)
     .ok_or_else(|| invalid("Blueprint Revision"))?;
     Ok(CreateBlueprintCourseReceipt {
-        blueprint_revision_tuple: BlueprintRevisionTuple {
+        blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
             blueprint_course_id,
             revision_number: revision,
         },

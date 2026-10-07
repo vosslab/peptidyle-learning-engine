@@ -3,7 +3,7 @@ use axum::{http::StatusCode, response::Response};
 use learning_data_access::{
     ContentClassificationStore, ContentDisciplineDiscoveryStore, SessionTokenHash,
 };
-use question_model::QuestionSearchRequest;
+use question_model::LibraryObjectSearchRequest;
 
 use super::{route_error, store_error_response};
 
@@ -15,7 +15,7 @@ use super::{route_error, store_error_response};
 pub(super) async fn validate(
     store: &(impl ContentClassificationStore + ContentDisciplineDiscoveryStore),
     token: SessionTokenHash,
-    query: &QuestionSearchRequest,
+    query: &LibraryObjectSearchRequest,
 ) -> Result<(), Response> {
     let Some(discipline) = query.discipline_uuid else {
         return Ok(());
@@ -197,13 +197,13 @@ mod tests {
     #[tokio::test]
     async fn selected_hierarchy_validation_distinguishes_bad_identity_from_unavailable_store() {
         let token = SessionTokenHash::compute(b"instructor");
-        let query = QuestionSearchRequest {
+        let query = LibraryObjectSearchRequest {
             discipline_uuid: Some(Uuid::from_u128(1)),
             subject_uuid: Some(Uuid::from_u128(2)),
             topic_uuid: Some(Uuid::from_u128(3)),
             subtopic_uuid: Some(Uuid::from_u128(4)),
             cross_discipline: true,
-            ..QuestionSearchRequest::default()
+            ..LibraryObjectSearchRequest::default()
         }
         .normalized()
         .expect("valid structure");

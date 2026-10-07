@@ -22,6 +22,8 @@ export interface UnsavedChangesGuardProps {
   /** Returns true only after the local edits are safely persisted. */
   readonly save: () => Promise<boolean>;
   readonly copy: UnsavedChangesGuardCopy;
+  /** Automatically save on route leave and show the prompt only if that save fails. */
+  readonly autoSaveOnLeave?: boolean;
   /** Optional component-owned leave action, such as closing an editor dialog. */
   readonly manualLeave?: {
     readonly requested: Accessor<boolean>;
@@ -59,6 +61,7 @@ export function UnsavedChangesGuard(props: UnsavedChangesGuardProps): JSX.Elemen
     returnFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     setPendingLeave(event);
+    if (props.autoSaveOnLeave === true) void saveAndContinue();
   });
 
   onMount(() => {
@@ -80,6 +83,8 @@ export function UnsavedChangesGuard(props: UnsavedChangesGuardProps): JSX.Elemen
         return;
       }
       continueNavigation();
+    } catch {
+      setSaveFailed(true);
     } finally {
       setSaving(false);
     }

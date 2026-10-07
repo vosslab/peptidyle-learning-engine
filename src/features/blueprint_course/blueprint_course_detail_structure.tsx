@@ -46,15 +46,10 @@ export interface BlueprintCourseDetailStructureProps {
     moduleIndex: number,
     assessmentIndex: number,
   ) => BlueprintAssessment["content"] | undefined;
-  readonly retainedAssessmentId: (
-    moduleIndex: number,
-    assessmentIndex: number,
-  ) => string | undefined;
   readonly assessmentTriggerId: (moduleIndex: number, assessmentIndex: number) => string;
   readonly registerAssessmentTrigger: (triggerId: string, element: HTMLButtonElement) => void;
   readonly onSelectAssessment: (moduleIndex: number, assessmentIndex: number) => void;
   readonly onReturnToAssessmentList: () => void;
-  readonly blueprintCourseId: string;
   readonly blueprintClient: BlueprintCourseClient;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
@@ -253,12 +248,7 @@ export function BlueprintCourseDetailStructure(
                   </nav>
                   <BlueprintAssessmentContentEditor
                     content={assessmentContent()}
-                    blueprintCourseId={props.blueprintCourseId}
                     blueprintClient={props.blueprintClient}
-                    retainedAssessmentId={props.retainedAssessmentId(
-                      currentSelection.moduleIndex,
-                      currentSelection.assessmentIndex,
-                    )}
                     editable={props.ownerEditing}
                     pickerRepository={props.pickerRepository}
                     pickerSources={props.pickerSources}

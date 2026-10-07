@@ -107,17 +107,35 @@ source_payload() {
 import json
 print(json.dumps({
     "format": "pleQuestionJson",
-    "questionTitle": "Live authoring boundary",
-    "questionDescription": "Private authoring verification question.",
     "prompt": "Which choice demonstrates the authoring boundary?",
     "response": {"kind": "singleChoice", "choices": [
         {"id": "a", "text": "The private workspace", "feedback": None},
         {"id": "b", "text": "The global library", "feedback": None}
-    ], "correctChoice": "a"},
+    ], "correctChoice": "a", "randomizeChoices": False},
     "questionHint": None, "feedback": {"correct": None, "incorrect": None},
-    "tags": ["live-demo"], "questionLicense": "CC-BY-4.0",
-    "questionCitation": None, "language": "en-US"
+    "externalResources": [], "authorScript": None
 }, separators=(",", ":")))'
+}
+
+create_payload() {
+	python3 -c '
+import json, sys
+source = json.loads(sys.argv[1])
+print(json.dumps({
+    "metadata": {
+        "questionTitle": "Live authoring boundary",
+        "questionDescription": "Private authoring verification question.",
+        "tags": ["live-demo"],
+        "questionLicense": "CC-BY-4.0",
+        "questionCitation": None,
+        "language": "en-US",
+    },
+    "questionBackend": "ple",
+    "questionFormat": "pleQuestionJson",
+    "webworkPgPath": None,
+    "source": json.dumps(source, separators=(",", ":")),
+}, separators=(",", ":")))
+' "$(source_payload)"
 }
 
 classification_uuid() {
@@ -151,7 +169,7 @@ instructor_cookie=""
 published_question_id=""
 
 prove_draft() {
-	local anonymous student_cookie student created body source anonymous_source student_source saved stale list
+	local anonymous student_cookie student created body source anonymous_source student_source saved saved_source metadata stale list
 	anonymous="$(request '/api/authoring/drafts')"
 	assert_concealed "$anonymous"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -162,7 +180,7 @@ prove_draft() {
 		exit 1
 	fi
 	instructor_cookie="$(persona_cookie elenaInstructor)"
-	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(source_payload)" 'application/vnd.peptidyle.question+json')"
+	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(create_payload)" 'application/json')"
 	if [ "$(response_status "$created")" != "201" ]; then
 		echo "Instructor could not create a private Draft Question (HTTP $(response_status "$created"))" >&2
 		exit 1
@@ -171,12 +189,14 @@ prove_draft() {
 	read -r draft_question_id draft_edit < <(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-draft_question_id = value.get("draftQuestion")
-edit = value.get("editNumber")
+draft_question_id = value.get("draftQuestionId")
+edit = value.get("draftQuestionEditNumber")
 if not isinstance(draft_question_id, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", draft_question_id):
     raise SystemExit("Draft Question creation did not return a canonical private Draft UUID")
-if not isinstance(edit, int) or edit <= 0:
-    raise SystemExit("Draft Question creation did not return a positive Edit Number")
+if set(value) != {"draftQuestionId", "draftQuestionEditNumber"}:
+    raise SystemExit("Draft Question creation returned an obsolete response shape")
+if not isinstance(edit, str) or not edit.isdigit() or int(edit) <= 0:
+    raise SystemExit("Draft Question creation did not return a positive string Edit Number")
 if any(key in value for key in ("workspaceId", "objectAddress", "sourceObject")):
     raise SystemExit("Draft Question creation exposed a server-only source fact")
 print(draft_question_id, edit)
@@ -186,6 +206,31 @@ print(draft_question_id, edit)
 		echo "Instructor could not load the private Draft Question source" >&2
 		exit 1
 	fi
+	if [ "$(response_body "$source")" != "$(source_payload)" ]; then
+		echo "Draft Question source readback changed the exact saved Native JSON" >&2
+		exit 1
+	fi
+	metadata="$(request "/api/authoring/drafts/$draft_question_id/metadata" "$instructor_cookie")"
+	if [ "$(response_status "$metadata")" != "200" ]; then
+		echo "Instructor could not read private Draft Question metadata" >&2
+		exit 1
+	fi
+	python3 -c '
+import json, sys
+value = json.loads(sys.argv[1])
+expected_metadata = {
+    "questionTitle": "Live authoring boundary",
+    "questionDescription": "Private authoring verification question.",
+    "tags": ["live-demo"],
+    "questionLicense": "CC-BY-4.0",
+    "questionCitation": None,
+    "language": "en-US",
+}
+if set(value) != {"metadata", "questionType", "generalFeedback", "hint", "workedSolution"}:
+    raise SystemExit("Draft Question metadata read returned an obsolete DTO")
+if value["metadata"] != expected_metadata:
+    raise SystemExit("Draft Question metadata read did not retain the separate record metadata")
+' "$(response_body "$metadata")"
 	anonymous_source="$(request "/api/authoring/drafts/$draft_question_id/source")"
 	student_source="$(request "/api/authoring/drafts/$draft_question_id/source" "$student_cookie")"
 	assert_concealed "$anonymous_source"
@@ -197,6 +242,11 @@ print(draft_question_id, edit)
 	saved="$(request "/api/authoring/drafts/$draft_question_id/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
 	if [ "$(response_status "$saved")" != "204" ]; then
 		echo "Instructor could not save the private Draft Question" >&2
+		exit 1
+	fi
+	saved_source="$(request "/api/authoring/drafts/$draft_question_id/source" "$instructor_cookie")"
+	if [ "$(response_status "$saved_source")" != "200" ] || [ "$(response_body "$saved_source")" != "$(source_payload)" ]; then
+		echo "Saved Draft Question source did not round-trip exactly" >&2
 		exit 1
 	fi
 	stale="$(request "/api/authoring/drafts/$draft_question_id/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
@@ -250,7 +300,7 @@ if not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", value["quest
     raise SystemExit("Question Publication did not mint a Question ID")
 print(value["questionId"])
 ' "$(response_body "$published")")"
-	library="$(request "/api/questions/search?text=$published_question_id" "$instructor_cookie")"
+	library="$(request "/api/library-objects/search?text=$published_question_id" "$instructor_cookie")"
 	if [ "$(response_status "$library")" != "200" ]; then
 		echo "Question Library did not expose the published Question" >&2
 		exit 1
@@ -260,9 +310,20 @@ import json, sys
 payload = json.loads(sys.argv[1])
 question_id = sys.argv[2]
 items = payload.get("items")
-if not isinstance(items, list) or question_id not in {
-    item.get("summary", {}).get("questionId") for item in items
-}:
+def exposes_question(item):
+    question = item.get("question") if isinstance(item, dict) and item.get("kind") == "question" else None
+    summary = question.get("summary") if isinstance(question, dict) else None
+    revision = summary.get("publishedQuestionRevisionTuple") if isinstance(summary, dict) else None
+    return (
+        isinstance(summary, dict) and summary.get("questionId") == question_id
+        and isinstance(revision, dict)
+        and set(revision) == {"publishedQuestionId", "revisionNumber"}
+        and revision["publishedQuestionId"] == question_id
+        and isinstance(revision["revisionNumber"], int)
+        and not isinstance(revision["revisionNumber"], bool)
+        and revision["revisionNumber"] > 0
+    )
+if not isinstance(items, list) or not any(exposes_question(item) for item in items):
     raise SystemExit("Question Library did not expose the immutable published Question")
 rendered = json.dumps(payload, sort_keys=True)
 for forbidden in ("draftQuestion", "draftQuestionUuid", "workspaceId", "objectAddress", "sourceObject", "sourceChecksum"):
@@ -275,7 +336,7 @@ for forbidden in ("draftQuestion", "draftQuestionUuid", "workspaceId", "objectAd
 prove_successor_revision() {
 	local created body successor_draft_question_id successor_edit published request_body
 	if [ -z "$published_question_id" ]; then prove_publish; fi
-	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(source_payload)" 'application/vnd.peptidyle.question+json')"
+	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(create_payload)" 'application/json')"
 	if [ "$(response_status "$created")" != "201" ]; then
 		echo "Instructor could not create a successor Draft Question (HTTP $(response_status "$created"))" >&2
 		exit 1
@@ -284,12 +345,14 @@ prove_successor_revision() {
 	read -r successor_draft_question_id successor_edit < <(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-successor_draft_question_id = value.get("draftQuestion")
-edit = value.get("editNumber")
+successor_draft_question_id = value.get("draftQuestionId")
+edit = value.get("draftQuestionEditNumber")
 if not isinstance(successor_draft_question_id, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", successor_draft_question_id):
     raise SystemExit("Successor Draft Question creation did not return its private UUID")
-if not isinstance(edit, int) or edit <= 0:
-    raise SystemExit("Successor Draft Question creation did not return a positive Edit Number")
+if set(value) != {"draftQuestionId", "draftQuestionEditNumber"}:
+    raise SystemExit("Successor Draft Question creation returned an obsolete response shape")
+if not isinstance(edit, str) or not edit.isdigit() or int(edit) <= 0:
+    raise SystemExit("Successor Draft Question creation did not return a positive string Edit Number")
 print(successor_draft_question_id, edit)
 ' "$body")
 	if [ "$successor_draft_question_id" = "$draft_question_id" ]; then

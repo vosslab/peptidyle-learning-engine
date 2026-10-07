@@ -99,10 +99,10 @@ INSERT INTO ple_private.object_record (
     'application/json', pg_catalog.transaction_timestamp()
 );
 INSERT INTO ple_private.question_revision_source_binding (
-    published_question_id, revision_number, backend, question_format,
+    published_question_id, revision_number, backend, question_format, native_question_type,
     source_object_record_id, source_object_checksum, created_at
 ) VALUES (
-    current_setting('ple.test_direct_question_id'), 1, 'ple', 'pleQuestionJson',
+    current_setting('ple.test_direct_question_id'), 1, 'ple', 'pleQuestionJson', 'multipleChoice',
     'e3000000-0000-0000-0000-000000000001', repeat('e3', 32), pg_catalog.transaction_timestamp()
 ) ON CONFLICT (published_question_id, revision_number) DO NOTHING;
 

@@ -22,6 +22,7 @@ export interface AssessmentTemplateDraft {
   readonly timeLimit: string;
   readonly attemptLimit: string;
   readonly lateWorkRule: LateWorkRule;
+  readonly partialCreditEnabled: AssessmentTemplateSettings["activityRules"]["partialCreditEnabled"];
   readonly variationRule: AssessmentTemplateSettings["activityRules"]["questionVariationRule"];
   readonly orderRule: AssessmentTemplateSettings["activityRules"]["assessmentQuestionOrderRule"];
   readonly feedback: StudentFeedbackReleaseRule;
@@ -48,13 +49,14 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
       ? "1"
       : (template.settings.attemptLimit?.toString() ?? ""),
     lateWorkRule: template.settings.lateWorkRule,
+    partialCreditEnabled: rules.partialCreditEnabled,
     variationRule: rules.questionVariationRule,
     orderRule: rules.assessmentQuestionOrderRule,
     feedback: { ...template.settings.studentFeedbackReleaseRule },
   };
 }
 
-/** Builds the exact six-field settings payload only when conditional controls are valid. */
+/** Builds the exact settings payload only when conditional controls are valid. */
 export function assessmentTemplateSettings(
   draft: AssessmentTemplateDraft,
 ): AssessmentTemplateDraftResult {
@@ -74,6 +76,7 @@ export function assessmentTemplateSettings(
     attemptLimit: attemptLimit.value,
     lateWorkRule: draft.lateWorkRule,
     activityRules: {
+      partialCreditEnabled: draft.partialCreditEnabled,
       questionVariationRule: draft.variationRule,
       assessmentQuestionOrderRule: draft.orderRule,
     },

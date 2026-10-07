@@ -29,8 +29,8 @@ async fn migration_pool() -> PgPool {
         .expect("two-connection migration pool")
 }
 
-// Protects the HG unanswered-zero invariant: evaluated zero credit is not
-// unanswered work, so Full Credit must continue to apply to the former only.
+// Protects partial-credit policy scoring and the independent Full Credit and
+// unanswered-zero rules at the SQL scoring boundary.
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance runtime"]
 async fn unanswered_scoring_preserves_evaluated_zero_credit_distinction() {
@@ -42,11 +42,17 @@ async fn unanswered_scoring_preserves_evaluated_zero_credit_distinction() {
         .expect("private scoring role");
     let mismatches: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM (VALUES \
-         (NULL::numeric, 'full_credit', 8::numeric, 0::numeric), \
-         (0::numeric, 'full_credit', 8::numeric, 8::numeric) \
-         ) AS expected(credit, rule, points, earned) \
+         (NULL::numeric, 'full_credit', 8::numeric, false, 0::numeric), \
+         (0::numeric, 'full_credit', 8::numeric, false, 8::numeric), \
+         (0::numeric, 'normal', 8::numeric, true, 0::numeric), \
+         (1::numeric, 'normal', 8::numeric, true, 8::numeric), \
+         (0.5::numeric, 'normal', 8::numeric, true, 4::numeric), \
+         (0.5::numeric, 'normal', 8::numeric, false, 0::numeric), \
+         (1::numeric, 'normal', 8::numeric, false, 8::numeric) \
+         ) AS expected(credit, rule, points, partial_credit_enabled, earned) \
          LEFT JOIN LATERAL ple_private.score_recorded_credit(\
-             expected.credit, expected.rule::ple_data.scoring_rule, expected.points) AS actual ON true \
+             expected.credit, expected.rule::ple_data.scoring_rule, expected.points, \
+             expected.partial_credit_enabled) AS actual ON true \
          WHERE actual.points_earned IS DISTINCT FROM expected.earned \
             OR actual.points_possible IS DISTINCT FROM expected.points",
     )
@@ -100,8 +106,8 @@ async fn seed_grading_graph(pool: &PgPool) {
     .expect("Published Question");
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
-         (published_question_id, revision_number, backend, question_type, published_at) \
-         VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp()) \
+         (published_question_id, revision_number, backend, published_at) \
+         VALUES ($1, 1, 'ple', clock_timestamp()) \
          ON CONFLICT (published_question_id, revision_number) DO NOTHING",
     )
     .bind(PUBLISHED_QUESTION)
@@ -131,9 +137,9 @@ async fn seed_grading_graph(pool: &PgPool) {
     .expect("Question source Object Record");
     sqlx::query(
         "INSERT INTO ple_private.question_revision_source_binding \
-         (published_question_id, revision_number, backend, question_format, \
+         (published_question_id, revision_number, backend, native_question_type, question_format, \
           source_object_record_id, source_object_checksum, created_at) \
-         VALUES ($1, 1, 'ple', 'pleQuestionJson', $2, repeat('51', 32), \
+         VALUES ($1, 1, 'ple', 'multipleChoice', 'pleQuestionJson', $2, repeat('51', 32), \
                  pg_catalog.transaction_timestamp())",
     )
     .bind(PUBLISHED_QUESTION)
@@ -634,8 +640,6 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
 
 const COLOR_QUESTION_JSON: &str = r#"{
   "format": "pleQuestionJson",
-  "questionTitle": "Favorite color",
-  "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {
     "kind": "singleChoice",
@@ -646,11 +650,7 @@ const COLOR_QUESTION_JSON: &str = r#"{
     ],
     "correctChoice": "blue"
   },
-  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."},
-  "tags": ["example"],
-  "questionLicense": "CC-BY-SA-4.0",
-  "questionCitation": null,
-  "language": "en-US"
+  "feedback": {"correct": "Exactly right.", "incorrect": "Try thinking of a cool color."}
 }"#;
 
 async fn color_question_source() -> ResolvedPleQuestionJsonSource {
@@ -848,3 +848,6 @@ async fn backend_returned_credit_is_stored_as_the_immutable_grading_outcome() {
 
 #[path = "grading_lifecycle_postgres/grading_rescore_postgres.rs"]
 mod grading_rescore_postgres;
+
+#[path = "grading_lifecycle_postgres/partial_credit_policy.rs"]
+mod partial_credit_policy;

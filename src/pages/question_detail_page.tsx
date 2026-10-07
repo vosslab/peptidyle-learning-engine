@@ -16,7 +16,6 @@ import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
-import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import type {
@@ -27,12 +26,10 @@ import { ApiRequestError } from "../api/http_client/error";
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import { PageFrame } from "../components/page_frame";
-import {
-  BloomClassificationEditor,
-  BloomClassificationText,
-} from "../components/bloom_classification";
+import { BloomClassificationText } from "../components/bloom_classification";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
+import { QuestionMetadataEditor } from "../features/question_metadata/question_metadata_editor";
 import { QuestionWatchControl } from "../components/question_watch_control";
 import { QuestionStarControl } from "../components/question_star_control";
 import { InstructorProfileLink } from "../components/instructor_profile_link";
@@ -178,7 +175,7 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
         questionPoolClient={applicationApi.client}
         questionLibrary={questionLibrary}
         getQuestionDetails={applicationApi.client.getQuestionDetails}
-        getCurrentQuestionBulkMetadata={applicationApi.client.getCurrentQuestionBulkMetadata}
+        getCurrentQuestionSharedMetadata={applicationApi.client.getCurrentQuestionSharedMetadata}
         startingQuestion={{
           publishedQuestionRevisionTuple: props.detail.summary.publishedQuestionRevisionTuple,
           questionTitle: props.detail.summary.metadata.questionTitle,
@@ -219,10 +216,17 @@ function archiveFailureMessage(error: unknown): string {
 }
 
 export interface QuestionArchiveControlProps {
-  readonly client: Pick<QuestionAvailabilityClient, "getQuestionLineage" | "archiveQuestion">;
+  readonly client: Pick<
+    QuestionAvailabilityClient,
+    "getQuestionLineage" | "archiveQuestion" | "restoreQuestion"
+  >;
   readonly questionId: PublishedQuestionId;
   /** Renders a related action only while the loaded Published Question remains available. */
   readonly renderAvailableAction?: () => JSX.Element;
+  /** Owner and Sysadmin content correction for the current available Revision. */
+  readonly renderCorrectionAction?: (
+    sourceRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => JSX.Element;
 }
 
 export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.Element {
@@ -246,8 +250,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
     return loaded?.kind === "ready" ? loaded.value : undefined;
   };
   const archiveLineage = (): LoadedQuestionLineage | undefined => {
-    const current = readyLineage();
-    return current?.viewerMayArchive === true ? current : undefined;
+    return readyLineage();
   };
   const availableLineage = (): LoadedQuestionLineage | undefined => {
     const current = readyLineage();
@@ -291,6 +294,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
             availability: { availability: transition.availability },
           },
           viewerMayArchive: currentLineage.value.viewerMayArchive,
+          viewerMayEditMetadata: currentLineage.value.viewerMayEditMetadata,
           questionAvailabilityEditNumber: transition.questionAvailabilityEditNumber,
         },
       });
@@ -298,7 +302,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
       setArchiveConfirmation("");
       setArchiveNotice({
         kind: "status",
-        text: "Published Question archived. It is no longer available for new selection. Existing exact Revisions and Student Work are unchanged.",
+        text: "Published Question archived. It no longer appears in normal Question Library discovery. Existing exact Revisions and Student Work are unchanged.",
       });
     } catch (error: unknown) {
       // ASVS 16.5.1, 16.5.3: preserve a fail-closed action and expose only
@@ -319,7 +323,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
           setArchiveConfirmation("");
           setArchiveNotice({
             kind: "status",
-            text: "This Published Question is already archived and unavailable for new selection.",
+            text: "This Published Question is already archived and absent from normal Question Library discovery.",
           });
         } else {
           setRecoveryUnavailable(false);
@@ -345,6 +349,46 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
     }
   }
 
+  async function restorePublishedQuestion(): Promise<void> {
+    const current = lineage();
+    if (
+      current?.kind !== "ready" ||
+      current.value.summary.availability.availability !== "archived" ||
+      archiving()
+    )
+      return;
+    setArchiving(true);
+    setArchiveNotice(undefined);
+    try {
+      const transition = await props.client.restoreQuestion(
+        props.questionId,
+        current.value.questionAvailabilityEditNumber,
+      );
+      mutateLineage({
+        kind: "ready",
+        value: {
+          ...current.value,
+          summary: {
+            ...current.value.summary,
+            availability: { availability: transition.availability },
+          },
+          questionAvailabilityEditNumber: transition.questionAvailabilityEditNumber,
+        },
+      });
+      setArchiveNotice({
+        kind: "status",
+        text: "Published Question restored to normal availability.",
+      });
+    } catch {
+      setArchiveNotice({
+        kind: "alert",
+        text: "Published Question could not be restored. Reload and try again.",
+      });
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   return (
     <>
       <Show when={lineage()?.kind === "error" && !recoveryUnavailable()}>
@@ -357,65 +401,80 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
           <Show
             when={currentLineage().summary.availability.availability === "available"}
             fallback={
-              <p class="question-archive-status" role="status">
-                This Published Question is archived and unavailable for new selection.
-              </p>
+              <section class="question-archive-status" aria-label="Archived Published Question">
+                <p role="status">
+                  This Published Question is archived and read-only. It no longer appears in normal
+                  Question Library discovery; existing references remain intact.
+                </p>
+                <Show when={currentLineage().viewerMayArchive}>
+                  <button
+                    type="button"
+                    disabled={archiving()}
+                    onClick={() => void restorePublishedQuestion()}
+                  >
+                    {archiving() ? "Restoring..." : "Restore Published Question"}
+                  </button>
+                </Show>
+              </section>
             }
           >
-            <Show
-              when={archiveOpen()}
-              fallback={
-                <section class="question-archive-action" aria-label="Question availability">
-                  <button
-                    type="button"
-                    class="question-archive-open"
-                    onClick={() => {
-                      setArchiveOpen(true);
-                      setArchiveNotice(undefined);
-                      setRecoveryUnavailable(false);
-                    }}
-                  >
-                    Archive Published Question
-                  </button>
-                </section>
-              }
-            >
-              <aside
-                class="question-archive-danger-zone"
-                aria-labelledby="question-archive-heading"
+            <Show when={currentLineage().viewerMayArchive}>
+              <Show
+                when={archiveOpen()}
+                fallback={
+                  <section class="question-archive-action" aria-label="Question availability">
+                    <button
+                      type="button"
+                      class="question-archive-open"
+                      onClick={() => {
+                        setArchiveOpen(true);
+                        setArchiveNotice(undefined);
+                        setRecoveryUnavailable(false);
+                      }}
+                    >
+                      Archive Published Question
+                    </button>
+                  </section>
+                }
               >
-                <h2 id="question-archive-heading">Danger Zone: Archive Published Question</h2>
-                <p>
-                  Archiving removes this Published Question from shared Question Library discovery
-                  and new selection. Existing exact Revisions and Student Work remain unchanged.
-                </p>
-                <label for="question-archive-confirmation">
-                  Type <strong>{currentLineage().summary.metadata.questionTitle}</strong> to confirm
-                </label>
-                <input
-                  id="question-archive-confirmation"
-                  autocomplete="off"
-                  value={archiveConfirmation()}
-                  disabled={archiving()}
-                  onInput={(event) => setArchiveConfirmation(event.currentTarget.value)}
-                />
-                <div class="question-archive-actions">
-                  <button
-                    type="button"
-                    class="question-archive-confirm"
-                    disabled={
-                      archiving() ||
-                      archiveConfirmation() !== currentLineage().summary.metadata.questionTitle
-                    }
-                    onClick={() => void archivePublishedQuestion()}
-                  >
-                    {archiving() ? "Archiving..." : "Archive Published Question"}
-                  </button>
-                  <button type="button" disabled={archiving()} onClick={cancelArchive}>
-                    Cancel
-                  </button>
-                </div>
-              </aside>
+                <aside
+                  class="question-archive-danger-zone"
+                  aria-labelledby="question-archive-heading"
+                >
+                  <h2 id="question-archive-heading">Danger Zone: Archive Published Question</h2>
+                  <p>
+                    Archiving removes this Published Question from normal Question Library
+                    discovery. Existing exact Revisions and Student Work remain unchanged.
+                  </p>
+                  <label for="question-archive-confirmation">
+                    Type <strong>{currentLineage().summary.metadata.questionTitle}</strong> to
+                    confirm
+                  </label>
+                  <input
+                    id="question-archive-confirmation"
+                    autocomplete="off"
+                    value={archiveConfirmation()}
+                    disabled={archiving()}
+                    onInput={(event) => setArchiveConfirmation(event.currentTarget.value)}
+                  />
+                  <div class="question-archive-actions">
+                    <button
+                      type="button"
+                      class="question-archive-confirm"
+                      disabled={
+                        archiving() ||
+                        archiveConfirmation() !== currentLineage().summary.metadata.questionTitle
+                      }
+                      onClick={() => void archivePublishedQuestion()}
+                    >
+                      {archiving() ? "Archiving..." : "Archive Published Question"}
+                    </button>
+                    <button type="button" disabled={archiving()} onClick={cancelArchive}>
+                      Cancel
+                    </button>
+                  </div>
+                </aside>
+              </Show>
             </Show>
           </Show>
         )}
@@ -427,8 +486,72 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
           </p>
         )}
       </Show>
-      <Show when={availableLineage()}>{(_currentLineage) => props.renderAvailableAction?.()}</Show>
+      <Show when={availableLineage()}>
+        {(currentLineage) => (
+          <>
+            {props.renderAvailableAction?.()}
+            <Show when={currentLineage().viewerMayEditMetadata}>
+              {props.renderCorrectionAction?.(
+                currentLineage().summary.publishedQuestionRevisionTuple,
+              )}
+            </Show>
+          </>
+        )}
+      </Show>
     </>
+  );
+}
+
+function QuestionCorrectionDraftControl(props: {
+  readonly sourceRevisionTuple: PublishedQuestionRevisionTuple;
+}): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const navigate = useNavigate();
+  const [creating, setCreating] = createSignal(false);
+  const [error, setError] = createSignal("");
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+  });
+
+  async function openCorrectionDraft(): Promise<void> {
+    if (creating()) return;
+    setCreating(true);
+    setError("");
+    try {
+      const sourceRevisionTuple = props.sourceRevisionTuple;
+      const created = await applicationApi.client.createCorrectionDraft(sourceRevisionTuple);
+      if (disposed) return;
+      const query = new URLSearchParams({
+        correctionQuestionId: sourceRevisionTuple.publishedQuestionId,
+        correctionRevisionNumber: String(sourceRevisionTuple.revisionNumber),
+      });
+      navigate(`/authoring/drafts/${encodeURIComponent(created.draftQuestion)}?${query}`);
+    } catch {
+      if (!disposed)
+        setError("A correction Draft could not be opened. Reload the Question and try again.");
+    } finally {
+      if (!disposed) setCreating(false);
+    }
+  }
+
+  return (
+    <section class="question-correction-control" aria-label="Correct Published Question content">
+      <h2>Correct Published Question content</h2>
+      <p>
+        Open the current source and support in a separate private Draft. Publish the correction
+        through the existing Question Revision operation.
+      </p>
+      <button type="button" disabled={creating()} onClick={() => void openCorrectionDraft()}>
+        {creating() ? "Opening correction Draft..." : "Open correction Draft"}
+      </button>
+      <Show when={creating()}>
+        <p role="status">Copying the current Published Question into a private Draft...</p>
+      </Show>
+      <Show when={error()}>
+        <p role="alert">{error()}</p>
+      </Show>
+    </section>
   );
 }
 
@@ -445,9 +568,9 @@ export function QuestionDetailPage(): JSX.Element {
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   };
-  const [correctedBloom, setCorrectedBloom] = createSignal<BloomClassificationView>();
-  let correctionTarget = "";
+  const [metadataReload, setMetadataReload] = createSignal(0);
   const detail = createAsync((): Promise<QuestionDetails> => {
+    metadataReload();
     const questionId = params["questionId"];
     if (questionId === undefined || parseQuestionRouteId(questionId) === null) {
       throw new Error("The Question ID address is incomplete.");
@@ -460,15 +583,9 @@ export function QuestionDetailPage(): JSX.Element {
       });
     return applicationApi.client
       .resolveQuestion(questionId)
-      .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
-  });
-  createEffect(() => {
-    const publishedQuestionRevisionTuple = detail()?.summary.publishedQuestionRevisionTuple;
-    if (publishedQuestionRevisionTuple === undefined) return;
-    const key = `${publishedQuestionRevisionTuple.publishedQuestionId}:${publishedQuestionRevisionTuple.revisionNumber}`;
-    if (key === correctionTarget) return;
-    correctionTarget = key;
-    setCorrectedBloom(undefined);
+      .then((summary) =>
+        applicationApi.client.getQuestionRevision(summary.publishedQuestionRevisionTuple),
+      );
   });
   function publishLoadedQuestionTitle(): void {
     if (publication === undefined) return;
@@ -568,6 +685,10 @@ export function QuestionDetailPage(): JSX.Element {
                 <h2>Question Description</h2>
                 <p>{record().summary.metadata.questionDescription}</p>
               </section>
+              <QuestionMetadataEditor
+                detail={record()}
+                onSaved={() => setMetadataReload((count) => count + 1)}
+              />
               <section class="question-detail-support" aria-label="Question details and actions">
                 <CopyableQuestionId
                   questionTitle={record().summary.metadata.questionTitle}
@@ -619,52 +740,13 @@ export function QuestionDetailPage(): JSX.Element {
                     <dt>Revision</dt>
                     <dd>{record().summary.publishedQuestionRevisionTuple.revisionNumber}</dd>
                   </div>
-                  <Show when={correctedBloom() ?? record().summary.bloom}>
-                    {(bloom) => (
-                      <div>
-                        <dt>Bloom Classification</dt>
-                        <dd>
-                          <BloomClassificationText bloom={bloom()} />
-                        </dd>
-                      </div>
-                    )}
-                  </Show>
+                  <div>
+                    <dt>Bloom Classification</dt>
+                    <dd>
+                      <BloomClassificationText bloom={record().summary.bloom} />
+                    </dd>
+                  </div>
                 </dl>
-                <Show when={correctedBloom() ?? record().summary.bloom}>
-                  {(bloom) => (
-                    <Show when={mayMutateLibrary()}>
-                      <BloomClassificationEditor
-                        targetName="Question"
-                        contentMarkerKind="Revision"
-                        contentMarkerNumber={
-                          record().summary.publishedQuestionRevisionTuple.revisionNumber
-                        }
-                        bloom={bloom()}
-                        save={(request) =>
-                          applicationApi.client
-                            .correctQuestionBloom(
-                              record().summary.publishedQuestionRevisionTuple,
-                              request,
-                            )
-                            .then((receipt) => receipt.bloom)
-                        }
-                        loadCurrent={() =>
-                          applicationApi.client
-                            .getQuestionRevision(record().summary.publishedQuestionRevisionTuple)
-                            .then((loaded) => {
-                              if (loaded.summary.bloom === null) {
-                                throw new Error("Bloom Classification is not assigned.");
-                              }
-                              return loaded.summary.bloom;
-                            })
-                        }
-                        onCurrent={setCorrectedBloom}
-                        onConflictCurrent={() => undefined}
-                        onAccepted={() => undefined}
-                      />
-                    </Show>
-                  )}
-                </Show>
                 <Show
                   when={
                     record().summary.backend === "webwork" ||
@@ -688,18 +770,21 @@ export function QuestionDetailPage(): JSX.Element {
               </section>
               <QuestionStatisticsPanel evidence={record().evidence} />
               <QuestionUsePanel usage={record().usage} />
+              <QuestionArchiveControl
+                client={applicationApi.client}
+                questionId={record().summary.questionId}
+                renderAvailableAction={() => (
+                  <Show when={mayMutateLibrary()}>
+                    <QuestionPoolFromQuestionControl detail={record()} />
+                  </Show>
+                )}
+                renderCorrectionAction={(sourceRevisionTuple) => (
+                  <QuestionCorrectionDraftControl sourceRevisionTuple={sourceRevisionTuple} />
+                )}
+              />
               <Show when={mayMutateLibrary()}>
-                <QuestionArchiveControl
-                  client={applicationApi.client}
-                  questionId={record().summary.questionId}
-                  renderAvailableAction={() => (
-                    <>
-                      <QuestionPoolFromQuestionControl detail={record()} />
-                      <QuestionForkControl
-                        sourceRevisionTuple={record().summary.publishedQuestionRevisionTuple}
-                      />
-                    </>
-                  )}
+                <QuestionForkControl
+                  sourceRevisionTuple={record().summary.publishedQuestionRevisionTuple}
                 />
               </Show>
             </article>

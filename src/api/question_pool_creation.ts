@@ -8,7 +8,6 @@ export interface CreateQuestionPoolInput {
   readonly title: string;
   readonly description: string;
   readonly members: ReadonlyArray<PublishedQuestionRevisionTuple>;
-  readonly interchangeabilityAttested: true;
   /** Omitted means this command does not send a tag list. */
   readonly tags?: ReadonlyArray<string>;
 }

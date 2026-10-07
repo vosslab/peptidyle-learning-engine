@@ -12,16 +12,15 @@ Usage: check_rust.sh [-h|--help]
 
 Runs the complete offline Rust gate:
   1. Rust-owned TypeScript contract generation
-  2. tracked Rust-owned fixture verification
-  3. rustfmt check
-  4. default-feature workspace check
-  5. all-target, all-feature workspace check
-  6. production library and binary Clippy with warnings denied
-  7. test-support all-target Clippy with warnings denied
-  8. all-target, all-feature Clippy with warnings denied
-  9. test-support workspace tests and doctests
- 10. all-feature workspace tests and doctests
- 11. wasm_bridge check for wasm32-unknown-unknown
+  2. rustfmt check
+  3. default-feature workspace check
+  4. all-target, all-feature workspace check
+  5. production library and binary Clippy with warnings denied
+  6. test-support all-target Clippy with warnings denied
+  7. all-target, all-feature Clippy with warnings denied
+  8. test-support workspace tests and doctests
+  9. all-feature workspace tests and doctests
+ 10. wasm_bridge check for wasm32-unknown-unknown
 
 Live PostgreSQL, MinIO, container, and deployment tests remain in their named
 E2E gates and are not made trustworthy by this offline script.
@@ -72,7 +71,6 @@ run_step() {
 run_step "Browser Question-ID syntax contract" bash -lc \
 	'source source_me.sh && python3 devel/generate_question_id_contract.py --check'
 run_step "Rust-owned TypeScript contracts" cargo tsgen
-run_step "Rust-owned fixture contracts" cargo tools fixtures --check
 run_step "Rust formatting" cargo fmt --all -- --check
 run_step "Default-feature workspace check" cargo check --workspace --locked
 run_step "All-target, all-feature workspace check" \

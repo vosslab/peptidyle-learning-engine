@@ -14,7 +14,7 @@ const context = await browser.newContext();
 const page = await context.newPage();
 let searchRequests = 0;
 page.on("request", (request) => {
-  if (new URL(request.url()).pathname === "/api/questions/search") searchRequests += 1;
+  if (new URL(request.url()).pathname === "/api/library-objects/search") searchRequests += 1;
 });
 
 async function createVerificationPool() {
@@ -23,13 +23,13 @@ async function createVerificationPool() {
     async ({ poolTitle: title }) => {
       const query = new URLSearchParams({
         kind: "questions",
-        membership: "all",
+        questions: "all",
         authorship: "any",
         sort: "titleAscending",
         page_size: "50",
         text: "Genetic disorders: Which one?",
       });
-      const response = await fetch(`/api/questions/search?${query.toString()}`);
+      const response = await fetch(`/api/library-objects/search?${query.toString()}`);
       if (!response.ok) throw new Error(`Pilot Question search status ${response.status}`);
       const body = await response.json();
       const matches = body.items.filter(
@@ -55,7 +55,6 @@ async function createVerificationPool() {
               revisionNumber: source.publishedQuestionRevisionTuple.revisionNumber,
             },
           ],
-          interchangeabilityAttested: true,
         }),
       });
       if (created.status !== 201) throw new Error(`Pool creation status ${created.status}`);

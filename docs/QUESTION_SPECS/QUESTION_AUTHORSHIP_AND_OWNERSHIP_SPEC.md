@@ -17,7 +17,7 @@ license, authors, metadata, and Question content, and records the source Questio
 Question authors may have PLE Accounts, but source authors need not. Each author has a display
 name and may have an Account reference. A new Revision carries forward the Question record's
 fields except for the changes being published. Use the exact Revision's authors and citation
-when interpreting or exporting it. Citation format remains deferred; see
+when interpreting or exporting it. Citation is optional text; see
 [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_LIBRARY_METADATA_SPEC.md#citation).
 
 ## Question Pools

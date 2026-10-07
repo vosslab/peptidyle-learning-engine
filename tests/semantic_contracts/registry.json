@@ -20,7 +20,7 @@
     },
     {
       "id": "assessment_blueprint_update_tuples",
-      "behavior": "Apply uses expectedSourceBlueprintRevisionTuple plus expectedAssessmentEditNumber.",
+      "behavior": "Apply uses expectedSourceBlueprintCourseRevisionTuple plus expectedAssessmentEditNumber.",
       "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/learning-data-access/src/assessment_release.rs",
       "typescript_test": "tests/test_nested_identity_contracts.mjs",

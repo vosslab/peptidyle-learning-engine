@@ -92,15 +92,37 @@ CREATE FUNCTION ple_private.reserve_public_id_from_trigger()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private
 AS $$
-DECLARE canonical_public_id text;
+DECLARE
+    new_public_id text;
+    reserved_draft_uuid uuid;
 BEGIN
     IF TG_NARGS <> 2 OR TG_ARGV[0] NOT IN ('published_question', 'question_pool')
        OR TG_ARGV[1] NOT IN ('published_question_id', 'question_pool_id') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Public ID reservation trigger is invalid';
     END IF;
-    canonical_public_id := pg_catalog.to_jsonb(NEW) ->> TG_ARGV[1];
-    PERFORM ple_private.reserve_public_id(canonical_public_id, TG_ARGV[0]);
+    new_public_id := pg_catalog.to_jsonb(NEW) ->> TG_ARGV[1];
+    IF TG_ARGV[0] = 'published_question' THEN
+        reserved_draft_uuid := NULLIF(
+            pg_catalog.current_setting('ple.question_publication_reserved_draft_uuid', true), '')::uuid;
+        IF reserved_draft_uuid IS NOT NULL THEN
+            IF EXISTS (
+                SELECT 1
+                  FROM ple_private.draft_question AS draft
+                  JOIN ple_private.public_id_reservation AS reservation
+                    ON reservation.canonical_public_id = new_public_id
+                   AND reservation.object_kind = 'published_question'
+                 WHERE draft.draft_question_id = reserved_draft_uuid
+                   AND draft.public_id_reservation_id = new_public_id
+                   AND draft.parent_published_question_id
+                        IS NOT DISTINCT FROM NEW.parent_published_question_id
+                   AND draft.parent_revision_number IS NOT DISTINCT FROM NEW.parent_revision_number
+            ) THEN
+                RETURN NEW;
+            END IF;
+        END IF;
+    END IF;
+    PERFORM ple_private.reserve_public_id(new_public_id, TG_ARGV[0]);
     RETURN NEW;
 END
 $$;
@@ -169,4 +191,3 @@ BEGIN
     RETURN NEW;
 END
 $$;
-

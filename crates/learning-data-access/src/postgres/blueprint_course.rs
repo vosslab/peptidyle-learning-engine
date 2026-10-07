@@ -1,12 +1,11 @@
 //! PostgreSQL persistence for Blueprint Revisions and lineage metadata.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintCourseId, BlueprintEditNumber, BlueprintMetadataState,
-    BlueprintRevisionNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse,
+    AccountId, BlueprintCourseId, BlueprintCourseRevisionTuple, BlueprintEditNumber,
+    BlueprintMetadataState, BlueprintRevisionNumber, CanonicalBlueprintCourse,
     CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionBackend, QuestionPoolEditNumber, QuestionPoolId,
     QuestionRevisionNumber, QuestionType, RenameBlueprintCourseInput,
@@ -19,8 +18,8 @@ use super::Pool;
 use super::connection::{map_sqlx_error, parse_account_id};
 use crate::blueprint_course::StoredBlueprintRevision;
 use crate::{
-    BlueprintCourseStore, CourseInstancePoolIdIssuer, RecognitionTitles, SessionTokenHash,
-    StoreError, StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
+    BlueprintCourseStore, RecognitionTitles, SessionTokenHash, StoreError, StoredBlueprintCourse,
+    StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
 };
 
 mod classification;
@@ -61,24 +60,11 @@ fn decode_pool_backend(value: &str) -> Result<QuestionBackend, StoreError> {
 #[derive(Clone)]
 pub struct PostgresBlueprintCourseStore {
     pool: Pool,
-    pub(super) pool_id_issuer: Option<Arc<dyn CourseInstancePoolIdIssuer>>,
 }
 
 impl PostgresBlueprintCourseStore {
     pub fn new(pool: Pool) -> Self {
-        Self {
-            pool,
-            pool_id_issuer: None,
-        }
-    }
-
-    /// Adds the same fresh Pool-fork identity capability used by initial adoption.
-    pub fn with_question_pool_id_issuer(
-        mut self,
-        pool_id_issuer: Arc<dyn CourseInstancePoolIdIssuer>,
-    ) -> Self {
-        self.pool_id_issuer = Some(pool_id_issuer);
-        self
+        Self { pool }
     }
 
     pub(super) async fn begin_authenticated_application_transaction(
@@ -121,7 +107,6 @@ impl PostgresBlueprintCourseStore {
         prior: &StoredBlueprintCourseContent,
         content: &StoredBlueprintCourseContent,
         daughters: Vec<sqlx::postgres::PgRow>,
-        bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError> {
         let additions = super::course_blueprint_adoption::newly_added_assessments(prior, content);
         let mut materialized_daughters = Vec::with_capacity(daughters.len());
@@ -131,9 +116,7 @@ impl PostgresBlueprintCourseStore {
                 .map_err(map_sqlx_error)?;
             materialized_daughters.push(json!({
                 "course_instance_id": course_instance_id,
-                "assessments": super::course_blueprint_adoption::materialize(
-                    &additions, self.pool_id_issuer.as_deref(), bloom_receipts
-                )?,
+                "assessments": super::course_blueprint_adoption::materialize(&additions)?,
             }));
         }
         let encoded = encode_content(content)?;
@@ -152,7 +135,7 @@ impl PostgresBlueprintCourseStore {
         .await
         .map_err(map_sqlx_error)?;
         let receipt = SaveBlueprintCourseReceipt {
-            blueprint_revision_tuple: BlueprintRevisionTuple {
+            blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
                 blueprint_course_id,
                 revision_number: parse_revision_number(
                     row.try_get("resulting_blueprint_revision_number")
@@ -226,6 +209,28 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
+
+    async fn update_blueprint_theme(
+        &self,
+        session: SessionTokenHash,
+        id: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
+        theme: question_model::Theme,
+    ) -> Result<BlueprintMetadataState, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session)
+            .await?;
+        let row = sqlx::query("SELECT * FROM ple_api.update_blueprint_theme($1, $2, $3)")
+            .bind(id.as_string())
+            .bind(expected_edit_number.as_i64())
+            .bind(theme.as_str())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        let result = decode_metadata_state(&row)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
     async fn load_blueprint_pool_members(
         &self,
         session: SessionTokenHash,
@@ -236,14 +241,13 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
-        let rows =
-            sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,false,NULL,NULL)")
-                .bind(id.as_string())
-                .bind(assessment.as_uuid())
-                .bind(question_pool_id.as_str())
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+        let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3)")
+            .bind(id.as_string())
+            .bind(assessment.as_uuid())
+            .bind(question_pool_id.as_str())
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         let number = rows
             .first()
             .ok_or(StoreError::NotFound)?
@@ -307,10 +311,8 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         input: crate::ApplyBlueprintForkInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<crate::ApplyBlueprintForkResult, StoreError> {
-        self.apply_fork_in_transaction(session, input, bloom_receipts)
-            .await
+        self.apply_fork_in_transaction(session, input).await
     }
     async fn list_blueprint_courses(
         &self,
@@ -345,14 +347,20 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
     async fn load_blueprint_revision(
         &self,
         session: SessionTokenHash,
-        blueprint_revision_tuple: BlueprintRevisionTuple,
+        blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     ) -> Result<StoredBlueprintRevision, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_revision($1, $2)")
-            .bind(blueprint_revision_tuple.blueprint_course_id.as_string())
-            .bind(revision_number(blueprint_revision_tuple.revision_number)?)
+            .bind(
+                blueprint_course_revision_tuple
+                    .blueprint_course_id
+                    .as_string(),
+            )
+            .bind(revision_number(
+                blueprint_course_revision_tuple.revision_number,
+            )?)
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -365,7 +373,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         )?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(StoredBlueprintRevision {
-            blueprint_revision_tuple,
+            blueprint_course_revision_tuple,
             content,
         })
     }
@@ -379,10 +387,11 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         // object authorization before any reusable content is projected.
         let record = self.load_blueprint_course(session, id).await?;
         let content = record.content.to_domain()?;
-        Ok(CanonicalBlueprintCourse::export(
+        Ok(CanonicalBlueprintCourse::export_with_theme(
             record.short_name,
             record.long_name,
             record.classification,
+            record.theme,
             &content,
         ))
     }
@@ -392,15 +401,14 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         exchange: CanonicalBlueprintCourse,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
         let input = exchange
             .into_create_input()
             .map_err(|_| invalid("canonical Blueprint exchange"))?;
         // ASVS 2.3.3: reuse the one atomic create transaction. It owns the
         // actor, Private lifecycle state, Revision 1, fresh local identities,
-        // exact pin validation, and Pool forking.
-        self.create_blueprint_course(session, request_checksum, input, bloom_receipts)
+        // exact pin validation, and stable Pool references.
+        self.create_blueprint_course(session, request_checksum, input)
             .await
     }
 
@@ -409,34 +417,12 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         input: CreateBlueprintCourseInput,
-        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(invalid_input)?;
         let short_name = input.short_name.clone();
         let long_name = input.long_name.clone();
         let classification = input.classification.clone();
-        let pool_choices = input
-            .modules
-            .iter()
-            .map(|module| {
-                module
-                    .assessments
-                    .iter()
-                    .map(|assessment| {
-                        assessment
-                            .entries
-                            .iter()
-                            .filter_map(|entry| match entry {
-                                question_model::BlueprintAssessmentEntryInput::Pool(pool) => {
-                                    Some(pool.pool.clone())
-                                }
-                                _ => None,
-                            })
-                            .collect()
-                    })
-                    .collect()
-            })
-            .collect();
+        let theme = input.theme;
         let requested =
             StoredBlueprintCourseContent::requested_published_question_revision_tuples_from_create(
                 &input,
@@ -445,55 +431,19 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .begin_authenticated_application_transaction(session)
             .await?;
         let actor = current_actor(&mut transaction).await?;
-        if let Some(row) =
-            sqlx::query("SELECT * FROM ple_api.blueprint_pool_write_receipt(NULL,$1)")
-                .bind(request_checksum.into_bytes().to_vec())
-                .fetch_optional(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?
-        {
-            let receipt = CreateBlueprintCourseReceipt {
-                blueprint_revision_tuple: BlueprintRevisionTuple {
-                    blueprint_course_id: blueprint_course_id(
-                        row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
-                    )?,
-                    revision_number: parse_revision_number(
-                        row.try_get("revision_number").map_err(map_sqlx_error)?,
-                    )?,
-                },
-                blueprint_edit_number: blueprint_edit_number(
-                    row.try_get("blueprint_edit_number")
-                        .map_err(map_sqlx_error)?,
-                ),
-                actor,
-                request_checksum,
-                accepted_at: timestamp(row.try_get("accepted_at_millis").map_err(map_sqlx_error)?)?,
-            };
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(receipt);
-        }
         validate_published_question_revision_tuples(&mut transaction, requested, None).await?;
-        let mut content = StoredBlueprintCourseContent::from_create(input, &BTreeMap::new())?;
-        super::blueprint_pools::materialize_authoring_pools(
-            &mut transaction,
-            &mut content,
-            pool_choices,
-            None,
-            None,
-            self.pool_id_issuer.as_deref(),
-            &mut bloom_receipts,
-        )
-        .await?;
+        let content = StoredBlueprintCourseContent::from_create(input, &BTreeMap::new())?;
         let encoded = encode_content(&content)?;
         let row = sqlx::query(
             "SELECT blueprint_course_id, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
-             FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6, $7,$8,$9,$10,$11)",
+             FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(Option::<String>::None)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(short_name)
         .bind(long_name)
+        .bind(theme.as_str())
         .bind(encoded)
         .bind(content.checksum()?.as_bytes().to_vec())
         .bind(classification.discipline_uuid)
@@ -507,7 +457,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let blueprint =
             blueprint_course_id(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?;
         let receipt = CreateBlueprintCourseReceipt {
-            blueprint_revision_tuple: BlueprintRevisionTuple {
+            blueprint_course_revision_tuple: BlueprintCourseRevisionTuple {
                 blueprint_course_id: blueprint,
                 revision_number: parse_revision_number(
                     row.try_get("blueprint_revision_number")
@@ -533,58 +483,12 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         expected_revision_number: BlueprintRevisionNumber,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
-        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(invalid_input)?;
-        let pool_choices = input
-            .modules
-            .iter()
-            .map(|module| {
-                module
-                    .assessments
-                    .iter()
-                    .map(|assessment| {
-                        assessment
-                            .content
-                            .entries
-                            .iter()
-                            .filter_map(|entry| match entry {
-                                question_model::BlueprintAssessmentEntryInput::Pool(pool) => {
-                                    Some(pool.pool.clone())
-                                }
-                                _ => None,
-                            })
-                            .collect()
-                    })
-                    .collect()
-            })
-            .collect();
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
         let actor = current_actor(&mut transaction).await?;
-        if let Some(row) = sqlx::query("SELECT * FROM ple_api.blueprint_pool_write_receipt($1,$2)")
-            .bind(blueprint_course_id.as_string())
-            .bind(request_checksum.into_bytes().to_vec())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?
-        {
-            let receipt = SaveBlueprintCourseReceipt {
-                blueprint_revision_tuple: BlueprintRevisionTuple {
-                    blueprint_course_id,
-                    revision_number: parse_revision_number(
-                        row.try_get("revision_number").map_err(map_sqlx_error)?,
-                    )?,
-                },
-                changed: row.try_get("changed").map_err(map_sqlx_error)?,
-                actor,
-                request_checksum,
-                accepted_at: timestamp(row.try_get("accepted_at_millis").map_err(map_sqlx_error)?)?,
-            };
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(receipt);
-        }
         // ASVS 2.3.3: hold the parent lock before resolving and materializing
         // additions; Course adoption takes this same lock and checks the head.
         let daughters = sqlx::query(
@@ -606,18 +510,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             );
         validate_published_question_revision_tuples(&mut transaction, requested, Some(&prior))
             .await?;
-        let mut content =
-            StoredBlueprintCourseContent::from_replace(input, &prior, &BTreeMap::new())?;
-        super::blueprint_pools::materialize_authoring_pools(
-            &mut transaction,
-            &mut content,
-            pool_choices,
-            Some((blueprint_course_id.clone(), expected_revision_number)),
-            Some(&prior),
-            self.pool_id_issuer.as_deref(),
-            &mut bloom_receipts,
-        )
-        .await?;
+        let content = StoredBlueprintCourseContent::from_replace(input, &prior, &BTreeMap::new())?;
         let receipt = self
             .save_trusted_content(
                 &mut transaction,
@@ -628,7 +521,6 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                 &prior,
                 &content,
                 daughters,
-                &mut bloom_receipts,
             )
             .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;

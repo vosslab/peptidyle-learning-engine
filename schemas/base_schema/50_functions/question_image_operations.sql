@@ -224,25 +224,25 @@ END $$;
 
 
 
--- Returns one exact Question Revision rendition only for an Instructor or the
--- Student whose retained presentation names it.  The public identity is the
--- immutable Question Revision plus its asset UUID: an asset UUID is scoped to
--- a Question Revision and is deliberately not made globally unique merely to
--- shorten this resolver's signature.  An empty result intentionally conceals
--- absent, pending, and unauthorized assets alike.
-CREATE FUNCTION ple_private.resolve_ready_question_image_delivery(
+-- Returns one exact authorized Question Revision rendition state for an
+-- Instructor, Sysadmin, or the Student whose retained presentation names it.
+-- The public identity is the immutable Question Revision plus its asset UUID:
+-- an asset UUID is scoped to a Question Revision and is deliberately not made
+-- globally unique merely to shorten this resolver's signature.  An empty
+-- result intentionally conceals absent and unauthorized assets alike.
+CREATE FUNCTION ple_private.resolve_question_image_delivery(
     p_published_question_id text,
     p_revision_number integer,
     p_question_image_asset_id uuid
 )
 RETURNS TABLE (
     published_question_id text, revision_number integer, question_image_asset_id uuid,
-    public_object_id uuid, rendition_checksum bytea
+    public_object_id uuid, rendition_checksum bytea, delivery_state text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT publication.published_question_id, publication.revision_number,
            publication.question_image_asset_id, publication.public_object_id,
-           publication.public_object_checksum
+           publication.public_object_checksum, delivery.delivery_state::text
       FROM ple_private.question_image_publication AS publication
       JOIN ple_data.object_delivery AS delivery
         ON delivery.object_delivery_id = publication.object_delivery_id
@@ -253,23 +253,35 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND image_delivery.published_question_id = publication.published_question_id
        AND image_delivery.revision_number = publication.revision_number
        AND image_delivery.question_image_asset_id = publication.question_image_asset_id
-      JOIN ple_private.object_record AS public_record
+      JOIN ple_private.object_record AS source_record
+        ON source_record.object_record_id = publication.source_object_record_id
+      LEFT JOIN ple_private.object_record AS public_record
         ON public_record.object_record_id = publication.public_object_id
      WHERE publication.published_question_id = p_published_question_id
        AND publication.revision_number = p_revision_number
        AND publication.question_image_asset_id = p_question_image_asset_id
-       AND publication.publication_state = 'ready'
-       AND delivery.delivery_state = 'available'
        AND delivery.sha256 = publication.public_object_checksum
        AND delivery.media_type = publication.verified_media_type::text
        AND delivery.byte_length = publication.public_byte_length
-       AND public_record.object_storage_area = 'public-assets'
-       AND public_record.object_data_class = 'question-image'
-       AND public_record.sha256 = publication.public_object_checksum
-       AND public_record.size_bytes = publication.public_byte_length
-       AND public_record.media_type = publication.verified_media_type::text
+       AND (
+            (publication.publication_state = 'pending'
+             AND delivery.delivery_state = 'pending'
+             AND source_record.object_storage_area = 'private-content'
+             AND source_record.object_data_class = 'question-image'
+             AND source_record.sha256 = publication.source_object_checksum
+             AND source_record.size_bytes = publication.public_byte_length
+             AND source_record.media_type = publication.verified_media_type::text)
+            OR (publication.publication_state = 'ready'
+                AND delivery.delivery_state = 'available'
+                AND public_record.object_storage_area = 'public-assets'
+                AND public_record.object_data_class = 'question-image'
+                AND public_record.sha256 = publication.public_object_checksum
+                AND public_record.size_bytes = publication.public_byte_length
+                AND public_record.media_type = publication.verified_media_type::text)
+       )
        AND (
             ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin()
             OR EXISTS (
                 SELECT 1
                   FROM ple_private.issued_question AS issued
@@ -297,17 +309,18 @@ $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.resolve_ready_question_image(
+CREATE FUNCTION ple_api.resolve_question_image(
     p_published_question_id text,
     p_revision_number integer,
     p_question_image_asset_id uuid
 )
 RETURNS TABLE (
     published_question_id text, revision_number integer, question_image_asset_id uuid,
-    public_object_id uuid, rendition_checksum bytea
+    public_object_id uuid, rendition_checksum bytea, delivery_state text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT published_question_id, revision_number, question_image_asset_id, public_object_id, rendition_checksum
-      FROM ple_private.resolve_ready_question_image_delivery(
+    SELECT published_question_id, revision_number, question_image_asset_id, public_object_id,
+           rendition_checksum, delivery_state
+      FROM ple_private.resolve_question_image_delivery(
           p_published_question_id, p_revision_number, p_question_image_asset_id)
 $$;

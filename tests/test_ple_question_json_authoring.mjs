@@ -6,14 +6,16 @@ import {
   parsePleQuestionJsonSource,
   serializePleQuestionJsonSource,
 } from "../src/features/ple_question_json_authoring/question_json_codec.ts";
-import { createDefaultPleQuestionJsonSource } from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
-import { setPleQuestionJsonQuestionTitle } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
+import {
+  createDefaultPleQuestionJsonDraft,
+  createDefaultPleQuestionJsonRecordMetadata,
+  createDefaultPleQuestionJsonSource,
+} from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
 import {
   createPleQuestionJsonClient,
   PleQuestionJsonConflictError,
   PleQuestionJsonProtocolError,
 } from "../src/features/ple_question_json_authoring/question_json_client.ts";
-import { createPleQuestionGeneralFeedbackClient } from "../src/features/ple_question_json_authoring/question_general_feedback_client.ts";
 import {
   pleQuestionJsonPublicPreview,
   serializePleQuestionJsonPublicPreview,
@@ -25,7 +27,8 @@ import {
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
 import { RECORDED_EXTERNAL_JAVASCRIPT_DEPENDENCIES } from "../src/features/ple_question_json_authoring/recorded_javascript_dependencies.ts";
 import { setPleQuestionJsonHotspotImage } from "../src/features/ple_question_json_authoring/question_json_hotspot_model.ts";
-import { source } from "./ple_question_json_authoring_support.mjs";
+import { recordMetadata, source } from "./ple_question_json_authoring_support.mjs";
+import { validatePleQuestionJsonSource } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
 
 const draftQuestion = "0198e000-0000-7000-8000-000000000001";
 const uploadedImage = {
@@ -170,25 +173,18 @@ function publicationSummary(backend = "ple") {
   return {
     questionId: "7K3M-79QP",
     publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
+    parentPublishedQuestionRevisionTuple: null,
     backend,
     questionFormat,
     questionType: "multipleChoice",
     capabilities: ["serverGrading"],
-    metadata: {
-      questionTitle: "Favorite color",
-      questionDescription: "Instructor-facing color-choice example.",
-      tags: ["example"],
-      questionLicense: "CC-BY-SA-4.0",
-      questionCitation: null,
-      language: "en-US",
-    },
+    metadata: recordMetadata(),
     authorship: { authors: [{ accountId: null, displayName: "Fixture Instructor" }] },
     availability: { availability: "available" },
     publishedAt: 1786000000000,
     bloom: {
       cognitiveProcess: "Understand",
       knowledgeDimension: "Conceptual Knowledge",
-      classificationEditNumber: "1",
     },
   };
 }
@@ -237,24 +233,10 @@ test("choice randomization retains explicit false and true through source save/l
   }
 });
 
-test("Question Citation is exact optional source credit and never becomes an empty record", () => {
-  const decoded = decodePleQuestionJsonSource({
-    ...source(),
-    questionCitation: {
-      citationUrl: "https://example.org/reference",
-      citationText: "Voss NR. Question source reference. 2026.",
-    },
-  });
-  assert.deepEqual(decoded.questionCitation, {
-    citationUrl: "https://example.org/reference",
-    citationText: "Voss NR. Question source reference. 2026.",
-  });
-  assert.throws(() =>
-    decodePleQuestionJsonSource({
-      ...source(),
-      questionCitation: { citationUrl: null, citationText: null },
-    }),
-  );
+test("Native source rejects all Question-record metadata fields instead of accepting aliases", () => {
+  for (const [field, value] of Object.entries(recordMetadata())) {
+    assert.throws(() => decodePleQuestionJsonSource({ ...source(), [field]: value }));
+  }
 });
 
 test("codec normalizes omitted optional feedback to Rust canonical null members", () => {
@@ -270,7 +252,6 @@ test("codec normalizes omitted optional feedback to Rust canonical null members"
 test("codec aligns Rust top-level defaults and canonicalizes them on serialization", () => {
   const input = source();
   delete input.feedback;
-  delete input.tags;
   delete input.externalResources;
   delete input.authorScript;
   const serialized = serializePleQuestionJsonSource(decodePleQuestionJsonSource(input));
@@ -279,7 +260,6 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
     JSON.stringify({
       ...source(),
       feedback: { correct: null, incorrect: null },
-      tags: [],
       externalResources: [],
       authorScript: null,
     }),
@@ -296,9 +276,8 @@ test("external resource inventory stays closed, validated, and preserved through
   const decoded = decodePleQuestionJsonSource({ ...source(), externalResources });
   assert.deepEqual(decoded.externalResources, externalResources);
   assert.deepEqual(parsePleQuestionJsonSource(serializePleQuestionJsonSource(decoded)), decoded);
-  const edited = setPleQuestionJsonQuestionTitle(decoded, "Edited title");
   assert.deepEqual(
-    parsePleQuestionJsonSource(serializePleQuestionJsonSource(edited)).externalResources,
+    parsePleQuestionJsonSource(serializePleQuestionJsonSource(decoded)).externalResources,
     externalResources,
   );
 
@@ -338,9 +317,8 @@ test("author script metadata stays closed and preserved without becoming an exec
   const authorScript = { source: "return { prompt: 'variant' };", libraries: ["rdkit"] };
   const decoded = decodePleQuestionJsonSource({ ...source(), authorScript });
   assert.deepEqual(decoded.authorScript, authorScript);
-  const edited = setPleQuestionJsonQuestionTitle(decoded, "Edited scripted title");
   assert.deepEqual(
-    parsePleQuestionJsonSource(serializePleQuestionJsonSource(edited)).authorScript,
+    parsePleQuestionJsonSource(serializePleQuestionJsonSource(decoded)).authorScript,
     authorScript,
   );
 
@@ -355,21 +333,6 @@ test("author script metadata stays closed and preserved without becoming an exec
       decodePleQuestionJsonSource({ ...source(), authorScript: invalidAuthorScript }),
     );
   }
-});
-
-test("codec enforces Unicode Question Title bounds", () => {
-  const title512 = "😀".repeat(512);
-  assert.equal(
-    decodePleQuestionJsonSource({ ...source(), questionTitle: title512 }).questionTitle,
-    title512,
-  );
-  assert.throws(() =>
-    decodePleQuestionJsonSource({ ...source(), questionTitle: "😀".repeat(513) }),
-  );
-  assert.throws(() => decodePleQuestionJsonSource({ ...source(), questionDescription: "   " }));
-  assert.throws(() =>
-    decodePleQuestionJsonSource({ ...source(), questionDescription: "😀".repeat(4_001) }),
-  );
 });
 
 test("source JSON parse failures do not expose parser details or source text", () => {
@@ -415,11 +378,19 @@ test("codec rejects unknown fields, invalid identifiers, invalid choice count, a
 
 test("defaults use stable semantic IDs and public preview cannot serialize answers, Question Hint, or feedback", () => {
   const defaults = createDefaultPleQuestionJsonSource();
+  const defaultMetadata = createDefaultPleQuestionJsonRecordMetadata();
+  assert.equal(defaultMetadata.questionTitle, "");
+  assert.equal(defaultMetadata.questionDescription, "");
+  assert.equal(defaultMetadata.language, null);
+  const createEnvelope = createDefaultPleQuestionJsonDraft();
+  assert.deepEqual(Object.keys(createEnvelope).sort(), ["metadata", "source"]);
+  assert.deepEqual(createEnvelope.metadata, defaultMetadata);
+  assert.deepEqual(createEnvelope.source, defaults);
   assert.deepEqual(
     defaults.response.choices.map((choice) => choice.id),
     ["choice_a", "choice_b"],
   );
-  const preview = pleQuestionJsonPublicPreview(source());
+  const preview = pleQuestionJsonPublicPreview(source(), recordMetadata());
   assert.deepEqual(preview.response, {
     kind: "multipleChoice",
     choices: [
@@ -428,23 +399,57 @@ test("defaults use stable semantic IDs and public preview cannot serialize answe
     ],
     selection: { kind: "exactlyOne" },
   });
-  const serialized = serializePleQuestionJsonPublicPreview(source());
+  const serialized = serializePleQuestionJsonPublicPreview(source(), recordMetadata());
   assert.equal(serialized.includes("correctChoice"), false);
   assert.equal(serialized.includes("Compare each choice before responding."), false);
   assert.equal(serialized.includes("Correct choice."), false);
   assert.equal(serialized.includes("Exactly right."), false);
 });
 
-test("codec accepts an optional Question Hint and rejects blank or oversized authored help", () => {
+test("codec preserves blank unfinished text while publication validation rejects it", () => {
   assert.equal(
     decodePleQuestionJsonSource(source()).questionHint,
     "Compare each choice before responding.",
   );
   assert.equal(decodePleQuestionJsonSource({ ...source(), questionHint: null }).questionHint, null);
-  assert.throws(() => decodePleQuestionJsonSource({ ...source(), questionHint: "  " }));
+  const unfinished = { ...source(), prompt: "  ", questionHint: "" };
+  assert.deepEqual(
+    parsePleQuestionJsonSource(serializePleQuestionJsonSource(unfinished)),
+    unfinished,
+  );
+  assert.equal(validatePleQuestionJsonSource(unfinished).valid, false);
   assert.throws(() =>
     decodePleQuestionJsonSource({ ...source(), questionHint: "x".repeat(16_385) }),
   );
+});
+
+test("empty Native Draft text saves and reopens through the bounded source client", async () => {
+  let stored = serializePleQuestionJsonSource(source());
+  const client = createPleQuestionJsonClient({
+    fetch: async (_path, init) => {
+      if (init.method === "GET")
+        return new Response(stored, {
+          headers: { "content-type": PLE_QUESTION_JSON_MEDIA_TYPE, etag: '"2"' },
+        });
+      stored = String(init.body);
+      return noContent('"3"');
+    },
+  });
+  const unfinished = {
+    ...source(),
+    prompt: "",
+    questionHint: "",
+    response: {
+      ...source().response,
+      choices: source().response.choices.map((choice, index) =>
+        index === 0 ? { ...choice, text: "" } : choice,
+      ),
+    },
+  };
+
+  await client.save(draftQuestion, unfinished, "2");
+  assert.deepEqual((await client.load(draftQuestion)).source, unfinished);
+  assert.equal(validatePleQuestionJsonSource(unfinished).valid, false);
 });
 
 test("matching codec retains stable pairs while public preview excludes their answer map", () => {
@@ -468,7 +473,7 @@ test("matching codec retains stable pairs while public preview excludes their an
   };
   const decoded = decodePleQuestionJsonSource(matching);
   assert.equal(decoded.response.kind, "matching");
-  const preview = serializePleQuestionJsonPublicPreview(decoded);
+  const preview = serializePleQuestionJsonPublicPreview(decoded, recordMetadata());
   assert.equal(preview.includes('"matches"'), false);
   assert.equal(preview.includes('"gene_variant"'), true);
 });
@@ -511,7 +516,11 @@ test("client sends exact protected paths, headers, body, and ETags", async () =>
       }
       if (init.method === "PUT") return noContent('"2"');
       if (init.method === "POST") return jsonResponse({ questionId: "7K3M-79QP" }, 201);
-      return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
+      return jsonResponse({
+        summary: publicationSummary(),
+        viewerMayArchive: true,
+        viewerMayEditMetadata: true,
+      });
     },
   });
 
@@ -537,17 +546,16 @@ test("client sends exact protected paths, headers, body, and ETags", async () =>
 });
 
 test("publication sends shared Question Library metadata and refuses a missing Discipline or Subject", async () => {
-  const authored = source();
-  assert.notEqual(authored.questionTitle.trim(), "");
-  assert.notEqual(authored.questionDescription.trim(), "");
-  assert.throws(() => decodePleQuestionJsonSource({ ...authored, questionTitle: " " }));
-  assert.throws(() => decodePleQuestionJsonSource({ ...authored, questionDescription: " " }));
   const bodies = [];
   const client = createPleQuestionJsonClient({
     fetch: async (_input, init) => {
       bodies.push(init.body);
       if (init.method === "POST") return jsonResponse({ questionId: "7K3M-79QP" }, 201);
-      return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
+      return jsonResponse({
+        summary: publicationSummary(),
+        viewerMayArchive: true,
+        viewerMayEditMetadata: true,
+      });
     },
   });
   const chain = {
@@ -609,7 +617,11 @@ test("A Draft Question must pass Question Publication Validation before becoming
     fetch: async (input, init) => {
       requests.push({ input: String(input), method: init.method, body: init.body });
       if (init.method === "POST") return jsonResponse({ questionId: "7K3M-79QP" }, 201);
-      return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
+      return jsonResponse({
+        summary: publicationSummary(),
+        viewerMayArchive: true,
+        viewerMayEditMetadata: true,
+      });
     },
   });
   const published = await client.publish(draftQuestion, publicationRequest(), "1");
@@ -716,46 +728,6 @@ test("conflicts do not echo a response body and repository preserves the caller 
   });
 });
 
-test("client rejects publication summaries that do not exactly confirm publication", async () => {
-  const wrongPublication = createPleQuestionJsonClient({
-    fetch: async (_input, init) =>
-      init.method === "POST"
-        ? jsonResponse({ questionId: "7K3M-79QP" })
-        : jsonResponse({ summary: publicationSummary("webwork"), viewerMayArchive: true }),
-  });
-  await assert.rejects(
-    wrongPublication.publish(draftQuestion, publicationRequest(), "1"),
-    /available PLE Question Library summary/u,
-  );
-
-  const staleScope = createPleQuestionJsonClient({
-    fetch: async (_input, init) =>
-      init.method === "POST"
-        ? jsonResponse({ questionId: "7K3M-79QP" })
-        : jsonResponse({
-            summary: { ...publicationSummary(), scope: "public" },
-            viewerMayArchive: true,
-          }),
-  });
-  await assert.rejects(
-    staleScope.publish(draftQuestion, publicationRequest(), "1"),
-    /scope must be a field allowed/u,
-  );
-
-  for (const summary of [{ ...publicationSummary(), availability: { availability: "archived" } }]) {
-    const wrongLifecycleOrScope = createPleQuestionJsonClient({
-      fetch: async (_input, init) =>
-        init.method === "POST"
-          ? jsonResponse({ questionId: "7K3M-79QP" })
-          : jsonResponse({ summary, viewerMayArchive: true }),
-    });
-    await assert.rejects(
-      wrongLifecycleOrScope.publish(draftQuestion, publicationRequest(), "1"),
-      /available PLE Question Library summary/u,
-    );
-  }
-});
-
 test("client saves a strict PLE hotspot source through its exact endpoint", async () => {
   const hotspot = decodePleQuestionJsonSource({
     ...source(),
@@ -815,62 +787,4 @@ test("repository does not regress a Draft Question Edit Number when an older sav
   });
   assert.deepEqual(observedRevisions, ["1", "1"]);
   assert.equal(publishedRevision, "3");
-});
-
-test("published questions include optional PLE-managed hint question feedback and worked solution", async () => {
-  let savedBody;
-  const client = createPleQuestionGeneralFeedbackClient({
-    fetch: async (path, init) => {
-      assert.equal(path, "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/metadata");
-      if (init.method === "GET") {
-        return jsonResponse(
-          {
-            generalFeedback: "Keep the units.",
-            hint: "Count alleles.",
-            workedSolution: "Show the cross.",
-          },
-          200,
-          '"4"',
-        );
-      }
-      assert.equal(init.method, "PUT");
-      assert.equal(init.headers["if-match"], '"4"');
-      assert.equal(init.headers["content-type"], "application/json");
-      savedBody = JSON.parse(init.body);
-      return noContent('"5"');
-    },
-  });
-  assert.deepEqual(await client.load(draftQuestion), {
-    generalFeedback: "Keep the units.",
-    hint: "Count alleles.",
-    workedSolution: "Show the cross.",
-    draftQuestionEditNumber: "4",
-  });
-  assert.deepEqual(
-    await client.save(
-      draftQuestion,
-      { generalFeedback: "Keep the units.", hint: null, workedSolution: "Show the cross." },
-      "4",
-    ),
-    { draftQuestionEditNumber: "5" },
-  );
-  assert.deepEqual(savedBody, {
-    generalFeedback: "Keep the units.",
-    hint: null,
-    workedSolution: "Show the cross.",
-  });
-  const feedbackOnly = createPleQuestionGeneralFeedbackClient({
-    fetch: async () => jsonResponse({ generalFeedback: "Keep the units." }),
-  });
-  await assert.rejects(() => feedbackOnly.load(draftQuestion));
-  const extraField = createPleQuestionGeneralFeedbackClient({
-    fetch: async () =>
-      jsonResponse({
-        generalFeedback: null,
-        hint: null,
-        workedSolution: null,
-        source: "backend",
-      }),
-  });
-  await assert.rejects(() => extraField.load(draftQuestion));
 });

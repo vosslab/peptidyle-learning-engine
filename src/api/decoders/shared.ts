@@ -7,7 +7,7 @@ import type { QuestionBackendCapabilities } from "../../../generated/api/Questio
 import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionAvailability } from "../../../generated/api/QuestionAvailability";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
-import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
+import type { LibraryObjectId } from "../../../generated/api/LibraryObjectId";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { AccountId } from "../../../generated/api/AccountId";
@@ -253,6 +253,16 @@ export function decodeQuestionId(value: unknown, path: string): PublishedQuestio
   return canonicalQuestionId;
 }
 
+/** Decodes the canonical identity shared by Question and Pool Library Objects. */
+export function decodeLibraryObjectId(value: unknown, path: string): LibraryObjectId {
+  const objectId = decodeString(value, path);
+  const canonicalObjectId = validateCanonicalQuestionIdSyntax(objectId);
+  if (canonicalObjectId === null || canonicalObjectId !== objectId) {
+    throw new DecodeError(path, "a canonical Library Object ID");
+  }
+  return canonicalObjectId;
+}
+
 /** Decodes the positive version number within one published Question lineage. */
 export function decodePositiveQuestionRevisionNumber(value: unknown, path: string): number {
   const revisionNumber = decodeSafeInteger(value, path);
@@ -314,23 +324,8 @@ export function decodeQuestionLicense(value: unknown, path: string): QuestionLic
   return decodeStringEnum<QuestionLicense>(value, path, ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"]);
 }
 
-export function decodeQuestionCitation(value: unknown, path: string): QuestionCitation {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["citationUrl", "citationText"]);
-  const citationUrl = decodeNullable(
-    field(record, "citationUrl", path),
-    `${path}.citationUrl`,
-    decodeNonemptyString,
-  );
-  const citationText = decodeNullable(
-    field(record, "citationText", path),
-    `${path}.citationText`,
-    decodeNonemptyString,
-  );
-  if (citationUrl === null && citationText === null) {
-    throw new DecodeError(path, "a Question Citation with Citation URL, Citation Text, or both");
-  }
-  return { citationUrl, citationText };
+export function decodeQuestionCitation(value: unknown, path: string): string {
+  return decodeString(value, path);
 }
 
 export function decodeQuestionMetadata(
@@ -369,7 +364,11 @@ export function decodeQuestionMetadata(
       `${path}.questionCitation`,
       decodeQuestionCitation,
     ),
-    language: decodeNonemptyString(field(record, "language", path), `${path}.language`),
+    language: decodeNullable(
+      field(record, "language", path),
+      `${path}.language`,
+      decodeNonemptyString,
+    ),
   } satisfies QuestionMetadata;
   return decoded;
 }

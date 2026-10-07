@@ -18,18 +18,18 @@ REVOKE ALL ON FUNCTION ple_data.question_metadata_tags_are_valid(text[]) FROM PU
 GRANT EXECUTE ON FUNCTION ple_data.question_metadata_tags_are_valid(text[]) TO ple_private_owner;
 
 REVOKE ALL ON TABLE ple_data.published_question, ple_data.question_revision,
-    ple_data.published_question_metadata, ple_data.question_publication_event,
+    ple_data.question_revision_metadata, ple_data.question_publication_event,
     ple_data.question_availability_event FROM PUBLIC;
 
-GRANT INSERT, SELECT ON ple_data.published_question, ple_data.published_question_metadata,
+GRANT INSERT, SELECT ON ple_data.published_question, ple_data.question_revision_metadata,
     ple_data.question_revision, ple_data.question_publication_event,
     ple_data.question_availability_event TO ple_private_owner;
 
 GRANT UPDATE ON ple_data.published_question TO ple_private_owner;
 
-GRANT UPDATE ON ple_data.published_question_metadata TO ple_private_owner;
+GRANT UPDATE ON ple_data.question_revision_metadata TO ple_private_owner;
 
-GRANT SELECT ON ple_data.published_question, ple_data.published_question_metadata,
+GRANT SELECT ON ple_data.published_question, ple_data.question_revision_metadata,
     ple_data.question_revision TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_data.reject_question_lineage_immutable_change(),
@@ -44,4 +44,3 @@ SET LOCAL ROLE ple_api_owner;
 REVOKE ALL ON FUNCTION ple_api.set_question_availability(text, bigint, text, text, uuid) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.set_question_availability(text, bigint, text, text, uuid) TO ple_app;
-

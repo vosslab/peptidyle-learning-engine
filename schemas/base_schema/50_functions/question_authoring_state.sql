@@ -6,18 +6,27 @@ CREATE FUNCTION ple_private.reject_immutable_question_source_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     RAISE EXCEPTION USING ERRCODE = '55000',
-        MESSAGE = 'Question Revision source and Question Fork Source are immutable';
+        MESSAGE = 'Question Revision source is immutable';
 END
 $$;
 
+CREATE FUNCTION ple_private.reject_draft_question_parent_change()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, ple_private AS $$
+BEGIN
+    IF NEW.parent_published_question_id IS DISTINCT FROM OLD.parent_published_question_id
+       OR NEW.parent_revision_number IS DISTINCT FROM OLD.parent_revision_number
+       OR NEW.public_id_reservation_id IS DISTINCT FROM OLD.public_id_reservation_id THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Draft Question parent and reserved ID are immutable';
+    END IF;
+    RETURN NEW;
+END
+$$;
 
-
--- Fork provenance cannot be edited or directly discarded.  It is nevertheless
--- private working state: an authorized deletion of the parent Draft must
--- remove it with that Draft.  The per-transaction token is installed only by
--- the narrow active-Instructor deletion procedure, so a direct parent/child delete still
--- fails closed and rolls back as one transaction.
-CREATE FUNCTION ple_private.reject_draft_question_fork_source_change()
+-- A creation receipt stays with its private Draft until authorized Draft
+-- deletion or successful fork publication consumes it.
+CREATE FUNCTION ple_private.reject_draft_question_creation_receipt_change()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private AS $$
 BEGIN
@@ -30,8 +39,23 @@ BEGIN
        ) THEN
         RETURN OLD;
     END IF;
+    IF TG_OP = 'DELETE'
+       AND pg_catalog.current_setting('ple.authorized_draft_publication_receipt_uuid', true)
+            IS NOT DISTINCT FROM OLD.draft_question_id::text
+       AND EXISTS (
+           SELECT 1
+             FROM ple_private.draft_question AS draft
+             JOIN ple_data.published_question AS lineage
+               ON lineage.published_question_id = draft.public_id_reservation_id
+              AND lineage.parent_published_question_id = draft.parent_published_question_id
+              AND lineage.parent_revision_number = draft.parent_revision_number
+            WHERE draft.draft_question_id = OLD.draft_question_id
+              AND draft.parent_published_question_id IS NOT NULL
+       ) THEN
+        RETURN OLD;
+    END IF;
     RAISE EXCEPTION USING ERRCODE = '55000',
-        MESSAGE = 'Draft Question Fork Source is immutable outside authorized Draft deletion';
+        MESSAGE = 'Draft Question creation receipt is immutable outside Draft deletion or publication';
 END
 $$;
 
@@ -171,9 +195,14 @@ CREATE TRIGGER question_revision_source_binding_is_immutable
 BEFORE UPDATE OR DELETE ON ple_private.question_revision_source_binding
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_immutable_question_source_change();
 
-CREATE TRIGGER draft_question_fork_source_is_immutable
-BEFORE UPDATE OR DELETE ON ple_private.draft_question_fork_source
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_draft_question_fork_source_change();
+CREATE TRIGGER draft_question_parent_is_immutable
+BEFORE UPDATE OF parent_published_question_id, parent_revision_number, public_id_reservation_id
+ON ple_private.draft_question
+FOR EACH ROW EXECUTE FUNCTION ple_private.reject_draft_question_parent_change();
+
+CREATE TRIGGER draft_question_creation_receipt_is_immutable
+BEFORE UPDATE OR DELETE ON ple_private.draft_question_creation_receipt
+FOR EACH ROW EXECUTE FUNCTION ple_private.reject_draft_question_creation_receipt_change();
 
 CREATE TRIGGER workspace_import_item_result_is_immutable_after_commit
 BEFORE UPDATE OR DELETE ON ple_private.workspace_import_item_result

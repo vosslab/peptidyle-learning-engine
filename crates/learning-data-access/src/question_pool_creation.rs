@@ -2,7 +2,7 @@
 //!
 //! Selection-count policy deliberately does not cross this boundary. It belongs
 //! to the Assessment Entry, separate from immutable Pool membership and its
-//! Instructor attestation.
+//! Instructor authorization and exact member tuples.
 
 use std::collections::BTreeSet;
 
@@ -21,10 +21,8 @@ pub struct CreateQuestionPoolInput {
     pub description: String,
     /// Fresh checksum-valid public Pool identity minted by the server issuer.
     pub question_pool_id: QuestionPoolId,
-    /// Ordered exact Published Question Revision pins.
+    /// Exact Published Question Revision pins. Persistence treats these as a set.
     pub members: Vec<PublishedQuestionRevisionTuple>,
-    /// The Instructor affirms that these Questions are interchangeable.
-    pub interchangeability_attested: bool,
     /// Library Object tags for this Pool. Empty is a valid list.
     pub tags: Vec<String>,
 }
@@ -51,11 +49,9 @@ impl CreateQuestionPoolInput {
         }
         if self.members.is_empty()
             || self.members.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
-            || !self.interchangeability_attested
         {
             return Err(StoreError::InvalidRecord(
-                "Question Pool creation requires bounded nonempty members and interchangeability attestation"
-                    .to_owned(),
+                "Question Pool creation requires bounded nonempty members".to_owned(),
             ));
         }
         let mut distinct_tags = BTreeSet::new();
@@ -74,10 +70,10 @@ impl CreateQuestionPoolInput {
         if self
             .members
             .iter()
-            .any(|member| !distinct.insert(member.clone()))
+            .any(|member| !distinct.insert(member.published_question_id.as_str().to_owned()))
         {
             return Err(StoreError::InvalidRecord(
-                "Question Pool members must be distinct exact Published Question Revisions"
+                "Question Pool members must contain one exact Revision per Published Question"
                     .to_owned(),
             ));
         }

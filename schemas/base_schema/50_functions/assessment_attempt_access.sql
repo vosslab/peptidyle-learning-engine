@@ -178,7 +178,65 @@ BEGIN
         late_work_rule::ple_data.late_work_rule,
         evaluation_time
     );
-    SELECT COALESCE(jsonb_agg(jsonb_build_object('assessmentAttemptId', assessment_attempt.assessment_attempt_id::text, 'attemptNumber', assessment_attempt.assessment_attempt_number, 'state', CASE WHEN submission.assessment_attempt_id IS NULL THEN 'closed' ELSE 'submitted' END) ORDER BY assessment_attempt.assessment_attempt_number DESC, assessment_attempt.assessment_attempt_id DESC), '[]'::jsonb) INTO previous_assessment_attempts FROM ple_private.assessment_attempt AS assessment_attempt LEFT JOIN ple_private.assessment_submission AS submission ON submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id WHERE assessment_attempt.student_record_id = student_record_id_value AND assessment_attempt.assessment_id = assessment_row.assessment_id AND (submission.assessment_attempt_id IS NOT NULL OR (assessment_attempt.expires_at IS NOT NULL AND assessment_attempt.expires_at <= evaluation_time));
+    SELECT COALESCE(jsonb_agg(
+               jsonb_build_object(
+                   'assessmentAttemptId', assessment_attempt.assessment_attempt_id::text,
+                   'attemptNumber', assessment_attempt.assessment_attempt_number,
+                   'state', CASE WHEN submission.assessment_attempt_id IS NULL
+                                 THEN 'closed' ELSE 'submitted' END
+               ) || CASE WHEN submission.assessment_attempt_id IS NOT NULL
+                              AND score.is_complete
+                         THEN jsonb_build_object(
+                             'score', jsonb_build_object(
+                                 'pointsEarned', score.points_earned,
+                                 'pointsPossible', score.points_possible
+                             )
+                         )
+                         ELSE '{}'::jsonb END
+               ORDER BY assessment_attempt.assessment_attempt_number DESC,
+                        assessment_attempt.assessment_attempt_id DESC
+           ), '[]'::jsonb)
+      INTO previous_assessment_attempts
+      FROM ple_private.assessment_attempt AS assessment_attempt
+      LEFT JOIN ple_private.assessment_submission AS submission
+        ON submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+      CROSS JOIN LATERAL (
+          SELECT count(issued.issued_question_id) > 0
+                     AND bool_and(
+                         saved.question_attempt_id IS NULL
+                         OR (result.grading_result_id IS NOT NULL
+                             AND ple_api.has_automated_grading_receipt(
+                                 result.grading_result_id
+                             ))
+                     ) AS is_complete,
+                 coalesce(sum(credit.points_earned), 0) AS points_earned,
+                 coalesce(sum(credit.points_possible), 0) AS points_possible
+            FROM ple_private.issued_question AS issued
+            JOIN ple_private.question_attempt AS question_attempt
+              ON question_attempt.course_instance_id = issued.course_instance_id
+             AND question_attempt.issued_question_id = issued.issued_question_id
+            LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+              ON saved.course_instance_id = question_attempt.course_instance_id
+             AND saved.question_attempt_id = question_attempt.question_attempt_id
+            LEFT JOIN ple_private.grading_result AS result
+              ON result.course_instance_id = question_attempt.course_instance_id
+             AND result.question_attempt_id = question_attempt.question_attempt_id
+            JOIN ple_private.assessment_entry_snapshot AS snapshot
+              ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
+            CROSS JOIN LATERAL ple_private.score_recorded_credit(
+                result.normalized_credit, snapshot.scoring_rule,
+                ple_private.current_assessment_entry_points(
+                    issued.assessment_entry_id, snapshot.points
+                ), policy_row.partial_credit_enabled
+            ) AS credit
+           WHERE issued.course_instance_id = assessment_attempt.course_instance_id
+             AND issued.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+      ) AS score
+     WHERE assessment_attempt.student_record_id = student_record_id_value
+       AND assessment_attempt.assessment_id = assessment_row.assessment_id
+       AND (submission.assessment_attempt_id IS NOT NULL
+            OR (assessment_attempt.expires_at IS NOT NULL
+                AND assessment_attempt.expires_at <= evaluation_time));
     RETURN NEXT;
 END $$;
 
@@ -205,7 +263,6 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_pool_selection(
     selection_position integer,
     question_pool_id text,
     question_pool_edit_number bigint,
-    member_position integer,
     published_question_id text,
     revision_number integer
 )
@@ -223,7 +280,6 @@ BEGIN
            selected.selection_position,
            selection.question_pool_id::text,
            selection.question_pool_edit_number,
-           selected.member_position,
            selected.published_question_id::text,
            selected.revision_number
       FROM ple_private.question_pool_selection AS selection
@@ -280,6 +336,6 @@ CREATE FUNCTION ple_api.read_student_assessment_access(text, text) RETURNS TABLE
 
 CREATE FUNCTION ple_api.read_active_student_assessment_attempt_id(text, text) RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_active_student_assessment_attempt_id((SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = $1), $2) $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_edit_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
+CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_edit_number bigint, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_context(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_type text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;

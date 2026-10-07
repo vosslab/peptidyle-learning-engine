@@ -265,6 +265,7 @@ export function decodeQuestionResponseFormat(
           "exact",
           "caseInsensitive",
           "normalized",
+          "regex",
         ]),
         maxLength: decodeNonnegativeInteger(field(record, "maxLength", path), `${path}.maxLength`),
       } satisfies QuestionResponseFormat;
@@ -285,7 +286,7 @@ export function decodeQuestionResponseFormat(
             matchMode: decodeStringEnum(
               field(slot, "matchMode", slotPath),
               `${slotPath}.matchMode`,
-              ["exact", "caseInsensitive", "normalized"],
+              ["exact", "caseInsensitive", "normalized", "regex"],
             ),
             maxLength: decodePositiveInteger(
               field(slot, "maxLength", slotPath),

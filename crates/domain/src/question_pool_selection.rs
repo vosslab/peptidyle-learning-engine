@@ -5,9 +5,7 @@
 //! persistence owns Reuse Selection lookup, while this function creates the
 //! selected Question Pool Item result for Select Again and no-store Question Pool Previews.
 
-use question_model::{
-    QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionPoolSelectedQuestionOrder,
-};
+use question_model::{QuestionPoolAssessmentEntry, QuestionPoolSelectedItem};
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::{Rng, SeedableRng};
 
@@ -59,9 +57,8 @@ impl std::error::Error for QuestionPoolSelectionError {}
 
 /// Selects current Pool members for one new Question Pool Selection.
 ///
-/// Membership is sampled without replacement. Question Pool Order restores the
-/// current member order after membership selection; Random Order
-/// keeps the sampled order. The returned values carry exact Question
+/// Membership is sampled without replacement from canonical tuple order, so
+/// storage or request order cannot affect selection. The returned values carry exact Question
 /// Revision Tuples and are suitable for a server-held Question Pool
 /// Selection record.
 pub fn select_question_pool_items(
@@ -86,7 +83,12 @@ pub fn select_question_pool_items(
         );
     }
 
-    let mut positions = (0..candidates.len()).collect::<Vec<_>>();
+    let mut canonical_candidates = candidates.to_vec();
+    canonical_candidates.sort_by(|left, right| {
+        left.published_question_revision_tuple
+            .cmp(&right.published_question_revision_tuple)
+    });
+    let mut positions = (0..canonical_candidates.len()).collect::<Vec<_>>();
     let mut random = ChaCha20Rng::from_seed(entropy.0);
     for position in 0..selection_count {
         let remaining = positions.len() - position;
@@ -96,15 +98,9 @@ pub fn select_question_pool_items(
         positions.swap(position, selected);
     }
     positions.truncate(selection_count);
-    if question_pool.selection_rule.selected_question_order
-        == QuestionPoolSelectedQuestionOrder::QuestionPoolOrder
-    {
-        positions.sort_unstable();
-    }
-
     Ok(positions
         .into_iter()
-        .map(|position| candidates[position].clone())
+        .map(|position| canonical_candidates[position].clone())
         .collect())
 }
 
@@ -126,7 +122,7 @@ mod tests {
         AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
         AssessmentPointValue, PublishedQuestionId, PublishedQuestionRevisionTuple,
         QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolEditNumber, QuestionPoolId,
-        QuestionPoolSelectionRule, QuestionRevisionNumber,
+        QuestionRevisionNumber,
     };
     use uuid::Uuid;
 
@@ -136,7 +132,6 @@ mod tests {
         QuestionPoolSelectedItem {
             question_pool_id: QuestionPoolId::from_random_identifier("7K3M9QP").expect("Pool ID"),
             question_pool_edit_number: QuestionPoolEditNumber::new(1).expect("edit number"),
-            member_position: number,
             published_question_revision_tuple: PublishedQuestionRevisionTuple {
                 published_question_id: PublishedQuestionId::from_random_identifier(format!(
                     "7K3M9Q{number}"
@@ -147,7 +142,7 @@ mod tests {
         }
     }
 
-    fn question_pool(order: QuestionPoolSelectedQuestionOrder) -> QuestionPoolAssessmentEntry {
+    fn question_pool() -> QuestionPoolAssessmentEntry {
         QuestionPoolAssessmentEntry {
             id: AssessmentEntryId::from_uuid(Uuid::from_u128(1)),
             availability: AssessmentEntryAvailability::Available,
@@ -156,36 +151,69 @@ mod tests {
             question_pool_edit_number: QuestionPoolEditNumber::new(1).expect("edit number"),
             selection_count: std::num::NonZeroU32::new(2).expect("positive count"),
             points_per_item: AssessmentPointValue::from_whole(1),
-            selection_rule: QuestionPoolSelectionRule {
-                selected_question_order: order,
-            },
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         }
     }
 
     #[test]
-    fn question_pool_order_selects_available_items_without_replacement_in_source_order() {
+    fn selection_is_independent_of_candidate_input_order_and_without_replacement() {
         let selection = select_question_pool_items(
-            &question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder),
+            &question_pool(),
             &[pool_member(0), pool_member(1), pool_member(2)],
             QuestionPoolSelectionEntropy::from_bytes([7; 32]),
         )
         .expect("available Question Pool Items satisfy the selection count");
+        let reversed_candidates = [pool_member(2), pool_member(1), pool_member(0)];
+        let reversed_selection = select_question_pool_items(
+            &question_pool(),
+            &reversed_candidates,
+            QuestionPoolSelectionEntropy::from_bytes([7; 32]),
+        )
+        .expect("the same unordered tuple set satisfies the selection count");
 
+        assert_eq!(selection, reversed_selection);
         assert_eq!(selection.len(), 2);
-        assert!(
-            selection
-                .windows(2)
-                .all(|pair| pair[0].member_position != pair[1].member_position)
+        assert_ne!(
+            selection[0].published_question_revision_tuple,
+            selection[1].published_question_revision_tuple
         );
-        assert!(selection.iter().all(|item| item.member_position != 3));
-        assert!(selection[0].member_position < selection[1].member_position);
+        assert!(selection.iter().all(|item| {
+            item.published_question_revision_tuple
+                .published_question_id
+                .as_str()
+                != "7K3M9Q3"
+        }));
+    }
+
+    #[test]
+    fn selection_varies_with_server_entropy() {
+        let candidates = [pool_member(0), pool_member(1), pool_member(2)];
+        let selections = (0..16)
+            .map(|seed| {
+                select_question_pool_items(
+                    &question_pool(),
+                    &candidates,
+                    QuestionPoolSelectionEntropy::from_bytes([seed; 32]),
+                )
+                .expect("available Question Pool Items satisfy the selection count")
+                .into_iter()
+                .map(|item| {
+                    item.published_question_revision_tuple
+                        .published_question_id
+                        .as_str()
+                        .to_owned()
+                })
+                .collect::<Vec<_>>()
+            })
+            .collect::<std::collections::HashSet<_>>();
+
+        assert!(selections.len() > 1);
     }
 
     #[test]
     fn selection_refuses_a_pool_when_immutable_members_are_too_few() {
-        let mut pool = question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder);
+        let mut pool = question_pool();
         pool.selection_count = std::num::NonZeroU32::new(4).expect("positive count");
 
         assert_eq!(

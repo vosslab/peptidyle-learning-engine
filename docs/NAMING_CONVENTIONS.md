@@ -51,7 +51,7 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Revision number | `RevisionNumber` | `QuestionRevisionNumber`, `BlueprintRevisionNumber` |
-| Composite exact identity | `Tuple` | `PublishedQuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionImageAssetTuple`, `CourseRosterTuple`; JSON fields `publishedQuestionRevisionTuple` / `blueprintRevisionTuple` / `questionImageAssetTuple` / `courseRosterTuple` |
+| Composite exact identity | `Tuple` | `PublishedQuestionRevisionTuple`, `BlueprintCourseRevisionTuple`, `QuestionImageAssetTuple`, `CourseRosterTuple`; JSON fields `publishedQuestionRevisionTuple` / `blueprintCourseRevisionTuple` / `questionImageAssetTuple` / `courseRosterTuple` |
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber`, `BlueprintEditNumber`, `DraftQuestionEditNumber`; JSON `assessmentEditNumber`, `draftQuestionEditNumber`, `expectedAssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
@@ -83,10 +83,10 @@ the HTTP encoding of that number.
 
 An exact immutable Blueprint or Question revision is one named Tuple, not
 sibling ID-plus-number fields. Course Instance adoption uses
-`blueprintRevisionTuple`. Course Instance provenance uses
-`adoptedBlueprintRevisionTuple` and `currentBlueprintRevisionTuple`.
+`blueprintCourseRevisionTuple`. Course Instance provenance uses
+`adoptedBlueprintCourseRevisionTuple` and `currentBlueprintCourseRevisionTuple`.
 Assessment Blueprint Update and known forks use named Blueprint Revision
-Tuples such as `expectedSourceBlueprintRevisionTuple`.
+Tuples such as `expectedSourceBlueprintCourseRevisionTuple`.
 
 `QuestionImageAssetTuple` members are `{questionImageAssetId, checksum}`. Every
 field holding that Tuple is `questionImageAssetTuple`. Object Address members
@@ -137,7 +137,7 @@ to "Question ID," but source names keep the boundary explicit.
 | Draft Question | `draft_question_id` UUID, optional `draft_question_edit_number` |
 | Published Question | `published_question_id` / `PublishedQuestionId` plus `PublishedQuestionRevisionTuple` |
 | Question Pool | `question_pool_id` / `QuestionPoolId` plus Pool member list and `question_pool_edit_number` |
-| Blueprint Course | `blueprint_course_id` / `BlueprintCourseId`, `BlueprintRevisionTuple`, and current lifecycle |
+| Blueprint Course | `blueprint_course_id` / `BlueprintCourseId`, `BlueprintCourseRevisionTuple`, and current lifecycle |
 | Course Instance | `course_instance_id` / `CourseInstanceId` with equal co-Instructor relationships |
 | Assessment | `assessment_id` / `AssessmentId`; Blueprint Assessment or Course Instance Assessment where scope matters |
 | Assessment Attempt | `assessment_attempt_id` UUID and current whole-submission state |

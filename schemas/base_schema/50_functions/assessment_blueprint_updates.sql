@@ -95,30 +95,18 @@ SET LOCAL ROLE ple_data_owner;
 
 
 
--- Compare ordered reusable semantics, not destination Entry or fork identities.
+-- Compare ordered reusable Assessment content, ignoring destination Entry IDs.
 CREATE FUNCTION ple_data.assessment_blueprint_update_entries_semantics(
     p_entries jsonb
 ) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE entry_json jsonb; normalized jsonb; members jsonb; result jsonb := '[]'::jsonb;
+DECLARE entry_json jsonb; normalized jsonb; result jsonb := '[]'::jsonb;
 BEGIN
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_entries) LOOP
-        normalized := entry_json - 'assessmentEntryId' - 'authoredPosition'
-            - 'forkQuestionPoolId';
+        normalized := entry_json - 'assessmentEntryId' - 'authoredPosition';
         IF entry_json ->> 'kind' = 'question_pool' THEN
-            SELECT jsonb_agg(jsonb_build_array(member.published_question_id, member.question_revision_number)
-                             ORDER BY member.member_position) INTO members
-              FROM ple_data.question_pool AS pool
-              JOIN ple_data.question_pool_member AS member
-                ON member.question_pool_id = pool.question_pool_id
-             WHERE pool.question_pool_id = COALESCE(entry_json ->> 'sourceQuestionPoolId',
-                                                           entry_json ->> 'questionPoolId')
-               AND pool.question_pool_edit_number = COALESCE(
-                   entry_json ->> 'sourceQuestionPoolEditNumber',
-                   entry_json ->> 'questionPoolEditNumber')::bigint;
-            normalized := normalized - 'sourceQuestionPoolId' - 'sourceQuestionPoolEditNumber'
-                - 'questionPoolId' - 'questionPoolEditNumber'
-                || jsonb_build_object('members', members,
+            normalized := normalized || jsonb_build_object(
+                    'questionPoolId', entry_json ->> 'questionPoolId',
                     'pointsPerItem', (entry_json ->> 'pointsPerItem')::numeric);
         ELSE
             normalized := normalized || jsonb_build_object(
@@ -151,9 +139,7 @@ SET search_path = pg_catalog, ple_data AS $$
                     'questionId', question.published_question_id, 'revisionNumber', question.question_revision_number,
                     'pointsPossible', question.points_possible::text)
                 ELSE jsonb_build_object('questionPoolId', pool.question_pool_id,
-                    'questionPoolEditNumber', pool.question_pool_edit_number,
-                    'selectionCount', pool_entry.selection_count, 'pointsPerItem', pool_entry.points_per_item::text,
-                    'selectedQuestionOrder', pool_entry.selected_question_order) END
+                    'selectionCount', pool_entry.selection_count, 'pointsPerItem', pool_entry.points_per_item::text) END
                 ORDER BY entry.authored_position)
               FROM ple_data.assessment_entry AS entry
               LEFT JOIN ple_data.assessment_entry_question AS question
@@ -178,7 +164,7 @@ DECLARE
     source record; assessment_row ple_data.assessment%ROWTYPE; course_row ple_data.course_instance%ROWTYPE;
     policy ple_data.assessment_policy_snapshot%ROWTYPE;
     values_json jsonb; entries_json jsonb := '[]'::jsonb; entry_json jsonb;
-    source_pool_id text; actor_account_id text; forked record;
+    source_pool_id text;
 BEGIN
     SELECT * INTO source FROM ple_api.load_assessment_blueprint_update(
         p_course_instance_id, p_assessment_id);
@@ -186,7 +172,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT * INTO course_row FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id;
-    actor_account_id := ple_api.current_session_account_id();
     SELECT * INTO assessment_row FROM ple_data.assessment
      WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_id;
     SELECT * INTO policy FROM ple_data.assessment_policy_snapshot
@@ -201,13 +186,13 @@ BEGIN
     IF p_member ->> 'source' IS DISTINCT FROM source.source_assessment_id::text THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update source is invalid';
     END IF;
-    -- ASVS 2.2.2, 15.3.3: trusted exact-source validation precedes any fork.
+    -- ASVS 2.2.2, 15.3.3: validate the trusted source before applying the update.
     PERFORM ple_data.validate_course_blueprint_adoption(
         source.source_blueprint_course_id, source.source_revision_number, jsonb_build_array(p_member));
     IF ple_data.assessment_blueprint_update_equivalent(
         assessment_row.assessment_id, p_member -> 'values', p_member -> 'entries') THEN
         IF assessment_row.assessment_status = 'released' THEN
-            PERFORM ple_data.validate_assessment_release(
+            PERFORM ple_data.validate_assessment_post_release_edit(
                 assessment_row.assessment_id, transaction_timestamp(), false);
         END IF;
         RETURN;
@@ -220,7 +205,7 @@ BEGIN
             OR EXISTS (SELECT 1 FROM ple_data.assessment_entry AS old
                        WHERE old.assessment_entry_id = (proposed.value ->> 'assessmentEntryId')::uuid)
             OR (proposed.value ->> 'kind' = 'question_pool' AND
-                proposed.value ->> 'forkQuestionPoolId' IS NULL)
+                proposed.value ->> 'questionPoolId' IS NULL)
     ) OR (SELECT count(*) FROM jsonb_array_elements(p_member -> 'entries')) <>
          (SELECT count(DISTINCT value ->> 'assessmentEntryId')
             FROM jsonb_array_elements(p_member -> 'entries')) THEN
@@ -231,12 +216,14 @@ BEGIN
         'closes_at', policy.closes_at);
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_member -> 'entries') LOOP
         IF entry_json ->> 'kind' = 'question_pool' THEN
-            SELECT question_pool_id INTO source_pool_id FROM ple_data.question_pool
-             WHERE question_pool_id = entry_json ->> 'sourceQuestionPoolId';
-            SELECT * INTO forked FROM ple_data.fork_question_pool_for_course_adoption(
-                entry_json ->> 'forkQuestionPoolId', source_pool_id, actor_account_id);
-            -- Create the owned Entry and fork association without an intermediate
-            -- Assessment edit. The one normal save below owns the complete edit.
+            source_pool_id := entry_json ->> 'questionPoolId';
+            IF NOT EXISTS (SELECT 1 FROM ple_data.question_pool AS pool
+                           WHERE pool.question_pool_id = source_pool_id) THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'Blueprint Question Pool is unavailable';
+            END IF;
+            -- Create the Entry and its direct Pool reference without an
+            -- intermediate Assessment edit. The normal save below owns the edit.
             INSERT INTO ple_data.assessment_entry (
                 assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
                 scoring_rule, question_attempt_limit,
@@ -250,19 +237,11 @@ BEGIN
                 NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
             INSERT INTO ple_data.assessment_entry_pool (
                 assessment_entry_id, assessment_id, question_pool_id,
-                selection_count, points_per_item, selected_question_order
+                selection_count, points_per_item
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
-                forked.question_pool_id,
-                (entry_json ->> 'selectionCount')::integer, (entry_json ->> 'pointsPerItem')::numeric,
-                (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order);
-            INSERT INTO ple_data.assessment_question_pool_fork (
-                assessment_entry_id, assessment_id, question_pool_id
-            ) VALUES ((entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
-                      forked.question_pool_id);
-            entry_json := entry_json - 'sourceQuestionPoolId' - 'sourceQuestionPoolEditNumber'
-                - 'forkQuestionPoolId' || jsonb_build_object(
-                    'questionPoolId', forked.question_pool_id, 'questionPoolEditNumber', 1);
+                source_pool_id,
+                (entry_json ->> 'selectionCount')::integer, (entry_json ->> 'pointsPerItem')::numeric);
         END IF;
         entries_json := entries_json || jsonb_build_array(entry_json);
     END LOOP;
@@ -283,7 +262,7 @@ $$;
 
 
 
--- A read-only semantic projection can use this before minting new Entry/fork IDs.
+-- Check reusable Assessment content before allocating new Entry IDs.
 -- The Store supplies only its typed reusable projection; source eligibility
 -- and destination ownership are independently resolved at this boundary.
 CREATE FUNCTION ple_api.assessment_blueprint_update_equivalent(

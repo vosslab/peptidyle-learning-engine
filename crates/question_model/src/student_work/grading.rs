@@ -178,7 +178,6 @@ mod tests {
             question_pool_selection: None,
             question_pool_id: None,
             question_pool_edit_number: None,
-            question_pool_member_position: None,
         }
     }
 

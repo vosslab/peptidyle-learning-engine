@@ -7,18 +7,12 @@ import {
   BLOOM_COGNITIVE_PROCESSES,
   BLOOM_KNOWLEDGE_DIMENSION_MEANINGS,
   BLOOM_KNOWLEDGE_DIMENSIONS,
-  decodeBloomClassificationCorrectionRequest,
   decodeBloomClassificationView,
 } from "../src/api/decoders/bloom_classification.ts";
-import {
-  decodeQuestionBloomCorrectionReceipt,
-  decodeQuestionPoolBloomCorrectionReceipt,
-} from "../src/api/decoders/bloom_correction.ts";
 
-const bloom = {
+const complete = {
   cognitiveProcess: "Evaluate",
   knowledgeDimension: "Procedural Knowledge",
-  classificationEditNumber: "9223372036854775807",
 };
 
 test("Bloom teaching meanings cover every guide value and no other", () => {
@@ -36,57 +30,33 @@ test("Bloom teaching meanings cover every guide value and no other", () => {
   }
 });
 
-test("Bloom Classification decoder preserves the closed pair and exact Edit Number", () => {
-  assert.deepEqual(decodeBloomClassificationView(bloom, "bloom"), bloom);
+test("Bloom projection allows either dimension to be absent independently", () => {
+  assert.deepEqual(decodeBloomClassificationView(complete, "bloom"), complete);
+  assert.deepEqual(
+    decodeBloomClassificationView({ cognitiveProcess: "Apply", knowledgeDimension: null }, "bloom"),
+    { cognitiveProcess: "Apply", knowledgeDimension: null },
+  );
+  assert.deepEqual(
+    decodeBloomClassificationView(
+      { cognitiveProcess: null, knowledgeDimension: "Factual Knowledge" },
+      "bloom",
+    ),
+    { cognitiveProcess: null, knowledgeDimension: "Factual Knowledge" },
+  );
+  assert.deepEqual(
+    decodeBloomClassificationView({ cognitiveProcess: null, knowledgeDimension: null }, "bloom"),
+    { cognitiveProcess: null, knowledgeDimension: null },
+  );
 });
 
-test("Bloom Classification decoder rejects missing, unknown, or unsafe values", () => {
+test("Bloom projection rejects unknown, missing, old-counter, and extra fields", () => {
   for (const value of [
-    { ...bloom, cognitiveProcess: undefined },
-    { ...bloom, cognitiveProcess: "Synthesize" },
-    { ...bloom, knowledgeDimension: "Strategic Knowledge" },
-    { ...bloom, classificationEditNumber: 1 },
-    { ...bloom, classificationEditNumber: "01" },
-    { ...bloom, classificationEditNumber: "9223372036854775808" },
-    { ...bloom, difficulty: "Hard" },
+    { ...complete, cognitiveProcess: "Synthesize" },
+    { ...complete, knowledgeDimension: "Strategic Knowledge" },
+    { cognitiveProcess: "Apply" },
+    { ...complete, classificationEditNumber: "2" },
+    { ...complete, difficulty: "Hard" },
   ]) {
     assert.throws(() => decodeBloomClassificationView(value, "bloom"), DecodeError);
   }
-});
-
-test("Bloom correction request is complete, closed, and precision-safe", () => {
-  const request = {
-    cognitiveProcess: "Analyze",
-    knowledgeDimension: "Conceptual Knowledge",
-    expectedClassificationEditNumber: "9223372036854775807",
-  };
-  assert.deepEqual(decodeBloomClassificationCorrectionRequest(request, "request"), request);
-  for (const value of [
-    { ...request, cognitiveProcess: undefined },
-    { ...request, expectedClassificationEditNumber: "0" },
-    { ...request, questionOwner: "caller-authority" },
-  ]) {
-    assert.throws(() => decodeBloomClassificationCorrectionRequest(value, "request"), DecodeError);
-  }
-});
-
-test("Bloom correction receipts are exact-target closed DTOs", () => {
-  const question = {
-    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 3 },
-    bloom,
-  };
-  const pool = {
-    questionPoolId: "3S8B-24DZ",
-    bloom,
-  };
-  assert.deepEqual(decodeQuestionBloomCorrectionReceipt(question, "response"), question);
-  assert.deepEqual(decodeQuestionPoolBloomCorrectionReceipt(pool, "response"), pool);
-  assert.throws(
-    () => decodeQuestionBloomCorrectionReceipt({ ...question, changed: true }, "response"),
-    DecodeError,
-  );
-  assert.throws(
-    () => decodeQuestionPoolBloomCorrectionReceipt({ ...pool, actor: "Instructor" }, "response"),
-    DecodeError,
-  );
 });

@@ -41,7 +41,7 @@ The first-delivery choices and source completeness are recorded in
 - Current Blueprint inputs have no Theme field. Carrying the Blueprint's starting Theme into a
   new Course is an implementation gap, not an unresolved product decision.
 - The current feedback-timing request field does not settle the deferred optional feedback decision.
-- The current Pool-order request value does not change HG's unordered Pool membership rule.
+- Pool membership is an unordered set of exact Revision tuples; Blueprint assembly has no Pool-order request value.
 
 Detailed source evidence is retained in
 [biology_course_spec_handoff.md](active_plans/reports/biology_course_spec_handoff.md).

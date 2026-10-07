@@ -81,6 +81,11 @@ def environment_for(
 		"PLE_LIVE_DEMO_BROWSER_INPUT_FILE": str(input_path),
 		"PLE_LIVE_DEMO_BROWSER_ORIGIN_RECEIPT_FILE": str(origin_path),
 	})
+	if "morgan_sysadmin" in contract.personas:
+		setup_uri = local_stack_control.local_totp_authenticator.write_authenticator_setup_uri(
+			private / local_stack_control.local_totp_authenticator.MORGAN_TOTP_ARTIFACT_FILE
+		)
+		result["PLE_LOCAL_DEMO_TOTP_SETUP_FILE"] = str(setup_uri)
 	return result
 
 

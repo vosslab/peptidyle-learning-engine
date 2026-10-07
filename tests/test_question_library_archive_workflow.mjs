@@ -1,14 +1,20 @@
 // Question Library search is the collection workflow. Archive stays one Published Question.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { build } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
-
-const question = publishedQuestionFixture.publishedQuestion;
+const question = {
+  questionId: "7K3M-79QP",
+  metadata: { questionTitle: "Peptide bond resonance" },
+};
+const questionDetailSource = readFileSync(
+  new URL("../src/pages/question_detail_page.tsx", import.meta.url),
+  "utf8",
+);
 
 async function loadArchiveWorkflowRenderer() {
   const result = await build({
@@ -81,7 +87,7 @@ async function loadArchiveWorkflowRenderer() {
                             return createComponent(LibraryPage, {
                               mode: "search",
                               repository: {
-                                searchQuestionLibrary: unavailable("searchQuestionLibrary"),
+                                searchLibraryObjects: unavailable("searchLibraryObjects"),
                               },
                               metadataClient: {
                                 replaceQuestionMetadata: unavailable("replaceQuestionMetadata"),
@@ -174,6 +180,7 @@ test("With 13,000 Questions in Neil's first course, manually archiving Questions
           metadata: { questionTitle: question.metadata.questionTitle },
         },
         viewerMayArchive: true,
+        viewerMayEditMetadata: true,
         questionAvailabilityEditNumber: "5",
       };
     },
@@ -187,4 +194,92 @@ test("With 13,000 Questions in Neil's first course, manually archiving Questions
   assert.equal(archiveHtml.match(/Archive Published Question/g)?.length, 1);
   assert.doesNotMatch(archiveHtml, /Danger Zone/);
   assert.deepEqual(calls, [["lineage", question.questionId]]);
+
+  const archivedOwnerClient = {
+    async getQuestionLineage(questionId) {
+      return {
+        summary: {
+          questionId,
+          availability: { availability: "archived" },
+          metadata: { questionTitle: question.metadata.questionTitle },
+        },
+        viewerMayArchive: true,
+        viewerMayEditMetadata: false,
+        questionAvailabilityEditNumber: "6",
+      };
+    },
+    async archiveQuestion() {
+      throw new Error("An archived Question must not be archived again");
+    },
+    async restoreQuestion() {
+      throw new Error("Rendering the restore control must not restore the Question");
+    },
+  };
+  const archivedOwnerHtml = await renderer.renderQuestionArchive(
+    archivedOwnerClient,
+    question.questionId,
+  );
+  assert.match(archivedOwnerHtml, /archived and read-only/);
+  assert.match(archivedOwnerHtml, /Restore Published Question/);
+
+  const archivedNonOwnerClient = {
+    async getQuestionLineage(questionId) {
+      return {
+        summary: {
+          questionId,
+          availability: { availability: "archived" },
+          metadata: { questionTitle: question.metadata.questionTitle },
+        },
+        viewerMayArchive: false,
+        viewerMayEditMetadata: false,
+        questionAvailabilityEditNumber: "6",
+      };
+    },
+  };
+  const archivedHtml = await renderer.renderQuestionArchive(
+    archivedNonOwnerClient,
+    question.questionId,
+  );
+  assert.match(archivedHtml, /archived and read-only/);
+  assert.match(archivedHtml, /normal Question Library discovery/);
+  assert.doesNotMatch(archivedHtml, /unavailable for new selection/);
+  assert.doesNotMatch(archivedHtml, /Restore Published Question/);
+  assert.doesNotMatch(archivedHtml, /Archive Published Question/);
+});
+
+test("the detail action boundary offers archived exact-Revision forks to every Instructor", () => {
+  assert.match(
+    questionDetailSource,
+    /const mayMutateLibrary = \(\): boolean => \{\s*const state = session\.state\(\);\s*return state\.kind === "authenticated" && state\.session\.account\.userRole === "instructor";/u,
+  );
+
+  const archiveControlStart = questionDetailSource.indexOf(
+    "<QuestionArchiveControl",
+    questionDetailSource.indexOf("export function QuestionDetailPage"),
+  );
+  const archiveControlEnd = questionDetailSource.indexOf(
+    "/>\n              <Show when={mayMutateLibrary()}>",
+    archiveControlStart,
+  );
+  assert.notEqual(archiveControlStart, -1);
+  assert.notEqual(archiveControlEnd, -1);
+  const archiveControl = questionDetailSource.slice(archiveControlStart, archiveControlEnd);
+  assert.match(
+    archiveControl,
+    /renderAvailableAction=\{\(\) => \([\s\S]*?<Show when=\{mayMutateLibrary\(\)\}>\s*<QuestionPoolFromQuestionControl\s+detail=\{record\(\)\}\s*\/>\s*<\/Show>[\s\S]*?\)\}/u,
+  );
+  const availableActionStart = archiveControl.indexOf("renderAvailableAction={() => (");
+  const availableActionEnd = archiveControl.indexOf("\n                )}", availableActionStart);
+  assert.notEqual(availableActionStart, -1);
+  assert.notEqual(availableActionEnd, -1);
+  const availableAction = archiveControl.slice(availableActionStart, availableActionEnd);
+  assert.match(availableAction, /QuestionPoolFromQuestionControl/u);
+  assert.doesNotMatch(availableAction, /QuestionForkControl/u);
+
+  const forkAction = questionDetailSource.slice(archiveControlEnd + 3);
+  assert.match(
+    forkAction,
+    /<Show when=\{mayMutateLibrary\(\)\}>\s*<QuestionForkControl\s+sourceRevisionTuple=\{record\(\)\.summary\.publishedQuestionRevisionTuple\}\s*\/>\s*<\/Show>/u,
+  );
+  assert.doesNotMatch(archiveControl, /QuestionForkControl/u);
 });

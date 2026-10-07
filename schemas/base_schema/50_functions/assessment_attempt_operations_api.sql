@@ -110,10 +110,9 @@ RETURNS TABLE (
     student_record_id uuid, assessment_id text, assessment_entry_id uuid,
     entry_kind text, authored_position integer, fixed_question_id text,
     fixed_revision_number integer, question_pool_id text,
-    question_pool_edit_number bigint, member_position integer,
+    question_pool_edit_number bigint,
     pool_question_id text, pool_question_revision_number integer, question_backend text,
     selection_count integer,
-    pool_selection_rule text,
     question_variation_rule text, assessment_question_order_rule text
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$

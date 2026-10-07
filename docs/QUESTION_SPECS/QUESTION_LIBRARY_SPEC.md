@@ -89,19 +89,15 @@ Use Change Proposals as the Instructor-facing term for proposed content changes.
 authors remain defined in
 [QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md](QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md).
 
-### Current implementation follow-up
-
-Existing code for manually written notices is listed for removal in
-[TODO.md](../TODO.md#question-spec-implementation-follow-up).
-
 ## Usage statistics
 
 Published Questions retain privacy-safe aggregate statistics per Revision; Pools retain their
 own aggregate statistics. They show how often Students received each Published Question Revision
 or Questions from each Pool and how much credit they earned. Count a delivery even when the
 Attempt has not been submitted. Credit
-statistics use graded responses; delivery alone is not a graded response. A Pool's own statistics
-describe its use, rather than all uses of Questions currently in that Pool.
+statistics use graded responses; delivery alone is not a graded response. Pool statistics
+accumulate from Questions delivered through that Pool, including across changes to its set of
+Question Revision Tuples.
 
 For graded responses, show:
 

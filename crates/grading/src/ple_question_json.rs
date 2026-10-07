@@ -17,6 +17,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::AnswerKey;
 
+#[cfg(test)]
+mod fill_in_tests;
+mod multiple_answer;
+mod ordering;
 #[path = "ple_question_json_validate.rs"]
 mod ple_question_json_validate;
 mod recorded_teaching;
@@ -100,6 +104,234 @@ impl std::fmt::Display for PleQuestionJsonError {
 }
 
 impl std::error::Error for PleQuestionJsonError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::AnswerKey;
+    use question_model::answer::ResponseSelectionRule;
+    use question_model::response::{
+        MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice, StudentMatch,
+    };
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn id(value: impl Into<String>) -> ResponseItemId {
+        ResponseItemId::new(value)
+    }
+
+    fn body(value: &str) -> Vec<question_model::QuestionContentBlock> {
+        vec![question_model::QuestionContentBlock::Text {
+            markdown: value.to_string(),
+        }]
+    }
+
+    fn evaluate(
+        question_type: QuestionType,
+        response_format: QuestionResponseFormat,
+        answer_key: AnswerKey,
+        response: StudentResponse,
+    ) -> Result<PleQuestionJsonEvaluation, PleQuestionJsonError> {
+        let checksum = "a".repeat(64);
+        PleQuestionJsonPrivateGrading::new_with_key(
+            checksum.clone(),
+            question_type,
+            &response_format,
+            answer_key,
+            Vec::new(),
+            None,
+            None,
+        )?
+        .evaluate(&checksum, question_type, &response_format, &response)
+    }
+
+    fn fraction(result: Result<PleQuestionJsonEvaluation, PleQuestionJsonError>) -> f64 {
+        result
+            .expect("valid response evaluates")
+            .evaluation
+            .normalized_credit()
+    }
+
+    #[test]
+    fn multiple_answer_uses_choice_count_formula_through_private_grading() {
+        let choices: Vec<_> = (0..10)
+            .map(|index| QuestionChoice {
+                id: id(format!("c{index}")),
+                body: body(&format!("Choice {index}")),
+            })
+            .collect();
+        let correct: BTreeSet<_> = (0..8).map(|index| id(format!("c{index}"))).collect();
+        let response_format = QuestionResponseFormat::MultipleChoice {
+            choices,
+            selection: ResponseSelectionRule::AtLeastOne,
+        };
+        let response = StudentResponse::MultipleChoice {
+            selected: (0..10).map(|index| id(format!("c{index}"))).collect(),
+        };
+        let evaluation = evaluate(
+            QuestionType::MultipleAnswer,
+            response_format,
+            AnswerKey::MultipleChoice { correct },
+            response,
+        )
+        .expect("valid response evaluates");
+        assert!((evaluation.evaluation.normalized_credit() - 0.6).abs() < 1e-12);
+        assert!(!evaluation.evaluation.correct());
+
+        let invalid_selection = evaluate(
+            QuestionType::MultipleAnswer,
+            QuestionResponseFormat::MultipleChoice {
+                choices: (0..3)
+                    .map(|index| QuestionChoice {
+                        id: id(format!("x{index}")),
+                        body: body("Choice"),
+                    })
+                    .collect(),
+                selection: ResponseSelectionRule::AtLeastOne,
+            },
+            AnswerKey::MultipleChoice {
+                correct: BTreeSet::from([id("x0")]),
+            },
+            StudentResponse::MultipleChoice {
+                selected: vec![id("x0"), id("x0")],
+            },
+        );
+        assert!(matches!(
+            invalid_selection,
+            Err(PleQuestionJsonError::Grading(
+                PleQuestionJsonGradingError::InvalidResponse(_)
+            ))
+        ));
+
+        let exactly_one_format = QuestionResponseFormat::MultipleChoice {
+            choices: vec![
+                QuestionChoice {
+                    id: id("a"),
+                    body: body("A"),
+                },
+                QuestionChoice {
+                    id: id("b"),
+                    body: body("B"),
+                },
+            ],
+            selection: ResponseSelectionRule::ExactlyOne,
+        };
+        assert_eq!(
+            fraction(evaluate(
+                QuestionType::MultipleChoice,
+                exactly_one_format,
+                AnswerKey::MultipleChoice {
+                    correct: BTreeSet::from([id("a")])
+                },
+                StudentResponse::MultipleChoice {
+                    selected: vec![id("a")]
+                },
+            )),
+            1.0
+        );
+    }
+
+    #[test]
+    fn matching_partial_and_empty_responses_use_all_authored_prompts_as_denominator() {
+        let prompts: Vec<_> = (1..=5)
+            .map(|index| MatchingPrompt {
+                id: id(format!("p{index}")),
+                body: body("Prompt"),
+            })
+            .collect();
+        let choices: Vec<_> = (1..=5)
+            .map(|index| MatchingChoice {
+                id: id(format!("c{index}")),
+                body: body("Choice"),
+            })
+            .collect();
+        let correct: BTreeMap<_, _> = (1..=5)
+            .map(|index| (id(format!("p{index}")), id(format!("c{index}"))))
+            .collect();
+        let response_format = QuestionResponseFormat::Matching { prompts, choices };
+        let response = StudentResponse::Matching {
+            matches: vec![
+                StudentMatch {
+                    prompt: id("p1"),
+                    choice: id("c1"),
+                },
+                StudentMatch {
+                    prompt: id("p2"),
+                    choice: id("c2"),
+                },
+                StudentMatch {
+                    prompt: id("p3"),
+                    choice: id("c3"),
+                },
+                StudentMatch {
+                    prompt: id("p4"),
+                    choice: id("c5"),
+                },
+            ],
+        };
+        let partial = evaluate(
+            QuestionType::Matching,
+            response_format.clone(),
+            AnswerKey::Matching {
+                correct: correct.clone(),
+            },
+            response,
+        )
+        .expect("valid partial matching evaluates");
+        assert_eq!(partial.evaluation.normalized_credit(), 0.6);
+        assert!(!partial.evaluation.correct());
+        assert_eq!(
+            fraction(evaluate(
+                QuestionType::Matching,
+                response_format,
+                AnswerKey::Matching { correct },
+                StudentResponse::Matching {
+                    matches: Vec::new()
+                },
+            )),
+            0.0
+        );
+    }
+
+    #[test]
+    fn ordering_uses_stable_ids_and_preserves_complete_permutation_validation() {
+        let items: Vec<_> = ["a", "b", "c", "d"]
+            .into_iter()
+            .map(|name| OrderingItem {
+                id: id(name),
+                body: body(name),
+            })
+            .collect();
+        let format = QuestionResponseFormat::Ordering { items };
+        let key = AnswerKey::Ordering {
+            correct: ["a", "b", "c", "d"].into_iter().map(id).collect(),
+        };
+        assert_eq!(
+            fraction(evaluate(
+                QuestionType::Ordering,
+                format.clone(),
+                key.clone(),
+                StudentResponse::Ordering {
+                    order: ["d", "a", "b", "c"].into_iter().map(id).collect()
+                },
+            )),
+            0.25
+        );
+        let invalid = evaluate(
+            QuestionType::Ordering,
+            format,
+            key,
+            StudentResponse::Ordering {
+                order: ["d", "a", "b", "b"].into_iter().map(id).collect(),
+            },
+        );
+        assert!(matches!(
+            invalid,
+            Err(PleQuestionJsonError::Grading(
+                PleQuestionJsonGradingError::InvalidResponse(_)
+            ))
+        ));
+    }
+}
 
 /// Server-only Answer Key and Question Feedback bound to one exact public
 /// Question payload by its PLE Question JSON Public Content Checksum.

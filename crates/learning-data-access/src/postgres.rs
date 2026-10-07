@@ -29,10 +29,6 @@ mod assessment_delivery_source;
 #[cfg(feature = "postgres")]
 mod assessment_delivery_start;
 #[cfg(feature = "postgres")]
-mod assessment_pool_fork;
-#[cfg(feature = "postgres")]
-mod assessment_pool_selection_count;
-#[cfg(feature = "postgres")]
 mod assessment_release;
 #[cfg(feature = "postgres")]
 mod assessment_student_time_accommodation;
@@ -53,7 +49,6 @@ mod authentication_ceremony;
 #[cfg(feature = "postgres")]
 mod authoring;
 #[cfg(feature = "postgres")]
-mod bloom_preparation;
 #[cfg(feature = "postgres")]
 mod blueprint_change_proposal;
 #[cfg(feature = "postgres")]
@@ -64,8 +59,6 @@ mod blueprint_fork_apply;
 mod blueprint_history;
 #[cfg(feature = "postgres")]
 mod blueprint_lineage;
-#[cfg(feature = "postgres")]
-mod blueprint_pools;
 #[cfg(feature = "postgres")]
 mod blueprint_stewardship;
 #[cfg(feature = "postgres")]
@@ -98,8 +91,6 @@ mod instructor_account;
 #[cfg(feature = "postgres")]
 mod invitation_export;
 #[cfg(feature = "postgres")]
-mod library_discussion;
-#[cfg(feature = "postgres")]
 mod library_watch_notification;
 #[cfg(feature = "postgres")]
 mod live_gradebook;
@@ -114,6 +105,7 @@ mod object_record;
 #[cfg(feature = "postgres")]
 mod question_bulk_metadata;
 #[cfg(feature = "postgres")]
+#[cfg(feature = "postgres")]
 mod question_fork;
 #[cfg(feature = "postgres")]
 mod question_image_delivery;
@@ -122,9 +114,14 @@ mod question_image_publication;
 #[cfg(feature = "postgres")]
 mod question_library;
 #[cfg(feature = "postgres")]
+mod question_metadata;
+#[cfg(feature = "postgres")]
 mod question_pool_bulk_metadata;
 #[cfg(feature = "postgres")]
+#[cfg(feature = "postgres")]
 mod question_pool_creation;
+#[cfg(feature = "postgres")]
+mod question_pool_fork;
 #[cfg(feature = "postgres")]
 mod question_pool_library;
 #[cfg(feature = "postgres")]
@@ -164,10 +161,6 @@ pub use assessment_attempt::PostgresAssessmentAttemptStore;
 #[cfg(feature = "postgres")]
 pub use assessment_delivery::PostgresLiveAssessmentDeliveryStore;
 #[cfg(feature = "postgres")]
-pub use assessment_pool_fork::PostgresAssessmentPoolForkStore;
-#[cfg(feature = "postgres")]
-pub use assessment_pool_selection_count::PostgresAssessmentPoolSelectionCountStore;
-#[cfg(feature = "postgres")]
 pub use assessment_release::PostgresLiveAssessmentStore;
 #[cfg(feature = "postgres")]
 pub use assessment_student_time_accommodation::PostgresAssessmentStudentTimeAccommodationStore;
@@ -182,7 +175,6 @@ pub use authentication_ceremony::PostgresAuthenticationCeremonyStore;
 #[cfg(feature = "postgres")]
 pub use authoring::PostgresAuthoringDraftStore;
 #[cfg(feature = "postgres")]
-pub use bloom_preparation::PostgresBloomClassificationPreparationStore;
 #[cfg(feature = "postgres")]
 pub use blueprint_course::PostgresBlueprintCourseStore;
 #[cfg(feature = "postgres")]
@@ -211,8 +203,6 @@ pub use instructor_account::PostgresInstructorAccountStore;
 #[cfg(feature = "postgres")]
 pub use invitation_export::PostgresInvitationExportStore;
 #[cfg(feature = "postgres")]
-pub use library_discussion::PostgresLibraryImpactNoticeStore;
-#[cfg(feature = "postgres")]
 pub use library_watch_notification::PostgresLibraryWatchNotificationStore;
 #[cfg(feature = "postgres")]
 pub use live_gradebook::PostgresCourseGradebookStore;
@@ -228,6 +218,7 @@ pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
 #[cfg(feature = "postgres")]
 pub use question_bulk_metadata::PostgresBulkPublishedQuestionMetadataStore;
 #[cfg(feature = "postgres")]
+#[cfg(feature = "postgres")]
 pub use question_fork::PostgresQuestionForkStore;
 #[cfg(feature = "postgres")]
 pub use question_image_delivery::PostgresQuestionImageDeliveryStore;
@@ -236,9 +227,14 @@ pub use question_image_publication::PostgresPublicAssetPublicationStore;
 #[cfg(feature = "postgres")]
 pub use question_library::PostgresQuestionLibraryStore;
 #[cfg(feature = "postgres")]
+pub use question_metadata::PostgresQuestionMetadataStore;
+#[cfg(feature = "postgres")]
 pub use question_pool_bulk_metadata::PostgresBulkQuestionPoolSearchMetadataStore;
 #[cfg(feature = "postgres")]
+#[cfg(feature = "postgres")]
 pub use question_pool_creation::PostgresQuestionPoolCreationStore;
+#[cfg(feature = "postgres")]
+pub use question_pool_fork::PostgresQuestionPoolForkStore;
 #[cfg(feature = "postgres")]
 pub use question_pool_library::PostgresQuestionPoolLibraryStore;
 #[cfg(feature = "postgres")]
@@ -257,7 +253,7 @@ pub use retention_notification::PostgresCourseRetentionNotificationStore;
 pub use sessions::PostgresSessionStore;
 #[cfg(feature = "postgres")]
 #[cfg(feature = "postgres")]
-pub use support_capability::PostgresSupportCapabilityStore;
+pub use support_capability::PostgresSysadminStudentDataStore;
 #[cfg(feature = "postgres")]
 pub use sysadmin_totp::{
     PostgresSysadminTotpStore, SysadminTotpSeedKeyId, SysadminTotpSeedKeyRing,

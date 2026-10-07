@@ -8,6 +8,7 @@ import type { QuestionContentBlock } from "../../generated/api/QuestionContentBl
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
+import type { DraftQuestionRouteId } from "../navigation/public_route";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
 
@@ -118,7 +119,10 @@ export interface QuestionRendererProps {
 
 /** The semantic, answer-free prompt block surface shared by question views. */
 export interface QuestionPromptRendererProps {
-  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+  /** Published prompt identity; absent for private Draft previews. */
+  readonly publishedQuestionRevisionTuple?: PublishedQuestionRevisionTuple;
+  /** Private Draft identity; it authorizes only that Draft's registered image assets. */
+  readonly draftQuestion?: DraftQuestionRouteId;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly questionImageUrl: QuestionImageUrlResolver;
 }
@@ -265,6 +269,32 @@ export function resolveSameOriginQuestionImageUrl(
   return url.href;
 }
 
+function resolveSameOriginDraftQuestionImageUrl(
+  questionImage: QuestionImageAssetTuple,
+  draftQuestion: DraftQuestionRouteId,
+  resolver: QuestionImageUrlResolver,
+): string {
+  const url = resolver(questionImage);
+  const expectedPath = `/api/authoring/drafts/${encodeURIComponent(draftQuestion)}/images/${encodeURIComponent(questionImage.questionImageAssetId)}`;
+  if (
+    url.origin !== globalThis.location.origin ||
+    url.pathname !== expectedPath ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    url.username !== "" ||
+    url.password !== ""
+  ) {
+    throw new QuestionContentError(
+      "Draft images must use their authorized exact Draft asset route.",
+    );
+  }
+  return url.href;
+}
+
+function unauthorizedQuestionImage(): never {
+  throw new QuestionContentError("Question images require an authorized source route.");
+}
+
 function appendSafeMathMlNode(document: Document, parent: Node, node: SafeMathMlNode): void {
   if (node.kind === "text") {
     parent.appendChild(document.createTextNode(node.text));
@@ -308,7 +338,8 @@ function RenderedMath(props: {
 
 function QuestionContentBlockRenderer(props: {
   readonly block: QuestionContentBlock;
-  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+  readonly publishedQuestionRevisionTuple?: PublishedQuestionRevisionTuple;
+  readonly draftQuestion?: DraftQuestionRouteId;
   readonly questionImageUrl: QuestionImageUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -326,17 +357,23 @@ function QuestionContentBlockRenderer(props: {
         props.block.description,
         props.block.kind,
       );
-      return (
-        <figure class="question-renderer__figure">
-          <img
-            class="question-renderer__image"
-            src={resolveSameOriginQuestionImageUrl(
+      const imageUrl =
+        props.publishedQuestionRevisionTuple !== undefined
+          ? resolveSameOriginQuestionImageUrl(
               props.block.questionImageAssetTuple,
               props.publishedQuestionRevisionTuple,
               props.questionImageUrl,
-            )}
-            alt={description}
-          />
+            )
+          : props.draftQuestion !== undefined
+            ? resolveSameOriginDraftQuestionImageUrl(
+                props.block.questionImageAssetTuple,
+                props.draftQuestion,
+                props.questionImageUrl,
+              )
+            : unauthorizedQuestionImage();
+      return (
+        <figure class="question-renderer__figure">
+          <img class="question-renderer__image" src={imageUrl} alt={description} />
           <figcaption>{description}</figcaption>
         </figure>
       );
@@ -412,6 +449,7 @@ export function QuestionPromptRenderer(props: QuestionPromptRendererProps): JSX.
           <QuestionContentBlockRenderer
             block={block}
             publishedQuestionRevisionTuple={props.publishedQuestionRevisionTuple}
+            draftQuestion={props.draftQuestion}
             questionImageUrl={props.questionImageUrl}
           />
         )}

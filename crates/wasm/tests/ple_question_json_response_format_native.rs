@@ -1,38 +1,39 @@
-//! Native half of the ple-question-json-v2 public-response/Wasm-boundary parity gate.
-//!
-//! The shared Question Response Format Fixture Set deliberately contains only
-//! compiled, answer-free Question Response Formats. Parsing source documents
-//! or grading them here would pull the server-only PLE Question JSON adapter
-//! and answer keys into the browser boundary.
-
-use serde_json::Value;
-
-#[path = "ple_question_json_response_format_fixture_set.rs"]
-mod ple_question_json_response_format_fixture_set;
+//! Native checks for the public Question Response Format boundary.
 
 #[test]
-fn ple_question_json_public_response_fixture_set_matches_native_bridge() {
-    for case in ple_question_json_response_format_fixture_set::cases() {
-        let check = wasm_bridge::validate_response_format(
-            &serde_json::to_string(&case.response_format).expect("response format serializes"),
-            &serde_json::to_string(&case.response).expect("response serializes"),
+fn public_matching_responses_are_valid_blank_matching_is_allowed_and_calls_are_stateless() {
+    let response_format = r#"{"kind":"matching","prompts":[{"id":"p","body":[{"kind":"text","markdown":"Prompt"}]}],"choices":[{"id":"c","body":[{"kind":"text","markdown":"Choice"}]}]}"#;
+    let complete_response = r#"{"kind":"matching","matches":[{"prompt":"p","choice":"c"}]}"#;
+    let blank_response = r#"{"kind":"matching","matches":[]}"#;
+
+    let complete_check: serde_json::Value = serde_json::from_str(
+        &wasm_bridge::validate_response_format(response_format, complete_response).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(complete_check, serde_json::json!({"issues": []}));
+    let blank_check: serde_json::Value = serde_json::from_str(
+        &wasm_bridge::validate_response_format(response_format, blank_response).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(blank_check, serde_json::json!({"issues": []}));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(
+            &wasm_bridge::validate_response_format(
+                r#"{"kind":"multipleChoice","choices":[{"id":"a","body":[{"kind":"text","markdown":"A"}]}],"selection":{"kind":"exactlyOne"}}"#,
+                r#"{"kind":"multipleChoice","selected":[]}"#,
+            )
+            .unwrap(),
         )
-        .expect("fixture has a valid public response shape");
-        let actual: Value = serde_json::from_str(&check).expect("bridge check is JSON");
-        assert_eq!(actual, case.expected_check, "native case {}", case.name);
-    }
-}
-
-#[test]
-fn ple_question_json_public_response_calls_are_repeatable_natively() {
-    let case = ple_question_json_response_format_fixture_set::matching_full_permutation();
-    let response_format =
-        serde_json::to_string(&case.response_format).expect("response format serializes");
-    let response = serde_json::to_string(&case.response).expect("response serializes");
-
-    let first = wasm_bridge::validate_response_format(&response_format, &response)
-        .expect("first bridge call succeeds");
-    let second = wasm_bridge::validate_response_format(&response_format, &response)
-        .expect("second bridge call succeeds");
+        .unwrap(),
+        serde_json::json!({
+            "issues": [{
+                "kind": "selectionCount",
+                "expected": {"kind": "exactlyOne"},
+                "actual": 0,
+            }]
+        })
+    );
+    let first = wasm_bridge::validate_response_format(response_format, complete_response).unwrap();
+    let second = wasm_bridge::validate_response_format(response_format, complete_response).unwrap();
     assert_eq!(first, second, "same public input must be stateless");
 }

@@ -27,8 +27,8 @@ SELECT 'DRT1-' || ple_private.crockford_checksum_character('DRT1XYZ') || 'XYZ' A
 INSERT INTO ple_data.published_question (published_question_id, created_at)
 VALUES (:'question_id', pg_catalog.transaction_timestamp());
 INSERT INTO ple_data.question_revision (
-    published_question_id, revision_number, backend, question_type, published_at
-) VALUES (:'question_id', 1, 'ple', 'multipleChoice', pg_catalog.transaction_timestamp());
+    published_question_id, revision_number, backend, published_at
+) VALUES (:'question_id', 1, 'ple', pg_catalog.transaction_timestamp());
 
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_data.course_instance (

@@ -70,18 +70,21 @@ CREATE TRIGGER course_roster_event_is_immutable BEFORE UPDATE OR DELETE ON ple_a
 
 CREATE FUNCTION ple_audit.record_course_roster_event(
     p_course_instance_id text, p_student_account_id text, p_acting_account_id text, p_kind text
-) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit AS $$
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit AS $$
+DECLARE recorded_event_id uuid;
 BEGIN
     IF p_course_instance_id IS NULL OR p_student_account_id IS NULL OR p_acting_account_id IS NULL
        OR p_kind NOT IN (
            'invitation_created', 'invitation_claimed', 'student_access_revoked',
-           'student_access_restored'
+           'student_access_restored', 'sysadmin_student_data_accessed'
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Event arguments are invalid';
     END IF;
+    recorded_event_id := pg_catalog.gen_random_uuid();
     INSERT INTO ple_audit.course_roster_event
-    VALUES (pg_catalog.gen_random_uuid(), p_course_instance_id, p_student_account_id, p_acting_account_id,
+    VALUES (recorded_event_id, p_course_instance_id, p_student_account_id, p_acting_account_id,
             p_kind::ple_data.roster_event_kind,
             pg_catalog.transaction_timestamp());
+    RETURN recorded_event_id;
 END
 $$;

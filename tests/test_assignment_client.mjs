@@ -20,7 +20,7 @@ function savedPolicyWorkspace() {
     origin: {
       kind: "adopted",
       source: {
-        blueprint_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
+        blueprint_course_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
       },
     },
@@ -33,6 +33,7 @@ function savedPolicyWorkspace() {
     assessmentAttemptTimeLimitSeconds: 60,
     attemptLimit: null,
     activityRules: {
+      partialCreditEnabled: true,
       questionVariationRule: "newVariation",
       assessmentQuestionOrderRule: "authoredOrder",
     },
@@ -61,6 +62,7 @@ function baseAssessmentPolicy() {
     assessmentAttemptTimeLimitSeconds: 60,
     attemptLimit: null,
     activityRules: {
+      partialCreditEnabled: true,
       questionVariationRule: "newVariation",
       assessmentQuestionOrderRule: "authoredOrder",
     },
@@ -206,7 +208,7 @@ test("The Instructor decides which changes to existing Assessments to incorporat
   const chosen = "A8H4N6PA6";
   const leftAlone = "A9D2RX5AF";
   const input = {
-    expectedSourceBlueprintRevisionTuple: {
+    expectedSourceBlueprintCourseRevisionTuple: {
       blueprintCourseId: "BP7K3M2QXH",
       revisionNumber: "2",
     },

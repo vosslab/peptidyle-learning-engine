@@ -42,6 +42,7 @@ import {
   decodeBlueprintCourseSaveResponse,
   decodeBlueprintCourseView,
   decodeBlueprintMetadataState,
+  decodeBlueprintThemeUpdate,
   decodeBlueprintRevisionNumber,
   decodeBlueprintRevisionView,
   decodeCreateBlueprintCourseInput,
@@ -367,13 +368,13 @@ export function createBlueprintCourseClient(
           expectedStatus: 200,
         },
       );
-      if (result.body.blueprintRevisionTuple.blueprintCourseId !== blueprintCourseId)
+      if (result.body.blueprintCourseRevisionTuple.blueprintCourseId !== blueprintCourseId)
         throw new ApiProtocolError(
           "Blueprint fork update response must identify the requested fork",
         );
       requireCurrentBlueprintRevisionNumber(
         result.response,
-        result.body.blueprintRevisionTuple.revisionNumber,
+        result.body.blueprintCourseRevisionTuple.revisionNumber,
         path,
       );
       return result.body;
@@ -540,6 +541,27 @@ export function createBlueprintCourseClient(
         {
           method: "PUT",
           body: decodeCourseClassification(classification, "request"),
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
+          expectedStatus: 200,
+        },
+      );
+      return metadataTransition(result.body, result.response, path);
+    },
+    updateBlueprintCourseTheme: async (
+      blueprintCourseId,
+      update,
+      expectedBlueprintEditNumber,
+    ): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(blueprintCourseId)}/theme`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintMetadataState,
+        {
+          method: "PUT",
+          body: decodeBlueprintThemeUpdate(update, "request"),
           ifMatchNumber: expectedBlueprintEditNumber,
           ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,

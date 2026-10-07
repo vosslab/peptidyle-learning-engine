@@ -17,15 +17,13 @@ import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
-import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
+import type { LibraryObjectSearchPage } from "../../../generated/api/LibraryObjectSearchPage";
 import type { QuestionUseDetails } from "../../../generated/api/QuestionUseDetails";
 import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import { decodeQuestionAuthorship } from "../question_authorship";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import type { AssessmentActivityRules } from "../../../generated/api/AssessmentActivityRules";
-import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
-import type { QuestionPoolSelectionRule } from "../../../generated/api/QuestionPoolSelectionRule";
 import type { AssessmentContentInput, AssessmentEditorEntryInput } from "../contracts";
 import {
   DecodeError,
@@ -97,6 +95,7 @@ export function decodeQuestionSummary(
     requireOnlyFields(record, path, [
       "questionId",
       "publishedQuestionRevisionTuple",
+      "parentPublishedQuestionRevisionTuple",
       "backend",
       "questionFormat",
       "questionType",
@@ -114,6 +113,11 @@ export function decodeQuestionSummary(
       field(record, "publishedQuestionRevisionTuple", path),
       `${path}.publishedQuestionRevisionTuple`,
       strict,
+    ),
+    parentPublishedQuestionRevisionTuple: decodeNullable(
+      field(record, "parentPublishedQuestionRevisionTuple", path),
+      `${path}.parentPublishedQuestionRevisionTuple`,
+      (parent, parentPath) => decodePublishedQuestionRevisionTuple(parent, parentPath, strict),
     ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
@@ -158,6 +162,12 @@ export function decodeQuestionSummary(
     throw new DecodeError(
       `${path}.publishedQuestionRevisionTuple.publishedQuestionId`,
       "the Question Summary questionId",
+    );
+  }
+  if (decoded.parentPublishedQuestionRevisionTuple?.publishedQuestionId === decoded.questionId) {
+    throw new DecodeError(
+      `${path}.parentPublishedQuestionRevisionTuple.publishedQuestionId`,
+      "a distinct immediate parent Question ID",
     );
   }
   if (
@@ -355,7 +365,10 @@ function decodeQuestionDetailsPromptView(value: unknown, path: string): Question
   };
 }
 /** Strict, bounded metadata-only Question Search Results View. */
-export function decodeQuestionSearchPage(value: unknown, path = "response"): QuestionSearchPage {
+export function decodeLibraryObjectSearchPage(
+  value: unknown,
+  path = "response",
+): LibraryObjectSearchPage {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["items", "nextCursor", "facets"]);
   return {
@@ -433,9 +446,17 @@ function decodeAssessmentActivityRules(
 ): AssessmentActivityRules {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["questionVariationRule", "assessmentQuestionOrderRule"]);
+    requireOnlyFields(record, path, [
+      "partialCreditEnabled",
+      "questionVariationRule",
+      "assessmentQuestionOrderRule",
+    ]);
   }
   const decoded = {
+    partialCreditEnabled: decodeBoolean(
+      field(record, "partialCreditEnabled", path),
+      `${path}.partialCreditEnabled`,
+    ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),
       `${path}.questionVariationRule`,
@@ -602,7 +623,6 @@ function decodeAssessmentContentEntry(value: unknown, path: string): AssessmentE
     "scoringRule",
     "selectionCount",
     "pointsPerItem",
-    "selectionRule",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
   ]);
@@ -640,10 +660,6 @@ function decodeAssessmentContentEntry(value: unknown, path: string): AssessmentE
     pointsPerItem: decodeAssessmentPointValue(
       field(record, "pointsPerItem", path),
       `${path}.pointsPerItem`,
-    ),
-    selectionRule: decodeQuestionPoolSelectionRule(
-      field(record, "selectionRule", path),
-      `${path}.selectionRule`,
     ),
     questionAttemptLimit: decodeQuestionAttemptLimit(
       field(record, "questionAttemptLimit", path),
@@ -691,21 +707,6 @@ export function decodeAssessmentContentInput(
   };
 }
 
-function decodeQuestionPoolSelectionRule(value: unknown, path: string): QuestionPoolSelectionRule {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["selectedQuestionOrder"]);
-  return {
-    selectedQuestionOrder: decodeStringEnum(
-      field(record, "selectedQuestionOrder", path),
-      `${path}.selectedQuestionOrder`,
-      [
-        "questionPoolOrder",
-        "randomOrder",
-      ] as const satisfies ReadonlyArray<QuestionPoolSelectedQuestionOrder>,
-    ),
-  };
-}
-
 function decodeQuestionPoolAssessmentEntry(
   value: unknown,
   path: string,
@@ -720,7 +721,6 @@ function decodeQuestionPoolAssessmentEntry(
     "scoringRule",
     "selectionCount",
     "pointsPerItem",
-    "selectionRule",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
   ]);
@@ -751,10 +751,6 @@ function decodeQuestionPoolAssessmentEntry(
     pointsPerItem: decodeAssessmentPointValue(
       field(record, "pointsPerItem", path),
       `${path}.pointsPerItem`,
-    ),
-    selectionRule: decodeQuestionPoolSelectionRule(
-      field(record, "selectionRule", path),
-      `${path}.selectionRule`,
     ),
     questionAttemptLimit: decodeQuestionAttemptLimit(
       field(record, "questionAttemptLimit", path),

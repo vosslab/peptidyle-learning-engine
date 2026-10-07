@@ -5,6 +5,17 @@ SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.published_question (
     published_question_id ple_data.question_family_id PRIMARY KEY,
+    parent_published_question_id ple_data.question_family_id,
+    parent_revision_number integer CHECK (
+        parent_revision_number IS NULL OR parent_revision_number > 0
+    ),
+    CHECK (
+        (parent_published_question_id IS NULL) = (parent_revision_number IS NULL)
+    ),
+    CHECK (
+        parent_published_question_id IS NULL
+        OR parent_published_question_id <> published_question_id
+    ),
     availability ple_data.question_availability NOT NULL DEFAULT 'available',
     availability_edit_number bigint NOT NULL DEFAULT 1
         CHECK (availability_edit_number > 0),
@@ -18,7 +29,6 @@ CREATE TABLE ple_data.question_revision (
     published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
     backend ple_data.question_backend NOT NULL,
-    question_type ple_data.question_type NOT NULL,
     -- Deliberately authored, backend-independent general feedback.  It is
     -- immutable with this Question Revision; dynamic backend feedback is not
     -- captured here.
@@ -46,8 +56,9 @@ CREATE TABLE ple_data.question_revision (
 );
 
 
-CREATE TABLE ple_data.published_question_metadata (
-    published_question_id ple_data.question_family_id PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
+CREATE TABLE ple_data.question_revision_metadata (
+    published_question_id ple_data.question_family_id NOT NULL,
+    revision_number integer NOT NULL CHECK (revision_number > 0),
     question_title text NOT NULL CHECK (
         question_title = btrim(question_title)
         AND char_length(question_title) BETWEEN 1 AND 512
@@ -58,12 +69,12 @@ CREATE TABLE ple_data.published_question_metadata (
         AND char_length(question_description) BETWEEN 1 AND 4000
         AND question_description !~ '[[:cntrl:]]'
     ),
-    language text NOT NULL CHECK (
+    language text CHECK (
         language = btrim(language) AND char_length(language) BETWEEN 2 AND 35
     ),
-    -- Search metadata belongs to the Published Question lineage, not to an
-    -- immutable Revision.  C365 is the only bulk writer and advances this
-    -- independent optimistic-concurrency value.
+    question_type ple_data.question_type NOT NULL,
+    -- Permitted metadata corrections update this complete Revision in place.
+    -- The edit number detects conflicts without becoming another identity.
     metadata_edit_number bigint NOT NULL DEFAULT 1 CHECK (metadata_edit_number > 0),
     tags text[] NOT NULL DEFAULT ARRAY[]::text[]
         CHECK (ple_data.question_metadata_tags_are_valid(tags)),
@@ -73,6 +84,11 @@ CREATE TABLE ple_data.published_question_metadata (
     content_subject_id uuid NOT NULL,
     content_topic_id uuid,
     content_subtopic_id uuid,
+    bloom_cognitive_process ple_data.bloom_cognitive_process,
+    bloom_knowledge_dimension ple_data.bloom_knowledge_dimension,
+    PRIMARY KEY (published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
     FOREIGN KEY (content_subject_id, content_discipline_id)
         REFERENCES ple_data.content_subject_discipline(content_subject_id, content_discipline_id),
     FOREIGN KEY (content_subject_id, content_topic_id)
@@ -176,15 +192,10 @@ CREATE TABLE ple_data.question_revision_license (
 CREATE TABLE ple_data.question_revision_citation (
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
-    citation_url text,
     citation_text text,
     PRIMARY KEY (published_question_id, revision_number),
     FOREIGN KEY (published_question_id, revision_number)
         REFERENCES ple_data.question_revision(published_question_id, revision_number),
-    CHECK (NULLIF(btrim(citation_url), '') IS NOT NULL
-        OR NULLIF(btrim(citation_text), '') IS NOT NULL),
-    CHECK (citation_url IS NULL OR char_length(btrim(citation_url)) <= 2048),
-    CHECK (citation_text IS NULL OR char_length(btrim(citation_text)) <= 4000),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     CHECK (updated_at >= created_at)
@@ -198,17 +209,6 @@ CREATE TABLE ple_data.question_ownership_event (
     recorded_by_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     event_kind ple_data.ownership_event_kind NOT NULL,
     occurred_at timestamptz NOT NULL
-);
-
-
-CREATE TABLE ple_data.question_fork_source (
-    forked_published_question_id ple_data.question_family_id PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
-    source_question_id text NOT NULL,
-    source_revision_number integer NOT NULL CHECK (source_revision_number > 0),
-    recorded_at timestamptz NOT NULL,
-    FOREIGN KEY (source_question_id, source_revision_number)
-        REFERENCES ple_data.question_revision(published_question_id, revision_number),
-    CHECK (forked_published_question_id <> source_question_id)
 );
 
 
@@ -240,36 +240,11 @@ CREATE TABLE ple_data.question_watch (
 );
 
 
-CREATE TABLE ple_data.question_revision_bloom (
-    published_question_id ple_data.question_family_id NOT NULL,
-    revision_number integer NOT NULL,
-    cognitive_process ple_data.bloom_cognitive_process NOT NULL,
-    knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
-    classification_edit_number bigint NOT NULL CHECK (classification_edit_number > 0),
-    PRIMARY KEY (published_question_id, revision_number),
-    FOREIGN KEY (published_question_id, revision_number)
-        REFERENCES ple_data.question_revision (published_question_id, revision_number),
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
-    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
-    CHECK (updated_at >= created_at)
-);
-
-
-SET LOCAL ROLE ple_private_owner;
-
-CREATE TABLE ple_private.bloom_preparation_receipt (
-    bloom_preparation_receipt_id uuid PRIMARY KEY,
-    target_kind ple_private.bloom_preparation_target_kind NOT NULL,
-    candidate_fingerprint bytea NOT NULL CHECK (octet_length(candidate_fingerprint) = 32),
-    cognitive_process ple_data.bloom_cognitive_process NOT NULL,
-    knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
-);
-
-
 SET LOCAL ROLE ple_data_owner;
 
-COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+COMMENT ON TABLE ple_data.question_revision_metadata IS 'role: revision, ordinary metadata corrections preserve the exact Question Revision including independently nullable Bloom dimensions; HUMAN_GUIDANCE.md Published Question revisions and edits.';
+
+COMMENT ON COLUMN ple_data.question_revision_metadata.question_type IS 'Question Type for this exact Revision; WeBWorK edits use metadata CAS, while Native Type must match its source interaction.';
 
 COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
@@ -283,18 +258,14 @@ COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, de
 
 COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
-
 COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
-COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -352,10 +323,13 @@ SET LOCAL ROLE ple_data_owner;
 COMMENT ON COLUMN ple_data.question_revision.general_feedback IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_revision.hint IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_revision.worked_solution IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.published_question_metadata.content_topic_id IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.published_question_metadata.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_metadata.content_topic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_metadata.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_metadata.bloom_cognitive_process IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_metadata.bloom_knowledge_dimension IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_availability_event.reason IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_revision_acceptance.parent_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.published_question.parent_published_question_id IS 'NULL means this Published Question was not forked from another Published Question.';
+COMMENT ON COLUMN ple_data.published_question.parent_revision_number IS 'NULL means no parent Revision; otherwise this is the exact immediate source Revision.';
 COMMENT ON COLUMN ple_data.question_revision_authorship.author_account_id IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.question_revision_citation.citation_url IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.question_revision_citation.citation_text IS 'NULL means this optional fact is absent.';

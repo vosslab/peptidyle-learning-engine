@@ -2,12 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  decodePleQuestionJsonSource,
+  serializePleQuestionJsonSource,
+} from "../src/features/ple_question_json_authoring/question_json_codec.ts";
+import {
   addFillInAnswer,
   normalizedAcceptedAnswer,
   removeFillInAnswer,
   setFillInAnswer,
+  setFillInMatchMode,
   validateFillInResponse,
 } from "../src/features/ple_question_json_authoring/question_json_fill_in_model.ts";
+import { PLE_QUESTION_JSON_TEXT_RESPONSE_MATCH_MODES } from "../src/features/ple_question_json_authoring/question_json_match_modes.ts";
 import {
   numericResponseFromAuthoring,
   parseNumericLiteral,
@@ -18,6 +24,18 @@ import {
 
 function fillIn() {
   return { kind: "fillIn", answers: ["ATP"], matchMode: "caseInsensitive", maxLength: 12 };
+}
+
+function sourceWithResponse(response) {
+  return {
+    format: "pleQuestionJson",
+    prompt: "Enter an answer.",
+    response,
+    questionHint: null,
+    feedback: { correct: null, incorrect: null },
+    externalResources: [],
+    authorScript: null,
+  };
 }
 
 test("fill-in operations preserve authored text and refuse invalid saved-answer states through validation", () => {
@@ -53,6 +71,65 @@ test("fill-in add and remove operations retain one accepted-answer row", () => {
   const oneRemaining = removeFillInAnswer(editedAddedAnswer, 1);
   assert.equal(oneRemaining.answers.length, 1);
   assert.equal(setFillInAnswer(oneRemaining, 0, "ADP").answers[0], "ADP");
+});
+
+test("regex source round-trips for FIB and MULTI-FIB", () => {
+  const sources = [
+    sourceWithResponse({
+      kind: "fillIn",
+      answers: ["^(ATP|GTP)$"],
+      matchMode: "regex",
+      maxLength: 16,
+    }),
+    sourceWithResponse({
+      kind: "multiFillIn",
+      blanks: [
+        {
+          id: "blank_a",
+          label: "Nucleotide",
+          answers: ["^(ATP|GTP)$"],
+          matchMode: "regex",
+          maxLength: 16,
+        },
+      ],
+    }),
+  ];
+
+  for (const source of sources) {
+    const decoded = decodePleQuestionJsonSource(source);
+    assert.equal(
+      decoded.response.kind === "fillIn"
+        ? decoded.response.matchMode
+        : decoded.response.blanks[0]?.matchMode,
+      "regex",
+    );
+    assert.equal(serializePleQuestionJsonSource(decoded), JSON.stringify(source));
+  }
+});
+
+test("regex mode preserves pattern case and does not compare pattern length to student input", () => {
+  const response = setFillInMatchMode(fillIn(), "regex");
+  const patterns = {
+    ...response,
+    answers: ["^ATP$", "^atp$"],
+    maxLength: 3,
+  };
+  assert.equal(validateFillInResponse(patterns).valid, true);
+  assert.equal(
+    validateFillInResponse({ ...patterns, answers: ["^ATP$", "^ATP$"] }).issues["answers.1"],
+    "This repeats another regular expression.",
+  );
+});
+
+test("FIB and MULTI-FIB selectors share all text match modes, including regex", () => {
+  assert.deepEqual(
+    PLE_QUESTION_JSON_TEXT_RESPONSE_MATCH_MODES.map((mode) => mode.value),
+    ["exact", "caseInsensitive", "normalized", "regex"],
+  );
+  assert.equal(
+    PLE_QUESTION_JSON_TEXT_RESPONSE_MATCH_MODES.find((mode) => mode.value === "regex")?.label,
+    "Regular expression",
+  );
 });
 
 test("numeric literals accept complete decimal or scientific notation without rewriting the literal", () => {

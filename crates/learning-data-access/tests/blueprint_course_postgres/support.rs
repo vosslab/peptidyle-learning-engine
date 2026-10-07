@@ -23,32 +23,6 @@ pub(super) fn student_account_id() -> &'static str {
     STUDENT_ACCOUNT_ID.get().expect("seeded Student Account")
 }
 
-pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
-
-impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
-    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError> {
-        const IDS: [&str; 12] = [
-            "8K3M-69Q1",
-            "9K3M-09Q2",
-            "7K3M-T9Q3",
-            "6K3M-19Q4",
-            "5K3M-V9Q5",
-            "4K3M-D9Q6",
-            "3K3M-S9Q7",
-            "2K3M-49Q8",
-            "7K3M-19QX",
-            "7K3M-79QP",
-            "8K3M-99QX",
-            "3S8B-24DZ",
-        ];
-        let index = self.0.fetch_add(1, Ordering::SeqCst);
-        IDS.get(index)
-            .ok_or_else(|| StoreError::Unavailable("fixture Pool IDs exhausted".to_string()))?
-            .parse()
-            .map_err(|_| StoreError::InvalidRecord("fixture Pool ID is invalid".to_string()))
-    }
-}
-
 pub(super) async fn authenticate_application_transaction(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
 ) {
@@ -95,28 +69,6 @@ pub(super) async fn blueprint_course_id_text_from_str(blueprint_course_id: &str)
     blueprint_course_id.to_owned()
 }
 
-/// Exact current member Question Revision pins for one Pool.
-pub(super) async fn question_pool_member_pins(
-    question_pool_id: &question_model::QuestionPoolId,
-) -> Vec<(String, i32)> {
-    let mut inspection = adoption_inspection_connection().await;
-    let pins = sqlx::query_as(
-        "SELECT member.published_question_id, member.question_revision_number \
-           FROM ple_data.question_pool_member AS member \
-          WHERE member.question_pool_id = $1 \
-          ORDER BY member.member_position",
-    )
-    .bind(question_pool_id.as_str())
-    .fetch_all(&mut inspection)
-    .await
-    .expect("Pool member pins");
-    inspection
-        .close()
-        .await
-        .expect("Pool member inspection close");
-    pins
-}
-
 /// The decoder must reject a sealed Revision whose stored content no longer
 /// matches its immutable checksum.
 pub(super) async fn assert_revision_checksum_mismatch(
@@ -131,7 +83,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
     let before_tamper = tamper_store
         .load_blueprint_revision(
             token(),
-            question_model::BlueprintRevisionTuple {
+            question_model::BlueprintCourseRevisionTuple {
                 blueprint_course_id: blueprint_course_id.clone(),
                 revision_number: exact_revision,
             },
@@ -184,7 +136,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
         tamper_store
             .load_blueprint_revision(
                 token(),
-                question_model::BlueprintRevisionTuple {
+                question_model::BlueprintCourseRevisionTuple {
                     blueprint_course_id: blueprint_course_id.clone(),
                     revision_number: exact_revision,
                 },
@@ -414,6 +366,7 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
         },
         short_name: "REV-ACC".to_owned(),
         long_name: "Revision acceptance Blueprint".to_owned(),
+        theme: question_model::Theme::default(),
         modules: vec![CreateBlueprintModuleInput {
             label: "Module alpha".to_owned(),
             assessments: vec![BlueprintAssessmentContentInput {
@@ -423,21 +376,11 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     .expect("fixture instructions"),
                 entries: vec![
                     BlueprintAssessmentEntryInput::Pool(question_model::ReusablePoolInput {
-                        pool: question_model::BlueprintPoolInputChoice::Import {
-                            question_pool_id: question_pool_id(),
-                            question_pool_edit_number: question_model::QuestionPoolEditNumber::new(
-                                1,
-                            )
-                            .expect("fixture Pool Edit Number"),
-                        },
+                        question_pool_id: question_pool_id(),
                         selection_count: std::num::NonZeroU32::new(1)
                             .expect("positive fixture Pool selection count"),
                         points_per_item: AssessmentPointValue::from_whole(3),
                         scoring_rule: AssessmentEntryScoringRule::ExtraCredit,
-                        selection_rule: question_model::QuestionPoolSelectionRule {
-                            selected_question_order:
-                                question_model::QuestionPoolSelectedQuestionOrder::RandomOrder,
-                        },
                         question_attempt_limit: QuestionAttemptLimit {
                             max_attempts: Some(2),
                         },
@@ -468,6 +411,7 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     attempt_limit: std::num::NonZeroU32::new(3),
                     late_work_rule: LateWorkRule::MarkLate,
                     activity_rules: AssessmentActivityRules {
+                        partial_credit_enabled: false,
                         question_variation_rule:
                             question_model::AssessmentQuestionVariationRule::ReuseVariation,
                         assessment_question_order_rule:
@@ -502,24 +446,15 @@ pub(super) fn retained_assessment_input(
     let mut input = assessment_input(title);
     let mut prior_pools = prior.entries.iter().filter_map(|entry| match entry {
         learning_data_access::StoredBlueprintAssessmentEntry::Pool {
-            question_pool_id,
-            question_pool_edit_number,
-            ..
-        } => Some((question_pool_id.clone(), *question_pool_edit_number)),
+            question_pool_id, ..
+        } => Some(question_pool_id.clone()),
         learning_data_access::StoredBlueprintAssessmentEntry::Fixed { .. } => None,
     });
     for entry in &mut input.entries {
         let question_model::BlueprintAssessmentEntryInput::Pool(pool) = entry else {
             continue;
         };
-        let (question_pool_id, question_pool_edit_number) =
-            prior_pools.next().expect("retained fixture Pool");
-        pool.pool = question_model::BlueprintPoolInputChoice::Retained {
-            question_pool_id,
-            question_pool_edit_number,
-            members: None,
-            interchangeability_attested: false,
-        };
+        pool.question_pool_id = prior_pools.next().expect("existing fixture Pool");
     }
     assert!(
         prior_pools.next().is_none(),
@@ -658,8 +593,8 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Published Question");
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
-         (published_question_id, revision_number, backend, question_type, published_at) \
-         VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
+         (published_question_id, revision_number, backend, published_at) \
+         VALUES ($1, 1, 'ple', clock_timestamp())",
     )
     .bind(QUESTION)
     .execute(&mut *transaction)
@@ -684,11 +619,11 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .await
     .expect("explicit fixture Subject Discipline association");
     sqlx::query(
-        "INSERT INTO ple_data.published_question_metadata (\
-             published_question_id, question_title, question_description, language, \
+        "INSERT INTO ple_data.question_revision_metadata (\
+             published_question_id, revision_number, question_title, question_description, language, question_type, \
              content_discipline_id, content_subject_id, created_at, updated_at\
-         ) VALUES ($1, 'Blueprint fixture Question', 'Blueprint fixture Question description', \
-                   'en', $2, $3, clock_timestamp(), clock_timestamp())",
+         ) VALUES ($1, 1, 'Blueprint fixture Question', 'Blueprint fixture Question description', \
+                   'en', 'multipleChoice', $2, $3, clock_timestamp(), clock_timestamp())",
     )
     .bind(QUESTION)
     .bind(id(0xcc01))
@@ -712,7 +647,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
                  'publishedQuestionRevisionTuple', jsonb_build_object('publishedQuestionId', $2, 'revisionNumber', 1), \
                  'objectId', $1\
              ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
-             1, 'application/json', revision.published_at, revision.published_at \
+             1, 'application/vnd.peptidyle.question+json', revision.published_at, revision.published_at \
            FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
@@ -723,9 +658,9 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("exact Question source Object Record");
     sqlx::query(
         "INSERT INTO ple_private.question_revision_source_binding (\
-             published_question_id, revision_number, backend, question_format, \
+             published_question_id, revision_number, backend, native_question_type, question_format, \
              source_object_record_id, source_object_checksum, created_at\
-         ) SELECT $1, 1, 'ple', 'pleQuestionJson', $2, repeat('b1', 32), revision.published_at \
+         ) SELECT $1, 1, 'ple', 'multipleChoice', 'pleQuestionJson', $2, repeat('b1', 32), revision.published_at \
            FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
@@ -815,13 +750,11 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_data.question_pool (\
              question_pool_id, owner_account_id, question_pool_edit_number, created_at, \
-             title, description, content_discipline_id, content_subject_id, question_type, backend, license, \
-             interchangeability_attested_by_account_id, interchangeability_attested_at\
+             title, description, content_discipline_id, content_subject_id, question_type, backend, license \
          ) SELECT $1, $2, 1, clock_timestamp(), \
                   'Blueprint fixture Pool', 'Blueprint fixture Pool description', \
-                  metadata.content_discipline_id, metadata.content_subject_id, revision.question_type, revision.backend, license.spdx_expression, \
-                  $2, clock_timestamp() \
-             FROM ple_data.published_question_metadata AS metadata \
+                  metadata.content_discipline_id, metadata.content_subject_id, metadata.question_type, revision.backend, license.spdx_expression \
+             FROM ple_data.question_revision_metadata AS metadata \
             JOIN ple_data.question_revision AS revision \
                ON revision.published_question_id = metadata.published_question_id AND revision.revision_number = 1 \
             JOIN ple_data.question_revision_license AS license \
@@ -836,9 +769,9 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Published Question Pool");
     sqlx::query(
         "INSERT INTO ple_data.question_pool_member (\
-             question_pool_id, member_position, published_question_id, question_revision_number, \
+             question_pool_id, published_question_id, question_revision_number, \
              created_at, updated_at\
-         ) VALUES ($1, 1, $2, 1, statement_timestamp(), statement_timestamp())",
+         ) VALUES ($1, $2, 1, statement_timestamp(), statement_timestamp())",
     )
     .bind(QUESTION_POOL)
     .bind(QUESTION)
@@ -912,8 +845,9 @@ pub(super) async fn seed_if_needed(admin: &sqlx::postgres::PgPool) {
                JOIN ple_data.question_revision AS revision \
                  ON revision.published_question_id = question.published_question_id \
                 AND revision.revision_number = 1 \
-               JOIN ple_data.published_question_metadata AS metadata \
+               JOIN ple_data.question_revision_metadata AS metadata \
                  ON metadata.published_question_id = question.published_question_id \
+                AND metadata.revision_number = revision.revision_number \
               WHERE question.published_question_id = $1 \
          ) AND EXISTS ( \
              SELECT 1 \

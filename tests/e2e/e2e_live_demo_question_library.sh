@@ -205,6 +205,25 @@ if (summary.get("questionId") != expected_id
 ' "$payload" "$expected_id"
 }
 
+assert_archived_lineage() {
+	local payload="$1" expected_id="$2"
+	python3 -c '
+import json
+import sys
+
+lineage = json.loads(sys.argv[1])
+summary = lineage.get("summary") if isinstance(lineage, dict) else None
+availability = summary.get("availability") if isinstance(summary, dict) else None
+if (not isinstance(summary, dict)
+    or summary.get("questionId") != sys.argv[2]
+    or not isinstance(availability, dict)
+    or availability.get("availability") != "archived"
+    or lineage.get("viewerMayArchive") is not True
+    or lineage.get("viewerMayEditMetadata") is not False):
+    raise SystemExit("Archived Question was not readable and read-only")
+' "$payload" "$expected_id"
+}
+
 assert_not_discoverable() {
 	local payload="$1" expected_id="$2"
 	python3 -c '
@@ -218,7 +237,7 @@ if not isinstance(items, list):
     raise SystemExit("Question Library search returned no item list after archive")
 for item in items:
     if isinstance(item, dict) and item.get("question", {}).get("summary", {}).get("questionId") == expected_id:
-        raise SystemExit("archived Question remained available for ordinary search and new selection")
+        raise SystemExit("archived Question remained available in ordinary search/discovery")
 ' "$payload" "$expected_id"
 }
 
@@ -306,17 +325,17 @@ prove_api() {
 	local restored_search
 	local encoded_title
 
-	anonymous="$(request '/api/questions/search?page_size=50')"
+	anonymous="$(request '/api/library-objects/search?page_size=50')"
 	assert_concealed "$anonymous"
 	student_cookie="$(persona_cookie maryStudent)"
-	student="$(request '/api/questions/search?page_size=50' "$student_cookie")"
+	student="$(request '/api/library-objects/search?page_size=50' "$student_cookie")"
 	assert_concealed "$student"
 	if [ "$(response_body "$anonymous")" != "$(response_body "$student")" ]; then
 		echo "anonymous and Student Question Library concealment differs" >&2
 		exit 1
 	fi
 	instructor_cookie="$(persona_cookie elenaInstructor)"
-	instructor="$(request '/api/questions/search?kind=both&membership=noPool&authorship=any&sort=titleAscending&page_size=50' "$instructor_cookie")"
+	instructor="$(request '/api/library-objects/search?kind=both&questions=inNoPool&authorship=any&sort=titleAscending&page_size=50' "$instructor_cookie")"
 	if [ "$(response_status "$instructor")" != "200" ]; then
 		echo "Instructor Question Library search did not succeed" >&2
 		exit 1
@@ -349,14 +368,18 @@ prove_api() {
 	fi
 	availability_restore_etag="$(response_etag "$archive_headers")"
 	encoded_title="$(url_encode "$selected_title")"
-	archived_search="$(request "/api/questions/search?kind=questions&membership=all&authorship=any&sort=titleAscending&page_size=100&text=$encoded_title" "$instructor_cookie")"
+	archived_search="$(request "/api/library-objects/search?kind=questions&questions=all&authorship=any&sort=titleAscending&page_size=100&text=$encoded_title" "$instructor_cookie")"
 	if [ "$(response_status "$archived_search")" != "200" ]; then
 		echo "Question Library search did not remain available after archive" >&2
 		exit 1
 	fi
 	assert_not_discoverable "$(response_body "$archived_search")" "$selected_id"
 	archived_current="$(request "/api/questions/by-id/$selected_id" "$instructor_cookie")"
-	assert_concealed "$archived_current"
+	if [ "$(response_status "$archived_current")" != "200" ]; then
+		echo "Archived Question was not readable by stable ID" >&2
+		exit 1
+	fi
+	assert_archived_lineage "$(response_body "$archived_current")" "$selected_id"
 	exact_revision="$(request "/api/questions/by-id/$selected_id/revisions/$selected_revision" "$instructor_cookie")"
 	if [ "$(response_status "$exact_revision")" != "200" ]; then
 		echo "archiving a Question lineage broke its exact immutable revision" >&2
@@ -376,7 +399,7 @@ prove_api() {
 		exit 1
 	fi
 	assert_available_lineage "$(response_body "$restored_current")" "$selected_id"
-	restored_search="$(request "/api/questions/search?kind=questions&membership=all&authorship=any&sort=titleAscending&page_size=100&text=$encoded_title" "$instructor_cookie")"
+	restored_search="$(request "/api/library-objects/search?kind=questions&questions=all&authorship=any&sort=titleAscending&page_size=100&text=$encoded_title" "$instructor_cookie")"
 	if [ "$(response_status "$restored_search")" != "200" ]; then
 		echo "Question Library search did not remain available after restore" >&2
 		exit 1

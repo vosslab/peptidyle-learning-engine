@@ -10,7 +10,7 @@ import {
 } from "../api/library_classification_filter";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
-import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
+import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
@@ -46,7 +46,7 @@ export interface QuestionLibraryBrowseRow {
   readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly questionTitle: string;
   readonly summary: string;
-  /** Exact Revision-owned Bloom pair and its independent correction precondition, when assigned. */
+  /** Display-only Bloom projection for the exact Question Revision, when assigned. */
   readonly bloom: BloomClassificationView | null;
   /** Current readable Discipline name for this Question's existing classification. */
   readonly disciplineName: string;
@@ -64,20 +64,29 @@ export interface QuestionLibraryBrowseRow {
   readonly evidence: QuestionStatistics;
 }
 
-/** A Pool row carries only Pool-owned facts; Question source fields never leak into this arm. */
-export interface QuestionLibraryPoolRow {
-  readonly kind: "pool";
-  readonly displayId: string;
+/** Shared fields projected from each Library Object kind at the browser row boundary. */
+export interface LibraryObjectCommonRow {
   readonly title: string;
   readonly description: string;
   readonly ownerAccountId: string;
-  readonly memberCount: number;
   readonly questionType: string;
   readonly backend: string;
+  readonly tags: ReadonlyArray<string>;
+  readonly license: string | null;
+}
+
+/** A mixed-search Question row keeps its Question-only revision and evidence fields. */
+export interface LibraryObjectQuestionRow
+  extends QuestionLibraryBrowseRow, LibraryObjectCommonRow {}
+
+/** A Pool row carries only Pool-owned facts; Question source fields never leak into this arm. */
+export interface QuestionLibraryPoolRow extends LibraryObjectCommonRow {
+  readonly kind: "pool";
+  readonly displayId: string;
+  readonly memberCount: number;
   readonly license: string;
   readonly disciplineName: string;
   readonly disciplineIsRetired: boolean;
-  readonly tags: ReadonlyArray<string>;
   readonly bloom: BloomClassificationView | null;
   readonly questionPoolMetadataEditNumber: QuestionPoolMetadataEditNumber;
   /** Current Pool membership/edit concurrency token for an import, distinct from metadata edits. */
@@ -88,7 +97,7 @@ export interface QuestionLibraryPoolRow {
 }
 
 /** The Library alone admits both kinds. Pickers continue to use QuestionLibraryBrowseRow. */
-export type LibrarySearchRow = QuestionLibraryBrowseRow | QuestionLibraryPoolRow;
+export type LibrarySearchRow = LibraryObjectQuestionRow | QuestionLibraryPoolRow;
 
 /**
  * A presentation-ready, answer-free view of the server-owned discovery evidence.
@@ -114,7 +123,7 @@ export interface QuestionLibraryBrowseFacetAggregate {
 
 export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter {
   readonly kind: "both" | "questions" | "pools";
-  readonly membership: "noPool" | "all";
+  readonly questions: "inNoPool" | "all";
   readonly ownerAccountId: string | null;
   readonly search: string;
   readonly authorName: string | null;
@@ -130,7 +139,7 @@ export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter 
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
   readonly authorship: QuestionSearchAuthorship;
   /** Server-owned deterministic order retained with this exact query. */
-  readonly sort: QuestionSearchSort;
+  readonly sort: LibraryObjectSearchSort;
 }
 
 /** Honest notice that a free-form facet group is only the bounded leading set. */
@@ -254,23 +263,34 @@ function stringList(value: unknown, path: string): ReadonlyArray<string> {
 function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   const authorKey = isRecord(value) && "authors" in value ? "authors" : "authorNames";
   const kindKey = isRecord(value) && "kind" in value ? ["kind"] : [];
+  const questionFields = [
+    authorKey,
+    "capabilities",
+    "displayId",
+    "questionLicense",
+    "questionFormat",
+    "publishedQuestionRevisionTuple",
+    "summary",
+    "bloom",
+    "questionTitle",
+    "disciplineName",
+    "disciplineIsRetired",
+    "evidence",
+    ...kindKey,
+  ];
+  const commonFields = [
+    "title",
+    "description",
+    "ownerAccountId",
+    "questionType",
+    "backend",
+    "tags",
+    "license",
+  ];
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, [
-      authorKey,
-      "capabilities",
-      "displayId",
-      "questionLicense",
-      "questionFormat",
-      "publishedQuestionRevisionTuple",
-      "summary",
-      "bloom",
-      "questionTitle",
-      "disciplineName",
-      "disciplineIsRetired",
-      "evidence",
-      ...kindKey,
-    ])
+    (!hasExactKeys(value, questionFields) &&
+      !hasExactKeys(value, [...questionFields, ...commonFields]))
   ) {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -323,6 +343,21 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       `${path}.questionLicense`,
     ),
     evidence,
+  };
+}
+
+function decodeLibraryObjectQuestionRow(value: unknown, path: string): LibraryObjectQuestionRow {
+  const row = decodeRow(value, path);
+  if (!isRecord(value)) throw new Error(`${path} has an unexpected Question row shape`);
+  return {
+    ...row,
+    title: boundedText(value["title"], `${path}.title`),
+    description: boundedText(value["description"], `${path}.description`, MAX_SUMMARY_LENGTH),
+    ownerAccountId: boundedText(value["ownerAccountId"], `${path}.ownerAccountId`),
+    questionType: boundedText(value["questionType"], `${path}.questionType`),
+    backend: boundedText(value["backend"], `${path}.backend`),
+    tags: stringList(value["tags"], `${path}.tags`),
+    license: decodeNullableQuestionLicense(value["license"], `${path}.license`),
   };
 }
 
@@ -549,7 +584,9 @@ export function decodeLibrarySearchPage(value: unknown): LibrarySearchPage {
     items: value["items"].map((item, index) => {
       if (!isRecord(item)) throw new Error(`items[${index}] has an unexpected shape`);
       if (item["kind"] === "pool") return decodePoolRow(item, `items[${index}]`);
-      return decodeRow(item, `items[${index}]`);
+      if (item["kind"] === "question")
+        return decodeLibraryObjectQuestionRow(item, `items[${index}]`);
+      throw new Error(`items[${index}].kind must be question or pool`);
     }),
   };
 }
@@ -557,7 +594,7 @@ export function decodeLibrarySearchPage(value: unknown): LibrarySearchPage {
 export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   ...EMPTY_LIBRARY_CLASSIFICATION_FILTER,
   kind: "both",
-  membership: "noPool",
+  questions: "inNoPool",
   ownerAccountId: null,
   search: "",
   authorName: null,
@@ -581,7 +618,7 @@ export function normalizeQuestionLibraryBrowseQuery(
   return {
     ...libraryClassificationFilter(query),
     kind: query.kind,
-    membership: poolsOnly ? "all" : query.membership,
+    questions: poolsOnly ? "all" : query.questions,
     ownerAccountId: query.ownerAccountId === null ? null : query.ownerAccountId.trim(),
     search: query.search.trim().replace(/\s+/g, " "),
     authorName: poolsOnly ? null : query.authorName,
@@ -592,7 +629,7 @@ export function normalizeQuestionLibraryBrowseQuery(
     bloomCognitiveProcess: query.bloomCognitiveProcess,
     bloomKnowledgeDimension: query.bloomKnowledgeDimension,
     questionType: query.questionType,
-    capability: poolsOnly ? null : query.capability,
+    capability: query.capability,
     questionLicense: query.questionLicense,
     authorship: poolsOnly ? "any" : query.authorship,
     sort: query.sort,

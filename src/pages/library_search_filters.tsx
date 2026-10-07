@@ -54,15 +54,15 @@ export function LibrarySearchFilters(props: LibrarySearchFiltersProps): JSX.Elem
       <label>
         Question membership
         <select
-          value={props.query().membership}
-          disabled={props.disabled() || poolsOnly()}
+          value={props.query().questions}
+          disabled={questionOnlyDisabled()}
           onChange={(event) =>
             props.onChange({
-              membership: event.currentTarget.value as QuestionLibraryBrowseQuery["membership"],
+              questions: event.currentTarget.value as QuestionLibraryBrowseQuery["questions"],
             })
           }
         >
-          <option value="noPool">Questions in no Pool</option>
+          <option value="inNoPool">Questions in no Pool</option>
           <option value="all">All Questions</option>
         </select>
       </label>

@@ -1,8 +1,8 @@
 import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
-import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
-import type { QuestionSearchRequest } from "../../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectSearchPage } from "../../../generated/api/LibraryObjectSearchPage";
+import type { LibraryObjectSearchRequest } from "../../../generated/api/LibraryObjectSearchRequest";
 import type { LibraryObjectKindResponse } from "../../../generated/api/LibraryObjectKindResponse";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
@@ -30,8 +30,8 @@ import type { StudentQuestionAttempt } from "../contracts";
 import {
   libraryObjectKindPath,
   questionIdPath,
-  questionSearchPath,
-} from "../question_search_query";
+  libraryObjectSearchPath,
+} from "../library_object_search_query";
 import {
   decodeAssessmentAttempt,
   decodeStudentAssessmentDetail,
@@ -39,7 +39,7 @@ import {
   decodeQuestionPage,
   decodeQuestionDetails,
   decodeQuestionLineageView,
-  decodeQuestionSearchPage,
+  decodeLibraryObjectSearchPage,
   decodeLibraryObjectKindResponse,
   decodeCourseAppearanceView,
   decodeCourseThemeUpdate,
@@ -508,7 +508,7 @@ export function createResponseClient(
   | "replaceProfileAvatarImage"
   | "fetchProfileAvatarImage"
   | "listQuestions"
-  | "searchQuestionLibrary"
+  | "searchLibraryObjects"
   | "getLibraryObjectKind"
   | "resolveQuestion"
   | "getQuestionDetails"
@@ -560,12 +560,12 @@ export function createResponseClient(
         cursorPath("/api/questions", cursor),
         decodeQuestionPage,
       ),
-    searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> =>
+    searchLibraryObjects: (query: LibraryObjectSearchRequest): Promise<LibraryObjectSearchPage> =>
       requestJson(
         fetchImplementation,
         basePath,
-        questionSearchPath(query),
-        decodeQuestionSearchPage,
+        libraryObjectSearchPath(query),
+        decodeLibraryObjectSearchPage,
       ),
     getLibraryObjectKind: (publicId: string): Promise<LibraryObjectKindResponse> =>
       requestJson(

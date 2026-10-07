@@ -107,7 +107,6 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         selected_items: vec![QuestionPoolSelectedItem {
             question_pool_id: question_pool_id.clone(),
             question_pool_edit_number,
-            member_position: 0,
             published_question_revision_tuple: published_question_revision_tuple.clone(),
         }],
     };
@@ -126,7 +125,6 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         question_pool_selection: Some(selection_id),
         question_pool_id: Some(question_pool_id.clone()),
         question_pool_edit_number: Some(question_pool_edit_number),
-        question_pool_member_position: Some(0),
     };
 
     assert_eq!(selection.selected_items.len(), 1);

@@ -5,7 +5,10 @@
 
 use async_trait::async_trait;
 use objects::ObjectRecord;
-use question_model::{QuestionFormat, QuestionImageAssetTuple, QuestionType, WorkspaceId};
+use question_model::{
+    DraftQuestionClassification, PublishedQuestionRevisionTuple, QuestionAuthorDisplayName,
+    QuestionBackend, QuestionFormat, QuestionMetadata, QuestionType, WorkspaceId,
+};
 use uuid::Uuid;
 
 use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError};
@@ -17,12 +20,20 @@ pub struct AuthoringDraft {
     pub draft_question_uuid: DraftQuestionUuid,
     /// Trusted private workspace identity; never serialize this to a browser.
     pub workspace: WorkspaceId,
+    /// Exact immediate source Revision for a forked Draft Question.
+    pub parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     /// Positive save concurrency token.
     pub edit_number: DraftQuestionEditNumber,
-    /// Private Instructor-facing discovery title.
-    pub title: String,
-    /// Private Instructor-facing discovery description.
-    pub description: String,
+    /// Exact Draft Question record metadata; native source contains no copy.
+    pub metadata: QuestionMetadata,
+    /// Current shared classification copied from the exact parent Revision.
+    pub classification: Option<DraftQuestionClassification>,
+    /// Registered backend; source bytes never select or change it.
+    pub question_backend: QuestionBackend,
+    /// Registered source representation; source bytes never select or change it.
+    pub question_format: QuestionFormat,
+    /// Immutable registered WebWork PG location, when this is a WebWork Draft.
+    pub webwork_pg_path: Option<String>,
     /// Deliberately authored backend-independent feedback for the next
     /// published Question Revision. It is never source-derived.
     pub general_feedback: Option<String>,
@@ -32,19 +43,51 @@ pub struct AuthoringDraft {
     /// Optional PLE-managed Worked Solution copied onto the next Published Question Revision.
     /// ASVS 8.2.3: this is not Question Backend source.
     pub worked_solution: Option<String>,
+    /// Saved public author display names copied into this Draft.
+    pub authors: Vec<QuestionAuthorDisplayName>,
     /// Current author-declared educational type that publication makes immutable.
-    pub question_type: QuestionType,
+    pub question_type: Option<QuestionType>,
     /// Exact current private source object evidence.
     pub source_record: ObjectRecord,
+}
+
+impl AuthoringDraft {
+    /// Media type established by the persisted source binding.
+    pub fn source_media_type(&self) -> Option<&'static str> {
+        registered_source_media_type(
+            self.question_backend,
+            self.question_format,
+            self.webwork_pg_path.as_deref(),
+        )
+    }
+}
+
+fn registered_source_media_type(
+    question_backend: QuestionBackend,
+    question_format: QuestionFormat,
+    webwork_pg_path: Option<&str>,
+) -> Option<&'static str> {
+    match (question_backend, question_format, webwork_pg_path) {
+        (QuestionBackend::Ple, QuestionFormat::PleQuestionJson, None) => {
+            Some("application/vnd.peptidyle.question+json")
+        }
+        (
+            QuestionBackend::Webwork,
+            QuestionFormat::WebworkPg | QuestionFormat::WebworkPgml,
+            Some(path),
+        ) if valid_webwork_pg_path(path) => Some("text/x-wework-pg"),
+        _ => None,
+    }
 }
 
 /// Answer-free list entry for the current Instructor's My Question Drafts View.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthoringDraftSummary {
     pub draft_question_uuid: DraftQuestionUuid,
+    /// Exact immediate source Revision for a forked Draft Question.
+    pub parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     pub edit_number: DraftQuestionEditNumber,
-    pub title: String,
-    pub description: String,
+    pub metadata: QuestionMetadata,
 }
 
 /// Complete server-validated first save for a newly created Draft Question.
@@ -60,35 +103,23 @@ pub struct CreateAuthoringDraftInput {
     /// Registered OPL-style PG location for a WeBWorK source. Native PLE
     /// Question JSON carries no WeBWorK routing field.
     pub webwork_pg_path: Option<String>,
-    /// Required author-declared educational Question Type.
-    pub question_type: QuestionType,
-    /// Source-derived Question Title.
-    pub title: String,
-    /// Source-derived Question Description.
-    pub description: String,
-    /// Source-derived language retained when the Draft becomes a Question Revision.
-    pub language: String,
+    /// Supplied record metadata, kept outside backend source.
+    pub metadata: QuestionMetadata,
+    /// Native source-derived or existing WebWork Type; absent for unfinished Native source.
+    pub question_type: Option<QuestionType>,
 }
 
-/// Complete server-validated replacement for a saved Draft Question Source.
+/// Raw source replacement under the immutable Draft binding and Edit Number.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveAuthoringDraftInput {
-    /// Exact native HOTSPOT surface derived from validated source, not browser metadata.
-    pub hotspot_surface: Option<QuestionImageAssetTuple>,
     /// Draft Question selected from the authorized private UUID.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Current browser concurrency token.
     pub expected_edit_number: DraftQuestionEditNumber,
     /// Exact source Object Record written before persistence registration.
     pub source_record: ObjectRecord,
-    /// Required replacement author-declared educational Question Type.
-    pub question_type: QuestionType,
-    /// Source-derived Question Title.
-    pub title: String,
-    /// Source-derived Question Description.
-    pub description: String,
-    /// Source-derived language retained when the Draft becomes a Question Revision.
-    pub language: String,
+    /// Native source-derived or existing WebWork Type; absent for unfinished Native source.
+    pub question_type: Option<QuestionType>,
 }
 
 /// One deliberate metadata-only Draft edit. This is separate from Question
@@ -97,6 +128,8 @@ pub struct SaveAuthoringDraftInput {
 pub struct SaveAuthoringDraftGeneralFeedbackInput {
     pub draft_question_uuid: DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
+    /// Complete record metadata replacement, independent from source and support.
+    pub metadata: QuestionMetadata,
     pub general_feedback: Option<String>,
     /// Written only when `replace_support` is true. ASVS 2.2.1.
     pub hint: Option<String>,
@@ -122,23 +155,23 @@ pub(crate) fn validate_initial_draft_source_binding(
     question_format: QuestionFormat,
     webwork_pg_path: Option<&str>,
 ) -> Result<(), StoreError> {
-    match (media_type, question_format, webwork_pg_path) {
-        ("application/vnd.peptidyle.question+json", QuestionFormat::PleQuestionJson, None) => {
-            Ok(())
-        }
-        (
-            "text/x-wework-pg",
-            QuestionFormat::WebworkPg | QuestionFormat::WebworkPgml,
-            Some(path),
-        ) if valid_webwork_pg_path(path) => Ok(()),
-        _ => Err(StoreError::InvalidRecord(
+    let question_backend = match question_format {
+        QuestionFormat::PleQuestionJson => QuestionBackend::Ple,
+        QuestionFormat::WebworkPg | QuestionFormat::WebworkPgml => QuestionBackend::Webwork,
+        QuestionFormat::Imathas => QuestionBackend::Imathas,
+    };
+    if registered_source_media_type(question_backend, question_format, webwork_pg_path)
+        == Some(media_type)
+    {
+        Ok(())
+    } else {
+        Err(StoreError::InvalidRecord(
             "Draft Question source media type and initial source binding are inconsistent"
                 .to_string(),
-        )),
+        ))
     }
 }
 
-#[cfg(feature = "postgres")]
 fn valid_webwork_pg_path(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 1_024
@@ -194,6 +227,23 @@ pub trait AuthoringDraftStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         input: SaveAuthoringDraftGeneralFeedbackInput,
     ) -> Result<AuthoringDraft, StoreError>;
+
+    /// Saves metadata/support and optionally updates manual WebWork Type in the
+    /// same Draft Edit Number transaction. `None` preserves, `Some(None)` clears.
+    async fn save_authoring_draft_general_feedback_with_question_type(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: SaveAuthoringDraftGeneralFeedbackInput,
+        question_type: Option<Option<QuestionType>>,
+    ) -> Result<AuthoringDraft, StoreError> {
+        if question_type.is_some() {
+            return Err(StoreError::InvalidRecord(
+                "this Draft store does not support manual Question Type updates".to_owned(),
+            ));
+        }
+        self.save_authoring_draft_general_feedback(session_token_hash, input)
+            .await
+    }
 
     /// Permanently removes one Draft owned by the current Instructor under
     /// the ordinary Draft Edit Number compare-and-swap contract.

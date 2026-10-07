@@ -8,16 +8,18 @@ use learning_data_access::postgres::{
 use learning_data_access::{
     AuthoringDraftStore, CreateAuthoringDraftInput, DraftQuestionSourceBindingInput,
     DraftQuestionSourceBindingStore, DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput,
-    SessionTokenHash, StoreError,
+    SaveAuthoringDraftInput, SessionTokenHash, StoreError,
 };
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
-    ObjectId, QuestionBackend, QuestionFormat, QuestionType, SourceObjectChecksum, Timestamp,
-    WorkspaceId,
+    ObjectId, QuestionBackend, QuestionFormat, QuestionLicense, QuestionMetadata, QuestionType,
+    SourceObjectChecksum, Tag, Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
 const SOURCE_BYTES: &[u8] = b"connected WeBWorK Draft Question source";
+const SOURCE_SAVE_BYTES: &[u8] = b"source-save request-owned bytes";
+const STALE_SOURCE_BYTES: &[u8] = b"stale source-save bytes";
 const DATABASE_URL_ENV: &str = "DATABASE_URL";
 
 fn token() -> SessionTokenHash {
@@ -37,6 +39,15 @@ fn source_record_with_id(
     media_type: &str,
     object_id: u128,
 ) -> ObjectRecord {
+    source_record_with_bytes(workspace, media_type, object_id, SOURCE_BYTES)
+}
+
+fn source_record_with_bytes(
+    workspace: WorkspaceId,
+    media_type: &str,
+    object_id: u128,
+    source_bytes: &[u8],
+) -> ObjectRecord {
     let id = ObjectId::from_uuid(Uuid::from_u128(object_id));
     ObjectRecord {
         id,
@@ -46,8 +57,8 @@ fn source_record_with_id(
             workspace_id: workspace,
             object_id: id,
         },
-        sha256: Sha256Checksum::compute(SOURCE_BYTES),
-        size_bytes: SOURCE_BYTES.len() as u64,
+        sha256: Sha256Checksum::compute(source_bytes),
+        size_bytes: source_bytes.len() as u64,
         media_type: media_type.to_owned(),
         published_question_revision_tuple: None,
         created_at: timestamp(),
@@ -115,10 +126,16 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                     source_record: source_record(workspace, media_type),
                     question_format: QuestionFormat::WebworkPg,
                     webwork_pg_path: webwork_pg_path.map(str::to_owned),
-                    question_type: QuestionType::MultipleChoice,
-                    title: "Rejected source tuple".to_owned(),
-                    description: "This tuple must not create a Draft Question.".to_owned(),
-                    language: "en".to_owned(),
+                    question_type: Some(QuestionType::MultipleChoice),
+                    metadata: QuestionMetadata {
+                        question_title: "Rejected source tuple".to_owned(),
+                        question_description: "This tuple must not create a Draft Question."
+                            .to_owned(),
+                        tags: Vec::new(),
+                        question_license: None,
+                        question_citation: None,
+                        language: None,
+                    },
                 },
             )
             .await;
@@ -138,21 +155,70 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                 source_record: source_record.clone(),
                 question_format: QuestionFormat::WebworkPg,
                 webwork_pg_path: Some("Library/Genetics/linked_traits.pg".to_owned()),
-                question_type: QuestionType::MultipleChoice,
-                title: "Connected WeBWorK Draft".to_owned(),
-                description: "A store-level source-binding oracle.".to_owned(),
-                language: "en".to_owned(),
+                question_type: Some(QuestionType::MultipleChoice),
+                metadata: QuestionMetadata {
+                    question_title: "Connected WeBWorK Draft".to_owned(),
+                    question_description: "A store-level source-binding oracle.".to_owned(),
+                    tags: Vec::new(),
+                    question_license: None,
+                    question_citation: None,
+                    language: None,
+                },
             },
         )
         .await
         .expect("WeBWorK Draft Question creation");
+    let original_metadata = draft.metadata.clone();
+    let source_saved = drafts
+        .save_authoring_draft(
+            session,
+            SaveAuthoringDraftInput {
+                draft_question_uuid: draft.draft_question_uuid,
+                expected_edit_number: draft.edit_number,
+                source_record: source_record_with_bytes(
+                    workspace,
+                    "text/x-wework-pg",
+                    0xa713,
+                    SOURCE_SAVE_BYTES,
+                ),
+                question_type: Some(QuestionType::MultipleChoice),
+            },
+        )
+        .await
+        .expect("source replacement");
+    assert_eq!(
+        source_saved.metadata, original_metadata,
+        "source save leaves record metadata untouched"
+    );
+    assert_eq!(
+        source_saved.edit_number.as_postgres_bigint(),
+        draft.edit_number.as_postgres_bigint() + 1,
+        "source save acknowledges its own committed Edit Number"
+    );
+    assert_eq!(
+        source_saved.source_record.id,
+        ObjectId::from_uuid(Uuid::from_u128(0xa713)),
+        "source save acknowledges its own committed source record"
+    );
+    assert_eq!(
+        source_saved.source_record.sha256,
+        Sha256Checksum::compute(SOURCE_SAVE_BYTES),
+        "source save acknowledges its own source checksum"
+    );
+    assert_eq!(
+        source_saved.source_record.size_bytes,
+        SOURCE_SAVE_BYTES.len() as u64,
+        "source save acknowledges its own source size"
+    );
+    let draft = source_saved;
     let mut catalog_transaction = admin.begin().await.expect("catalog assertion transaction");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *catalog_transaction)
         .await
         .expect("private catalog assertion role");
-    let tuple: (String, String, String, Option<String>) = sqlx::query_as(
-        "SELECT backend::text, question_format::text, question_type::text, webwork_pg_path \
+    let tuple: (String, String, String, Option<String>, Uuid, String) = sqlx::query_as(
+        "SELECT backend::text, question_format::text, question_type::text, webwork_pg_path, \
+         source_object_record_id, source_object_checksum \
          FROM ple_private.draft_question_source_binding WHERE draft_question_id = $1",
     )
     .bind(draft.draft_question_uuid.as_uuid())
@@ -170,6 +236,8 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
             "webworkPg".to_owned(),
             "multipleChoice".to_owned(),
             Some("Library/Genetics/linked_traits.pg".to_owned()),
+            Uuid::from_u128(0xa713),
+            draft.source_record.sha256.to_string(),
         )
     );
 
@@ -185,10 +253,16 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                 source_record: pgml_source_record,
                 question_format: QuestionFormat::WebworkPgml,
                 webwork_pg_path: Some("Library/Genetics/reviewed.pgml".to_owned()),
-                question_type: QuestionType::MultipleChoice,
-                title: "Connected reviewed PGML Draft".to_owned(),
-                description: "A store-level explicit PGML provenance oracle.".to_owned(),
-                language: "en".to_owned(),
+                question_type: Some(QuestionType::MultipleChoice),
+                metadata: QuestionMetadata {
+                    question_title: "Connected reviewed PGML Draft".to_owned(),
+                    question_description: "A store-level explicit PGML provenance oracle."
+                        .to_owned(),
+                    tags: Vec::new(),
+                    question_license: None,
+                    question_citation: None,
+                    language: None,
+                },
             },
         )
         .await
@@ -224,8 +298,8 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         question_type: QuestionType::MultipleChoice,
         webwork_pg_path: Some("Library/Genetics/linked_traits.pg".to_owned()),
         draft_imathas_question_backend_binding: None,
-        source_object_id: source_record.id,
-        source_object_checksum: SourceObjectChecksum::parse(source_record.sha256.to_string())
+        source_object_id: draft.source_record.id,
+        source_object_checksum: SourceObjectChecksum::parse(draft.source_record.sha256.to_string())
             .expect("source checksum"),
     };
     let first_edit = bindings
@@ -244,20 +318,153 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         .expect("confirmed Draft Question");
     assert_eq!(confirmed.edit_number, draft.edit_number);
 
-    let edited = drafts
+    let incomplete_metadata = QuestionMetadata {
+        question_title: String::new(),
+        question_description: String::new(),
+        tags: Vec::new(),
+        question_license: None,
+        question_citation: None,
+        language: None,
+    };
+    let support_saved = drafts
         .save_authoring_draft_general_feedback(
             session,
             SaveAuthoringDraftGeneralFeedbackInput {
                 draft_question_uuid: draft.draft_question_uuid,
                 expected_edit_number: first_edit,
+                metadata: incomplete_metadata.clone(),
                 general_feedback: Some("Reviewed general feedback.".to_owned()),
+                hint: Some("Count the alleles.".to_owned()),
+                worked_solution: Some("Show the cross.".to_owned()),
+                replace_support: true,
+            },
+        )
+        .await
+        .expect("support metadata replacement");
+    assert_eq!(
+        support_saved.edit_number.as_postgres_bigint(),
+        draft.edit_number.as_postgres_bigint() + 1,
+        "metadata/support save acknowledges its own committed Edit Number"
+    );
+    assert_eq!(
+        support_saved.metadata, incomplete_metadata,
+        "ordinary metadata save retains blank Draft title and description"
+    );
+    assert_eq!(
+        support_saved.general_feedback.as_deref(),
+        Some("Reviewed general feedback."),
+        "metadata/support save acknowledges its own committed feedback"
+    );
+    assert_eq!(support_saved.hint.as_deref(), Some("Count the alleles."));
+    assert_eq!(
+        support_saved.worked_solution.as_deref(),
+        Some("Show the cross.")
+    );
+    assert_eq!(support_saved.source_record.id, draft.source_record.id);
+    assert_eq!(
+        support_saved.question_type,
+        Some(QuestionType::MultipleChoice),
+        "omitted questionType preserves the current WebWork value"
+    );
+    assert!(matches!(
+        drafts
+            .save_authoring_draft(
+                session,
+                SaveAuthoringDraftInput {
+                    draft_question_uuid: draft.draft_question_uuid,
+                    expected_edit_number: draft.edit_number,
+                    source_record: source_record_with_bytes(
+                        workspace,
+                        "text/x-wework-pg",
+                        0xa714,
+                        STALE_SOURCE_BYTES,
+                    ),
+                    question_type: Some(QuestionType::MultipleChoice),
+                },
+            )
+            .await,
+        Err(StoreError::RetryableTransaction)
+    ));
+    let expected_metadata = QuestionMetadata {
+        question_title: "Metadata replacement title".to_owned(),
+        question_description: "Metadata replacement description.".to_owned(),
+        tags: vec![Tag::new("metadata-replacement")],
+        question_license: Some(QuestionLicense::CcBySa4_0),
+        question_citation: Some("Replacement citation https://example.test/replacement".to_owned()),
+        language: Some("en".to_owned()),
+    };
+    let edited = drafts
+        .save_authoring_draft_general_feedback(
+            session,
+            SaveAuthoringDraftGeneralFeedbackInput {
+                draft_question_uuid: draft.draft_question_uuid,
+                expected_edit_number: support_saved.edit_number,
+                metadata: expected_metadata.clone(),
+                general_feedback: Some("Updated feedback.".to_owned()),
                 hint: None,
                 worked_solution: None,
                 replace_support: false,
             },
         )
         .await
-        .expect("intervening metadata-only edit");
+        .expect("record metadata replacement while retaining support text");
+    assert_eq!(
+        edited.edit_number.as_postgres_bigint(),
+        support_saved.edit_number.as_postgres_bigint() + 1,
+        "later metadata save advances the shared Draft Edit Number once"
+    );
+    assert_eq!(edited.metadata, expected_metadata);
+    assert_eq!(
+        edited.source_record.id, draft.source_record.id,
+        "metadata save leaves the request-owned source record unchanged"
+    );
+    let reloaded = drafts
+        .load_authoring_draft(session, draft.draft_question_uuid)
+        .await
+        .expect("reloaded metadata replacement");
+    assert_eq!(reloaded.metadata, expected_metadata);
+    assert_eq!(edited.edit_number, reloaded.edit_number);
+    assert_eq!(
+        reloaded.hint.as_deref(),
+        Some("Count the alleles."),
+        "omitted support fields remain unchanged"
+    );
+    assert_eq!(
+        reloaded.worked_solution.as_deref(),
+        Some("Show the cross."),
+        "omitted support fields remain unchanged"
+    );
+    assert_eq!(
+        reloaded.general_feedback.as_deref(),
+        Some("Updated feedback."),
+        "general feedback follows its explicit replacement"
+    );
+    let mut metadata_binding_transaction = admin
+        .begin()
+        .await
+        .expect("metadata binding assertion transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *metadata_binding_transaction)
+        .await
+        .expect("metadata binding assertion role");
+    let binding_after_metadata: (String, String, String, Option<String>, Uuid, String) =
+        sqlx::query_as(
+            "SELECT backend::text, question_format::text, question_type::text, webwork_pg_path, \
+             source_object_record_id, source_object_checksum \
+             FROM ple_private.draft_question_source_binding WHERE draft_question_id = $1",
+        )
+        .bind(draft.draft_question_uuid.as_uuid())
+        .fetch_one(&mut *metadata_binding_transaction)
+        .await
+        .expect("source binding after metadata replacement");
+    metadata_binding_transaction
+        .commit()
+        .await
+        .expect("metadata binding assertion commit");
+    assert_eq!(
+        binding_after_metadata, tuple,
+        "record metadata replacement leaves the source binding unchanged"
+    );
     assert!(matches!(
         bindings
             .bind_draft_question_source(session, confirmation.clone())
@@ -289,4 +496,28 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
             .expect("exact current no-op"),
         changed_edit
     );
+    let blank_metadata_saved = drafts
+        .save_authoring_draft_general_feedback(
+            session,
+            SaveAuthoringDraftGeneralFeedbackInput {
+                draft_question_uuid: draft.draft_question_uuid,
+                expected_edit_number: changed_edit,
+                metadata: QuestionMetadata {
+                    question_title: String::new(),
+                    question_description: String::new(),
+                    tags: Vec::new(),
+                    question_license: None,
+                    question_citation: None,
+                    language: None,
+                },
+                general_feedback: None,
+                hint: None,
+                worked_solution: None,
+                replace_support: false,
+            },
+        )
+        .await
+        .expect("blank Draft metadata remains saveable before publication");
+    assert_eq!(blank_metadata_saved.metadata.question_title, "");
+    assert_eq!(blank_metadata_saved.metadata.question_description, "");
 }

@@ -9,20 +9,39 @@ import {
   decodeStudentQuestionAttempt,
   decodeStudentIssuedQuestion,
 } from "../src/api/decoders.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-function currentStudentQuestionAttempt(index = 0) {
-  const { reproduction: _reproduction, ...attempt } = structuredClone(
-    publishedQuestionFixture.attempts[index],
-  );
-  return { ...attempt, assessmentScoringState: "current" };
+function currentStudentQuestionAttempt() {
+  return {
+    id: "0198e000-0000-7000-8000-000000000030",
+    issuedQuestion: "0198e000-0000-7000-8000-000000000040",
+    finalizedResponse: {
+      id: "0198e000-0000-7000-8000-000000000130",
+      questionAttempt: "0198e000-0000-7000-8000-000000000030",
+      response: { kind: "multipleChoice", selected: ["amide"] },
+      finalizedAt: 1_786_000_001_200,
+      gradingResult: { correct: true, pointsEarned: 1, pointsPossible: 1 },
+    },
+    state: "response_finalized",
+    timing: { issuedAt: 1_786_000_001_100, deadline: null, finalizedAt: 1_786_000_001_200 },
+    issuedCapability: "pleQuestionJsonPresentation",
+    assessmentScoringState: "current",
+    questionPoolSelectionPosition: null,
+  };
 }
 
-function currentStudentIssuedQuestion(index = 0) {
-  const { sourceSelection: _sourceSelection, ...issuedQuestion } = structuredClone(
-    publishedQuestionFixture.issuedQuestions[index],
-  );
-  return issuedQuestion;
+function currentStudentIssuedQuestion() {
+  return {
+    id: "0198e000-0000-7000-8000-000000000040",
+    assessmentAttemptId: "0198e000-0000-7000-8000-000000000030",
+    assessmentEntryId: "0198e000-0000-7000-8000-000000000017",
+    assessmentContentEntryIndex: 0,
+    issuedPosition: 1,
+    publishedQuestionRevisionTuple: {
+      publishedQuestionId: "7K3M-79QP",
+      revisionNumber: 1,
+    },
+    questionStatisticsEligibility: true,
+  };
 }
 
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {

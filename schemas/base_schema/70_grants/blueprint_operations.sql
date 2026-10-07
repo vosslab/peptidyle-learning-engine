@@ -2,9 +2,9 @@
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_private.create_blueprint_course(text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.create_blueprint_course(text, bytea, text, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.create_blueprint_course(text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.create_blueprint_course(text, bytea, text, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid) TO ple_api_owner;
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -16,8 +16,12 @@ REVOKE ALL ON FUNCTION ple_api.update_blueprint_classification(text, bigint, uui
 
 GRANT EXECUTE ON FUNCTION ple_api.update_blueprint_classification(text, bigint, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 
+REVOKE ALL ON FUNCTION ple_api.update_blueprint_theme(text, bigint, text) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_api.update_blueprint_theme(text, bigint, text) TO ple_app;
+
 REVOKE ALL PRIVILEGES ON FUNCTION
-    ple_api.create_blueprint_course(text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
+    ple_api.create_blueprint_course(text, bytea, text, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
     ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, bigint, text, text),
     ple_api.set_blueprint_availability(text, bigint, text, text),
@@ -25,7 +29,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION
-    ple_api.create_blueprint_course(text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
+    ple_api.create_blueprint_course(text, bytea, text, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
     ple_api.rename_blueprint_course(text, bigint, text, text),
     ple_api.set_blueprint_availability(text, bigint, text, text),
     ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, bigint, text, text, integer, uuid, uuid, uuid, uuid, boolean, text), ple_api.load_blueprint_course(text),

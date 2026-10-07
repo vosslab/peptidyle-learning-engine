@@ -48,6 +48,7 @@ BEGIN
                attempt.assessment_attempt_id,
                assessment.assessment_id,
                policy.assessment_title,
+               current_policy.partial_credit_enabled,
                attempt.assessment_attempt_number,
                attempt.started_at,
                submission.submitted_at
@@ -57,6 +58,8 @@ BEGIN
            AND assessment.assessment_id = attempt.assessment_id
           JOIN ple_data.assessment_policy_snapshot AS policy
             ON policy.assessment_policy_snapshot_id = attempt.assessment_policy_snapshot_id
+          JOIN ple_data.assessment_policy_snapshot AS current_policy
+            ON current_policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
           LEFT JOIN ple_private.assessment_submission AS submission
             ON submission.course_instance_id = attempt.course_instance_id
            AND submission.assessment_attempt_id = attempt.assessment_attempt_id
@@ -72,6 +75,7 @@ BEGIN
         SELECT page.assessment_attempt_id,
                page.assessment_id,
                page.assessment_title,
+               page.partial_credit_enabled,
                page.assessment_attempt_number,
                page.started_at,
                page.submitted_at,
@@ -106,7 +110,7 @@ BEGIN
                     result.normalized_credit, snapshot.scoring_rule,
                     ple_private.current_assessment_entry_points(
                         issued.assessment_entry_id, snapshot.points
-                    )
+                    ), page.partial_credit_enabled
                 ) AS credit
                WHERE issued.course_instance_id = page.course_instance_id
                  AND issued.assessment_attempt_id = page.assessment_attempt_id

@@ -253,7 +253,8 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
         .getByRole("list", { name: "Your courses", exact: true })
         .getByRole("listitem");
       await courseCards.first().waitFor();
-      if ((await courseCards.count()) < 2) {
+      const invitationCourseCard = courseCards.filter({ hasText: INVITATION_COURSE_LONG_NAME });
+      if ((await invitationCourseCard.count()) === 0) {
         await page.getByRole("link", { name: "Course invitations", exact: true }).click();
         const invitation = page
           .getByRole("list", { name: "Course invitations", exact: true })

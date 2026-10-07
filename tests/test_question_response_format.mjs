@@ -14,3 +14,28 @@ test("Backend-Owned response formats are independent of author-declared Question
   assert.deepEqual(response, { kind: "backendOwned" });
   assert.equal(questionResponseFormatSupportsType(response, "ordering"), true);
 });
+
+test("FIB and MULTI-FIB response formats decode the regex matching rule", () => {
+  assert.deepEqual(
+    decodeQuestionResponseFormat(
+      { kind: "shortText", matchMode: "regex", maxLength: 16 },
+      "response",
+      true,
+    ),
+    { kind: "shortText", matchMode: "regex", maxLength: 16 },
+  );
+  assert.deepEqual(
+    decodeQuestionResponseFormat(
+      {
+        kind: "multiBlank",
+        blanks: [{ id: "first", label: [], matchMode: "regex", maxLength: 16 }],
+      },
+      "response",
+      true,
+    ),
+    {
+      kind: "multiBlank",
+      blanks: [{ id: "first", label: [], matchMode: "regex", maxLength: 16 }],
+    },
+  );
+});

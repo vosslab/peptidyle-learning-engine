@@ -88,9 +88,6 @@ export interface QuestionPoolPreview {
   readonly assessmentEntryId: string;
   readonly questionPoolLabel: string;
   readonly selectionCount: number;
-  readonly selectionRule: {
-    readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
-  };
   readonly items: ReadonlyArray<QuestionPoolPreviewItem>;
   readonly selectedItems: ReadonlyArray<QuestionPoolPreviewItem>;
 }
@@ -116,9 +113,6 @@ export type AssessmentEditorEntryInput =
       readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
       readonly selectionCount: number;
       readonly pointsPerItem: string;
-      readonly selectionRule: {
-        readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
-      };
       readonly questionAttemptLimit: import("../../generated/api/QuestionAttemptLimit").QuestionAttemptLimit;
       readonly questionAttemptTimeLimit: import("../../generated/api/QuestionAttemptTimeLimit").QuestionAttemptTimeLimit;
     };

@@ -171,13 +171,13 @@ export function AssessmentContentPicker(props: AssessmentContentPickerProps): JS
           <label>
             Question membership
             <select
-              value={state.query().membership}
+              value={state.query().questions}
               disabled={state.query().kind === "pools"}
               onChange={(event) =>
-                changeQuery({ membership: event.currentTarget.value as "noPool" | "all" })
+                changeQuery({ questions: event.currentTarget.value as "inNoPool" | "all" })
               }
             >
-              <option value="noPool">Questions in no Pool</option>
+              <option value="inNoPool">Questions in no Pool</option>
               <option value="all">All Questions</option>
             </select>
           </label>

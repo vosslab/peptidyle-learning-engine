@@ -436,7 +436,8 @@ export const ROUTE_CONTRACT = [
     id: "questionDraftEditor",
     path: "/authoring/drafts/:draftQuestionId",
     surface: "Private Draft Question editor",
-    requiredUserRoles: ["instructor"],
+    // ASVS 8.2.1: the route permits Sysadmin editing; Draft APIs still enforce their own session and workspace authority.
+    requiredUserRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
       tierOneArea: "questions",

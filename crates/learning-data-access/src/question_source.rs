@@ -145,6 +145,8 @@ pub trait DraftQuestionSourceBindingStore: Send + Sync {
 pub struct DraftQuestionPublicationSource {
     /// Exact current private source Object Record.
     pub source_record: ObjectRecord,
+    /// Public Question ID reserved at fork Draft creation; ordinary root Drafts have none.
+    pub reserved_published_question_id: Option<PublishedQuestionId>,
 }
 
 #[async_trait]

@@ -62,7 +62,7 @@ BEGIN
                (extract(epoch FROM event.occurred_at) * 1000)::bigint,
                event.short_name, event.long_name, event.availability::text,
                event.content_discipline_id, event.content_subject_id, event.content_topic_id,
-               event.content_subtopic_id, event.tags
+               event.content_subtopic_id, event.tags, event.theme_id
           FROM ple_data.blueprint_metadata_event AS event
          WHERE event.blueprint_course_id = v_blueprint_course_id
            AND (p_after IS NULL OR event.blueprint_metadata_event_id < (

@@ -49,4 +49,4 @@ python3 -m local_stack_control.disposable_stack_command replay-installation-data
 	--manifest "$manifest_path"
 bash "$repository_root/tests/e2e/e2e_live_demo_course_seed.sh" --state
 stop_current
-echo "installation-data E2E: Live Demo provision and replay PASS"
+echo "installation-data E2E: Live Demo provision, replay, and Course seed readback PASS"

@@ -13,6 +13,12 @@
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Prefer the smallest coherent design that meets actual requirements and known failure modes.
   - Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint.
+- [ ] Keep configuration simple. Add options, parameters, modes, overrides, and extension points only
+  for demonstrated needs. Prefer sensible fixed behavior for internal implementation choices.
+  - Verification pending: Current configuration choices have not been audited against this new guidance.
+- [ ] When callers need different behavior, first consider whether the shared design can handle it
+  automatically or whether the tasks are genuinely different. When in doubt, use the simpler shared design.
+  - Verification pending: Current shared designs have not been audited against this new guidance.
 - N/A Complexity must earn its place.
   - Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint.
 - N/A Time should be used efficiently. Agents and tokens are cheap; wall time is not.
@@ -42,7 +48,9 @@
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
   - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
+- N/A Robust software continues to function despite imperfect inputs, data, state, or behavior. Handle
+  imperfections according to their context and impact, recovering gracefully and preserving useful
+  operation whenever possible.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.
   - Reason: agent instruction, not implemented PLE product behavior.

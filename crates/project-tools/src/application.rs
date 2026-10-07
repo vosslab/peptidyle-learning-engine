@@ -10,18 +10,17 @@
 //!
 //! ```text
 //! cargo tools bindgen <input.wasm> <web|node> <out-dir> <out-name>
-//! cargo tools fixtures --check
 //! cargo tools tsgen [out-dir]
 //! ```
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, bail};
 use wasm_bindgen_cli_support::Bindgen;
 
 use project_tools::tsgen;
 
-use crate::{curriculum_content, database, fixtures, installation_data, pilot_content};
+use crate::{curriculum_content, database, installation_data, pilot_content};
 
 /// Rust roots that own generated browser contract declarations, relative to the repo root.
 const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [
@@ -36,14 +35,11 @@ const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [
 /// scopes even though it is not authored source.
 const DEFAULT_TS_OUT_DIR: &str = "generated/api";
 
-/// Where intentional, tracked fixture evidence lives.
-const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/published_question";
-
 pub(crate) fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
         bail!(
-            "usage: cargo tools <bindgen|curriculum-content|database|fixtures|installation-data|pilot-content|tsgen> ..."
+            "usage: cargo tools <bindgen|curriculum-content|database|installation-data|pilot-content|tsgen> ..."
         );
     };
 
@@ -51,27 +47,11 @@ pub(crate) fn run() -> Result<()> {
         "bindgen" => run_bindgen(&args[1..]),
         "curriculum-content" => curriculum_content::run(&args[1..]),
         "database" => database::run(&args[1..]),
-        "fixtures" => run_fixtures(&args[1..]),
         "installation-data" => installation_data::run(&args[1..]),
         "pilot-content" => pilot_content::run(&args[1..]),
         "tsgen" => run_tsgen(&args[1..]),
         other => bail!("unknown command: {other}"),
     }
-}
-
-/// Checks the stored published-Question fixture data.
-fn run_fixtures(args: &[String]) -> Result<()> {
-    let [flag] = args else {
-        bail!("usage: cargo tools fixtures --check");
-    };
-    ensure!(flag == "--check", "usage: cargo tools fixtures --check");
-
-    let report = fixtures::run(Path::new(DEFAULT_FIXTURE_DIR))?;
-    println!(
-        "fixtures: {} {} tracked file(s)",
-        report.action, report.tracked_files
-    );
-    Ok(())
 }
 
 /// Regenerates the TypeScript definitions for the application-owned contract roots.

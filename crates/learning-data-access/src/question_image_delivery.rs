@@ -18,14 +18,21 @@ pub struct ReadyQuestionImageDelivery {
     pub rendition_checksum: Sha256Checksum,
 }
 
-/// Resolves exactly one ready public Question Image only after the database has proved
+/// Database-authorized delivery state for one immutable public Question Image rendition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QuestionImageDeliveryResolution {
+    Ready(ReadyQuestionImageDelivery),
+    Pending,
+}
+
+/// Resolves exactly one public Question Image only after the database has proved
 /// Instructor Question Library or issued Student Assessment Access.
 #[async_trait]
 pub trait QuestionImageDeliveryStore: Send + Sync {
-    async fn resolve_ready_question_image_delivery(
+    async fn resolve_question_image_delivery(
         &self,
         session_token_hash: SessionTokenHash,
         published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_image_asset_id: QuestionImageAssetId,
-    ) -> Result<ReadyQuestionImageDelivery, StoreError>;
+    ) -> Result<QuestionImageDeliveryResolution, StoreError>;
 }

@@ -5,6 +5,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import { decodeAssessmentSummary } from "../src/api/decoders/question_library.ts";
 
 const policies = {
+  partialCreditEnabled: true,
   questionVariationRule: "newVariation",
   assessmentQuestionOrderRule: "shuffled",
 };

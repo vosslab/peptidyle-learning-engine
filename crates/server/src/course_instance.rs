@@ -17,27 +17,14 @@ use axum::{
     routing::{get, post, put},
 };
 use learning_data_access::{
-    CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput, Cursor,
-    DiscoveryPageRequest, DiscoveryPageSize, SessionTokenHash, StoreError,
+    CourseInstanceStore, CreateCourseInstanceInput, Cursor, DiscoveryPageRequest,
+    DiscoveryPageSize, SessionTokenHash, StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
 use question_model::{CourseInstanceId, CourseInstanceRouteSummary, UserRole};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::{QuestionPoolIdIssuer, RandomQuestionIdIssuer},
-};
-
-impl CourseInstancePoolIdIssuer for RandomQuestionIdIssuer {
-    fn issue_question_pool_id(&self) -> Result<question_model::QuestionPoolId, StoreError> {
-        QuestionPoolIdIssuer::issue_question_pool_id(self).map_err(|_| {
-            StoreError::Unavailable(
-                "Question Pool fork identity issuance is unavailable".to_string(),
-            )
-        })
-    }
-}
+use crate::auth::{AuthError, resolve_session};
 
 #[derive(Clone)]
 struct CourseInstanceRouteState {
@@ -121,7 +108,7 @@ async fn create_course_instance(
     };
     match state
         .courses
-        .create_course_instance(session_hash, input, Default::default())
+        .create_course_instance(session_hash, input)
         .await
     {
         Ok(created) => crate::auth::no_store((StatusCode::CREATED, Json(created)).into_response()),

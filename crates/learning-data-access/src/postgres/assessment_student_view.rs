@@ -10,8 +10,7 @@ use question_model::{
     InstructorStudentViewDelivery, LateWorkRule, ObjectId, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit,
     QuestionPoolAssessmentEntry, QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectedItem,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
-    SourceObjectChecksum, Timestamp,
+    QuestionRevisionNumber, SourceObjectChecksum, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -223,7 +222,7 @@ fn snapshot_entries(
                 let expected_pool_id = assessment_entry.question_pool_id.clone();
                 let expected_pool_edit_number = assessment_entry.question_pool_edit_number;
                 let mut members = Vec::new();
-                let mut previous_member_position = None;
+                let mut member_question_ids = std::collections::BTreeSet::new();
                 while let Some(member_row) = rows.get(index) {
                     let member_entry_id = member_row
                         .try_get::<Option<uuid::Uuid>, _>("assessment_entry_id")
@@ -236,25 +235,14 @@ fn snapshot_entries(
                     {
                         return Err(invalid("Question Pool authored position"));
                     }
-                    let member_position = unsigned_i32(
-                        member_row,
-                        "member_position",
-                        "Question Pool member position",
-                    )?
-                    .checked_sub(1)
-                    .ok_or_else(|| invalid("Question Pool member position"))?;
-                    if previous_member_position.is_some_and(|previous| previous >= member_position)
-                    {
-                        return Err(invalid("Question Pool member order"));
+                    let tuple = published_question_revision_tuple(member_row)?;
+                    if !member_question_ids.insert(tuple.published_question_id.clone()) {
+                        return Err(invalid("Question Pool member set"));
                     }
-                    previous_member_position = Some(member_position);
                     members.push(QuestionPoolSelectedItem {
                         question_pool_id: expected_pool_id.clone(),
                         question_pool_edit_number: expected_pool_edit_number,
-                        member_position,
-                        published_question_revision_tuple: published_question_revision_tuple(
-                            member_row,
-                        )?,
+                        published_question_revision_tuple: tuple,
                     });
                     index += 1;
                 }
@@ -302,15 +290,6 @@ fn pool_assessment_entry(
         scoring_rule: entry_scoring_rule(row)?,
         selection_count,
         points_per_item: point_value(row, "points_per_item")?,
-        selection_rule: QuestionPoolSelectionRule {
-            selected_question_order: match column::<String>(row, "selected_question_order")?
-                .as_str()
-            {
-                "question_pool_order" => QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-                "random_order" => QuestionPoolSelectedQuestionOrder::RandomOrder,
-                _ => return Err(invalid("Question Pool selected Question order")),
-            },
-        },
         question_attempt_limit: QuestionAttemptLimit {
             max_attempts: optional_positive_i32(
                 row,
@@ -336,6 +315,7 @@ fn source_from_row(
     match (column::<String>(row, "backend")?.as_str(), webwork_pg_path) {
         ("ple", None) => Ok(InstructorStudentViewSource::Ple {
             published_question_revision_tuple,
+            question_title: column(row, "question_title")?,
             source_object_id,
             source_object_checksum,
             source_media_type,

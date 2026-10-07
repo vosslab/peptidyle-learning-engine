@@ -18,11 +18,9 @@ function eventLabel(value: LibraryWatchNotification): string {
     case "revision":
       return "New Revision";
     case "membersChanged":
-      return "Membership edit";
+      return "Questions changed";
     case "fork":
-      return "New public fork";
-    case "impactNotice":
-      return "Impact notice activity";
+      return "New fork";
   }
 }
 
@@ -47,15 +45,18 @@ export function notificationContent(
       title: eventLabel(notification),
       description: `${targetLabel(notification)}: ${notification.targetPublicId}`,
       details: [
-        ...(notification.revisionNumber === null
-          ? []
-          : [
-              {
-                kind: "text" as const,
-                label: notification.targetKind === "questionPool" ? "Edit number" : "Revision",
-                value: String(notification.revisionNumber),
-              },
-            ]),
+        {
+          kind: "text" as const,
+          label:
+            notification.targetKind === "questionPool"
+              ? "Question Pool Edit Number"
+              : "Question Revision Number",
+          value: String(
+            notification.targetKind === "questionPool"
+              ? notification.questionPoolEditNumber
+              : notification.questionRevisionNumber,
+          ),
+        },
         ...(notification.forkedPublicId === null
           ? []
           : [{ kind: "text" as const, label: "Fork ID", value: notification.forkedPublicId }]),
@@ -84,9 +85,9 @@ function notificationId(notification: LibraryWatchNotification): string {
     notification.eventKind,
     notification.targetPublicId,
     notification.occurredAt,
-    notification.revisionNumber ?? "",
+    notification.questionRevisionNumber ?? "",
+    notification.questionPoolEditNumber ?? "",
     notification.forkedPublicId ?? "",
-    notification.activityId ?? "",
   ].join("-");
 }
 
@@ -117,13 +118,14 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
       headingId="library-watch-notifications-heading"
       eyebrow="Question Library"
       title="Watch activity"
-      lede="Changes and stewardship activity for the Published Questions and Question Pools you watch. Your watch list and this inbox are private."
+      lede="New Revisions and forks for Published Questions, and changes and forks for Question Pools you watch. Your watch list and this inbox are private."
     >
       <RecordList
         ariaLabel="Private Watch activity"
         emptyState={{
           title: "No Watch activity yet",
-          message: "New Revisions, public forks, and stewardship activity will appear here.",
+          message:
+            "New Revisions and forks, and Question Pool changes and forks, will appear here.",
         }}
         content={(notification) => notificationContent(formatTimestamp())(notification)}
         recordId={notificationId}

@@ -164,7 +164,12 @@ pub(crate) struct Question {
     pub(crate) slug: String,
     pub(crate) question_title: String,
     pub(crate) question_description: String,
-    pub(crate) language: String,
+    #[serde(default)]
+    pub(crate) language: Option<String>,
+    #[serde(default)]
+    pub(crate) tags: Vec<String>,
+    #[serde(default)]
+    pub(crate) question_citation: Option<String>,
     pub(crate) backend: Backend,
     source_format: Option<WebworkSourceFormat>,
     pub(crate) question_type: PilotQuestionType,
@@ -214,9 +219,7 @@ pub(crate) enum PilotQuestionType {
 pub(crate) struct PublicationSource {
     pub(crate) classification: AuthoredClassification,
     pub(crate) slug: String,
-    pub(crate) question_title: String,
-    pub(crate) question_description: String,
-    pub(crate) language: String,
+    pub(crate) metadata: question_model::QuestionMetadata,
     pub(crate) backend: Backend,
     pub(crate) question_format: QuestionFormat,
     pub(crate) question_type: PilotQuestionType,
@@ -291,9 +294,7 @@ pub(crate) fn publication_plan() -> Result<PublicationPlan> {
             questions.push(PublicationSource {
                 classification: chapter.classification.clone(),
                 slug: question.slug.clone(),
-                question_title: question.question_title.clone(),
-                question_description: question.question_description.clone(),
-                language: question.language.clone(),
+                metadata: publication_metadata(question, &manifest.source_project.content_license)?,
                 backend: question.backend,
                 question_format: validated_question_format(question)?,
                 question_type: question.question_type,
@@ -325,6 +326,28 @@ fn tracked_manifest_path() -> Result<PathBuf> {
         }
     }
     bail!("the checked-in Pilot Question Set is unavailable")
+}
+
+fn publication_metadata(
+    question: &Question,
+    content_license: &str,
+) -> Result<question_model::QuestionMetadata> {
+    Ok(question_model::QuestionMetadata {
+        question_title: question.question_title.clone(),
+        question_description: question.question_description.clone(),
+        tags: question
+            .tags
+            .iter()
+            .cloned()
+            .map(question_model::Tag::new)
+            .collect(),
+        question_license: Some(
+            serde_json::from_value(serde_json::Value::String(content_license.to_owned()))
+                .map_err(|_| anyhow::anyhow!("Pilot source content license is not publishable"))?,
+        ),
+        question_citation: question.question_citation.clone(),
+        language: question.language.clone(),
+    })
 }
 
 fn canonical_publication_source(backend: Backend, source_bytes: Vec<u8>) -> Result<Vec<u8>> {
@@ -492,9 +515,9 @@ fn validate_question(
             "pilot Question Description must be trimmed, nonempty, control-free, and at most 4000 characters"
         );
     }
-    if question.language != question.language.trim()
-        || !(2..=35).contains(&question.language.chars().count())
-    {
+    if question.language.as_ref().is_some_and(|language| {
+        language != language.trim() || !(2..=35).contains(&language.chars().count())
+    }) {
         bail!("pilot Question language must be trimmed and contain 2 through 35 characters");
     }
     let expected_points = match question.question_type {
@@ -609,20 +632,6 @@ fn validate_flat(
         compiled.presentation().question_type(),
         compiled.presentation().response(),
     )?;
-    if compiled.presentation().question_title() != question.question_title {
-        bail!("PLE Question JSON pilot payload Question Title differs from its manifest entry");
-    }
-    if compiled.presentation().metadata().question_description != question.question_description {
-        bail!(
-            "PLE Question JSON pilot payload Question Description differs from its manifest entry"
-        );
-    }
-    if !bytes
-        .windows(b"\"questionLicense\":\"CC-BY-4.0\"".len())
-        .any(|window| window == b"\"questionLicense\":\"CC-BY-4.0\"")
-    {
-        bail!("PLE Question JSON pilot payload must retain the CC BY license");
-    }
     let expected_question_type = match question.question_type {
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
         PilotQuestionType::Matching => QuestionType::Matching,

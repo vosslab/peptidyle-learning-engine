@@ -8,12 +8,12 @@ GRANT EXECUTE ON FUNCTION ple_private.question_library_entries(text, integer, bo
 
 REVOKE ALL ON FUNCTION ple_private.search_question_library_entries(
     text, jsonb, text[], text[], text[], text[], text[], uuid, uuid, uuid, uuid, boolean,
-    text, text, text[], text[], boolean, text, text, text, boolean, text, text, bigint, text, integer
+    text, text, text[], text[], boolean, text, text, text, text, text, bigint, text, integer
 ) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.search_question_library_entries(
     text, jsonb, text[], text[], text[], text[], text[], uuid, uuid, uuid, uuid, boolean,
-    text, text, text[], text[], boolean, text, text, text, boolean, text, text, bigint, text, integer
+    text, text, text[], text[], boolean, text, text, text, text, text, bigint, text, integer
 ) TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_private.load_library_object_kind(text) FROM PUBLIC;
@@ -30,9 +30,10 @@ SET LOCAL ROLE ple_api_owner;
 REVOKE ALL ON TABLE ple_api.published_question_summary FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_api.list_question_library_entries(),
+    ple_api.load_question_library_lineage(text),
     ple_api.search_question_library_entries(
         text, jsonb, text[], text[], text[], text[], text[], uuid, uuid, uuid, uuid, boolean,
-        text, text, text[], text[], boolean, text, text, text, boolean, text, text, bigint, text, integer
+        text, text, text[], text[], boolean, text, text, text, text, text, bigint, text, integer
     ),
     ple_api.load_library_object_kind(text),
     ple_api.load_question_library_revision(text, integer),
@@ -41,9 +42,10 @@ REVOKE ALL ON FUNCTION ple_api.list_question_library_entries(),
 GRANT SELECT ON TABLE ple_api.published_question_summary TO ple_app;
 
 GRANT EXECUTE ON FUNCTION ple_api.list_question_library_entries(),
+    ple_api.load_question_library_lineage(text),
     ple_api.search_question_library_entries(
         text, jsonb, text[], text[], text[], text[], text[], uuid, uuid, uuid, uuid, boolean,
-        text, text, text[], text[], boolean, text, text, text, boolean, text, text, bigint, text, integer
+        text, text, text[], text[], boolean, text, text, text, text, text, bigint, text, integer
     ),
     ple_api.load_library_object_kind(text),
     ple_api.load_question_library_revision(text, integer),

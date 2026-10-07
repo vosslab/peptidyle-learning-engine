@@ -12,7 +12,6 @@ import type { BlueprintAssessmentEntryView } from "../../../generated/api/Bluepr
 import type { AssessmentEntryScoringRule } from "../../../generated/api/AssessmentEntryScoringRule";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
-import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionPickerSelection } from "../question_picker";
 import { assessmentPointValueDraft } from "../../assessment_point_value";
@@ -88,6 +87,7 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
     assessment_attempt_limit: assessmentType === "quiz" || assessmentType === "exam" ? 1 : null,
     late_work_rule: "reject",
     activity_rules: {
+      partialCreditEnabled: true,
       questionVariationRule: "newVariation",
       assessmentQuestionOrderRule: "shuffled",
     },
@@ -130,6 +130,7 @@ export function emptyBlueprintCourseContent(
 ): CreateBlueprintCourseInput {
   return {
     classification,
+    theme: "grass",
     short_name: "Untitled Blueprint",
     long_name: "Untitled Blueprint Course",
     modules: [{ label: "Module 1", assessments: [emptyReusableContent(assessmentType)] }],
@@ -149,21 +150,13 @@ function fixedEntry(
   };
 }
 
-function poolEntry(
-  questionPoolId: QuestionPoolId,
-  questionPoolEditNumber: QuestionPoolEditNumber,
-): BlueprintAssessmentEntryInput {
+function poolEntry(questionPoolId: QuestionPoolId): BlueprintAssessmentEntryInput {
   return {
     kind: "pool",
-    pool: {
-      kind: "import",
-      question_pool_id: questionPoolId,
-      question_pool_edit_number: questionPoolEditNumber,
-    },
+    question_pool_id: questionPoolId,
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
-    selection_rule: { selectedQuestionOrder: "questionPoolOrder" },
     question_attempt_limit: { maxAttempts: null },
     question_attempt_time_limit: { kind: "unlimited" },
   };
@@ -185,15 +178,14 @@ export function appendPickedFixedEntries(
   };
 }
 
-/** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
+/** Appends one Question Pool to the ordered Assessment content. */
 export function appendPickedPool(
   content: BlueprintAssessmentContentInput,
   questionPoolId: QuestionPoolId,
-  questionPoolEditNumber: QuestionPoolEditNumber,
 ): BlueprintAssessmentContentInput {
   return {
     ...content,
-    entries: [...content.entries, poolEntry(questionPoolId, questionPoolEditNumber)],
+    entries: [...content.entries, poolEntry(questionPoolId)],
   };
 }
 
@@ -326,28 +318,6 @@ export function validateReusableContent(
         message: "Choose a positive whole Question Pool selection count.",
       };
     }
-    if (entry.pool.kind === "retained" && entry.pool.members !== null) {
-      const members = entry.pool.members;
-      if (
-        members.length === 0 ||
-        members.length > MAX_REUSABLE_ENTRIES ||
-        entry.selection_count > members.length ||
-        new Set(members.map((member) => member.publishedQuestionId)).size !== members.length ||
-        members.some(
-          (member) =>
-            !member.publishedQuestionId ||
-            !Number.isSafeInteger(member.revisionNumber) ||
-            member.revisionNumber < 1,
-        ) ||
-        !entry.pool.interchangeabilityAttested
-      ) {
-        return {
-          valid: false,
-          message:
-            "Choose unique Pool members, review their interchangeability, and keep the selection count within the member count.",
-        };
-      }
-    }
   }
   return { valid: true, message: null };
 }
@@ -395,17 +365,10 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   if (entry.kind === "pool") {
     return {
       kind: "pool",
-      pool: {
-        kind: "retained",
-        question_pool_id: entry.question_pool_id,
-        question_pool_edit_number: entry.question_pool_edit_number,
-        members: null,
-        interchangeabilityAttested: false,
-      },
+      question_pool_id: entry.question_pool_id,
       selection_count: entry.selection_count,
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,
-      selection_rule: entry.selection_rule,
       question_attempt_limit: entry.question_attempt_limit,
       question_attempt_time_limit: entry.question_attempt_time_limit,
     };

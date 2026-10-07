@@ -34,8 +34,6 @@ import { isRecordedExternalJavascriptDependency } from "./recorded_javascript_de
 const MAX_SOURCE_BYTES = 256 * 1024;
 const MAX_CHOICES = 100;
 const MAX_CHOICE_ID_BYTES = 64;
-const MAX_TITLE_CHARS = 512;
-const MAX_QUESTION_DESCRIPTION_CHARS = 4_000;
 const MAX_PROMPT_CHARS = 65_536;
 const MAX_CHOICE_TEXT_CHARS = 16_384;
 const MAX_FEEDBACK_CHARS = 16_384;
@@ -43,7 +41,6 @@ const MAX_HINT_CHARS = 16_384;
 const MAX_BLANKS = 50;
 const MAX_TEXT_RESPONSE_CHARS = 16_384;
 const MAX_NORMALIZED_COORDINATE = 10_000;
-const MAX_TAG_CHARS = 128;
 const MAX_METADATA_CHARS = 256;
 const MAX_EXTERNAL_RESOURCES = 100;
 const MAX_EXTERNAL_RESOURCE_URL_CHARS = 4_096;
@@ -81,9 +78,16 @@ function boolean(value: unknown, path: string): boolean {
 
 function boundedText(value: unknown, path: string, maximum: number): string {
   const decoded = string(value, path);
-  if (decoded.trim().length === 0 || Array.from(decoded).length > maximum) {
-    throw new DecodeError(path, `nonblank text no longer than ${maximum} characters`);
+  if (Array.from(decoded).length > maximum) {
+    throw new DecodeError(path, `text no longer than ${maximum} characters`);
   }
+  return decoded;
+}
+
+function nonblankBoundedText(value: unknown, path: string, maximum: number): string {
+  const decoded = boundedText(value, path, maximum);
+  if (decoded.trim().length === 0)
+    throw new DecodeError(path, `nonblank text no longer than ${maximum} characters`);
   return decoded;
 }
 
@@ -192,7 +196,7 @@ function decodeAuthorScriptLibrary(
 function decodeAuthorScript(value: unknown, path: string): PleQuestionJsonAuthorScript {
   const record = decodeRecord(value, path);
   onlyFields(record, path, ["source", "libraries"]);
-  const source = boundedText(
+  const source = nonblankBoundedText(
     field(record, "source", path),
     `${path}.source`,
     MAX_AUTHOR_SCRIPT_CHARS,
@@ -311,7 +315,9 @@ function decodeTextResponseMatchRule(
   path: string,
 ): PleQuestionJsonTextResponseMatchRule {
   const mode = string(value, path);
-  if (mode === "exact" || mode === "caseInsensitive" || mode === "normalized") return mode;
+  if (mode === "exact" || mode === "caseInsensitive" || mode === "normalized" || mode === "regex") {
+    return mode;
+  }
   throw new DecodeError(path, "a known text match mode");
 }
 
@@ -664,41 +670,6 @@ function decodeQuestionHint(value: unknown, path: string): string | null {
   return value === undefined || value === null ? null : boundedText(value, path, MAX_HINT_CHARS);
 }
 
-function decodeTags(value: unknown, path: string): ReadonlyArray<string> {
-  if (!Array.isArray(value)) throw new DecodeError(path, "an array");
-  return value.map((entry, index) => boundedText(entry, `${path}[${index}]`, MAX_TAG_CHARS));
-}
-
-function decodeQuestionLicense(
-  value: unknown,
-  path: string,
-): PleQuestionJsonDocument["questionLicense"] {
-  if (value === null) return null;
-  if (value === "CC0-1.0" || value === "CC-BY-4.0" || value === "CC-BY-SA-4.0") return value;
-  throw new DecodeError(path, "an exact Question License or null");
-}
-
-function decodeQuestionCitation(
-  value: unknown,
-  path: string,
-): PleQuestionJsonDocument["questionCitation"] {
-  if (value === null) return null;
-  const record = decodeRecord(value, path);
-  onlyFields(record, path, ["citationUrl", "citationText"]);
-  const citationUrl =
-    field(record, "citationUrl", path) === null
-      ? null
-      : boundedText(field(record, "citationUrl", path), `${path}.citationUrl`, 2048);
-  const citationText =
-    field(record, "citationText", path) === null
-      ? null
-      : boundedText(field(record, "citationText", path), `${path}.citationText`, 4000);
-  if (citationUrl === null && citationText === null) {
-    throw new DecodeError(path, "a Citation URL or NLM-style Citation Text");
-  }
-  return { citationUrl, citationText };
-}
-
 /** Strictly decodes source returned by the protected authoring endpoint. */
 export function decodePleQuestionJsonSource(
   value: unknown,
@@ -707,18 +678,12 @@ export function decodePleQuestionJsonSource(
   const record = decodeRecord(value, path);
   onlyFields(record, path, [
     "format",
-    "questionTitle",
-    "questionDescription",
     "prompt",
     "response",
     "questionHint",
     "feedback",
-    "tags",
-    "questionLicense",
-    "questionCitation",
     "externalResources",
     "authorScript",
-    "language",
   ]);
   if (field(record, "format", path) !== PLE_QUESTION_JSON_FORMAT) {
     throw new DecodeError(`${path}.format`, `the literal ${PLE_QUESTION_JSON_FORMAT}`);
@@ -825,16 +790,6 @@ export function decodePleQuestionJsonSource(
   }
   return {
     format: PLE_QUESTION_JSON_FORMAT,
-    questionTitle: boundedText(
-      field(record, "questionTitle", path),
-      `${path}.questionTitle`,
-      MAX_TITLE_CHARS,
-    ),
-    questionDescription: boundedText(
-      field(record, "questionDescription", path),
-      `${path}.questionDescription`,
-      MAX_QUESTION_DESCRIPTION_CHARS,
-    ),
     prompt: boundedText(field(record, "prompt", path), `${path}.prompt`, MAX_PROMPT_CHARS),
     response,
     questionHint: decodeQuestionHint(record.questionHint, `${path}.questionHint`),
@@ -842,15 +797,6 @@ export function decodePleQuestionJsonSource(
       record.feedback === undefined
         ? { correct: null, incorrect: null }
         : decodeOutcomeFeedback(record.feedback, `${path}.feedback`),
-    tags: record.tags === undefined ? [] : decodeTags(record.tags, `${path}.tags`),
-    questionLicense: decodeQuestionLicense(
-      field(record, "questionLicense", path),
-      `${path}.questionLicense`,
-    ),
-    questionCitation: decodeQuestionCitation(
-      field(record, "questionCitation", path),
-      `${path}.questionCitation`,
-    ),
     externalResources:
       record.externalResources === undefined
         ? []
@@ -859,7 +805,6 @@ export function decodePleQuestionJsonSource(
       record.authorScript === undefined || record.authorScript === null
         ? null
         : decodeAuthorScript(record.authorScript, `${path}.authorScript`),
-    language: boundedText(field(record, "language", path), `${path}.language`, MAX_METADATA_CHARS),
   };
 }
 

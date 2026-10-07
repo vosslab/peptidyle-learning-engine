@@ -6,8 +6,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintRevisionTuple, CourseInstanceId, CourseSummary, CourseTerm, QuestionPoolId,
-    Theme,
+    AccountId, BlueprintCourseRevisionTuple, CourseInstanceId, CourseSummary, CourseTerm, Theme,
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +30,7 @@ pub enum CourseInstanceCreationSource {
     /// Materialize content from exactly this reusable Blueprint Revision.
     Adopted {
         /// Exact immutable Blueprint Course plus Revision Number source.
-        blueprint_revision_tuple: BlueprintRevisionTuple,
+        blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     },
 }
 
@@ -141,9 +140,9 @@ pub struct CourseInstanceView {
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceBlueprintOrigin {
     /// Immutable Blueprint Revision originally adopted when the Course was created.
-    pub adopted_blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub adopted_blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     /// Current readable source Blueprint Revision, without applying any changes.
-    pub current_blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub current_blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
 }
 
 /// Safe active-Instructor selection identity for a Sysadmin creation request.
@@ -160,14 +159,6 @@ pub struct CourseCreationInstructor {
 pub struct CreatedCourseInstance {
     /// Newly allocated Course Instance identity.
     pub course_instance: CourseInstanceSummary,
-}
-
-/// Server-only issuer for the fresh public identity of each Assessment-owned
-/// Question Pool fork created while adopting a Blueprint.  The browser never
-/// supplies this value and persistence never receives the HMAC capability.
-pub trait CourseInstancePoolIdIssuer: Send + Sync {
-    /// Issues one candidate canonical Question Pool public ID.
-    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError>;
 }
 
 /// Persistence contract for the Course Instance and initial Teaching Team boundary.
@@ -206,7 +197,6 @@ pub trait CourseInstanceStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: CreateCourseInstanceInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreatedCourseInstance, StoreError>;
 
     /// Adds an active Instructor Course Membership when the current active
@@ -289,7 +279,7 @@ mod tests {
             .expect("canonical Blueprint Course ID");
         let adopted = serde_json::json!({
             "kind": "adopted",
-            "blueprintRevisionTuple": {
+            "blueprintCourseRevisionTuple": {
                 "blueprintCourseId": blueprint_course,
                 "revisionNumber": "1"
             }
@@ -318,7 +308,7 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprintRevisionTuple": {
+                "blueprintCourseRevisionTuple": {
                     "blueprintCourseId": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                         .expect("canonical Blueprint Course ID"),
                     "revisionNumber": "1"

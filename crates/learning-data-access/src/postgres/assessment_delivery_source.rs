@@ -151,6 +151,7 @@ pub(super) fn source_from_row(
                 assessment_entry_id: String::new(),
                 position,
                 question_id: published_question_id.clone(),
+                question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
                 revision_number,
                 source_object_id: source_object_record_id.to_string(),
                 source_object_address: row

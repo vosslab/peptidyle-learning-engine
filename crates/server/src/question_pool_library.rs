@@ -1,13 +1,14 @@
-//! Published Pool detail, Bloom correction, and owned fork detail routes.
+//! Published Pool detail, ordinary metadata, and owned fork routes.
 
 use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, State, rejection::JsonRejection},
+    body::to_bytes,
+    extract::{Path, Request, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::get,
 };
 use learning_data_access::{
     PublishedQuestionPool, QuestionLibraryStore, QuestionPoolLibraryStore, SessionTokenHash,
@@ -18,15 +19,18 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    AssessmentEntryId, AssessmentId, AssessmentQuestionPoolForkView,
-    BloomClassificationCorrectionRequest, CourseInstanceId, QuestionPoolBloomCorrectionReceipt,
-    QuestionPoolId, QuestionPoolMemberView, QuestionPoolView, UserRole,
+    AccountId, MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionPoolId,
+    QuestionPoolMemberView, QuestionPoolView, SaveQuestionPoolMembersRequest,
+    SaveQuestionPoolMetadataRequest, UserRole,
 };
 
 use crate::{
     auth::{AuthError, resolve_session},
     question_library::answer_free_reusable_question_view,
 };
+
+const MAX_QUESTION_POOL_METADATA_REQUEST_BYTES: usize = 64 * 1024;
+const MAX_QUESTION_POOL_MEMBERS_REQUEST_BYTES: usize = 160 * 1024;
 
 #[derive(Clone)]
 struct RouteState {
@@ -45,12 +49,12 @@ pub fn question_pool_library_router(
     Router::new()
         .route("/api/question-pools/{question_pool_id}", get(current_pool))
         .route(
-            "/api/question-pools/{question_pool_id}/bloom",
-            post(correct_pool_bloom),
+            "/api/question-pools/{question_pool_id}/metadata",
+            get(current_pool_metadata).put(save_question_pool_metadata),
         )
         .route(
-            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{assessment_entry_id}",
-            get(assessment_fork),
+            "/api/question-pools/{question_pool_id}/members",
+            axum::routing::put(save_question_pool_members),
         )
         .with_state(RouteState {
             sessions,
@@ -69,141 +73,162 @@ async fn current_pool(
         Some(value) => value,
         None => return concealed(),
     };
-    let (token, is_instructor) = match library_reader(&state, &headers).await {
+    let viewer = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
     let revision = match state
         .pools
-        .load_current_published_question_pool(token, &pool_id)
+        .load_current_published_question_pool(viewer.session_hash, &pool_id)
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    match pool_view(&state, token, is_instructor, revision).await {
+    match pool_view(&state, &viewer, revision).await {
         Ok(value) => crate::auth::no_store(Json(value).into_response()),
         Err(response) => response,
     }
 }
 
-async fn correct_pool_bloom(
+async fn current_pool_metadata(
     State(state): State<RouteState>,
-    headers: HeaderMap,
     Path(question_pool_id): Path<String>,
-    payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
+    request: Request,
 ) -> Response {
     let pool_id = match verified_id(&question_pool_id) {
         Some(value) => value,
         None => return concealed(),
     };
-    // ASVS 8.2.1/8.3.1: correction is available to every active
-    // Instructor and never to the read-only Sysadmin Pool surface.
-    let token = match instructor(&state, &headers).await {
+    if request.uri().query().is_some() {
+        return response(StatusCode::BAD_REQUEST, "Invalid Pool metadata query");
+    }
+    let headers = request.headers().clone();
+    if to_bytes(request.into_body(), 0).await.is_err() {
+        return response(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "Invalid Pool metadata request",
+        );
+    }
+    let viewer = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Json(request) = match payload {
-        Ok(value) => value,
-        Err(_) => {
-            return response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Bloom correction is invalid",
-            );
-        }
-    };
-    let bloom = match state
+    match state
         .pools
-        .correct_question_pool_bloom(
-            token,
-            &pool_id,
-            request.expected_classification_edit_number,
-            request.cognitive_process,
-            request.knowledge_dimension,
-        )
+        .load_current_question_pool_metadata(viewer.session_hash, &pool_id)
         .await
     {
-        Ok(value) => value,
-        Err(StoreError::RetryableTransaction | StoreError::Conflict) => {
-            return response(
-                StatusCode::PRECONDITION_FAILED,
-                "Question Pool classification changed",
-            );
-        }
-        Err(StoreError::InvalidRecord(_)) => {
-            return response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Bloom correction is invalid",
-            );
-        }
-        Err(error) => return store_error(error),
-    };
-    let pin = match state
-        .pools
-        .load_current_published_question_pool(token, &pool_id)
-        .await
-    {
-        Ok(value) => value.question_pool_id,
-        Err(error) => return store_error(error),
-    };
-    crate::auth::no_store(
-        Json(QuestionPoolBloomCorrectionReceipt {
-            question_pool_id: pin,
-            bloom,
-        })
-        .into_response(),
-    )
+        Ok(metadata) => crate::auth::no_store(Json(metadata).into_response()),
+        Err(error) => store_error(error),
+    }
 }
 
-async fn assessment_fork(
+async fn save_question_pool_metadata(
     State(state): State<RouteState>,
-    headers: HeaderMap,
-    Path((course, assessment, entry)): Path<(String, String, String)>,
+    Path(question_pool_id): Path<String>,
+    request: Request,
 ) -> Response {
-    let course = match course.parse::<CourseInstanceId>() {
-        Ok(value) => value,
-        Err(_) => return concealed(),
+    let pool_id = match verified_id(&question_pool_id) {
+        Some(value) => value,
+        None => return concealed(),
     };
-    let assessment = match assessment.parse::<AssessmentId>() {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let entry = match uuid::Uuid::parse_str(&entry) {
-        Ok(value) => AssessmentEntryId::from_uuid(value),
-        Err(_) => return concealed(),
-    };
-    let token = match instructor(&state, &headers).await {
+    if !has_json_content_type(request.headers()) {
+        return response(StatusCode::UNSUPPORTED_MEDIA_TYPE, "Invalid Pool metadata");
+    }
+    if request.uri().query().is_some() {
+        return response(StatusCode::BAD_REQUEST, "Invalid Pool metadata query");
+    }
+    let viewer = match library_reader(&state, request.headers()).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let record = match state
+    let body = match to_bytes(
+        request.into_body(),
+        MAX_QUESTION_POOL_METADATA_REQUEST_BYTES,
+    )
+    .await
+    {
+        Ok(body) => body,
+        Err(_) => return response(StatusCode::PAYLOAD_TOO_LARGE, "Invalid Pool metadata"),
+    };
+    let save = match serde_json::from_slice::<SaveQuestionPoolMetadataRequest>(&body) {
+        Ok(value) => value,
+        Err(_) => return response(StatusCode::UNPROCESSABLE_ENTITY, "Invalid Pool metadata"),
+    };
+    if save.question_pool_id != pool_id {
+        return response(StatusCode::UNPROCESSABLE_ENTITY, "Invalid Pool metadata");
+    }
+    match state
         .pools
-        .load_assessment_question_pool_fork(token, course, assessment, entry)
+        .save_question_pool_metadata(viewer.session_hash, save)
+        .await
+    {
+        Ok(receipt) => crate::auth::no_store(Json(receipt).into_response()),
+        Err(error) => metadata_store_error(error),
+    }
+}
+
+async fn save_question_pool_members(
+    State(state): State<RouteState>,
+    Path(question_pool_id): Path<String>,
+    request: Request,
+) -> Response {
+    let pool_id = match verified_id(&question_pool_id) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    if !has_json_content_type(request.headers()) {
+        return response(StatusCode::UNSUPPORTED_MEDIA_TYPE, "Invalid Pool members");
+    }
+    if request.uri().query().is_some() {
+        return response(StatusCode::BAD_REQUEST, "Invalid Pool members query");
+    }
+    let headers = request.headers().clone();
+    let viewer = match library_reader(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 1.5/2.2: cap the body before closed-model decoding; malformed bodies receive generic errors.
+    let body = match to_bytes(request.into_body(), MAX_QUESTION_POOL_MEMBERS_REQUEST_BYTES).await {
+        Ok(body) => body,
+        Err(_) => return response(StatusCode::PAYLOAD_TOO_LARGE, "Invalid Pool members"),
+    };
+    let save = match serde_json::from_slice::<SaveQuestionPoolMembersRequest>(&body) {
+        Ok(value) => value,
+        Err(_) => return response(StatusCode::UNPROCESSABLE_ENTITY, "Invalid Pool members"),
+    };
+    if save.question_pool_id != pool_id
+        || save.members.is_empty()
+        || save.members.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
+    {
+        return response(StatusCode::UNPROCESSABLE_ENTITY, "Invalid Pool members");
+    }
+    let current = match state
+        .pools
+        .load_current_published_question_pool(viewer.session_hash, &pool_id)
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let members = match pool_members(&state, token, true, record.members).await {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-    crate::auth::no_store(
-        Json(AssessmentQuestionPoolForkView {
-            metadata: record.metadata,
-            assessment_entry_id: record.assessment_entry_id,
-            question_pool_id: record.question_pool_id,
-            owner_account_id: record.owner_account_id,
-            question_type: record.question_type,
-            backend: record.backend,
-            license: record.license,
-            question_pool_edit_number: record.question_pool_edit_number,
-            selection_count: record.selection_count,
-            bloom: record.bloom,
-            members,
-        })
-        .into_response(),
-    )
+    // ASVS 1.2/4.1: bind writes to the Pool owner or explicit Sysadmin authority at the server boundary.
+    if !may_edit_pool_members(&viewer, &current.owner_account_id) {
+        return concealed();
+    }
+    match state
+        .pools
+        .save_question_pool_members(viewer.session_hash, save)
+        .await
+    {
+        Ok(receipt) => crate::auth::no_store(Json(receipt).into_response()),
+        Err(error) => members_store_error(error),
+    }
+}
+
+fn may_edit_pool_members(viewer: &LibraryViewer, owner: &AccountId) -> bool {
+    viewer.role == UserRole::Sysadmin
+        || (viewer.role == UserRole::Instructor && viewer.account_id == *owner)
 }
 
 // Route handlers return these errors immediately; boxing them would add an
@@ -212,16 +237,25 @@ async fn assessment_fork(
 #[allow(clippy::result_large_err)]
 async fn pool_view(
     state: &RouteState,
-    token: SessionTokenHash,
-    is_instructor: bool,
+    viewer: &LibraryViewer,
     pool: PublishedQuestionPool,
 ) -> Result<QuestionPoolView, Response> {
-    let evidence = pool_evidence(state, token, is_instructor, &pool.question_pool_id).await?;
-    let members = pool_members(state, token, is_instructor, pool.members).await?;
+    let is_instructor = viewer.role == UserRole::Instructor;
+    let can_edit_metadata =
+        viewer.role == UserRole::Sysadmin || viewer.account_id == pool.owner_account_id;
+    let evidence = pool_evidence(
+        state,
+        viewer.session_hash,
+        is_instructor,
+        &pool.question_pool_id,
+    )
+    .await?;
+    let members = pool_members(state, viewer.session_hash, is_instructor, pool.members).await?;
     Ok(QuestionPoolView {
         metadata: pool.metadata,
         question_pool_id: pool.question_pool_id,
         owner_account_id: pool.owner_account_id,
+        can_edit_metadata,
         question_type: pool.question_type,
         backend: pool.backend,
         license: pool.license,
@@ -272,7 +306,7 @@ async fn pool_members(
     )
     .await?;
     let mut views = Vec::with_capacity(members.len());
-    for (position, member) in members.into_iter().enumerate() {
+    for member in members {
         let entry = state
             .questions
             .load_published_question_revision_library_entry(token, &member)
@@ -284,7 +318,6 @@ async fn pool_members(
             .await
             .map_err(|_| unavailable())?;
         views.push(QuestionPoolMemberView {
-            member_position: u32::try_from(position).map_err(|_| unavailable())?,
             published_question_revision_tuple: member,
             question,
         });
@@ -296,28 +329,10 @@ fn verified_id(value: &str) -> Option<QuestionPoolId> {
     value.parse().ok()
 }
 
-async fn instructor(
-    state: &RouteState,
-    headers: &HeaderMap,
-) -> Result<SessionTokenHash, Box<Response>> {
-    let cookies = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()
-        .filter(|values| !values.is_empty())
-        .map(|values| values.join("; "));
-    match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
-        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
-        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
-        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
-    }
-}
-
 async fn library_reader(
     state: &RouteState,
     headers: &HeaderMap,
-) -> Result<(SessionTokenHash, bool), Box<Response>> {
+) -> Result<LibraryViewer, Box<Response>> {
     let cookies = headers
         .get_all(COOKIE)
         .iter()
@@ -332,19 +347,64 @@ async fn library_reader(
                 UserRole::Instructor | UserRole::Sysadmin
             ) =>
         {
-            Ok((
-                session.session_hash,
-                session.record.user_role == UserRole::Instructor,
-            ))
+            Ok(LibraryViewer {
+                session_hash: session.session_hash,
+                account_id: session.record.account_id(),
+                role: session.record.user_role,
+            })
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
     }
 }
 
+#[derive(Clone)]
+struct LibraryViewer {
+    session_hash: SessionTokenHash,
+    account_id: AccountId,
+    role: UserRole,
+}
+
+fn has_json_content_type(headers: &HeaderMap) -> bool {
+    headers
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| {
+            value.split(';').next().is_some_and(|media_type| {
+                media_type.trim().eq_ignore_ascii_case("application/json")
+            })
+        })
+}
+
 fn store_error(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::Forbidden => concealed(),
+        _ => unavailable(),
+    }
+}
+
+fn metadata_store_error(error: StoreError) -> Response {
+    match error {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
+        StoreError::Conflict => response(StatusCode::PRECONDITION_FAILED, "Pool metadata changed"),
+        StoreError::InvalidRecord(_) => {
+            response(StatusCode::UNPROCESSABLE_ENTITY, "Invalid Pool metadata")
+        }
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => unavailable(),
+        _ => unavailable(),
+    }
+}
+
+fn members_store_error(error: StoreError) -> Response {
+    match error {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
+        StoreError::Conflict | StoreError::RetryableTransaction => {
+            response(StatusCode::PRECONDITION_FAILED, "Pool membership changed")
+        }
+        StoreError::InvalidRecord(_) => {
+            response(StatusCode::UNPROCESSABLE_ENTITY, "Invalid Pool members")
+        }
+        StoreError::Unavailable(_) => unavailable(),
         _ => unavailable(),
     }
 }
@@ -387,6 +447,34 @@ mod tests {
                 temp_processing: "temp".to_string(),
             },
         )
+    }
+
+    #[test]
+    fn pool_member_write_requires_owner_or_sysadmin() {
+        let owner = AccountId::from_debug_serial(1);
+        let other = AccountId::from_debug_serial(2);
+        let make_viewer = |account_id, role| LibraryViewer {
+            session_hash: SessionTokenHash::compute(b"pool-members-test"),
+            account_id,
+            role,
+        };
+
+        assert!(may_edit_pool_members(
+            &make_viewer(owner.clone(), UserRole::Instructor),
+            &owner,
+        ));
+        assert!(!may_edit_pool_members(
+            &make_viewer(other.clone(), UserRole::Instructor),
+            &owner,
+        ));
+        assert!(may_edit_pool_members(
+            &make_viewer(other, UserRole::Sysadmin),
+            &owner,
+        ));
+        assert!(!may_edit_pool_members(
+            &make_viewer(owner.clone(), UserRole::Student),
+            &owner,
+        ));
     }
 
     #[tokio::test]

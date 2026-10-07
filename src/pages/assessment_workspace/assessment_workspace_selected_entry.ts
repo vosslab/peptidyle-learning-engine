@@ -38,11 +38,10 @@ function labeledFact(label: string, value: string): RecordFact {
   return { kind: "text", label, value };
 }
 
-function bloomFacts(bloom: BloomClassificationView | undefined): ReadonlyArray<RecordFact> {
-  if (bloom === undefined) return [];
+function bloomFacts(bloom: BloomClassificationView | null | undefined): ReadonlyArray<RecordFact> {
   return [
-    labeledFact("Bloom Cognitive Process", bloom.cognitiveProcess),
-    labeledFact("Bloom Knowledge Dimension", bloom.knowledgeDimension),
+    labeledFact("Bloom Cognitive Process", bloom?.cognitiveProcess ?? "Not assigned"),
+    labeledFact("Bloom Knowledge Dimension", bloom?.knowledgeDimension ?? "Not assigned"),
   ];
 }
 
@@ -72,9 +71,7 @@ export function selectedAssessmentEntryContent(args: {
   const description =
     entry.kind === "fixedQuestion"
       ? args.description(entry.publishedQuestionRevisionTuple)
-      : entry.selectionRule.selectedQuestionOrder === "randomOrder"
-        ? "Random selected Question order"
-        : "Question Pool order";
+      : "Random selection from Question Pool";
   const identity =
     entry.kind === "fixedQuestion"
       ? [

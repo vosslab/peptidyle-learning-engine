@@ -6,7 +6,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
+import type { LibraryObjectSearchPage } from "../../../generated/api/LibraryObjectSearchPage";
 import {
   BLOOM_COGNITIVE_PROCESSES,
   BLOOM_KNOWLEDGE_DIMENSIONS,
@@ -26,7 +26,7 @@ const courseTitle = "Biochemistry 301: Proteins and Peptides";
 const parityQuestionId = "7K3M-79QP";
 const parityPoolId = "3S8B-24DZ";
 
-function parityQuestionLibraryPage(): QuestionSearchPage {
+function parityQuestionLibraryPage(): LibraryObjectSearchPage {
   return {
     items: [
       {
@@ -39,6 +39,7 @@ function parityQuestionLibraryPage(): QuestionSearchPage {
               publishedQuestionId: parityQuestionId,
               revisionNumber: 1,
             },
+            parentPublishedQuestionRevisionTuple: null,
             backend: "ple",
             questionFormat: "pleQuestionJson",
             questionType: "multipleChoice",
@@ -81,6 +82,8 @@ function parityQuestionLibraryPage(): QuestionSearchPage {
             topicUuid: null,
             subtopicUuid: null,
             tags: ["protein"],
+            bloomCognitiveProcess: null,
+            bloomKnowledgeDimension: null,
           },
           memberCount: 1,
           bloom: null,
@@ -243,7 +246,7 @@ test.describe("UI backbone compact parity on the production PLE stack", () => {
           instructorQuestionRequestUrls.push(requestUrl);
         }
       });
-      await instructorContext.route("**/api/questions/search**", (route) => {
+      await instructorContext.route("**/api/library-objects/search**", (route) => {
         interceptedSearchRequestUrls.push(route.request().url());
         return route.fulfill({ json: parityQuestionLibraryPage() });
       });

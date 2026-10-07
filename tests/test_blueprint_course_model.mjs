@@ -83,6 +83,7 @@ test("new Blueprint Assessment working state uses the Assessment delivery defaul
   assert.equal(defaults.student_feedback_release_rule.question_answer, "after_submit");
   assert.equal(defaults.student_feedback_release_rule.question_answer_explanation, "after_submit");
   assert.equal(defaults.activity_rules.assessmentQuestionOrderRule, "shuffled");
+  assert.equal(defaults.activity_rules.partialCreditEnabled, true);
 });
 
 test("new regular Blueprint Assessment remains unlimited without a score or correctness gate", () => {
@@ -184,15 +185,13 @@ function fixedQuestion(id, revision) {
   };
 }
 
-function questionPool(id, edit) {
+function questionPool(id) {
   return {
     kind: "pool",
     question_pool_id: id,
-    question_pool_edit_number: edit,
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
-    selection_rule: { selectedQuestionOrder: "questionPoolOrder" },
     question_attempt_limit: { maxAttempts: null },
     question_attempt_time_limit: { kind: "unlimited" },
   };
@@ -249,7 +248,7 @@ test("comparison shows shared, added, removed, and changed Assessments, Publishe
         "left-module",
         0,
         "Stable lab",
-        [fixedQuestion("STABLE-Q", 1), questionPool("STABLE-POOL", 1)],
+        [fixedQuestion("STABLE-Q", 1), questionPool("STABLE-POOL")],
         ["STABLE-Q"],
       ),
       comparedAssessment(
@@ -257,11 +256,7 @@ test("comparison shows shared, added, removed, and changed Assessments, Publishe
         "left-module",
         1,
         "Shared quiz",
-        [
-          fixedQuestion("CHANGED-Q", 1),
-          questionPool("CHANGED-POOL", 1),
-          questionPool("REMOVED-POOL", 1),
-        ],
+        [fixedQuestion("CHANGED-Q", 1), questionPool("CHANGED-POOL"), questionPool("REMOVED-POOL")],
         ["CHANGED-Q"],
       ),
       comparedAssessment(
@@ -282,7 +277,7 @@ test("comparison shows shared, added, removed, and changed Assessments, Publishe
         "right-module",
         0,
         "Stable lab",
-        [fixedQuestion("STABLE-Q", 1), questionPool("STABLE-POOL", 1)],
+        [fixedQuestion("STABLE-Q", 1), questionPool("STABLE-POOL")],
         ["STABLE-Q"],
       ),
       comparedAssessment(
@@ -290,11 +285,7 @@ test("comparison shows shared, added, removed, and changed Assessments, Publishe
         "right-module",
         1,
         "Shared quiz",
-        [
-          fixedQuestion("CHANGED-Q", 2),
-          questionPool("CHANGED-POOL", 2),
-          questionPool("ADDED-POOL", 1),
-        ],
+        [fixedQuestion("CHANGED-Q", 2), questionPool("CHANGED-POOL"), questionPool("ADDED-POOL")],
         ["CHANGED-Q"],
       ),
       comparedAssessment(
@@ -331,10 +322,10 @@ test("comparison shows shared, added, removed, and changed Assessments, Publishe
     changed: ["CHANGED-Q"],
   });
   assert.deepEqual(questionPoolComparison(view), {
-    shared: ["STABLE-POOL"],
+    shared: ["CHANGED-POOL", "STABLE-POOL"],
     added: ["ADDED-POOL"],
     removed: ["REMOVED-POOL"],
-    changed: ["CHANGED-POOL"],
+    changed: [],
   });
   const assessments = assessmentComparison(view);
   assert.deepEqual(assessments.shared, ["Stable lab compared with Stable lab"]);
@@ -355,10 +346,10 @@ test("comparison shows shared, added, removed, and changed Assessments, Publishe
   assert.match(html, /Added Published Questions: ADDED-Q/);
   assert.match(html, /Removed Published Questions: REMOVED-Q/);
   assert.match(html, /Changed Published Questions: CHANGED-Q/);
-  assert.match(html, /Shared Question Pools: STABLE-POOL/);
+  assert.match(html, /Shared Question Pools: CHANGED-POOL, STABLE-POOL/);
   assert.match(html, /Added Question Pools: ADDED-POOL/);
   assert.match(html, /Removed Question Pools: REMOVED-POOL/);
-  assert.match(html, /Changed Question Pools: CHANGED-POOL/);
+  assert.match(html, /Changed Question Pools: None/);
 
   const emptyHtml = renderToString(() =>
     createComponent(ComparisonMembershipSummary, {

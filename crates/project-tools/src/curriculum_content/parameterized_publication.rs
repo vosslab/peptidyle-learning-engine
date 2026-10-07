@@ -21,8 +21,8 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
     ObjectId, PublishedQuestionRevisionTuple, QuestionAuthor, QuestionAuthorDisplayName,
-    QuestionAuthorship, QuestionBackend, QuestionFormat, QuestionLicense, QuestionRevisionReason,
-    QuestionType, SourceObjectChecksum, Timestamp, WorkspaceId,
+    QuestionAuthorship, QuestionBackend, QuestionFormat, QuestionLicense, QuestionMetadata,
+    QuestionRevisionReason, QuestionType, SourceObjectChecksum, Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
     NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher, RandomQuestionIdIssuer,
@@ -154,8 +154,8 @@ async fn publish_validated_with_context(
             )?;
             let resumable_draft = draft_index
                 .get(&(
-                    prepared.context.title.clone(),
-                    prepared.context.description.clone(),
+                    prepared.context.metadata.question_title.clone(),
+                    prepared.context.metadata.question_description.clone(),
                 ))
                 .cloned()
                 .unwrap_or(None);
@@ -237,8 +237,7 @@ async fn publish_validated_with_context(
 
 #[derive(Debug, Clone)]
 struct SourceContext {
-    title: String,
-    description: String,
+    metadata: QuestionMetadata,
     question_type: QuestionType,
 }
 
@@ -270,8 +269,8 @@ async fn preflight_drafts(
         .map(|source| {
             (
                 (
-                    source.context.title.clone(),
-                    source.context.description.clone(),
+                    source.context.metadata.question_title.clone(),
+                    source.context.metadata.question_description.clone(),
                 ),
                 &source.source,
             )
@@ -284,7 +283,10 @@ async fn preflight_drafts(
         .await
         .context("listing ordinary Authoring Drafts for batch admission")?
     {
-        let key = (summary.title, summary.description);
+        let key = (
+            summary.metadata.question_title,
+            summary.metadata.question_description,
+        );
         if keys.contains(&key) {
             let draft = drafts
                 .load_authoring_draft(session, summary.draft_question_uuid)
@@ -325,8 +327,19 @@ fn source_context(manifest: &Manifest, source: &ParameterizedSource) -> Result<S
         source.source_id
     );
     Ok(SourceContext {
-        title: source.question_title.clone(),
-        description: source.question_description.clone(),
+        metadata: QuestionMetadata {
+            question_title: source.question_title.clone(),
+            question_description: source.question_description.clone(),
+            tags: Vec::new(),
+            question_license: Some(
+                serde_json::from_value(serde_json::Value::String(source.content_license.clone()))
+                    .map_err(|_| {
+                    anyhow::anyhow!("parameterized curriculum source license is not publishable")
+                })?,
+            ),
+            question_citation: None,
+            language: None,
+        },
         question_type: question_type(source.question_type),
     })
 }
@@ -492,10 +505,8 @@ async fn matching_or_new_draft(
                 source_record,
                 question_format: webwork_question_format(source.source_format),
                 webwork_pg_path: Some(source.webwork_pg_path.clone()),
-                question_type: context.question_type,
-                title: context.title.clone(),
-                description: context.description.clone(),
-                language: "en".to_owned(),
+                question_type: Some(context.question_type),
+                metadata: context.metadata.clone(),
             },
         )
         .await

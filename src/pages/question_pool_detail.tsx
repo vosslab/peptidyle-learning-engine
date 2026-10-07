@@ -1,84 +1,124 @@
 // question_pool_detail.tsx - direct Library detail for one reusable published Question Pool.
 
-import { A } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 import {
+  For,
   Show,
   createEffect,
+  createMemo,
   createResource,
   createSignal,
-  on,
   onCleanup,
   onMount,
   type JSX,
 } from "solid-js";
 
-import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import type { QuestionPoolMemberView } from "../../generated/api/QuestionPoolMemberView";
+import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import { useApplicationApi } from "../api/application_api";
+import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import { useSessionBootstrap } from "../auth/session_context";
-import {
-  BloomClassificationEditor,
-  BloomClassificationText,
-} from "../components/bloom_classification";
+import { BloomClassificationText } from "../components/bloom_classification";
+import { InstructorProfileLink } from "../components/instructor_profile_link";
 import { PageFrame } from "../components/page_frame";
+import { QuestionPoolMetadataEditor } from "../components/question_pool_metadata_editor";
+import { QuestionPoolMembersEditor } from "../components/question_pool_members_editor";
+import { mayEditQuestionPoolMembers } from "../components/question_pool_members_model";
 import { QuestionPoolStarControl } from "../components/question_pool_star_control";
 import { QuestionPoolSupportEditor } from "../components/question_pool_support_editor";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
-import { RecordSequence } from "../components/record_list/record_sequence";
-import type { RecordContent } from "../components/record_list/record_list";
+import { RecordSortControl } from "../components/record_list/record_sort_control";
+import { RecordTable, type RecordTableColumn } from "../components/record_list/record_table";
+import {
+  questionPoolMemberSortOptions,
+  sortQuestionPoolMembers,
+  type QuestionPoolMemberSort,
+} from "../components/record_list/question_pool_member_sort";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,
   useRouteScopePublication,
 } from "../ribbon/route_scope_context";
 import { backendLabel, questionTypeLabel } from "./library_page_helpers";
-
-function poolMemberContent(member: QuestionPoolMemberView): RecordContent {
-  const revision = member.publishedQuestionRevisionTuple;
-  return {
-    title: member.question.question_library.summary.metadata.questionTitle,
-    details: [
-      { kind: "text", label: "Published Question ID", value: revision.publishedQuestionId },
-      { kind: "text", label: "Revision", value: String(revision.revisionNumber) },
-      {
-        kind: "text",
-        label: "Question License",
-        value: member.question.question_library.summary.metadata.questionLicense ?? "Unavailable",
-      },
-      {
-        kind: "questionAuthors",
-        label: "Authors",
-        authors: member.question.question_library.summary.authorship.authors,
-      },
-    ],
-    actions: [],
-  };
-}
+import { QuestionStatisticsPanel } from "./question_statistics_panel";
 
 /** Direct, current-detail view for a Pool whose kind was resolved by the Library route. */
 export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): JSX.Element {
   const applicationApi = useApplicationApi();
+  const questionLibrary = createQuestionLibraryRepository(applicationApi.client);
   const session = useSessionBootstrap();
   const routeScopePublication = useRouteScopePublication();
   const publishRouteScopeLabels = usePublishRouteScopeLabels();
   const clearRouteScopeLabels = useClearRouteScopeLabels();
   let publication: ReturnType<typeof routeScopePublication> | undefined;
-  const [correctedBloom, setCorrectedBloom] = createSignal<BloomClassificationView>();
   const [detail, { refetch }] = createResource(
     () => props.poolId,
     (poolId) => applicationApi.client.getQuestionPool(poolId),
   );
+  const [memberSort, setMemberSort] = createSignal<QuestionPoolMemberSort>("as-loaded");
+  const sortedMembers = createMemo(() =>
+    sortQuestionPoolMembers(detail()?.members ?? [], memberSort()),
+  );
+  const memberColumns: ReadonlyArray<RecordTableColumn<QuestionPoolMemberView>> = [
+    {
+      id: "published-question-id",
+      header: "Published Question ID",
+      cell: (member) => member.publishedQuestionRevisionTuple.publishedQuestionId,
+    },
+    {
+      id: "revision",
+      header: "Revision",
+      cell: (member) => String(member.publishedQuestionRevisionTuple.revisionNumber),
+    },
+    {
+      id: "question-license",
+      header: "Question License",
+      cell: (member) =>
+        member.question.question_library.summary.metadata.questionLicense ?? "Unavailable",
+    },
+    {
+      id: "authors",
+      header: "Authors",
+      cell: (member) => (
+        <For each={member.question.question_library.summary.authorship.authors}>
+          {(author, index) => (
+            <>
+              {index() > 0 ? ", " : ""}
+              <Show when={author.accountId} fallback={author.displayName}>
+                {(accountId) => (
+                  <InstructorProfileLink accountId={accountId()} displayName={author.displayName} />
+                )}
+              </Show>
+            </>
+          )}
+        </For>
+      ),
+    },
+  ];
   const mayMutateLibrary = (): boolean => {
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   };
-  createEffect(
-    on(
-      () => props.poolId,
-      () => setCorrectedBloom(undefined),
-    ),
-  );
+  const mayViewPoolSupport = (): boolean => {
+    const state = session.state();
+    return (
+      state.kind === "authenticated" &&
+      (state.session.account.userRole === "instructor" ||
+        state.session.account.userRole === "sysadmin")
+    );
+  };
+  const mayEditPoolMembers = (pool: QuestionPoolView): boolean => {
+    const state = session.state();
+    return (
+      state.kind === "authenticated" &&
+      mayEditQuestionPoolMembers(
+        state.session.account.userRole,
+        state.session.account.id,
+        pool.ownerAccountId,
+      )
+    );
+  };
   function publishLoadedPoolTitle(): void {
     if (publication === undefined) return;
     const title = detail.error === undefined ? detail()?.metadata.title : undefined;
@@ -148,7 +188,7 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
                 <dd>{value().questionPoolId}</dd>
               </div>
               <div>
-                <dt>Edit</dt>
+                <dt>Pool Edit Number</dt>
                 <dd>{value().questionPoolEditNumber}</dd>
               </div>
               <div>
@@ -163,65 +203,69 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
                 <dt>Tags</dt>
                 <dd>{value().metadata.tags.join(", ") || "None"}</dd>
               </div>
-              <Show when={correctedBloom() ?? value().bloom}>
-                {(bloom) => (
-                  <div>
-                    <dt>Bloom Classification</dt>
-                    <dd>
-                      <BloomClassificationText bloom={bloom()} />
-                    </dd>
-                  </div>
-                )}
-              </Show>
+              <div>
+                <dt>Bloom Classification</dt>
+                <dd>
+                  <BloomClassificationText bloom={value().bloom} />
+                </dd>
+              </div>
             </dl>
-            <Show when={mayMutateLibrary()}>
+            <QuestionStatisticsPanel evidence={value().evidence} />
+            <QuestionPoolMetadataEditor
+              questionPoolId={value().questionPoolId}
+              pool={value()}
+              canEdit={value().canEditMetadata}
+              onSaved={() => void refetch()}
+            />
+            <Show when={mayViewPoolSupport()}>
               <QuestionPoolSupportEditor
                 client={applicationApi.client}
                 questionPoolId={value().questionPoolId}
+                canEdit={value().canEditMetadata}
               />
-            </Show>
-            <Show when={mayMutateLibrary() && (correctedBloom() ?? value().bloom)}>
-              {(bloom) => (
-                <BloomClassificationEditor
-                  targetName="Question Pool"
-                  contentMarkerKind="Edit"
-                  contentMarkerNumber={value().questionPoolEditNumber}
-                  bloom={bloom()}
-                  save={(request) =>
-                    applicationApi.client
-                      .correctQuestionPoolBloom(value().questionPoolId, request)
-                      .then((receipt) => receipt.bloom)
-                  }
-                  loadCurrent={() =>
-                    applicationApi.client.getQuestionPool(value().questionPoolId).then((loaded) => {
-                      if (loaded.bloom === null) {
-                        throw new Error("Bloom Classification is not assigned.");
-                      }
-                      return loaded.bloom;
-                    })
-                  }
-                  onCurrent={setCorrectedBloom}
-                  onConflictCurrent={setCorrectedBloom}
-                  onAccepted={() => undefined}
-                />
-              )}
             </Show>
             <Show when={mayMutateLibrary()}>
               <div class="question-detail-support-actions">
+                <QuestionPoolForkControl poolId={value().questionPoolId} />
                 <QuestionPoolStarControl poolId={value().questionPoolId} />
                 <QuestionPoolWatchControl poolId={value().questionPoolId} />
               </div>
             </Show>
+            <Show when={mayEditPoolMembers(value())}>
+              <QuestionPoolMembersEditor
+                pool={value()}
+                client={applicationApi.client}
+                questionLibrary={questionLibrary}
+                getQuestionDetails={applicationApi.client.getQuestionDetails}
+                getCurrentQuestionSharedMetadata={
+                  applicationApi.client.getCurrentQuestionSharedMetadata
+                }
+                reloadPool={async () => await refetch()}
+                onSaved={() => void refetch()}
+              />
+            </Show>
             <section aria-labelledby="pool-members-heading">
-              <h2 id="pool-members-heading">Exact Question Revisions</h2>
-              <RecordSequence
-                rows={value().members}
-                content={poolMemberContent}
-                recordId={(member) =>
+              <h2 id="pool-members-heading">Questions in this Pool</h2>
+              <RecordSortControl
+                label="Sort Pool Questions"
+                options={questionPoolMemberSortOptions}
+                value={memberSort()}
+                onChange={setMemberSort}
+              />
+              <RecordTable
+                rows={sortedMembers()}
+                columns={memberColumns}
+                rowId={(member) =>
                   `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
                 }
                 state={{ kind: "ready" }}
-                ariaLabel="Ordered exact Question Revisions"
+                rowHeader={{
+                  id: "question-title",
+                  header: "Question Title",
+                  content: (member) =>
+                    member.question.question_library.summary.metadata.questionTitle,
+                }}
+                ariaLabel="Questions in this Pool"
                 emptyState={{ title: "No Question Revisions are in this Pool." }}
               />
             </section>
@@ -229,5 +273,45 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
         )}
       </Show>
     </PageFrame>
+  );
+}
+
+function QuestionPoolForkControl(props: { readonly poolId: QuestionPoolId }): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const navigate = useNavigate();
+  const [forking, setForking] = createSignal(false);
+  const [error, setError] = createSignal("");
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+  });
+
+  async function forkQuestionPool(): Promise<void> {
+    if (forking()) return;
+    setForking(true);
+    setError("");
+    try {
+      const fork = await applicationApi.client.forkQuestionPool(props.poolId);
+      if (disposed) return;
+      navigate(`/library/${encodeURIComponent(fork.questionPoolId)}`);
+    } catch {
+      if (!disposed) setError("The Question Pool could not be forked. Try again.");
+    } finally {
+      if (!disposed) setForking(false);
+    }
+  }
+
+  return (
+    <section aria-label="Fork this Question Pool" aria-busy={forking()}>
+      <button type="button" disabled={forking()} onClick={() => void forkQuestionPool()}>
+        {forking() ? "Forking Pool..." : error() ? "Retry Fork" : "Fork"}
+      </button>
+      <Show when={forking()}>
+        <span role="status">Forking Question Pool...</span>
+      </Show>
+      <Show when={error()}>
+        <span role="alert">{error()}</span>
+      </Show>
+    </section>
   );
 }

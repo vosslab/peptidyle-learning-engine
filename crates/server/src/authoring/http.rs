@@ -3,7 +3,7 @@
 use axum::{
     http::{
         HeaderMap, HeaderValue, StatusCode,
-        header::{CONTENT_TYPE, COOKIE, ETAG, IF_MATCH},
+        header::{COOKIE, ETAG, IF_MATCH},
     },
     response::{IntoResponse, Response},
 };
@@ -16,7 +16,7 @@ use question_model::{
 };
 use uuid::Uuid;
 
-use super::{AuthoringRouteState, PLE_QUESTION_JSON_MEDIA_TYPE, concealed, private_error};
+use super::{AuthoringRouteState, concealed, private_error};
 use crate::auth::{AuthError, resolve_session};
 
 pub(super) fn existing_parent_published_question_revision_tuple(
@@ -110,19 +110,7 @@ pub(super) fn edit_number_response(edit_number: DraftQuestionEditNumber) -> Resp
     response
 }
 
-pub(super) fn is_ple_question_json_request(headers: &HeaderMap) -> bool {
-    headers
-        .get(CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| {
-            value
-                .split(';')
-                .next()
-                .is_some_and(|media_type| media_type.trim() == PLE_QUESTION_JSON_MEDIA_TYPE)
-        })
-}
-
-pub(crate) async fn instructor_session_hash(
+pub(crate) async fn authoring_session_hash(
     state: &AuthoringRouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
@@ -132,7 +120,12 @@ pub(crate) async fn instructor_session_hash(
     )
     .await
     {
-        Ok(session) if session.record.user_role == question_model::UserRole::Instructor => {
+        Ok(session)
+            if matches!(
+                session.record.user_role,
+                question_model::UserRole::Instructor | question_model::UserRole::Sysadmin
+            ) =>
+        {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),

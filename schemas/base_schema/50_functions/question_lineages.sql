@@ -100,8 +100,12 @@ DECLARE
     actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF actor_id IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Instructor authority is required';
+    IF actor_id IS NULL OR NOT (
+        ple_api.current_session_account_is_instructor()
+        OR ple_api.current_session_account_is_sysadmin()
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Owner or Sysadmin authority is required';
     END IF;
     IF p_target_availability NOT IN ('available', 'archived')
        OR p_expected_question_availability_edit_number IS NULL OR p_expected_question_availability_edit_number <= 0 THEN
@@ -109,15 +113,27 @@ BEGIN
     END IF;
     SELECT * INTO current_question FROM ple_data.published_question
      WHERE published_question_id = p_published_question_id FOR UPDATE;
-    IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM ple_data.question_current_owner
-        WHERE published_question_id = p_published_question_id AND owner_account_id = actor_id) THEN
+    IF NOT FOUND OR (
+        NOT ple_api.current_session_account_is_sysadmin()
+        AND NOT EXISTS (SELECT 1 FROM ple_data.question_current_owner
+            WHERE published_question_id = p_published_question_id AND owner_account_id = actor_id)
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Owner authority is required';
     END IF;
     IF current_question.availability_edit_number <> p_expected_question_availability_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Published Question Availability Edit Number is stale';
     END IF;
-    SELECT question_title INTO current_title FROM ple_data.published_question_metadata
-     WHERE published_question_id = p_published_question_id;
+    SELECT metadata.question_title INTO current_title
+      FROM LATERAL (
+          SELECT accepted.revision_number
+            FROM ple_data.question_revision_acceptance AS accepted
+           WHERE accepted.published_question_id = p_published_question_id
+           ORDER BY accepted.revision_number DESC
+           LIMIT 1
+      ) AS latest
+      JOIN ple_data.question_revision_metadata AS metadata
+        ON metadata.published_question_id = p_published_question_id
+       AND metadata.revision_number = latest.revision_number;
     IF p_target_availability = 'archived'
        AND p_archive_confirmation_title IS DISTINCT FROM current_title THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -133,7 +149,7 @@ BEGIN
     ) VALUES (
         p_event_id, p_published_question_id, actor_id, p_target_availability::ple_data.question_availability,
         p_expected_question_availability_edit_number + 1,
-        CASE WHEN p_target_availability = 'archived' THEN 'archived by Question Owner' END,
+        CASE WHEN p_target_availability = 'archived' THEN 'archived by Question Owner or Sysadmin' END,
         pg_catalog.clock_timestamp()
     );
     UPDATE ple_data.published_question

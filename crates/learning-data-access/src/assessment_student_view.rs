@@ -44,7 +44,7 @@ pub enum InstructorStudentViewSnapshotEntry {
         availability: AssessmentEntryAvailability,
         published_question_revision_tuple: PublishedQuestionRevisionTuple,
     },
-    /// One Assessment-owned Pool with members in current Pool order.
+    /// One referenced Pool with its unordered exact member tuple set.
     Pool {
         /// Zero-based position in the current authored Assessment Entry order.
         authored_position: u32,
@@ -64,6 +64,7 @@ pub enum InstructorStudentViewSource {
     /// Native PLE Question JSON source and ready Question Image Renditions.
     Ple {
         published_question_revision_tuple: PublishedQuestionRevisionTuple,
+        question_title: String,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
@@ -110,7 +111,7 @@ pub trait InstructorStudentViewStore: Send + Sync {
     ///
     /// The expected Edit Number is the manifest precondition. Implementations
     /// return a source only when the Question Revision is the exact fixed entry
-    /// or a member of the Assessment-owned Pool at `authored_position`.
+    /// or a member of the referenced Pool at `authored_position`.
     async fn load_instructor_student_view_question_source(
         &self,
         session_token_hash: SessionTokenHash,

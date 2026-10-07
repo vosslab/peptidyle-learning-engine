@@ -77,22 +77,21 @@ pub(crate) fn create_live_demo_blueprint(
         let input = live_demo_blueprint_input(questions.clone(), classification.clone())?;
         let store = PostgresBlueprintCourseStore::new(pool);
         let receipt = store
-            .create_blueprint_course(
-                session,
-                LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM,
-                input.clone(),
-                Default::default(),
-            )
+            .create_blueprint_course(session, LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM, input.clone())
             .await
             .context("creating the ordinary Live Demo Blueprint Course")?;
         ensure!(
-            receipt.blueprint_revision_tuple.revision_number == BlueprintRevisionNumber::INITIAL,
+            receipt.blueprint_course_revision_tuple.revision_number
+                == BlueprintRevisionNumber::INITIAL,
             "Live Demo Blueprint creation did not return Revision 1"
         );
         let blueprint = store
             .load_blueprint_course(
                 session,
-                receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
+                receipt
+                    .blueprint_course_revision_tuple
+                    .blueprint_course_id
+                    .clone(),
             )
             .await
             .context("reloading the ordinary Live Demo Blueprint Course")?;
@@ -121,7 +120,10 @@ pub(crate) fn create_live_demo_blueprint(
             store
                 .publish_blueprint(
                     session,
-                    receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
+                    receipt
+                        .blueprint_course_revision_tuple
+                        .blueprint_course_id
+                        .clone(),
                     blueprint.blueprint_edit_number,
                 )
                 .await
@@ -130,7 +132,10 @@ pub(crate) fn create_live_demo_blueprint(
         let blueprint = store
             .load_blueprint_course(
                 session,
-                receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
+                receipt
+                    .blueprint_course_revision_tuple
+                    .blueprint_course_id
+                    .clone(),
             )
             .await
             .context("reloading the published Live Demo Blueprint Course")?;
@@ -140,7 +145,7 @@ pub(crate) fn create_live_demo_blueprint(
         );
         Ok(LiveDemoBlueprintManifestIds {
             blueprint_course_id: receipt
-                .blueprint_revision_tuple
+                .blueprint_course_revision_tuple
                 .blueprint_course_id
                 .to_string(),
             assessment_id: assessment_id.to_string(),
@@ -229,6 +234,7 @@ fn live_demo_blueprint_input(
         classification,
         short_name: LIVE_DEMO_COURSE_SHORT_NAME.to_owned(),
         long_name: LIVE_DEMO_COURSE_LONG_NAME.to_owned(),
+        theme: question_model::Theme::default(),
         modules: vec![CreateBlueprintModuleInput {
             label: LIVE_DEMO_BLUEPRINT_MODULE_LABEL.to_owned(),
             assessments: vec![BlueprintAssessmentContentInput {

@@ -1,14 +1,14 @@
 # Question Library bulk edit specification
 
-> **Deferred:** Neil deferred Instructor bulk editing on 2026-10-05. The material below records
-> the proposed workflow or existing API behavior, not a current delivery requirement. Mixed-save
-> behavior is deferred with the feature. No application feature is changed by this documentation.
+> **Deferred:** Instructor bulk editing remains deferred as a delivery requirement. The existing
+> implementation remains available while the product decision is deferred. Mixed-save behavior
+> remains an open question for a future product decision.
 
 Bulk editing lets Instructors clean up the shared metadata of many Library Objects, especially
 after large imports. Authority:
 [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md#question-library-specifications).
-This document owns the deferred workflow, unresolved mixed-save behavior, and existing API
-evidence. Current endpoints do not make the feature a delivery requirement or settle its open
+This document owns the workflow, unresolved mixed-save behavior, and current implementation
+evidence. Existing endpoints do not make the feature a delivery requirement or settle its open
 product choices.
 
 ## Selection and changes
@@ -62,26 +62,18 @@ approval queues, or unrestricted owner-content editing.
 
 ## Current implementation evidence
 
-The existing API has separate Published Question and Pool commands for a bounded selection.
-Their request fields, bounds, transaction behavior, and errors below describe current code;
-they do not settle a future mixed-kind Save. Current commands exclude source, Answer Keys,
+The API has separate Published Question and Pool commands for a bounded selection. The request
+fields, bounds, transaction behavior, and errors below describe the current API. Their separate
+transaction behavior does not settle a mixed-kind Save. The commands exclude source, Answer Keys,
 Revisions, Pool members, availability, ownership, Backend, Question Type, arbitrary JSON, and
 Student Work. These endpoint limits are not new restrictions on ordinary metadata editing.
 
-Separate metadata-edit token names remain in the existing API. Reconciliation with ordinary
-Question and Pool record concurrency is recorded in [TODO.md](../TODO.md), independently of
-Instructor bulk editing's deferred status.
-
-Source references: [question_bulk_metadata.rs](../../crates/server/src/question_bulk_metadata.rs),
-[question_pool_bulk_metadata.rs](../../crates/server/src/question_pool_bulk_metadata.rs),
-[question_bulk_metadata.ts](../../src/api/http_client/question_bulk_metadata.ts), and
-[question_pool_search_metadata.ts](../../src/api/http_client/question_pool_search_metadata.ts).
-These are retained implementation details, not fresh runtime verification.
+Ordinary Question and Pool record concurrency remains with their metadata editors.
 
 ### Published Question command
 
-`POST /api/questions/bulk-metadata`. The IDs below are schematic; callers use canonical public IDs
-returned by PLE rather than generating these example strings.
+The route is `POST /api/questions/bulk-metadata`. The IDs below are schematic; callers
+used canonical public IDs returned by PLE rather than generating these example strings.
 
 ```json
 {"selection":[{"questionId":"AAAA-ZBBB","metadataEditNumber":7}],"patch":{"tags":["genetics"],"disciplineUuid":"5d9a2c29-3ff2-4f1c-8c7b-69a5e6c60d9a","subjectUuid":"da849b4f-1e89-45ba-94b7-fdce6bcb2ceb","topicUuid":null,"subtopicUuid":null}}
@@ -99,9 +91,10 @@ The server checks Instructor authority and every token, applies a valid command 
 tokens, and returns results in the normalized selection order. Current browser code canonicalizes
 Question IDs before sending and checks that returned IDs are the same ordered set.
 
-### Pool command
+### Question Pool command
 
-`POST /api/question-pools/bulk-search-metadata` uses the separate Pool metadata-edit token:
+The `POST /api/question-pools/bulk-search-metadata` route uses the separate Pool metadata-edit
+token:
 
 ```json
 {"selection":[{"questionPoolId":"CCCC-ZDDD","questionPoolMetadataEditNumber":4}],"patch":{"tags":["inheritance"],"topicUuid":null,"subtopicUuid":null}}
@@ -111,11 +104,12 @@ Results contain `questionPoolId` and next `questionPoolMetadataEditNumber`. Pool
 Subject come from members and cannot change here. The server checks authority, tokens, Pool
 constraints, and metadata before committing.
 
-### Existing errors and transaction behavior
+### Errors and transaction behavior
 
-Invalid or missing session returns `401`; a non-Instructor returns `403`; wrong media type `415`;
-oversized body `413`; malformed request, empty or duplicate selection, forbidden fields, bad IDs,
-or invalid values returns `422`; a stale token or retryable transaction returns `412`; and an
-otherwise conflicting lifecycle returns `409`. Concealed or unauthorized selected objects return
-`404`. A failed atomic command leaves all selected objects unchanged. A future mixed command remains deferred with Instructor bulk editing; see
+The current handlers conceal an invalid or missing session and a non-Instructor as `404`.
+They return `415` for the wrong media type, `413` for an oversized body, `422` for a malformed
+request, empty or duplicate selection, forbidden fields, bad IDs, or invalid values, `412` for a
+stale token or retryable transaction, and `409` for an otherwise conflicting lifecycle. Concealed
+or unauthorized selected objects also return `404`. A failed atomic command leaves all selected
+objects unchanged. A future mixed command remains deferred with Instructor bulk editing; see
 [question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md).

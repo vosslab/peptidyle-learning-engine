@@ -4544,6 +4544,24 @@
       }
     },
     {
+      "id": "sysadmin_student_data_confirmation",
+      "path": "sysadmin/student_data_confirmation.webp",
+      "role": "sysadmin",
+      "routeId": "sysadminCourseInspectionDetail",
+      "area": "student records",
+      "workflow": "student data access confirmation",
+      "state": "administrative work confirmation before access",
+      "scenario": "sysadmin_student_data_confirmation",
+      "checkpoint": "student_data_confirmation",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_scoped_roster",
+      "gallery": {
+        "order": 252,
+        "caption": "Sysadmin confirms an administrative need before accessing one Student record",
+        "featured": false
+      }
+    },
+    {
       "id": "sysadmin_course_list",
       "path": "sysadmin/course_list.webp",
       "role": "sysadmin",
@@ -4556,7 +4574,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 252,
+        "order": 253,
         "caption": "System administration home",
         "featured": true
       }
@@ -4574,7 +4592,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 253,
+        "order": 254,
         "caption": "Instructor Accounts",
         "featured": false
       }
@@ -4592,7 +4610,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 254,
+        "order": 255,
         "caption": "Created Instructor Account",
         "featured": false
       }
@@ -4610,7 +4628,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 255,
+        "order": 256,
         "caption": "Deactivated Instructor Account",
         "featured": false
       }
@@ -4628,7 +4646,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 256,
+        "order": 257,
         "caption": "Instructor Account creation validation",
         "featured": false
       }
@@ -4851,8 +4869,10 @@
       },
       {
         "routeId": "sysadminCourseInspectionDetail",
-        "status": "deferred",
-        "reason": "Installation Course inspection awaits the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+        "status": "captured",
+        "captureIds": [
+          "sysadmin_student_data_confirmation"
+        ]
       },
       {
         "routeId": "courseAssessments",

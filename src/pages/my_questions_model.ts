@@ -34,7 +34,7 @@ export interface MyQuestionsPageRequest {
  * ASVS 2.2.1: page size is 50, 100, or 250, and the cursor is only the server continuation.
  */
 export async function loadMyQuestions(
-  client: Pick<ApiClient, "searchQuestionLibrary">,
+  client: Pick<ApiClient, "searchLibraryObjects">,
   request: MyQuestionsPageRequest = {
     cursor: FIRST_MY_QUESTIONS_POSITION.inputCursor,
     pageSize: FIRST_MY_QUESTIONS_POSITION.pageSize,
@@ -46,7 +46,7 @@ export async function loadMyQuestions(
   );
   return decodeQuestionLibraryBrowsePage(
     await repository.search(
-      { ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, kind: "questions", membership: "all" },
+      { ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, kind: "questions", questions: "all" },
       request.cursor,
       request.pageSize,
     ),

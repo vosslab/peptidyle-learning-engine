@@ -318,9 +318,9 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     .expect("exact private Question source Object Record");
     sqlx::query(
         "INSERT INTO ple_private.question_revision_source_binding ( \
-             published_question_id, revision_number, backend, question_format, webwork_pg_path, \
+             published_question_id, revision_number, backend, question_format, native_question_type, webwork_pg_path, \
              source_object_record_id, source_object_checksum, created_at \
-         ) VALUES ($1, 1, 'ple', 'pleQuestionJson', NULL, $2, repeat('a', 64), clock_timestamp()) \
+         ) VALUES ($1, 1, 'ple', 'pleQuestionJson', 'multipleChoice', NULL, $2, repeat('a', 64), clock_timestamp()) \
          ON CONFLICT (published_question_id, revision_number) DO NOTHING",
     )
     .bind(PUBLISHED_QUESTION)

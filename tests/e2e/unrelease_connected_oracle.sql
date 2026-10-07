@@ -11,21 +11,21 @@ SET CONSTRAINTS ALL DEFERRED;
 SET LOCAL ROLE ple_data_owner;
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease target', '',
-    NULL, NULL, NULL, 5400, NULL,
+    NULL, pg_catalog.transaction_timestamp() + INTERVAL '2 days', NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
-    'regular_assignment'
+    'regular_assignment', 'never', 'never', false
 ), 'hex') AS target_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Statistics survivor', '',
-    NULL, NULL, NULL, 5400, NULL,
+    NULL, pg_catalog.transaction_timestamp() + INTERVAL '2 days', NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
 ), 'hex') AS survivor_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease lock race', '',
-    NULL, NULL, NULL, 5400, NULL,
+    NULL, pg_catalog.transaction_timestamp() + INTERVAL '2 days', NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
@@ -56,8 +56,8 @@ SELECT content_discipline_id AS discipline_id
 INSERT INTO ple_data.published_question (published_question_id, created_at)
 VALUES (:'question_id', pg_catalog.transaction_timestamp());
 INSERT INTO ple_data.question_revision (
-    published_question_id, revision_number, backend, question_type, published_at
-) VALUES (:'question_id', 1, 'ple', 'multipleChoice', pg_catalog.transaction_timestamp());
+    published_question_id, revision_number, backend, published_at
+) VALUES (:'question_id', 1, 'ple', pg_catalog.transaction_timestamp());
 
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.object_record (
@@ -77,10 +77,10 @@ INSERT INTO ple_private.object_record (
     'application/json', pg_catalog.transaction_timestamp()
 );
 INSERT INTO ple_private.question_revision_source_binding (
-    published_question_id, revision_number, backend, question_format,
+    published_question_id, revision_number, backend, question_format, native_question_type,
     source_object_record_id, source_object_checksum, created_at
 ) VALUES (
-    :'question_id', 1, 'ple', 'pleQuestionJson',
+    :'question_id', 1, 'ple', 'pleQuestionJson', 'multipleChoice',
     '20000000-0000-0000-0000-000000000010', repeat('10', 32), pg_catalog.transaction_timestamp()
 );
 
@@ -118,10 +118,75 @@ INSERT INTO ple_data.course_membership (
     :'course_id', :'student_id', 'student', :'record_id', pg_catalog.transaction_timestamp()
 );
 
+-- This Pool is deliberately emptied after its Question is issued. The retained
+-- Pool aggregate must continue to describe the issued Question's origin.
+SET LOCAL ROLE ple_data_owner;
+INSERT INTO ple_data.content_subject (content_subject_id, name)
+VALUES ('20000000-0000-0000-0000-00000000cc02', 'Unrelease fixture subject')
+ON CONFLICT (content_subject_id) DO NOTHING;
+INSERT INTO ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
+VALUES (
+    '20000000-0000-0000-0000-00000000cc02',
+    '20000000-0000-0000-0000-00000000cc01'
+)
+ON CONFLICT (content_subject_id, content_discipline_id) DO NOTHING;
+INSERT INTO ple_data.question_revision_metadata (
+    published_question_id, revision_number, question_title, question_description,
+    language, question_type, tags, content_discipline_id, content_subject_id,
+    created_at, updated_at
+) VALUES (
+    :'question_id', 1, 'Unrelease statistics Question', 'Question used for statistics attribution',
+    'en', 'multipleChoice', ARRAY[]::text[],
+    '20000000-0000-0000-0000-00000000cc01',
+    '20000000-0000-0000-0000-00000000cc02',
+    pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp()
+);
+INSERT INTO ple_data.question_revision_license (
+    published_question_id, revision_number, spdx_expression
+) VALUES (:'question_id', 1, 'CC-BY-4.0');
+SELECT 'P001-' || ple_private.crockford_checksum_character('P001ABC') || 'ABC' AS pool_id \gset
+SELECT set_config('ple.test_unrelease_pool_id', :'pool_id', false);
+INSERT INTO ple_data.question_pool (
+    question_pool_id, owner_account_id, question_pool_edit_number,
+    question_pool_metadata_edit_number, question_type, backend, license,
+    title, description, content_discipline_id, content_subject_id, created_at
+) VALUES (
+    :'pool_id', :'instructor_id', 1, 1, 'multipleChoice', 'ple', 'CC-BY-4.0',
+    'Unrelease statistics Pool', 'Pool for origin attribution',
+    '20000000-0000-0000-0000-00000000cc01',
+    '20000000-0000-0000-0000-00000000cc02', pg_catalog.transaction_timestamp()
+);
+INSERT INTO ple_data.question_pool_member (
+    question_pool_id, published_question_id, question_revision_number, created_at
+) VALUES (:'pool_id', :'question_id', 1, pg_catalog.transaction_timestamp());
+SELECT 'QRST-' || ple_private.crockford_checksum_character('QRSTABC') || 'ABC'
+    AS replacement_question_id \gset
+SELECT set_config('ple.test_unrelease_replacement_question_id', :'replacement_question_id', false);
+INSERT INTO ple_data.published_question (published_question_id, created_at)
+VALUES (:'replacement_question_id', pg_catalog.transaction_timestamp());
+INSERT INTO ple_data.question_revision (
+    published_question_id, revision_number, backend, published_at
+) VALUES (
+    :'replacement_question_id', 1, 'ple', pg_catalog.transaction_timestamp()
+);
+INSERT INTO ple_data.question_revision_metadata (
+    published_question_id, revision_number, question_title, question_description,
+    language, question_type, tags, content_discipline_id, content_subject_id,
+    created_at, updated_at
+) VALUES (
+    :'replacement_question_id', 1, 'Replacement Pool member', 'Replacement member for edit',
+    'en', 'multipleChoice', ARRAY[]::text[],
+    '20000000-0000-0000-0000-00000000cc01',
+    '20000000-0000-0000-0000-00000000cc02',
+    pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp()
+);
+INSERT INTO ple_data.question_revision_license (
+    published_question_id, revision_number, spdx_expression
+) VALUES (:'replacement_question_id', 1, 'CC-BY-4.0');
+
 -- Target and survivor use the same immutable Question Revision.  The survivor
 -- makes retained anonymous statistics distinguishable from remaining private
 -- Student Work after the target is Unreleased.
-SET LOCAL ROLE ple_data_owner;
 INSERT INTO ple_data.assessment (
     assessment_id, course_instance_id, origin_kind, created_at, updated_at,
     assessment_type, assessment_policy_snapshot_id, assessment_status
@@ -162,7 +227,7 @@ INSERT INTO ple_data.assessment_entry (
     ('40000000-0000-0000-0000-000000000011', :'target_assessment_id',
      0, 'fixed_question', 'available', 'normal'),
     ('40000000-0000-0000-0000-000000000012', :'survivor_assessment_id',
-     0, 'fixed_question', 'available', 'normal'),
+     0, 'question_pool', 'available', 'normal'),
     ('40000000-0000-0000-0000-000000000013', :'race_assessment_id',
      0, 'fixed_question', 'available', 'normal');
 INSERT INTO ple_data.assessment_entry_question (
@@ -170,12 +235,16 @@ INSERT INTO ple_data.assessment_entry_question (
     question_revision_number, points_possible
 ) VALUES
     ('40000000-0000-0000-0000-000000000011', :'target_assessment_id', :'question_id', 1, 1),
-    ('40000000-0000-0000-0000-000000000012', :'survivor_assessment_id', :'question_id', 1, 1),
     ('40000000-0000-0000-0000-000000000013', :'race_assessment_id', :'question_id', 1, 1);
+INSERT INTO ple_data.assessment_entry_pool (
+    assessment_entry_id, assessment_id, question_pool_id, selection_count, points_per_item
+) VALUES (
+    '40000000-0000-0000-0000-000000000012', :'survivor_assessment_id', :'pool_id', 1, 1
+);
 
--- Start both Attempts through the ordinary restricted path.  The fixture then
--- adds the lower-level submission/grading receipts needed to exercise the
--- destructive closure and retained anonymous statistics.
+-- Start direct and Pool-selected Attempts through the ordinary restricted
+-- path. The fixture saves Student responses, then finalizes them through the
+-- production API before exercising destructive closure and retained statistics.
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', :'student_id', true);
 SELECT assessment_attempt_id, assessment_attempt_number, resumed
@@ -197,41 +266,147 @@ SELECT assessment_attempt_id, assessment_attempt_number, resumed
     '50000000-0000-0000-0000-000000000002',
     :'record_id',
     :'survivor_assessment_id',
-    '[]'::jsonb,
+    jsonb_build_array(jsonb_build_object(
+        'question_pool_selection_id', '50000000-0000-0000-0000-000000000013',
+        'assessment_entry_id', '40000000-0000-0000-0000-000000000012',
+        'question_pool_id', :'pool_id',
+        'question_pool_edit_number', 1,
+        'selected_items', jsonb_build_array(jsonb_build_object(
+            'published_question_id', :'question_id', 'revision_number', 1
+        ))
+    )),
     jsonb_build_array(jsonb_build_object(
         'issued_question_id', '50000000-0000-0000-0000-000000000012',
         'assessment_entry_id', '40000000-0000-0000-0000-000000000012',
         'issued_position', 0,
         'published_question_id', :'question_id',
-        'revision_number', 1
+        'revision_number', 1,
+        'question_pool_selection_id', '50000000-0000-0000-0000-000000000013'
     ))
 );
 RESET ROLE;
+SET LOCAL ROLE ple_data_owner;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_data.question_revision_statistics
+         WHERE published_question_id = current_setting('ple.test_unrelease_question_id')
+           AND revision_number = 1 AND issued_count > 0
+    ) OR EXISTS (
+        SELECT 1 FROM ple_data.question_pool_statistics
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND issued_count > 0
+    ) THEN
+        RAISE EXCEPTION 'starting attempts counted Questions before committed presentation';
+    END IF;
+END $$;
+SET LOCAL ROLE ple_app;
+-- Commit real Student presentation records. Repeating the first presentation
+-- exercises the production retry path and must not recount its delivery.
+SELECT *
+  FROM ple_api.commit_student_assessment_attempt_presentation(
+    '50000000-0000-0000-0000-000000000001',
+    jsonb_build_array(jsonb_build_object(
+        'issued_question_id', '50000000-0000-0000-0000-000000000011',
+        'question_attempt_id', '50000000-0000-0000-0000-000000000021',
+        'generated_parameter_sha256', NULL,
+        'backend_version', '1',
+        'renderer_name', NULL,
+        'renderer_version', NULL,
+        'grader_name', 'ple',
+        'grader_version', '1',
+        'rendered_question_sha256', repeat('b', 64),
+        'issued_capability', 'ple_question_json_presentation',
+        'presentation_nonce', repeat('1', 32),
+        'presentation_checksum', repeat('c', 64),
+        'presentation', jsonb_build_object('question', 'Unrelease fixture'),
+        'backend_document', NULL,
+        'response_item_bindings', '[]'::jsonb
+    ))
+);
+SELECT *
+  FROM ple_api.commit_student_assessment_attempt_presentation(
+    '50000000-0000-0000-0000-000000000001',
+    jsonb_build_array(jsonb_build_object(
+        'issued_question_id', '50000000-0000-0000-0000-000000000011',
+        'question_attempt_id', '50000000-0000-0000-0000-000000000021',
+        'generated_parameter_sha256', NULL,
+        'backend_version', '1',
+        'renderer_name', NULL,
+        'renderer_version', NULL,
+        'grader_name', 'ple',
+        'grader_version', '1',
+        'rendered_question_sha256', repeat('b', 64),
+        'issued_capability', 'ple_question_json_presentation',
+        'presentation_nonce', repeat('1', 32),
+        'presentation_checksum', repeat('c', 64),
+        'presentation', jsonb_build_object('question', 'Unrelease fixture'),
+        'backend_document', NULL,
+        'response_item_bindings', '[]'::jsonb
+    ))
+);
+-- The Rust service opens a transaction per issuance; this oracle shares one,
+-- so restore its deferred constraint mode after the preceding API call.
+SET CONSTRAINTS ALL DEFERRED;
+SELECT *
+  FROM ple_api.commit_student_assessment_attempt_presentation(
+    '50000000-0000-0000-0000-000000000002',
+    jsonb_build_array(jsonb_build_object(
+        'issued_question_id', '50000000-0000-0000-0000-000000000012',
+        'question_attempt_id', '50000000-0000-0000-0000-000000000022',
+        'generated_parameter_sha256', NULL,
+        'backend_version', '1',
+        'renderer_name', NULL,
+        'renderer_version', NULL,
+        'grader_name', 'ple',
+        'grader_version', '1',
+        'rendered_question_sha256', repeat('d', 64),
+        'issued_capability', 'ple_question_json_presentation',
+        'presentation_nonce', repeat('2', 32),
+        'presentation_checksum', repeat('e', 64),
+        'presentation', jsonb_build_object('question', 'Unrelease fixture'),
+        'backend_document', NULL,
+        'response_item_bindings', '[]'::jsonb
+    ))
+);
+RESET ROLE;
+SET LOCAL ROLE ple_data_owner;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_statistics
+         WHERE published_question_id = current_setting('ple.test_unrelease_question_id')
+           AND revision_number = 1 AND issued_count = 2 AND answered_count = 0
+    ) THEN
+        RAISE EXCEPTION 'production presentations did not count each delivery exactly once before submission';
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool_statistics
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND issued_count = 1 AND answered_count = 0
+    ) THEN
+        RAISE EXCEPTION 'Pool delivery count was not recorded once';
+    END IF;
+END $$;
 SET LOCAL ROLE ple_private_owner;
-INSERT INTO ple_private.question_attempt (
-    course_instance_id, question_attempt_id, issued_question_id, issued_at,
-    delivery_toolchain_id, rendered_question_sha256
-)
-SELECT issued.course_instance_id,
-       '50000000-0000-0000-0000-000000000021' AS question_attempt_id,
-       issued.issued_question_id,
-       pg_catalog.transaction_timestamp() AS issued_at,
-       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable') AS delivery_toolchain_id,
-       decode(repeat('b', 64), 'hex') AS rendered_question_sha256
-  FROM ple_private.issued_question AS issued
- WHERE issued.issued_question_id = '50000000-0000-0000-0000-000000000011';
-INSERT INTO ple_private.question_attempt (
-    course_instance_id, question_attempt_id, issued_question_id, issued_at,
-    delivery_toolchain_id, rendered_question_sha256
-)
-SELECT issued.course_instance_id,
-       '50000000-0000-0000-0000-000000000022' AS question_attempt_id,
-       issued.issued_question_id,
-       pg_catalog.transaction_timestamp() AS issued_at,
-       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable') AS delivery_toolchain_id,
-       decode(repeat('d', 64), 'hex') AS rendered_question_sha256
-  FROM ple_private.issued_question AS issued
- WHERE issued.issued_question_id = '50000000-0000-0000-0000-000000000012';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.question_statistics_observation_receipt
+         WHERE issued_question_id = '50000000-0000-0000-0000-000000000012'
+           AND question_pool_id = current_setting('ple.test_unrelease_pool_id')
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_private.question_pool_selection
+         WHERE question_pool_selection_id = '50000000-0000-0000-0000-000000000013'
+           AND question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND question_pool_edit_number = 1
+    ) THEN
+        RAISE EXCEPTION 'Pool delivery evidence did not retain its originating Pool and Edit Number';
+    END IF;
+END $$;
 INSERT INTO ple_private.assessment_attempt_saved_response (
     course_instance_id, question_attempt_id, student_response, saved_at
 )
@@ -244,68 +419,172 @@ SELECT attempt.course_instance_id,
      '50000000-0000-0000-0000-000000000021',
      '50000000-0000-0000-0000-000000000022'
  );
-INSERT INTO ple_private.assessment_submission (
-    course_instance_id, assessment_submission_id, assessment_attempt_id, submitted_at,
-    authorized_by_account_id
-) VALUES
-    (:'course_id', '50000000-0000-0000-0000-000000000041',
-     '50000000-0000-0000-0000-000000000001', pg_catalog.transaction_timestamp(), :'student_id'),
-    (:'course_id', '50000000-0000-0000-0000-000000000042',
-     '50000000-0000-0000-0000-000000000002', pg_catalog.transaction_timestamp(), :'student_id');
-UPDATE ple_private.assessment_attempt_saved_response
-   SET finalized_at = pg_catalog.transaction_timestamp(),
-       assessment_submission_id = '50000000-0000-0000-0000-000000000041'
- WHERE question_attempt_id = '50000000-0000-0000-0000-000000000021';
-UPDATE ple_private.assessment_attempt_saved_response
-   SET finalized_at = pg_catalog.transaction_timestamp(),
-       assessment_submission_id = '50000000-0000-0000-0000-000000000042'
- WHERE question_attempt_id = '50000000-0000-0000-0000-000000000022';
-UPDATE ple_private.question_attempt
-   SET finalized_at = pg_catalog.transaction_timestamp()
- WHERE question_attempt_id IN (
-     '50000000-0000-0000-0000-000000000021',
-     '50000000-0000-0000-0000-000000000022'
- );
-INSERT INTO ple_private.grading_result (
-    course_instance_id, grading_result_id, question_attempt_id, normalized_credit, recorded_at
-) VALUES
-    (:'course_id', '50000000-0000-0000-0000-000000000071',
-     '50000000-0000-0000-0000-000000000021', 1, pg_catalog.transaction_timestamp()),
-    (:'course_id', '50000000-0000-0000-0000-000000000072',
-     '50000000-0000-0000-0000-000000000022', 1, pg_catalog.transaction_timestamp());
-SET LOCAL ROLE ple_audit_owner;
-INSERT INTO ple_audit.automated_grading_receipt (
-    automated_grading_receipt_id, course_instance_id, grading_result_id, committed_at,
-    automated_grading_receipt_checksum
-) VALUES
-    ('50000000-0000-0000-0000-000000000081', :'course_id',
-     '50000000-0000-0000-0000-000000000071', pg_catalog.transaction_timestamp(), decode(repeat('e', 64), 'hex')),
-    ('50000000-0000-0000-0000-000000000082', :'course_id',
-     '50000000-0000-0000-0000-000000000072', pg_catalog.transaction_timestamp(), decode(repeat('f', 64), 'hex'));
-SET LOCAL ROLE ple_private_owner;
-SELECT ple_private.capture_issued_question_statistics_observation(
-    :'course_id', '50000000-0000-0000-0000-000000000011',
-    '50000000-0000-0000-0000-000000000041', pg_catalog.transaction_timestamp()
+SELECT floor(extract(epoch FROM saved_at) * 1000)::bigint AS target_saved_at_millis
+  FROM ple_private.assessment_attempt_saved_response
+ WHERE question_attempt_id = '50000000-0000-0000-0000-000000000021' \gset
+SELECT floor(extract(epoch FROM saved_at) * 1000)::bigint AS survivor_saved_at_millis
+  FROM ple_private.assessment_attempt_saved_response
+ WHERE question_attempt_id = '50000000-0000-0000-0000-000000000022' \gset
+RESET ROLE;
+SET LOCAL ROLE ple_app;
+SELECT set_config('ple.session_account_id', :'student_id', true);
+SELECT * FROM ple_api.commit_student_assessment_attempt_finalization(
+    '50000000-0000-0000-0000-000000000001', 'student',
+    jsonb_build_array(jsonb_build_object(
+        'question_attempt_id', '50000000-0000-0000-0000-000000000021',
+        'saved_at_millis', :'target_saved_at_millis'::bigint,
+        'student_response', '{}'::jsonb,
+        'normalized_credit', 0.5
+    ))
 );
-SELECT ple_private.capture_issued_question_statistics_observation(
-    :'course_id', '50000000-0000-0000-0000-000000000012',
-    '50000000-0000-0000-0000-000000000042', pg_catalog.transaction_timestamp()
+SELECT * FROM ple_api.commit_student_assessment_attempt_finalization(
+    '50000000-0000-0000-0000-000000000002', 'student',
+    jsonb_build_array(jsonb_build_object(
+        'question_attempt_id', '50000000-0000-0000-0000-000000000022',
+        'saved_at_millis', :'survivor_saved_at_millis'::bigint,
+        'student_response', '{}'::jsonb,
+        'normalized_credit', 1
+    ))
 );
--- Repeating a committed Issued Question observation must not count twice.
-SELECT ple_private.capture_issued_question_statistics_observation(
-    :'course_id', '50000000-0000-0000-0000-000000000011',
-    '50000000-0000-0000-0000-000000000041', pg_catalog.transaction_timestamp()
-);
+-- A repeated submission finalization is idempotent; the stored Backend
+-- fractions remain 0.5 and 1 regardless of the awarded-point projection.
+DO $$
+DECLARE earned double precision;
+DECLARE possible double precision;
+BEGIN
+    SELECT points_earned, points_possible INTO earned, possible
+      FROM ple_api.commit_student_assessment_attempt_finalization(
+          '50000000-0000-0000-0000-000000000001', 'student', '[]'::jsonb
+      );
+    IF earned <> 0 OR possible <> 1 THEN
+        RAISE EXCEPTION 'disabled partial credit did not affect awarded points as expected';
+    END IF;
+END $$;
+RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_statistics
          WHERE published_question_id = current_setting('ple.test_unrelease_question_id') AND revision_number = 1
-           AND issued_count = 2 AND answered_count = 2 AND correct_count = 2
+           AND issued_count = 2 AND answered_count = 2 AND correct_count = 1
+           AND partial_count = 1 AND credit_sum = 1.5 AND credit_sum_sq = 1.25
            AND blank_count = 0
     ) THEN
         RAISE EXCEPTION 'production statistics capture did not count each accepted grade exactly once';
+    END IF;
+END $$;
+-- Retire the survivor's Pool entry after both issued Attempts are finalized.
+-- Derive the Assessment values from its current policy snapshot so this edit
+-- preserves the existing policy exactly.
+SELECT jsonb_build_object(
+        'assessment_title', snapshot.assessment_title,
+        'assessment_instructions', snapshot.assessment_instructions,
+        'available_at', snapshot.available_at, 'due_at', snapshot.due_at,
+        'closes_at', snapshot.closes_at,
+        'assessment_attempt_time_limit_seconds', snapshot.assessment_attempt_time_limit_seconds,
+        'assessment_attempt_limit', snapshot.assessment_attempt_limit,
+        'late_work_rule', snapshot.late_work_rule::text,
+        'partial_credit_enabled', snapshot.partial_credit_enabled,
+        'question_variation_rule', snapshot.question_variation_rule::text,
+        'assessment_question_order_rule', snapshot.assessment_question_order_rule::text,
+        'feedback_per_item_correctness', snapshot.feedback_per_item_correctness::text,
+        'feedback_submitted_response', snapshot.feedback_submitted_response::text,
+        'feedback_question_answer', snapshot.feedback_question_answer::text,
+        'feedback_question_answer_explanation', snapshot.feedback_question_answer_explanation::text,
+        'feedback_class_statistics', snapshot.feedback_class_statistics::text,
+        'feedback_hints', snapshot.feedback_hints::text,
+        'feedback_worked_solutions', snapshot.feedback_worked_solutions::text
+    )::text AS survivor_values
+  FROM ple_data.assessment AS assessment
+  JOIN ple_data.assessment_policy_snapshot AS snapshot
+    ON snapshot.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+ WHERE assessment.assessment_id = :'survivor_assessment_id' \gset
+SET LOCAL ROLE ple_app;
+SELECT set_config('ple.session_account_id', :'instructor_id', true);
+SELECT assessment_edit_number AS survivor_edit
+  FROM ple_api.save_assessment(
+      :'course_id', :'survivor_assessment_id', 1, :'survivor_values'::jsonb,
+      jsonb_build_array(jsonb_build_object(
+          'assessmentEntryId', '40000000-0000-0000-0000-000000000012',
+          'kind', 'question_pool', 'availability', 'retired', 'scoringRule', 'normal',
+          'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 1,
+          'questionPoolId', :'pool_id'
+      ))
+  ) \gset
+RESET ROLE;
+-- Presentation commits make constraints immediate in this shared test
+-- transaction; the Rust Pool save gets a fresh transaction with deferred checks.
+SET CONSTRAINTS ALL DEFERRED;
+SET LOCAL ROLE ple_api_owner;
+SELECT question_pool_edit_number
+  FROM ple_data.save_question_pool_members(
+      current_setting('ple.test_unrelease_pool_id'), 1,
+      ARRAY[:'replacement_question_id'], ARRAY[1]
+  );
+SET CONSTRAINTS ALL IMMEDIATE;
+RESET ROLE;
+SET LOCAL ROLE ple_data_owner;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_data.question_pool_member
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND published_question_id = current_setting('ple.test_unrelease_question_id')
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool_member
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND published_question_id = current_setting('ple.test_unrelease_replacement_question_id')
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND question_pool_edit_number = 2
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool_statistics
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND issued_count = 1 AND answered_count = 1
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.assessment_entry
+         WHERE assessment_entry_id = '40000000-0000-0000-0000-000000000012'
+           AND assessment_id = current_setting('ple.test_unrelease_survivor_assessment_id')
+           AND availability = 'retired'
+    ) THEN
+        RAISE EXCEPTION 'editing current Pool membership changed prior delivery statistics or failed to replace its member';
+    END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_private_owner;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.question_statistics_observation_receipt
+         WHERE issued_question_id = '50000000-0000-0000-0000-000000000012'
+           AND question_pool_id = current_setting('ple.test_unrelease_pool_id')
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_private.question_pool_selection
+         WHERE question_pool_selection_id = '50000000-0000-0000-0000-000000000013'
+           AND question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND question_pool_edit_number = 1
+    ) THEN
+        RAISE EXCEPTION 'Pool delivery evidence did not retain its originating Pool and Edit Number';
+    END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_data_owner;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool_statistics
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND issued_count = 1 AND answered_count = 1 AND correct_count = 1
+           AND partial_count = 0 AND incorrect_count = 0
+           AND credit_sum = 1 AND credit_sum_sq = 1
+    ) OR EXISTS (
+        SELECT 1 FROM ple_data.question_revision_statistics
+         WHERE published_question_id = current_setting('ple.test_unrelease_replacement_question_id')
+           AND issued_count > 0
+    ) THEN
+        RAISE EXCEPTION 'Pool outcomes did not remain attributed to the originating Pool after a member edit';
     END IF;
 END $$;
 COMMIT;
@@ -414,9 +693,9 @@ BEGIN
        OR EXISTS (SELECT 1 FROM ple_private.assessment_attempt_saved_response
                    WHERE question_attempt_id = '50000000-0000-0000-0000-000000000021')
        OR EXISTS (SELECT 1 FROM ple_private.assessment_submission
-                   WHERE assessment_submission_id = '50000000-0000-0000-0000-000000000041')
+                   WHERE assessment_attempt_id = '50000000-0000-0000-0000-000000000001')
        OR EXISTS (SELECT 1 FROM ple_private.grading_result
-                   WHERE grading_result_id = '50000000-0000-0000-0000-000000000071')
+                   WHERE question_attempt_id = '50000000-0000-0000-0000-000000000021')
        OR EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_receipt
                    WHERE issued_question_id = '50000000-0000-0000-0000-000000000011')
        OR NOT EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_receipt
@@ -432,8 +711,14 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_statistics
          WHERE published_question_id = current_setting('ple.test_unrelease_question_id') AND revision_number = 1
-           AND issued_count = 2 AND answered_count = 2 AND correct_count = 2
-           AND blank_count = 0
+           AND issued_count = 2 AND answered_count = 2 AND correct_count = 1
+           AND partial_count = 1 AND blank_count = 0
+           AND credit_sum = 1.5 AND credit_sum_sq = 1.25
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool_statistics
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND issued_count = 1 AND answered_count = 1 AND correct_count = 1
+           AND credit_sum = 1 AND credit_sum_sq = 1
     ) THEN
         RAISE EXCEPTION 'Unrelease changed retained anonymous Question Revision statistics';
     END IF;
@@ -486,8 +771,14 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_statistics
          WHERE published_question_id = current_setting('ple.test_unrelease_question_id') AND revision_number = 1
-           AND issued_count = 2 AND answered_count = 2 AND correct_count = 2
-           AND blank_count = 0
+           AND issued_count = 2 AND answered_count = 2 AND correct_count = 1
+           AND partial_count = 1 AND blank_count = 0
+           AND credit_sum = 1.5 AND credit_sum_sq = 1.25
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_pool_statistics
+         WHERE question_pool_id = current_setting('ple.test_unrelease_pool_id')
+           AND issued_count = 1 AND answered_count = 1 AND correct_count = 1
+           AND credit_sum = 1 AND credit_sum_sq = 1
     ) THEN
         RAISE EXCEPTION 'rejected repeat or deleted-grade recapture changed retained statistics';
     END IF;

@@ -204,14 +204,14 @@ const CAPABILITY_DECLARATIONS = {
   },
   questions: {
     kind: "backed",
-    clientMethod: "ApiClient.searchQuestionLibrary",
+    clientMethod: "ApiClient.searchLibraryObjects",
     serverEvidence: {
       kind: "registeredHandler",
       handler: "crates/server/src/question_library.rs::question_library_router",
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
+      "src/api/application_api.tsx::ApiClient.searchLibraryObjects",
     ],
   },
   productAssessments: {
@@ -453,7 +453,7 @@ const CAPABILITY_DECLARATIONS = {
   },
   myQuestions: {
     kind: "backed",
-    clientMethod: "ApiClient.searchQuestionLibrary",
+    clientMethod: "ApiClient.searchLibraryObjects",
     serverEvidence: {
       kind: "registeredHandler",
       handler: "crates/server/src/question_library.rs::question_library_router",
@@ -501,26 +501,26 @@ const CAPABILITY_DECLARATIONS = {
   },
   searchQuestionLibrary: {
     kind: "backed",
-    clientMethod: "ApiClient.searchQuestionLibrary",
+    clientMethod: "ApiClient.searchLibraryObjects",
     serverEvidence: {
       kind: "registeredHandler",
       handler: "crates/server/src/question_library.rs::question_library_router",
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
+      "src/api/application_api.tsx::ApiClient.searchLibraryObjects",
     ],
   },
   browseQuestionLibrary: {
     kind: "backed",
-    clientMethod: "ApiClient.searchQuestionLibrary",
+    clientMethod: "ApiClient.searchLibraryObjects",
     serverEvidence: {
       kind: "registeredHandler",
       handler: "crates/server/src/question_library.rs::question_library_router",
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
+      "src/api/application_api.tsx::ApiClient.searchLibraryObjects",
     ],
   },
   assessmentsDueSoon: {

@@ -46,8 +46,6 @@ pub enum PreparedIssuedQuestion {
         assessment_entry: AssessmentEntryId,
         /// Position in [`AssessmentAttemptStart::question_pool_selections`].
         question_pool_selection_index: usize,
-        /// Zero-based Pool member position at selection.
-        member_position: u32,
         /// Exact pinned Question Revision.
         published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Authoritative backend of the pinned revision.
@@ -100,7 +98,7 @@ impl AssessmentAttemptStart {
             let PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry,
                 question_pool_selection_index,
-                member_position,
+                published_question_revision_tuple,
                 ..
             } = question
             else {
@@ -116,16 +114,18 @@ impl AssessmentAttemptStart {
                 ));
             };
             if selection.question_pool_assessment_entry != *assessment_entry
-                || !selection
-                    .selected_items
-                    .iter()
-                    .any(|item| item.member_position == *member_position)
+                || !selection.selected_items.iter().any(|item| {
+                    item.published_question_revision_tuple == *published_question_revision_tuple
+                })
             {
                 return Err(StoreError::InvalidRecord(
                     "a pooled Issued Question must match its prepared Selection".to_string(),
                 ));
             }
-            if !issued_question_pool_items.insert((assessment_entry.as_uuid(), *member_position)) {
+            if !issued_question_pool_items.insert((
+                assessment_entry.as_uuid(),
+                published_question_revision_tuple.clone(),
+            )) {
                 return Err(StoreError::InvalidRecord(
                     "a selected Question Pool Item may be issued once".to_string(),
                 ));
@@ -141,11 +141,9 @@ impl AssessmentAttemptStart {
                             question,
                             PreparedIssuedQuestion::QuestionPoolItem {
                                 assessment_entry,
-                                member_position,
                                 published_question_revision_tuple,
                                 ..
                             } if assessment_entry == &selection.question_pool_assessment_entry
-                                && member_position == &selected_item.member_position
                                 && published_question_revision_tuple == &selected_item.published_question_revision_tuple
                         )
                     })
@@ -191,11 +189,9 @@ mod tests {
 
     use super::*;
 
-    fn published_question_revision_tuple() -> PublishedQuestionRevisionTuple {
+    fn published_question_revision_tuple(id: &str) -> PublishedQuestionRevisionTuple {
         PublishedQuestionRevisionTuple {
-            published_question_id: "1234-H567"
-                .parse::<PublishedQuestionId>()
-                .expect("Question ID"),
+            published_question_id: id.parse::<PublishedQuestionId>().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
         }
     }
@@ -208,12 +204,11 @@ mod tests {
         QuestionPoolEditNumber::new(1).expect("positive Pool Edit Number")
     }
 
-    fn pool_item(member_position: u32) -> QuestionPoolSelectedItem {
+    fn pool_item(id: &str) -> QuestionPoolSelectedItem {
         QuestionPoolSelectedItem {
             question_pool_id: pool_id(),
             question_pool_edit_number: pool_edit_number(),
-            member_position,
-            published_question_revision_tuple: published_question_revision_tuple(),
+            published_question_revision_tuple: published_question_revision_tuple(id),
         }
     }
 
@@ -227,13 +222,12 @@ mod tests {
                 question_pool_assessment_entry: entry,
                 question_pool_id: pool_id(),
                 question_pool_edit_number: pool_edit_number(),
-                selected_items: vec![pool_item(4)],
+                selected_items: vec![pool_item("7K3M-79QP")],
             }],
             issued_questions: vec![PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry: entry,
                 question_pool_selection_index: 0,
-                member_position: 5,
-                published_question_revision_tuple: published_question_revision_tuple(),
+                published_question_revision_tuple: published_question_revision_tuple("2R5X-E7YA"),
                 backend: QuestionBackend::Ple,
             }],
         };
@@ -254,13 +248,12 @@ mod tests {
                 question_pool_assessment_entry: entry,
                 question_pool_id: pool_id(),
                 question_pool_edit_number: pool_edit_number(),
-                selected_items: vec![pool_item(4), pool_item(5)],
+                selected_items: vec![pool_item("7K3M-79QP"), pool_item("2R5X-E7YA")],
             }],
             issued_questions: vec![PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry: entry,
                 question_pool_selection_index: 0,
-                member_position: 4,
-                published_question_revision_tuple: published_question_revision_tuple(),
+                published_question_revision_tuple: published_question_revision_tuple("7K3M-79QP"),
                 backend: QuestionBackend::Ple,
             }],
         };
@@ -280,7 +273,7 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
-                published_question_revision_tuple: published_question_revision_tuple(),
+                published_question_revision_tuple: published_question_revision_tuple("7K3M-79QP"),
                 backend: QuestionBackend::Imathas,
             }],
         };

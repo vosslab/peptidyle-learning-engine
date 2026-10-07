@@ -19,16 +19,36 @@ export interface QuestionUsePanelProps {
 }
 
 const wholeNumber = new Intl.NumberFormat("en-US");
+const percentage = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
 type RevisionStatistics = QuestionRevisionUsageStatistics;
 
 function revisionContent(revision: RevisionStatistics): RecordContent {
   return {
     title: `Revision ${revision.revision_number}`,
     details: [
+      { kind: "text", label: "Received", value: wholeNumber.format(revision.issued_count) },
       {
         kind: "text",
-        label: "Mean credit",
+        label: "Graded responses",
+        value: wholeNumber.format(revision.answered_count),
+      },
+      {
+        kind: "text",
+        label: "Average stored credit",
         value: formatMean(revision.mean_credit, revision.answered_count),
+      },
+      {
+        kind: "text",
+        label: "Full credit",
+        value: formatRate(revision.correct_rate, revision.answered_count),
+      },
+      {
+        kind: "text",
+        label: "Zero credit",
+        value: formatRate(revision.incorrect_rate, revision.answered_count),
       },
     ],
     actions: [],
@@ -67,17 +87,17 @@ function formatRate(rate: number | undefined, observations: number): string {
   if (rate === undefined) {
     return `${wholeNumber.format(observations)} observations`;
   }
-  return `${new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 }).format(rate)} (${wholeNumber.format(observations)})`;
+  return `${percentage.format(rate)} (${wholeNumber.format(observations)})`;
 }
 
 function formatMean(mean: number | undefined, observations: number): string {
   if (mean === undefined) {
     return `${wholeNumber.format(observations)} observations`;
   }
-  return `${mean.toFixed(2)} (${wholeNumber.format(observations)})`;
+  return `${percentage.format(mean)} (${wholeNumber.format(observations)})`;
 }
 
-/** Renders Instructor-visible usage rates beside their observation counts. */
+/** Renders privacy-safe Library statistics with their observation counts. */
 export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JSX.Element {
   return (
     <Show
@@ -87,46 +107,45 @@ export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JS
           class="question-statistics-panel"
           aria-labelledby="question-statistics-unavailable-heading"
         >
-          <h2 id="question-statistics-unavailable-heading">Learning evidence</h2>
+          <h2 id="question-statistics-unavailable-heading">Statistics</h2>
           <p>
-            Question Statistics are unavailable until shared learning measures can be shown. This
-            question remains ranked by relevance, so you can still open it and decide whether it
-            fits.
+            Statistics are unavailable until enough Students have contributed to protect their
+            privacy.
           </p>
         </section>
       }
     >
       {(available) => (
         <section class="question-statistics-panel" aria-labelledby="question-statistics-heading">
-          <h2 id="question-statistics-heading">Question usage</h2>
+          <h2 id="question-statistics-heading">Statistics</h2>
           <p class="question-statistics-introduction">
-            Global, identity-free counts for this Question. Each rate is shown with the number of
-            observations used as its denominator.
+            Received counts committed deliveries. Graded responses are those with stored credit.
+            Average stored credit is the mean for graded responses, shown as a percentage.
+            Full-credit and zero-credit percentages show the shares of graded responses. The count
+            in parentheses is the number of graded responses used.
           </p>
           <dl class="question-statistics-measures">
             <div>
-              <dt>Blank rate</dt>
-              <dd>{formatRate(available().blank_rate, available().issued_count)}</dd>
+              <dt>Received</dt>
+              <dd>
+                {wholeNumber.format(available().pool_issued_count ?? available().issued_count)}
+              </dd>
             </div>
             <div>
-              <dt>Answered rate</dt>
-              <dd>{formatRate(available().answered_rate, available().issued_count)}</dd>
+              <dt>Graded responses</dt>
+              <dd>{wholeNumber.format(available().answered_count)}</dd>
             </div>
             <div>
-              <dt>Correct rate</dt>
+              <dt>Average stored credit</dt>
+              <dd>{formatMean(available().mean_credit, available().answered_count)}</dd>
+            </div>
+            <div>
+              <dt>Full credit</dt>
               <dd>{formatRate(available().correct_rate, available().answered_count)}</dd>
             </div>
             <div>
-              <dt>Partial rate</dt>
-              <dd>{formatRate(available().partial_rate, available().answered_count)}</dd>
-            </div>
-            <div>
-              <dt>Incorrect rate</dt>
+              <dt>Zero credit</dt>
               <dd>{formatRate(available().incorrect_rate, available().answered_count)}</dd>
-            </div>
-            <div>
-              <dt>Mean credit</dt>
-              <dd>{formatMean(available().mean_credit, available().answered_count)}</dd>
             </div>
           </dl>
           <Show when={available().revisions}>

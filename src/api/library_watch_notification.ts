@@ -1,42 +1,46 @@
 // Private Instructor Watch inbox contracts.
 
-import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
+import type { LibraryObjectId } from "../../generated/api/LibraryObjectId";
 
 export type LibraryWatchTargetKind = "question" | "questionPool";
 
 /** One self-only in-app notification; it contains no watcher or actor identity. */
 type LibraryWatchNotificationBase = {
-  readonly targetKind: LibraryWatchTargetKind;
-  readonly targetPublicId: PublishedQuestionId;
+  readonly targetPublicId: LibraryObjectId;
   readonly occurredAt: number;
 };
 
 export type LibraryWatchNotification =
   | (LibraryWatchNotificationBase & {
+      readonly targetKind: "question";
       readonly eventKind: "revision";
-      readonly revisionNumber: number;
+      readonly questionRevisionNumber: number;
+      readonly questionPoolEditNumber: null;
       readonly forkedPublicId: null;
-      readonly activityId: null;
     })
   | (LibraryWatchNotificationBase & {
+      readonly targetKind: "questionPool";
       readonly eventKind: "membersChanged";
       /** The Question Pool Edit Number after the member-list save. */
-      readonly revisionNumber: number;
+      readonly questionRevisionNumber: null;
+      readonly questionPoolEditNumber: number;
       readonly forkedPublicId: null;
-      readonly activityId: null;
     })
   | (LibraryWatchNotificationBase & {
+      readonly targetKind: "question";
       readonly eventKind: "fork";
-      readonly revisionNumber: number;
-      readonly forkedPublicId: PublishedQuestionId;
-      readonly activityId: null;
+      /** The source Question Revision Number. */
+      readonly questionRevisionNumber: number;
+      readonly questionPoolEditNumber: null;
+      readonly forkedPublicId: LibraryObjectId;
     })
   | (LibraryWatchNotificationBase & {
-      readonly eventKind: "impactNotice";
-      /** The affected Revision can be absent; activityId is the exact retained notice. */
-      readonly revisionNumber: number | null;
-      readonly forkedPublicId: null;
-      readonly activityId: string;
+      readonly targetKind: "questionPool";
+      readonly eventKind: "fork";
+      /** The source Question Pool Edit Number. */
+      readonly questionRevisionNumber: null;
+      readonly questionPoolEditNumber: number;
+      readonly forkedPublicId: LibraryObjectId;
     });
 
 export type LibraryWatchEventKind = LibraryWatchNotification["eventKind"];

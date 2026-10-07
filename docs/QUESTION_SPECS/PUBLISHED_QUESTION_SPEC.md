@@ -67,7 +67,7 @@ Pool use is specified in [QUESTION_POOL_SPEC.md](QUESTION_POOL_SPEC.md).
 
 ## Deferred behavior
 
-Feedback disclosure timing is deferred pending review of actual PLE feedback uses. Regrading
-already submitted work after an answer-key correction is also deferred. Neither is implied by
-publishing a Question Revision. See the
+Feedback disclosure timing is deferred pending review of actual PLE feedback uses. Evaluating
+previously submitted Native JSON responses again after an answer-key or grading-rule correction is
+also deferred. Neither behavior is implied by publishing a Question Revision. See the
 [question specification open questions](../active_plans/decisions/question_specs_open_questions.md).

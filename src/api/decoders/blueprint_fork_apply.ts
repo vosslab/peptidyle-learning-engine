@@ -8,7 +8,7 @@ import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
 import {
   blueprintEditNumber,
   decodeBlueprintMetadataState,
-  blueprintRevisionTuple,
+  blueprintCourseRevisionTuple,
 } from "./blueprint_course";
 
 function copies(
@@ -112,11 +112,11 @@ export function decodeBlueprintForkApplyRequest(
     },
   );
   return {
-    expectedSourceRevisionTuple: blueprintRevisionTuple(
+    expectedSourceRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "expectedSourceRevisionTuple", path),
       `${path}.expectedSourceRevisionTuple`,
     ),
-    expectedForkRevisionTuple: blueprintRevisionTuple(
+    expectedForkRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "expectedForkRevisionTuple", path),
       `${path}.expectedForkRevisionTuple`,
     ),
@@ -158,11 +158,11 @@ export function decodeBlueprintForkApplyResponse(
   path = "response",
 ): BlueprintForkApplyResponse {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintRevisionTuple", "changed", "metadata"]);
+  requireOnlyFields(record, path, ["blueprintCourseRevisionTuple", "changed", "metadata"]);
   return {
-    blueprintRevisionTuple: blueprintRevisionTuple(
-      field(record, "blueprintRevisionTuple", path),
-      `${path}.blueprintRevisionTuple`,
+    blueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+      field(record, "blueprintCourseRevisionTuple", path),
+      `${path}.blueprintCourseRevisionTuple`,
     ),
     changed: decodeBoolean(field(record, "changed", path), `${path}.changed`),
     metadata: decodeBlueprintMetadataState(field(record, "metadata", path), `${path}.metadata`),

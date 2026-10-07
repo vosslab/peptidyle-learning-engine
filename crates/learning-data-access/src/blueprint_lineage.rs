@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintRevisionTuple, PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
-    RequestChecksum, Timestamp,
+    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseRevisionTuple,
+    BlueprintEditNumber, PublishedQuestionRevisionTuple, QuestionPoolId, RequestChecksum,
+    Timestamp,
 };
 use std::collections::BTreeMap;
 
@@ -18,9 +18,9 @@ pub struct StoredKnownBlueprintFork {
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub current_revision_tuple: BlueprintRevisionTuple,
+    pub current_revision_tuple: BlueprintCourseRevisionTuple,
     /// Immutable source Blueprint Course Revision Tuple used when this direct fork was created.
-    pub source_revision_tuple: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintCourseRevisionTuple,
     pub owner_display_name: String,
 }
 
@@ -36,20 +36,19 @@ pub struct BlueprintComparisonSources {
     pub right_long_name: String,
     pub left_blueprint_edit_number: BlueprintEditNumber,
     pub right_blueprint_edit_number: BlueprintEditNumber,
-    pub pool_memberships:
-        BTreeMap<(QuestionPoolId, QuestionPoolEditNumber), Vec<PublishedQuestionRevisionTuple>>,
+    pub pool_memberships: BTreeMap<QuestionPoolId, Vec<PublishedQuestionRevisionTuple>>,
 }
 
 /// Immutable source fact retained by a forked Blueprint lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintForkSource {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
 }
 
 /// Receipt for an idempotent fork creating an actor-owned Private child.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseReceipt {
-    pub blueprint_revision_tuple: BlueprintRevisionTuple,
+    pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     pub source: BlueprintForkSource,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,
@@ -85,6 +84,5 @@ pub trait BlueprintLineageStore: Send + Sync {
         session: SessionTokenHash,
         source: BlueprintForkSource,
         request_checksum: RequestChecksum,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ForkBlueprintCourseReceipt, StoreError>;
 }

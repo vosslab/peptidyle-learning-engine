@@ -16,7 +16,7 @@ use question_model::{
 use serde::{Deserialize, Serialize};
 
 use super::{
-    QuestionLibraryRouteState, instructor_session_hash, route_error, store_error_response,
+    QuestionLibraryRouteState, library_reader_session_hash, route_error, store_error_response,
     verified_question_id,
 };
 
@@ -42,8 +42,10 @@ pub(super) async fn load_current_shared_metadata(
     if !has_json_content_type(request.headers()) {
         return invalid_response(StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
-    let session_hash = match instructor_session_hash(&state, request.headers()).await {
-        Ok(value) => value,
+    // This bounded read supplies the ordinary editor for both Instructors and
+    // Sysadmins. The write route keeps its separate Instructor-only policy.
+    let session_hash = match library_reader_session_hash(&state, request.headers()).await {
+        Ok((value, _)) => value,
         Err(response) => return *response,
     };
     let body = match to_bytes(

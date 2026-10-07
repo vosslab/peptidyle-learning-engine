@@ -141,10 +141,10 @@ fn genetics_receipt_serializes_blueprint_revision_number() {
     .expect("receipt");
     let wire = serde_json::to_value(&receipt).expect("receipt serializes");
     assert_eq!(
-        wire["blueprintRevisionTuple"]["blueprintCourseId"],
+        wire["blueprintCourseRevisionTuple"]["blueprintCourseId"],
         "BPABCDEFGJ"
     );
-    assert_eq!(wire["blueprintRevisionTuple"]["revisionNumber"], 1);
+    assert_eq!(wire["blueprintCourseRevisionTuple"]["revisionNumber"], 1);
     assert!(wire.get("blueprintRevisionNumber").is_none());
     assert!(wire.get("blueprintCourseId").is_none());
 }

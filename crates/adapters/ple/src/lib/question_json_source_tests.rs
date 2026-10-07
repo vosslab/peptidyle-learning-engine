@@ -46,7 +46,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
     .await
     .expect("source should resolve");
     let issued = PleQuestionBackend::new()
-        .issue_question_json(&source)
+        .issue_question_json(&source, "Amino-acid sequence")
         .expect("source should issue");
 
     assert_eq!(
@@ -122,7 +122,7 @@ async fn grading_and_correctness_decisions_remain_server_owned_and_independent_o
     .await
     .expect("source should resolve");
     let issued = PleQuestionBackend::new()
-        .issue_question_json(&source)
+        .issue_question_json(&source, "Isolated author script")
         .expect("source should issue");
     let author_content = issued
         .presentation
@@ -230,9 +230,13 @@ async fn native_question_backend_owns_rendering_interaction_response_grading_fee
     .await
     .expect("source should resolve");
     let backend = PleQuestionBackend::new();
+    let preview = backend.preview_question_json(&source, "Native content title");
+    assert_eq!(preview.question_title, "Native content title");
     let issued = backend
-        .issue_question_json(&source)
+        .issue_question_json(&source, "Native content title")
         .expect("native source should issue");
+
+    assert_eq!(issued.presentation.question_title, "Native content title");
 
     assert_eq!(
         issued.presentation.prompt,

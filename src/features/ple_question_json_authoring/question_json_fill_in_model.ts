@@ -30,8 +30,8 @@ export function validateFillInResponse(
   }
   const seen = new Set<string>();
   response.answers.forEach((answer, index) => {
-    const normalized = normalizedAcceptedAnswer(answer);
-    if (normalized === "") {
+    const duplicateKey = response.matchMode === "regex" ? answer : normalizedAcceptedAnswer(answer);
+    if (duplicateKey === "") {
       issues[`answers.${index}`] = "Enter an accepted answer or remove this row.";
       return;
     }
@@ -39,16 +39,18 @@ export function validateFillInResponse(
       issues[`answers.${index}`] = `Keep this answer within ${MAX_TEXT_RESPONSE_CHARS} characters.`;
       return;
     }
-    if (answer.length > response.maxLength) {
+    if (response.matchMode !== "regex" && answer.length > response.maxLength) {
       issues[`answers.${index}`] = "This answer is longer than the student response limit.";
       return;
     }
-    if (seen.has(normalized)) {
+    if (seen.has(duplicateKey)) {
       issues[`answers.${index}`] =
-        "This repeats another accepted answer after ordinary spacing and capitalization are ignored.";
+        response.matchMode === "regex"
+          ? "This repeats another regular expression."
+          : "This repeats another accepted answer after ordinary spacing and capitalization are ignored.";
       return;
     }
-    seen.add(normalized);
+    seen.add(duplicateKey);
   });
   if (response.answers.length === 0) {
     issues.answers = "Add at least one accepted answer.";

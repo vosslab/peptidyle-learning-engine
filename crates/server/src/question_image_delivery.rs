@@ -5,7 +5,7 @@
 //! CDN URL from typed identity. It neither reads asset bytes nor creates a
 //! bearer URL.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     Router,
@@ -15,7 +15,8 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{
-    QuestionImageDeliveryStore, ReadyQuestionImageDelivery, SessionTokenHash, StoreError,
+    QuestionImageDeliveryResolution, QuestionImageDeliveryStore, ReadyQuestionImageDelivery,
+    SessionTokenHash, StoreError,
     postgres::{PostgresQuestionImageDeliveryStore, PostgresSessionStore},
 };
 use objects::ObjectAddress;
@@ -27,6 +28,10 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
+
+const PENDING_IMAGE_WAIT_BOUND: Duration =
+    crate::public_asset_publisher::PUBLICATION_OPERATION_BOUND;
+const PENDING_IMAGE_POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Clone)]
 struct QuestionImageDeliveryRouteState {
@@ -91,28 +96,72 @@ async fn get_public_question_image(
         Ok(value) => QuestionImageAssetId::from_uuid(value),
         Err(_) => return concealed(),
     };
-    let session_hash = match asset_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    let rendition = match state
-        .store
-        .resolve_ready_question_image_delivery(
-            session_hash,
+    let rendition = match tokio::time::timeout(
+        PENDING_IMAGE_WAIT_BOUND,
+        wait_for_question_image_delivery(
+            &state,
+            &headers,
             published_question_revision_tuple,
             question_image_asset_id,
-        )
-        .await
+        ),
+    )
+    .await
     {
-        Ok(value) => value,
-        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
-            return concealed();
-        }
+        Ok(Ok(value)) => value,
+        Ok(Err(response)) => return *response,
         Err(_) => return unavailable(),
     };
     match redirect_response(&state.public_asset_base_url, &rendition) {
         Ok(response) => response,
         Err(()) => unavailable(),
+    }
+}
+
+async fn wait_for_question_image_delivery(
+    state: &QuestionImageDeliveryRouteState,
+    headers: &HeaderMap,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    question_image_asset_id: QuestionImageAssetId,
+) -> Result<ReadyQuestionImageDelivery, Box<Response>> {
+    let session_hash = asset_session_hash(state, headers).await?;
+    poll_question_image_delivery(
+        &state.store,
+        session_hash,
+        published_question_revision_tuple,
+        question_image_asset_id,
+    )
+    .await
+}
+
+async fn poll_question_image_delivery<S>(
+    store: &S,
+    session_hash: SessionTokenHash,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    question_image_asset_id: QuestionImageAssetId,
+) -> Result<ReadyQuestionImageDelivery, Box<Response>>
+where
+    S: QuestionImageDeliveryStore + ?Sized,
+{
+    loop {
+        match store
+            .resolve_question_image_delivery(
+                session_hash,
+                published_question_revision_tuple.clone(),
+                question_image_asset_id,
+            )
+            .await
+        {
+            Ok(QuestionImageDeliveryResolution::Ready(rendition)) => return Ok(rendition),
+            // The PostgreSQL store commits before it yields Pending, so this
+            // sleep never retains the transaction or its pooled connection.
+            Ok(QuestionImageDeliveryResolution::Pending) => {
+                tokio::time::sleep(PENDING_IMAGE_POLL_INTERVAL).await;
+            }
+            Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
+                return Err(Box::new(concealed()));
+            }
+            Err(_) => return Err(Box::new(unavailable())),
+        }
     }
 }
 
@@ -144,7 +193,7 @@ async fn asset_session_hash(
         Ok(value)
             if matches!(
                 value.record.user_role,
-                UserRole::Instructor | UserRole::Student
+                UserRole::Instructor | UserRole::Student | UserRole::Sysadmin
             ) =>
         {
             Ok(value.session_hash)
@@ -204,12 +253,35 @@ fn cookie(headers: &HeaderMap) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use async_trait::async_trait;
     use objects::Sha256Checksum;
     use question_model::{
         ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
     };
 
     use super::*;
+
+    struct PendingThenReadyStore {
+        calls: AtomicUsize,
+    }
+
+    #[async_trait]
+    impl QuestionImageDeliveryStore for PendingThenReadyStore {
+        async fn resolve_question_image_delivery(
+            &self,
+            _session_token_hash: SessionTokenHash,
+            _published_question_revision_tuple: PublishedQuestionRevisionTuple,
+            _question_image_asset_id: QuestionImageAssetId,
+        ) -> Result<QuestionImageDeliveryResolution, StoreError> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                Ok(QuestionImageDeliveryResolution::Pending)
+            } else {
+                Ok(QuestionImageDeliveryResolution::Ready(rendition()))
+            }
+        }
+    }
 
     fn rendition() -> ReadyQuestionImageDelivery {
         ReadyQuestionImageDelivery {
@@ -278,5 +350,24 @@ mod tests {
                 "{question_id}/{revision_number} must not reach the Store"
             );
         }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn authorized_pending_image_is_polled_until_its_ready_rendition() {
+        let store = PendingThenReadyStore {
+            calls: AtomicUsize::new(0),
+        };
+        let expected = rendition();
+        let actual = poll_question_image_delivery(
+            &store,
+            SessionTokenHash::compute(b"test-session"),
+            expected.published_question_revision_tuple.clone(),
+            expected.question_image_asset_id,
+        )
+        .await
+        .expect("ready rendition after its authorized pending state");
+
+        assert_eq!(actual, expected);
+        assert_eq!(store.calls.load(Ordering::SeqCst), 2);
     }
 }

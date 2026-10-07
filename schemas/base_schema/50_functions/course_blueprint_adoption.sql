@@ -96,6 +96,7 @@ BEGIN
                 ELSE source_content #> '{defaults,assessment_attempt_limit}'
             END,
             'late_work_rule', source_content #> '{defaults,late_work_rule}',
+            'partial_credit_enabled', source_content #> '{defaults,activity_rules,partialCreditEnabled}',
             'question_variation_rule', CASE (source_content #>> '{defaults,activity_rules,questionVariationRule}')
                 WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END,
             'assessment_question_order_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}')
@@ -146,26 +147,13 @@ BEGIN
                 IF proposed_entry ->> 'kind' IS DISTINCT FROM 'question_pool'
                    OR proposed_entry ->> 'availability' IS DISTINCT FROM 'available'
                    OR proposed_entry ->> 'authoredPosition' IS DISTINCT FROM entry_index::text
-                   OR proposed_entry ->> 'sourceQuestionPoolId' IS DISTINCT FROM
+                   OR proposed_entry ->> 'questionPoolId' IS DISTINCT FROM
                         source_entry ->> 'question_pool_id'
-                   OR proposed_entry ->> 'sourceQuestionPoolEditNumber' IS DISTINCT FROM
-                        source_entry ->> 'question_pool_edit_number'
-                   OR proposed_entry ->> 'forkQuestionPoolId' !~
-                        '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-                   OR substr(proposed_entry ->> 'forkQuestionPoolId', 6, 1) IS DISTINCT FROM
-                        ple_private.crockford_checksum_character(
-                            substr(proposed_entry ->> 'forkQuestionPoolId', 1, 4)
-                            || substr(proposed_entry ->> 'forkQuestionPoolId', 7, 3)
-                        )
                    OR proposed_entry ->> 'selectionCount' IS DISTINCT FROM source_entry ->> 'selection_count'
                    OR proposed_entry ->> 'pointsPerItem' IS DISTINCT FROM source_entry ->> 'points_per_item'
                    OR proposed_entry ->> 'scoringRule' IS DISTINCT FROM (CASE (source_entry ->> 'scoring_rule')
                         WHEN 'normal' THEN 'normal' WHEN 'fullCredit' THEN 'full_credit'
                         WHEN 'extraCredit' THEN 'extra_credit' WHEN 'excluded' THEN 'excluded' END)
-                   OR proposed_entry ->> 'selectedQuestionOrder' IS DISTINCT FROM (CASE
-                        WHEN (source_entry #>> '{selection_rule,selectedQuestionOrder}') = 'questionPoolOrder'
-                        THEN 'question_pool_order' WHEN (source_entry #>> '{selection_rule,selectedQuestionOrder}') = 'randomOrder'
-                        THEN 'random_order' END)
                    OR proposed_entry ->> 'questionAttemptLimit' IS DISTINCT FROM source_entry #>> '{question_attempt_limit,maxAttempts}'
                    OR proposed_entry ->> 'questionAttemptTimeLimitSeconds' IS DISTINCT FROM
                         source_entry #>> '{question_attempt_time_limit,seconds}'
@@ -184,8 +172,8 @@ END;
 $$;
 
 CREATE FUNCTION ple_data.append_course_assessments(
-    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb,
-    p_pool_owner_account_id text
+    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint,
+    p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -196,8 +184,7 @@ DECLARE
     assessment_type_value ple_data.assessment_type;
     snapshot_id ple_data.sha256_digest;
     new_assessment_id text;
-    source_question_pool_id text;
-    forked record;
+    question_pool_id_value text;
 BEGIN
     IF jsonb_typeof(p_assessments) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
@@ -205,10 +192,6 @@ BEGIN
     PERFORM ple_data.validate_course_blueprint_adoption(
         p_blueprint_course_id, p_blueprint_revision_number, p_assessments
     );
-    IF p_pool_owner_account_id IS NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Course adoption Pool owner is unavailable';
-    END IF;
     FOR member IN SELECT value FROM jsonb_array_elements(p_assessments) LOOP
         -- Stable provenance makes a repeated append harmless, without touching
         -- the existing daughter copy's policies, release state, or Student Work.
@@ -236,7 +219,8 @@ BEGIN
             candidate.feedback_submitted_response,
             candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
             candidate.feedback_class_statistics, assessment_type_value,
-            candidate.feedback_hints, candidate.feedback_worked_solutions
+            candidate.feedback_hints, candidate.feedback_worked_solutions,
+            candidate.partial_credit_enabled
         );
         -- The assessment trigger owns the public identity.  Supply its
         -- canonical domain-valid mint placeholder rather than a raw UUID,
@@ -255,9 +239,8 @@ BEGIN
             assessment_type_value,
             snapshot_id
         ) RETURNING assessment_id INTO new_assessment_id;
-        -- Fixed entries have no child lineage and can use the ordinary guarded
-        -- entry writer. Pool entries are created below through their distinct
-        -- immutable fork boundary; a normal save may never attach a published Pool.
+        -- The Assessment and Blueprint retain the ordinary Pool ID. Selection
+        -- count and scoring policy remain local to this Assessment.
         PERFORM ple_data.replace_assessment_entries(
             new_assessment_id,
             COALESCE(
@@ -273,24 +256,11 @@ BEGIN
             SELECT value FROM jsonb_array_elements(member -> 'entries')
              WHERE value ->> 'kind' = 'question_pool'
         LOOP
-            SELECT pool.question_pool_id INTO source_question_pool_id
-             FROM ple_data.question_pool AS pool
-             WHERE pool.question_pool_id = entry_json ->> 'sourceQuestionPoolId';
-            IF NOT FOUND THEN
+            question_pool_id_value := entry_json ->> 'questionPoolId';
+            IF NOT EXISTS (SELECT 1 FROM ple_data.question_pool AS pool
+                           WHERE pool.question_pool_id = question_pool_id_value) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
-                    MESSAGE = 'Blueprint Question Pool source is unavailable';
-            END IF;
-            SELECT * INTO forked FROM ple_data.fork_question_pool_for_course_adoption(
-                entry_json ->> 'forkQuestionPoolId',
-                source_question_pool_id,
-                p_pool_owner_account_id
-            );
-            IF (entry_json ->> 'selectionCount')::integer > (
-                SELECT count(*) FROM ple_data.question_pool_member AS member
-                 WHERE member.question_pool_id = forked.question_pool_id
-            ) THEN
-                RAISE EXCEPTION USING ERRCODE = '22023',
-                    MESSAGE = 'Blueprint Question Pool selection exceeds fork member count';
+                    MESSAGE = 'Blueprint Question Pool is unavailable';
             END IF;
             INSERT INTO ple_data.assessment_entry (
                 assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
@@ -306,19 +276,12 @@ BEGIN
             );
             INSERT INTO ple_data.assessment_entry_pool (
                 assessment_entry_id, assessment_id, question_pool_id,
-                selection_count, points_per_item, selected_question_order
+                selection_count, points_per_item
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
-                forked.question_pool_id,
+                question_pool_id_value,
                 (entry_json ->> 'selectionCount')::integer,
-                (entry_json ->> 'pointsPerItem')::numeric,
-                (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order
-            );
-            INSERT INTO ple_data.assessment_question_pool_fork (
-                assessment_entry_id, assessment_id, question_pool_id
-            ) VALUES (
-                (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
-                forked.question_pool_id
+                (entry_json ->> 'pointsPerItem')::numeric
             );
         END LOOP;
     END LOOP;
@@ -326,8 +289,8 @@ END
 $$;
 
 CREATE FUNCTION ple_data.initialize_course_assessments(
-    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb,
-    p_pool_owner_account_id text
+    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint,
+    p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -336,8 +299,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, p_blueprint_course_id, p_blueprint_revision_number, p_assessments,
-        p_pool_owner_account_id
+        p_course_instance_id, p_blueprint_course_id, p_blueprint_revision_number, p_assessments
     );
 END
 $$;
@@ -412,8 +374,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint append must contain only newly added Assessments';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, blueprint.blueprint_course_id, p_saved_blueprint_revision_number, p_assessments,
-        ple_api.current_session_account_id()
+        p_course_instance_id, blueprint.blueprint_course_id,
+        p_saved_blueprint_revision_number, p_assessments
     );
 END
 $$;

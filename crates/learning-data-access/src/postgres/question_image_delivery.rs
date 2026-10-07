@@ -6,7 +6,10 @@ use question_model::{ObjectId, PublishedQuestionRevisionTuple, QuestionImageAsse
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
-use crate::{QuestionImageDeliveryStore, ReadyQuestionImageDelivery, SessionTokenHash, StoreError};
+use crate::{
+    QuestionImageDeliveryResolution, QuestionImageDeliveryStore, ReadyQuestionImageDelivery,
+    SessionTokenHash, StoreError,
+};
 
 /// Binds the attested API pool to the one opaque published-asset resolver.
 #[derive(Clone)]
@@ -48,16 +51,16 @@ impl PostgresQuestionImageDeliveryStore {
 
 #[async_trait]
 impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
-    async fn resolve_ready_question_image_delivery(
+    async fn resolve_question_image_delivery(
         &self,
         token: SessionTokenHash,
         published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_image_asset_id: QuestionImageAssetId,
-    ) -> Result<ReadyQuestionImageDelivery, StoreError> {
+    ) -> Result<QuestionImageDeliveryResolution, StoreError> {
         let mut transaction = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT public_object_id, rendition_checksum \
-             FROM ple_api.resolve_ready_question_image($1, $2, $3)",
+            "SELECT public_object_id, rendition_checksum, delivery_state \
+             FROM ple_api.resolve_question_image($1, $2, $3)",
         )
         .bind(
             published_question_revision_tuple
@@ -74,6 +77,16 @@ impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
+        let delivery_state: String = row.try_get("delivery_state").map_err(map_sqlx_error)?;
+        if delivery_state == "pending" {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(QuestionImageDeliveryResolution::Pending);
+        }
+        if delivery_state != "available" {
+            return Err(StoreError::InvalidRecord(
+                "Question Image delivery state is invalid".to_string(),
+            ));
+        }
         let checksum: [u8; 32] = row
             .try_get::<Vec<u8>, _>("rendition_checksum")
             .map_err(map_sqlx_error)?
@@ -90,6 +103,6 @@ impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
             rendition_checksum: Sha256Checksum::from_bytes(checksum),
         };
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(value)
+        Ok(QuestionImageDeliveryResolution::Ready(value))
     }
 }

@@ -124,12 +124,17 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.question_revision AS revision
         ON revision.published_question_id = publication.published_question_id
        AND revision.revision_number = publication.revision_number
-       AND revision.backend = 'ple' AND revision.question_type = 'hotspot'
+       AND revision.backend = 'ple'
+      JOIN ple_data.question_revision_metadata AS metadata
+        ON metadata.published_question_id = revision.published_question_id
+       AND metadata.revision_number = revision.revision_number
+       AND metadata.question_type = 'hotspot'
       JOIN ple_private.object_record AS record
         ON record.object_record_id = publication.source_object_record_id
        AND record.sha256 = publication.source_object_checksum
        AND record.media_type = publication.verified_media_type::text
-     WHERE ple_api.current_session_account_is_instructor()
+     WHERE (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin())
        AND publication.published_question_id = p_published_question_id
        AND publication.revision_number = p_revision_number
        AND record.object_address = pg_catalog.jsonb_build_object(

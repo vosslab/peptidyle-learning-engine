@@ -3,32 +3,53 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
-import {
-  createRecordingFetch,
-  issuedQuestionWireFixture,
-  jsonResponse,
-} from "./http_client_test_support.mjs";
+import { createRecordingFetch, jsonResponse } from "./http_client_test_support.mjs";
+
+const courseInstanceId = "CI000001AE";
+const assessmentId = "A000001AT";
+const questionId = "7K3M-79QP";
+const questionTuple = { publishedQuestionId: questionId, revisionNumber: 1 };
+
+function questionAttempt() {
+  return {
+    id: "0198e000-0000-7000-8000-000000000033",
+    issuedQuestion: "0198e000-0000-7000-8000-000000000043",
+    finalizedResponse: null,
+    state: "open",
+    timing: { issuedAt: 1_786_000_004_100, deadline: null, finalizedAt: null },
+    issuedCapability: "pleQuestionJsonPresentation",
+    assessmentScoringState: "current",
+    questionPoolSelectionPosition: null,
+  };
+}
+
+function issuedQuestionPresentation(attempt) {
+  return {
+    publishedQuestionRevisionTuple: questionTuple,
+    presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
+    questionTitle: "Peptide bond resonance",
+    prompt: [{ kind: "text", markdown: "Which bond has restricted rotation?" }],
+    response: {
+      kind: "singleChoice",
+      choices: [
+        { id: "0001", body: [{ kind: "text", markdown: "Carbon-to-nitrogen" }] },
+        { id: "0002", body: [{ kind: "text", markdown: "Carbon-to-oxygen" }] },
+      ],
+    },
+  };
+}
 
 function clientWithIssuedQuestion(mutator) {
-  const attempt = publishedQuestionFixture.attempts.at(-1);
-  assert.ok(attempt);
+  const attempt = questionAttempt();
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) {
-      const issued = structuredClone(
-        issuedQuestionWireFixture(
-          attempt,
-          publishedQuestionFixture.publishedQuestion,
-          publishedQuestionFixture.issuedQuestions.at(-1).publishedQuestionRevisionTuple,
-        ),
-      );
+      const issued = issuedQuestionPresentation(attempt);
       mutator(issued);
       return jsonResponse(issued);
     }
-    const { reproduction: _reproduction, ...attemptView } = attempt;
-    return jsonResponse({ ...attemptView, assessmentScoringState: "current" });
+    return jsonResponse(attempt);
   });
   return {
     attempt,
@@ -39,32 +60,22 @@ function clientWithIssuedQuestion(mutator) {
 
 test("issued-question transport uses the explicit nested course and Assessment route", async () => {
   const { attempt, client, requests } = clientWithIssuedQuestion(() => {});
-  await client.getIssuedQuestion(
-    publishedQuestionFixture.course.id,
-    publishedQuestionFixture.assessment.id,
-    attempt.id,
-  );
+  await client.getIssuedQuestion(courseInstanceId, assessmentId, attempt.id);
   assert.equal(
     requests[1]?.url,
-    `https://client.example.test/api/course-instances/${publishedQuestionFixture.course.id}/assessments/${publishedQuestionFixture.assessment.id}/attempts/${attempt.id}/question`,
+    `https://client.example.test/api/course-instances/${courseInstanceId}/assessments/${assessmentId}/attempts/${attempt.id}/question`,
   );
 });
 
 test("issued-question transport preserves a concealed nested-route 404 without a legacy retry", async () => {
-  const attempt = publishedQuestionFixture.attempts.at(-1);
-  assert.ok(attempt);
+  const attempt = questionAttempt();
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) return jsonResponse({}, 404);
-    const { reproduction: _reproduction, ...attemptView } = attempt;
-    return jsonResponse({ ...attemptView, assessmentScoringState: "current" });
+    return jsonResponse(attempt);
   });
   const client = createHttpApiClient({ fetch: recordingFetch });
   await assert.rejects(
-    client.getIssuedQuestion(
-      publishedQuestionFixture.course.id,
-      publishedQuestionFixture.assessment.id,
-      attempt.id,
-    ),
+    client.getIssuedQuestion(courseInstanceId, assessmentId, attempt.id),
     (error) => error instanceof ApiRequestError && error.status === 404,
   );
   assert.equal(requests.length, 2);
@@ -79,11 +90,7 @@ test("issued-question transport rejects a response that carries a server-only fi
     issued.grading = { mode: "allOrNothing", points: 1 };
   });
   await assert.rejects(
-    client.getIssuedQuestion(
-      publishedQuestionFixture.course.id,
-      publishedQuestionFixture.assessment.id,
-      attempt.id,
-    ),
+    client.getIssuedQuestion(courseInstanceId, assessmentId, attempt.id),
     (error) =>
       error instanceof DecodeError &&
       error.message === "response.grading must be a field allowed by this response contract",
@@ -220,11 +227,7 @@ test("issued-question transport rejects server-only data from a Question Present
   for (const hostile of hostilePresentations) {
     const { attempt, client } = clientWithIssuedQuestion(hostile.mutate);
     await assert.rejects(
-      client.getIssuedQuestion(
-        publishedQuestionFixture.course.id,
-        publishedQuestionFixture.assessment.id,
-        attempt.id,
-      ),
+      client.getIssuedQuestion(courseInstanceId, assessmentId, attempt.id),
       (error) =>
         error instanceof DecodeError &&
         error.message === `${hostile.path} must be a field allowed by this response contract`,

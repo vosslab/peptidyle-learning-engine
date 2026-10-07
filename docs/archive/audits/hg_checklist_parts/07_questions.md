@@ -70,6 +70,10 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft` replaces the current draft aggregate values.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] PLE accepts Native JSON directly from qti-package-maker-rs for imports, with no intermediate
+  Question format. Keep Question metadata separate. Store imported image assets in existing PLE
+  image storage, alongside the text-only JSON rather than in a ZIP package.
+  - Verification pending: Current direct-import behavior, metadata separation, and image-asset storage need implementation verification.
 - [ ] **Instructors** can delete Draft Questions they no longer need.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `delete_draft_question` resolves only the current Instructor-owned Draft, locks and compares its Edit Number, then deletes that private aggregate without considering the separate Published Question lineage.
   - Evidence (source): `crates/learning-data-access/src/postgres/authoring.rs` `delete_authoring_draft` carries the SQL compare-and-swap through the authenticated Store.
@@ -77,8 +81,8 @@
   - Evidence (runtime): `crates/server/src/authoring.rs` `delete_draft` passed accepted isolated PostgreSQL/MinIO actual-server and focused browser proof: cancel, confirm, and list reload; valid-current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous 404 denials while owner source/Edit Number remained unchanged; 428 missing, 400 malformed, and 412 stale preconditions; preserved parsed Published Question lineage and Revision JSON after a published-origin Draft deletion; and 404 repeat DELETE/PUT. Artifact: `/private/tmp/ple-draft-delete-artifacts.km9ybM`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- N/A PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
-  - Reason: Automated abandoned-Draft cleanup is an explicitly optional future capability; HG sets no clock or durations.
+- N/A PLE may clean up expired Draft Questions after an appropriate warning and recovery period. Automated cleanup remains deferred, and no expiration period is set.
+  - Reason: Automated expired-Draft cleanup remains deferred; Human Guidance sets no expiration period.
 - [ ] A Draft Question must pass Question Publication Validation before becoming a Published Question.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` is the ordinary Draft publication path. It refuses a missing Discipline, Subject, license, or reviewed authorship before any insert, writes acceptance, authorship, license, source binding, and owner, then inserts the publication event. A fork-source license check runs only when that Draft has a fork source.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `validate_question_publication` rolls the publication transaction back when acceptance, contiguous authorship, license, exact source, or owner is missing.
@@ -120,7 +124,9 @@
   out of five earn 60% credit.
   - Verification pending: Native JSON grading and incomplete Matching responses need alignment; see docs/TODO.md.
 - [ ] Native JSON owns its Multiple Answer partial-credit formula; Question Backends grade their own Questions.
+  - Verification pending: Focused runtime evidence for this boundary remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Assessment Instructors decide whether to award partial credit. New Assessments start with partial credit enabled.
+  - Verification pending: Focused runtime evidence for this behavior remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Native JSON MC and HOTSPOT Questions are graded all-or-nothing.
   - Verification pending: Native JSON grading and regex support; see docs/TODO.md.
 - [ ] Native JSON NUM Questions use a tolerance to judge the answer.
@@ -168,7 +174,13 @@
 ### Native PLE JSON Question specifications
 
 - [ ] Question metadata belongs on the Question record, not in Native JSON.
+  - Verification pending: Focused runtime evidence for this metadata boundary remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Native JSON contains the Question content needed to display and grade the Question.
+  - Verification pending: Focused runtime evidence for this content boundary remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
+- [ ] Native JSON display content, including prompts, displayed choices, and similar text, uses HTML with inline CSS when needed for presentation.
+  - Verification pending: Current authoring, preview, and live rendering preserve and display authored HTML with inline CSS.
+- [ ] The converter supplies Native JSON and its referenced files; PLE resolves image references and owns Question Image Asset IDs, checksums, and storage. The converter knows content-relative paths, not PLE asset IDs or storage identities.
+  - Verification pending: Verify imports resolve content-relative paths, bind verified bytes to PLE-owned asset tuples, and display images in prompt, choices, and response renderers.
 - [ ] The native PLE JSON Question format is private, unversioned, and unpublished.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` accepts the unversioned internal source shape.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -436,7 +448,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `normalized_credit` projection uses current points; `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` rescales stored credit. S-01 supports point edits, not removal (A-04).
   - Evidence (test): `crates/question_model/src/student_work/grading.rs` `current_points_recalculate_without_changing_recorded_credit` passed on 2026-10-04; 0.67 stored credit produces 1.34 at two points and 2.01 at three points.
 
-- [x] Changing Question point values recalculates scores without another Question Backend interaction.
+- [x] Changing Question point values or partial-credit settings recalculates scores without another Question Backend interaction.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `normalized_credit` projection uses current points; `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` rescales stored credit. S-01 supports point edits, not removal (A-04).
   - Evidence (test): `crates/question_model/src/student_work/grading.rs` `current_points_recalculate_without_changing_recorded_credit` passed on 2026-10-04; 0.67 stored credit produces 1.34 at two points and 2.01 at three points.
 
@@ -557,6 +569,8 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `validate_question_publication` requires exact source, contiguous revision authorship and license records, keeping them associated with the Published Question Revision.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Citation is optional text.
+  - Verification pending: Current implementation of optional citation text across authoring, publishing, forks, and Library views needs focused validation.
 - [ ] Published Questions can include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft_general_feedback` stores optional `hint`, `worked_solution`, and `general_feedback` on the Draft, and leaves Hint and Worked Solution unchanged when they are omitted.
@@ -626,6 +640,7 @@
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Question fork starts with the source Question's license, authors, metadata, and Question
   content, and records the source Question as its parent.
+  - Verification pending: Focused runtime evidence for complete Question fork copying remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] A fork starts as a private **Draft Question** owned by the Instructor who creates it.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
   - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected browser proof that opened only the returned private Draft for the invoking Instructor and denied the other Instructor.
@@ -636,9 +651,12 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Published forks retain source attribution.
+  - Verification pending: Focused runtime evidence for Published Question fork attribution remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Archive preserves a Published Question that cannot safely be deleted because it is used or referenced.
+  - Verification pending: Focused runtime evidence for Archive preservation remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Archive makes the ordinary Question read-only, removes it from normal discovery, preserves
   existing references, and allows restore or fork.
+  - Verification pending: Focused runtime evidence for Archive access, reference, restore, and fork behavior remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Keep Archive behavior simple for both Published Questions and Blueprint Courses. The less
   Archive-specific architecture, the better; otherwise follow the GitHub repository archive model.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `question_fork_source` records published fork provenance.
@@ -707,8 +725,8 @@
   - Evidence (runtime): `crates/server/src/assessment_delivery.rs` `start` passed accepted actual-server proof that selected an exact Pool member for Student Attempt 1, preserved it on resume, and selected again for Attempt 2. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] A Question Pool cannot contain two Revisions of the same Published Question.
-  - Verification pending: New Pool guidance; implementation has not been validated.
+- [ ] A Question Pool contains Published Questions only; it cannot contain another Question Pool.
+  - Verification pending: Current implementation of the Published Question only and no nested Pool boundary has not been validated.
 - [ ] When editing a Pool, Instructors should be able to sort its Published Questions like a
   spreadsheet. Sorting changes only the display; it leaves the Pool contents and random selection
   unchanged.
@@ -750,13 +768,18 @@
   - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
 - [ ] A Pool Edit Number is only a counter and does not identify a stored historical Pool.
   - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
-- [ ] A Question Pool is an unordered set of Question Revision Tuples plus its metadata.
+- [ ] A Question Pool contains an unordered set of Question Revision Tuples.
   When the set changes, saving advances the Pool's Edit Number; no Revision is created.
   Removing ten Questions and saving once is one Edit.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool_member` stores the current ordered Published Question Revision pins, and `question_pool` stores the Pool metadata with an Edit Number and no Revision column.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `save_question_pool_members` advances `question_pool_edit_number` by one for one member-list save. Its additional attestation flag/storage is implementation drift recorded in docs/TODO.md.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] A Question Pool can contain a Question ID only once.
+  - Verification pending: Current implementation enforcement of one Revision per Question ID in a Pool needs focused validation.
+- [ ] A Question Pool has its own metadata. Some metadata belongs directly to the Pool, while other
+  metadata is derived from the Published Questions it contains.
+  - Verification pending: Current implementation of Pool-owned and member-derived metadata needs focused validation.
 #### Question Pool use and selection
 
 - [ ] An Assessment can use an existing Question Pool and specifies how many Questions to select from it.
@@ -869,6 +892,11 @@
   - Evidence (runtime): Required independent Title/Description in `schemas/base_schema/50_functions/question_pools.sql` have accepted SQL and source review. Rebuilt `8147` proof at `/private/tmp/ple-pool-metadata-connected-report.md` rejects missing fields, retains exact list/current text, and preserves both fields after denied mixed-member UI creation. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Store calculated Pool metadata on the Pool. Keep these values up to date when the Pool is created
+  or saved. Search reads the stored values.
+  - Verification pending: Confirm stored-value updates on Pool creation and save, and stored-value search behavior.
+- N/A Defer a periodic backend cron job for recalculating Pool metadata.
+  - Reason: Search reads stored values, so a periodic calculation job is not needed.
 - [ ] The first Published Question establishes the Question Pool's Discipline and Subject.
   - Evidence (runtime): Accepted actual-role SQL creation proof and final source reviews establish first-member classification. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` retains exact ordered pins and first-member Discipline/Subject, rejects mixed Subject with `422` and unchanged public list, then creates after ordinary picker reselection. Source owner: `schemas/base_schema/50_functions/question_pools.sql` `question_pool`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -1108,8 +1136,13 @@
   - Evidence (source): `src/pages/question_statistics_panel.tsx` `QuestionStatisticsPanel` shows each rate beside its observation count.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+- [ ] Pool statistics accumulate from Questions delivered through that Pool. Changing its set of
+  Question Revision Tuples leaves the Pool's prior statistics in place.
+  - Verification pending: Verify Pool statistics remain associated with the Pool after its Question Revision Tuple set changes.
 - [ ] Include the number of graded responses, average earned credit, and percentages earning full credit and zero credit.
+  - Verification pending: Focused runtime evidence for these Question statistics remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Use the stored Question credit fraction for these statistics; Assessment settings determine awarded points separately.
+  - Verification pending: Focused runtime evidence for credit-fraction statistics remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] Removing Student names alone does not make statistics anonymous.
   - Evidence (source): `docs/FERPA_DATA_POLICY.md` `Question Library object usage statistics` keeps Course, Student, Account, Attempt, and response facts in Student Work.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` stores counts and credit sums without a Student name or Student record.
@@ -1208,6 +1241,7 @@
 #### Question Library stewardship specifications
 
 - [ ] Question Library stewardship should use a GitHub-like model.
+  - Verification pending: Focused runtime evidence for the retained stewardship workflow remains incomplete; current canonical acceptance is still pending in docs/active_plans/reports/question_spec_implementation_ledger.md.
 - [ ] An Instructor who finds a problem in another Instructor's Library Object can fork it and fix it.
   - Evidence (source): `schemas/base_schema/50_functions/library_discussion_operations.sql` `create_library_improvement_thread` retains a text-only thread, and `create_library_impact_notice` retains an owner-managed notice.
   - Evidence (source): `schemas/base_schema/50_functions/question_watch_notifications.sql` `enqueue_library_watch_thread_event` and `enqueue_library_watch_impact_event` deliver those activities to current watchers.
@@ -1215,9 +1249,10 @@
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/question_library_stewardship.rs` `question_library_stewardship_delivers_threads_and_notices_to_a_watcher` watched a Published Question, created both activities through the shipped stores, and read both from the Watch inbox. A disposable database executed that contract and was removed.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [x] PLE is not social media or an online forum.
-  - Evidence (source): The Question and Pool detail pages, browser client, general discussion router, Rust discussion models, PostgreSQL thread/post tables and operations, associated policies/grants/indexes, and Watch thread event were removed. `crates/server/src/composition.rs` retains only `library_impact_notice_router`, the narrow owner/Sysadmin impact-notice boundary.
+- [ ] PLE is not social media or an online forum.
   - Evidence (runtime): `tests/playwright/e2e_live_demo_question_library_browser.mjs` `Removed general Question discussion route remained available` opened a Live Demo Question detail with no Discussion button or link, then confirmed the authenticated removed general-discussion endpoint returned 404. The passed receipt is `/private/tmp/hg_live_question_library_browser.log` (`Question Library browser: navigation, search, and detail complete`; wrapper `Live Demo Question Library: PASS`). This does not make a claim about the separate required impact-notice boundary.
+  - Evidence (test): `tests/playwright/e2e_live_demo_question_library_browser.mjs` `Removed general Question discussion route remained available` checks the removed discussion controls and endpoint.
+  - Verification pending: The recorded browser proof covers the general Question discussion controls and endpoint, but does not establish the broader product statement about all social or forum behavior.
 
 - [ ] Use **Change Proposals** as the Instructor-facing term for proposed content changes.
   - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.

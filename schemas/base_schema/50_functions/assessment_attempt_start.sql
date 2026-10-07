@@ -134,7 +134,6 @@ DECLARE selection_id uuid;
 DECLARE selection_entry_id uuid;
 DECLARE issued_entry_id uuid;
 DECLARE issued_selection_id uuid;
-DECLARE issued_member_position integer;
 DECLARE issued_source ple_private.question_revision_source_binding%ROWTYPE;
 BEGIN
     IF p_assessment_attempt_id IS NULL OR p_student_record_id IS NULL OR p_assessment_id IS NULL
@@ -222,8 +221,7 @@ BEGIN
                entry.question_attempt_limit, entry.question_attempt_time_limit_seconds,
                entry.question_attempt_grace_seconds,
                pool_entry.question_pool_id, pool.question_pool_edit_number AS question_pool_edit_number,
-               pool_entry.selection_count, pool_entry.points_per_item,
-               pool_entry.selected_question_order
+               pool_entry.selection_count, pool_entry.points_per_item
           INTO entry_row
           FROM ple_data.assessment_entry AS entry
           JOIN ple_data.assessment_entry_pool AS pool_entry
@@ -231,9 +229,12 @@ BEGIN
           JOIN ple_data.question_pool AS pool
             ON pool.question_pool_id = pool_entry.question_pool_id
          WHERE entry.assessment_entry_id = selection_entry_id AND entry.assessment_id = p_assessment_id
-           AND entry.entry_kind = 'question_pool' AND entry.availability = 'available';
+           AND entry.entry_kind = 'question_pool' AND entry.availability = 'available'
+         FOR SHARE OF pool;
         IF NOT FOUND OR selection_id IS NULL
            OR jsonb_typeof(selection -> 'selected_items') <> 'array'
+           OR selection ->> 'question_pool_id' <> entry_row.question_pool_id
+           OR (selection ->> 'question_pool_edit_number')::bigint <> entry_row.question_pool_edit_number
            OR jsonb_array_length(selection -> 'selected_items') <> entry_row.selection_count THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Pool Selection is not current released Assessment content';
         END IF;
@@ -245,14 +246,16 @@ BEGIN
             entry_row.question_pool_id, entry_row.question_pool_edit_number, now_value
         );
         INSERT INTO ple_private.question_pool_selected_item(
-            course_instance_id, question_pool_selection_id, member_position, selection_position, published_question_id, revision_number
+            course_instance_id, question_pool_selection_id, selection_position, published_question_id, revision_number
         )
-        SELECT assessment_row.course_instance_id, selection_id, (item.value #>> '{}')::integer, item.ordinality - 1,
-               pool.published_question_id, pool.question_revision_number
+        SELECT assessment_row.course_instance_id, selection_id, item.ordinality - 1,
+               (item.value ->> 'published_question_id')::text,
+               (item.value ->> 'revision_number')::integer
           FROM jsonb_array_elements(selection -> 'selected_items') WITH ORDINALITY AS item(value, ordinality)
           JOIN ple_data.question_pool_member AS pool
             ON pool.question_pool_id = entry_row.question_pool_id
-           AND pool.member_position = (item.value #>> '{}')::integer;
+           AND pool.published_question_id = (item.value ->> 'published_question_id')
+           AND pool.question_revision_number = (item.value ->> 'revision_number')::integer;
         IF (SELECT count(*) FROM ple_private.question_pool_selected_item WHERE question_pool_selection_id = selection_id)
              <> entry_row.selection_count THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Pool Selection contains an unavailable or repeated Item';
@@ -262,7 +265,6 @@ BEGIN
     FOR issued IN SELECT value FROM jsonb_array_elements(p_issued_questions) LOOP
         issued_entry_id := (issued ->> 'assessment_entry_id')::uuid;
         issued_selection_id := NULLIF(issued ->> 'question_pool_selection_id', '')::uuid;
-        issued_member_position := NULLIF(issued ->> 'question_pool_member_position', '')::integer;
         SELECT entry.assessment_entry_id, entry.assessment_id, entry.entry_kind,
                entry.availability, entry.scoring_rule, entry.authored_position,
                entry.question_attempt_limit, entry.question_attempt_time_limit_seconds,
@@ -283,16 +285,15 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Issued Question is not current released Assessment content';
         END IF;
         IF entry_row.entry_kind = 'fixed_question' THEN
-            IF issued_selection_id IS NOT NULL OR issued_member_position IS NOT NULL
+            IF issued_selection_id IS NOT NULL
                OR issued ->> 'published_question_id' <> entry_row.published_question_id
                OR (issued ->> 'revision_number')::integer <> entry_row.question_revision_number THEN
                 RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Fixed Issued Question does not match its current Assessment Entry';
             END IF;
         ELSE
-            IF issued_selection_id IS NULL OR issued_member_position IS NULL OR NOT EXISTS (
+            IF issued_selection_id IS NULL OR NOT EXISTS (
                 SELECT 1 FROM ple_private.question_pool_selected_item AS selected
                  WHERE selected.question_pool_selection_id = issued_selection_id
-                   AND selected.member_position = issued_member_position
                    AND selected.published_question_id = issued ->> 'published_question_id'
                    AND selected.revision_number = (issued ->> 'revision_number')::integer
             ) THEN
@@ -326,7 +327,7 @@ BEGIN
             assessment_entry_snapshot_id,
             assessment_content_entry_index, issued_position, published_question_id, revision_number,
             question_seed, question_statistics_eligibility,
-            question_pool_selection_id, question_pool_member_position
+            question_pool_selection_id
         ) VALUES (
             assessment_row.course_instance_id, (issued ->> 'issued_question_id')::uuid, p_assessment_attempt_id, issued_entry_id,
             entry_snapshot_id,
@@ -334,7 +335,7 @@ BEGIN
             issued ->> 'published_question_id', (issued ->> 'revision_number')::integer,
             (issued ->> 'question_seed')::numeric,
             entry_row.scoring_rule <> 'excluded',
-            issued_selection_id, issued_member_position
+            issued_selection_id
         );
     END LOOP;
     IF EXISTS (
@@ -434,12 +435,10 @@ CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     fixed_revision_number integer,
     question_pool_id text,
     question_pool_edit_number bigint,
-    member_position integer,
     pool_question_id text,
     pool_question_revision_number integer,
     question_backend text,
     selection_count integer,
-    pool_selection_rule text,
     question_variation_rule text,
     assessment_question_order_rule text
 )
@@ -494,12 +493,10 @@ BEGIN
            question.question_revision_number,
            pool_entry.question_pool_id::text,
            pool.question_pool_edit_number,
-           item.member_position,
            item.published_question_id::text,
            item.question_revision_number,
            COALESCE(fixed_source.backend, pool_source.backend)::text,
            pool_entry.selection_count,
-           pool_entry.selected_question_order::text,
            policy_row.question_variation_rule::text,
            policy_row.assessment_question_order_rule::text
       FROM ple_data.assessment_entry AS entry
@@ -518,8 +515,8 @@ BEGIN
        AND pool_source.revision_number = item.question_revision_number
      WHERE entry.assessment_id = assessment_row.assessment_id
        AND entry.availability = 'available'
-       AND (entry.entry_kind = 'fixed_question' OR item.member_position IS NOT NULL)
-     ORDER BY entry.authored_position, item.member_position NULLS FIRST;
+       AND (entry.entry_kind = 'fixed_question' OR item.published_question_id IS NOT NULL)
+     ORDER BY entry.authored_position;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';

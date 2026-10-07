@@ -165,7 +165,7 @@ export function setMultiFillBlankMaxLength(
   const response = multiFillResponse(source);
   const blank = response?.blanks.find((candidate) => candidate.id === blankId);
   if (blank === undefined) return refused(source, "That blank no longer exists.");
-  if (blank.answers.some((answer) => answer.length > maxLength)) {
+  if (blank.matchMode !== "regex" && blank.answers.some((answer) => answer.length > maxLength)) {
     return refused(source, "Increase maximum length or shorten each accepted answer first.");
   }
   return replaceBlank(source, blankId, { ...blank, maxLength });
@@ -183,7 +183,11 @@ export function setMultiFillBlankAnswer(
   if (answerIndex < 0 || answerIndex >= blank.answers.length) {
     return refused(source, "That accepted answer no longer exists.");
   }
-  if (answer.length === 0 || answer.length > blank.maxLength) {
+  const answerLength = Array.from(answer).length;
+  if (answerLength === 0 || answerLength > MAX_ANSWER_LENGTH) {
+    return refused(source, `Use a nonempty accepted answer up to ${MAX_ANSWER_LENGTH} characters.`);
+  }
+  if (blank.matchMode !== "regex" && answerLength > blank.maxLength) {
     return refused(source, `Use an accepted answer from 1 to ${blank.maxLength} characters.`);
   }
   if (blank.answers.some((current, index) => index !== answerIndex && current === answer)) {
@@ -200,7 +204,10 @@ export function addMultiFillBlankAnswer(
   const response = multiFillResponse(source);
   const blank = response?.blanks.find((candidate) => candidate.id === blankId);
   if (blank === undefined) return refused(source, "That blank no longer exists.");
-  const answer = nextAcceptedAnswer(blank.answers, blank.maxLength);
+  const answer = nextAcceptedAnswer(
+    blank.answers,
+    blank.matchMode === "regex" ? MAX_ANSWER_LENGTH : blank.maxLength,
+  );
   if (answer === null) {
     return refused(
       source,

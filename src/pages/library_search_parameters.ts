@@ -29,15 +29,16 @@ export function recoverLibrarySearch(search: string): string {
   } catch {
     parameters.delete("sort");
   }
-  for (const parse of [libraryKind, libraryMembership, libraryOwner]) {
+  parameters.delete("membership");
+  for (const parse of [libraryKind, publishedQuestionFilter, libraryOwner]) {
     try {
       parse(parameters);
     } catch {
       parameters.delete(
         parse === libraryKind
           ? "kind"
-          : parse === libraryMembership
-            ? "membership"
+          : parse === publishedQuestionFilter
+            ? "questions"
             : "ownerAccountId",
       );
     }
@@ -87,11 +88,13 @@ function libraryKind(parameters: URLSearchParams): QuestionLibraryBrowseQuery["k
   return value;
 }
 
-function libraryMembership(parameters: URLSearchParams): QuestionLibraryBrowseQuery["membership"] {
+function publishedQuestionFilter(
+  parameters: URLSearchParams,
+): QuestionLibraryBrowseQuery["questions"] {
   const value =
-    oneParameter(parameters, "membership") ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.membership;
-  if (value !== "noPool" && value !== "all")
-    throw new Error("Question Library membership is invalid");
+    oneParameter(parameters, "questions") ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.questions;
+  if (value !== "inNoPool" && value !== "all")
+    throw new Error("Published Question filter is invalid");
   return value;
 }
 
@@ -132,7 +135,7 @@ export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
     ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
     ...parseLibraryClassificationParameters(parameters),
     kind: libraryKind(parameters),
-    membership: libraryMembership(parameters),
+    questions: publishedQuestionFilter(parameters),
     ownerAccountId: libraryOwner(parameters),
     search: boundedValues(parameters, "search")[0] ?? "",
     subjects: boundedValues(parameters, "subjects"),
@@ -165,8 +168,8 @@ export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): stri
   const parameters = new URLSearchParams();
   appendLibraryClassificationParameters(parameters, query);
   if (query.kind !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.kind) parameters.set("kind", query.kind);
-  if (query.membership !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.membership) {
-    parameters.set("membership", query.membership);
+  if (query.questions !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.questions) {
+    parameters.set("questions", query.questions);
   }
   if (query.ownerAccountId !== null) parameters.set("ownerAccountId", query.ownerAccountId);
   for (const subject of query.subjects) parameters.append("subjects", subject);

@@ -264,7 +264,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
 
     let store = PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("app pool"));
     let created = store
-        .create_course_instance(token(0xc1), empty_course_input(), Default::default())
+        .create_course_instance(token(0xc1), empty_course_input())
         .await
         .expect("Empty Course creation");
     let course = created.course_instance.id;
@@ -645,7 +645,7 @@ async fn read_course_summary_returns_course_lifecycle_state() {
     course_input.long_name = "Summary lifecycle Course".to_owned();
     let store = PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("app pool"));
     let created = store
-        .create_course_instance(token(0xc1), course_input, Default::default())
+        .create_course_instance(token(0xc1), course_input)
         .await
         .expect("Empty Course creation");
     let course_id = created.course_instance.id;

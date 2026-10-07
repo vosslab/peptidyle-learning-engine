@@ -6,7 +6,7 @@ import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { ReusableQuestionView } from "../../../generated/api/ReusableQuestionView";
 import {
   DecodeError,
-  decodeNonnegativeInteger,
+  decodeBoolean,
   decodeNullable,
   decodePositiveInteger,
   decodeRecord,
@@ -53,15 +53,11 @@ function decodeReusableQuestionView(value: unknown, path: string): ReusableQuest
   };
 }
 
-/** Strictly decodes one ordered exact member for Pool and Assessment-fork readers. */
+/** Strictly decodes one exact member for Pool and Assessment-fork readers. */
 export function decodeQuestionPoolMemberView(value: unknown, path: string): QuestionPoolMemberView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["memberPosition", "publishedQuestionRevisionTuple", "question"]);
+  requireOnlyFields(record, path, ["publishedQuestionRevisionTuple", "question"]);
   return {
-    memberPosition: decodeNonnegativeInteger(
-      field(record, "memberPosition", path),
-      `${path}.memberPosition`,
-    ),
     publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
       field(record, "publishedQuestionRevisionTuple", path),
       `${path}.publishedQuestionRevisionTuple`,
@@ -71,12 +67,13 @@ export function decodeQuestionPoolMemberView(value: unknown, path: string): Ques
   };
 }
 
-/** ASVS 1.5.2 and 2.2.3: validates exact pins and immutable member order. */
+/** ASVS 1.5.2 and 2.2.3: validates exact pins and unordered membership. */
 export function decodeQuestionPoolView(value: unknown, path = "response"): QuestionPoolView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionPoolId",
     "ownerAccountId",
+    "canEditMetadata",
     "questionType",
     "backend",
     "license",
@@ -95,13 +92,11 @@ export function decodeQuestionPoolView(value: unknown, path = "response"): Quest
   if (members.length === 0) {
     throw new DecodeError(`${path}.members`, "a nonempty published Question Pool");
   }
-  for (const [index, member] of members.entries()) {
-    if (member.memberPosition !== index) {
-      throw new DecodeError(
-        `${path}.members[${index}].memberPosition`,
-        "its zero-based array position",
-      );
-    }
+  const questionIds = members.map(
+    (member) => member.publishedQuestionRevisionTuple.publishedQuestionId,
+  );
+  if (new Set(questionIds).size !== questionIds.length) {
+    throw new DecodeError(`${path}.members`, "one Revision per Published Question");
   }
   return {
     metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
@@ -112,6 +107,10 @@ export function decodeQuestionPoolView(value: unknown, path = "response"): Quest
     ownerAccountId: decodeAccountId(
       field(record, "ownerAccountId", path),
       `${path}.ownerAccountId`,
+    ),
+    canEditMetadata: decodeBoolean(
+      field(record, "canEditMetadata", path),
+      `${path}.canEditMetadata`,
     ),
     questionType: decodePoolQuestionType(
       field(record, "questionType", path),

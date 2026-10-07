@@ -8,8 +8,8 @@ use learning_data_access::{
 };
 use question_model::{
     BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
-    BlueprintCourseAssessmentContentView, BlueprintCourseSummaryView, BlueprintCourseView,
-    BlueprintModuleView, BlueprintRevisionTuple, CreateBlueprintCourseInput, PublishedQuestionId,
+    BlueprintCourseAssessmentContentView, BlueprintCourseRevisionTuple, BlueprintCourseSummaryView,
+    BlueprintCourseView, BlueprintModuleView, CreateBlueprintCourseInput, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionSearchResult, ReplaceBlueprintCourseContentInput,
     ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
 };
@@ -26,9 +26,10 @@ pub(super) async fn view_from_record(
         id: record.id.clone(),
         short_name: record.short_name,
         long_name: record.long_name,
+        theme: record.theme,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
-        current_revision_tuple: BlueprintRevisionTuple {
+        current_revision_tuple: BlueprintCourseRevisionTuple {
             blueprint_course_id: record.id,
             revision_number: record.current_revision_number,
         },
@@ -47,9 +48,10 @@ pub(super) fn summary_view(
         id: record.id.clone(),
         short_name: record.short_name,
         long_name: record.long_name,
+        theme: record.theme,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
-        current_revision_tuple: BlueprintRevisionTuple {
+        current_revision_tuple: BlueprintCourseRevisionTuple {
             blueprint_course_id: record.id,
             revision_number: record.current_revision_number,
         },
@@ -202,20 +204,16 @@ fn assessment_content_view(
             }),
             StoredBlueprintAssessmentEntry::Pool {
                 question_pool_id,
-                question_pool_edit_number,
                 selection_count,
                 points_per_item,
                 scoring_rule,
-                selection_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Ok(BlueprintAssessmentEntryView::Pool(ReusablePoolView {
                 question_pool_id: question_pool_id.clone(),
-                question_pool_edit_number: *question_pool_edit_number,
                 selection_count: *selection_count,
                 points_per_item: *points_per_item,
                 scoring_rule: *scoring_rule,
-                selection_rule: *selection_rule,
                 question_attempt_limit: *question_attempt_limit,
                 question_attempt_time_limit: *question_attempt_time_limit,
             })),

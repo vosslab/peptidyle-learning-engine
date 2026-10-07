@@ -104,8 +104,6 @@ pub struct QuestionPoolSelectedItem {
     pub question_pool_id: crate::QuestionPoolId,
     /// Pool Edit Number current when this member was selected. Not a historical object.
     pub question_pool_edit_number: crate::QuestionPoolEditNumber,
-    /// Zero-based position in that Pool's member list at selection.
-    pub member_position: u32,
     /// Exact Published Question Revision delivered to the Student.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
@@ -168,8 +166,6 @@ pub struct IssuedQuestion {
     pub question_pool_id: Option<crate::QuestionPoolId>,
     /// Pool Edit Number current at selection. Not a historical membership object.
     pub question_pool_edit_number: Option<crate::QuestionPoolEditNumber>,
-    /// Zero-based Pool member position at selection, if drawn from a Pool.
-    pub question_pool_member_position: Option<u32>,
 }
 
 /// Server-recorded timing inputs for one issued question.

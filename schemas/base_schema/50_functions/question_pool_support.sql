@@ -1,4 +1,4 @@
--- Instructor read and replacement for one Question Pool's optional support texts.
+-- Instructor and Sysadmin read, plus owner-or-Sysadmin replacement for one Pool's support texts.
 -- ASVS 2.3.3 and 15.4.2: compare and advance the metadata token under the Pool row lock.
 -- The command writes the Pool only. It does not update question_revision.
 
@@ -22,17 +22,18 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_private.require_question_pool_support_instructor(p_question_pool_id text)
+CREATE FUNCTION ple_private.require_question_pool_support_caller(p_question_pool_id text)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
-    -- ASVS 8.2.1: only an active Instructor may read or replace Pool support.
-    IF NOT ple_api.current_session_account_is_instructor()
-       OR ple_api.current_session_account_id() IS NULL
-       OR ple_private.instructor_display_name(ple_api.current_session_account_id()) IS NULL THEN
+    -- ASVS 8.2.1 and 8.3.1: authorize at the database service boundary.
+    IF NOT ple_api.current_session_account_is_sysadmin()
+       AND (NOT ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_id() IS NULL
+            OR ple_private.instructor_display_name(ple_api.current_session_account_id()) IS NULL) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Question Pool support requires an active Instructor';
+            MESSAGE = 'Question Pool support requires an active Instructor or Sysadmin';
     END IF;
     IF p_question_pool_id IS NULL
        OR p_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
@@ -56,7 +57,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    PERFORM ple_private.require_question_pool_support_instructor(p_question_pool_id);
+    PERFORM ple_private.require_question_pool_support_caller(p_question_pool_id);
     -- ASVS 8.2.3 and 14.2.6: return the Pool texts only. Member Questions stay unread.
     RETURN QUERY
     SELECT pool.question_pool_id::text,
@@ -90,11 +91,12 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     v_current_edit_number bigint;
+    v_owner_account_id text;
     v_hint text;
     v_general_feedback text;
     v_worked_solution text;
 BEGIN
-    PERFORM ple_private.require_question_pool_support_instructor(p_question_pool_id);
+    PERFORM ple_private.require_question_pool_support_caller(p_question_pool_id);
     IF p_expected_question_pool_metadata_edit_number IS NULL
        OR p_expected_question_pool_metadata_edit_number < 1 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -104,13 +106,20 @@ BEGIN
     v_general_feedback := ple_private.stored_question_pool_support_text(p_general_feedback);
     v_worked_solution := ple_private.stored_question_pool_support_text(p_worked_solution);
     -- ASVS 2.3.4 and 15.4.2: serialize the check and replacement at the Pool row.
-    SELECT pool.question_pool_metadata_edit_number INTO v_current_edit_number
+    SELECT pool.question_pool_metadata_edit_number, pool.owner_account_id::text
+      INTO v_current_edit_number, v_owner_account_id
       FROM ple_data.question_pool AS pool
      WHERE pool.question_pool_id = p_question_pool_id
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool support target is not available';
+    END IF;
+    -- ASVS 8.2.2 and 8.3.1: an Instructor may write only the Pool they own.
+    IF NOT ple_api.current_session_account_is_sysadmin()
+       AND v_owner_account_id IS DISTINCT FROM ple_api.current_session_account_id() THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Pool Owner or Sysadmin authority is required';
     END IF;
     IF v_current_edit_number <> p_expected_question_pool_metadata_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',

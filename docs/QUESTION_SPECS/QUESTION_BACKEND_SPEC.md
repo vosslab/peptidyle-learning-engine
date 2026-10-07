@@ -51,7 +51,8 @@ question_points_earned = question_points_possible * awarded_credit
 Assessment Instructors may change the setting after Students start. Apply the current setting
 consistently to every Attempt, including submitted Attempts, and recalculate Assessment scores
 from stored fractions. This also updates which Attempt has the highest score. Stored responses
-and grading outcomes remain unchanged; the Backend does not regrade them.
+and Backend credit fractions remain unchanged; PLE recalculates awarded points without asking the
+Backend to evaluate the response again.
 
 ## Required operations
 
@@ -64,8 +65,9 @@ and grading outcomes remain unchanged; the Backend does not regrade them.
 | Submit | PLE finalizes saved responses together as Student Work and stores the result. |
 | Disclose | PLE posts automatically graded scores immediately on submission; Assessment rules govern answers and deferred optional feedback. |
 
-A backend may evaluate before Attempt submission when its interaction needs it. A later point-value
-change recalculates points from stored credit; PLE does not ask the backend to grade again.
+A Backend may evaluate before Attempt submission when its interaction needs it. Later Assessment
+point-value and partial-credit changes recalculate points from stored Backend credit; PLE does not
+ask the Backend to evaluate the response again.
 A complete response means valid data the Backend can evaluate. For Native JSON MATCH and
 MULTI-FIB, a valid saved response can include unanswered parts. Grade those parts as zero while
 preserving credit for answered parts. This follows their settled grading rules.

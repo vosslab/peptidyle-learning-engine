@@ -260,6 +260,7 @@ Columns:
 | assessment_attempt_time_limit_seconds | integer | NULL |
 | assessment_attempt_limit | integer | NULL |
 | late_work_rule | ple_data.late_work_rule | NOT NULL |
+| partial_credit_enabled | boolean | NOT NULL |
 | question_variation_rule | ple_data.question_variation_rule | NOT NULL |
 | assessment_question_order_rule | ple_data.question_order_rule | NOT NULL |
 | feedback_per_item_correctness | ple_data.feedback_release | NOT NULL |
@@ -415,7 +416,7 @@ Indexes:
 ### ple_data.assessment_entry_pool
 
 - Role: current state
-- Comment: role: current state, Question Pool Assessment Entry policy: Pool ID pin, selection count, points per item, and selected-question order.
+- Comment: role: current state, Question Pool Assessment Entry policy: Pool ID pin, selection count, and points per item.
 
 Columns:
 
@@ -426,7 +427,6 @@ Columns:
 | question_pool_id | ple_data.question_family_id | NOT NULL |
 | selection_count | integer | NOT NULL |
 | points_per_item | numeric | NOT NULL |
-| selected_question_order | ple_data.selected_question_order | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -443,7 +443,6 @@ Foreign keys:
 - (assessment_entry_id) -> ple_data.assessment_entry (assessment_entry_pool_id)
 - (question_pool_id) -> ple_data.question_pool (question_pool_id)
 - (assessment_entry_id, assessment_id) -> ple_data.assessment_entry (assessment_entry_id, assessment_id)
-- (assessment_entry_id, assessment_id, question_pool_id) -> ple_data.assessment_question_pool_fork (assessment_entry_id, assessment_id, question_pool_id)
 
 Indexes:
 
@@ -451,38 +450,6 @@ Indexes:
 - ple_data.assessment_entry_pool_unique_0 UNIQUE (assessment_entry_id, assessment_id)
 - ple_data.assessment_entry_pool_unique_1 UNIQUE (assessment_entry_id, assessment_id, question_pool_id)
 - assessment_entry_pool_question_pool_id_fk_idx (question_pool_id)
-
-### ple_data.assessment_question_pool_fork
-
-- Role: current state
-- Comment: role: current state, One Assessment Entry-owned fork Pool lineage; import copies current source members once.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| assessment_entry_id | uuid | NOT NULL |
-| assessment_id | ple_data.assessment_id | NOT NULL |
-| question_pool_id | ple_data.question_family_id | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (assessment_entry_id)
-- UNIQUE (question_pool_id)
-- UNIQUE (assessment_entry_id, assessment_id, question_pool_id)
-
-Foreign keys:
-
-- (question_pool_id) -> ple_data.question_pool (question_pool_id)
-- (assessment_entry_id, assessment_id) -> ple_data.assessment_entry (assessment_entry_id, assessment_id)
-
-Indexes:
-
-- ple_data.assessment_question_pool_fork_pkey UNIQUE (assessment_entry_id)
-- ple_data.assessment_question_pool_fork_unique_0 UNIQUE (question_pool_id)
-- ple_data.assessment_question_pool_fork_unique_1 UNIQUE (assessment_entry_id, assessment_id, question_pool_id)
 
 ## 20_tables/assessment_attempt.sql
 
@@ -630,7 +597,6 @@ Columns:
 | --- | --- | --- |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | question_pool_selection_id | uuid | NOT NULL |
-| member_position | integer | NOT NULL |
 | selection_position | integer | NOT NULL |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
@@ -639,9 +605,8 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (course_instance_id, question_pool_selection_id, selection_position)
-- UNIQUE (course_instance_id, question_pool_selection_id, member_position)
-- UNIQUE (course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number)
-- CHECK member_position: `(member_position > 0)`
+- UNIQUE (course_instance_id, question_pool_selection_id, published_question_id)
+- UNIQUE (course_instance_id, question_pool_selection_id, published_question_id, revision_number)
 - CHECK selection_position: `(selection_position >= 0)`
 
 Foreign keys:
@@ -652,8 +617,8 @@ Foreign keys:
 Indexes:
 
 - ple_private.question_pool_selected_item_pkey UNIQUE (course_instance_id, question_pool_selection_id, selection_position)
-- ple_private.question_pool_selected_item_unique_0 UNIQUE (course_instance_id, question_pool_selection_id, member_position)
-- ple_private.question_pool_selected_item_unique_1 UNIQUE (course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number)
+- ple_private.question_pool_selected_item_unique_0 UNIQUE (course_instance_id, question_pool_selection_id, published_question_id)
+- ple_private.question_pool_selected_item_unique_1 UNIQUE (course_instance_id, question_pool_selection_id, published_question_id, revision_number)
 - question_pool_selected_item_published_question__5b4ced3b_fk_idx (published_question_id, revision_number)
 
 ### ple_private.assessment_entry_snapshot
@@ -714,7 +679,6 @@ Columns:
 | question_seed | numeric(20, 0) | NULL |
 | question_statistics_eligibility | boolean | NOT NULL |
 | question_pool_selection_id | uuid | NULL |
-| question_pool_member_position | integer | NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -731,13 +695,13 @@ Foreign keys:
 - (course_instance_id, assessment_attempt_id) -> ple_private.assessment_attempt (course_instance_id, assessment_attempt_id)
 - (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 - (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id) -> ple_private.question_pool_selection (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
-- (course_instance_id, question_pool_selection_id, question_pool_member_position, published_question_id, revision_number) -> ple_private.question_pool_selected_item (course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number)
+- (course_instance_id, question_pool_selection_id, published_question_id, revision_number) -> ple_private.question_pool_selected_item (course_instance_id, question_pool_selection_id, published_question_id, revision_number)
 
 Indexes:
 
 - ple_private.issued_question_pkey UNIQUE (course_instance_id, issued_question_id)
 - ple_private.issued_question_unique_0 UNIQUE (course_instance_id, assessment_attempt_id, issued_position)
-- issued_question_course_instance_id_31d5d1c2_fk_idx (course_instance_id, question_pool_selection_id, question_pool_member_position, published_question_id, revision_number)
+- issued_question_course_instance_id_31d5d1c2_fk_idx (course_instance_id, question_pool_selection_id, published_question_id, revision_number)
 - issued_question_course_instance_id_b08795ae_fk_idx (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
 - issued_question_published_question_id_revision_number_fk_idx (published_question_id, revision_number)
 - issued_question_assessment_entry_snapshot_id_fk_idx (assessment_entry_snapshot_id)
@@ -1535,8 +1499,11 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
+| theme_id | text | NOT NULL |
 | availability | ple_data.blueprint_availability | NOT NULL |
 | promoted | boolean | NOT NULL |
+| parent_blueprint_course_id | ple_data.blueprint_course_id | NULL |
+| parent_blueprint_revision_number | integer | NULL |
 | blueprint_edit_number | bigint | NOT NULL |
 | current_blueprint_revision_number | integer | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
@@ -1548,6 +1515,7 @@ Constraints:
 - CHECK short_name: `(char_length(btrim(short_name)) BETWEEN 1 AND 500)`
 - CHECK long_name: `(char_length(btrim(long_name)) BETWEEN 1 AND 500)`
 - CHECK tags: `(ple_data.course_classification_tags_are_valid(tags))`
+- CHECK parent_blueprint_revision_number: `( parent_blueprint_revision_number IS NULL OR parent_blueprint_revision_number > 0 )`
 - CHECK blueprint_edit_number: `(blueprint_edit_number > 0)`
 - CHECK current_blueprint_revision_number: `(current_blueprint_revision_number > 0)`
 
@@ -1555,15 +1523,19 @@ Foreign keys:
 
 - (owner_account_id) -> ple_private.account (account_id)
 - (content_discipline_id) -> ple_data.content_discipline (content_discipline_id)
+- (theme_id) -> ple_data.theme (theme_id)
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 - (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
 - (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
 - (blueprint_course_id, current_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (parent_blueprint_course_id, parent_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
 
 Indexes:
 
 - ple_data.blueprint_course_pkey UNIQUE (blueprint_course_id)
 - blueprint_course_available_owner_idx (availability, owner_account_id, blueprint_course_id)
+- blueprint_course_theme_id_fk_idx (theme_id)
+- blueprint_course_parent_idx (parent_blueprint_course_id, parent_blueprint_revision_number, blueprint_course_id)
 - blueprint_course_blueprint_course_id_a1565d12_fk_idx (blueprint_course_id, current_blueprint_revision_number)
 - blueprint_course_content_subject_id_a63d26bc_fk_idx (content_subject_id, content_discipline_id)
 - blueprint_course_content_subject_id_content_topic_id_fk_idx (content_subject_id, content_topic_id)
@@ -1749,6 +1721,7 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
+| theme_id | text | NOT NULL |
 | availability | ple_data.blueprint_availability | NOT NULL |
 | blueprint_edit_number | bigint | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
@@ -1764,11 +1737,13 @@ Foreign keys:
 
 - (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (actor_account_id) -> ple_private.account (account_id)
+- (theme_id) -> ple_data.theme (theme_id)
 
 Indexes:
 
 - ple_data.blueprint_metadata_event_pkey UNIQUE (blueprint_metadata_event_id)
 - ple_data.blueprint_metadata_event_unique_0 UNIQUE (blueprint_course_id, blueprint_edit_number)
+- blueprint_metadata_event_theme_id_fk_idx (theme_id)
 - blueprint_metadata_event_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.blueprint_course_create_receipt
@@ -1834,74 +1809,6 @@ Indexes:
 
 - ple_data.blueprint_course_save_receipt_pkey UNIQUE (blueprint_course_id, actor_account_id, request_checksum)
 - blueprint_course_save_receipt_actor_account_id_fk_idx (actor_account_id)
-
-### ple_data.blueprint_course_fork
-
-- Role: event
-- Comment: role: event, Exact immutable source Blueprint Revision for one independent child Blueprint lineage.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| blueprint_course_fork_id | uuid | NOT NULL |
-| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
-| source_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
-| source_blueprint_revision_number | integer | NOT NULL |
-| forked_at | timestamp with time zone | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (blueprint_course_fork_id)
-- UNIQUE (blueprint_course_id)
-- CHECK source_blueprint_revision_number: `( source_blueprint_revision_number > 0 )`
-
-Foreign keys:
-
-- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
-- (source_blueprint_course_id, source_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
-
-Indexes:
-
-- ple_data.blueprint_course_fork_pkey UNIQUE (blueprint_course_fork_id)
-- ple_data.blueprint_course_fork_unique_0 UNIQUE (blueprint_course_id)
-- blueprint_course_fork_source_idx (source_blueprint_course_id, source_blueprint_revision_number)
-
-### ple_data.blueprint_course_fork_receipt
-
-- Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| actor_account_id | ple_data.account_id | NOT NULL |
-| request_checksum | bytea | NOT NULL |
-| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
-| source_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
-| source_blueprint_revision_number | integer | NOT NULL |
-| blueprint_edit_number | bigint | NOT NULL |
-| accepted_at | timestamp with time zone | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (actor_account_id, request_checksum)
-- CHECK request_checksum: `(octet_length(request_checksum) = 32)`
-- CHECK source_blueprint_revision_number: `( source_blueprint_revision_number > 0 )`
-- CHECK blueprint_edit_number: `(blueprint_edit_number > 0)`
-
-Foreign keys:
-
-- (actor_account_id) -> ple_private.account (account_id)
-- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
-- (source_blueprint_course_id, source_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
-
-Indexes:
-
-- ple_data.blueprint_course_fork_receipt_pkey UNIQUE (actor_account_id, request_checksum)
-- blueprint_course_fork_receipt_source_blueprint__840527c5_fk_idx (source_blueprint_course_id, source_blueprint_revision_number)
-- blueprint_course_fork_receipt_blueprint_course_id_fk_idx (blueprint_course_id)
 
 ### ple_data.blueprint_change_proposal
 
@@ -3106,51 +3013,6 @@ Indexes:
 - job_expired_lease_idx (lease_expires_at, job_id) WHERE state = 'leased'
 - job_published_question_id_revision_number_fk_idx (published_question_id, revision_number)
 
-## 20_tables/library_discussion.sql
-
-### ple_data.library_impact_notice
-
-- Role: event
-- Comment: role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool notice authorship remains an unresolved product seam and cancelled notices remain historical.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| impact_notice_id | uuid | NOT NULL |
-| object_kind | ple_data.library_object_kind | NOT NULL |
-| public_object_id | text | NOT NULL |
-| affected_revision_number | integer | NULL |
-| created_by_account_id | ple_data.account_id | NOT NULL |
-| author_display_name | text | NOT NULL |
-| body | text | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-| state | ple_data.notice_state | NOT NULL |
-| cancelled_by_account_id | ple_data.account_id | NULL |
-| cancelled_at | timestamptz | NULL |
-
-Constraints:
-
-- PRIMARY KEY (impact_notice_id)
-- CHECK public_object_id: `( public_object_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(public_object_id, 6, 1) = ple_private.crockford_checksum_character( substr(public_object_id, 1, 4) // substr(public_object_id, 7, 3) ) )`
-- CHECK affected_revision_number: `(affected_revision_number > 0)`
-- CHECK author_display_name: `( author_display_name = btrim(author_display_name) AND char_length(author_display_name) BETWEEN 1 AND 200 AND author_display_name !~ '[[:cntrl:]]' )`
-- CHECK body: `( body = btrim(body) AND char_length(body) BETWEEN 1 AND 4000 AND body !~ '[[:cntrl:]]' )`
-- CHECK updated_at: `(updated_at >= created_at)`
-
-Foreign keys:
-
-- (created_by_account_id) -> ple_private.account (account_id)
-- (cancelled_by_account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_data.library_impact_notice_pkey UNIQUE (impact_notice_id)
-- library_impact_notice_object_idx (object_kind, public_object_id, created_at, impact_notice_id)
-- library_impact_notice_cancelled_by_account_id_fk_idx (cancelled_by_account_id)
-- library_impact_notice_created_by_account_id_fk_idx (created_by_account_id)
-
 ## 20_tables/library_watch.sql
 
 ### ple_data.library_watch_event
@@ -3166,16 +3028,17 @@ Columns:
 | target_kind | ple_data.library_object_kind | NOT NULL |
 | target_public_id | text | NOT NULL |
 | event_kind | ple_data.library_watch_event_kind | NOT NULL |
-| revision_number | integer | NULL |
+| question_revision_number | integer | NULL |
+| question_pool_edit_number | bigint | NULL |
 | forked_public_id | text | NULL |
-| activity_id | uuid | NULL |
 | occurred_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (event_id)
 - CHECK target_public_id: `( target_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(target_public_id, 6, 1) = ple_private.crockford_checksum_character( substr(target_public_id, 1, 4) // substr(target_public_id, 7, 3) ) )`
-- CHECK revision_number: `(revision_number > 0)`
+- CHECK question_revision_number: `(question_revision_number > 0)`
+- CHECK question_pool_edit_number: `(question_pool_edit_number > 0)`
 - CHECK forked_public_id: `(forked_public_id IS NULL OR (forked_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(forked_public_id, 6, 1) = ple_private.crockford_checksum_character( substr(forked_public_id, 1, 4) // substr(forked_public_id, 7, 3) )))`
 
 Foreign keys:
@@ -3587,6 +3450,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | published_question_id | ple_data.question_family_id | NOT NULL |
+| parent_published_question_id | ple_data.question_family_id | NULL |
+| parent_revision_number | integer | NULL |
 | availability | ple_data.question_availability | NOT NULL |
 | availability_edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -3595,16 +3460,18 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (published_question_id)
+- CHECK parent_revision_number: `( parent_revision_number IS NULL OR parent_revision_number > 0 )`
 - CHECK availability_edit_number: `(availability_edit_number > 0)`
 
 Foreign keys:
 
-- none
+- (parent_published_question_id, parent_revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 
 Indexes:
 
 - ple_data.published_question_pkey UNIQUE (published_question_id)
 - published_question_available_discovery_idx (published_question_id) WHERE availability = 'available'
+- published_question_parent_revision_fk_idx (parent_published_question_id, parent_revision_number)
 
 ### ple_data.question_revision
 
@@ -3618,7 +3485,6 @@ Columns:
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | backend | ple_data.question_backend | NOT NULL |
-| question_type | ple_data.question_type | NOT NULL |
 | general_feedback | text | NULL |
 | hint | text | NULL |
 | worked_solution | text | NULL |
@@ -3640,31 +3506,36 @@ Indexes:
 
 - ple_data.question_revision_pkey UNIQUE (published_question_id, revision_number)
 
-### ple_data.published_question_metadata
+### ple_data.question_revision_metadata
 
-- Role: current state
-- Comment: role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.
+- Role: revision
+- Comment: role: revision, ordinary metadata corrections preserve the exact Question Revision including independently nullable Bloom dimensions; HUMAN_GUIDANCE.md Published Question revisions and edits.
 
 Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
 | published_question_id | ple_data.question_family_id | NOT NULL |
+| revision_number | integer | NOT NULL |
 | question_title | text | NOT NULL |
 | question_description | text | NOT NULL |
-| language | text | NOT NULL |
+| language | text | NULL |
+| question_type | ple_data.question_type | NOT NULL |
 | metadata_edit_number | bigint | NOT NULL |
 | tags | text[] | NOT NULL |
 | content_discipline_id | uuid | NOT NULL |
 | content_subject_id | uuid | NOT NULL |
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
+| bloom_cognitive_process | ple_data.bloom_cognitive_process | NULL |
+| bloom_knowledge_dimension | ple_data.bloom_knowledge_dimension | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (published_question_id)
+- PRIMARY KEY (published_question_id, revision_number)
+- CHECK revision_number: `(revision_number > 0)`
 - CHECK question_title: `( question_title = btrim(question_title) AND char_length(question_title) BETWEEN 1 AND 512 AND question_title !~ '[[:cntrl:]]' )`
 - CHECK question_description: `( question_description = btrim(question_description) AND char_length(question_description) BETWEEN 1 AND 4000 AND question_description !~ '[[:cntrl:]]' )`
 - CHECK language: `( language = btrim(language) AND char_length(language) BETWEEN 2 AND 35 )`
@@ -3674,18 +3545,18 @@ Constraints:
 
 Foreign keys:
 
-- (published_question_id) -> ple_data.published_question (published_question_id)
+- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 - (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
 - (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
 
 Indexes:
 
-- ple_data.published_question_metadata_pkey UNIQUE (published_question_id)
-- published_question_metadata_search_idx ()
-- published_question_metadata_content_subject_id_2904f118_fk_idx (content_subject_id, content_discipline_id)
-- published_question_metadata_content_subject_id_eed7807b_fk_idx (content_subject_id, content_topic_id)
-- published_question_metadata_content_topic_id_4033d80b_fk_idx (content_topic_id, content_subtopic_id)
+- ple_data.question_revision_metadata_pkey UNIQUE (published_question_id, revision_number)
+- question_revision_metadata_search_idx ()
+- question_revision_metadata_content_subject_id_2904f118_fk_idx (content_subject_id, content_discipline_id)
+- question_revision_metadata_content_subject_id_eed7807b_fk_idx (content_subject_id, content_topic_id)
+- question_revision_metadata_content_topic_id_4033d80b_fk_idx (content_topic_id, content_subtopic_id)
 
 ### ple_data.question_publication_event
 
@@ -3863,7 +3734,6 @@ Columns:
 | --- | --- | --- |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| citation_url | text | NULL |
 | citation_text | text | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -3912,35 +3782,6 @@ Indexes:
 - question_ownership_event_initial_once UNIQUE (published_question_id) WHERE event_kind = 'initial'
 - question_ownership_event_owner_account_id_fk_idx (owner_account_id)
 - question_ownership_event_recorded_by_account_id_fk_idx (recorded_by_account_id)
-
-### ple_data.question_fork_source
-
-- Role: event
-- Comment: role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| forked_published_question_id | ple_data.question_family_id | NOT NULL |
-| source_question_id | text | NOT NULL |
-| source_revision_number | integer | NOT NULL |
-| recorded_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (forked_published_question_id)
-- CHECK source_revision_number: `(source_revision_number > 0)`
-
-Foreign keys:
-
-- (forked_published_question_id) -> ple_data.published_question (published_question_id)
-- (source_question_id, source_revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-
-Indexes:
-
-- ple_data.question_fork_source_pkey UNIQUE (forked_published_question_id)
-- question_fork_source_source_question_id_e7bd1bc8_fk_idx (source_question_id, source_revision_number)
 
 ### ple_data.question_star
 
@@ -3997,65 +3838,6 @@ Indexes:
 
 - ple_data.question_watch_pkey UNIQUE (published_question_id, instructor_account_id)
 - question_watch_instructor_collection_idx (instructor_account_id, watched_at, published_question_id)
-
-### ple_data.question_revision_bloom
-
-- Role: current state
-- Comment: role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| published_question_id | ple_data.question_family_id | NOT NULL |
-| revision_number | integer | NOT NULL |
-| cognitive_process | ple_data.bloom_cognitive_process | NOT NULL |
-| knowledge_dimension | ple_data.bloom_knowledge_dimension | NOT NULL |
-| classification_edit_number | bigint | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (published_question_id, revision_number)
-- CHECK classification_edit_number: `(classification_edit_number > 0)`
-
-Foreign keys:
-
-- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-
-Indexes:
-
-- ple_data.question_revision_bloom_pkey UNIQUE (published_question_id, revision_number)
-
-### ple_private.bloom_preparation_receipt
-
-- Role: event
-- Comment: role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| bloom_preparation_receipt_id | uuid | NOT NULL |
-| target_kind | ple_private.bloom_preparation_target_kind | NOT NULL |
-| candidate_fingerprint | bytea | NOT NULL |
-| cognitive_process | ple_data.bloom_cognitive_process | NOT NULL |
-| knowledge_dimension | ple_data.bloom_knowledge_dimension | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (bloom_preparation_receipt_id)
-- CHECK candidate_fingerprint: `(octet_length(candidate_fingerprint) = 32)`
-
-Foreign keys:
-
-- none
-
-Indexes:
-
-- ple_private.bloom_preparation_receipt_pkey UNIQUE (bloom_preparation_receipt_id)
 
 ## 20_tables/question_authoring.sql
 
@@ -4132,6 +3914,9 @@ Columns:
 | --- | --- | --- |
 | draft_question_id | uuid | NOT NULL |
 | authoring_workspace_id | uuid | NOT NULL |
+| parent_published_question_id | ple_data.question_family_id | NULL |
+| public_id_reservation_id | text | NULL |
+| parent_revision_number | integer | NULL |
 | draft_question_edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -4139,18 +3924,24 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (draft_question_id)
+- UNIQUE (public_id_reservation_id)
 - UNIQUE (draft_question_id, authoring_workspace_id)
+- CHECK parent_revision_number: `( parent_revision_number IS NULL OR parent_revision_number > 0 )`
 - CHECK draft_question_edit_number: `(draft_question_edit_number > 0)`
 
 Foreign keys:
 
 - (authoring_workspace_id) -> ple_private.authoring_workspace (authoring_workspace_id)
+- (public_id_reservation_id) -> ple_private.public_id_reservation (canonical_public_id)
+- (parent_published_question_id, parent_revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 
 Indexes:
 
 - ple_private.draft_question_pkey UNIQUE (draft_question_id)
-- ple_private.draft_question_unique_0 UNIQUE (draft_question_id, authoring_workspace_id)
+- ple_private.draft_question_unique_0 UNIQUE (public_id_reservation_id)
+- ple_private.draft_question_unique_1 UNIQUE (draft_question_id, authoring_workspace_id)
 - draft_question_authoring_workspace_id_fk_idx (authoring_workspace_id)
+- draft_question_parent_revision_fk_idx (parent_published_question_id, parent_revision_number)
 
 ### ple_private.draft_question_metadata
 
@@ -4164,18 +3955,28 @@ Columns:
 | draft_question_id | uuid | NOT NULL |
 | question_title | text | NOT NULL |
 | question_description | text | NOT NULL |
+| tags | text[] | NOT NULL |
+| question_license | ple_data.license_spdx | NULL |
+| citation_text | text | NULL |
+| content_discipline_id | uuid | NULL |
+| content_subject_id | uuid | NULL |
+| content_topic_id | uuid | NULL |
+| content_subtopic_id | uuid | NULL |
 | general_feedback | text | NULL |
 | hint | text | NULL |
 | worked_solution | text | NULL |
-| language | text | NOT NULL |
+| language | text | NULL |
+| bloom_cognitive_process | ple_data.bloom_cognitive_process | NULL |
+| bloom_knowledge_dimension | ple_data.bloom_knowledge_dimension | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (draft_question_id)
-- CHECK question_title: `( question_title = btrim(question_title) AND char_length(question_title) BETWEEN 1 AND 512 AND question_title !~ '[[:cntrl:]]' )`
-- CHECK question_description: `( question_description = btrim(question_description) AND char_length(question_description) BETWEEN 1 AND 4000 AND question_description !~ '[[:cntrl:]]' )`
+- CHECK question_title: `( question_title = btrim(question_title) AND char_length(question_title) BETWEEN 0 AND 512 AND question_title !~ '[[:cntrl:]]' )`
+- CHECK question_description: `( question_description = btrim(question_description) AND char_length(question_description) BETWEEN 0 AND 4000 AND question_description !~ '[[:cntrl:]]' )`
+- CHECK tags: `(ple_data.question_metadata_tags_are_valid(tags))`
 - CHECK general_feedback: `( general_feedback = btrim(general_feedback) AND char_length(general_feedback) BETWEEN 1 AND 4000 AND general_feedback !~ '[[:cntrl:]]' )`
 - CHECK hint: `( hint = btrim(hint) AND char_length(hint) BETWEEN 1 AND 4000 AND hint !~ '[[:cntrl:]]' )`
 - CHECK worked_solution: `( worked_solution = btrim(worked_solution) AND char_length(worked_solution) BETWEEN 1 AND 4000 AND worked_solution !~ '[[:cntrl:]]' )`
@@ -4185,10 +3986,78 @@ Constraints:
 Foreign keys:
 
 - (draft_question_id) -> ple_private.draft_question (draft_question_id)
+- (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 
 Indexes:
 
 - ple_private.draft_question_metadata_pkey UNIQUE (draft_question_id)
+- draft_question_metadata_content_subject_id_content_discipline_id_fk_idx (content_subject_id, content_discipline_id)
+
+### ple_private.draft_question_authorship
+
+- Role: current state
+- Comment: role: current state, copied into a fork Draft and deleted with its Draft or publication. HUMAN_GUIDANCE.md Published Questions.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| draft_question_id | uuid | NOT NULL |
+| author_position | integer | NOT NULL |
+| author_display_name | text | NOT NULL |
+| author_account_id | ple_data.account_id | NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (draft_question_id, author_position)
+- UNIQUE (draft_question_id, author_display_name)
+- CHECK author_position: `(author_position BETWEEN 1 AND 16)`
+- CHECK author_display_name: `( author_display_name = btrim(author_display_name) AND char_length(author_display_name) BETWEEN 1 AND 120 AND author_display_name !~ '[[:cntrl:]]' )`
+- CHECK updated_at: `(updated_at >= created_at)`
+
+Foreign keys:
+
+- (draft_question_id) -> ple_private.draft_question (draft_question_id)
+- (author_account_id) -> ple_private.account (account_id)
+
+Indexes:
+
+- ple_private.draft_question_authorship_pkey UNIQUE (draft_question_id, author_position)
+- ple_private.draft_question_authorship_unique_0 UNIQUE (draft_question_id, author_display_name)
+- draft_question_authorship_author_account_id_fk_idx (author_account_id)
+
+### ple_private.draft_question_creation_receipt
+
+- Role: event
+- Comment: role: event, deleted by Draft workspace deletion and publication. HUMAN_GUIDANCE.md Question authoring.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| draft_question_id | uuid | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
+| request_key | uuid | NOT NULL |
+| request_fingerprint | bytea | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (actor_account_id, request_key)
+- UNIQUE (draft_question_id)
+- CHECK request_fingerprint: `(octet_length(request_fingerprint) = 32)`
+
+Foreign keys:
+
+- (draft_question_id) -> ple_private.draft_question (draft_question_id)
+- (actor_account_id) -> ple_private.account (account_id)
+
+Indexes:
+
+- ple_private.draft_question_creation_receipt_pkey UNIQUE (actor_account_id, request_key)
+- ple_private.draft_question_creation_receipt_unique_0 UNIQUE (draft_question_id)
 
 ### ple_private.draft_question_source_binding
 
@@ -4202,7 +4071,7 @@ Columns:
 | draft_question_id | uuid | NOT NULL |
 | backend | ple_data.question_backend | NOT NULL |
 | question_format | ple_data.question_format | NOT NULL |
-| question_type | ple_data.question_type | NOT NULL |
+| question_type | ple_data.question_type | NULL |
 | webwork_pg_path | text | NULL |
 | source_object_record_id | uuid | NOT NULL |
 | source_object_checksum | text | NOT NULL |
@@ -4237,6 +4106,7 @@ Columns:
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | backend | ple_data.question_backend | NOT NULL |
+| native_question_type | ple_data.question_type | NULL |
 | question_format | ple_data.question_format | NOT NULL |
 | webwork_pg_path | text | NULL |
 | source_object_record_id | uuid | NOT NULL |
@@ -4326,39 +4196,6 @@ Indexes:
 
 - ple_private.workspace_import_item_result_pkey UNIQUE (authoring_workspace_id, import_id, source_item_key)
 
-### ple_private.draft_question_fork_source
-
-- Role: event
-- Comment: role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| draft_question_id | uuid | NOT NULL |
-| actor_account_id | ple_data.account_id | NOT NULL |
-| idempotency_key | uuid | NOT NULL |
-| source_question_id | text | NOT NULL |
-| source_revision_number | integer | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (draft_question_id)
-- UNIQUE (actor_account_id, idempotency_key)
-
-Foreign keys:
-
-- (draft_question_id) -> ple_private.draft_question (draft_question_id)
-- (actor_account_id) -> ple_private.account (account_id)
-- (source_question_id, source_revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-
-Indexes:
-
-- ple_private.draft_question_fork_source_pkey UNIQUE (draft_question_id)
-- ple_private.draft_question_fork_source_unique_0 UNIQUE (actor_account_id, idempotency_key)
-- draft_question_fork_source_source_question_id_86c817bf_fk_idx (source_question_id, source_revision_number)
-
 ### ple_private.question_folder
 
 - Role: current state
@@ -4418,38 +4255,6 @@ Indexes:
 
 - ple_private.question_folder_entry_pkey UNIQUE (question_folder_id, published_question_id)
 - question_folder_entry_published_question_id_fk_idx (published_question_id)
-
-### ple_private.saved_question_search
-
-- Role: current state
-- Comment: role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| search_id | uuid | NOT NULL |
-| owner_account_id | ple_data.account_id | NOT NULL |
-| edit_number | bigint | NOT NULL |
-| filter | jsonb | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (search_id)
-- CHECK edit_number: `(edit_number > 0)`
-- CHECK filter: `(jsonb_typeof(filter) = 'object')`
-- CHECK updated_at: `(updated_at >= created_at)`
-
-Foreign keys:
-
-- (owner_account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_private.saved_question_search_pkey UNIQUE (search_id)
-- saved_question_search_owner_account_id_fk_idx (owner_account_id)
 
 ### ple_private.draft_question_image
 
@@ -4581,7 +4386,7 @@ Indexes:
 ### ple_data.question_pool
 
 - Role: current state
-- Comment: role: current state, Stable Question Pool lineage, current member-list Edit Number, interchangeability attestation, immutable exact source-Pool provenance for forks, and server-issued canonical public Crockford ID.
+- Comment: role: current state, Stable Question Pool lineage, current exact Revision tuple-set Edit Number, ordinary metadata Edit Number including independently nullable Bloom dimensions, immutable exact source-Pool provenance for forks, and server-issued canonical public Crockford ID.
 
 Columns:
 
@@ -4602,14 +4407,13 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
+| bloom_cognitive_process | ple_data.bloom_cognitive_process | NULL |
+| bloom_knowledge_dimension | ple_data.bloom_knowledge_dimension | NULL |
 | hint | text | NULL |
 | general_feedback | text | NULL |
 | worked_solution | text | NULL |
-| interchangeability_attested_by_account_id | ple_data.account_id | NOT NULL |
-| interchangeability_attested_at | timestamptz | NOT NULL |
 | source_question_pool_id | ple_data.question_family_id | NULL |
 | created_at | timestamptz | NOT NULL |
-| created_in_transaction | xid8 | NOT NULL |
 | updated_on | date | NOT NULL |
 
 Constraints:
@@ -4631,7 +4435,6 @@ Foreign keys:
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 - (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
 - (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
-- (interchangeability_attested_by_account_id) -> ple_private.account (account_id)
 - (source_question_pool_id) -> ple_data.question_pool (question_pool_id)
 
 Indexes:
@@ -4640,21 +4443,19 @@ Indexes:
 - question_pool_content_subject_id_content_discipline_id_fk_idx (content_subject_id, content_discipline_id)
 - question_pool_content_subject_id_content_topic_id_fk_idx (content_subject_id, content_topic_id)
 - question_pool_content_topic_id_content_subtopic_id_fk_idx (content_topic_id, content_subtopic_id)
-- question_pool_interchangeability_attested_by_account_id_fk_idx (interchangeability_attested_by_account_id)
 - question_pool_owner_account_id_owner_user_role_fk_idx (owner_account_id, owner_user_role)
 - question_pool_source_question_pool_id_fk_idx (source_question_pool_id)
 
 ### ple_data.question_pool_member
 
 - Role: current state
-- Comment: role: current state, deleted by Pool delete or member-list replace. Ordered exact Published Question Revision pins, unique per Question within a Pool; intentionally no selected count.
+- Comment: role: current state, deleted by Pool delete or member-set replace. Unordered exact Published Question Revision tuples, unique per Question within a Pool; intentionally no selected count.
 
 Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
 | question_pool_id | ple_data.question_family_id | NOT NULL |
-| member_position | integer | NOT NULL |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | question_revision_number | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -4662,9 +4463,7 @@ Columns:
 
 Constraints:
 
-- PRIMARY KEY (question_pool_id, member_position)
-- UNIQUE (question_pool_id, published_question_id)
-- CHECK member_position: `(member_position > 0)`
+- PRIMARY KEY (question_pool_id, published_question_id)
 - CHECK question_revision_number: `(question_revision_number > 0)`
 
 Foreign keys:
@@ -4674,8 +4473,7 @@ Foreign keys:
 
 Indexes:
 
-- ple_data.question_pool_member_pkey UNIQUE (question_pool_id, member_position)
-- ple_data.question_pool_member_unique_0 UNIQUE (question_pool_id, published_question_id)
+- ple_data.question_pool_member_pkey UNIQUE (question_pool_id, published_question_id)
 - question_pool_member_published_question_id_c92544b6_fk_idx (published_question_id, question_revision_number)
 
 ### ple_data.question_pool_star
@@ -4733,35 +4531,6 @@ Indexes:
 
 - ple_data.question_pool_watch_pkey UNIQUE (question_pool_id, instructor_account_id)
 - question_pool_watch_instructor_account_id_fk_idx (instructor_account_id)
-
-### ple_data.question_pool_bloom
-
-- Role: current state
-- Comment: role: current state, Current Pool Bloom classification and classification Edit Number. HUMAN_GUIDANCE.md Question Pool specifications.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| question_pool_id | ple_data.question_family_id | NOT NULL |
-| cognitive_process | ple_data.bloom_cognitive_process | NOT NULL |
-| knowledge_dimension | ple_data.bloom_knowledge_dimension | NOT NULL |
-| classification_edit_number | bigint | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (question_pool_id)
-- CHECK classification_edit_number: `(classification_edit_number > 0)`
-
-Foreign keys:
-
-- (question_pool_id) -> ple_data.question_pool (question_pool_id)
-
-Indexes:
-
-- ple_data.question_pool_bloom_pkey UNIQUE (question_pool_id)
 
 ## 20_tables/retention.sql
 
@@ -4880,6 +4649,16 @@ Columns:
 | --- | --- | --- |
 | question_pool_id | ple_data.question_family_id | NOT NULL |
 | issued_count | bigint | NOT NULL |
+| answered_count | bigint | NOT NULL |
+| correct_count | bigint | NOT NULL |
+| partial_count | bigint | NOT NULL |
+| incorrect_count | bigint | NOT NULL |
+| answered_contributor_floor | bigint | NOT NULL |
+| correct_contributor_floor | bigint | NOT NULL |
+| partial_contributor_floor | bigint | NOT NULL |
+| incorrect_contributor_floor | bigint | NOT NULL |
+| credit_sum | numeric | NOT NULL |
+| credit_sum_sq | numeric | NOT NULL |
 | issued_contributor_floor | bigint | NOT NULL |
 | created_on | date | NOT NULL |
 | updated_on | date | NOT NULL |
@@ -4888,6 +4667,16 @@ Constraints:
 
 - PRIMARY KEY (question_pool_id)
 - CHECK issued_count: `(issued_count >= 0)`
+- CHECK answered_count: `(answered_count >= 0)`
+- CHECK correct_count: `(correct_count >= 0)`
+- CHECK partial_count: `(partial_count >= 0)`
+- CHECK incorrect_count: `(incorrect_count >= 0)`
+- CHECK answered_contributor_floor: `(answered_contributor_floor >= 0)`
+- CHECK correct_contributor_floor: `(correct_contributor_floor >= 0)`
+- CHECK partial_contributor_floor: `(partial_contributor_floor >= 0)`
+- CHECK incorrect_contributor_floor: `(incorrect_contributor_floor >= 0)`
+- CHECK credit_sum: `(credit_sum >= 0)`
+- CHECK credit_sum_sq: `(credit_sum_sq >= 0)`
 - CHECK issued_contributor_floor: `(issued_contributor_floor >= 0)`
 
 Foreign keys:
@@ -4897,36 +4686,6 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_statistics_pkey UNIQUE (question_pool_id)
-
-### ple_data.question_pool_member_statistics
-
-- Role: aggregate
-- Comment: role: aggregate, authored identity-free selected_count for one Pool member Published Question, removed with the Pool.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| question_pool_id | ple_data.question_family_id | NOT NULL |
-| published_question_id | ple_data.question_family_id | NOT NULL |
-| selected_count | bigint | NOT NULL |
-| created_on | date | NOT NULL |
-| updated_on | date | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (question_pool_id, published_question_id)
-- CHECK selected_count: `(selected_count >= 0)`
-
-Foreign keys:
-
-- (question_pool_id) -> ple_data.question_pool (question_pool_id)
-- (published_question_id) -> ple_data.published_question (published_question_id)
-
-Indexes:
-
-- ple_data.question_pool_member_statistics_pkey UNIQUE (question_pool_id, published_question_id)
-- question_pool_member_statistics_published_question_id_fk_idx (published_question_id)
 
 ### ple_private.question_statistics_observation_receipt
 
@@ -4939,109 +4698,36 @@ Columns:
 | --- | --- | --- |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | issued_question_id | uuid | NOT NULL |
-| assessment_submission_id | uuid | NOT NULL |
+| assessment_submission_id | uuid | NULL |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NULL |
+| normalized_credit | numeric | NULL |
 | observed_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (course_instance_id, issued_question_id)
-- UNIQUE (course_instance_id, issued_question_id, assessment_submission_id)
 - CHECK revision_number: `(revision_number > 0)`
+- CHECK normalized_credit: `( normalized_credit IS NULL OR normalized_credit BETWEEN 0 AND 1 )`
 
 Foreign keys:
 
 - (course_instance_id, issued_question_id) -> ple_private.issued_question (course_instance_id, issued_question_id)
 - (course_instance_id, assessment_submission_id) -> ple_private.assessment_submission (course_instance_id, assessment_submission_id)
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
 - (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 
 Indexes:
 
 - ple_private.question_statistics_observation_receipt_pkey UNIQUE (course_instance_id, issued_question_id)
-- ple_private.question_statistics_observation_receipt_unique_0 UNIQUE (course_instance_id, issued_question_id, assessment_submission_id)
 - question_statistics_observation_receipt_course__d3f8d499_fk_idx (course_instance_id, assessment_submission_id)
 - question_statistics_observation_receipt_publish_de307fa4_fk_idx (published_question_id, revision_number)
+- question_statistics_observation_receipt_pool_id_fk_idx (question_pool_id)
 
 ## 20_tables/support_repair.sql
 
-### ple_private.support_repair_capability
-
-- Role: current state
-- Comment: role: current state, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| support_repair_capability_id | uuid | NOT NULL |
-| sysadmin_account_id | ple_data.account_id | NOT NULL |
-| sysadmin_role | ple_data.user_role | NOT NULL |
-| issuer_account_id | ple_data.account_id | NOT NULL |
-| resource_class | ple_data.support_repair_resource_class | NOT NULL |
-| resource_path | text | NOT NULL |
-| purpose | text | NOT NULL |
-| issued_at | timestamp with time zone | NOT NULL |
-| expires_at | timestamp with time zone | NOT NULL |
-| revoked_at | timestamp with time zone | NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (support_repair_capability_id)
-- CHECK resource_path: `( resource_path = btrim(resource_path) AND char_length(resource_path) BETWEEN 1 AND 512 AND resource_path !~ '[[:cntrl:]]' )`
-- CHECK purpose: `(purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000 AND purpose !~ '[[:cntrl:]]')`
-- CHECK expires_at: `(expires_at > issued_at)`
-
-Foreign keys:
-
-- (sysadmin_account_id) -> ple_private.account (account_id)
-- (issuer_account_id) -> ple_private.account (account_id)
-- (sysadmin_account_id, sysadmin_role) -> ple_private.account (account_id, user_role)
-
-Indexes:
-
-- ple_private.support_repair_capability_pkey UNIQUE (support_repair_capability_id)
-- support_repair_capability_sysadmin_account_id_49d4b3ce_fk_idx (sysadmin_account_id, sysadmin_role)
-- support_repair_capability_issuer_account_id_fk_idx (issuer_account_id)
-
-### ple_audit.support_repair_capability_event
-
-- Role: event
-- Comment: role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| event_id | uuid | NOT NULL |
-| support_repair_capability_id | uuid | NOT NULL |
-| sysadmin_account_id | ple_data.account_id | NOT NULL |
-| issuer_account_id | ple_data.account_id | NOT NULL |
-| resource_class | ple_data.support_repair_resource_class | NOT NULL |
-| resource_path | text | NOT NULL |
-| purpose | text | NOT NULL |
-| result | ple_data.repair_result | NOT NULL |
-| occurred_at | timestamp with time zone | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (event_id)
-- CHECK resource_path: `(resource_path = btrim(resource_path) AND char_length(resource_path) BETWEEN 1 AND 512 AND resource_path !~ '[[:cntrl:]]')`
-- CHECK purpose: `(purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000 AND purpose !~ '[[:cntrl:]]')`
-
-Foreign keys:
-
-- (support_repair_capability_id) -> ple_private.support_repair_capability (support_repair_capability_id)
-- (sysadmin_account_id) -> ple_private.account (account_id)
-- (issuer_account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_audit.support_repair_capability_event_pkey UNIQUE (event_id)
-- support_repair_capability_event_issuer_account_id_fk_idx (issuer_account_id)
-- support_repair_capability_event_support_repair__975ebcdb_fk_idx (support_repair_capability_id)
-- support_repair_capability_event_sysadmin_account_id_fk_idx (sysadmin_account_id)
+No tables.
 
 ## 20_tables/theme.sql
 

@@ -71,6 +71,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                assessment.assessment_id,
                policy.assessment_title,
                assessment.assessment_type,
+               disclosure_policy.partial_credit_enabled,
                assessment_attempt.assessment_attempt_number,
                policy.due_at,
                policy.closes_at,
@@ -183,7 +184,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                 result.normalized_credit, snapshot.scoring_rule,
                 ple_private.current_assessment_entry_points(
                     issued.assessment_entry_id, snapshot.points
-                )
+                ), owned.partial_credit_enabled
             ) AS score
            WHERE issued.assessment_attempt_id = owned.assessment_attempt_id
       ) AS grading
@@ -326,7 +327,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sou
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
-    published_question_id text, revision_number integer, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
+    published_question_id text, revision_number integer, question_title text, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
@@ -359,6 +360,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            question_attempt.question_attempt_id,
            issued.published_question_id,
            issued.revision_number,
+           revision_metadata.question_title,
            revision.general_feedback,
            revision.hint,
            revision.worked_solution,
@@ -382,6 +384,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.question_revision AS revision
         ON revision.published_question_id = issued.published_question_id
        AND revision.revision_number = issued.revision_number
+      JOIN ple_data.question_revision_metadata AS revision_metadata
+        ON revision_metadata.published_question_id = issued.published_question_id
+       AND revision_metadata.revision_number = issued.revision_number
       LEFT JOIN ple_private.assessment_attempt_saved_response AS submission
         ON submission.question_attempt_id = question_attempt.question_attempt_id
        AND submission.finalized_at IS NOT NULL
@@ -422,7 +427,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
-    published_question_id text, revision_number integer, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
+    published_question_id text, revision_number integer, question_title text, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
@@ -430,7 +435,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT "position" + 1, assessment_attempt_id, student_response, backend, question_attempt_id,
-           published_question_id, revision_number, general_feedback, hint, worked_solution, source_object_record_id, source_object_address,
+           published_question_id, revision_number, question_title, general_feedback, hint, worked_solution, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path, question_seed,
            generated_parameter_sha256,
            presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions,
@@ -452,7 +457,7 @@ CREATE FUNCTION ple_private.read_student_work_records(
 ) RETURNS TABLE (
     record_kind text,
     record_id uuid,
-    member_position integer,
+    selection_position integer,
     presentation_response_item_id text,
     question_image_asset_id uuid
 ) LANGUAGE sql STABLE SECURITY DEFINER
@@ -478,7 +483,7 @@ SET search_path = pg_catalog, ple_audit, ple_private AS $$
     UNION ALL
     SELECT 'question_pool_selected_item'::text,
            item.question_pool_selection_id,
-           item.member_position,
+           item.selection_position,
            NULL::text,
            NULL::uuid
       FROM ple_private.assessment_attempt AS attempt
@@ -675,7 +680,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
       JOIN ple_private.assessment_attempt AS attempt
         ON work.record_kind = 'assessment_attempt'
        AND work.record_id = attempt.assessment_attempt_id
-       AND work.member_position IS NULL
+       AND work.selection_position IS NULL
        AND work.presentation_response_item_id IS NULL
        AND work.question_image_asset_id IS NULL
       LEFT JOIN ple_private.assessment_submission AS submission

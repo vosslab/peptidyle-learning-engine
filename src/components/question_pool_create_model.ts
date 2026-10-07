@@ -34,11 +34,11 @@ function canonicalQuestionId(value: string): PublishedQuestionId {
 export async function questionPoolEligibilityForQuestion(
   questionId: PublishedQuestionId,
   getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>,
-  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+  getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"],
 ): Promise<QuestionPickerEligibility> {
   const [details, metadata] = await Promise.all([
     getQuestionDetails(questionId),
-    getCurrentQuestionBulkMetadata([questionId]),
+    getCurrentQuestionSharedMetadata([questionId]),
   ]);
   const current = metadata[0];
   if (
@@ -61,12 +61,12 @@ export async function questionPoolEligibilityForQuestion(
 /** Reads current classification UUIDs while retaining the source Question's immutable type and backend. */
 export async function questionPoolStartingEligibility(
   startingQuestion: QuestionPoolStartingQuestion,
-  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+  getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"],
 ): Promise<QuestionPickerEligibility> {
   const questionId = canonicalQuestionId(
     startingQuestion.publishedQuestionRevisionTuple.publishedQuestionId,
   );
-  const metadata = await getCurrentQuestionBulkMetadata([questionId]);
+  const metadata = await getCurrentQuestionSharedMetadata([questionId]);
   const current = metadata[0];
   if (current === undefined || current.questionId !== questionId) {
     throw new Error("The starting Question's current classification could not be loaded.");
@@ -110,7 +110,7 @@ function exactStartingRevision(
 async function latestSelectedRevisions(
   selection: QuestionPickerSelection,
   getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>,
-  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+  getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"],
   eligibility: QuestionPickerEligibility,
 ): Promise<ReadonlyArray<PublishedQuestionRevisionTuple>> {
   return await Promise.all(
@@ -118,7 +118,7 @@ async function latestSelectedRevisions(
       const questionId = canonicalQuestionId(selected.questionId);
       const [detail, metadata] = await Promise.all([
         getQuestionDetails(questionId),
-        getCurrentQuestionBulkMetadata([questionId]),
+        getCurrentQuestionSharedMetadata([questionId]),
       ]);
       const current = metadata[0];
       if (
@@ -140,14 +140,14 @@ async function latestSelectedRevisions(
 export async function questionPoolMemberTuples(
   selection: QuestionPickerSelection,
   getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>,
-  getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"],
+  getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"],
   eligibility: QuestionPickerEligibility,
   startingQuestion?: QuestionPoolStartingQuestion,
 ): Promise<ReadonlyArray<PublishedQuestionRevisionTuple>> {
   const additional = await latestSelectedRevisions(
     selection,
     getQuestionDetails,
-    getCurrentQuestionBulkMetadata,
+    getCurrentQuestionSharedMetadata,
     eligibility,
   );
   return startingQuestion === undefined
@@ -169,7 +169,7 @@ export function questionPoolSourcePickerRepository(
         {
           ...request.query,
           kind: "questions",
-          membership: "all",
+          questions: "all",
           discipline_uuid: eligibility.disciplineUuid,
           subject_uuid: eligibility.subjectUuid,
           questionType: eligibility.questionType,

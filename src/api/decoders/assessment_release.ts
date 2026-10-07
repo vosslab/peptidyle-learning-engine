@@ -15,7 +15,6 @@ import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId
 import type { BlueprintRevisionNumber } from "../../../generated/api/BlueprintRevisionNumber";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
-import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type {
   AssessmentReleaseValidation,
   AssessmentUnreleaseImpact,
@@ -110,8 +109,16 @@ export function decodeAssessmentActivityRules(
   path: string,
 ): AssessmentActivityRules {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionVariationRule", "assessmentQuestionOrderRule"]);
+  requireOnlyFields(record, path, [
+    "partialCreditEnabled",
+    "questionVariationRule",
+    "assessmentQuestionOrderRule",
+  ]);
   return {
+    partialCreditEnabled: decodeBoolean(
+      field(record, "partialCreditEnabled", path),
+      `${path}.partialCreditEnabled`,
+    ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),
       `${path}.questionVariationRule`,
@@ -156,24 +163,24 @@ export function blueprintRevisionNumber(value: unknown, path: string): Blueprint
 
 function blueprintAssessmentSource(value: unknown, path: string): BlueprintAssessmentSource {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprint_revision_tuple", "blueprint_assessment_id"]);
-  const blueprintRevisionTuple = decodeRecord(
-    field(record, "blueprint_revision_tuple", path),
-    `${path}.blueprint_revision_tuple`,
+  requireOnlyFields(record, path, ["blueprint_course_revision_tuple", "blueprint_assessment_id"]);
+  const blueprintCourseRevisionTuple = decodeRecord(
+    field(record, "blueprint_course_revision_tuple", path),
+    `${path}.blueprint_course_revision_tuple`,
   );
-  requireOnlyFields(blueprintRevisionTuple, `${path}.blueprint_revision_tuple`, [
+  requireOnlyFields(blueprintCourseRevisionTuple, `${path}.blueprint_course_revision_tuple`, [
     "blueprintCourseId",
     "revisionNumber",
   ]);
   return {
-    blueprint_revision_tuple: {
+    blueprint_course_revision_tuple: {
       blueprintCourseId: decodeBlueprintCourseId(
-        field(blueprintRevisionTuple, "blueprintCourseId", path),
-        `${path}.blueprint_revision_tuple.blueprintCourseId`,
+        field(blueprintCourseRevisionTuple, "blueprintCourseId", path),
+        `${path}.blueprint_course_revision_tuple.blueprintCourseId`,
       ),
       revisionNumber: blueprintRevisionNumber(
-        field(blueprintRevisionTuple, "revisionNumber", path),
-        `${path}.blueprint_revision_tuple.revisionNumber`,
+        field(blueprintCourseRevisionTuple, "revisionNumber", path),
+        `${path}.blueprint_course_revision_tuple.revisionNumber`,
       ),
     },
     blueprint_assessment_id: decodeIdentifier(
@@ -192,21 +199,6 @@ export function pointValue(value: unknown, path: string): AssessmentPointValue {
     throw new DecodeError(path, "a supported nonnegative point decimal with at most four places");
   }
   return decoded;
-}
-
-export function poolSelectionRule(
-  value: unknown,
-  path: string,
-): { readonly selectedQuestionOrder: QuestionPoolSelectedQuestionOrder } {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["selectedQuestionOrder"]);
-  return {
-    selectedQuestionOrder: decodeStringEnum(
-      field(record, "selectedQuestionOrder", path),
-      `${path}.selectedQuestionOrder`,
-      ["questionPoolOrder", "randomOrder"],
-    ),
-  };
 }
 
 function assessmentEntry(value: unknown, path: string): AssessmentEntry {
@@ -265,7 +257,6 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     "scoringRule",
     "selectionCount",
     "pointsPerItem",
-    "selectionRule",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
   ]);
@@ -296,7 +287,6 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     ] as const satisfies ReadonlyArray<AssessmentEntryScoringRule>),
     selectionCount,
     pointsPerItem: pointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
-    selectionRule: poolSelectionRule(field(record, "selectionRule", path), `${path}.selectionRule`),
     questionAttemptLimit: decodeQuestionAttemptLimit(
       field(record, "questionAttemptLimit", path),
       `${path}.questionAttemptLimit`,
@@ -659,9 +649,45 @@ export function decodeAssessmentReleaseValidation(
   path = "response",
 ): AssessmentReleaseValidation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["canRelease", "issues"]);
+  requireOnlyFields(record, path, ["canRelease", "issues", "poolIssues"]);
   return {
     canRelease: decodeBoolean(field(record, "canRelease", path), `${path}.canRelease`),
+    poolIssues: decodeArray(
+      field(record, "poolIssues", path),
+      `${path}.poolIssues`,
+      (item, itemPath) => {
+        const poolIssue = decodeRecord(item, itemPath);
+        requireOnlyFields(poolIssue, itemPath, [
+          "assessmentPosition",
+          "poolTitle",
+          "questionPoolId",
+          "selectionCount",
+          "issue",
+        ]);
+        return {
+          assessmentPosition: decodePositiveInteger(
+            field(poolIssue, "assessmentPosition", itemPath),
+            `${itemPath}.assessmentPosition`,
+          ),
+          poolTitle: decodeString(field(poolIssue, "poolTitle", itemPath), `${itemPath}.poolTitle`),
+          questionPoolId: decodeQuestionId(
+            field(poolIssue, "questionPoolId", itemPath),
+            `${itemPath}.questionPoolId`,
+          ),
+          selectionCount: decodePositiveInteger(
+            field(poolIssue, "selectionCount", itemPath),
+            `${itemPath}.selectionCount`,
+          ),
+          issue: decodeStringEnum(field(poolIssue, "issue", itemPath), `${itemPath}.issue`, [
+            "insufficientItems",
+            "memberUnavailable",
+            "memberBackendMismatch",
+            "memberTypeMismatch",
+            "memberClassificationMismatch",
+          ]),
+        };
+      },
+    ),
     issues: decodeArray(field(record, "issues", path), `${path}.issues`, (item, itemPath) =>
       decodeStringEnum(item, itemPath, [
         "noPublishedQuestions",

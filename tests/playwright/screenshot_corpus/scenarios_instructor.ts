@@ -5,8 +5,6 @@
 // Assessment workspace pages.
 // Saved Draft and publication-review states are owned by
 // src/features/ple_question_json_authoring/question_json_editor_page.tsx:908.
-// Publication completion is intentionally outside this corpus until the configured
-// Bloom-classification provider makes the ordinary publication journey available.
 
 import type { Page } from "playwright";
 
@@ -215,11 +213,20 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
   try {
     await openInstructorDraftList(session.page);
     await captureCheckpoint(runtime, "draft_list", session);
-    await session.page.getByRole("button", { name: "New Draft Question", exact: true }).click();
+    await session.page.getByLabel("Question source format").selectOption("pleQuestionJson");
+    await session.page.getByRole("button", { name: "Create Draft Question", exact: true }).click();
     await session.page.getByLabel("Question Title").fill(AUTHORING_TITLE);
     await session.page.getByLabel("Question License").selectOption("CC-BY-4.0");
-    await session.page.getByRole("button", { name: "Save private draft", exact: true }).click();
+    const saveMetadataButton = session.page.getByRole("button", {
+      name: "Save Question metadata",
+      exact: true,
+    });
+    await saveMetadataButton.click();
     await session.page
+      .getByRole("button", { name: "Save Question metadata", exact: true, disabled: true })
+      .waitFor();
+    await session.page
+      .getByRole("status", { name: "Private draft status" })
       .getByText("Private draft saved. It is not published.", { exact: true })
       .waitFor();
     await session.page.reload({ waitUntil: "commit" });

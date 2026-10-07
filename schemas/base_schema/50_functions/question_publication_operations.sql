@@ -92,10 +92,12 @@ DECLARE
     actor_id text;
     v_current_draft_question_edit_number bigint;
     v_next_question_revision_number integer;
+    current_availability text;
     metadata ple_private.draft_question_metadata%ROWTYPE;
     binding ple_private.draft_question_source_binding%ROWTYPE;
     parent_binding ple_private.question_revision_source_binding%ROWTYPE;
     parent_revision ple_data.question_revision%ROWTYPE;
+    parent_metadata ple_data.question_revision_metadata%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE;
     expected_address jsonb;
     v_question_image_unchanged boolean;
@@ -117,7 +119,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Revision Publication arguments are invalid';
     END IF;
-    IF NOT ple_api.current_session_account_is_instructor()
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin())
        OR NOT ple_api.current_session_account_can_access_authoring_workspace(p_authoring_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Revision Publication requires current Authoring Workspace access';
@@ -130,19 +133,24 @@ BEGIN
             MESSAGE = 'Question Revision Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
     IF EXISTS (
-        SELECT 1 FROM ple_private.draft_question_fork_source AS fork
-         WHERE fork.draft_question_id = p_draft_question_uuid
+        SELECT 1 FROM ple_private.draft_question AS draft
+         WHERE draft.draft_question_id = p_draft_question_uuid
+           AND draft.parent_published_question_id IS NOT NULL
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Question Fork Draft must publish through its reserved new lineage';
     END IF;
-    PERFORM 1 FROM ple_data.published_question WHERE published_question_id = p_published_question_id FOR UPDATE;
-    IF NOT FOUND OR NOT EXISTS (
+    SELECT availability::text INTO current_availability
+      FROM ple_data.published_question
+     WHERE published_question_id = p_published_question_id
+     FOR UPDATE;
+    IF NOT FOUND OR current_availability <> 'available'
+       OR (NOT ple_api.current_session_account_is_sysadmin() AND NOT EXISTS (
         SELECT 1 FROM ple_data.question_current_owner
          WHERE published_question_id = p_published_question_id AND owner_account_id = actor_id
-    ) THEN
+       )) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Question Revision Publication requires current Question Owner authority';
+            MESSAGE = 'Question Revision Publication requires an available Question Owner or Sysadmin target';
     END IF;
     SELECT COALESCE(max(revision_number), 0) + 1 INTO v_next_question_revision_number
       FROM ple_data.question_revision WHERE published_question_id = p_published_question_id;
@@ -154,6 +162,10 @@ BEGIN
      WHERE draft_question_id = p_draft_question_uuid FOR UPDATE;
     SELECT * INTO STRICT binding FROM ple_private.draft_question_source_binding
      WHERE draft_question_id = p_draft_question_uuid FOR UPDATE;
+    IF binding.question_type IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Publication requires a source-derived Question Type';
+    END IF;
     IF NOT ple_private.question_backend_is_supported_for_production(binding.backend) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Backend is unavailable for new production work';
@@ -165,6 +177,10 @@ BEGIN
     SELECT * INTO STRICT parent_revision FROM ple_data.question_revision
      WHERE published_question_id = p_published_question_id
        AND revision_number = p_expected_parent_question_revision_number;
+    SELECT * INTO STRICT parent_metadata FROM ple_data.question_revision_metadata
+     WHERE published_question_id = p_published_question_id
+       AND revision_number = p_expected_parent_question_revision_number
+     FOR UPDATE;
     SELECT * INTO STRICT source_record FROM ple_private.object_record
      WHERE object_record_id = binding.source_object_record_id;
     -- A Question Source is the immutable, backend-owned package that carries
@@ -174,10 +190,12 @@ BEGIN
     -- separate immutable Question Revision content. A native HOTSPOT Question
     -- Image Asset is the draft-owned raster. A different asset, checksum, or
     -- dimension differs from the parent question_image_publication. Both sides
-    -- absent stay equal. Title, description, and other search metadata are
-    -- lineage state in published_question_metadata, so they cannot justify a
-    -- successor Question Revision. The trusted publication boundary compares
-    -- exact authoritative content rather than trusting a browser-side edit label.
+    -- absent stay equal. Metadata-only corrections update the current record
+    -- without a successor. A content Revision takes editable Title, Description,
+    -- Tags, Language, and support from this saved Draft. Type uses the locked
+    -- binding: Native is source-derived, while WebWork Type is manually saved.
+    -- Classification and Bloom remain from the exact parent because this path does not edit them.
+    -- The trusted boundary compares exact content rather than trusting a browser label.
     -- ASVS 2.2.1-2.2.3 and 2.3.1: enforce the revision business rule after
     -- locking the Draft, its image, and its immediate parent, before any
     -- successor facts. ASVS 8.2.2: compare the draft-owned raster checksum.
@@ -239,7 +257,6 @@ BEGIN
     END;
     IF binding.backend = parent_binding.backend
        AND binding.question_format = parent_binding.question_format
-       AND binding.question_type = parent_revision.question_type
        AND binding.webwork_pg_path IS NOT DISTINCT FROM parent_binding.webwork_pg_path
        AND binding.source_object_checksum = parent_binding.source_object_checksum
        AND metadata.general_feedback IS NOT DISTINCT FROM parent_revision.general_feedback
@@ -261,9 +278,9 @@ BEGIN
             MESSAGE = 'Question Revision Publication target must preserve the exact Draft Question Source bytes';
     END IF;
     INSERT INTO ple_data.question_revision(
-        published_question_id, revision_number, backend, question_type, general_feedback, hint, worked_solution, published_at
+        published_question_id, revision_number, backend, general_feedback, hint, worked_solution, published_at
     ) VALUES (
-        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type,
+        p_published_question_id, v_next_question_revision_number, binding.backend,
         metadata.general_feedback, metadata.hint, metadata.worked_solution, published_at
     );
     INSERT INTO ple_private.object_record(
@@ -271,12 +288,6 @@ BEGIN
     ) VALUES (p_target_object_id, expected_address, 'private-content', 'question-source',
         p_target_sha256, p_target_size_bytes, p_target_media_type,
         to_timestamp(p_target_created_at_millis::double precision / 1000.0));
-    INSERT INTO ple_private.question_revision_source_binding(
-        published_question_id, revision_number, backend, question_format, webwork_pg_path,
-        source_object_record_id, source_object_checksum, created_at
-    ) VALUES (p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_format,
-        binding.webwork_pg_path, p_target_object_id,
-        encode(p_target_sha256, 'hex'), published_at);
     INSERT INTO ple_data.question_revision_acceptance(
         published_question_id, revision_number, parent_revision_number, editor_account_id,
         accepted_by_account_id, accepted_at, reason_for_edit
@@ -291,18 +302,35 @@ BEGIN
         FROM ple_data.question_revision_authorship AS author
        WHERE author.published_question_id = p_published_question_id
          AND author.revision_number = p_expected_parent_question_revision_number;
+    -- The saved Draft metadata owns the successor's editable license and citation values.
     INSERT INTO ple_data.question_revision_license(published_question_id, revision_number, spdx_expression)
-    SELECT p_published_question_id, v_next_question_revision_number, license.spdx_expression
-      -- The compatible CC license is immutable lineage evidence as well.
-      FROM ple_data.question_revision_license AS license
-     WHERE license.published_question_id = p_published_question_id
-       AND license.revision_number = p_expected_parent_question_revision_number;
-    UPDATE ple_data.published_question_metadata
-       SET question_title = metadata.question_title,
-           question_description = metadata.question_description,
-           language = metadata.language,
-           updated_at = published_at
-     WHERE published_question_id = p_published_question_id;
+    VALUES (p_published_question_id, v_next_question_revision_number, metadata.question_license);
+    INSERT INTO ple_data.question_revision_metadata(
+        published_question_id, revision_number, question_title, question_description, language, question_type,
+        metadata_edit_number, tags, content_discipline_id, content_subject_id,
+        content_topic_id, content_subtopic_id, bloom_cognitive_process, bloom_knowledge_dimension,
+        created_at, updated_at
+    ) VALUES (
+        p_published_question_id, v_next_question_revision_number,
+        metadata.question_title, metadata.question_description, metadata.language,
+        binding.question_type,
+        1, metadata.tags, parent_metadata.content_discipline_id, parent_metadata.content_subject_id,
+        parent_metadata.content_topic_id, parent_metadata.content_subtopic_id,
+        parent_metadata.bloom_cognitive_process, parent_metadata.bloom_knowledge_dimension,
+        published_at, published_at
+    );
+    INSERT INTO ple_private.question_revision_source_binding(
+        published_question_id, revision_number, backend, native_question_type, question_format, webwork_pg_path,
+        source_object_record_id, source_object_checksum, created_at
+    ) VALUES (p_published_question_id, v_next_question_revision_number, binding.backend,
+        CASE WHEN binding.backend = 'ple' THEN binding.question_type END, binding.question_format,
+        binding.webwork_pg_path, p_target_object_id,
+        encode(p_target_sha256, 'hex'), published_at);
+    INSERT INTO ple_data.question_revision_citation(
+        published_question_id, revision_number, citation_text, created_at, updated_at
+    ) SELECT p_published_question_id, v_next_question_revision_number,
+             metadata.citation_text, published_at, published_at
+       WHERE metadata.citation_text IS NOT NULL;
     INSERT INTO ple_data.question_publication_event(event_id, published_question_id, revision_number, actor_account_id, occurred_at)
     VALUES (p_publication_event_id, p_published_question_id, v_next_question_revision_number, actor_id, published_at);
     PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
@@ -375,7 +403,7 @@ CREATE FUNCTION ple_private.load_draft_question_publication_source(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid
 ) RETURNS TABLE (
     object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
-    media_type text, created_at_millis bigint
+    media_type text, created_at_millis bigint, reserved_published_question_id text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE v_current_draft_question_edit_number bigint; row_count bigint;
@@ -385,7 +413,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question Publication Source arguments are invalid';
     END IF;
-    IF NOT ple_api.current_session_account_is_instructor()
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin())
        OR NOT ple_api.current_session_account_can_access_authoring_workspace(p_authoring_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Draft Question Publication Source requires current Authoring Workspace access';
@@ -396,12 +425,28 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Draft Question Publication Source Edit Number is stale or not in its workspace';
     END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_private.draft_question AS draft
+         WHERE draft.draft_question_id = p_draft_question_uuid
+           AND draft.parent_published_question_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM ple_private.draft_question_creation_receipt AS receipt
+                WHERE receipt.draft_question_id = draft.draft_question_id)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Published Question Fork Draft cannot be published again';
+    END IF;
     RETURN QUERY SELECT record.object_record_id, record.object_address, record.sha256,
         record.size_bytes, record.media_type,
-        round(extract(epoch FROM record.created_at) * 1000)::bigint
-      FROM ple_private.draft_question_source_binding AS binding
+        round(extract(epoch FROM record.created_at) * 1000)::bigint,
+        draft.public_id_reservation_id AS reserved_published_question_id
+      FROM ple_private.draft_question AS draft
+      JOIN ple_private.draft_question_source_binding AS binding
+        ON binding.draft_question_id = draft.draft_question_id
       JOIN ple_private.object_record AS record ON record.object_record_id = binding.source_object_record_id
-     WHERE binding.draft_question_id = p_draft_question_uuid
+     WHERE draft.draft_question_id = p_draft_question_uuid
+       AND draft.authoring_workspace_id = p_authoring_workspace_id
+       AND binding.draft_question_id = draft.draft_question_id
        AND binding.source_object_checksum = encode(record.sha256, 'hex')
        AND record.object_storage_area = 'private-content'
        AND record.object_data_class = 'authoring-content'
@@ -427,12 +472,19 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id text; v_current_draft_question_edit_number bigint; metadata ple_private.draft_question_metadata%ROWTYPE;
+    actor_id text; v_current_draft_question_edit_number bigint;
+    lineage_owner_id ple_data.account_id;
+    v_parent_published_question_id ple_data.question_family_id;
+    v_parent_revision_number integer;
+    v_reserved_published_question_id ple_data.question_family_id;
+    metadata ple_private.draft_question_metadata%ROWTYPE;
     binding ple_private.draft_question_source_binding%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE; expected_address jsonb;
     published_at timestamptz := clock_timestamp(); author_count integer; valid_count integer;
-    recorded_source_question_id text;
-    recorded_source_revision_number integer; recorded_source_license text;
+    final_author_position integer;
+    v_initial_shared_tags text[];
+    v_discipline_uuid uuid; v_subject_uuid uuid; v_topic_uuid uuid; v_subtopic_uuid uuid;
+    v_license text;
 BEGIN
     IF p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR p_published_question_id IS NULL
@@ -471,35 +523,68 @@ BEGIN
             MESSAGE = 'Question Publication requires current Authoring Workspace access';
     END IF;
     actor_id := ple_api.current_session_account_id();
-    SELECT draft_question_edit_number INTO v_current_draft_question_edit_number FROM ple_private.draft_question
-     WHERE draft_question_id = p_draft_question_uuid AND authoring_workspace_id = p_authoring_workspace_id FOR UPDATE;
+    SELECT draft.draft_question_edit_number, draft.parent_published_question_id,
+           draft.parent_revision_number, draft.public_id_reservation_id
+      INTO v_current_draft_question_edit_number, v_parent_published_question_id,
+           v_parent_revision_number, v_reserved_published_question_id
+      FROM ple_private.draft_question AS draft
+     WHERE draft.draft_question_id = p_draft_question_uuid
+       AND draft.authoring_workspace_id = p_authoring_workspace_id
+     FOR UPDATE;
     IF NOT FOUND OR v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
-    SELECT fork.source_question_id, fork.source_revision_number
-      INTO recorded_source_question_id,
-           recorded_source_revision_number
-      FROM ple_private.draft_question_fork_source AS fork
-     WHERE fork.draft_question_id = p_draft_question_uuid
-     FOR UPDATE;
-    -- ASVS 2.2.2, 2.2.3, and 2.3.3: derive the exact source Revision
-    -- license from the immutable server-owned fork pin and preserve that exact
-    -- license before this transaction writes publication state.
-    IF recorded_source_question_id IS NOT NULL THEN
-        SELECT license.spdx_expression INTO STRICT recorded_source_license
-          FROM ple_data.question_revision_license AS license
-         WHERE license.published_question_id = recorded_source_question_id
-           AND license.revision_number = recorded_source_revision_number;
-        IF p_license <> recorded_source_license THEN
-            RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'Question Fork Publication must preserve its exact source Revision license';
-        END IF;
+    IF (v_parent_published_question_id IS NULL)
+            IS DISTINCT FROM (v_reserved_published_question_id IS NULL)
+       OR (v_reserved_published_question_id IS NOT NULL
+           AND v_reserved_published_question_id::text <> p_published_question_id) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question Publication ID must match the Draft lineage identity';
+    END IF;
+    IF v_parent_published_question_id IS NULL THEN
+        lineage_owner_id := actor_id::ple_data.account_id;
+    ELSE
+        SELECT receipt.actor_account_id INTO STRICT lineage_owner_id
+          FROM ple_private.draft_question_creation_receipt AS receipt
+         WHERE receipt.draft_question_id = p_draft_question_uuid
+         FOR SHARE;
     END IF;
     SELECT * INTO STRICT metadata FROM ple_private.draft_question_metadata
      WHERE draft_question_id = p_draft_question_uuid FOR UPDATE;
+    IF btrim(metadata.question_title) = '' OR btrim(metadata.question_description) = ''
+       OR metadata.question_license IS NULL
+       OR p_license IS DISTINCT FROM metadata.question_license::text THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Publication requires complete current Draft record metadata';
+    END IF;
+    v_license := metadata.question_license::text;
+    v_initial_shared_tags := metadata.tags;
+    IF v_parent_published_question_id IS NOT NULL THEN
+        IF metadata.content_discipline_id IS NULL OR metadata.content_subject_id IS NULL THEN
+            RAISE EXCEPTION USING ERRCODE = '22023',
+                MESSAGE = 'Question Fork Publication requires its copied Draft classification';
+        END IF;
+        v_discipline_uuid := metadata.content_discipline_id;
+        v_subject_uuid := metadata.content_subject_id;
+        v_topic_uuid := metadata.content_topic_id;
+        v_subtopic_uuid := metadata.content_subtopic_id;
+    ELSE
+        IF p_initial_shared_tags IS DISTINCT FROM metadata.tags THEN
+            RAISE EXCEPTION USING ERRCODE = '22023',
+                MESSAGE = 'Question Publication requires complete current Draft record metadata';
+        END IF;
+        v_discipline_uuid := p_discipline_uuid;
+        v_subject_uuid := p_subject_uuid;
+        v_topic_uuid := p_topic_uuid;
+        v_subtopic_uuid := p_subtopic_uuid;
+    END IF;
     SELECT * INTO STRICT binding FROM ple_private.draft_question_source_binding
      WHERE draft_question_id = p_draft_question_uuid FOR UPDATE;
+    IF binding.question_type IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Publication requires a source-derived Question Type';
+    END IF;
     IF NOT ple_private.question_backend_is_supported_for_production(binding.backend) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Backend is unavailable for new production work';
@@ -517,47 +602,82 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Publication target must preserve the exact Draft Question Source bytes';
     END IF;
-    INSERT INTO ple_data.published_question(published_question_id, created_at) VALUES (p_published_question_id, published_at);
-    PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
-    INSERT INTO ple_data.published_question_metadata(
-        published_question_id, question_title, question_description, language, tags,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, created_at, updated_at
-    ) VALUES (p_published_question_id, metadata.question_title, metadata.question_description, metadata.language,
-        p_initial_shared_tags, p_discipline_uuid, p_subject_uuid, p_topic_uuid, p_subtopic_uuid,
-        published_at, published_at);
-    INSERT INTO ple_data.question_revision(
-        published_question_id, revision_number, backend, question_type, general_feedback, hint, worked_solution, published_at
+    IF v_reserved_published_question_id IS NOT NULL THEN
+        PERFORM pg_catalog.set_config(
+            'ple.question_publication_reserved_draft_uuid', p_draft_question_uuid::text, true);
+    END IF;
+    INSERT INTO ple_data.published_question(
+        published_question_id, parent_published_question_id, parent_revision_number, created_at
     ) VALUES (
-        p_published_question_id, 1, binding.backend, binding.question_type,
+        p_published_question_id, v_parent_published_question_id,
+        v_parent_revision_number, published_at
+    );
+    IF v_reserved_published_question_id IS NOT NULL THEN
+        PERFORM pg_catalog.set_config('ple.question_publication_reserved_draft_uuid', '', true);
+    END IF;
+    PERFORM ple_private.require_active_content_discipline(v_discipline_uuid);
+    INSERT INTO ple_data.question_revision(
+        published_question_id, revision_number, backend, general_feedback, hint, worked_solution, published_at
+    ) VALUES (
+        p_published_question_id, 1, binding.backend,
         metadata.general_feedback, metadata.hint, metadata.worked_solution, published_at
     );
+    INSERT INTO ple_data.question_revision_metadata(
+        published_question_id, revision_number, question_title, question_description, language, question_type, tags,
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id,
+        bloom_cognitive_process, bloom_knowledge_dimension, created_at, updated_at
+    ) VALUES (p_published_question_id, 1, metadata.question_title, metadata.question_description,
+        metadata.language, binding.question_type, v_initial_shared_tags, v_discipline_uuid,
+        v_subject_uuid, v_topic_uuid, v_subtopic_uuid,
+        metadata.bloom_cognitive_process, metadata.bloom_knowledge_dimension,
+        published_at, published_at);
     INSERT INTO ple_private.object_record(
         object_record_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at
     ) VALUES (p_target_object_id, expected_address, 'private-content', 'question-source',
         p_target_sha256, p_target_size_bytes, p_target_media_type,
         to_timestamp(p_target_created_at_millis::double precision / 1000.0));
     INSERT INTO ple_private.question_revision_source_binding(
-        published_question_id, revision_number, backend, question_format, webwork_pg_path,
+        published_question_id, revision_number, backend, native_question_type, question_format, webwork_pg_path,
         source_object_record_id, source_object_checksum, created_at
-    ) VALUES (p_published_question_id, 1, binding.backend, binding.question_format, binding.webwork_pg_path,
+    ) VALUES (p_published_question_id, 1, binding.backend,
+        CASE WHEN binding.backend = 'ple' THEN binding.question_type END, binding.question_format, binding.webwork_pg_path,
         p_target_object_id, encode(p_target_sha256, 'hex'), published_at);
     INSERT INTO ple_data.question_revision_acceptance(
         published_question_id, revision_number, parent_revision_number, editor_account_id,
         accepted_by_account_id, accepted_at, reason_for_edit
     ) VALUES (p_published_question_id, 1, NULL, actor_id, actor_id, published_at, p_reason_for_edit);
-    INSERT INTO ple_data.question_revision_authorship(
-        published_question_id, revision_number, author_position, author_display_name, author_account_id
-    ) SELECT p_published_question_id, 1, author.ordinality::integer, author.value #>> '{}', NULL::uuid
-        FROM jsonb_array_elements(p_authorship) WITH ORDINALITY AS author(value, ordinality);
+    IF v_parent_published_question_id IS NOT NULL THEN
+        SELECT count(*), max(author_position)
+          INTO author_count, final_author_position
+          FROM ple_private.draft_question_authorship
+         WHERE draft_question_id = p_draft_question_uuid;
+        IF author_count = 0 OR author_count <> final_author_position THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Question Fork Publication requires its copied Draft authorship';
+        END IF;
+        INSERT INTO ple_data.question_revision_authorship(
+            published_question_id, revision_number, author_position,
+            author_display_name, author_account_id
+        ) SELECT p_published_question_id, 1, author.author_position,
+                 author.author_display_name, author.author_account_id
+            FROM ple_private.draft_question_authorship AS author
+           WHERE author.draft_question_id = p_draft_question_uuid
+           ORDER BY author.author_position;
+    ELSE
+        INSERT INTO ple_data.question_revision_authorship(
+            published_question_id, revision_number, author_position, author_display_name, author_account_id
+        ) SELECT p_published_question_id, 1, author.ordinality::integer, author.value #>> '{}', NULL::uuid
+            FROM jsonb_array_elements(p_authorship) WITH ORDINALITY AS author(value, ordinality);
+    END IF;
     INSERT INTO ple_data.question_revision_license(published_question_id, revision_number, spdx_expression)
-    VALUES (p_published_question_id, 1, p_license::ple_data.license_spdx);
+    VALUES (p_published_question_id, 1, v_license::ple_data.license_spdx);
+    INSERT INTO ple_data.question_revision_citation(
+        published_question_id, revision_number, citation_text, created_at, updated_at
+    ) SELECT p_published_question_id, 1, metadata.citation_text, published_at, published_at
+       WHERE metadata.citation_text IS NOT NULL;
     INSERT INTO ple_data.question_ownership_event(
         question_ownership_event_id, published_question_id, owner_account_id, recorded_by_account_id, event_kind, occurred_at
-    ) VALUES (p_ownership_event_id, p_published_question_id, actor_id, actor_id, 'initial', published_at);
-    INSERT INTO ple_data.question_fork_source(
-        forked_published_question_id, source_question_id, source_revision_number, recorded_at
-    ) SELECT p_published_question_id, source_question_id, source_revision_number, published_at
-      FROM ple_private.draft_question_fork_source WHERE draft_question_id = p_draft_question_uuid;
+    ) VALUES (p_ownership_event_id, p_published_question_id, lineage_owner_id, actor_id, 'initial', published_at);
     INSERT INTO ple_data.question_publication_event(event_id, published_question_id, revision_number, actor_account_id, occurred_at)
     VALUES (p_publication_event_id, p_published_question_id, 1, actor_id, published_at);
     INSERT INTO ple_data.question_availability_event(
@@ -565,6 +685,17 @@ BEGIN
     ) VALUES (p_availability_event_id, p_published_question_id, actor_id, 'available'::ple_data.question_availability, 1, NULL, published_at);
     PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
         p_published_question_id, 1, binding.backend, binding.question_type, p_hotspot_question_image, published_at);
+    IF v_parent_published_question_id IS NOT NULL THEN
+        PERFORM pg_catalog.set_config(
+            'ple.authorized_draft_publication_receipt_uuid', p_draft_question_uuid::text, true);
+        DELETE FROM ple_private.draft_question_creation_receipt AS receipt
+         WHERE receipt.draft_question_id = p_draft_question_uuid;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Question Fork Publication requires its ordinary creation receipt';
+        END IF;
+        PERFORM pg_catalog.set_config('ple.authorized_draft_publication_receipt_uuid', '', true);
+    END IF;
 END
 $$;
 
@@ -573,7 +704,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_draft_question_publication_source(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid
 ) RETURNS TABLE (object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
-    media_type text, created_at_millis bigint)
+    media_type text, created_at_millis bigint, reserved_published_question_id text)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.load_draft_question_publication_source(
         p_draft_question_uuid, p_expected_draft_question_edit_number, p_authoring_workspace_id)

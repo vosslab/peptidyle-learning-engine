@@ -52,6 +52,20 @@ impl QuestionType {
         Self::Ordering,
         Self::Hotspot,
     ];
+
+    /// Canonical JSON and PostgreSQL spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MultipleChoice => "multipleChoice",
+            Self::MultipleAnswer => "multipleAnswer",
+            Self::FillInBlank => "fillInBlank",
+            Self::MultipleFillInBlank => "multipleFillInBlank",
+            Self::Numeric => "numeric",
+            Self::Matching => "matching",
+            Self::Ordering => "ordering",
+            Self::Hotspot => "hotspot",
+        }
+    }
 }
 
 /// The browser interaction used to collect a Student Response.

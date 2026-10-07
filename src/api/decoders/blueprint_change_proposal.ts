@@ -16,14 +16,16 @@ import {
   decodeDictionary,
   decodeNullable,
   decodeRecord,
+  decodeStringEnum,
   decodeUuid,
 } from "../decoder";
 import {
   decodeCanonicalBlueprintCourse,
   decodeBlueprintComparisonView,
 } from "./blueprint_comparison";
-import { blueprintEditNumber, blueprintRevisionTuple, text } from "./blueprint_course";
+import { blueprintEditNumber, blueprintCourseRevisionTuple, text } from "./blueprint_course";
 import { decodeCourseClassification } from "./course_classification";
+import { THEME_VALUES } from "../../../generated/api/Theme";
 import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
 
 function names(value: unknown, path: string): { shortName: string; longName: string } {
@@ -61,7 +63,7 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
       ]);
       return {
         acceptedAt: decodeTimestamp(field(row, "acceptedAt", itemPath), `${itemPath}.acceptedAt`),
-        targetRevisionTuple: blueprintRevisionTuple(
+        targetRevisionTuple: blueprintCourseRevisionTuple(
           field(row, "targetRevisionTuple", itemPath),
           `${itemPath}.targetRevisionTuple`,
         ),
@@ -75,7 +77,7 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
   return {
     proposalId: decodeUuid(field(record, "proposalId", path), `${path}.proposalId`),
     createdAt: decodeTimestamp(field(record, "createdAt", path), `${path}.createdAt`),
-    sourceRevisionTuple: blueprintRevisionTuple(
+    sourceRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "sourceRevisionTuple", path),
       `${path}.sourceRevisionTuple`,
     ),
@@ -84,7 +86,7 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
       `${path}.sourceBlueprintEditNumber`,
     ),
     sourceNames: names(field(record, "sourceNames", path), `${path}.sourceNames`),
-    targetRevisionTuple: blueprintRevisionTuple(
+    targetRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "targetRevisionTuple", path),
       `${path}.targetRevisionTuple`,
     ),
@@ -215,17 +217,18 @@ function side(
 } {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "blueprintRevisionTuple",
+    "blueprintCourseRevisionTuple",
     "blueprintEditNumber",
     "names",
     "classification",
+    "theme",
     "modules",
     "assessments",
   ]);
   return {
-    blueprintRevisionTuple: blueprintRevisionTuple(
-      field(record, "blueprintRevisionTuple", path),
-      `${path}.blueprintRevisionTuple`,
+    blueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+      field(record, "blueprintCourseRevisionTuple", path),
+      `${path}.blueprintCourseRevisionTuple`,
     ),
     blueprintEditNumber: blueprintEditNumber(
       field(record, "blueprintEditNumber", path),
@@ -236,6 +239,7 @@ function side(
       field(record, "classification", path),
       `${path}.classification`,
     ),
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
     modules: field(record, "modules", path),
     assessments: field(record, "assessments", path),
   };
@@ -256,14 +260,14 @@ function comparison(value: unknown, path: string): BlueprintChangeProposalCompar
   const checked = decodeBlueprintComparisonView(
     {
       left: {
-        currentRevisionTuple: source.blueprintRevisionTuple,
+        currentRevisionTuple: source.blueprintCourseRevisionTuple,
         names: source.names,
         blueprintEditNumber: source.blueprintEditNumber,
         modules: source.modules,
         assessments: source.assessments,
       },
       right: {
-        currentRevisionTuple: target.blueprintRevisionTuple,
+        currentRevisionTuple: target.blueprintCourseRevisionTuple,
         names: target.names,
         blueprintEditNumber: target.blueprintEditNumber,
         modules: target.modules,
@@ -300,7 +304,7 @@ function accepted(value: unknown, path: string): BlueprintChangeProposalAccepted
   ]);
   return {
     acceptedAt: decodeTimestamp(field(record, "acceptedAt", path), `${path}.acceptedAt`),
-    targetRevisionTuple: blueprintRevisionTuple(
+    targetRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "targetRevisionTuple", path),
       `${path}.targetRevisionTuple`,
     ),
@@ -342,7 +346,7 @@ export function decodeBlueprintChangeProposalCreateRequest(
     "targetBlueprintEditNumber",
   ]);
   return {
-    sourceRevisionTuple: blueprintRevisionTuple(
+    sourceRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "sourceRevisionTuple", path),
       `${path}.sourceRevisionTuple`,
     ),
@@ -350,7 +354,7 @@ export function decodeBlueprintChangeProposalCreateRequest(
       field(record, "sourceBlueprintEditNumber", path),
       `${path}.sourceBlueprintEditNumber`,
     ),
-    targetRevisionTuple: blueprintRevisionTuple(
+    targetRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "targetRevisionTuple", path),
       `${path}.targetRevisionTuple`,
     ),
@@ -372,7 +376,7 @@ export function decodeBlueprintChangeProposalAcceptanceRequest(
     "decision",
   ]);
   return {
-    expectedTargetRevisionTuple: blueprintRevisionTuple(
+    expectedTargetRevisionTuple: blueprintCourseRevisionTuple(
       field(record, "expectedTargetRevisionTuple", path),
       `${path}.expectedTargetRevisionTuple`,
     ),

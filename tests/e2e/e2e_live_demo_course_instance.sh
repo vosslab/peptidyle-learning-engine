@@ -129,10 +129,17 @@ import json, re, sys
 items = json.loads(sys.argv[1]).get("items")
 if not isinstance(items, list) or not items:
     raise SystemExit("Question Library did not return a published Question")
-question_id = items[0].get("summary", {}).get("questionId")
+question = next((item.get("question", {}).get("summary") for item in items
+                 if isinstance(item, dict)
+                 and item.get("kind") == "question"
+                 and isinstance(item.get("question"), dict)
+                 and isinstance(item["question"].get("summary"), dict)), None)
+if not isinstance(question, dict):
+    raise SystemExit("Question Library did not return a published Question")
+question_id = question.get("questionId")
 if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
     raise SystemExit("Question Library did not return an opaque Question ID")
-revision = items[0].get("summary", {}).get("publishedQuestionRevisionTuple")
+revision = question.get("publishedQuestionRevisionTuple")
 if (not isinstance(revision, dict) or set(revision) != {"publishedQuestionId", "revisionNumber"}
     or revision["publishedQuestionId"] != question_id
     or not isinstance(revision["revisionNumber"], int)
@@ -152,9 +159,9 @@ assignment = {
   "title": "Course Instance source assignment",
   "instructions": "Use the published Question in reusable course structure.",
   "entries": [{"kind":"fixed","published_question_revision_tuple":published_question,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":2},"question_attempt_time_limit":{"kind":"unlimited"}}],
-  "defaults": {"assessment_attempt_time_limit_seconds":None,"assessment_attempt_limit":2,"late_work_rule":"accept","activity_rules":{"questionVariationRule":"newVariation","assessmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never","hints":"never","worked_solutions":"never"}},
+  "defaults": {"assessment_attempt_time_limit_seconds":None,"assessment_attempt_limit":2,"late_work_rule":"accept","activity_rules":{"partialCreditEnabled":True,"questionVariationRule":"newVariation","assessmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never","hints":"never","worked_solutions":"never"}},
 }
-print(json.dumps({"classification":classification,"short_name":"M8 source","long_name":"M8 exact Blueprint source","modules":[{"label":"M8 module","assessments":[assignment]}]}, separators=(",",":")))
+print(json.dumps({"classification":classification,"short_name":"M8 source","long_name":"M8 exact Blueprint source","theme":"grass","modules":[{"label":"M8 module","assessments":[assignment]}]}, separators=(",",":")))
 ' "$1" "$2"
 }
 
@@ -189,7 +196,7 @@ course_payload() {
 	python3 -c '
 import json, sys
 blueprint, revision, assigned, classification, short_name, long_name = sys.argv[1:]
-print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintRevisionTuple":{"blueprintCourseId":blueprint,"revisionNumber":revision}},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructorAccountId":assigned}, separators=(",",":")))
+print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintCourseRevisionTuple":{"blueprintCourseId":blueprint,"revisionNumber":revision}},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructorAccountId":assigned}, separators=(",",":")))
 ' "$1" "$2" "$3" "$4" "$5" "$6"
 }
 
@@ -235,13 +242,13 @@ if not isinstance(value["activeInstructorCount"], int) or value["activeInstructo
 origin = value["blueprintOrigin"]
 if origin is not None and (
     not isinstance(origin, dict)
-    or set(origin) != {"adoptedBlueprintRevisionTuple", "currentBlueprintRevisionTuple"}
-    or origin["adoptedBlueprintRevisionTuple"].get("blueprintCourseId") != origin["currentBlueprintRevisionTuple"].get("blueprintCourseId")
-    or not isinstance(origin["adoptedBlueprintRevisionTuple"].get("revisionNumber"), str)
-    or not isinstance(origin["currentBlueprintRevisionTuple"].get("revisionNumber"), str)
-    or not origin["adoptedBlueprintRevisionTuple"]["revisionNumber"].isdigit()
-    or not origin["currentBlueprintRevisionTuple"]["revisionNumber"].isdigit()
-    or not 0 < int(origin["adoptedBlueprintRevisionTuple"]["revisionNumber"]) <= int(origin["currentBlueprintRevisionTuple"]["revisionNumber"])
+    or set(origin) != {"adoptedBlueprintCourseRevisionTuple", "currentBlueprintCourseRevisionTuple"}
+    or origin["adoptedBlueprintCourseRevisionTuple"].get("blueprintCourseId") != origin["currentBlueprintCourseRevisionTuple"].get("blueprintCourseId")
+    or not isinstance(origin["adoptedBlueprintCourseRevisionTuple"].get("revisionNumber"), str)
+    or not isinstance(origin["currentBlueprintCourseRevisionTuple"].get("revisionNumber"), str)
+    or not origin["adoptedBlueprintCourseRevisionTuple"]["revisionNumber"].isdigit()
+    or not origin["currentBlueprintCourseRevisionTuple"]["revisionNumber"].isdigit()
+    or not 0 < int(origin["adoptedBlueprintCourseRevisionTuple"]["revisionNumber"]) <= int(origin["currentBlueprintCourseRevisionTuple"]["revisionNumber"])
 ):
     raise SystemExit("Course Instance Blueprint origin was not a closed ordered provenance")
 private = {"accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
@@ -390,7 +397,7 @@ prove_authority() {
 	student_cookie="$(persona_cookie maryStudent)"
 	assert_concealed "$(request '/api/course-instances')"
 	assert_concealed "$(request '/api/course-instances' "$student_cookie")"
-	library="$(request '/api/questions/search?page_size=50' "$instructor_cookie")"
+	library="$(request '/api/library-objects/search?page_size=50' "$instructor_cookie")"
 	if [ "$(response_status "$library")" != "200" ]; then
 		echo "Instructor could not select a Published Question for an exact Blueprint source" >&2
 		exit 1

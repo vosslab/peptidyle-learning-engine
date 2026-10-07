@@ -111,7 +111,7 @@ other caches. Cargo cleanup does not remove source, Git state, `node_modules`, o
 
 The check gates are deliberately not product builds. The vendored `./check_codebase.sh` owns the
 TypeScript typechecks, ESLint, Prettier, and Node tests. The repository-owned `./check_rust.sh`
-owns Rust-generated browser contracts and fixtures, Rust formatting, default and all-feature
+owns Rust-generated browser contracts, Rust formatting, default and all-feature
 compilation, strict Clippy, workspace tests and doctests, and the browser WebAssembly target check.
 Keeping them separate prevents a vendored codebase-gate refresh from silently removing Rust
 verification.
@@ -128,15 +128,13 @@ by the bounded work item.
 
 Treat these paths as build products, not hand-maintained source:
 
-- `generated/` contains ignored TypeScript definitions and fixture projections generated from Rust
-  contracts and checked fixture sources.
+- `generated/` contains ignored TypeScript definitions generated from Rust contracts.
 - `dist_wasm/` contains the generated WebAssembly bridge and JavaScript glue.
 - `dist/` contains the browser bundle and receives the WebAssembly assets under `dist/wasm/`.
 - `target/` contains Cargo build products.
 
-Change the Rust contract, fixture source, browser source, or build pipeline that owns an output;
-then rerun the appropriate front-door script. Do not edit a derived file to make a build appear
-current.
+Change the Rust contract, browser source, or build pipeline that owns an output; then rerun the
+appropriate front-door script. Do not edit a derived file to make a build appear current.
 
 ## Installation data
 

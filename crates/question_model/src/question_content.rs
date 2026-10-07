@@ -5,8 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::PublishedQuestionRevisionTuple;
 use crate::identity::{QuestionImageAssetId, WorkspaceId};
-use crate::question_citation::QuestionCitation;
 use crate::question_license::QuestionLicense;
 use crate::question_tag::Tag;
 
@@ -121,9 +121,23 @@ pub struct QuestionMetadata {
     pub question_description: String,
     pub tags: Vec<Tag>,
     pub question_license: Option<QuestionLicense>,
-    pub question_citation: Option<QuestionCitation>,
-    pub language: String,
+    pub question_citation: Option<String>,
+    /// Optional supplied language. Drafts and source systems may have no
+    /// language value; readers never manufacture one.
+    pub language: Option<String>,
 }
+
+/// Current optional shared classification copied with a fork Draft.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DraftQuestionClassification {
+    pub discipline_uuid: Option<uuid::Uuid>,
+    pub subject_uuid: Option<uuid::Uuid>,
+    pub topic_uuid: Option<uuid::Uuid>,
+    pub subtopic_uuid: Option<uuid::Uuid>,
+    pub bloom: Option<crate::BloomClassificationView>,
+}
+
 impl QuestionMetadata {
     pub fn validate_question_title(&self) -> Result<(), QuestionTitleError> {
         validate_question_title(&self.question_title)
@@ -138,6 +152,8 @@ impl QuestionMetadata {
 pub struct DraftQuestionSummary {
     pub draft_question_id: uuid::Uuid,
     pub workspace_id: WorkspaceId,
+    /// Exact immediate source Revision for a forked Draft Question.
+    pub parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     pub question_title: String,
     pub question_backend: crate::question_library::QuestionBackend,
 }

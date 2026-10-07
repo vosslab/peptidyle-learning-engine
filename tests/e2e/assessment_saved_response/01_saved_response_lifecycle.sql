@@ -24,8 +24,8 @@ SELECT 'SVR1-' || ple_private.crockford_checksum_character('SVR1XYZ') || 'XYZ' A
 INSERT INTO ple_data.published_question (published_question_id, created_at)
 VALUES (:'question_id', pg_catalog.transaction_timestamp());
 INSERT INTO ple_data.question_revision (
-    published_question_id, revision_number, backend, question_type, published_at
-) VALUES (:'question_id', 1, 'ple', 'multipleChoice', pg_catalog.transaction_timestamp());
+    published_question_id, revision_number, backend, published_at
+) VALUES (:'question_id', 1, 'ple', pg_catalog.transaction_timestamp());
 INSERT INTO ple_data.question_revision_license (
     published_question_id, revision_number, spdx_expression
 ) VALUES (:'question_id', 1, 'CC0-1.0');
@@ -56,10 +56,10 @@ INSERT INTO ple_private.object_record (
     'application/json', pg_catalog.transaction_timestamp()
 );
 INSERT INTO ple_private.question_revision_source_binding (
-    published_question_id, revision_number, backend, question_format,
+    published_question_id, revision_number, backend, question_format, native_question_type,
     source_object_record_id, source_object_checksum, created_at
 ) VALUES (
-    :'question_id', 1, 'ple', 'pleQuestionJson',
+    :'question_id', 1, 'ple', 'pleQuestionJson', 'multipleChoice',
     '73000000-0000-0000-0000-000000000010', repeat('30', 32), pg_catalog.transaction_timestamp()
 );
 

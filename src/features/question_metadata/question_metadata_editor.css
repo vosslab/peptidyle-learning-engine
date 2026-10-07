@@ -1,0 +1,21 @@
+.question-metadata-editor {
+  display: grid;
+  gap: 0.9rem;
+  margin-block: 1rem;
+}
+
+.question-metadata-editor > label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.question-metadata-editor input,
+.question-metadata-editor textarea {
+  width: 100%;
+}
+
+.question-metadata-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}

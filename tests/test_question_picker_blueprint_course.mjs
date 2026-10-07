@@ -1,11 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { blueprintCourseQuestionPickerRepository } from "../src/features/question_picker/question_picker_model.ts";
 
-const { scope: _retiredPublicationScope, ...publishedQuestion } =
-  publishedQuestionFixture.publishedQuestion;
+const publishedQuestion = {
+  questionId: "7K3M-79QP",
+  publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
+  parentPublishedQuestionRevisionTuple: null,
+  backend: "ple",
+  questionFormat: "pleQuestionJson",
+  questionType: "multipleChoice",
+  capabilities: ["clientRendering", "serverGrading"],
+  metadata: {
+    questionTitle: "Peptide bond resonance",
+    questionDescription: "Identify the bond with partial double-bond character.",
+    tags: [],
+    questionLicense: null,
+    questionCitation: null,
+    language: null,
+  },
+  authorship: { authors: [{ displayName: "Test Author", accountId: null }] },
+  availability: { availability: "available" },
+  publishedAt: 1_786_000_000_000,
+  bloom: null,
+};
 
 function questionLibraryEntry(questionId, questionTitle, revisionNumber) {
   return {
@@ -40,11 +58,9 @@ function content() {
       {
         kind: "pool",
         question_pool_id: "2R5X-E7YA",
-        question_pool_edit_number: 1,
         selection_count: 1,
         points_per_item: "1",
         scoring_rule: "normal",
-        selection_rule: { selectedQuestionOrder: "questionPoolOrder" },
         question_attempt_limit: { maxAttempts: null },
         question_attempt_time_limit: { kind: "unlimited" },
       },
@@ -77,7 +93,10 @@ const query = {
 
 function revision(revisionNumber = "2") {
   return {
-    blueprintRevisionTuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: revisionNumber },
+    blueprintCourseRevisionTuple: {
+      blueprintCourseId: "BP7K3MX9AA",
+      revisionNumber: revisionNumber,
+    },
     modules: [
       {
         blueprint_module_id: "module-7",
@@ -102,7 +121,7 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
     source: {
       kind: "blueprintCourseAssessment",
       source: {
-        blueprint_revision_tuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
+        blueprint_course_revision_tuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
       },
       label: "Blueprint Assessment",
@@ -134,7 +153,7 @@ test("Blueprint Assessment picker refuses a Blueprint Course revision that chang
       source: {
         kind: "blueprintCourseAssessment",
         source: {
-          blueprint_revision_tuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
+          blueprint_course_revision_tuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
           blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
         },
         label: "Stale Blueprint Assessment",

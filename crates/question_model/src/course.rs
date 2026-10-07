@@ -8,7 +8,7 @@ use crate::{
     AssessmentPointValue, AssessmentProgressRecord, AssessmentQuestionVariationRule,
     AssessmentScoringState, AssessmentTitle, CourseInstanceId, CourseTerm, LateWorkRule,
     PublishedQuestionId, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend,
-    QuestionBackendCapabilities, QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectionRule,
+    QuestionBackendCapabilities, QuestionPoolEditNumber, QuestionPoolId,
     StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
@@ -120,8 +120,6 @@ pub struct QuestionPoolAssessmentEntrySummary {
     pub selection_count: std::num::NonZeroU32,
     /// Uniform current points for each selected Question Pool Item.
     pub points_per_item: AssessmentPointValue,
-    /// Complete reviewed selection behavior.
-    pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound for every Question selected from this pool.
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Uniform Question Attempt timing for every Question selected from this pool.

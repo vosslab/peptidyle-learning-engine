@@ -10,7 +10,6 @@ REVOKE ALL ON FUNCTION ple_data.enqueue_question_watch_revision_event(),
     ple_data.enqueue_question_watch_fork_event(),
     ple_data.enqueue_question_pool_watch_members_changed_event(),
     ple_data.enqueue_question_pool_watch_fork_event(),
-    ple_data.enqueue_library_watch_impact_event(),
     ple_data.snapshot_library_watch_event_recipients(),
     ple_data.read_current_library_watch_notifications(integer) FROM PUBLIC;
 

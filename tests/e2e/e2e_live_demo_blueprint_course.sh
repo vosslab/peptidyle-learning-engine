@@ -143,6 +143,7 @@ content = {
         "attempt_limit": 2,
         "late_work_rule": "accept",
         "activity_rules": {
+            "partialCreditEnabled": True,
             "assignmentCompletionRule": {"kind": "answerAll"},
             "assignmentAttemptGradeRule": "highest",
             "assignmentAttemptContinuationRule": {"kind": "unlimited"},
@@ -246,9 +247,9 @@ assert_exact_revision() {
 import json, sys
 value = json.loads(sys.argv[1])
 blueprint_course_id, revision = sys.argv[2:]
-if set(value) != {"blueprintRevisionTuple", "modules"}:
+if set(value) != {"blueprintCourseRevisionTuple", "modules"}:
     raise SystemExit("exact Blueprint Revision response was not closed")
-if value["blueprintRevisionTuple"] != {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}:
+if value["blueprintCourseRevisionTuple"] != {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}:
     raise SystemExit("exact Blueprint Revision did not resolve its immutable identity")
 modules = value["modules"]
 if not isinstance(modules, list) or len(modules) != 1:
@@ -298,7 +299,7 @@ import datetime, json, sys
 blueprint_course_id, revision = sys.argv[1:]
 today = datetime.date.today()
 print(json.dumps({
-    "source": {"kind": "adopted", "blueprintRevisionTuple": {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}},
+    "source": {"kind": "adopted", "blueprintCourseRevisionTuple": {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}},
     "shortName": "Blueprint browse adoption",
     "longName": "Blueprint Course browse adoption",
     "term": {"startDate": today.isoformat(), "endDate": (today + datetime.timedelta(days=7)).isoformat()},
@@ -408,7 +409,7 @@ prove_service() {
 		exit 1
 	fi
 	instructor_cookie="$(persona_cookie elenaInstructor)"
-	library="$(request '/api/questions/search?page_size=50' "$instructor_cookie")"
+	library="$(request '/api/library-objects/search?page_size=50' "$instructor_cookie")"
 	if [ "$(response_status "$library")" != "200" ]; then
 		echo "Instructor could not browse the Question Library for Blueprint Course creation" >&2
 		exit 1

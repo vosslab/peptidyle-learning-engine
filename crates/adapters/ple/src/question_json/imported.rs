@@ -55,8 +55,6 @@ impl ImportedChoice {
 /// ```
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImportedSingleChoiceInput {
-    question_title: String,
-    question_description: String,
     prompt: String,
     choices: Vec<ImportedChoice>,
     correct_choice: String,
@@ -64,16 +62,8 @@ pub struct ImportedSingleChoiceInput {
 
 impl ImportedSingleChoiceInput {
     /// Creates the bounded trusted input to the PLE Question JSON import.
-    pub fn new(
-        question_title: String,
-        question_description: String,
-        prompt: String,
-        choices: Vec<ImportedChoice>,
-        correct_choice: String,
-    ) -> Self {
+    pub fn new(prompt: String, choices: Vec<ImportedChoice>, correct_choice: String) -> Self {
         Self {
-            question_title,
-            question_description,
             prompt,
             choices,
             correct_choice,
@@ -135,8 +125,6 @@ impl ImportedPleQuestionJson {
     ) -> Result<Self, ImportedPleQuestionJsonError> {
         let document = PleQuestionJsonDocument(
             super::source_document::PleQuestionJsonDocumentBody::imported_single_choice(
-                input.question_title,
-                input.question_description,
                 input.prompt,
                 input
                     .choices
@@ -197,8 +185,6 @@ mod tests {
     fn stored_input() -> ImportedSingleChoiceInput {
         let stored = imported_single_choice();
         ImportedSingleChoiceInput::new(
-            stored.question_title,
-            stored.question_description,
             stored.prompt,
             stored_choices(),
             stored.response.correct_choice,
@@ -251,8 +237,6 @@ mod tests {
             (base_choices, "missing".to_string()),
         ] {
             let result = ImportedPleQuestionJson::from_imported(ImportedSingleChoiceInput::new(
-                stored.question_title.clone(),
-                stored.question_description.clone(),
                 stored.prompt.clone(),
                 choices,
                 correct_choice,
@@ -268,15 +252,8 @@ mod tests {
     fn blank_or_overlong_mapped_text_is_refused() {
         let stored = imported_single_choice();
         let overlong_prompt = "x".repeat(super::super::MAX_PROMPT_CHARS + 1);
-        let overlong_title = "x".repeat(question_model::MAX_QUESTION_TITLE_UNICODE_SCALARS + 1);
-        for (title, prompt) in [
-            (" ".to_string(), stored.prompt.clone()),
-            (stored.question_title.clone(), " ".to_string()),
-            (stored.question_title.clone(), overlong_prompt),
-        ] {
+        for prompt in [" ".to_string(), overlong_prompt] {
             let result = ImportedPleQuestionJson::from_imported(ImportedSingleChoiceInput::new(
-                title,
-                stored.question_description.clone(),
                 prompt,
                 stored_choices(),
                 stored.response.correct_choice.clone(),
@@ -286,24 +263,14 @@ mod tests {
                 Some(ImportedPleQuestionJsonError::InvalidQuestionJson)
             );
         }
-        for (title, prompt, choice_text) in [
-            (
-                overlong_title,
-                stored.prompt.clone(),
-                stored.response.choices[0].text.clone(),
-            ),
-            (
-                stored.question_title.clone(),
-                stored.prompt.clone(),
-                "x".repeat(super::super::MAX_CHOICE_TEXT_CHARS + 1),
-            ),
+        for choice_text in [
+            " ".to_string(),
+            "x".repeat(super::super::MAX_CHOICE_TEXT_CHARS + 1),
         ] {
             let mut choices = stored_choices();
             choices[0].text = choice_text;
             let result = ImportedPleQuestionJson::from_imported(ImportedSingleChoiceInput::new(
-                title,
-                stored.question_description.clone(),
-                prompt,
+                stored.prompt.clone(),
                 choices,
                 stored.response.correct_choice.clone(),
             ));
@@ -326,8 +293,6 @@ mod tests {
             })
             .collect();
         let result = ImportedPleQuestionJson::from_imported(ImportedSingleChoiceInput::new(
-            stored.question_title,
-            stored.question_description,
             stored.prompt,
             choices,
             "choice_0".to_string(),

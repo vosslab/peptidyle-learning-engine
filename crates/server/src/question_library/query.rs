@@ -1,25 +1,25 @@
 //! Strict HTTP transport and trusted normalization for Library search.
 use axum::http::StatusCode;
 use question_model::{
-    BloomCognitiveProcess, BloomKnowledgeDimension, Capability, QuestionBackend,
-    QuestionSearchAuthorship, QuestionSearchRequest, QuestionSearchSort,
+    BloomCognitiveProcess, BloomKnowledgeDimension, Capability, LibraryObjectSearchRequest,
+    LibraryObjectSearchSort, QuestionBackend, QuestionSearchAuthorship,
 };
 use serde::Deserialize;
 
 use super::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
-/// URL form of the current Question Search request.
+/// URL form of the current Library Object Search request.
 ///
 /// The model's transport form intentionally has no defaults because saved
 /// searches must record every field. HTTP uses defaults for omitted filters,
 /// then immediately constructs the same strict model value.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct QuestionSearchQuery {
+pub(super) struct LibraryObjectSearchQuery {
     #[serde(default)]
     kind: question_model::LibrarySearchKind,
     #[serde(default)]
-    membership: question_model::LibraryQuestionMembership,
+    questions: question_model::PublishedQuestionFilter,
     #[serde(default)]
     owner_account_id: Option<question_model::AccountId>,
     #[serde(default)]
@@ -57,19 +57,19 @@ pub(super) struct QuestionSearchQuery {
     #[serde(default)]
     authorship: QuestionSearchAuthorship,
     #[serde(default)]
-    sort: QuestionSearchSort,
+    sort: LibraryObjectSearchSort,
     #[serde(default)]
     cursor: Option<String>,
     #[serde(default)]
     page_size: Option<u16>,
 }
 
-impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
+impl TryFrom<LibraryObjectSearchQuery> for LibraryObjectSearchRequest {
     type Error = (StatusCode, &'static str);
 
     /// ASVS 2.2.1 and 2.2.2: applies the model's positive limits and
     /// normalization again at the trusted service boundary.
-    fn try_from(query: QuestionSearchQuery) -> Result<Self, Self::Error> {
+    fn try_from(query: LibraryObjectSearchQuery) -> Result<Self, Self::Error> {
         if query
             .page_size
             .is_some_and(|size| size == 0 || size > MAX_PAGE_SIZE)
@@ -85,9 +85,9 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
                 "Question Library Bloom filter is invalid",
             ));
         }
-        QuestionSearchRequest {
+        LibraryObjectSearchRequest {
             kind: query.kind,
-            membership: query.membership,
+            questions: query.questions,
             owner_account_id: query.owner_account_id,
             text: query.text,
             author_names: query.author_names,

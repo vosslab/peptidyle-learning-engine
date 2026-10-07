@@ -10,36 +10,33 @@ async fn blueprint_pool_members_keep_pool_eligibility_scoped_and_stable() {
     seed_if_needed(&admin).await;
     let application = lazy_pool(&std::env::var("DATABASE_URL").expect("application URL"))
         .expect("application pool");
-    let store = PostgresBlueprintCourseStore::new(application.clone())
-        .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(0))));
+    let store = PostgresBlueprintCourseStore::new(application.clone());
     let created = store
         .create_blueprint_course(
             token(),
             RequestChecksum::from_bytes([0x71; 32]),
             content_input("Scoped Pool eligibility"),
-            Default::default(),
         )
         .await
-        .expect("create Blueprint with imported Pool");
-    let blueprint_id = created.blueprint_revision_tuple.blueprint_course_id;
+        .expect("create Blueprint with ordinary Pool ID");
+    let blueprint_id = created.blueprint_course_revision_tuple.blueprint_course_id;
     let loaded = store
         .load_blueprint_course(token(), blueprint_id.clone())
         .await
         .expect("load Blueprint content");
     let assessment = &loaded.content.modules[0].assessments[0];
-    let (pool_id, _) = assessment
+    let pool_id = assessment
         .content
         .entries
         .iter()
         .find_map(|entry| match entry {
             learning_data_access::StoredBlueprintAssessmentEntry::Pool {
-                question_pool_id,
-                question_pool_edit_number,
-                ..
-            } => Some((question_pool_id.clone(), *question_pool_edit_number)),
+                question_pool_id, ..
+            } => Some(question_pool_id.clone()),
             learning_data_access::StoredBlueprintAssessmentEntry::Fixed { .. } => None,
         })
-        .expect("imported Blueprint Pool");
+        .expect("ordinary Blueprint Pool reference");
+    assert_eq!(pool_id.as_str(), QUESTION_POOL);
     let first = store
         .load_blueprint_pool_members(
             token(),
@@ -85,8 +82,8 @@ async fn blueprint_pool_members_keep_pool_eligibility_scoped_and_stable() {
     .await
     .expect("reclassified Question Subject Discipline");
     sqlx::query(
-        "UPDATE ple_data.published_question_metadata \
-         SET content_subject_id = $1 WHERE published_question_id = $2",
+        "UPDATE ple_data.question_revision_metadata \
+         SET content_subject_id = $1 WHERE published_question_id = $2 AND revision_number = 1",
     )
     .bind(id(0xcc03))
     .bind(QUESTION)

@@ -2,22 +2,17 @@
 
 //! Connected PostgreSQL oracle for immutable Blueprint Revision persistence.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
-};
-
 use learning_data_access::postgres::{
-    PostgresBlueprintCourseStore, PostgresCourseInstanceStore, PostgresLiveAssessmentStore,
-    PostgresQuestionLibraryStore, lazy_pool,
+    PostgresBlueprintCourseStore, PostgresBlueprintLineageStore, PostgresCourseInstanceStore,
+    PostgresCourseThemeStore, PostgresLiveAssessmentStore, PostgresQuestionLibraryStore, lazy_pool,
 };
 use learning_data_access::{
-    ApplyAssessmentBlueprintUpdateInput, BlueprintCourseStore, CourseInstanceCreationSource,
-    CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput,
-    LiveAssessmentStore, QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
-    QuestionLibrarySearchRequest, QuestionLibrarySearchSort, QuestionLibraryStore,
-    QuestionLibraryTextField, QuestionLibraryTextTerm, SessionTokenHash, StoreError,
-    StoredBlueprintCourseContent,
+    ApplyAssessmentBlueprintUpdateInput, BlueprintCourseStore, BlueprintForkSource,
+    BlueprintLineageStore, CourseInstanceCreationSource, CourseInstanceStore, CourseThemeStore,
+    CreateCourseInstanceInput, LiveAssessmentStore, QuestionLibraryBackendRestriction,
+    QuestionLibrarySearchCursorPosition, QuestionLibrarySearchRequest, QuestionLibrarySearchSort,
+    QuestionLibraryStore, QuestionLibraryTextField, QuestionLibraryTextTerm, SessionTokenHash,
+    StoreError, StoredBlueprintCourseContent,
 };
 use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
@@ -28,7 +23,7 @@ use question_model::{
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId,
     QuestionRevisionNumber, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
-    RequestChecksum, ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
+    RequestChecksum, ReusableFixedQuestionInput, StudentFeedbackReleaseRule, Theme,
 };
 use sqlx::{Connection, PgConnection, Row};
 use tokio::sync::oneshot;
@@ -62,5 +57,20 @@ mod blueprint_course_postgres_question_library_import;
 #[path = "blueprint_course_postgres/question_library_stewardship.rs"]
 mod blueprint_course_postgres_question_library_stewardship;
 
+#[path = "blueprint_course_postgres/question_revision_metadata.rs"]
+mod blueprint_course_postgres_question_revision_metadata;
+
+#[path = "blueprint_course_postgres/sysadmin_correction_publication.rs"]
+mod blueprint_course_postgres_sysadmin_correction_publication;
+
+#[path = "blueprint_course_postgres/question_fork_parents.rs"]
+mod blueprint_course_postgres_question_fork_parents;
+
 #[path = "blueprint_course_postgres/blueprint_pool_members.rs"]
 mod blueprint_course_postgres_pool_members;
+
+#[path = "blueprint_course_postgres/lineage_fork.rs"]
+mod blueprint_course_postgres_lineage_fork;
+
+#[path = "blueprint_course_postgres/course_publication_pool_reference.rs"]
+mod blueprint_course_postgres_course_publication_pool_reference;

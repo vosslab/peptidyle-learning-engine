@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 struct MixedFixture {
     pool_id: String,
+    second_pool_id: String,
     fork_pool_id: String,
 }
 
@@ -17,11 +18,13 @@ async fn insert_pool(
     sqlx::query(
         "INSERT INTO ple_data.question_pool (question_pool_id, owner_account_id, question_pool_edit_number, \
          question_pool_metadata_edit_number, question_type, backend, license, title, description, \
-         content_discipline_id, content_subject_id, tags, source_question_pool_id, \
-         interchangeability_attested_by_account_id, interchangeability_attested_at, created_at) \
+         content_discipline_id, content_subject_id, tags, source_question_pool_id, created_at, \
+         bloom_cognitive_process, bloom_knowledge_dimension) \
          VALUES ($1, $2, 1, 1, 'multipleChoice', 'ple', 'CC-BY-4.0', $3, \
-                 'Pool own tied description', $4, $5, ARRAY['p1 metadata tag'], $6, $2, \
-                 '2026-09-25 12:00:00+00'::timestamptz, '2026-09-25 12:00:00+00'::timestamptz)",
+                 'Pool own tied description', $4, $5, ARRAY['p1 metadata tag'], $6, \
+                 '2026-09-25 12:00:00+00'::timestamptz, \
+                 $7::ple_data.bloom_cognitive_process, \
+                 $8::ple_data.bloom_knowledge_dimension)",
     )
     .bind(pool_id)
     .bind(instructor_account_id())
@@ -29,40 +32,33 @@ async fn insert_pool(
     .bind(id(0xcc01))
     .bind(id(0xcc02))
     .bind(source_pool_id)
+    .bind(question_id.map(|_| "Remember"))
+    .bind(question_id.map(|_| "Factual Knowledge"))
     .execute(&mut **transaction)
     .await
     .expect("mixed Pool");
     if let Some(question_id) = question_id {
         sqlx::query(
-            "INSERT INTO ple_data.question_pool_member (question_pool_id, member_position, \
+            "INSERT INTO ple_data.question_pool_member (question_pool_id, \
              published_question_id, question_revision_number, created_at) \
-             VALUES ($1, 1, $2, 1, '2026-09-25 12:00:00+00'::timestamptz)",
+             VALUES ($1, $2, 1, '2026-09-25 12:00:00+00'::timestamptz)",
         )
         .bind(pool_id)
         .bind(question_id)
         .execute(&mut **transaction)
         .await
         .expect("mixed Pool member");
-        sqlx::query(
-            "INSERT INTO ple_data.question_pool_bloom (question_pool_id, cognitive_process, \
-             knowledge_dimension, classification_edit_number) \
-             VALUES ($1, 'Remember', 'Factual Knowledge', 1)",
-        )
-        .bind(pool_id)
-        .execute(&mut **transaction)
-        .await
-        .expect("mixed Pool Bloom");
     }
 }
 
-async fn insert_mixed_fixture(
-    admin: &sqlx::postgres::PgPool,
-    application: &sqlx::postgres::PgPool,
-) -> MixedFixture {
+async fn insert_mixed_fixture(admin: &sqlx::postgres::PgPool) -> MixedFixture {
     let pool_id = question_model::QuestionPoolId::from_random_identifier("P100001")
         .expect("Pool fixture ID")
         .to_string();
-    let fork_pool_id = question_model::QuestionPoolId::from_random_identifier("P100002")
+    let second_pool_id = question_model::QuestionPoolId::from_random_identifier("P100002")
+        .expect("second Pool fixture ID")
+        .to_string();
+    let fork_pool_id = question_model::QuestionPoolId::from_random_identifier("P100003")
         .expect("fork Pool fixture ID")
         .to_string();
     let questions = fixture_question_ids();
@@ -72,86 +68,26 @@ async fn insert_mixed_fixture(
         .await
         .expect("Pool data owner");
     insert_pool(&mut transaction, &pool_id, None, Some(&questions[0])).await;
-    transaction.commit().await.expect("mixed Pool commit");
-    insert_assessment_pool_fork(application, &pool_id, &fork_pool_id).await;
-    let mut transaction = admin.begin().await.expect("fork sort-time transaction");
-    sqlx::query("SET LOCAL ROLE ple_data_owner")
-        .execute(&mut *transaction)
-        .await
-        .expect("fork sort-time owner");
-    sqlx::query(
-        "UPDATE ple_data.question_pool_member SET published_question_id = $2 \
-         WHERE question_pool_id = $1",
+    insert_pool(&mut transaction, &second_pool_id, None, Some(&questions[1])).await;
+    insert_pool(
+        &mut transaction,
+        &fork_pool_id,
+        Some(&pool_id),
+        Some(&questions[2]),
     )
-    .bind(&fork_pool_id)
-    .bind(&questions[1])
-    .execute(&mut *transaction)
-    .await
-    .expect("Question whose only membership is the Assessment fork");
-    transaction.commit().await.expect("fork sort-time commit");
+    .await;
+    transaction.commit().await.expect("mixed Pool commit");
     MixedFixture {
         pool_id,
+        second_pool_id,
         fork_pool_id,
     }
-}
-
-async fn insert_assessment_pool_fork(
-    application: &sqlx::postgres::PgPool,
-    source_pool_id: &str,
-    fork_pool_id: &str,
-) {
-    let mut transaction = application
-        .begin()
-        .await
-        .expect("Assessment Pool fixture transaction");
-    authenticate_application_transaction(&mut transaction).await;
-    let course_id = "CI0000000Y";
-    let course_id = sqlx::query_scalar::<_, String>(
-        "SELECT course_instance_id FROM ple_api.create_course_instance(         $1, $2, $3, $4, 'empty', NULL, NULL, 'M10-C', 'M10 Pool Course',          current_date, current_date + 1, NULL, '[]'::jsonb,          '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
-    )
-    .bind(course_id)
-    .bind(id(0xa101))
-    .bind(id(0xa102))
-    .bind(id(0xa103))
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("Assessment Pool fixture Course");
-    transaction.commit().await.expect("Course fixture commit");
-    let mut transaction = application
-        .begin()
-        .await
-        .expect("Assessment fixture transaction");
-    authenticate_application_transaction(&mut transaction).await;
-    let assessment_id = question_model::AssessmentId::from_debug_serial(0xa105).to_string();
-    sqlx::query(
-        "SELECT assessment_id FROM ple_api.create_assessment($1, $2,          'regular_assignment', 'M10 Pool Assessment', 'Fixture instructions')",
-    )
-    .bind(&assessment_id)
-    .bind(&course_id)
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("Assessment Pool fixture Assessment");
-    sqlx::query(
-        "SELECT assessment_entry_id FROM ple_api.import_assessment_question_pool_fork_for_ids(         $1, $2, $3, 1, $4, $5, 1, 0, 1, 1::numeric, 'question_pool_order', 'normal')",
-    )
-    .bind(&course_id)
-    .bind(&assessment_id)
-    .bind(id(0xa104))
-    .bind(fork_pool_id)
-    .bind(source_pool_id)
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("actual Assessment-owned Pool fork");
-    transaction
-        .commit()
-        .await
-        .expect("Assessment Pool fixture commit");
 }
 
 fn mixed_request() -> QuestionLibrarySearchRequest {
     QuestionLibrarySearchRequest {
         kind: question_model::LibrarySearchKind::Both,
-        membership: question_model::LibraryQuestionMembership::All,
+        questions: question_model::PublishedQuestionFilter::All,
         text_terms: vec![QuestionLibraryTextTerm {
             field: QuestionLibraryTextField::Any,
             value: "p1 tied".to_owned(),
@@ -192,46 +128,92 @@ async fn collect_ids(
     panic!("mixed Library cursor did not exhaust within 20 pages");
 }
 
-#[tokio::test]
-#[ignore = "requires the disposable PostgreSQL acceptance runtime"]
-async fn question_library_mixed_matrix_in_postgresql() {
-    let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
-    let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
-    super::super::blueprint_course_postgres_support::seed_if_needed(&admin).await;
-    insert_question_library_rows(&admin).await;
-    let application = lazy_pool(&std::env::var("DATABASE_URL").expect("application database URL"))
-        .expect("application pool");
-    let fixture = insert_mixed_fixture(&admin, &application).await;
-    let store = PostgresQuestionLibraryStore::new(application.clone());
+pub(super) async fn assert_mixed_search_matrix(
+    admin: &sqlx::postgres::PgPool,
+    store: &PostgresQuestionLibraryStore,
+) {
+    let fixture = insert_mixed_fixture(admin).await;
     let question_ids = fixture_question_ids();
 
-    let mixed_ids = collect_ids(&store, mixed_request()).await;
+    let mixed_ids = collect_ids(store, mixed_request()).await;
     assert!(mixed_ids.contains(&question_ids[0]));
+    assert!(mixed_ids.contains(&question_ids[1]));
+    assert!(mixed_ids.contains(&question_ids[2]));
     assert!(mixed_ids.contains(&fixture.pool_id));
+    assert!(mixed_ids.contains(&fixture.second_pool_id));
     assert!(mixed_ids.contains(&fixture.fork_pool_id));
 
+    let mixed_page = store
+        .search_published_question_library_entries(token(), mixed_request())
+        .await
+        .expect("mixed categories and facets");
+    assert_eq!(
+        mixed_page.facets.categories,
+        question_model::LibrarySearchCategoryCounts {
+            questions_in_no_pool: (FIXTURE_ROWS - 3) as u64,
+            questions_in_pool: 3,
+            pools: 3,
+        },
+        "category counts apply domain filters before kind, Questions in no Pool, and paging"
+    );
+    assert_eq!(
+        mixed_page.facets.question_types[0].count,
+        (FIXTURE_ROWS + 3) as u64,
+        "Type facets count both Library Object kinds before cursor paging"
+    );
+
     let no_pool_ids = collect_ids(
-        &store,
+        store,
         QuestionLibrarySearchRequest {
-            membership: question_model::LibraryQuestionMembership::NoPool,
+            questions: question_model::PublishedQuestionFilter::InNoPool,
             ..mixed_request()
         },
     )
     .await;
     assert!(no_pool_ids.contains(&fixture.pool_id));
+    assert!(no_pool_ids.contains(&fixture.second_pool_id));
+    assert!(no_pool_ids.contains(&fixture.fork_pool_id));
     assert!(!no_pool_ids.contains(&question_ids[0]));
+    assert!(!no_pool_ids.contains(&question_ids[1]));
+    assert!(!no_pool_ids.contains(&question_ids[2]));
+
+    let no_pool_page = store
+        .search_published_question_library_entries(
+            token(),
+            QuestionLibrarySearchRequest {
+                questions: question_model::PublishedQuestionFilter::InNoPool,
+                ..mixed_request()
+            },
+        )
+        .await
+        .expect("Questions in no Pool page");
+    assert_eq!(
+        no_pool_page.facets.categories, mixed_page.facets.categories,
+        "category counts stay before Questions in no Pool selection"
+    );
+    assert_eq!(
+        no_pool_page.facets.question_types[0].count,
+        (FIXTURE_ROWS) as u64,
+        "facets count filtered rows including Pools, before cursor paging"
+    );
 
     let pools_only = collect_ids(
-        &store,
+        store,
         QuestionLibrarySearchRequest {
             kind: question_model::LibrarySearchKind::Pools,
             ..mixed_request()
         },
     )
     .await;
+    let mut expected_pools = vec![
+        fixture.pool_id.clone(),
+        fixture.second_pool_id.clone(),
+        fixture.fork_pool_id.clone(),
+    ];
+    expected_pools.sort();
     assert_eq!(
-        pools_only,
-        vec![fixture.pool_id.clone(), fixture.fork_pool_id.clone()]
+        pools_only, expected_pools,
+        "same-title Pools retain global ID ordering, including the fork"
     );
 
     let structured_type = store
@@ -266,10 +248,62 @@ async fn question_library_mixed_matrix_in_postgresql() {
         )
         .await
         .expect("Question Type text search");
-    assert!(type_text.items.iter().all(|item| matches!(
+    assert!(type_text.items.iter().any(|item| matches!(
         item,
         learning_data_access::LibrarySearchEntry::Question { .. }
     )));
+    assert!(
+        type_text
+            .items
+            .iter()
+            .any(|item| matches!(item, learning_data_access::LibrarySearchEntry::Pool { .. }))
+    );
+
+    let negative_author_ids = collect_ids(
+        store,
+        QuestionLibrarySearchRequest {
+            text_terms: vec![QuestionLibraryTextTerm {
+                field: QuestionLibraryTextField::Author,
+                value: "Nobody in this fixture".to_owned(),
+                excluded: true,
+            }],
+            ..mixed_request()
+        },
+    )
+    .await;
+    assert!(negative_author_ids.contains(&fixture.pool_id));
+    assert!(negative_author_ids.contains(&fixture.second_pool_id));
+    assert!(negative_author_ids.contains(&fixture.fork_pool_id));
+
+    let positive_author_ids = collect_ids(
+        store,
+        QuestionLibrarySearchRequest {
+            text_terms: vec![QuestionLibraryTextTerm {
+                field: QuestionLibraryTextField::Author,
+                value: "Nobody in this fixture".to_owned(),
+                excluded: false,
+            }],
+            ..mixed_request()
+        },
+    )
+    .await;
+    assert!(!positive_author_ids.contains(&fixture.pool_id));
+    assert!(!positive_author_ids.contains(&fixture.second_pool_id));
+    assert!(!positive_author_ids.contains(&fixture.fork_pool_id));
+
+    let common_backend = collect_ids(
+        store,
+        QuestionLibrarySearchRequest {
+            backends: QuestionLibraryBackendRestriction::Only(vec![
+                question_model::QuestionBackend::Ple,
+            ]),
+            ..mixed_request()
+        },
+    )
+    .await;
+    assert!(common_backend.contains(&question_ids[0]));
+    assert!(common_backend.contains(&fixture.pool_id));
+    assert!(common_backend.contains(&fixture.fork_pool_id));
 
     assert_eq!(
         store
@@ -300,6 +334,4 @@ async fn question_library_mixed_matrix_in_postgresql() {
             .await,
         Err(StoreError::Forbidden)
     ));
-    application.close().await;
-    admin.close().await;
 }

@@ -24,11 +24,11 @@ REVOKE ALL ON ALL TABLES IN SCHEMA ple_private FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_private.question_source_binding_fields_are_valid(
     ple_data.question_backend, ple_data.question_format, text),
     ple_private.reject_immutable_question_source_change(),
-    ple_private.reject_draft_question_fork_source_change(),
+    ple_private.reject_draft_question_parent_change(),
+    ple_private.reject_draft_question_creation_receipt_change(),
     ple_private.validate_question_revision_source_binding(),
     ple_private.validate_authoring_workspace_collaborator_event(),
     ple_private.reject_authoring_workspace_collaborator_event_change(),
     ple_private.reject_committed_workspace_import_item_result_change(),
     ple_private.validate_draft_question_source_binding_object_record(),
     ple_private.validate_question_revision_source_binding_object_record() FROM PUBLIC;
-

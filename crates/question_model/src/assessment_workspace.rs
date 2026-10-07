@@ -10,8 +10,7 @@ use crate::{
     AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry, AssessmentEntryAvailability,
     AssessmentEntryScoringRule, AssessmentPointValue, AssessmentStatus, AssessmentTitle,
     Capability, InstructorAssessmentAuthoredContentLocal, PublishedQuestionId,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId, QuestionPoolSelectionRule,
-    StudentFeedbackReleaseRule,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId, StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create one stable Assessment.
@@ -114,14 +113,12 @@ pub enum AssessmentEntryRequest {
     },
     /// A server-resolved selection from a pool of immutable questions.
     QuestionPool {
-        /// Public Pool identity. The server resolves its source Revision and mints the
-        /// Assessment-owned fork; the browser supplies neither source pins nor IDs.
+        /// Public ID of an existing reusable Question Pool.
         question_pool_id: QuestionPoolId,
         availability: AssessmentEntryAvailability,
         scoring_rule: AssessmentEntryScoringRule,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
-        selection_rule: QuestionPoolSelectionRule,
         question_attempt_limit: QuestionAttemptLimit,
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
@@ -158,9 +155,8 @@ impl AssessmentReleaseValidation {
         let has_deliverable_question_pool = entries.iter().any(|entry| match entry {
             AssessmentEntry::QuestionPool(pool) => {
                 pool.availability == AssessmentEntryAvailability::Available
-                    // The fork Revision's members are immutable Pool-owned data. The
-                    // persistence boundary verifies that it can satisfy this entry's
-                    // positive selection count before release.
+                    // Before release, persistence checks the current referenced Pool
+                    // contains enough Published Questions for this selection count.
                     && pool.selection_count.get() > 0
             }
             AssessmentEntry::FixedQuestion(_) => false,
@@ -257,12 +253,12 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssessmentContentRequest>(
-            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionPoolId":"7K3M-79QP","availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}]}"#,
+            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionPoolId":"7K3M-79QP","availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(
             serde_json::from_str::<ReplaceAssessmentContentRequest>(
-                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3M-79QP"],"selectionCount":1,"pointsPerItem":"1","selectedQuestionOrder":"questionPoolOrder"}]}"#,
+                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3M-79QP"],"selectionCount":1,"pointsPerItem":"1"}]}"#,
             )
             .is_err()
         );
@@ -271,6 +267,7 @@ mod tests {
             base_edit_number: "1".parse().expect("edit number"),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
+                partial_credit_enabled: false,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -289,6 +286,10 @@ mod tests {
         let record = value.as_object().expect("policy request object");
         assert!(record.contains_key("baseEditNumber"));
         assert!(record.contains_key("studentFeedbackReleaseRule"));
+        assert_eq!(
+            record["policies"]["partialCreditEnabled"],
+            serde_json::Value::Bool(false)
+        );
         assert!(record.contains_key("assessmentAuthoredContent"));
         assert_eq!(
             serde_json::from_value::<ReplaceAssessmentPoliciesRequest>(value.clone())

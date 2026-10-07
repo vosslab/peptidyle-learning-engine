@@ -56,6 +56,7 @@ pub(super) fn blueprint_input(
         classification,
         short_name: manifest.course.short_name.clone(),
         long_name: manifest.course.long_name.clone(),
+        theme: question_model::Theme::default(),
         modules: vec![CreateBlueprintModuleInput {
             label: manifest.course.module_label.clone(),
             assessments,

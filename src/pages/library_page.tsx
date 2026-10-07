@@ -4,12 +4,13 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { Show, createEffect, createSignal, type JSX } from "solid-js";
 
 import { LibraryBloomDiscovery } from "../components/library_bloom_discovery";
+import { createLibraryBulkActions, LibraryBulkActions } from "./library_bulk_actions";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
-import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import type { QuestionPoolSearchMetadataClient } from "../api/question_pool_search_metadata";
+import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { useSessionBootstrap } from "../auth/session_context";
 import "./library_page.css";
 import { createSearchState } from "../features/search/search_state";
@@ -19,7 +20,6 @@ import { SearchPage } from "../features/search/search_page";
 import { questionLibrarySearchDefinition } from "./question_library_search_definition";
 import { LibraryBrowseControls } from "./library_browse_controls";
 import { LibrarySearchFilters } from "./library_search_filters";
-import { createLibraryBulkActions, LibraryBulkActions } from "./library_bulk_actions";
 import { questionTypeLabel } from "./library_page_helpers";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
 import {
@@ -42,9 +42,9 @@ export interface LibraryPageProps {
   readonly mode: "search" | "browse";
   readonly repository: QuestionLibraryBrowseRepository;
   readonly metadataClient: QuestionBulkMetadataClient;
+  readonly poolMetadataClient: QuestionPoolSearchMetadataClient;
   readonly classificationClient: import("../api/content_classification").ContentClassificationClient;
   readonly questionPoolClient: QuestionPoolCreationClient;
-  readonly poolMetadataClient: QuestionPoolSearchMetadataClient;
   readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
 }
 
@@ -336,7 +336,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               questionPoolClient={props.questionPoolClient}
               questionLibrary={props.repository}
               getQuestionDetails={props.getQuestionDetails}
-              getCurrentQuestionBulkMetadata={props.metadataClient.getCurrentQuestionBulkMetadata}
+              getCurrentQuestionSharedMetadata={
+                props.metadataClient.getCurrentQuestionSharedMetadata
+              }
               onTaskPhaseChange={setQuestionPoolTaskActive}
               onClose={() => {
                 setQuestionPoolTaskActive(false);

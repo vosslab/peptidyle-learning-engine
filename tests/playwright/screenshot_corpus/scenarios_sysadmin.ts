@@ -7,7 +7,7 @@ import type { Locator, Page } from "playwright";
 import { isCanonicalAccountId } from "../../../src/api/decoders/instructor_account";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
-import { enterSysadmin, scrollTop } from "./visible_workflows";
+import { enterSysadmin, followCaptureLink, scrollTop } from "./visible_workflows";
 
 // Unique per run so replays on the same stack can create a fresh Account.
 const CREATED_EMAIL = `screenshot.instructor.${String(Date.now())}@live-demo.invalid`;
@@ -26,6 +26,50 @@ async function sysadminCourses(runtime: ScenarioRuntime): Promise<void> {
   try {
     await enterSysadmin(session.page);
     await captureCheckpoint(runtime, "course_list", session);
+  } finally {
+    await runtime.close(session);
+  }
+}
+
+async function sysadminStudentDataConfirmation(runtime: ScenarioRuntime): Promise<void> {
+  const session = await runtime.open("student_data_confirmation");
+  const page = session.page;
+  try {
+    await enterSysadmin(page);
+    await page.getByRole("link", { name: "Find Courses", exact: true }).click();
+    await page.getByRole("heading", { name: "Courses", exact: true }).waitFor();
+    const courseLink = page
+      .getByRole("listitem")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "Biochemistry 301: Proteins and Peptides",
+          exact: true,
+        }),
+      })
+      .getByRole("link", { name: "Inspect", exact: true });
+    await followCaptureLink(page, courseLink);
+    await page
+      .getByRole("heading", { name: "Access one Student roster record", exact: true })
+      .waitFor();
+
+    const studentDataRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/student-data")) studentDataRequests.push(request.method());
+    });
+    await page.getByLabel("Student roster ID", { exact: true }).fill("screenshot-preview-only");
+    await page
+      .getByLabel("I confirm this access is needed for administrative work.", { exact: true })
+      .check();
+    await captureCheckpoint(runtime, "student_data_confirmation", session);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    if (studentDataRequests.length !== 0) {
+      throw new Error(
+        "Cancel issued a Student-data request before Sysadmin confirmation submission.",
+      );
+    }
+    if ((await page.getByLabel("Student roster ID", { exact: true }).inputValue()) !== "") {
+      throw new Error("Cancel did not clear the pending Student-data lookup.");
+    }
   } finally {
     await runtime.close(session);
   }
@@ -120,6 +164,36 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
 }
 
 export const SYSADMIN_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
+  {
+    id: "sysadmin_student_data_confirmation",
+    role: "sysadmin",
+    captures: [
+      {
+        checkpoint: "student_data_confirmation",
+        area: "student records",
+        workflow: "student data access confirmation",
+        state: "administrative work confirmation before access",
+        viewport: "laptop",
+        privacyProfile: "sysadmin_scoped_roster",
+        caption: "Sysadmin confirms an administrative need before accessing one Student record",
+      },
+    ],
+    viewportCoverage: viewportCoverage(["laptop"], {
+      tablet: {
+        target: "student_data_confirmation",
+        reason: "The laptop capture is the representative for this focused confirmation state.",
+      },
+      phone: {
+        target: "student_data_confirmation",
+        reason: "The laptop capture is the representative for this focused confirmation state.",
+      },
+      square: {
+        target: "student_data_confirmation",
+        reason: "The laptop capture is the representative for this focused confirmation state.",
+      },
+    }),
+    run: sysadminStudentDataConfirmation,
+  },
   {
     id: "sysadmin_courses",
     role: "sysadmin",

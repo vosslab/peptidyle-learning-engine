@@ -4,7 +4,6 @@ mod application;
 mod curriculum_content;
 mod database;
 mod database_coordinator;
-mod fixtures;
 mod installation_data;
 mod installation_data_activity;
 mod installation_data_blueprint;

@@ -44,21 +44,20 @@ export interface QuestionPoolCreateDialogProps {
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
   readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
-  readonly getCurrentQuestionBulkMetadata: QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"];
+  readonly getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"];
   /** Exact Published Question that fixes source-bound Pool membership and classification. */
   readonly startingQuestion?: QuestionPoolStartingQuestion;
   readonly onTaskPhaseChange: (active: boolean) => void;
   readonly onClose: () => void;
 }
 
-/** Keeps ordered picker selection local until the Instructor explicitly attests and creates. */
+/** Keeps the exact tuple set local until the Instructor creates the Pool. */
 export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): JSX.Element {
   const sourceBound = props.startingQuestion !== undefined;
   const [state, setState] = createSignal<CreationState>(sourceBound ? "reviewing" : "choosing");
   const [selection, setSelection] = createSignal<QuestionPickerSelection | undefined>(
     sourceBound ? { questionIds: [], questions: [] } : undefined,
   );
-  const [attested, setAttested] = createSignal(false);
   const [eligibility, setEligibility] = createSignal<QuestionPickerEligibility>();
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
@@ -85,7 +84,6 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
   });
 
   async function chooseAgain(): Promise<void> {
-    setAttested(false);
     setError(undefined);
     try {
       const startingQuestion = props.startingQuestion;
@@ -93,7 +91,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
         setEligibility(
           await questionPoolStartingEligibility(
             startingQuestion,
-            props.getCurrentQuestionBulkMetadata,
+            props.getCurrentQuestionSharedMetadata,
           ),
         );
       }
@@ -123,12 +121,11 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
           await questionPoolEligibilityForQuestion(
             first.questionId,
             props.getQuestionDetails,
-            props.getCurrentQuestionBulkMetadata,
+            props.getCurrentQuestionSharedMetadata,
           ),
         );
       }
       setSelection(next);
-      setAttested(false);
       setError(undefined);
       setState("reviewing");
       props.onTaskPhaseChange(true);
@@ -142,7 +139,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
 
   async function createPool(): Promise<void> {
     const selected = selection();
-    if (selected === undefined || !attested() || state() === "creating") return;
+    if (selected === undefined || state() === "creating") return;
     try {
       decodeQuestionPoolText(trimPoolDraft(title()), "Title", 512);
       decodeQuestionPoolText(trimPoolDraft(description()), "Description", 4000);
@@ -160,7 +157,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
         if (props.startingQuestion !== undefined) {
           currentEligibility = await questionPoolStartingEligibility(
             props.startingQuestion,
-            props.getCurrentQuestionBulkMetadata,
+            props.getCurrentQuestionSharedMetadata,
           );
         } else {
           const first = selected.questions[0];
@@ -170,14 +167,14 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
           currentEligibility = await questionPoolEligibilityForQuestion(
             first.questionId,
             props.getQuestionDetails,
-            props.getCurrentQuestionBulkMetadata,
+            props.getCurrentQuestionSharedMetadata,
           );
         }
       }
       const members = await questionPoolMemberTuples(
         selected,
         props.getQuestionDetails,
-        props.getCurrentQuestionBulkMetadata,
+        props.getCurrentQuestionSharedMetadata,
         currentEligibility,
         props.startingQuestion,
       );
@@ -185,13 +182,12 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
         title: trimPoolDraft(title()),
         description: trimPoolDraft(description()),
         members,
-        interchangeabilityAttested: true,
       });
       setCreatedPool(created);
       setState("created");
     } catch {
       setError(
-        "Question Pool could not be created. Your metadata and ordered selection are still here. Check that every Question has the same Discipline and Subject, then try again.",
+        "Question Pool could not be created. Your metadata and selected Questions are still here. Check that every Question has the same Discipline and Subject, then try again.",
       );
       setState("reviewing");
     }
@@ -218,8 +214,8 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
           }
           instructions={
             props.startingQuestion === undefined
-              ? "Select interchangeable published Questions and arrange their order before you attest to creating a reusable Pool."
-              : `Results begin filtered to ${props.startingQuestion.disciplineName} / ${props.startingQuestion.subjectName}. The starting Question stays first.`
+              ? "Select published Questions for this reusable Pool."
+              : `Results begin filtered to ${props.startingQuestion.disciplineName} / ${props.startingQuestion.subjectName}. The starting Question is already selected.`
           }
           confirmLabel="Review selected Questions"
           trigger={undefined}
@@ -243,12 +239,12 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
             </h1>
             <p class="question-pool-create-introduction">
               {sourceBound
-                ? "The starting Published Question is fixed first. Add interchangeable Questions or create this reusable Pool with its starting Question."
-                : "Review the ordered Questions and describe the reusable Pool. Their current Revisions are resolved when you create it."}
+                ? "The starting Published Question is already selected. Add interchangeable Questions or create this reusable Pool with it."
+                : "Review the selected Question set and describe the reusable Pool. Their current Revisions are resolved when you create it."}
             </p>
             <div class="question-pool-create-review-grid">
               <section aria-labelledby="question-pool-selected-heading">
-                <h3 id="question-pool-selected-heading">Selected Questions in order</h3>
+                <h3 id="question-pool-selected-heading">Selected Questions</h3>
                 <RecordSequence
                   rows={[
                     ...(props.startingQuestion === undefined
@@ -271,7 +267,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                       revisionNumber: question.row.publishedQuestionRevisionTuple.revisionNumber,
                       revisionIsFixed: false,
                     })),
-                  ]}
+                  ].sort((left, right) => left.title.localeCompare(right.title))}
                   content={(member: PoolCreationMember) => ({
                     title: member.title,
                     details: [
@@ -287,7 +283,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   })}
                   recordId={(member) => `${member.publishedQuestionId}:${member.revisionNumber}`}
                   state={{ kind: "ready" }}
-                  ariaLabel="Selected Questions in order"
+                  ariaLabel="Selected Questions sorted by title"
                   emptyState={{ title: "No Questions are selected." }}
                 />
               </section>
@@ -348,17 +344,6 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
               </Show>
             </div>
             <Show when={state() !== "created"}>
-              <label class="question-pool-attestation">
-                <input
-                  type="checkbox"
-                  checked={attested()}
-                  disabled={state() === "creating"}
-                  onChange={(event) => setAttested(event.currentTarget.checked)}
-                />{" "}
-                I attest that these Published Questions assess the same intended learning and can
-                reasonably substitute for one another. This lets PLE select among them without
-                changing what the Pool assesses.
-              </label>
               <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
               <p class="question-pool-create-actions">
                 <button
@@ -373,7 +358,6 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   class="primary-action"
                   type="button"
                   disabled={
-                    !attested() ||
                     trimPoolDraft(title()).length === 0 ||
                     trimPoolDraft(description()).length === 0 ||
                     state() === "creating"

@@ -7,9 +7,8 @@ import {
   decodeRecord,
   decodeSafeInteger,
   decodeStringEnum,
-  decodeUuid,
 } from "../decoder";
-import { decodeQuestionId, field, requireOnlyFields } from "./shared";
+import { decodeLibraryObjectId, field, requireOnlyFields } from "./shared";
 import type {
   LibraryWatchEventKind,
   LibraryWatchNotification,
@@ -24,12 +23,11 @@ const EVENT_KINDS = [
   "revision",
   "membersChanged",
   "fork",
-  "impactNotice",
 ] as const satisfies ReadonlyArray<LibraryWatchEventKind>;
 
-function positiveNullableInteger(value: unknown, path: string): number | null {
-  const parsed = decodeNullable(value, path, decodeSafeInteger);
-  if (parsed !== null && parsed < 1) throw new DecodeError(path, "a positive integer or null");
+function positiveInteger(value: unknown, path: string): number {
+  const parsed = decodeSafeInteger(value, path);
+  if (parsed < 1) throw new DecodeError(path, "a positive integer");
   return parsed;
 }
 
@@ -45,9 +43,9 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
     "targetKind",
     "targetPublicId",
     "eventKind",
-    "revisionNumber",
+    "questionRevisionNumber",
+    "questionPoolEditNumber",
     "forkedPublicId",
-    "activityId",
     "occurredAt",
   ]);
   const eventKind = decodeStringEnum(
@@ -55,19 +53,20 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
     `${path}.eventKind`,
     EVENT_KINDS,
   );
-  const revisionNumber = positiveNullableInteger(
-    field(record, "revisionNumber", path),
-    `${path}.revisionNumber`,
+  const questionRevisionNumber = decodeNullable(
+    field(record, "questionRevisionNumber", path),
+    `${path}.questionRevisionNumber`,
+    positiveInteger,
+  );
+  const questionPoolEditNumber = decodeNullable(
+    field(record, "questionPoolEditNumber", path),
+    `${path}.questionPoolEditNumber`,
+    positiveInteger,
   );
   const forkedPublicId = decodeNullable(
     field(record, "forkedPublicId", path),
     `${path}.forkedPublicId`,
-    decodeQuestionId,
-  );
-  const activityId = decodeNullable(
-    field(record, "activityId", path),
-    `${path}.activityId`,
-    decodeUuid,
+    decodeLibraryObjectId,
   );
   const common = {
     targetKind: decodeStringEnum(
@@ -75,7 +74,7 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
       `${path}.targetKind`,
       TARGET_KINDS,
     ),
-    targetPublicId: decodeQuestionId(
+    targetPublicId: decodeLibraryObjectId(
       field(record, "targetPublicId", path),
       `${path}.targetPublicId`,
     ),
@@ -83,33 +82,72 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
   };
   switch (eventKind) {
     case "revision":
-      if (revisionNumber === null || forkedPublicId !== null || activityId !== null) {
-        throw new DecodeError(path, "a Revision event with Revision evidence only");
+      if (
+        common.targetKind !== "question" ||
+        questionRevisionNumber === null ||
+        questionPoolEditNumber !== null ||
+        forkedPublicId !== null
+      ) {
+        throw new DecodeError(path, "a Question Revision event with Revision evidence only");
       }
-      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+      return {
+        ...common,
+        targetKind: "question",
+        eventKind,
+        questionRevisionNumber,
+        questionPoolEditNumber,
+        forkedPublicId,
+      };
     case "membersChanged":
       if (
         common.targetKind !== "questionPool" ||
-        revisionNumber === null ||
-        forkedPublicId !== null ||
-        activityId !== null
+        questionRevisionNumber !== null ||
+        questionPoolEditNumber === null ||
+        forkedPublicId !== null
       ) {
         throw new DecodeError(path, "a Question Pool membership edit with its Edit Number only");
       }
-      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+      return {
+        ...common,
+        targetKind: "questionPool",
+        eventKind,
+        questionRevisionNumber,
+        questionPoolEditNumber,
+        forkedPublicId,
+      };
     case "fork":
-      if (revisionNumber === null || forkedPublicId === null || activityId !== null) {
-        throw new DecodeError(path, "a fork event with source Revision and fork evidence only");
+      if (forkedPublicId === null) {
+        throw new DecodeError(path, "a fork event with source number and fork evidence");
       }
-      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
-    case "impactNotice":
-      if (forkedPublicId !== null || activityId === null) {
-        throw new DecodeError(
-          path,
-          "an impact-notice event with its notice ID and no fork evidence",
-        );
+      if (
+        common.targetKind === "question" &&
+        questionRevisionNumber !== null &&
+        questionPoolEditNumber === null
+      ) {
+        return {
+          ...common,
+          targetKind: "question",
+          eventKind,
+          questionRevisionNumber,
+          questionPoolEditNumber,
+          forkedPublicId,
+        };
       }
-      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+      if (
+        common.targetKind === "questionPool" &&
+        questionRevisionNumber === null &&
+        questionPoolEditNumber !== null
+      ) {
+        return {
+          ...common,
+          targetKind: "questionPool",
+          eventKind,
+          questionRevisionNumber,
+          questionPoolEditNumber,
+          forkedPublicId,
+        };
+      }
+      throw new DecodeError(path, "a fork event with the source target's number and fork evidence");
   }
 }
 

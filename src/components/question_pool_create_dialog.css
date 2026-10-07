@@ -95,10 +95,6 @@
   overflow-wrap: anywhere;
 }
 
-.question-pool-attestation {
-  max-inline-size: 68rem;
-}
-
 .question-pool-create-actions {
   margin: 0;
 }

@@ -139,10 +139,10 @@ fn storage_selections(
                     "question_pool_id": selection.question_pool_id.as_str(),
                     "question_pool_edit_number": selection.question_pool_edit_number.get(),
                     "selected_items": selection.selected_items.iter().map(|item| {
-                        // PostgreSQL stores Pool member positions one-based;
-                        // the shared contract deliberately exposes them zero-based.
-                        i32::try_from(item.member_position + 1)
-                            .expect("Pool member position fits PostgreSQL INTEGER")
+                        json!({
+                            "published_question_id": item.published_question_revision_tuple.published_question_id.as_str(),
+                            "revision_number": item.published_question_revision_tuple.revision_number.get(),
+                        })
                     }).collect::<Vec<_>>(),
                 })
             })
@@ -163,13 +163,11 @@ fn storage_issued_questions(
             let (
                 assessment_entry,
                 question_pool_selection,
-                pool_member,
                 published_question_revision_tuple,
                 backend,
             ): (
-                _,
+                question_model::AssessmentEntryId,
                 Option<QuestionPoolSelectionId>,
-                _,
                 &PublishedQuestionRevisionTuple,
                 &QuestionBackend,
             ) = match question {
@@ -177,11 +175,10 @@ fn storage_issued_questions(
                     assessment_entry,
                     published_question_revision_tuple,
                     backend,
-                } => (*assessment_entry, None, None, published_question_revision_tuple, backend),
+                } => (*assessment_entry, None, published_question_revision_tuple, backend),
                 PreparedIssuedQuestion::QuestionPoolItem {
                     assessment_entry,
                     question_pool_selection_index,
-                    member_position,
                     published_question_revision_tuple,
                     backend,
                 } => (
@@ -192,7 +189,6 @@ fn storage_issued_questions(
                                 .to_string(),
                         )
                     })?),
-                    Some(*member_position),
                     published_question_revision_tuple,
                     backend,
                 ),
@@ -215,7 +211,7 @@ fn storage_issued_questions(
             let pool_identity = match question {
                 PreparedIssuedQuestion::QuestionPoolItem {
                     question_pool_selection_index,
-                    member_position,
+                    published_question_revision_tuple,
                     ..
                 } => {
                     let selection = start.question_pool_selections.get(*question_pool_selection_index)
@@ -228,7 +224,7 @@ fn storage_issued_questions(
                     Some((
                         &selection.question_pool_id,
                         selection.question_pool_edit_number,
-                        *member_position,
+                        published_question_revision_tuple,
                     ))
                 }
                 PreparedIssuedQuestion::FixedQuestion { .. } => None,
@@ -245,10 +241,6 @@ fn storage_issued_questions(
                 "published_question_id": published_question_revision_tuple.published_question_id.as_str(),
                 "revision_number": published_question_revision_tuple.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
-                "question_pool_member_position": pool_member.map(|member_position| {
-                    i32::try_from(member_position + 1)
-                        .expect("Pool member position fits PostgreSQL INTEGER")
-                }),
                 "question_seed": question_seed,
             }))
         })

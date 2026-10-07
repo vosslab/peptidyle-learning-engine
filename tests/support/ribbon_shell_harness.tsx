@@ -30,8 +30,8 @@ import type {
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { LibrarySearchResult } from "../../generated/api/LibrarySearchResult";
-import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
-import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
+import type { LibraryObjectSearchPage } from "../../generated/api/LibraryObjectSearchPage";
+import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
 import {
   BLOOM_COGNITIVE_PROCESSES,
   BLOOM_KNOWLEDGE_DIMENSIONS,
@@ -40,6 +40,7 @@ import type {
   QuestionBulkMetadataClient,
   QuestionBulkMetadataUpdateRequest,
 } from "../../src/api/question_bulk_metadata";
+import type { QuestionPoolSearchMetadataClient } from "../../src/api/question_pool_search_metadata";
 import type { UserRole } from "../../generated/api/UserRole";
 import { routeContractForPathname, type RouteId } from "../../src/route_contract";
 import { InstalledWasmFacadeProvider } from "../../src/wasm/context";
@@ -164,6 +165,7 @@ function inspectionQuestionDetails(): QuestionDetails {
     summary: {
       questionId: publishedQuestionId,
       publishedQuestionRevisionTuple,
+      parentPublishedQuestionRevisionTuple: null,
       backend: "ple",
       questionFormat: "pleQuestionJson",
       questionType: "fillInBlank",
@@ -215,6 +217,7 @@ function pickerQuestion(questionId: string, title: string): PickerQuestionResult
       summary: {
         questionId,
         publishedQuestionRevisionTuple: { publishedQuestionId: questionId, revisionNumber: 1 },
+        parentPublishedQuestionRevisionTuple: null,
         backend: "ple",
         questionFormat: "pleQuestionJson",
         questionType: "multipleChoice",
@@ -241,8 +244,8 @@ function pickerQuestion(questionId: string, title: string): PickerQuestionResult
 
 /** Local Pool-picker inputs: one selected Question and one existing Pool member. */
 function pickerQuestionLibraryPage(
-  query: Pick<QuestionSearchRequest, "kind" | "membership">,
-): QuestionSearchPage {
+  query: Pick<LibraryObjectSearchRequest, "kind" | "questions">,
+): LibraryObjectSearchPage {
   const questions = [
     pickerQuestion(PICKER_ANCHOR_QUESTION_ID, "Protein structure anchor Question"),
     pickerQuestion(PICKER_POOLED_QUESTION_ID, "Protein structure pooled Question"),
@@ -267,12 +270,14 @@ function pickerQuestionLibraryPage(
         topicUuid: null,
         subtopicUuid: null,
         tags: ["protein"],
+        bloomCognitiveProcess: null,
+        bloomKnowledgeDimension: null,
       },
       memberCount: 1,
       bloom: null,
     },
   };
-  const questionItems = query.membership === "noPool" ? questions.slice(0, 1) : questions;
+  const questionItems = query.questions === "inNoPool" ? questions.slice(0, 1) : questions;
   return {
     items: [
       ...(query.kind === "pools" ? [] : questionItems),
@@ -335,6 +340,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
   readonly seedAuthoringClassification: () => void;
   readonly vocabularyWrites: () => readonly string[];
 } {
+  const questionSummary = inspectionQuestionDetails().summary;
   const courses: CursorPage<CourseSummary> = { items: [], nextCursor: null };
   const assessments: CursorPage<StudentAssessmentLandingSummary> = {
     items: [],
@@ -598,24 +604,29 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     },
     downloadCourseGradebook: (): Promise<Blob> =>
       Promise.resolve(new Blob(["roster_id\n"], { type: "text/csv" })),
-    searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> => {
+    searchLibraryObjects: (query: LibraryObjectSearchRequest): Promise<LibraryObjectSearchPage> => {
       return Promise.resolve(pickerQuestionLibraryPage(query));
     },
     getQuestionDetails: (
       questionId: Parameters<OrdinaryBrowserApiClient["getQuestionDetails"]>[0],
     ): Promise<QuestionDetails> => Promise.resolve(pickerQuestionDetails(questionId)),
-    getCurrentQuestionBulkMetadata: (
-      questionIds: Parameters<QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"]>[0],
-    ): ReturnType<QuestionBulkMetadataClient["getCurrentQuestionBulkMetadata"]> =>
+    getCurrentQuestionSharedMetadata: (
+      questionIds: Parameters<QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"]>[0],
+    ): ReturnType<QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"]> =>
       Promise.resolve(
         questionIds.map((questionId) => ({
           questionId,
           metadataEditNumber: 1,
+          questionTitle: questionSummary.metadata.questionTitle,
+          questionDescription: questionSummary.metadata.questionDescription,
+          questionType: questionSummary.questionType,
           tags: ["protein"],
           disciplineUuid: "00000000-0000-0000-0000-000000000001",
           subjectUuid: "00000000-0000-0000-0000-000000000002",
           topicUuid: null,
           subtopicUuid: null,
+          bloomCognitiveProcess: null,
+          bloomKnowledgeDimension: null,
         })),
       ),
     updateQuestionBulkMetadata: (
@@ -627,11 +638,21 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
           metadataEditNumber: item.metadataEditNumber + 1,
         })),
       ),
+    updateQuestionPoolSearchMetadata: (
+      request: Parameters<QuestionPoolSearchMetadataClient["updateQuestionPoolSearchMetadata"]>[0],
+    ): ReturnType<QuestionPoolSearchMetadataClient["updateQuestionPoolSearchMetadata"]> =>
+      Promise.resolve(
+        request.selection.map((item) => ({
+          questionPoolId: item.questionPoolId,
+          questionPoolMetadataEditNumber: item.questionPoolMetadataEditNumber + 1,
+        })),
+      ),
     resolveQuestion: (): Promise<unknown> => Promise.resolve(inspectionQuestionDetails().summary),
     getQuestionLineage: (): Promise<unknown> =>
       Promise.resolve({
         summary: inspectionQuestionDetails().summary,
         viewerMayArchive: true,
+        viewerMayEditMetadata: true,
         questionAvailabilityEditNumber: "1",
       }),
     getQuestionStar: (): Promise<unknown> =>
@@ -755,7 +776,7 @@ function productFixture(selectedTab: "courses" | "questions" | "productAssessmen
   const source = M6_RIBBON_FIXTURES.productInstructor;
   const taskAreas: ReadonlyArray<RibbonTaskAreaModel> =
     selectedTab === "questions"
-      ? withSelectedTaskControl(source.taskAreas, "searchQuestionLibrary")
+      ? withSelectedTaskControl(source.taskAreas, "searchLibraryObjects")
       : [
           {
             id: selectedTab === "courses" ? "instructorCourses" : "instructorAssessments",

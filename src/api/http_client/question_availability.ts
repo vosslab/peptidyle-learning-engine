@@ -6,10 +6,12 @@ import type { PublishedQuestionRevisionTuple } from "../../../generated/api/Publ
 import type { ApiClient } from "../client";
 import type {
   LoadedQuestionLineage,
+  QuestionCorrectionDraft,
   QuestionAvailabilityClient,
   QuestionAvailabilityTransition,
 } from "../question_availability";
 import type { QuestionAvailabilityEditNumber } from "../../../generated/api/QuestionAvailabilityEditNumber";
+import { parseDraftQuestionId } from "../../navigation/public_route";
 import {
   assertResponseMatchesPositiveNumber,
   ifMatchHeaderForPositiveNumber,
@@ -20,6 +22,7 @@ import {
   decodeQuestionLineageView,
 } from "../decoders/question_availability";
 import { decodeQuestionDetails } from "../decoders/question_library";
+import { decodePublishedQuestionRevisionTuple } from "../decoders/shared";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { encodedId, requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -106,6 +109,28 @@ function availabilityTransition(
   return body;
 }
 
+function decodeCorrectionDraft(value: unknown, path = "response"): QuestionCorrectionDraft {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new ApiProtocolError(`API response ${path} is not a correction Draft`);
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).length !== 2 ||
+    !Object.prototype.hasOwnProperty.call(record, "draftQuestion") ||
+    !Object.prototype.hasOwnProperty.call(record, "publishedQuestionRevisionTuple")
+  )
+    throw new ApiProtocolError(`API response ${path} has unexpected correction Draft fields`);
+  const draftQuestion = record.draftQuestion;
+  if (typeof draftQuestion !== "string" || parseDraftQuestionId(draftQuestion) === null)
+    throw new ApiProtocolError(`API response ${path} has an invalid correction Draft ID`);
+  return {
+    draftQuestion: parseDraftQuestionId(draftQuestion)!,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      record.publishedQuestionRevisionTuple,
+      `${path}.publishedQuestionRevisionTuple`,
+    ),
+  };
+}
+
 /** Composes Question availability independently from ordinary Question Library search. */
 export function createQuestionAvailabilityClient(
   fetchImplementation: ApiFetch,
@@ -120,13 +145,14 @@ export function createQuestionAvailabilityClient(
         path,
         decodeQuestionLineageView,
       );
-      const { summary, viewerMayArchive } = result.body;
+      const { summary, viewerMayArchive, viewerMayEditMetadata } = result.body;
       if (summary.questionId !== questionId) {
         throw new ApiProtocolError(`API response ${path} does not match its Question lineage`);
       }
       return {
         summary,
         viewerMayArchive,
+        viewerMayEditMetadata,
         questionAvailabilityEditNumber: questionAvailabilityEditNumberFromResponse(
           result.response,
           path,
@@ -137,6 +163,28 @@ export function createQuestionAvailabilityClient(
       const path = exactRevisionPath(publishedQuestionRevisionTuple);
       const result = await questionJson(fetchImplementation, basePath, path, decodeQuestionDetails);
       return sameQuestionRevision(result.body, publishedQuestionRevisionTuple, path);
+    },
+    createCorrectionDraft: async (
+      publishedQuestionRevisionTuple,
+    ): Promise<QuestionCorrectionDraft> => {
+      const path = `${exactRevisionPath(publishedQuestionRevisionTuple)}/correction-draft`;
+      const result = await questionJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeCorrectionDraft,
+        { method: "POST" },
+      );
+      if (result.response.status !== 201)
+        throw new ApiProtocolError(`API response ${path} must create one correction Draft`);
+      if (
+        result.body.publishedQuestionRevisionTuple.publishedQuestionId !==
+          publishedQuestionRevisionTuple.publishedQuestionId ||
+        result.body.publishedQuestionRevisionTuple.revisionNumber !==
+          publishedQuestionRevisionTuple.revisionNumber
+      )
+        throw new ApiProtocolError(`API response ${path} does not match its exact source Revision`);
+      return result.body;
     },
     questionRevisionPreviewDocumentUrl: (publishedQuestionRevisionTuple) =>
       requestPath(

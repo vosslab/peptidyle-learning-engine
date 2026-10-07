@@ -13,6 +13,7 @@ CREATE TABLE ple_data.blueprint_course (
     content_topic_id uuid,
     content_subtopic_id uuid,
     tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
+    theme_id text NOT NULL DEFAULT 'grass' REFERENCES ple_data.theme (theme_id),
     CHECK (content_topic_id IS NULL OR content_subject_id IS NOT NULL),
     CHECK (content_subtopic_id IS NULL OR content_topic_id IS NOT NULL),
     FOREIGN KEY (content_subject_id, content_discipline_id)
@@ -23,6 +24,14 @@ CREATE TABLE ple_data.blueprint_course (
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
     availability ple_data.blueprint_availability NOT NULL DEFAULT 'private',
     promoted boolean NOT NULL DEFAULT false,
+    parent_blueprint_course_id ple_data.blueprint_course_id,
+    parent_blueprint_revision_number integer CHECK (
+        parent_blueprint_revision_number IS NULL OR parent_blueprint_revision_number > 0
+    ),
+    CHECK (
+        (parent_blueprint_course_id IS NULL) = (parent_blueprint_revision_number IS NULL)
+    ),
+    CHECK (parent_blueprint_course_id IS NULL OR parent_blueprint_course_id <> blueprint_course_id),
     blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
     current_blueprint_revision_number integer NOT NULL DEFAULT 1
         CHECK (current_blueprint_revision_number > 0),
@@ -130,6 +139,7 @@ CREATE TABLE ple_data.blueprint_metadata_event (
     content_topic_id uuid,
     content_subtopic_id uuid,
     tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
+    theme_id text NOT NULL REFERENCES ple_data.theme (theme_id),
     availability ple_data.blueprint_availability NOT NULL,
     blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
     occurred_at timestamp with time zone NOT NULL,
@@ -163,54 +173,12 @@ CREATE TABLE ple_data.blueprint_course_save_receipt (
     PRIMARY KEY (blueprint_course_id, actor_account_id, request_checksum)
 );
 
-CREATE TABLE ple_data.blueprint_course_fork (
-    blueprint_course_fork_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    blueprint_course_id ple_data.blueprint_course_id NOT NULL UNIQUE
-        REFERENCES ple_data.blueprint_course (blueprint_course_id),
-    source_blueprint_course_id ple_data.blueprint_course_id NOT NULL,
-    source_blueprint_revision_number integer NOT NULL CHECK (
-        source_blueprint_revision_number > 0
-    ),
-    forked_at timestamp with time zone NOT NULL,
-    CHECK (blueprint_course_id <> source_blueprint_course_id),
-    FOREIGN KEY (
-        source_blueprint_course_id, source_blueprint_revision_number
-    ) REFERENCES ple_data.blueprint_course_revision (
-        blueprint_course_id, blueprint_revision_number
-    )
-);
-
-
--- An idempotent fork request is distinct from ordinary Blueprint creation:
--- the receipt preserves the source fact and prevents a retry from creating a
--- second child lineage.
-CREATE TABLE ple_data.blueprint_course_fork_receipt (
-    actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
-    request_checksum bytea NOT NULL CHECK (octet_length(request_checksum) = 32),
-    blueprint_course_id ple_data.blueprint_course_id NOT NULL
-        REFERENCES ple_data.blueprint_course (blueprint_course_id),
-    source_blueprint_course_id ple_data.blueprint_course_id NOT NULL,
-    source_blueprint_revision_number integer NOT NULL CHECK (
-        source_blueprint_revision_number > 0
-    ),
-    blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
-    accepted_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (actor_account_id, request_checksum),
-    FOREIGN KEY (
-        source_blueprint_course_id, source_blueprint_revision_number
-    ) REFERENCES ple_data.blueprint_course_revision (
-        blueprint_course_id, blueprint_revision_number
-    )
-);
-
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.blueprint_course IS 'role: current state, Stable reusable Blueprint Course lineage with names, availability, Edit Number, and current Revision.';
 
 COMMENT ON TABLE ple_data.blueprint_course_revision IS 'role: revision, Immutable complete Blueprint Revision; exact references remain valid after later Saves or archive.';
 
 COMMENT ON TABLE ple_data.blueprint_revision_assessment IS 'role: revision, Durable Blueprint Assessment identity and Revision membership retained for provenance and comparison.';
-
-COMMENT ON TABLE ple_data.blueprint_course_fork IS 'role: event, Exact immutable source Blueprint Revision for one independent child Blueprint lineage.';
 
 -- Immutable source-copy Proposal evidence; canonical JSON is derived from exact
 -- Revision and metadata-event pins by the existing trusted domain exporter.
@@ -308,8 +276,6 @@ COMMENT ON TABLE ple_data.blueprint_course_create_receipt IS 'role: event, delet
 
 COMMENT ON TABLE ple_data.blueprint_course_save_receipt IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_course_fork_receipt IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
-
 COMMENT ON TABLE ple_data.blueprint_change_proposal IS 'role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
 
 COMMENT ON TABLE ple_data.blueprint_change_proposal_acceptance IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
@@ -392,6 +358,8 @@ SET LOCAL ROLE ple_data_owner;
 COMMENT ON COLUMN ple_data.blueprint_course.content_subject_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.blueprint_course.content_topic_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.blueprint_course.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.blueprint_course.parent_blueprint_course_id IS 'NULL means this Blueprint Course was not forked from another Blueprint Course.';
+COMMENT ON COLUMN ple_data.blueprint_course.parent_blueprint_revision_number IS 'NULL means no parent Revision; otherwise this is the exact immediate source Revision.';
 COMMENT ON COLUMN ple_data.blueprint_metadata_event.content_subject_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.blueprint_metadata_event.content_topic_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.blueprint_metadata_event.content_subtopic_id IS 'NULL means this optional fact is absent.';

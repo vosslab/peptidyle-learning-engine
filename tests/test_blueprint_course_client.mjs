@@ -13,10 +13,28 @@ import {
   BlueprintCourseConflictError,
   createHttpApiClient,
 } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-const { scope: _scope, ...questionSummary } = publishedQuestionFixture.publishedQuestion;
-const publishedQuestion = { ...questionSummary, questionFormat: "pleQuestionJson" };
+const publishedQuestion = {
+  questionId: "7K3M-79QP",
+  publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
+  parentPublishedQuestionRevisionTuple: null,
+  backend: "ple",
+  questionFormat: "pleQuestionJson",
+  questionType: "multipleChoice",
+  capabilities: ["clientRendering", "serverGrading"],
+  metadata: {
+    questionTitle: "Peptide bond resonance",
+    questionDescription: "Identify the bond with partial double-bond character.",
+    tags: [],
+    questionLicense: null,
+    questionCitation: null,
+    language: null,
+  },
+  authorship: { authors: [{ displayName: "Test Author", accountId: null }] },
+  availability: { availability: "available" },
+  publishedAt: 1_786_000_000_000,
+  bloom: null,
+};
 const blueprintEditNumber = "1";
 const classification = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
@@ -39,6 +57,7 @@ test("public Blueprint results show the owner display name as the author", () =>
     short_name: "Genetics",
     long_name: "Genetics sequence",
     availability: "public",
+    theme: "grass",
     blueprint_edit_number: "1",
     classification,
     current_revision_tuple: { blueprintCourseId: "BPABCDEFGJ", revisionNumber: "1" },
@@ -87,6 +106,7 @@ test("Blueprint discovery decoder accepts 250 rows and rejects 251", () => {
     short_name: "Genetics",
     long_name: "Genetics sequence",
     availability: "public",
+    theme: "grass",
     blueprint_edit_number: "1",
     classification: {
       disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
@@ -126,6 +146,7 @@ function contentInput() {
       assessment_attempt_limit: 2,
       late_work_rule: "accept",
       activity_rules: {
+        partialCreditEnabled: true,
         questionVariationRule: "newVariation",
         assessmentQuestionOrderRule: "authoredOrder",
       },
@@ -182,6 +203,7 @@ function modules() {
 function blueprint(revision = "3") {
   return {
     classification,
+    theme: "grass",
     id: "BP7K3M2QAF",
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
@@ -208,6 +230,7 @@ function blueprintWithAssessments(assessmentCount) {
 function creationInput() {
   return {
     classification,
+    theme: "grass",
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     modules: [{ label: "Week one", assessments: [contentInput()] }],
@@ -220,6 +243,7 @@ function canonicalExchange() {
       short_name: "Biochemistry",
       long_name: "Biochemistry sequence",
       classification,
+      theme: "grass",
     },
     modules: [{ label: "Week one", assessments: [contentInput()] }],
   };
@@ -260,6 +284,7 @@ test("Course classification metadata updates send explicit hierarchy with indepe
             short_name: "Biochemistry",
             long_name: "Biochemistry sequence",
             availability: "private",
+            theme: "forest",
             classification: selected,
             blueprint_edit_number: nextEtag,
           }
@@ -464,6 +489,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     availability: "private",
+    theme: "grass",
     blueprint_edit_number: "1",
   };
   const publishedMetadata = {
@@ -486,6 +512,11 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     availability: "private",
     blueprint_edit_number: "1",
   };
+  const themedMetadata = {
+    ...renamedMetadata,
+    theme: "forest",
+    blueprint_edit_number: "2",
+  };
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
@@ -493,6 +524,8 @@ test("B1 client sends Revision and metadata validators to their separate routes"
       const path = new URL(request.url).pathname;
       if (path.endsWith("/metadata"))
         return noStoreJson(renamedMetadata, `"${renamedMetadata.blueprint_edit_number}"`);
+      if (path.endsWith("/theme"))
+        return noStoreJson(themedMetadata, `"${themedMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/publish"))
         return noStoreJson(publishedMetadata, `"${publishedMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/archive"))
@@ -503,7 +536,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
         return noStoreJson(privateMetadata, `"${privateMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
-          blueprintRevisionTuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "3" },
+          blueprintCourseRevisionTuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "3" },
           modules: modules(),
         });
       if (request.method === "GET" && path.endsWith("BP7K3M2QAF"))
@@ -528,6 +561,11 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     { short_name: "Biochemistry", long_name: "Biochemistry sequence" },
     blueprintEditNumber,
   );
+  const themed = await client.updateBlueprintCourseTheme(
+    "BP7K3M2QAF",
+    { theme: "forest" },
+    renamed.metadata.blueprint_edit_number,
+  );
   const published = await client.publishBlueprintCourse("BP7K3M2QAF", renamed.blueprintEditNumber);
   const archived = await client.archiveBlueprintCourse(
     "BP7K3M2QAF",
@@ -545,7 +583,8 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   assert.equal(saved.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
   assert.equal(saved.blueprintCourse.current_revision_tuple.revisionNumber, "4");
   assert.equal(returned.metadata.availability, "private");
-  assert.equal(revision.blueprintRevisionTuple.revisionNumber, "3");
+  assert.equal(themed.metadata.theme, "forest");
+  assert.equal(revision.blueprintCourseRevisionTuple.revisionNumber, "3");
   const save = requests.find(
     (request) => request.method === "PUT" && request.url.endsWith("BP7K3M2QAF"),
   );
@@ -567,6 +606,12 @@ test("B1 client sends Revision and metadata validators to their separate routes"
         request.url.endsWith("/api/course-blueprints/BP7K3M2QAF/publish"),
     ),
   );
+  const themeRequest = requests.find(
+    (request) => request.method === "PUT" && request.url.endsWith("/theme"),
+  );
+  assert.ok(themeRequest);
+  assert.equal(themeRequest?.headers.get("if-match"), '"1"');
+  assert.deepEqual(await themeRequest.json(), { theme: "forest" });
   assert.ok(
     requests.some(
       (request) =>
@@ -713,6 +758,7 @@ test("B1 metadata decoder rejects non-opaque validators", () => {
         short_name: "Short",
         long_name: "Long",
         availability: "available",
+        theme: "grass",
         blueprint_edit_number: "7",
       }),
     DecodeError,
@@ -730,6 +776,7 @@ test("Blueprint lifecycle metadata accepts only the generated public states", ()
         short_name: "Short",
         long_name: "Long",
         availability,
+        theme: "grass",
         blueprint_edit_number: blueprintEditNumber,
       }).availability,
       availability,
@@ -742,6 +789,7 @@ test("Blueprint lifecycle metadata accepts only the generated public states", ()
         short_name: "Short",
         long_name: "Long",
         availability: "available",
+        theme: "grass",
         blueprint_edit_number: blueprintEditNumber,
       }),
     DecodeError,

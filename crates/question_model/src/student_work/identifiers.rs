@@ -113,16 +113,21 @@ impl IssuedQuestionId {
     pub fn for_frozen_content(
         assessment_attempt: AssessmentAttemptId,
         assessment_entry: AssessmentEntryId,
-        pool: Option<(&crate::QuestionPoolId, crate::QuestionPoolEditNumber, u32)>,
+        pool: Option<(
+            &crate::QuestionPoolId,
+            crate::QuestionPoolEditNumber,
+            &crate::PublishedQuestionRevisionTuple,
+        )>,
     ) -> Self {
         let mut name = Vec::with_capacity(96);
         name.extend_from_slice(assessment_attempt.as_uuid().as_bytes());
         name.extend_from_slice(assessment_entry.as_uuid().as_bytes());
-        if let Some((question_pool_id, question_pool_edit_number, member_position)) = pool {
+        if let Some((question_pool_id, question_pool_edit_number, revision_tuple)) = pool {
             name.push(1);
             name.extend_from_slice(question_pool_id.as_str().as_bytes());
             name.extend_from_slice(&question_pool_edit_number.get().to_be_bytes());
-            name.extend_from_slice(&member_position.to_be_bytes());
+            name.extend_from_slice(revision_tuple.published_question_id.as_str().as_bytes());
+            name.extend_from_slice(&revision_tuple.revision_number.get().to_be_bytes());
         }
         Self(Uuid::new_v5(&ISSUED_QUESTION_NAMESPACE, &name))
     }
@@ -131,6 +136,7 @@ impl IssuedQuestionId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber};
 
     #[test]
     fn issued_question_identity_is_stable_and_distinguishes_frozen_content() {
@@ -139,11 +145,26 @@ mod tests {
         let question_pool_id: crate::QuestionPoolId = "7654-Z321".parse().expect("valid Pool ID");
         let question_pool_edit_number =
             crate::QuestionPoolEditNumber::new(1).expect("positive Pool Edit Number");
+        let tuple = PublishedQuestionRevisionTuple {
+            published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+                .expect("valid Question ID"),
+            revision_number: QuestionRevisionNumber::new(1).expect("positive Revision Number"),
+        };
         let fixed = IssuedQuestionId::for_frozen_content(attempt, entry, None);
         let pooled = IssuedQuestionId::for_frozen_content(
             attempt,
             entry,
-            Some((&question_pool_id, question_pool_edit_number, 0)),
+            Some((&question_pool_id, question_pool_edit_number, &tuple)),
+        );
+        let changed_tuple = PublishedQuestionRevisionTuple {
+            published_question_id: PublishedQuestionId::from_random_identifier("BCDEFGH")
+                .expect("valid distinct Question ID"),
+            revision_number: tuple.revision_number,
+        };
+        let changed_pooled = IssuedQuestionId::for_frozen_content(
+            attempt,
+            entry,
+            Some((&question_pool_id, question_pool_edit_number, &changed_tuple)),
         );
 
         assert_eq!(
@@ -151,6 +172,7 @@ mod tests {
             IssuedQuestionId::for_frozen_content(attempt, entry, None)
         );
         assert_ne!(fixed, pooled);
+        assert_ne!(pooled, changed_pooled);
         assert_eq!(pooled.as_uuid().get_version_num(), 5);
     }
 

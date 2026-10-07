@@ -23,7 +23,8 @@ CREATE FUNCTION ple_private.ensure_assessment_policy_snapshot(
     p_feedback_class_statistics ple_data.feedback_release,
     p_assessment_type ple_data.assessment_type,
     p_feedback_hints ple_data.feedback_release DEFAULT 'never',
-    p_feedback_worked_solutions ple_data.feedback_release DEFAULT 'never'
+    p_feedback_worked_solutions ple_data.feedback_release DEFAULT 'never',
+    p_partial_credit_enabled boolean DEFAULT true
 ) RETURNS ple_data.sha256_digest
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -55,6 +56,7 @@ BEGIN
         'assessment_attempt_time_limit_seconds', p_assessment_attempt_time_limit_seconds,
         'assessment_attempt_limit', p_assessment_attempt_limit,
         'late_work_rule', p_late_work_rule,
+        'partial_credit_enabled', p_partial_credit_enabled,
         'question_variation_rule', p_question_variation_rule,
         'assessment_question_order_rule', p_assessment_question_order_rule,
         'feedback_per_item_correctness', p_feedback_per_item_correctness,
@@ -76,6 +78,7 @@ BEGIN
         assessment_attempt_time_limit_seconds,
         assessment_attempt_limit,
         late_work_rule,
+        partial_credit_enabled,
         question_variation_rule,
         assessment_question_order_rule,
         feedback_per_item_correctness,
@@ -96,6 +99,7 @@ BEGIN
         p_assessment_attempt_time_limit_seconds,
         p_assessment_attempt_limit,
         p_late_work_rule,
+        p_partial_credit_enabled,
         p_question_variation_rule,
         p_assessment_question_order_rule,
         p_feedback_per_item_correctness,

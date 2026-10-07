@@ -19,7 +19,8 @@ use uuid::Uuid;
 // budget for a complete claim/read/write/activation operation, well inside
 // the database's 300-second Job lease. Shutdown cancels pending I/O immediately;
 // timeout cancellation leaves any claimed Job to the same lease recovery.
-const PUBLICATION_OPERATION_BOUND: std::time::Duration = std::time::Duration::from_secs(30);
+pub(crate) const PUBLICATION_OPERATION_BOUND: std::time::Duration =
+    std::time::Duration::from_secs(30);
 
 /// Claims and publishes at most one registry-backed Question Image Asset Job.
 ///

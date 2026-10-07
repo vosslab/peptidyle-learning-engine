@@ -248,7 +248,7 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
     props.onBusyChange(true);
     setMessage(`${reason} Refreshing current metadata before another submission.`);
     try {
-      const current = await props.client.getCurrentQuestionBulkMetadata(questionIds());
+      const current = await props.client.getCurrentQuestionSharedMetadata(questionIds());
       const previousParents = CLASSIFICATION_FIELDS.map(effectiveParent);
       batch(() => {
         setMetadata(current);

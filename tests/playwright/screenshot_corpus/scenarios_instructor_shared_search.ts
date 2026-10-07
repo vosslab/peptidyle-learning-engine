@@ -1,6 +1,6 @@
 // Current mixed-Library evidence with the Pool created beside this capture workflow.
 
-import { decodeQuestionSearchPage } from "../../../src/api/decoders/question_library";
+import { decodeLibraryObjectSearchPage } from "../../../src/api/decoders/question_library";
 
 import type { ScenarioRuntime } from "./runtime";
 import type { Locator, Page } from "playwright";
@@ -27,17 +27,17 @@ async function createSearchPool(page: Page): Promise<string> {
   const response: unknown = await page.evaluate(async (sourceQuestionTitle) => {
     const query = new URLSearchParams({
       kind: "questions",
-      membership: "all",
+      questions: "all",
       authorship: "any",
       sort: "titleAscending",
       page_size: "50",
       text: sourceQuestionTitle,
     });
-    const searched = await fetch(`/api/questions/search?${query.toString()}`);
+    const searched = await fetch(`/api/library-objects/search?${query.toString()}`);
     if (!searched.ok) throw new Error(`Pilot Question search status ${searched.status}`);
     return (await searched.json()) as unknown;
   }, SOURCE_QUESTION_TITLE);
-  const matches = decodeQuestionSearchPage(response).items.filter(
+  const matches = decodeLibraryObjectSearchPage(response).items.filter(
     (item) =>
       item.kind === "question" &&
       item.question.summary.metadata.questionTitle === SOURCE_QUESTION_TITLE,
@@ -47,23 +47,24 @@ async function createSearchPool(page: Page): Promise<string> {
     throw new Error("Expected one exact Pilot Question for this capture.");
   const source = match.question.summary;
   await page.evaluate(
-    async ({ title, questionId, revisionNumber }) => {
+    async ({ title, publishedQuestionRevisionTuple }) => {
       const created = await fetch("/api/question-pools", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           title,
           description: "One exact Pilot Question for this Library search capture.",
-          members: [{ questionId, revisionNumber }],
-          interchangeabilityAttested: true,
+          members: [publishedQuestionRevisionTuple],
         }),
       });
-      if (created.status !== 201) throw new Error(`Pool creation status ${created.status}`);
+      if (created.status !== 201) {
+        const responseBody = await created.text();
+        throw new Error(`Pool creation status ${created.status}: ${responseBody}`);
+      }
     },
     {
       title: poolTitle,
-      questionId: source.questionId,
-      revisionNumber: source.publishedQuestionRevisionTuple.revisionNumber,
+      publishedQuestionRevisionTuple: source.publishedQuestionRevisionTuple,
     },
   );
   return poolTitle;

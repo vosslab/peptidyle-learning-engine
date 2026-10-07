@@ -31,10 +31,9 @@ export function blueprintAssessmentEntryContent(
     };
   }
   return {
-    title: recognitionTitle(titles.pools.get(entry.pool.question_pool_id), "Question Pool"),
+    title: recognitionTitle(titles.pools.get(entry.question_pool_id), "Question Pool"),
     details: [
-      { kind: "text", label: "Question Pool ID", value: entry.pool.question_pool_id },
-      { kind: "text", label: "Edit", value: String(entry.pool.question_pool_edit_number) },
+      { kind: "text", label: "Question Pool ID", value: entry.question_pool_id },
       {
         kind: "text",
         label: "Draw each Assessment Attempt",
@@ -56,5 +55,5 @@ export function blueprintAssessmentEntryLabel(
     const revision = entry.published_question_revision_tuple;
     return `${recognitionTitle(titles.questions.get(revision.publishedQuestionId), "Question")} (Question ID ${revision.publishedQuestionId}, Revision ${revision.revisionNumber})`;
   }
-  return `${recognitionTitle(titles.pools.get(entry.pool.question_pool_id), "Question Pool")} (Question Pool ID ${entry.pool.question_pool_id}, Edit ${entry.pool.question_pool_edit_number})`;
+  return `${recognitionTitle(titles.pools.get(entry.question_pool_id), "Question Pool")} (Question Pool ID ${entry.question_pool_id})`;
 }

@@ -47,7 +47,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number, occurred_at
+        target_kind, target_public_id, event_kind, question_revision_number, occurred_at
     ) VALUES ('question', NEW.published_question_id, 'revision', NEW.revision_number, NEW.occurred_at);
     RETURN NEW;
 END
@@ -59,25 +59,28 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_watch_revision_event();
 
 
 
--- The public provenance row is inserted only in the fork publication
--- transaction; a private Draft fork cannot emit an event.
+-- The ordinary Published Question row is its own fork-parent event. A
+-- private Draft fork cannot emit an event before Revision 1 is published.
 CREATE FUNCTION ple_data.enqueue_question_watch_fork_event()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
+    IF NEW.parent_published_question_id IS NULL THEN
+        RETURN NEW;
+    END IF;
     INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number,
+        target_kind, target_public_id, event_kind, question_revision_number,
         forked_public_id, occurred_at
     ) VALUES (
-        'question', NEW.source_question_id, 'fork', NEW.source_revision_number,
-        NEW.forked_published_question_id, NEW.recorded_at
+        'question', NEW.parent_published_question_id::text, 'fork', NEW.parent_revision_number,
+        NEW.published_question_id::text, NEW.created_at
     );
     RETURN NEW;
 END
 $$;
 
 CREATE TRIGGER question_fork_enqueues_watch_notification
-AFTER INSERT ON ple_data.question_fork_source
+AFTER INSERT ON ple_data.published_question
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_watch_fork_event();
 
 CREATE FUNCTION ple_data.enqueue_question_pool_watch_members_changed_event()
@@ -88,7 +91,7 @@ BEGIN
         RETURN NEW;
     END IF;
     INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number, occurred_at
+        target_kind, target_public_id, event_kind, question_pool_edit_number, occurred_at
     ) VALUES (
         'question_pool', NEW.question_pool_id, 'members_changed',
         NEW.question_pool_edit_number, clock_timestamp()
@@ -110,7 +113,7 @@ BEGIN
     SELECT question_pool_id INTO source_public_id
       FROM ple_data.question_pool WHERE question_pool_id = NEW.source_question_pool_id;
     INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number,
+        target_kind, target_public_id, event_kind, question_pool_edit_number,
         forked_public_id, occurred_at
     ) VALUES (
         'question_pool', source_public_id, 'fork', (
@@ -130,32 +133,13 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_pool_watch_fork_event();
 
 
 
-CREATE FUNCTION ple_data.enqueue_library_watch_impact_event()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number, activity_id, occurred_at
-    ) VALUES (
-        NEW.object_kind, NEW.public_object_id, 'impact_notice',
-        NEW.affected_revision_number, NEW.impact_notice_id, NEW.created_at
-    );
-    RETURN NEW;
-END
-$$;
-
-CREATE TRIGGER library_impact_notice_enqueues_watch_notification
-AFTER INSERT ON ple_data.library_impact_notice
-FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_library_watch_impact_event();
-
-
-
 -- ASVS 8.2.1/8.3.1: this self-only Inbox derives the Account solely from the
 -- installed server session and reveals neither recipient nor Watch facts.
 CREATE FUNCTION ple_data.read_current_library_watch_notifications(p_limit integer)
 RETURNS TABLE(
     target_kind text, target_public_id text, event_kind text,
-    revision_number bigint, forked_public_id text, activity_id uuid, occurred_at_millis bigint
+    question_revision_number bigint, question_pool_edit_number bigint,
+    forked_public_id text, occurred_at_millis bigint
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE actor_id text;
@@ -168,8 +152,8 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT event.target_kind::text, event.target_public_id, event.event_kind::text,
-           event.revision_number::bigint, event.forked_public_id,
-           event.activity_id,
+           event.question_revision_number::bigint, event.question_pool_edit_number,
+           event.forked_public_id,
            (EXTRACT(EPOCH FROM event.occurred_at) * 1000)::bigint
       FROM ple_data.library_watch_event_recipient AS recipient
       JOIN ple_data.library_watch_event AS event
@@ -185,7 +169,8 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.read_current_library_watch_notifications(p_limit integer)
 RETURNS TABLE(
     target_kind text, target_public_id text, event_kind text,
-    revision_number bigint, forked_public_id text, activity_id uuid, occurred_at_millis bigint
+    question_revision_number bigint, question_pool_edit_number bigint,
+    forked_public_id text, occurred_at_millis bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.read_current_library_watch_notifications($1)

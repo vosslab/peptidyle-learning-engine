@@ -6,16 +6,17 @@ SET CONSTRAINTS ALL DEFERRED;
 SELECT 'USFA0000' || ple_private.crockford_checksum_character('USFA0000') AS fairness_student_a_id \gset
 SELECT 'USFB0000' || ple_private.crockford_checksum_character('USFB0000') AS fairness_student_b_id \gset
 SELECT 'USFC0000' || ple_private.crockford_checksum_character('USFC0000') AS fairness_student_c_id \gset
-SELECT 'ASVR0003' || ple_private.crockford_checksum_character('ASVR0003') AS fairness_assessment_id \gset
+SELECT 'USFD0000' || ple_private.crockford_checksum_character('USFD0000') AS fairness_student_d_id \gset
+SELECT 'ASFR0007' || ple_private.crockford_checksum_character('ASFR0007') AS fairness_assessment_id \gset
 SELECT 'FARP-' || ple_private.crockford_checksum_character('FARPXYZ') || 'XYZ' AS fairness_source_pool_id \gset
-SELECT 'FARF-' || ple_private.crockford_checksum_character('FARFXYZ') || 'XYZ' AS fairness_fork_pool_id \gset
 
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.account (account_id, user_role, created_at)
 VALUES
     (:'fairness_student_a_id', 'student', pg_catalog.transaction_timestamp()),
     (:'fairness_student_b_id', 'student', pg_catalog.transaction_timestamp()),
-    (:'fairness_student_c_id', 'student', pg_catalog.transaction_timestamp());
+    (:'fairness_student_c_id', 'student', pg_catalog.transaction_timestamp()),
+    (:'fairness_student_d_id', 'student', pg_catalog.transaction_timestamp());
 
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_data.student_record (
@@ -23,19 +24,21 @@ INSERT INTO ple_data.student_record (
 ) VALUES
     ('73000000-0000-0000-0000-000000000401', :'course_id', :'fairness_student_a_id', pg_catalog.transaction_timestamp()),
     ('73000000-0000-0000-0000-000000000402', :'course_id', :'fairness_student_b_id', pg_catalog.transaction_timestamp()),
-    ('73000000-0000-0000-0000-000000000403', :'course_id', :'fairness_student_c_id', pg_catalog.transaction_timestamp());
+    ('73000000-0000-0000-0000-000000000403', :'course_id', :'fairness_student_c_id', pg_catalog.transaction_timestamp()),
+    ('73000000-0000-0000-0000-000000000404', :'course_id', :'fairness_student_d_id', pg_catalog.transaction_timestamp());
 INSERT INTO ple_data.course_membership (
     course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at
 ) VALUES
     ('73000000-0000-0000-0000-000000000411', :'course_id', :'fairness_student_a_id', 'student', '73000000-0000-0000-0000-000000000401', pg_catalog.transaction_timestamp()),
     ('73000000-0000-0000-0000-000000000412', :'course_id', :'fairness_student_b_id', 'student', '73000000-0000-0000-0000-000000000402', pg_catalog.transaction_timestamp()),
-    ('73000000-0000-0000-0000-000000000413', :'course_id', :'fairness_student_c_id', 'student', '73000000-0000-0000-0000-000000000403', pg_catalog.transaction_timestamp());
+    ('73000000-0000-0000-0000-000000000413', :'course_id', :'fairness_student_c_id', 'student', '73000000-0000-0000-0000-000000000403', pg_catalog.transaction_timestamp()),
+    ('73000000-0000-0000-0000-000000000414', :'course_id', :'fairness_student_d_id', 'student', '73000000-0000-0000-0000-000000000404', pg_catalog.transaction_timestamp());
 
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', :'instructor_id', true);
 SELECT question_pool_id AS fairness_source_pool_id, question_pool_edit_number AS fairness_source_pool_edit
   FROM ple_api.create_question_pool(
-    :'fairness_source_pool_id', ARRAY[:'question_id', :'replacement_question_id'], ARRAY[1, 1], true,
+    :'fairness_source_pool_id', ARRAY[:'question_id', :'replacement_question_id'], ARRAY[1, 1],
     'Fairness Pool', 'Disposable Assessment fairness Pool', ARRAY[]::text[]
   ) \gset
 SELECT assessment_id AS fairness_assessment_id, assessment_edit_number AS fairness_edit
@@ -54,6 +57,7 @@ SELECT jsonb_set(
         'assessment_attempt_time_limit_seconds', snapshot.assessment_attempt_time_limit_seconds,
         'assessment_attempt_limit', snapshot.assessment_attempt_limit,
         'late_work_rule', snapshot.late_work_rule::text,
+        'partial_credit_enabled', snapshot.partial_credit_enabled,
         'question_variation_rule', snapshot.question_variation_rule::text,
         'assessment_question_order_rule', snapshot.assessment_question_order_rule::text,
         'feedback_per_item_correctness', snapshot.feedback_per_item_correctness::text,
@@ -82,10 +86,22 @@ SELECT assessment_edit_number AS fairness_edit
     ))
   ) \gset
 SELECT assessment_edit_number AS fairness_edit
-  FROM ple_api.import_assessment_question_pool_fork_for_ids(
-    :'course_id', :'fairness_assessment_id', '73000000-0000-0000-0000-000000000422',
-    :'fairness_edit', :'fairness_fork_pool_id', :'fairness_source_pool_id', :'fairness_source_pool_edit',
-    1, 1, 1, 'question_pool_order', 'normal'
+  FROM ple_api.save_assessment(
+    :'course_id', :'fairness_assessment_id', :'fairness_edit', :'fairness_values'::jsonb,
+    jsonb_build_array(
+        jsonb_build_object(
+            'assessmentEntryId', '73000000-0000-0000-0000-000000000421',
+            'kind', 'fixed_question', 'availability', 'available', 'scoringRule', 'normal',
+            'authoredPosition', 0, 'questionId', :'question_id', 'revisionNumber', 1,
+            'pointsPossible', 1
+        ),
+        jsonb_build_object(
+            'assessmentEntryId', '73000000-0000-0000-0000-000000000422',
+            'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal',
+            'authoredPosition', 1, 'selectionCount', 1, 'pointsPerItem', 1,
+            'questionPoolId', :'fairness_source_pool_id'
+        )
+    )
   ) \gset
 SELECT assessment_status AS fairness_released, assessment_edit_number AS fairness_edit
   FROM ple_api.release_assessment(:'course_id', :'fairness_assessment_id', :'fairness_edit') \gset
@@ -99,11 +115,16 @@ SELECT assessment_attempt_id AS fairness_attempt_a
     '73000000-0000-0000-0000-000000000431', '73000000-0000-0000-0000-000000000401', :'fairness_assessment_id',
     jsonb_build_array(jsonb_build_object(
         'question_pool_selection_id', '73000000-0000-0000-0000-000000000432',
-        'assessment_entry_id', '73000000-0000-0000-0000-000000000422', 'selected_items', jsonb_build_array(1)
+        'assessment_entry_id', '73000000-0000-0000-0000-000000000422',
+        'question_pool_id', :'fairness_source_pool_id',
+        'question_pool_edit_number', :'fairness_source_pool_edit'::bigint,
+        'selected_items', jsonb_build_array(jsonb_build_object(
+            'published_question_id', :'question_id', 'revision_number', 1
+        ))
     )),
     jsonb_build_array(
         jsonb_build_object('issued_question_id', '73000000-0000-0000-0000-000000000433', 'assessment_entry_id', '73000000-0000-0000-0000-000000000421', 'issued_position', 0, 'published_question_id', :'question_id', 'revision_number', 1),
-        jsonb_build_object('issued_question_id', '73000000-0000-0000-0000-000000000434', 'assessment_entry_id', '73000000-0000-0000-0000-000000000422', 'issued_position', 1, 'published_question_id', :'question_id', 'revision_number', 1, 'question_pool_selection_id', '73000000-0000-0000-0000-000000000432', 'question_pool_member_position', 1)
+        jsonb_build_object('issued_question_id', '73000000-0000-0000-0000-000000000434', 'assessment_entry_id', '73000000-0000-0000-0000-000000000422', 'issued_position', 1, 'published_question_id', :'question_id', 'revision_number', 1, 'question_pool_selection_id', '73000000-0000-0000-0000-000000000432')
     )
   ) \gset
 
@@ -143,77 +164,264 @@ SELECT assessment_attempt_id AS fairness_attempt_b
     '73000000-0000-0000-0000-000000000441', '73000000-0000-0000-0000-000000000402', :'fairness_assessment_id',
     jsonb_build_array(jsonb_build_object(
         'question_pool_selection_id', '73000000-0000-0000-0000-000000000442',
-        'assessment_entry_id', '73000000-0000-0000-0000-000000000422', 'selected_items', jsonb_build_array(1)
+        'assessment_entry_id', '73000000-0000-0000-0000-000000000422',
+        'question_pool_id', :'fairness_source_pool_id',
+        'question_pool_edit_number', :'fairness_source_pool_edit'::bigint,
+        'selected_items', jsonb_build_array(jsonb_build_object(
+            'published_question_id', :'question_id', 'revision_number', 1
+        ))
     )),
     jsonb_build_array(
         jsonb_build_object('issued_question_id', '73000000-0000-0000-0000-000000000443', 'assessment_entry_id', '73000000-0000-0000-0000-000000000421', 'issued_position', 0, 'published_question_id', :'question_id', 'revision_number', 1),
-        jsonb_build_object('issued_question_id', '73000000-0000-0000-0000-000000000444', 'assessment_entry_id', '73000000-0000-0000-0000-000000000422', 'issued_position', 1, 'published_question_id', :'question_id', 'revision_number', 1, 'question_pool_selection_id', '73000000-0000-0000-0000-000000000442', 'question_pool_member_position', 1)
+        jsonb_build_object('issued_question_id', '73000000-0000-0000-0000-000000000444', 'assessment_entry_id', '73000000-0000-0000-0000-000000000422', 'issued_position', 1, 'published_question_id', :'question_id', 'revision_number', 1, 'question_pool_selection_id', '73000000-0000-0000-0000-000000000442')
     )
   ) \gset
 
--- The issued Assessment accepts a point/order update, but rejects a changed
--- Pool entry and removal of the issued Pool member.  It does retain removal of
--- the never-issued second member.
+-- The issued Assessment rejects changing its own requested count. The shared
+-- Pool rejects removing an issued Question while allowing an unissued member
+-- to be removed for future selections.
 SELECT set_config('ple.session_account_id', :'instructor_id', true);
 SELECT set_config('ple.course_id', :'course_id', true);
 SELECT set_config('ple.question_id', :'question_id', true);
 SELECT set_config('ple.replacement_question_id', :'replacement_question_id', true);
 SELECT set_config('ple.fairness_assessment_id', :'fairness_assessment_id', true);
 SELECT set_config('ple.fairness_source_pool_id', :'fairness_source_pool_id', true);
-SELECT set_config('ple.fairness_fork_pool_id', :'fairness_fork_pool_id', true);
+SELECT set_config('ple.fairness_source_pool_edit', :'fairness_source_pool_edit', true);
 SELECT set_config('ple.fairness_values', :'fairness_values', true);
 SELECT set_config('ple.fairness_edit', :'fairness_edit', true);
 DO $$
-DECLARE rejected_content boolean := false; rejected_issued_member boolean := false;
+DECLARE rejected_content boolean := false;
 BEGIN
     BEGIN
         PERFORM * FROM ple_api.save_assessment(
-            current_setting('ple.course_id'), current_setting('ple.fairness_assessment_id'), current_setting('ple.fairness_edit')::bigint,
+            current_setting('ple.course_id'), current_setting('ple.fairness_assessment_id'),
+            current_setting('ple.fairness_edit')::bigint,
             current_setting('ple.fairness_values')::jsonb,
             jsonb_build_array(
                 jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000421', 'kind', 'fixed_question', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 0, 'questionId', current_setting('ple.question_id'), 'revisionNumber', 1, 'pointsPossible', 1),
-                jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 1, 'selectionCount', 1, 'pointsPerItem', 1, 'selectedQuestionOrder', 'question_pool_order', 'questionPoolId', current_setting('ple.fairness_source_pool_id'))
+                jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 1, 'selectionCount', 2, 'pointsPerItem', 1, 'questionPoolId', current_setting('ple.fairness_source_pool_id'))
             )
         );
     EXCEPTION WHEN object_not_in_prerequisite_state THEN rejected_content := true;
     END;
-    BEGIN
-        PERFORM * FROM ple_api.append_assessment_question_pool_fork_members(
-            current_setting('ple.fairness_assessment_id'), '73000000-0000-0000-0000-000000000422',
-            current_setting('ple.fairness_edit')::bigint, 1,
-            ARRAY[current_setting('ple.replacement_question_id')], ARRAY[1], true
-        );
-    EXCEPTION WHEN object_not_in_prerequisite_state THEN rejected_issued_member := true;
-    END;
-    IF NOT rejected_content OR NOT rejected_issued_member THEN
-        RAISE EXCEPTION 'started Assessment fairness guard did not reject changed content=% issued member=%', rejected_content, rejected_issued_member;
+    IF NOT rejected_content THEN
+        RAISE EXCEPTION 'started Assessment accepted a changed Pool selection count';
     END IF;
 END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_api_owner;
+DO $$
+DECLARE rejected_issued_question_removal boolean := false;
+BEGIN
+    BEGIN
+        PERFORM * FROM ple_data.save_question_pool_members(
+            current_setting('ple.fairness_source_pool_id'),
+            current_setting('ple.fairness_source_pool_edit')::bigint,
+            ARRAY[current_setting('ple.replacement_question_id')], ARRAY[1]
+        );
+    EXCEPTION WHEN check_violation THEN
+        rejected_issued_question_removal := true;
+    END;
+    IF NOT rejected_issued_question_removal THEN
+        RAISE EXCEPTION 'shared Pool accepted removal of a Question already issued by an available Assessment';
+    END IF;
+    IF (SELECT question_pool_edit_number
+          FROM ple_data.question_pool
+         WHERE question_pool_id = current_setting('ple.fairness_source_pool_id'))
+           IS DISTINCT FROM current_setting('ple.fairness_source_pool_edit')::bigint
+       OR (SELECT count(*)
+             FROM ple_data.question_pool_member AS member
+            WHERE member.question_pool_id = current_setting('ple.fairness_source_pool_id'))
+           IS DISTINCT FROM 2
+       OR NOT EXISTS (
+            SELECT 1 FROM ple_data.question_pool_member AS member
+             WHERE member.question_pool_id = current_setting('ple.fairness_source_pool_id')
+               AND member.published_question_id = current_setting('ple.question_id')
+               AND member.question_revision_number = 1
+       )
+       OR NOT EXISTS (
+            SELECT 1 FROM ple_data.question_pool_member AS member
+             WHERE member.question_pool_id = current_setting('ple.fairness_source_pool_id')
+               AND member.published_question_id = current_setting('ple.replacement_question_id')
+               AND member.question_revision_number = 1
+       ) THEN
+        RAISE EXCEPTION 'rejected Pool removal changed the shared Pool members or Edit Number';
+    END IF;
+END $$;
+
+-- Removing the unissued member is allowed.  The updated Pool keeps the issued
+-- Question available for future selection under its new Edit Number.
+SELECT question_pool_edit_number AS fairness_pool_edit
+  FROM ple_data.save_question_pool_members(
+      current_setting('ple.fairness_source_pool_id'),
+      current_setting('ple.fairness_source_pool_edit')::bigint,
+      ARRAY[current_setting('ple.question_id')], ARRAY[1]
+  ) \gset
+SELECT set_config('ple.fairness_pool_edit', :'fairness_pool_edit', true);
+DO $$
+BEGIN
+    IF (SELECT question_pool_edit_number
+          FROM ple_data.question_pool
+         WHERE question_pool_id = current_setting('ple.fairness_source_pool_id'))
+           IS DISTINCT FROM current_setting('ple.fairness_pool_edit')::bigint
+       OR current_setting('ple.fairness_pool_edit')::bigint
+           IS DISTINCT FROM current_setting('ple.fairness_source_pool_edit')::bigint + 1
+       OR (SELECT count(*)
+             FROM ple_data.question_pool_member AS member
+            WHERE member.question_pool_id = current_setting('ple.fairness_source_pool_id'))
+           IS DISTINCT FROM 1
+       OR NOT EXISTS (
+            SELECT 1 FROM ple_data.question_pool_member AS member
+             WHERE member.question_pool_id = current_setting('ple.fairness_source_pool_id')
+               AND member.published_question_id = current_setting('ple.question_id')
+               AND member.question_revision_number = 1
+       ) THEN
+        RAISE EXCEPTION 'legal removal did not save exactly the unissued Pool member at the next Edit Number';
+    END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_private_owner;
+DO $$
+DECLARE expected record;
+BEGIN
+    FOR expected IN
+        SELECT * FROM (VALUES
+            ('73000000-0000-0000-0000-000000000432'::uuid,
+             '73000000-0000-0000-0000-000000000431'::uuid,
+             '73000000-0000-0000-0000-000000000434'::uuid),
+            ('73000000-0000-0000-0000-000000000442'::uuid,
+             '73000000-0000-0000-0000-000000000441'::uuid,
+             '73000000-0000-0000-0000-000000000444'::uuid)
+        ) AS prior(question_pool_selection_id, assessment_attempt_id, issued_question_id)
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM ple_private.question_pool_selection AS selection
+             WHERE selection.question_pool_selection_id = expected.question_pool_selection_id
+               AND selection.assessment_attempt_id = expected.assessment_attempt_id
+               AND selection.question_pool_id = current_setting('ple.fairness_source_pool_id')
+               AND selection.question_pool_edit_number
+                   = current_setting('ple.fairness_source_pool_edit')::bigint
+        )
+           OR (SELECT count(*)
+                 FROM ple_private.question_pool_selected_item AS selected
+                WHERE selected.question_pool_selection_id = expected.question_pool_selection_id)
+              IS DISTINCT FROM 1
+           OR NOT EXISTS (
+                SELECT 1
+                  FROM ple_private.question_pool_selected_item AS selected
+                 WHERE selected.question_pool_selection_id = expected.question_pool_selection_id
+                   AND selected.published_question_id = current_setting('ple.question_id')
+                   AND selected.revision_number = 1
+           )
+           OR (SELECT count(*)
+                 FROM ple_private.issued_question AS issued
+                WHERE issued.question_pool_selection_id = expected.question_pool_selection_id)
+              IS DISTINCT FROM 1
+           OR NOT EXISTS (
+                SELECT 1
+                  FROM ple_private.issued_question AS issued
+                 WHERE issued.question_pool_selection_id = expected.question_pool_selection_id
+                   AND issued.issued_question_id = expected.issued_question_id
+                   AND issued.published_question_id = current_setting('ple.question_id')
+                   AND issued.revision_number = 1
+           ) THEN
+            RAISE EXCEPTION 'Pool edit changed the exact Question tuple selected by existing Attempt %',
+                expected.assessment_attempt_id;
+        END IF;
+    END LOOP;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_app;
+SELECT set_config('ple.fairness_pool_edit', :'fairness_pool_edit', true);
+
+-- A later Attempt sees the edited Pool while its Assessment Entry is still
+-- available, and records the new Edit Number and its sole exact member tuple.
+SELECT set_config('ple.session_account_id', :'fairness_student_d_id', true);
+SELECT assessment_attempt_id AS fairness_attempt_d
+  FROM ple_api.start_assessment_attempt(
+    '73000000-0000-0000-0000-000000000461', '73000000-0000-0000-0000-000000000404', :'fairness_assessment_id',
+    jsonb_build_array(jsonb_build_object(
+        'question_pool_selection_id', '73000000-0000-0000-0000-000000000462',
+        'assessment_entry_id', '73000000-0000-0000-0000-000000000422',
+        'question_pool_id', :'fairness_source_pool_id',
+        'question_pool_edit_number', :'fairness_pool_edit'::bigint,
+        'selected_items', jsonb_build_array(jsonb_build_object(
+            'published_question_id', :'question_id', 'revision_number', 1
+        ))
+    )),
+    jsonb_build_array(
+        jsonb_build_object(
+            'issued_question_id', '73000000-0000-0000-0000-000000000463',
+            'assessment_entry_id', '73000000-0000-0000-0000-000000000421',
+            'issued_position', 0, 'published_question_id', :'question_id', 'revision_number', 1
+        ),
+        jsonb_build_object(
+            'issued_question_id', '73000000-0000-0000-0000-000000000464',
+            'assessment_entry_id', '73000000-0000-0000-0000-000000000422',
+            'issued_position', 1, 'published_question_id', :'question_id',
+            'revision_number', 1, 'question_pool_selection_id', '73000000-0000-0000-0000-000000000462'
+        )
+    )
+  ) \gset
+RESET ROLE;
+SET LOCAL ROLE ple_private_owner;
+DO $$
+BEGIN
+    IF (SELECT count(*)
+          FROM ple_private.question_pool_selection AS selection
+         WHERE selection.question_pool_selection_id = '73000000-0000-0000-0000-000000000462')
+           IS DISTINCT FROM 1
+       OR (SELECT count(*)
+             FROM ple_private.question_pool_selected_item AS selected
+            WHERE selected.question_pool_selection_id = '73000000-0000-0000-0000-000000000462')
+           IS DISTINCT FROM 1
+       OR (SELECT count(*)
+             FROM ple_private.issued_question AS issued
+            WHERE issued.question_pool_selection_id = '73000000-0000-0000-0000-000000000462')
+           IS DISTINCT FROM 1
+       OR NOT EXISTS (
+        SELECT 1
+          FROM ple_private.question_pool_selection AS selection
+          JOIN ple_private.question_pool_selected_item AS selected USING (question_pool_selection_id)
+          JOIN ple_private.issued_question AS issued USING (question_pool_selection_id)
+         WHERE selection.question_pool_selection_id = '73000000-0000-0000-0000-000000000462'
+           AND selection.assessment_attempt_id = '73000000-0000-0000-0000-000000000461'
+           AND selection.question_pool_id = current_setting('ple.fairness_source_pool_id')
+           AND selection.question_pool_edit_number = current_setting('ple.fairness_pool_edit')::bigint
+           AND selected.published_question_id = current_setting('ple.question_id')
+           AND selected.revision_number = 1
+           AND issued.issued_question_id = '73000000-0000-0000-0000-000000000464'
+           AND issued.published_question_id = current_setting('ple.question_id')
+           AND issued.revision_number = 1
+    ) THEN
+        RAISE EXCEPTION 'later Attempt did not retain the current Pool Edit Number and exact selected tuple';
+    END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE ple_app;
+SELECT set_config('ple.session_account_id', :'instructor_id', true);
+
 SELECT assessment_edit_number AS fairness_edit
   FROM ple_api.save_assessment(
     :'course_id', :'fairness_assessment_id', :'fairness_edit', :'fairness_values'::jsonb,
     jsonb_build_array(
-        jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 2, 'selectedQuestionOrder', 'question_pool_order', 'questionPoolId', :'fairness_fork_pool_id'),
+        jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 2, 'questionPoolId', :'fairness_source_pool_id'),
         jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000421', 'kind', 'fixed_question', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 1, 'questionId', :'question_id', 'revisionNumber', 1, 'pointsPossible', 1)
     )
   ) \gset
-SELECT question_pool_edit_number AS fairness_fork_edit, assessment_edit_number AS fairness_edit
-  FROM ple_api.append_assessment_question_pool_fork_members(
-    :'fairness_assessment_id', '73000000-0000-0000-0000-000000000422', :'fairness_edit', 1,
-    ARRAY[:'question_id'], ARRAY[1], true
-  ) \gset
-SELECT set_config('ple.fairness_fork_edit', :'fairness_fork_edit', true);
+SELECT set_config('ple.fairness_pool_edit', :'fairness_pool_edit', true);
 RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_pool
-         WHERE question_pool_id = current_setting('ple.fairness_fork_pool_id')
-           AND question_pool_edit_number = current_setting('ple.fairness_fork_edit')::bigint
+         WHERE question_pool_id = current_setting('ple.fairness_source_pool_id')
+           AND question_pool_edit_number = current_setting('ple.fairness_pool_edit')::bigint
            AND license = 'CC0-1.0'
     ) THEN
-        RAISE EXCEPTION 'Assessment Pool fork member replacement did not refresh the calculated license';
+        RAISE EXCEPTION 'shared Pool member removal did not preserve the calculated license';
     END IF;
 END $$;
 RESET ROLE;
@@ -225,7 +433,7 @@ SELECT assessment_edit_number AS fairness_edit
   FROM ple_api.save_assessment(
     :'course_id', :'fairness_assessment_id', :'fairness_edit', :'fairness_values'::jsonb,
     jsonb_build_array(
-        jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'retired', 'scoringRule', 'normal', 'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 2, 'selectedQuestionOrder', 'question_pool_order', 'questionPoolId', :'fairness_fork_pool_id'),
+        jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'retired', 'scoringRule', 'normal', 'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 2, 'questionPoolId', :'fairness_source_pool_id'),
         jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000421', 'kind', 'fixed_question', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 1, 'questionId', :'question_id', 'revisionNumber', 1, 'pointsPossible', 1)
     )
   ) \gset
@@ -241,7 +449,7 @@ BEGIN
             current_setting('ple.course_id'), current_setting('ple.fairness_assessment_id'), current_setting('ple.fairness_edit')::bigint,
             current_setting('ple.fairness_values')::jsonb,
             jsonb_build_array(
-                jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 2, 'selectedQuestionOrder', 'question_pool_order', 'questionPoolId', current_setting('ple.fairness_fork_pool_id')),
+                jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000422', 'kind', 'question_pool', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 0, 'selectionCount', 1, 'pointsPerItem', 2, 'questionPoolId', current_setting('ple.fairness_source_pool_id')),
                 jsonb_build_object('assessmentEntryId', '73000000-0000-0000-0000-000000000421', 'kind', 'fixed_question', 'availability', 'available', 'scoringRule', 'normal', 'authoredPosition', 1, 'questionId', current_setting('ple.question_id'), 'revisionNumber', 1, 'pointsPossible', 1)
             )
         );
@@ -283,13 +491,13 @@ SELECT set_config('ple.fairness_c_count', :'fairness_c_count', true);
 SELECT set_config('ple.fairness_c_possible', :'fairness_c_possible', true);
 DO $$
 BEGIN
-    IF current_setting('ple.fairness_released') <> 'released'
-       OR current_setting('ple.fairness_a_earned')::numeric <> 1
-       OR current_setting('ple.fairness_a_possible')::numeric <> 1
-       OR current_setting('ple.fairness_b_count') <> '1'
-       OR current_setting('ple.fairness_b_possible')::numeric <> 1
-       OR current_setting('ple.fairness_c_count') <> '1'
-       OR current_setting('ple.fairness_c_possible')::numeric <> 1 THEN
+    IF current_setting('ple.fairness_released') IS DISTINCT FROM 'released'
+       OR current_setting('ple.fairness_a_earned')::numeric IS DISTINCT FROM 1
+       OR current_setting('ple.fairness_a_possible')::numeric IS DISTINCT FROM 1
+       OR current_setting('ple.fairness_b_count') IS DISTINCT FROM '1'
+       OR current_setting('ple.fairness_b_possible')::numeric IS DISTINCT FROM 1
+       OR current_setting('ple.fairness_c_count') IS DISTINCT FROM '1'
+       OR current_setting('ple.fairness_c_possible')::numeric IS DISTINCT FROM 1 THEN
         RAISE EXCEPTION 'Assessment fairness receipt failed released=% A=%/% B=%/% C=%/%',
             current_setting('ple.fairness_released'), current_setting('ple.fairness_a_earned'), current_setting('ple.fairness_a_possible'),
             current_setting('ple.fairness_b_count'), current_setting('ple.fairness_b_possible'),

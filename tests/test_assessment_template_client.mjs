@@ -17,6 +17,7 @@ function template(assessmentTemplateEditNumber = "1") {
       attemptLimit: 2,
       lateWorkRule: "reject",
       activityRules: {
+        partialCreditEnabled: true,
         questionVariationRule: "reuseVariation",
         assessmentQuestionOrderRule: "authoredOrder",
       },
@@ -50,6 +51,7 @@ function workspace(editNumber = "3") {
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
+      partialCreditEnabled: true,
       questionVariationRule: "reuseVariation",
       assessmentQuestionOrderRule: "authoredOrder",
     },

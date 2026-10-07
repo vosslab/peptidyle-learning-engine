@@ -33,24 +33,6 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_data.validate_assessment_question_pool_fork()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.question_pool AS pool
-         WHERE pool.question_pool_id = NEW.question_pool_id
-           AND pool.source_question_pool_id IS NOT NULL
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Assessment Question Pool ownership requires a fork with immutable source provenance';
-    END IF;
-    RETURN NEW;
-END
-$$;
-
-
-
 -- ASVS 2.2-2.3, 8.2-8.3, and 15.4: only the guarded current-content save
 -- changes normalized Assessment Entries.  It receives
 -- a closed JSON array because entries are a tagged union.  Each member has:
@@ -59,9 +41,8 @@ $$;
 -- revisionNumber, pointsPossible, questionAttemptLimit,
 -- questionAttemptTimeLimitSeconds, questionAttemptGraceSeconds.
 -- question_pool: assessmentEntryId, availability, scoringRule,
--- selectionCount, pointsPerItem, selectedQuestionOrder, questionPoolId, and
--- questionPoolEditNumber.  The Pool is already a distinct immutable fork;
--- this save never accepts mutable per-item membership.
+-- selectionCount, pointsPerItem, and questionPoolId.
+-- Pool membership remains current state on its reusable Pool ID.
 --
 -- Callers retain an ID for an unchanged member.  This permits an archived
 -- exact pin to remain in a current Assessment while requiring any new or
@@ -119,8 +100,7 @@ BEGIN
                    entry.question_attempt_time_limit_seconds,
                    entry.question_attempt_grace_seconds,
                    question.published_question_id, question.question_revision_number,
-                   pool_entry.question_pool_id, pool_entry.selection_count,
-                   pool_entry.selected_question_order::text AS selected_question_order
+                   pool_entry.question_pool_id, pool_entry.selection_count
               INTO existing_entry
               FROM ple_data.assessment_entry AS entry
               LEFT JOIN ple_data.assessment_entry_question AS question
@@ -150,8 +130,7 @@ BEGIN
                     existing_entry.question_pool_id IS DISTINCT FROM entry_json ->> 'questionPoolId'
                     OR existing_entry.selection_count::text
                          IS DISTINCT FROM entry_json ->> 'selectionCount'
-                    OR existing_entry.selected_question_order
-                         IS DISTINCT FROM entry_json ->> 'selectedQuestionOrder')) THEN
+)) THEN
                 RAISE EXCEPTION USING ERRCODE = '55000',
                     MESSAGE = 'Started Assessment content allows points, order, and whole-Pool removal';
             END IF;
@@ -310,7 +289,6 @@ BEGIN
             IF entry_json ->> 'selectionCount' !~ '^[1-9][0-9]*$'
                OR entry_json ->> 'pointsPerItem' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$'
                OR (entry_json ->> 'pointsPerItem')::numeric > 1000000000.9999
-               OR entry_json ->> 'selectedQuestionOrder' NOT IN ('question_pool_order', 'random_order')
                OR entry_json ->> 'questionPoolId' !~ '^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}-[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}$'
                OR substr(entry_json ->> 'questionPoolId', 6, 1)
                     <> ple_private.crockford_checksum_character(
@@ -323,11 +301,7 @@ BEGIN
             SELECT pool.question_pool_id INTO question_pool_id_value
               FROM ple_data.question_pool AS pool
              WHERE pool.question_pool_id = entry_json ->> 'questionPoolId';
-            IF NOT FOUND OR NOT EXISTS (
-                SELECT 1 FROM ple_data.question_pool_member AS member
-                 WHERE member.question_pool_id = question_pool_id_value
-                HAVING count(*) >= (entry_json ->> 'selectionCount')::integer
-            ) THEN
+            IF NOT FOUND THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Question Pool Assessment Entry is invalid';
             END IF;
@@ -336,10 +310,6 @@ BEGIN
                   FROM ple_data.assessment_entry AS existing
                   JOIN ple_data.assessment_entry_pool AS pool_entry
                     ON pool_entry.assessment_entry_id = existing.assessment_entry_id
-                  JOIN ple_data.assessment_question_pool_fork AS owned
-                    ON owned.assessment_entry_id = existing.assessment_entry_id
-                   AND owned.assessment_id = existing.assessment_id
-                   AND owned.question_pool_id = pool_entry.question_pool_id
                  WHERE existing.assessment_id = p_assessment_id
                    AND existing.assessment_entry_id = entry_id
                    AND existing.entry_kind = 'question_pool'
@@ -356,27 +326,14 @@ BEGIN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'New Assessment Question Pools require current production Question Backends';
             END IF;
-            -- An Assessment Pool is its own immutable fork lineage.  The
-            -- ordinary complete-content save may alter only Entry policy;
-            -- it cannot turn an Entry into a Pool, rebind it to another
-            -- lineage, or select an arbitrary historical/current Revision.
-            -- Membership changes use the append-only fork command below.
-            IF NOT EXISTS (
-                SELECT 1
-                  FROM ple_data.assessment_entry AS existing
-                  JOIN ple_data.assessment_entry_pool AS pool_entry
-                    ON pool_entry.assessment_entry_id = existing.assessment_entry_id
-                  JOIN ple_data.assessment_question_pool_fork AS owned
-                    ON owned.assessment_entry_id = existing.assessment_entry_id
-                   AND owned.assessment_id = existing.assessment_id
-                   AND owned.question_pool_id = pool_entry.question_pool_id
+            IF EXISTS (
+                SELECT 1 FROM ple_data.assessment_entry AS existing
                  WHERE existing.assessment_id = p_assessment_id
                    AND existing.assessment_entry_id = entry_id
-                   AND existing.entry_kind = 'question_pool'
-                   AND pool_entry.question_pool_id = question_pool_id_value
+                   AND existing.entry_kind <> 'question_pool'
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
-                    MESSAGE = 'Assessment Question Pool membership requires an immutable fork command';
+                    MESSAGE = 'Assessment Entry kind is immutable';
             END IF;
             UPDATE ple_data.assessment_entry AS target
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
@@ -398,18 +355,46 @@ BEGIN
             GET DIAGNOSTICS row_count = ROW_COUNT;
             changed := changed OR row_count > 0;
             UPDATE ple_data.assessment_entry_pool AS pool_entry
-               SET selection_count = (entry_json ->> 'selectionCount')::integer,
-                   points_per_item = (entry_json ->> 'pointsPerItem')::numeric,
-                   selected_question_order = (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order
+               SET question_pool_id = question_pool_id_value,
+                   selection_count = (entry_json ->> 'selectionCount')::integer,
+                   points_per_item = (entry_json ->> 'pointsPerItem')::numeric
              WHERE pool_entry.assessment_entry_id = entry_id
                AND pool_entry.assessment_id = p_assessment_id
-               AND ROW(pool_entry.selection_count, pool_entry.points_per_item,
-                       pool_entry.selected_question_order) IS DISTINCT FROM ROW(
+               AND ROW(pool_entry.question_pool_id, pool_entry.selection_count,
+                       pool_entry.points_per_item) IS DISTINCT FROM ROW(
+                       question_pool_id_value,
                        (entry_json ->> 'selectionCount')::integer,
-                       (entry_json ->> 'pointsPerItem')::numeric,
-                       (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order);
+                       (entry_json ->> 'pointsPerItem')::numeric);
             GET DIAGNOSTICS row_count = ROW_COUNT;
             changed := changed OR row_count > 0;
+            IF NOT EXISTS (
+                SELECT 1 FROM ple_data.assessment_entry AS existing
+                 WHERE existing.assessment_id = p_assessment_id
+                   AND existing.assessment_entry_id = entry_id
+            ) THEN
+                INSERT INTO ple_data.assessment_entry(
+                    assessment_entry_id, assessment_id, authored_position, entry_kind,
+                    availability, scoring_rule, question_attempt_limit,
+                    question_attempt_time_limit_seconds, question_attempt_grace_seconds
+                ) VALUES (
+                    entry_id, p_assessment_id,
+                    COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
+                    'question_pool', (entry_json ->> 'availability')::ple_data.entry_availability,
+                    (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
+                    NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
+                    NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
+                    NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
+                );
+                INSERT INTO ple_data.assessment_entry_pool(
+                    assessment_entry_id, assessment_id, question_pool_id,
+                    selection_count, points_per_item
+                ) VALUES (
+                    entry_id, p_assessment_id, question_pool_id_value,
+                    (entry_json ->> 'selectionCount')::integer,
+                    (entry_json ->> 'pointsPerItem')::numeric
+                );
+                changed := true;
+            END IF;
         END IF;
     END LOOP;
     UPDATE ple_data.assessment_entry SET availability = 'retired'
@@ -463,7 +448,7 @@ DECLARE
     allowed_keys text[] := ARRAY[
         'assessment_title', 'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'question_variation_rule',
+        'partial_credit_enabled', 'question_variation_rule',
         'assessment_question_order_rule', 'feedback_per_item_correctness',
         'feedback_submitted_response', 'feedback_question_answer',
         'feedback_question_answer_explanation', 'feedback_class_statistics',
@@ -517,7 +502,8 @@ BEGIN
         candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics, current_assessment.assessment_type,
-        candidate.feedback_hints, candidate.feedback_worked_solutions
+        candidate.feedback_hints, candidate.feedback_worked_solutions,
+        candidate.partial_credit_enabled
     );
     values_changed := snapshot_id IS DISTINCT FROM current_assessment.assessment_policy_snapshot_id;
     entries_changed := ple_data.replace_assessment_entries(current_assessment.assessment_id, p_entries);
@@ -533,7 +519,7 @@ BEGIN
         assessment_title := candidate.assessment_title;
         assessment_instructions := candidate.assessment_instructions;
         IF assessment_status = 'released' THEN
-            PERFORM ple_data.validate_assessment_release(
+            PERFORM ple_data.validate_assessment_post_release_edit(
                 current_assessment.assessment_id,
                 transaction_timestamp(),
                 candidate.due_at IS DISTINCT FROM current_snapshot.due_at
@@ -609,7 +595,8 @@ BEGIN
             current_snapshot.feedback_question_answer,
             current_snapshot.feedback_question_answer_explanation,
             current_snapshot.feedback_class_statistics, assessment_row.assessment_type,
-            current_snapshot.feedback_hints, current_snapshot.feedback_worked_solutions
+            current_snapshot.feedback_hints, current_snapshot.feedback_worked_solutions,
+            current_snapshot.partial_credit_enabled
         );
         UPDATE ple_data.assessment AS updated SET
             assessment_policy_snapshot_id = snapshot_id,
@@ -622,7 +609,7 @@ BEGIN
         due_at_millis := CASE WHEN p_due_at IS NULL THEN NULL
             ELSE floor(extract(epoch FROM p_due_at) * 1000)::bigint END;
         IF assessment_status = 'released' THEN
-            PERFORM ple_data.validate_assessment_release(
+            PERFORM ple_data.validate_assessment_post_release_edit(
                 assessment_row.assessment_id,
                 transaction_timestamp(),
                 p_due_at IS DISTINCT FROM current_snapshot.due_at
@@ -662,7 +649,7 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
     allowed_keys text[] := ARRAY[
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'question_variation_rule',
+        'partial_credit_enabled', 'question_variation_rule',
         'assessment_question_order_rule', 'feedback_per_item_correctness',
         'feedback_submitted_response',
         'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics',
@@ -710,7 +697,8 @@ BEGIN
         candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics, current_assessment.assessment_type,
-        candidate.feedback_hints, candidate.feedback_worked_solutions
+        candidate.feedback_hints, candidate.feedback_worked_solutions,
+        candidate.partial_credit_enabled
     );
     values_changed := snapshot_id IS DISTINCT FROM current_assessment.assessment_policy_snapshot_id;
     IF values_changed THEN
@@ -723,7 +711,7 @@ BEGIN
         assessment_title := candidate.assessment_title;
         assessment_instructions := candidate.assessment_instructions;
         IF assessment_status = 'released' THEN
-            PERFORM ple_data.validate_assessment_release(
+            PERFORM ple_data.validate_assessment_post_release_edit(
                 current_assessment.assessment_id,
                 transaction_timestamp(),
                 candidate.due_at IS DISTINCT FROM current_snapshot.due_at
@@ -804,7 +792,3 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.enforce_assessment_edit();
 CREATE TRIGGER assessment_public_id_is_minted
 BEFORE INSERT ON ple_data.assessment
 FOR EACH ROW EXECUTE FUNCTION ple_private.assign_public_id('A');
-
-CREATE TRIGGER assessment_question_pool_fork_requires_fork_provenance
-BEFORE INSERT OR UPDATE ON ple_data.assessment_question_pool_fork
-FOR EACH ROW EXECUTE FUNCTION ple_data.validate_assessment_question_pool_fork();

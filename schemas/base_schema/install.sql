@@ -17,7 +17,6 @@
 \ir 20_tables/object_record.sql
 \ir 20_tables/question_authoring.sql
 \ir 20_tables/question_images.sql
-\ir 20_tables/library_discussion.sql
 \ir 20_tables/library_watch.sql
 \ir 20_tables/blueprint_course.sql
 \ir 20_tables/course_instance.sql
@@ -47,7 +46,6 @@
 \ir 50_functions/question_pool_support.sql
 \ir 50_functions/question_stewardship.sql
 \ir 50_functions/question_pool_stewardship.sql
-\ir 50_functions/library_discussion_operations.sql
 \ir 50_functions/question_watch_notifications.sql
 \ir 50_functions/object_records.sql
 \ir 50_functions/question_authoring_state.sql
@@ -79,14 +77,11 @@
 \ir 50_functions/assessments.sql
 \ir 50_functions/question_library_operations.sql
 \ir 50_functions/recognition_titles.sql
-\ir 50_functions/question_bloom.sql
 \ir 50_functions/assessment_creation.sql
 \ir 50_functions/assessment_deadline_sync.sql
 \ir 50_functions/assessment_templates.sql
 \ir 50_functions/assessment_template_copy.sql
 \ir 50_functions/assessment_release_validation.sql
-\ir 50_functions/assessment_pool_forks.sql
-\ir 50_functions/assessment_pool_selection.sql
 \ir 50_functions/course_blueprint_adoption.sql
 \ir 50_functions/course_blueprint_publication.sql
 \ir 50_functions/assessment_operations.sql

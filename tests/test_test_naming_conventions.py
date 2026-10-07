@@ -218,6 +218,8 @@ def list_mjs_files_outside_playwright() -> list[str]:
 	playwright_dir = get_playwright_dir()
 	files = []
 	for root, dirs, filenames in os.walk(tests_dir):
+		if root == tests_dir and "_temp" in dirs:
+			dirs.remove("_temp")
 		if root.startswith(playwright_dir):
 			continue
 		for filename in filenames:

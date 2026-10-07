@@ -83,7 +83,7 @@ prove_service() {
 	read -r assignment initial_edit < <(workspace_id_and_edit_number "$(response_body "$created")")
 	assert_workspace "$created" unreleased '{}'
 
-	picker="$(request "/api/questions/search?authorship=any&page_size=50" "$instructor")"
+	picker="$(request "/api/library-objects/search?authorship=any&page_size=50" "$instructor")"
 	require_status "Assessment Question picker" "$picker" 200
 	published_question_revision_tuple="$(picker_published_question_revision_tuple "$(response_body "$picker")")"
 	payload="$(save_payload "$(response_body "$created")" "$published_question_revision_tuple" "Current Assignment")"
@@ -97,7 +97,13 @@ prove_service() {
 	require_status "Stale Assessment save" "$stale" 412
 	validation="$(request "/api/course-instances/$course/assessments/$assignment/release-validation" "$instructor")"
 	require_status "Assessment release validation" "$validation" 200
-	python3 -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"canRelease": True, "issues": []}, value' "$(response_body "$validation")"
+	python3 -c '
+import json, sys
+value = json.loads(sys.argv[1])
+if (not isinstance(value, dict) or value.get("canRelease") is not True
+    or value.get("issues") != [] or value.get("poolIssues") != []):
+    raise SystemExit(f"Assessment release validation did not report a clear, ready Assessment: {value}")
+' "$(response_body "$validation")"
 	released="$(request "/api/course-instances/$course/assessments/$assignment/release" "$instructor" POST '' "$saved_edit")"
 	require_status "Assessment release" "$released" 200
 	assert_workspace "$released" released "$published_question_revision_tuple"

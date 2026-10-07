@@ -17,21 +17,27 @@ CREATE TABLE ple_data.library_watch_event (
         )
     ),
     event_kind ple_data.library_watch_event_kind NOT NULL,
-    revision_number integer CHECK (revision_number > 0),
+    question_revision_number integer CHECK (question_revision_number > 0),
+    question_pool_edit_number bigint CHECK (question_pool_edit_number > 0),
     forked_public_id text CHECK (forked_public_id IS NULL
         OR (forked_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
             AND substr(forked_public_id, 6, 1) = ple_private.crockford_checksum_character(
                 substr(forked_public_id, 1, 4) || substr(forked_public_id, 7, 3)
             ))),
-    activity_id uuid,
     occurred_at timestamptz NOT NULL,
     CHECK (
-        (event_kind IN ('revision', 'members_changed') AND revision_number IS NOT NULL
-            AND forked_public_id IS NULL AND activity_id IS NULL)
-        OR (event_kind = 'fork' AND revision_number IS NOT NULL
-            AND forked_public_id IS NOT NULL AND activity_id IS NULL)
-        OR (event_kind = 'impact_notice' AND forked_public_id IS NULL
-            AND activity_id IS NOT NULL)
+        (event_kind = 'revision' AND target_kind = 'question'
+            AND question_revision_number IS NOT NULL AND question_pool_edit_number IS NULL
+            AND forked_public_id IS NULL)
+        OR (event_kind = 'members_changed' AND target_kind = 'question_pool'
+            AND question_revision_number IS NULL AND question_pool_edit_number IS NOT NULL
+            AND forked_public_id IS NULL)
+        OR (event_kind = 'fork' AND target_kind = 'question'
+            AND question_revision_number IS NOT NULL AND question_pool_edit_number IS NULL
+            AND forked_public_id IS NOT NULL)
+        OR (event_kind = 'fork' AND target_kind = 'question_pool'
+            AND question_revision_number IS NULL AND question_pool_edit_number IS NOT NULL
+            AND forked_public_id IS NOT NULL)
     )
 );
 
@@ -48,6 +54,8 @@ CREATE TABLE ple_data.library_watch_event_recipient (
 
 COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
 COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
-COMMENT ON COLUMN ple_data.library_watch_event.revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.library_watch_event.question_revision_number IS
+    'Question Revision Number, including the source Revision Number on Question forks.';
+COMMENT ON COLUMN ple_data.library_watch_event.question_pool_edit_number IS
+    'Question Pool Edit Number, including the source Edit Number on Pool forks.';
 COMMENT ON COLUMN ple_data.library_watch_event.forked_public_id IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.library_watch_event.activity_id IS 'NULL means this optional fact is absent.';

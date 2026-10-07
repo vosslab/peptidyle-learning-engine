@@ -5,8 +5,7 @@
 //! public aggregate surface.
 
 use async_trait::async_trait;
-use question_model::{PublishedQuestionId, Timestamp};
-use uuid::Uuid;
+use question_model::{LibraryObjectId, QuestionPoolEditNumber, QuestionRevisionNumber, Timestamp};
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -21,19 +20,19 @@ pub enum LibraryWatchTargetKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibraryWatchActivity {
     Revision {
-        revision_number: u64,
+        question_revision_number: QuestionRevisionNumber,
     },
-    /// A Question Pool member-list save. `edit_number` is the Pool Edit Number.
+    /// A Question Pool member-list save with its current Pool Edit Number.
     MembersChanged {
-        edit_number: u64,
+        question_pool_edit_number: QuestionPoolEditNumber,
     },
-    Fork {
-        source_revision_number: u64,
-        forked_public_id: PublishedQuestionId,
+    QuestionFork {
+        source_question_revision_number: QuestionRevisionNumber,
+        forked_public_id: LibraryObjectId,
     },
-    ImpactNotice {
-        affected_revision_number: Option<u64>,
-        impact_notice_id: Uuid,
+    QuestionPoolFork {
+        source_question_pool_edit_number: QuestionPoolEditNumber,
+        forked_public_id: LibraryObjectId,
     },
 }
 
@@ -41,7 +40,7 @@ pub enum LibraryWatchActivity {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryWatchNotification {
     pub target_kind: LibraryWatchTargetKind,
-    pub target_public_id: PublishedQuestionId,
+    pub target_public_id: LibraryObjectId,
     pub activity: LibraryWatchActivity,
     pub occurred_at: Timestamp,
 }

@@ -4,6 +4,10 @@ Generated from the current screenshot manifest. Images link to their full-size f
 
 [Complete screenshot atlas](../SCREENSHOT_ATLAS.md)
 
+[![Screenshot preview of Sysadmin confirms an administrative need before accessing one Student record](../screenshots/sysadmin/student_data_confirmation.webp)](../screenshots/sysadmin/student_data_confirmation.webp)
+
+**Sysadmin confirms an administrative need before accessing one Student record.** administrative work confirmation before access - laptop.
+
 [![Screenshot preview of System administration home](../screenshots/sysadmin/course_list.webp)](../screenshots/sysadmin/course_list.webp)
 
 **System administration home.** system administration home - laptop.

@@ -25,7 +25,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { blueprintRevisionTuple } from "./blueprint_course";
+import { blueprintCourseRevisionTuple } from "./blueprint_course";
 import { isCanonicalAccountId } from "./instructor_account";
 import { decodeCourseTerm } from "./course_term";
 import { decodeCourseClassification } from "./course_classification";
@@ -141,12 +141,12 @@ export function decodeCreateCourseInstanceInput(
     requireOnlyFields(sourceRecord, sourcePath, ["kind"]);
     source = { kind };
   } else {
-    requireOnlyFields(sourceRecord, sourcePath, ["kind", "blueprintRevisionTuple"]);
+    requireOnlyFields(sourceRecord, sourcePath, ["kind", "blueprintCourseRevisionTuple"]);
     source = {
       kind,
-      blueprintRevisionTuple: blueprintRevisionTuple(
-        field(sourceRecord, "blueprintRevisionTuple", sourcePath),
-        `${sourcePath}.blueprintRevisionTuple`,
+      blueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+        field(sourceRecord, "blueprintCourseRevisionTuple", sourcePath),
+        `${sourcePath}.blueprintCourseRevisionTuple`,
       ),
     };
   }
@@ -211,25 +211,25 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
     const originPath = `${path}.blueprintOrigin`;
     const origin = decodeRecord(originValue, originPath);
     requireOnlyFields(origin, originPath, [
-      "adoptedBlueprintRevisionTuple",
-      "currentBlueprintRevisionTuple",
+      "adoptedBlueprintCourseRevisionTuple",
+      "currentBlueprintCourseRevisionTuple",
     ]);
     blueprintOrigin = {
-      adoptedBlueprintRevisionTuple: blueprintRevisionTuple(
-        field(origin, "adoptedBlueprintRevisionTuple", originPath),
-        `${originPath}.adoptedBlueprintRevisionTuple`,
+      adoptedBlueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+        field(origin, "adoptedBlueprintCourseRevisionTuple", originPath),
+        `${originPath}.adoptedBlueprintCourseRevisionTuple`,
       ),
-      currentBlueprintRevisionTuple: blueprintRevisionTuple(
-        field(origin, "currentBlueprintRevisionTuple", originPath),
-        `${originPath}.currentBlueprintRevisionTuple`,
+      currentBlueprintCourseRevisionTuple: blueprintCourseRevisionTuple(
+        field(origin, "currentBlueprintCourseRevisionTuple", originPath),
+        `${originPath}.currentBlueprintCourseRevisionTuple`,
       ),
     };
     // ASVS 2.2.3: a current source head cannot precede its original adoption.
     if (
-      blueprintOrigin.currentBlueprintRevisionTuple.blueprintCourseId !==
-        blueprintOrigin.adoptedBlueprintRevisionTuple.blueprintCourseId ||
-      BigInt(blueprintOrigin.currentBlueprintRevisionTuple.revisionNumber) <
-        BigInt(blueprintOrigin.adoptedBlueprintRevisionTuple.revisionNumber)
+      blueprintOrigin.currentBlueprintCourseRevisionTuple.blueprintCourseId !==
+        blueprintOrigin.adoptedBlueprintCourseRevisionTuple.blueprintCourseId ||
+      BigInt(blueprintOrigin.currentBlueprintCourseRevisionTuple.revisionNumber) <
+        BigInt(blueprintOrigin.adoptedBlueprintCourseRevisionTuple.revisionNumber)
     ) {
       throw new DecodeError(originPath, "a current Revision at or after the adopted Revision");
     }

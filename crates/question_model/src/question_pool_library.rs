@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    AccountId, AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
+    AccountId, BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension,
     PublishedQuestionRevisionTuple, QuestionBackend, QuestionLicense, QuestionPoolEditNumber,
     QuestionPoolId, QuestionPoolMetadataEditNumber, QuestionStatistics, QuestionType,
     ReusableQuestionView,
@@ -32,6 +32,65 @@ pub struct QuestionPoolMetadata {
     pub topic_uuid: Option<Uuid>,
     pub subtopic_uuid: Option<Uuid>,
     pub tags: Vec<String>,
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
+}
+
+/// Complete editable metadata replacement for the current Question Pool.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionPoolMetadataReplacement {
+    pub title: String,
+    pub description: String,
+    #[serde(deserialize_with = "required_nullable")]
+    pub topic_uuid: Option<Uuid>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub subtopic_uuid: Option<Uuid>,
+    pub tags: Vec<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
+}
+
+fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
+/// Current editable metadata and concurrency token for one published Pool.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CurrentQuestionPoolMetadata {
+    pub question_pool_id: QuestionPoolId,
+    pub question_pool_metadata_edit_number: QuestionPoolMetadataEditNumber,
+    pub title: String,
+    pub description: String,
+    pub topic_uuid: Option<Uuid>,
+    pub subtopic_uuid: Option<Uuid>,
+    pub tags: Vec<String>,
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
+}
+
+/// Complete current Pool metadata replacement bound to its ordinary metadata CAS.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SaveQuestionPoolMetadataRequest {
+    pub question_pool_id: QuestionPoolId,
+    pub expected_metadata_edit_number: QuestionPoolMetadataEditNumber,
+    pub metadata: QuestionPoolMetadataReplacement,
+}
+
+/// Receipt from one accepted ordinary Question Pool metadata replacement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedQuestionPoolMetadata {
+    pub question_pool_id: QuestionPoolId,
+    pub question_pool_metadata_edit_number: QuestionPoolMetadataEditNumber,
 }
 
 /// One reusable published Question Pool available through the Question Library.
@@ -58,19 +117,17 @@ pub struct QuestionPoolLibrarySummary {
     pub bloom: Option<BloomClassificationView>,
 }
 
-/// One ordered exact Question Revision in the current Pool membership.
+/// One exact Question Revision in the current unordered Pool membership.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolMemberView {
-    /// Zero-based position in the Pool's current member list.
-    pub member_position: u32,
-    /// Exact immutable Question Revision at this position.
+    /// Exact immutable Question Revision tuple.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Answer-free reusable Question projection for the exact member.
     pub question: ReusableQuestionView,
 }
 
-/// Complete ordered contents of one current published Question Pool.
+/// Complete contents of one current published Question Pool.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolView {
@@ -79,6 +136,8 @@ pub struct QuestionPoolView {
     pub question_pool_id: QuestionPoolId,
     /// Account that created or forked this Pool lineage.
     pub owner_account_id: AccountId,
+    /// Whether this authenticated viewer may edit the current Pool metadata.
+    pub can_edit_metadata: bool,
     /// Immutable Type established by the first Pool member.
     pub question_type: QuestionType,
     /// Immutable Backend established by the first Pool member.
@@ -89,46 +148,93 @@ pub struct QuestionPoolView {
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Exact Pool-owned Bloom Classification when assigned.
     pub bloom: Option<BloomClassificationView>,
-    /// Members in current Pool order.
+    /// Unordered exact Published Question Revision tuple set.
     pub members: Vec<QuestionPoolMemberView>,
-    /// Instructor-visible Pool issued_count plus current-member outcome rollup.
+    /// Instructor-visible Pool delivery count and outcomes attributed to the
+    /// originating Pool recorded when each Question was delivered.
     pub evidence: QuestionStatistics,
 }
 
-/// Assessment-owned Pool fork content for an Instructor Assessment editor.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Complete replacement of one ordinary Question Pool's exact member tuple set.
+/// ASVS 2.1/2.2: the closed request uses positive typed Edit Numbers and exact typed tuples.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssessmentQuestionPoolForkView {
-    pub metadata: QuestionPoolMetadata,
-    /// Stable Assessment Entry that owns this fork.
-    pub assessment_entry_id: AssessmentEntryId,
+pub struct SaveQuestionPoolMembersRequest {
     pub question_pool_id: QuestionPoolId,
-    /// Account that created or forked this Pool lineage.
-    pub owner_account_id: AccountId,
-    /// Immutable Type established by the first Pool member.
-    pub question_type: QuestionType,
-    /// Immutable Backend established by the first Pool member.
-    pub backend: QuestionBackend,
-    /// Calculated collection license; each member keeps its own exact Revision license.
-    pub license: QuestionLicense,
-    /// Current-state concurrency marker for the Assessment-owned fork Pool.
-    pub question_pool_edit_number: QuestionPoolEditNumber,
-    /// Positive number of members selected for each future Assessment Attempt.
-    pub selection_count: NonZeroU32,
-    /// Exact fork-owned Bloom Classification when assigned; source and member pairs do not substitute.
-    pub bloom: Option<BloomClassificationView>,
-    /// Ordered current members of the fork Pool.
-    pub members: Vec<QuestionPoolMemberView>,
+    pub expected_question_pool_edit_number: QuestionPoolEditNumber,
+    pub members: Vec<PublishedQuestionRevisionTuple>,
 }
 
-/// Accepted Assessment-owned Pool selection-count change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Receipt from an accepted current Question Pool tuple-set save.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssessmentQuestionPoolSelectionCountReceipt {
-    /// Stable Assessment Entry whose selection count changed.
-    pub assessment_entry_id: AssessmentEntryId,
-    /// Accepted positive count for future Assessment Attempts.
-    pub selection_count: NonZeroU32,
-    /// Assessment Edit Number after the accepted change.
-    pub assessment_edit_number: AssessmentEditNumber,
+pub struct SavedQuestionPoolMembers {
+    pub question_pool_id: QuestionPoolId,
+    pub question_pool_edit_number: QuestionPoolEditNumber,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pool_replacement_keeps_nullable_bloom_dimensions_under_metadata_cas() {
+        let request: SaveQuestionPoolMetadataRequest = serde_json::from_value(serde_json::json!({
+            "questionPoolId": "7K3M-19QX",
+            "expectedMetadataEditNumber": 5,
+            "metadata": {
+                "title": "Pool",
+                "description": "Description",
+                "topicUuid": null,
+                "subtopicUuid": null,
+                "tags": [],
+                "bloomCognitiveProcess": null,
+                "bloomKnowledgeDimension": "Conceptual Knowledge"
+            }
+        }))
+        .expect("ordinary Pool metadata replacement");
+        assert_eq!(request.expected_metadata_edit_number.get(), 5);
+        assert_eq!(request.metadata.bloom_cognitive_process, None);
+        assert_eq!(
+            request.metadata.bloom_knowledge_dimension,
+            Some(BloomKnowledgeDimension::ConceptualKnowledge)
+        );
+
+        let mut encoded = serde_json::to_value(request).expect("serialize request");
+        encoded["metadata"]
+            .as_object_mut()
+            .expect("metadata object")
+            .remove("bloomCognitiveProcess");
+        assert!(serde_json::from_value::<SaveQuestionPoolMetadataRequest>(encoded).is_err());
+    }
+
+    #[test]
+    fn pool_member_save_request_is_closed_and_keeps_exact_tuple_revisions() {
+        let request: SaveQuestionPoolMembersRequest = serde_json::from_value(serde_json::json!({
+            "questionPoolId": "3S8B-24DZ",
+            "expectedQuestionPoolEditNumber": 7,
+            "members": [
+                { "publishedQuestionId": "7K3M-79QP", "revisionNumber": 3 },
+                { "publishedQuestionId": "2R5X-E7YA", "revisionNumber": 6 }
+            ]
+        }))
+        .expect("closed current Pool tuple-set request");
+        assert_eq!(request.expected_question_pool_edit_number.get(), 7);
+        assert_eq!(request.members[0].revision_number.get(), 3);
+        assert_eq!(request.members[1].revision_number.get(), 6);
+
+        let mut encoded = serde_json::to_value(request).expect("serialize exact tuple request");
+        encoded["unexpected"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<SaveQuestionPoolMembersRequest>(encoded).is_err());
+        assert!(
+            serde_json::from_value::<SaveQuestionPoolMembersRequest>(serde_json::json!({
+                "questionPoolId": "3S8B-24DZ",
+                "expectedQuestionPoolEditNumber": 0,
+                "members": [
+                    { "publishedQuestionId": "7K3M-79QP", "revisionNumber": 3 }
+                ]
+            }))
+            .is_err()
+        );
+    }
 }

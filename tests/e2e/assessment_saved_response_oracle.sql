@@ -8,3 +8,4 @@
 \ir assessment_saved_response/05_student_history_privacy.sql
 \ir assessment_saved_response/06_question_watch_access.sql
 \ir assessment_saved_response/07_assessment_fairness.sql
+\ir assessment_saved_response/09_pool_save_permissions.sql

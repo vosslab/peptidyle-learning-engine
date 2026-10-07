@@ -17,7 +17,6 @@ const directOrigin = { kind: "direct" };
 const bloom = {
   cognitiveProcess: "Understand",
   knowledgeDimension: "Conceptual Knowledge",
-  classificationEditNumber: "3",
 };
 
 function createdWorkspace(
@@ -26,7 +25,7 @@ function createdWorkspace(
   origin = {
     kind: "adopted",
     source: {
-      blueprint_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
+      blueprint_course_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
       blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
     },
   },
@@ -46,6 +45,7 @@ function createdWorkspace(
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
+      partialCreditEnabled: true,
       questionVariationRule: "newVariation",
       assessmentQuestionOrderRule: "authoredOrder",
     },
@@ -79,7 +79,6 @@ function createdWorkspace(
         scoringRule: "normal",
         selectionCount: 1,
         pointsPerItem: "2",
-        selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
         questionAttemptLimit: { maxAttempts: 2 },
         questionAttemptTimeLimit: { kind: "limited", seconds: 60, graceSeconds: 5 },
       },
@@ -224,11 +223,19 @@ test("Assessment creation accepts only Type, title, and instructions", () => {
 test("current adopted Assessment workspace retains exact origin and normalized fixed Question Revision pins with sibling Pool fields", () => {
   const workspace = decodeLiveAssessmentWorkspace(createdWorkspace());
   assert.equal(workspace.origin.kind, "adopted");
-  assert.equal(workspace.origin.source.blueprint_revision_tuple.blueprintCourseId, "BP7K3M2QAF");
+  assert.equal(
+    workspace.origin.source.blueprint_course_revision_tuple.blueprintCourseId,
+    "BP7K3M2QAF",
+  );
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
   assert.equal(workspace.entries[1].questionPoolId, "2R5X-E7YA");
   assert.deepEqual(workspace.questions[0].bloom, bloom);
+  const staleSelectionPolicy = createdWorkspace();
+  staleSelectionPolicy.entries[1].selectionRule = {
+    selectedQuestionOrder: "questionPoolOrder",
+  };
+  assert.throws(() => decodeLiveAssessmentWorkspace(staleSelectionPolicy));
   assert.throws(() => decodeLiveAssessmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
   const missingBloom = createdWorkspace();
   delete missingBloom.questions[0].bloom;
@@ -250,7 +257,7 @@ test("current direct Assessment workspace accepts only the closed tagged origin"
     decodeLiveAssessmentWorkspace({
       ...withoutOrigin,
       source: {
-        blueprint_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
+        blueprint_course_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
       },
     }),
@@ -298,6 +305,15 @@ test("release readiness uses the current direct Assessment validation boundary",
       new Response(
         JSON.stringify({
           canRelease: false,
+          poolIssues: [
+            {
+              assessmentPosition: 2,
+              poolTitle: "Molecular Biology Pool",
+              questionPoolId: "3S8B-24DZ",
+              selectionCount: 3,
+              issue: "memberClassificationMismatch",
+            },
+          ],
           issues: [
             "noPublishedQuestions",
             "questionCountExceeded",
@@ -323,6 +339,15 @@ test("release readiness uses the current direct Assessment validation boundary",
 
   assert.deepEqual(validation, {
     canRelease: false,
+    poolIssues: [
+      {
+        assessmentPosition: 2,
+        poolTitle: "Molecular Biology Pool",
+        questionPoolId: "3S8B-24DZ",
+        selectionCount: 3,
+        issue: "memberClassificationMismatch",
+      },
+    ],
     issues: [
       "noPublishedQuestions",
       "questionCountExceeded",

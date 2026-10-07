@@ -12,6 +12,9 @@ import {
 } from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
+import type { Theme } from "../../../generated/api/Theme";
+import { useAppearance } from "../../appearance/appearance_context";
+import { ThemeChooser } from "../../appearance/theme_chooser";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { PageFrame } from "../../components/page_frame";
@@ -95,6 +98,7 @@ export function BlueprintCourseDetailWorkspace(
   props: BlueprintCourseDetailWorkspaceProps,
 ): JSX.Element {
   const formatInAccountZone = useSelectedDisplayDateTimeFormatter();
+  const appearance = useAppearance();
   const formatDateTime = (timestamp: number | Date): string => formatInAccountZone()(timestamp);
   const [editing, setEditing] = createSignal(false);
   const [selectedAssessment, setSelectedAssessment] = createSignal<SelectedBlueprintAssessment>();
@@ -110,6 +114,7 @@ export function BlueprintCourseDetailWorkspace(
   const [metadataConflict, setMetadataConflict] = createSignal(false);
   const [shortName, setShortName] = createSignal("");
   const [longName, setLongName] = createSignal("");
+  const [themeDraft, setThemeDraft] = createSignal<Theme>("grass");
   const [archiveConfirmation, setArchiveConfirmation] = createSignal("");
   const [invalidDraft, setInvalidDraft] = createSignal(false);
   const [refreshFailed, setRefreshFailed] = createSignal(false);
@@ -204,6 +209,7 @@ export function BlueprintCourseDetailWorkspace(
       if (!preserveNames || prior === undefined) {
         setShortName(result.blueprintCourse.short_name);
         setLongName(result.blueprintCourse.long_name);
+        setThemeDraft(result.blueprintCourse.theme);
       }
       if (!keepLocalContent) setConflict(false);
       setState("ready");
@@ -334,6 +340,7 @@ export function BlueprintCourseDetailWorkspace(
       long_name: metadata.metadata.long_name,
       availability: metadata.metadata.availability,
       classification: metadata.metadata.classification,
+      theme: metadata.metadata.theme,
       blueprint_edit_number: metadata.metadata.blueprint_edit_number,
     };
     setCurrent({
@@ -576,6 +583,27 @@ export function BlueprintCourseDetailWorkspace(
     }
   }
 
+  async function saveTheme(view: BlueprintCourseView): Promise<void> {
+    setMetadataSaving(true);
+    try {
+      const transition = await props.client.updateBlueprintCourseTheme(
+        view.id,
+        { theme: themeDraft() },
+        view.blueprint_edit_number,
+      );
+      applyMetadataState(transition);
+      setThemeDraft(transition.metadata.theme);
+      setNotice({ kind: "status", text: "Blueprint Theme saved." });
+    } catch (error: unknown) {
+      setNotice({
+        kind: "alert",
+        text: errorMessage(error, "Blueprint Theme could not be saved."),
+      });
+    } finally {
+      setMetadataSaving(false);
+    }
+  }
+
   onMount(() => void load(false));
   onCleanup(() => {
     if (activePublication !== undefined) clearRouteScopeLabels(activePublication);
@@ -663,18 +691,12 @@ export function BlueprintCourseDetailWorkspace(
                 assessmentContent={(moduleIndex, assessmentIndex) =>
                   current()?.content.modules[moduleIndex]?.assessments[assessmentIndex]?.content
                 }
-                retainedAssessmentId={(moduleIndex, assessmentIndex) => {
-                  const choice =
-                    current()?.content.modules[moduleIndex]?.assessments[assessmentIndex]?.choice;
-                  return choice?.kind === "retained" ? choice.blueprint_assessment_id : undefined;
-                }}
                 assessmentTriggerId={assessmentTriggerId}
                 registerAssessmentTrigger={(triggerId, element) =>
                   assessmentTriggers.set(triggerId, element)
                 }
                 onSelectAssessment={selectAssessment}
                 onReturnToAssessmentList={returnToAssessmentList}
-                blueprintCourseId={props.blueprintCourseId}
                 blueprintClient={props.client}
                 pickerRepository={props.pickerRepository}
                 pickerSources={props.pickerSources}
@@ -723,15 +745,44 @@ export function BlueprintCourseDetailWorkspace(
                         long_name: latest.blueprintCourse.long_name,
                         availability: latest.blueprintCourse.availability,
                         classification: latest.blueprintCourse.classification,
+                        theme: latest.blueprintCourse.theme,
                         blueprint_edit_number: latest.blueprintCourse.blueprint_edit_number,
                       },
                     });
+                  setThemeDraft(latest.blueprintCourse.theme);
                   return {
                     classification: latest.blueprintCourse.classification,
                     editNumber: latest.blueprintCourse.blueprint_edit_number,
                   };
                 }}
               />
+              <fieldset
+                class="blueprint-course-theme-editor"
+                disabled={
+                  metadataSaving() ||
+                  loaded().view.availability === "archived" ||
+                  loaded().view.read_access !== "blueprint_course_owner"
+                }
+              >
+                <legend>Blueprint Theme</legend>
+                <p>Courses created from this Blueprint start with this Theme.</p>
+                <ThemeChooser
+                  name="blueprint-theme"
+                  selectedTheme={themeDraft}
+                  mode={() => appearance.appearance().mode}
+                  disabled={() => metadataSaving()}
+                  onSelect={setThemeDraft}
+                />
+                <button
+                  type="button"
+                  disabled={themeDraft() === loaded().view.theme}
+                  onClick={() => {
+                    void saveTheme(loaded().view);
+                  }}
+                >
+                  Save Blueprint Theme
+                </button>
+              </fieldset>
               <BlueprintHistory
                 client={props.client}
                 view={loaded().view}

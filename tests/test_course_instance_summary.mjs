@@ -108,12 +108,12 @@ test("Course creation accepts only the two current source wires", () => {
       ...common,
       source: {
         kind: "adopted",
-        blueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+        blueprintCourseRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
       },
     }).source,
     {
       kind: "adopted",
-      blueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+      blueprintCourseRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
     },
   );
   assert.throws(
@@ -156,8 +156,8 @@ test("Course creation accepts only the two current source wires", () => {
 
 test("Course Instance view provenance accepts named Blueprint Course Revision Tuples and rejects split siblings", () => {
   const origin = {
-    adoptedBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "1" },
-    currentBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+    adoptedBlueprintCourseRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "1" },
+    currentBlueprintCourseRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
   };
   const view = decodeCourseInstanceView({
     courseInstance: courseSummary(),
@@ -184,8 +184,14 @@ test("Course Instance view provenance accepts named Blueprint Course Revision Tu
         courseInstance: courseSummary(),
         activeInstructorCount: 1,
         blueprintOrigin: {
-          adoptedBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
-          currentBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "1" },
+          adoptedBlueprintCourseRevisionTuple: {
+            blueprintCourseId: "BP6F2R8TA9",
+            revisionNumber: "2",
+          },
+          currentBlueprintCourseRevisionTuple: {
+            blueprintCourseId: "BP6F2R8TA9",
+            revisionNumber: "1",
+          },
         },
       }),
     DecodeError,
@@ -194,7 +200,7 @@ test("Course Instance view provenance accepts named Blueprint Course Revision Tu
 
 test("Course-derived Blueprint creation sends only metadata and requires a new private root", async () => {
   const requests = [];
-  let blueprintRevisionTuple = "BP7K3M2QAF";
+  let blueprintCourseRevisionTuple = "BP7K3M2QAF";
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
@@ -206,9 +212,10 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
           short_name: "Mol Bio",
           long_name: "Molecular Biology",
           availability: "private",
+          theme: "grass",
           blueprint_edit_number: "1",
           current_revision_tuple: {
-            blueprintCourseId: blueprintRevisionTuple,
+            blueprintCourseId: blueprintCourseRevisionTuple,
             revisionNumber: "1",
           },
           read_access: "blueprint_course_owner",
@@ -240,7 +247,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
     () => decodeCreateBlueprintFromCourseInstanceInput({ ...input, modules: [] }),
     DecodeError,
   );
-  blueprintRevisionTuple = "BP6F2R8TA9";
+  blueprintCourseRevisionTuple = "BP6F2R8TA9";
   await assert.rejects(
     client.createBlueprintFromCourseInstance("CI6F2R8TA0", input, "create-8"),
     ApiProtocolError,

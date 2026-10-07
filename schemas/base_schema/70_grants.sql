@@ -12,8 +12,6 @@ RESET ROLE;
 \ir 70_grants/question_pools.sql
 \ir 70_grants/question_stewardship.sql
 \ir 70_grants/question_pool_stewardship.sql
-\ir 70_grants/library_discussions.sql
-\ir 70_grants/library_discussion_operations.sql
 \ir 70_grants/question_watch_notifications.sql
 \ir 70_grants/object_records.sql
 \ir 70_grants/question_authoring_state.sql
@@ -43,14 +41,11 @@ RESET ROLE;
 \ir 70_grants/assessment_entry_snapshot.sql
 \ir 70_grants/question_library_operations.sql
 \ir 70_grants/recognition_titles.sql
-\ir 70_grants/question_bloom.sql
 \ir 70_grants/assessment_creation.sql
 \ir 70_grants/assessment_deadline_sync.sql
 \ir 70_grants/assessment_templates.sql
 \ir 70_grants/assessment_template_copy.sql
 \ir 70_grants/assessment_release_validation.sql
-\ir 70_grants/assessment_pool_forks.sql
-\ir 70_grants/assessment_pool_selection.sql
 \ir 70_grants/course_blueprint_adoption.sql
 \ir 70_grants/course_blueprint_publication.sql
 \ir 70_grants/assessment_operations.sql

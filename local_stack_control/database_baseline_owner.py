@@ -80,6 +80,23 @@ def _require_command(
 	"""Run one fixed child and retain only its successful standard output."""
 	result = runner.run(argv, environment, workspace, stdin)
 	local_stack_control.lifecycle_commands.require_command(result, description, private_values)
+	if argv[0] == "cargo" and "test" in argv:
+		summaries = re.findall(r"^test result: .+$", result.stdout, re.MULTILINE)
+		executed_tests = sum(
+			int(passed) + int(failed)
+			for passed, failed in re.findall(
+				r"^test result: .*?(\d+) passed; (\d+) failed;",
+				result.stdout,
+				re.MULTILINE,
+			)
+		)
+		if not summaries or executed_tests == 0:
+			raise local_stack_control.models.ControllerError(
+				f"{description} completed without running any Rust tests; "
+				"check the exact Cargo test selector and libtest output"
+			)
+		for summary in summaries:
+			local_stack_control.lifecycle_commands.report_step(f"{description}: {summary}")
 	return result.stdout
 
 
@@ -306,6 +323,20 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		[
 			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
 			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "authoring_raw_source_postgres",
+			"raw_empty_incomplete_and_broken_sources_keep_their_binding_and_edit_cas",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"raw Draft source binding and Edit Number CAS PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
 			"--test", "account_time_zone_postgres",
 			"invitation_acceptance_defaults_only_a_new_student_account_to_the_inviting_instructor_zone",
 			"--", "--ignored", "--exact", "--test-threads=1",
@@ -455,12 +486,12 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
 			"-p", "learning-data-access", "--features", "postgres",
 			"--test", "blueprint_course_postgres",
-			"blueprint_course_postgres_discovery::discovery_pages_return_250_rows_and_one_blueprint_lookahead",
+			"blueprint_course_postgres_question_library::question_library_search_filters_and_pages_in_postgresql",
 			"--", "--ignored", "--exact", "--test-threads=1",
 		],
 		authoring_environment,
 		workspace,
-		"250-row discovery PostgreSQL acceptance",
+		"Question Library bounded PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
 	_require_command(
@@ -469,12 +500,124 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
 			"-p", "learning-data-access", "--features", "postgres",
 			"--test", "blueprint_course_postgres",
-			"blueprint_course_postgres_question_library::question_library_search_filters_and_pages_in_postgresql",
+			"blueprint_course_postgres_lineage_fork::blueprint_forks_are_ordinary_lineages_with_immediate_parent_and_normal_revisions",
 			"--", "--ignored", "--exact", "--test-threads=1",
 		],
 		authoring_environment,
 		workspace,
-		"Question Library bounded PostgreSQL acceptance",
+		"Blueprint fork lineage PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_fork_parents::question_fork_gets_new_identity_and_keeps_its_exact_parent_snapshot",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Question fork parents PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_revision_metadata::exact_current_metadata_uses_cas_preserves_source_and_obeys_authority",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Question Revision metadata PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_library_stewardship::publishing_a_question_fork_reaches_its_source_watcher",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Question Library Watch event PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_library_stewardship::changing_question_pool_members_reaches_its_watcher",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Question Pool member Watch PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_library_stewardship::forking_a_question_pool_reaches_its_source_watcher",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Question Pool fork Watch PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_question_revision_metadata::manual_type_correction::saved_manual_webwork_type_reaches_same_id_successor",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Manual WebWork Type correction PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_sysadmin_correction_publication::sysadmin_correction_draft_publishes_same_id_without_changing_owner",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Sysadmin same-ID correction publication PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"blueprint_course_postgres_course_publication_pool_reference::course_publication_preserves_an_ordinary_pool_reference",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Course publication Pool reference PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
 

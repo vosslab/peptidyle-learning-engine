@@ -27,7 +27,6 @@ import {
   AssessmentContentPicker,
   type AssessmentContentPickerSelection,
 } from "../assessment_content_picker";
-import { BlueprintPoolMembersEditor } from "./blueprint_pool_members_editor";
 import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedback_fields";
 import { RecordSequence } from "../../components/record_list/record_sequence";
 import type { RecordContent } from "../../components/record_list/record_list";
@@ -41,8 +40,6 @@ import {
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
-  readonly blueprintCourseId?: string;
-  readonly retainedAssessmentId?: string;
   readonly blueprintClient?: BlueprintCourseClient;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
@@ -67,8 +64,6 @@ export function BlueprintAssessmentContentEditor(
 ): JSX.Element {
   const [editingTask, setEditingTask] = createSignal<"questions" | "properties">("questions");
   const [contentPickerOpen, setContentPickerOpen] = createSignal(false);
-  const [memberPoolEntryId, setMemberPoolEntryId] = createSignal<string>();
-  const [invalidMembers, setInvalidMembers] = createSignal(false);
   const [pointDrafts, setPointDrafts] = createSignal<Readonly<Record<string, string>>>({});
   const [timeLimit, setTimeLimit] = createSignal(
     assessmentDurationOverrideMinutesDraft(
@@ -78,9 +73,6 @@ export function BlueprintAssessmentContentEditor(
   // Draft entries can repeat the same published identity, so list keys stay UI-local and travel with moves.
   type EntryInput = BlueprintAssessmentContentInput["entries"][number];
   type EntryRecord = { readonly entry: EntryInput; readonly index: number; readonly id: string };
-  type PoolEntryRecord = EntryRecord & {
-    readonly entry: Extract<EntryInput, { kind: "pool" }>;
-  };
   let nextEntryIdentity = 0;
   const newEntryIdentity = (): string => `blueprint-entry-${++nextEntryIdentity}`;
   let trackedEntries = props.content.entries;
@@ -101,8 +93,7 @@ export function BlueprintAssessmentContentEditor(
   function notifyInvalidDraft(): void {
     if (editor === undefined) return;
     props.onInvalidDraftChange?.(
-      invalidMembers() ||
-        Object.keys(pointDrafts()).length > 0 ||
+      Object.keys(pointDrafts()).length > 0 ||
         editor.querySelector("input:invalid:not([data-point-entry-id])") !== null,
     );
   }
@@ -179,7 +170,6 @@ export function BlueprintAssessmentContentEditor(
   }
 
   function removeEntry(record: EntryRecord): void {
-    if (memberPoolEntryId() === record.id) setMemberPoolEntryId(undefined);
     changeEntries(
       removeReusableEntry(props.content, record.index),
       "Entry removed. Add another question or save the revised content.",
@@ -252,7 +242,7 @@ export function BlueprintAssessmentContentEditor(
       if (entry.kind === "fixed") {
         questionIds.add(entry.published_question_revision_tuple.publishedQuestionId);
       } else {
-        poolIds.add(entry.pool.question_pool_id);
+        poolIds.add(entry.question_pool_id);
       }
     }
     return { questionIds: [...questionIds], poolIds: [...poolIds] };
@@ -302,7 +292,7 @@ export function BlueprintAssessmentContentEditor(
       pools: new Map([[selection.questionPoolId, selection.title]]),
     });
     appendEntries(
-      appendPickedPool(props.content, selection.questionPoolId, selection.questionPoolEditNumber),
+      appendPickedPool(props.content, selection.questionPoolId),
       `Added ${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}), with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
     );
   }
@@ -451,32 +441,12 @@ export function BlueprintAssessmentContentEditor(
                       />
                     </label>
                   </Show>
-                  <Show when={entry.kind === "pool"}>
-                    <Show
-                      when={
-                        entry.kind === "pool" &&
-                        entry.pool.kind === "retained" &&
-                        props.retainedAssessmentId &&
-                        props.blueprintCourseId &&
-                        props.blueprintClient
-                      }
-                      fallback={
-                        <p class="blueprint-course-field-help">
-                          Save the Blueprint Course before editing this Assessment-owned Pool's
-                          members.
-                        </p>
-                      }
-                    >
-                      <button
-                        type="button"
-                        class="quiet-action"
-                        onClick={() => {
-                          if (entry.kind === "pool") setMemberPoolEntryId(current.id);
-                        }}
-                      >
-                        {props.editable ? "Edit Pool members" : "View Pool members"}
-                      </button>
-                    </Show>
+                  <Show when={entry.kind === "pool" ? entry : undefined}>
+                    {(poolEntry) => (
+                      <a class="quiet-action" href={`/library/${poolEntry().question_pool_id}`}>
+                        Open ordinary Pool
+                      </a>
+                    )}
                   </Show>
                 </>
               );
@@ -509,67 +479,36 @@ export function BlueprintAssessmentContentEditor(
         </Show>
       </section>
 
-      <div hidden={!memberPoolEntryId() || editingTask() !== "questions"}>
-        <Show when={memberPoolEntryId()} keyed>
-          {(entryId) => {
-            const entry = (): PoolEntryRecord | undefined => {
-              const selected = entryRecords().find((record) => record.id === entryId);
-              if (selected === undefined || selected.entry.kind !== "pool") return undefined;
-              return { ...selected, entry: selected.entry };
-            };
-            return (
-              <Show when={entry()}>
-                {(selected) => (
-                  <Show
-                    when={
-                      selected().entry.kind === "pool" &&
-                      selected().entry.pool.kind === "retained" &&
-                      props.blueprintClient &&
-                      props.blueprintCourseId &&
-                      props.retainedAssessmentId
-                    }
-                  >
-                    <BlueprintPoolMembersEditor
-                      entry={selected().entry}
-                      blueprintCourseId={props.blueprintCourseId!}
-                      assessmentId={props.retainedAssessmentId!}
-                      client={props.blueprintClient!}
-                      initialTitles={recognition.titles()}
-                      editable={props.editable}
-                      pickerRepository={props.pickerRepository}
-                      pickerSources={props.pickerSources}
-                      onClose={() => setMemberPoolEntryId(undefined)}
-                      onInvalidDraftChange={(invalid) => {
-                        setInvalidMembers(invalid);
-                        notifyInvalidDraft();
-                      }}
-                      onChange={(pool, message) => {
-                        const records = entryRecords();
-                        const nextEntries = records.map((record) =>
-                          record.id === entryId &&
-                          record.entry.kind === "pool" &&
-                          record.entry.pool.kind === "retained"
-                            ? { ...record.entry, pool }
-                            : record.entry,
-                        );
-                        changeEntries({ ...props.content, entries: nextEntries }, message);
-                      }}
-                    />
-                  </Show>
-                )}
-              </Show>
-            );
-          }}
-        </Show>
-      </div>
-
       <fieldset disabled={!props.editable} hidden={editingTask() !== "properties"}>
         <legend>Reusable defaults</legend>
         <p class="blueprint-course-field-help">
           These defaults apply when this content becomes a teaching-course assessment.
         </p>
         <div class="blueprint-course-form-grid">
-          <label>
+          <label class="blueprint-course-form-checkbox">
+            <input
+              type="checkbox"
+              checked={props.content.defaults.activity_rules.partialCreditEnabled}
+              onChange={(event) => {
+                props.onChange(
+                  updateReusableDefaults(props.content, {
+                    ...props.content.defaults,
+                    activity_rules: {
+                      ...props.content.defaults.activity_rules,
+                      partialCreditEnabled: event.currentTarget.checked,
+                    },
+                  }),
+                  "Partial-credit default updated. Save the Blueprint Course to keep this change.",
+                );
+              }}
+            />
+            <span>Award partial credit</span>
+            <small>
+              When disabled, fractional Question credit earns zero points. Full Credit entries still
+              award their points for any submitted response.
+            </small>
+          </label>
+          <label class="blueprint-course-form-checkbox">
             <input
               type="checkbox"
               checked={

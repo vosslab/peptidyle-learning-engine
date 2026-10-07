@@ -54,7 +54,7 @@ CREATE FUNCTION ple_api.create_course_instance(
     p_assigned_instructor_account_id text, p_assessments jsonb,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
-RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_starts_on date,
+RETURNS TABLE(course_instance_id text, short_name text, long_name text, course_theme text, term_starts_on date,
               term_ends_on date, content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid,
               content_subtopic_id uuid, tags text[], course_edit_number bigint, course_lifecycle_state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
@@ -162,13 +162,14 @@ BEGIN
         course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number,
         course_short_name, course_long_name,
         term_starts_on, term_ends_on, created_at, active_until_at, retention_starts_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         p_course_instance_id, p_source_kind::ple_data.course_source_kind, blueprint.blueprint_course_id, p_blueprint_revision_number,
         p_short_name, p_long_name, p_term_start, p_term_end, now_at,
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
-        p_discipline, p_subject, p_topic, p_subtopic, p_tags
+        p_discipline, p_subject, p_topic, p_subtopic, p_tags,
+        CASE WHEN p_source_kind = 'adopted' THEN blueprint.theme_id ELSE 'grass' END
     ) RETURNING inserted_course_instance.course_instance_id INTO created_course_instance_id;
     INSERT INTO ple_data.course_origin (
         course_origin_id, course_instance_id, source_kind, blueprint_course_id,
@@ -179,8 +180,8 @@ BEGIN
     VALUES (p_membership_id, created_course_instance_id, assigned, 'instructor', now_at);
     IF p_source_kind = 'adopted' THEN
         PERFORM ple_data.initialize_course_assessments(
-            created_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision_number, p_assessments,
-            assigned
+            created_course_instance_id, blueprint.blueprint_course_id,
+            p_blueprint_revision_number, p_assessments
         );
     END IF;
     PERFORM ple_audit.record_course_instance_creation_event(
@@ -188,7 +189,7 @@ BEGIN
         blueprint.blueprint_course_id::text, p_blueprint_revision_number::integer, assigned, actor, now_at
     );
     RETURN QUERY SELECT course.course_instance_id::text, course.course_short_name, course.course_long_name,
-        course.term_starts_on, course.term_ends_on, course.content_discipline_id, course.content_subject_id,
+        course.theme_id, course.term_starts_on, course.term_ends_on, course.content_discipline_id, course.content_subject_id,
         course.content_topic_id, course.content_subtopic_id, course.tags, course.course_edit_number,
         course.course_lifecycle_state::text
         FROM ple_data.course_instance AS course WHERE course.course_instance_id = created_course_instance_id;
@@ -403,61 +404,67 @@ $$;
 
 
 
--- C26: this is an exact, task-scoped Student-record projection, not a Course
--- browser or a generic support reader.  The support reference is canonical
--- here (not at C25's deliberately opaque request boundary).  The helper locks
--- revocation and writes the immutable `used` receipt in this same transaction;
--- this operation never writes a Course membership or Account role.
-CREATE FUNCTION ple_api.read_course_roster_entry_repair_support(
-    p_capability_id uuid, p_course_instance_id text, p_roster_id text
+-- ASVS 2.2.2/2.3.3/8.3.1/16.2.1/16.2.5: protected Student data is read only after
+-- explicit request confirmation, and its actor, target, Course, and time are
+-- recorded in the same transaction as this exact-record projection. The audit
+-- stores no roster name or Student record payload.
+CREATE FUNCTION ple_api.read_sysadmin_student_roster_record(
+    p_course_instance_id text, p_roster_id text, p_administrative_access_confirmed boolean
 )
-RETURNS TABLE(roster_id text, state text)
+RETURNS TABLE(
+    course_instance_id text, student_account_id text, roster_id text,
+    roster_name text, state text, event_id uuid, occurred_at_millis bigint
+)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_audit, ple_data, ple_private AS $$
-DECLARE course text; student text; canonical_resource_path text;
+DECLARE selected_course text; selected_student text; actor text; recorded_event_id uuid;
 BEGIN
-    IF p_capability_id IS NULL
+    IF p_administrative_access_confirmed IS DISTINCT FROM true
        OR p_course_instance_id IS NULL
        OR p_roster_id IS NULL OR p_roster_id !~ '^[A-Za-z0-9._-]+$'
        OR NOT ple_api.current_session_account_has_platform_administration() THEN
         RETURN;
     END IF;
-    SELECT course_instance.course_instance_id INTO course
-      FROM ple_data.course_instance AS course_instance
-     WHERE course_instance.course_instance_id = p_course_instance_id;
+    SELECT course.course_instance_id INTO selected_course
+      FROM ple_data.course_instance AS course
+     WHERE course.course_instance_id = p_course_instance_id;
     IF NOT FOUND THEN
         RETURN;
     END IF;
-    SELECT profile.student_account_id INTO student
+    SELECT profile.student_account_id INTO selected_student
       FROM ple_private.course_roster_profile AS profile
-     WHERE profile.course_instance_id = course
-       AND profile.roster_id = p_roster_id;
+     WHERE profile.course_instance_id = selected_course
+       AND profile.roster_id = p_roster_id
+     FOR KEY SHARE;
     IF NOT FOUND THEN
         RETURN;
     END IF;
-    canonical_resource_path := format(
-        'course-instance/%s/roster/%s', p_course_instance_id, p_roster_id
-    );
-    PERFORM ple_api.record_support_repair_capability_use(
-        p_capability_id, 'student', canonical_resource_path
-    );
-    IF NOT FOUND THEN
+
+    actor := ple_api.current_session_account_id();
+    IF actor IS NULL THEN
         RETURN;
     END IF;
+    SELECT ple_audit.record_course_roster_event(
+        selected_course, selected_student, actor, 'sysadmin_student_data_accessed'
+    ) INTO recorded_event_id;
+
     RETURN QUERY
-    SELECT profile.roster_id,
+    SELECT profile.course_instance_id::text,
+           profile.student_account_id::text,
+           profile.roster_id,
+           profile.roster_name,
            CASE
                WHEN EXISTS (
                    SELECT 1 FROM ple_data.course_membership AS membership
-                    WHERE membership.course_instance_id = course
-                      AND membership.account_id = student
+                    WHERE membership.course_instance_id = selected_course
+                      AND membership.account_id = selected_student
                       AND membership.role = 'student'
                       AND ple_data.course_membership_is_active(membership.course_membership_id)
                ) THEN 'active_student'
                WHEN EXISTS (
                    SELECT 1 FROM ple_private.course_invitation AS invitation
-                    WHERE invitation.course_instance_id = course
-                      AND invitation.target_account_id = student
+                    WHERE invitation.course_instance_id = selected_course
+                      AND invitation.target_account_id = selected_student
                       AND invitation.membership_role = 'student'
                       AND invitation.expires_at > pg_catalog.clock_timestamp()
                       AND NOT EXISTS (
@@ -466,10 +473,12 @@ BEGIN
                       )
                ) THEN 'invitation_pending'
                ELSE 'removed'
-           END
+           END,
+           recorded_event_id,
+           floor(extract(epoch FROM pg_catalog.transaction_timestamp()) * 1000)::bigint
       FROM ple_private.course_roster_profile AS profile
-     WHERE profile.course_instance_id = course
-       AND profile.student_account_id = student
+     WHERE profile.course_instance_id = selected_course
+       AND profile.student_account_id = selected_student
        AND profile.roster_id = p_roster_id;
 END
 $$;

@@ -60,7 +60,6 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
         input: crate::ApplyAssessmentBlueprintUpdateInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         super::assessment_blueprint_update::apply(
             self,
@@ -68,7 +67,6 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             course_instance_id,
             assessment_id,
             input,
-            bloom_receipts,
         )
         .await
     }
@@ -394,44 +392,58 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         assessment_id: AssessmentId,
     ) -> Result<AssessmentReleaseValidation, StoreError> {
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT issue FROM ple_api.validate_assessment_release($1, $2)")
-            .bind(course_instance_id.as_string())
-            .bind(assessment_id.as_string())
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let issues = rows
-            .iter()
-            .map(|row| {
-                match row
-                    .try_get::<String, _>("issue")
-                    .map_err(map_sqlx_error)?
-                    .as_str()
-                {
-                    "questions_required" => Ok(AssessmentReleaseIssue::NoPublishedQuestions),
-                    "question_count_exceeded" => Ok(AssessmentReleaseIssue::QuestionCountExceeded),
-                    "question_pool_insufficient_items" => {
-                        Ok(AssessmentReleaseIssue::QuestionUnavailable)
-                    }
-                    "due_date_required" => Ok(AssessmentReleaseIssue::DueDateRequired),
-                    "due_date_less_than_24_hours_ahead" => {
-                        Ok(AssessmentReleaseIssue::DueDateLessThan24HoursAhead)
-                    }
-                    "due_date_after_course_active_until" => {
-                        Ok(AssessmentReleaseIssue::DueDateAfterCourseActiveUntil)
-                    }
-                    "availability_after_due_date" => {
-                        Ok(AssessmentReleaseIssue::AvailabilityAfterDueDate)
-                    }
-                    "due_date_after_close" => Ok(AssessmentReleaseIssue::DueDateAfterClose),
-                    _ => Err(invalid("Assessment Release Issue")),
+        let rows = sqlx::query(
+            "SELECT issue, pool_issues FROM ple_api.validate_assessment_release($1, $2)",
+        )
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let mut issues = Vec::new();
+        let mut pool_issues = None;
+        for row in &rows {
+            let issue = match row
+                .try_get::<String, _>("issue")
+                .map_err(map_sqlx_error)?
+                .as_str()
+            {
+                "questions_required" => Ok(AssessmentReleaseIssue::NoPublishedQuestions),
+                "question_count_exceeded" => Ok(AssessmentReleaseIssue::QuestionCountExceeded),
+                "question_pool_insufficient_items" => {
+                    Ok(AssessmentReleaseIssue::QuestionUnavailable)
                 }
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
+                "due_date_required" => Ok(AssessmentReleaseIssue::DueDateRequired),
+                "due_date_less_than_24_hours_ahead" => {
+                    Ok(AssessmentReleaseIssue::DueDateLessThan24HoursAhead)
+                }
+                "due_date_after_course_active_until" => {
+                    Ok(AssessmentReleaseIssue::DueDateAfterCourseActiveUntil)
+                }
+                "availability_after_due_date" => {
+                    Ok(AssessmentReleaseIssue::AvailabilityAfterDueDate)
+                }
+                "due_date_after_close" => Ok(AssessmentReleaseIssue::DueDateAfterClose),
+                _ => Err(invalid("Assessment Release Issue")),
+            }?;
+            if !issues.contains(&issue) {
+                issues.push(issue);
+            }
+            if pool_issues.is_none() {
+                pool_issues = Some(
+                    row.try_get::<sqlx::types::Json<
+                        Vec<crate::assessment_release::AssessmentPoolReleaseIssueDetail>,
+                    >, _>("pool_issues")
+                        .map_err(map_sqlx_error)?
+                        .0,
+                );
+            }
+        }
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(AssessmentReleaseValidation {
             can_release: issues.is_empty(),
             issues,
+            pool_issues: pool_issues.unwrap_or_default(),
         })
     }
 

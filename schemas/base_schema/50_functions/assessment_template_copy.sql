@@ -22,7 +22,8 @@ CREATE FUNCTION ple_data.create_assessment_from_template_values(
     p_feedback_question_answer_explanation text,
     p_feedback_class_statistics text,
     p_feedback_hints text,
-    p_feedback_worked_solutions text
+    p_feedback_worked_solutions text,
+    p_partial_credit_enabled boolean
 ) RETURNS TABLE (
     assessment_id text,
     assessment_edit_number bigint,
@@ -60,7 +61,8 @@ BEGIN
         p_feedback_class_statistics::ple_data.feedback_release,
         p_assessment_type::ple_data.assessment_type,
         p_feedback_hints::ple_data.feedback_release,
-        p_feedback_worked_solutions::ple_data.feedback_release
+        p_feedback_worked_solutions::ple_data.feedback_release,
+        p_partial_credit_enabled
     );
     UPDATE ple_data.assessment AS assessment
        SET assessment_policy_snapshot_id = snapshot_id
@@ -142,7 +144,8 @@ BEGIN
         policy.feedback_question_answer_explanation::text,
         policy.feedback_class_statistics::text,
         policy.feedback_hints::text,
-        policy.feedback_worked_solutions::text
+        policy.feedback_worked_solutions::text,
+        policy.partial_credit_enabled
     ) AS created;
 END
 $$;

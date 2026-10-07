@@ -7,16 +7,15 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
-    BloomKnowledgeDimension, LibraryObjectId, LibraryQuestionMembership,
-    LibrarySearchCategoryCounts, LibrarySearchKind, ObjectId, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QuestionAuthorship,
-    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
-    QuestionLicense, QuestionPoolLibrarySummary, QuestionSearchAuthorFacet,
-    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
-    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchQuestionLicenseFacet,
-    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionType,
-    QuestionTypeFacet, SourceObjectChecksum, Timestamp,
+    AccountId, BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension,
+    LibraryObjectId, LibrarySearchCategoryCounts, LibrarySearchKind, ObjectId,
+    PublishedQuestionFilter, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    PublishedQuestionSharedMetadata, QuestionAuthorship, QuestionAvailability,
+    QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat, QuestionLicense,
+    QuestionPoolLibrarySummary, QuestionSearchAuthorFacet, QuestionSearchBackendFacet,
+    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
+    QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
+    QuestionSearchTopicFacet, QuestionType, QuestionTypeFacet, SourceObjectChecksum, Timestamp,
 };
 use uuid::Uuid;
 
@@ -27,6 +26,8 @@ use crate::{SessionTokenHash, StoreError};
 pub struct PublishedQuestionLibraryEntry {
     /// Stable Published Question and latest accepted Question Revision.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    /// Exact immediate source Revision for a forked Question lineage.
+    pub parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     /// The exact backend that must interpret the immutable source.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation. This is browser-safe metadata,
@@ -42,6 +43,10 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_title: String,
     /// Current shared Published Question description.
     pub question_description: String,
+    /// Exact Revision language, when supplied.
+    pub language: Option<String>,
+    /// Exact optional Revision citation.
+    pub question_citation: Option<String>,
     /// Current shared search metadata and its independent edit number.
     pub shared_metadata: PublishedQuestionSharedMetadata,
     /// Vocabulary-resolved names used by existing human-readable search facets.
@@ -60,6 +65,8 @@ pub struct PublishedQuestionLibraryEntry {
     /// Whether the authenticated current Question Owner may invoke Archive.
     /// The server still reauthorizes the command at mutation time.
     pub viewer_may_archive: bool,
+    /// Whether the authenticated viewer may edit metadata on the current available Revision.
+    pub viewer_may_edit_metadata: bool,
     /// Immutable Question License for this Question Revision.
     pub question_license: QuestionLicense,
     /// Current selection availability of the stable Question lineage.
@@ -75,6 +82,10 @@ pub struct PublishedQuestionLibraryEntry {
     /// Registered backend-private WeBWorK path for this exact Revision.
     /// Absent for Questions that do not use the WeBWorK backend.
     pub webwork_pg_path: Option<String>,
+    /// Separate immutable support values used only when opening a correction Draft.
+    pub revision_general_feedback: Option<String>,
+    pub revision_hint: Option<String>,
+    pub revision_worked_solution: Option<String>,
 }
 
 /// Database-confirmed current availability after one lineage transition.
@@ -149,9 +160,8 @@ pub enum QuestionLibrarySearchCursorPosition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionLibrarySearchRequest {
     pub kind: LibrarySearchKind,
-    pub membership: LibraryQuestionMembership,
+    pub questions: PublishedQuestionFilter,
     pub owner_account_id: Option<AccountId>,
-    pub has_capability_filter: bool,
     pub exact_question_id: Option<PublishedQuestionId>,
     pub text_terms: Vec<QuestionLibraryTextTerm>,
     pub author_names: Vec<String>,
@@ -231,8 +241,6 @@ pub struct QuestionLibrarySearchPage {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionLibrarySearchFacets {
     pub categories: LibrarySearchCategoryCounts,
-    /// Question-only backend counts used to derive capability facets.
-    pub question_backends: Vec<QuestionSearchBackendFacet>,
     pub author_names: Vec<QuestionSearchAuthorFacet>,
     pub author_names_truncated: bool,
     pub backends: Vec<QuestionSearchBackendFacet>,
@@ -290,18 +298,6 @@ pub trait QuestionLibraryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
-
-    /// Corrects both Bloom dimensions for one exact Revision through the
-    /// classification-owned compare-and-swap number. PostgreSQL authorizes the
-    /// active Instructor and checks stale state before accepting a no-op.
-    async fn correct_question_revision_bloom(
-        &self,
-        session_token_hash: SessionTokenHash,
-        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
-        expected_edit_number: BloomClassificationEditNumber,
-        cognitive_process: BloomCognitiveProcess,
-        knowledge_dimension: BloomKnowledgeDimension,
-    ) -> Result<BloomClassificationView, StoreError>;
 
     /// Loads one bounded, all-or-none current shared-metadata snapshot.
     ///

@@ -47,7 +47,7 @@ pub(super) async fn assert_private_blueprint_is_owner_only(
         reader_store
             .load_blueprint_revision(
                 reader_token(),
-                question_model::BlueprintRevisionTuple {
+                question_model::BlueprintCourseRevisionTuple {
                     blueprint_course_id: blueprint_course_id.clone(),
                     revision_number: BlueprintRevisionNumber::INITIAL,
                 },

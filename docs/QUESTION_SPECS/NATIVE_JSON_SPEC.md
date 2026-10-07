@@ -3,8 +3,10 @@
 ## Purpose and boundary
 
 Native JSON is PLE's private `pleQuestionJson` source format for the `ple` Question
-Backend. It is not QTI, a browser payload, or a public interchange format. PLE validates this
-source and freezes it into a Published Question Revision; Students receive an answer-free view.
+Backend. It is not QTI, a browser payload, or a public interchange format. PLE and
+qti-package-maker-rs coordinate its use for imports without publishing it as a general interchange
+format. PLE validates this source and freezes it into a Published Question Revision; Students
+receive an answer-free view.
 
 Question metadata belongs on the Question record, not in Native JSON, for both Draft and Published
 Questions. Native JSON contains the Question content needed to display and grade it.
@@ -18,40 +20,93 @@ The fields and validation rules below describe complete source for publication. 
 Draft can be empty, incomplete, or broken and still be saved. Preview and testing report errors
 so the Instructor can continue editing; publication requires valid complete source.
 
-The Backend content has a closed shape. Unknown or duplicate members are invalid. The table
-describes Backend-owned fields; the existing decoder also carries duplicated shared metadata,
-as documented under Current implementation evidence below.
+The Native JSON source has a closed content shape. Unknown or duplicate members are invalid.
+The table describes Backend-owned content fields; Question metadata belongs to the separate
+Question record and is not carried by the source document.
 
 | Field | Type and rule |
 | --- | --- |
 | `format` | Required literal `pleQuestionJson`. |
-| `prompt` | Required student-facing prompt. |
+| `prompt` | Required student-facing display content; HTML with inline CSS is supported. |
 | `response` | Required one of the eight response objects below. |
-| `questionHint` | Optional text, or `null`; distinct from outcome feedback. |
-| `feedback` | Optional object with nullable `correct` and `incorrect` text; omission defaults to both `null`. |
+| `questionHint` | Optional display content, or `null`; distinct from outcome feedback. |
+| `feedback` | Optional object with nullable `correct` and `incorrect` display content; omission defaults to both `null`. |
 | `externalResources` | Optional list of declared external resources; omission defaults to `[]`. |
 | `authorScript` | Optional isolated-author-script declaration; omission defaults to `null`. |
 
 Points, availability, Attempt limits, timing, owner, author, public Question ID, and Question
 Revision are not Native JSON fields. Their owners are the Assessment, lifecycle, or metadata specs.
 
+### Display content
+
+String fields whose values are displayed as Question content carry HTML, including inline CSS when
+needed for presentation. This includes the prompt and displayed response content, such as choice
+text, as well as optional hint and feedback strings. For example, a prompt or choice may contain
+`<em>Compare</em>` or `<span style="color: #174a7e">blue</span>`. Ordinary `<img src="...">`
+references are also display content; imported image references resolve through the existing Question
+Image Asset tuple and asset-storage paths.
+
+HTML does not apply to every JSON string. Stable IDs, answer keys and accepted answer values,
+numeric values, classifications, and metadata retain their existing data meaning. Native author
+JavaScript remains an explicit isolated, untrusted author-script feature governed by its existing
+rules; HTML support does not grant unrestricted JavaScript. The amount of HTML sanitization is
+deferred and is not specified here.
+
+The current Native source compiler and renderer treat these strings as text in relevant paths.
+That is implementation drift from this display-content requirement. Authoring, preview, live
+rendering, and conversion must preserve and display the authored HTML and inline CSS.
+
 ## Current implementation evidence: metadata
 
-The existing [source_document.rs](../../crates/adapters/ple/src/question_json/source_document.rs)
-includes `questionTitle`, `questionDescription`, `tags`, `questionLicense`, and `questionCitation`
-in its source document. These duplicate shared Question metadata. The decoder, authoring,
-publication, and read paths need alignment with the Question record's ownership of those fields;
-see [TODO.md](../TODO.md#question-spec-implementation-follow-up).
-
-These fields describe the current encoding, not a second authority for metadata. This document
-does not introduce a replacement authoring API or database schema.
+The [source document](../../crates/adapters/ple/src/question_json/source_document.rs) accepts
+content and grading fields only; its strict decoder rejects `questionTitle`,
+`questionDescription`, `tags`, `questionLicense`, `questionCitation`, and `language`. The adapter
+tests verify rejection of all six keys. Authoring keeps Question metadata in its separate metadata
+editor and Draft metadata record. Publication uses the locked Draft metadata row, and Native
+issuance and preview receive the Question title from the Question record. See the
+[M04 adapter evidence](../active_plans/reports/question_spec_m04_native_adapter.md) and
+[M04 producer evidence](../active_plans/reports/question_spec_m04_producers.md).
 
 ## Current implementation evidence: language
 
-The existing [source_document.rs](../../crates/adapters/ple/src/question_json/source_document.rs)
-decodes `language` as a string and validates it as nonblank metadata text. HG does not require
-Question language. This current-code constraint does not establish an Instructor input or
-publication requirement; reconciliation belongs in [TODO.md](../TODO.md).
+HG establishes no required Question language. Draft and published Question metadata represent
+language as nullable; authoring preserves a supplied value and leaves an absent value absent. The
+Native adapter does not create a language value or default one during parsing, preview, or
+issuance. See [Question Library metadata](QUESTION_LIBRARY_METADATA_SPEC.md) and the
+[M04 metadata evidence](../active_plans/reports/question_spec_m04_record_core.md).
+
+## Current implementation evidence: FIB and MULTI-FIB
+
+The shared model and Native JSON authoring codec accept `regex` alongside `exact`,
+`caseInsensitive`, and `normalized`. The Native adapter compiles each authored pattern; invalid
+patterns fail source compilation, which publication validation requires. The grading evaluator uses
+the configured matcher for FIB and each MULTI-FIB blank, and divides correct blanks by all authored
+blanks. Empty, wrong, and omitted responses earn zero. Focused source and test references are in
+the [M19 report](../active_plans/reports/QUESTION_SPEC_M19_FIB.md).
+
+The current Draft preview endpoint loads source at the expected Draft Edit Number. For Native JSON,
+the server parses and compiles the source before returning an answer-free presentation. Draft
+testing is a separate operation: it compiles Native source and evaluates a transient response with
+the Native evaluator. The WebWork path uses the saved PG or PGML binding and its configured
+renderer and evaluator. Draft testing has no Published Question Revision, Attempt, or Student Work
+identity. See [the server preview routes](../../crates/server/src/draft_preview.rs),
+[their focused tests](../../crates/server/src/draft_preview/tests.rs),
+[Native adapter tests](../../crates/adapters/ple/src/question_json/tests.rs), and
+[WebWork preview tests](../../crates/adapters/webwork/src/lib/draft_preview_tests.rs).
+
+These source and test paths are implementation evidence. Connected database and browser acceptance
+for M01-M29 passed in the [October 7 final ledger closeout](../active_plans/reports/question_spec_implementation_ledger.md).
+That closeout predates the separately recorded HTML display correction and does not establish
+HTML or inline-image rendering acceptance.
+
+The ignored generated output `generated/api/TextResponseMatchRule.ts` was observed to include
+`regex` in this checkout. The durable source definition is the Rust
+[`TextResponseMatchRule`](../../crates/question_model/src/answer.rs#L54), which serializes the
+`Regex` variant as `regex`. This does not establish full TypeScript type acceptance. Source-level
+grading evidence also does not by itself establish connected response persistence, Student grading
+presentation, or Assessment points. Those integrated M01-M29 criteria passed in the
+[October 7 final ledger closeout](../active_plans/reports/question_spec_implementation_ledger.md);
+the closeout does not establish the later HTML and inline-image behavior.
 
 ## Response shapes and grading
 
@@ -85,18 +140,24 @@ answers and the same regular-expression support as a single FIB. Blanks have equ
 blanks earn zero while remaining in the denominator. Valid saved MATCH and MULTI-FIB responses
 can contain unanswered parts; preserve those responses for submission and grading.
 
-The current Native JSON implementation still returns only zero or one and rejects incomplete
-Matching responses. Matching, Multiple Answer, MULTI-FIB, and ORDER partial-credit grading need
-alignment; see [TODO.md](../TODO.md#question-spec-implementation-follow-up). The ORDER formula,
+The current Native JSON evaluator implements proportional MATCH, the configured Multiple Answer
+formula, and ORDER partial credit. MATCH scores correct answered pairs divided by all authored
+prompts; omitted prompts earn zero. ORDER averages the correct-position fraction and the correctly
+ordered-pair fraction. MC and HOTSPOT remain all-or-nothing, and NUM retains its declared tolerance
+check. See the M19 evidence above for current FIB and MULTI-FIB behavior. The ORDER formula,
 pair-counting explanation, and worked examples belong to
 [ORDER_SCORING_SPEC.md](ORDER_SCORING_SPEC.md).
-MC and HOTSPOT all-or-nothing grading is explicitly confirmed.
+
+These source-level grading results do not by themselves establish Assessment point calculation or
+connected response persistence and Student browser behavior. Those integrated M01-M29 criteria
+passed in the [October 7 final ledger closeout](../active_plans/reports/question_spec_implementation_ledger.md).
+That accepted evidence does not cover the later HTML and inline-image implementation gap.
 
 FIB supports lists of accepted answers and author-supplied regular expressions. MULTI-FIB uses
-that same FIB behavior for every blank. Current text matching implements `exact`,
-`caseInsensitive`, and `normalized`; regex support is an implementation gap. Numeric tolerance is `exact`, `absolute` with nonnegative
-finite `epsilon`, `relative` with nonnegative finite `fraction`, or `significantFigures` with
-positive `digits`.
+that same FIB behavior for every blank. Text matching supports `exact`, `caseInsensitive`,
+`normalized`, and `regex`. Numeric tolerance is `exact`, `absolute` with nonnegative finite
+`epsilon`, `relative` with nonnegative finite `fraction`, or `significantFigures` with positive
+`digits`.
 
 Response-item IDs identify meaning rather than display position. Display shuffling preserves
 the answer key's identity relationships.
@@ -132,8 +193,10 @@ correct order, correct regions, and protected feedback never enter its normal br
 Native JSON receives no backend seed. `randomizeChoices: true` changes only authored choice display
 using issued presentation state; it does not change stable IDs or grading.
 
-An image uses a Question Image Asset reference tied to the Revision: asset ID, lowercase SHA-256 checksum,
-and accessible description. A hotspot surface must reference an uploaded valid asset. Author
+An image uses the existing Question Image Asset reference: `questionImageAssetId` plus the
+lowercase SHA-256 checksum of verified bytes, with an accessible description. The logical asset ID
+is distinct from its physical object-store ID. A hotspot surface must reference an uploaded valid
+asset. Author
 JavaScript may support rendering or interaction only in an isolated untrusted environment. It has
 no credentials, private source, Answer Key, or grading authority. Its dependency list is closed;
 current declared library support is `rdkit`. That current library-name list is separate from the
@@ -148,8 +211,8 @@ Native source is at most 256 KiB and is strictly parsed before publication. The 
 answer-free public-content checksum and binds private grading facts to it. A change to source,
 Answer Key, feedback, or image assets creates a new Published Question Revision.
 Title, Description, classification, Tags, and Bloom follow the ordinary in-place metadata rules
-on the Question record. Their current duplication in serialized source is an implementation gap,
-not a reason to require another Revision for those edits.
+on the Question record. Native JSON carries no duplicate Question metadata; the strict source
+decoder rejects record-owned metadata fields.
 
 Native JSON has one strictly validated, unversioned source shape. `format` identifies the format,
 not a version. A shape change migrates stored native Questions with every reader, writer,
@@ -180,20 +243,19 @@ has the matching shape below; the server validates it against the issued answer-
 | `hotspot` | `{ "kind":"hotspot", "selections":[{"region":"region-id"}] }` |
 
 Matching permits unanswered prompts; they earn zero while answered pairs are graded normally.
-The current response validation must be updated to support that rule. A response cannot name an
-unavailable ID, duplicate a stable prompt ID, or supply a different response kind. Other Types
-retain their applicable response requirements pending any separately approved grading changes.
+Current response validation accepts partial and empty matching responses while rejecting
+unavailable IDs, duplicate stable prompt IDs, reused choices, and a different response kind. Other
+Types retain their applicable response requirements pending any separately approved grading
+changes.
 
 ## Eight minimal source examples
 
 These fragments are the `response` member of a valid document. Common required top-level fields
 remain as defined above.
 
-The following Matching example illustrates Backend content with shared metadata on the Question
-record. Its Title could be "Nucleic-acid sugars" and its Description "Match nucleic acids to their
-characteristic sugars." Publication also validates the record's license and required metadata.
-The current decoder still requires the extra fields described under implementation evidence;
-this example shows the intended separation, not a currently accepted complete API request:
+The following Matching example contains Native source only. Its Title could be "Nucleic-acid sugars"
+and its Description "Match nucleic acids to their characteristic sugars." Publication validates
+the Question record's license and required metadata separately from this source:
 
 ```json
 {"format":"pleQuestionJson","prompt":"Match each nucleic acid with its sugar.","response":{"kind":"matching","prompts":[{"id":"dna","text":"DNA"},{"id":"rna","text":"RNA"}],"choices":[{"id":"deoxy","text":"Deoxyribose"},{"id":"ribose","text":"Ribose"}],"matches":[{"prompt":"dna","choice":"deoxy"},{"prompt":"rna","choice":"ribose"}]}}

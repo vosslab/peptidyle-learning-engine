@@ -19,7 +19,7 @@ import {
 } from "../components/question_pool_search_metadata_editor";
 import { SearchSelectionBar } from "../features/search/search_selection_bar";
 import type { SearchStateController } from "../features/search/search_state";
-import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
+import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
 import type {
   LibrarySearchRow,
   QuestionLibraryBrowseQuery,
@@ -67,7 +67,7 @@ type LibraryBulkActionsControllerProps = {
     QuestionLibraryBrowseQuery,
     LibrarySearchRow,
     QuestionLibraryFilterCounts,
-    QuestionSearchSort
+    LibraryObjectSearchSort
   >;
   readonly displayedRows: Accessor<ReadonlyArray<LibrarySearchRow>>;
   readonly refresh: () => Promise<void>;
@@ -190,7 +190,9 @@ export function createLibraryBulkActions(
     setUpdateResults(null);
     try {
       const selection = questionLibraryBulkSelectionRequest([...selectedQuestionIds()]);
-      setMetadata(await props.metadataClient.getCurrentQuestionBulkMetadata(selection.questionIds));
+      setMetadata(
+        await props.metadataClient.getCurrentQuestionSharedMetadata(selection.questionIds),
+      );
     } catch {
       setLoadError(true);
     } finally {

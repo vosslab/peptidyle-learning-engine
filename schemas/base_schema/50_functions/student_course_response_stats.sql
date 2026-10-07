@@ -177,7 +177,8 @@ BEGIN
       FROM ple_private.read_student_course_response_stats(
           p_course_instance_id, student_record_id_value
       ) AS stats
-      LEFT JOIN ple_data.published_question_metadata AS metadata
-        ON metadata.published_question_id::text = stats.published_question_id;
+      LEFT JOIN ple_data.question_revision_metadata AS metadata
+        ON metadata.published_question_id::text = stats.published_question_id
+       AND metadata.revision_number = stats.revision_number;
 END
 $$;

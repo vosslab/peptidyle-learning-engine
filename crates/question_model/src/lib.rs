@@ -54,7 +54,7 @@ pub mod generation;
 /// Browser-safe automated-grading operation status and safe explanation contracts.
 pub mod identity;
 /// Browser-safe retained Library discussion and impact activity vocabulary.
-pub mod library_discussion;
+mod library_object;
 pub mod library_search;
 /// Browser-safe, no-store Instructor samples of saved Assessment Question Pools.
 pub mod pool_preview;
@@ -69,20 +69,20 @@ pub mod public_route;
 /// Immutable browser-safe Question Authorship display records.
 pub mod question_authorship;
 mod question_backend_fields;
-/// Optional browser-safe Question Citation records.
-pub mod question_citation;
 /// Question Content, Draft Question Content, and immutable Question Revisions.
 pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
 pub use library_search::{
-    LibraryObjectKindResponse, LibraryQuestionMembership, LibrarySearchCategoryCounts,
-    LibrarySearchKind, LibrarySearchResult,
+    LibraryObjectKindResponse, LibrarySearchCategoryCounts, LibrarySearchKind, LibrarySearchResult,
+    PublishedQuestionFilter,
 };
 pub use question_library::LibraryObjectId;
 mod question_library_preview;
 /// Instructor-facing Question Library usage statistics JSON.
 pub mod question_library_statistics;
+/// Ordinary in-place metadata corrections for current Published Question Revisions.
+pub mod question_metadata;
 pub use question_library_preview::{QuestionPreviewRegion, QuestionResponsePreview};
 pub mod question_license;
 /// Browser-safe reusable published Question Pool library read models.
@@ -122,8 +122,8 @@ pub use crate::assessment::{
     MAX_ASSESSMENT_ORDERED_ENTRIES, MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
     MAX_ASSESSMENT_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
     QuestionPoolAssessmentEntry, QuestionPoolEditNumber, QuestionPoolMetadataEditNumber,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, ScoringGeneration,
-    derive_instructor_assessment_availability, is_valid_base_assessment_attempt_time_limit_seconds,
+    ScoringGeneration, derive_instructor_assessment_availability,
+    is_valid_base_assessment_attempt_time_limit_seconds,
 };
 pub use crate::assessment_activity_rules::{
     AssessmentActivityRules, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
@@ -151,10 +151,8 @@ pub use crate::assessment_workspace::{
 };
 pub use crate::auth::{AccountId, UserRole};
 pub use crate::bloom_classification::{
-    BloomClassification, BloomClassificationCorrectionRequest, BloomClassificationEditNumber,
-    BloomClassificationEditNumberError, BloomClassificationView, BloomCognitiveProcess,
-    BloomCognitiveProcessParseError, BloomKnowledgeDimension, BloomKnowledgeDimensionParseError,
-    QuestionBloomCorrectionReceipt, QuestionPoolBloomCorrectionReceipt,
+    BloomClassificationView, BloomCognitiveProcess, BloomCognitiveProcessParseError,
+    BloomKnowledgeDimension, BloomKnowledgeDimensionParseError,
 };
 pub use crate::blueprint_course::canonical_exchange::{
     CanonicalBlueprintAssessment, CanonicalBlueprintAssessmentEntry, CanonicalBlueprintCourse,
@@ -167,8 +165,8 @@ pub use crate::blueprint_course::{
     BlueprintCourseAssessmentContentView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
     BlueprintModuleEditChoice, BlueprintModuleId, BlueprintModuleReplacementInput,
-    BlueprintModuleView, BlueprintPoolInputChoice, BlueprintRevisionNumber,
-    CreateBlueprintCourseInput, CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
+    BlueprintModuleView, BlueprintRevisionNumber, CreateBlueprintCourseInput,
+    CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
     MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, ReplaceBlueprintCourseContentInput,
     ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionView,
     ReusableSelectionAvailability, validate_blueprint_course_title,
@@ -202,9 +200,7 @@ pub use crate::generation::{QuestionReproduction, QuestionSeed, QuestionSourceSe
 pub use crate::identity::{
     ObjectId, QuestionImageAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
-pub use crate::library_discussion::{
-    LibraryObjectKind, LibraryObjectTuple, LibraryStewardshipEvent,
-};
+pub use crate::library_object::LibraryObjectKind;
 pub use crate::pool_preview::{
     QuestionPoolPreview, QuestionPoolPreviewItem, QuestionPoolPreviewRequest,
 };
@@ -244,39 +240,43 @@ pub use crate::question_backend_fields::{
     ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
     MAX_IMATHAS_IDENTIFIER_BYTES, QuestionBackendFieldsError,
 };
-pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
-    DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
+    DraftQuestionClassification, DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionContentBlock, QuestionDescriptionError,
     QuestionFormat, QuestionImageAssetTuple, QuestionMetadata, QuestionTitleError,
     validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{
-    CourseQuestionUse, MAX_BULK_QUESTION_METADATA_ITEMS, MAX_DISCOVERY_PAGE_SIZE,
-    MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
-    MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS, MAX_QUESTION_SEARCH_BACKEND_FACETS,
-    MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
-    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QUESTION_ID_ALPHABET,
-    QUESTION_ID_CANONICAL_LENGTH, QUESTION_ID_CHECK_CHARACTER_INDEX, QUESTION_ID_HYPHEN_INDEX,
-    QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability, QuestionAvailabilityEditNumber,
-    QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent, QuestionBackend,
-    QuestionDetails, QuestionDetailsPromptView, QuestionLineageView, QuestionPoolId,
-    QuestionRevisionUsageStatistics, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
-    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
-    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
-    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchResult, QuestionSearchSort, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
+    CourseQuestionUse, LibraryObjectSearchFilter, LibraryObjectSearchPage,
+    LibraryObjectSearchRequest, LibraryObjectSearchRequestError, LibraryObjectSearchSort,
+    MAX_BULK_QUESTION_METADATA_ITEMS, MAX_DISCOVERY_PAGE_SIZE, MAX_QUESTION_ID_COUNT,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
+    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
+    MAX_QUESTION_SEARCH_TAG_FILTERS, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    PublishedQuestionSharedMetadata, QUESTION_ID_ALPHABET, QUESTION_ID_CANONICAL_LENGTH,
+    QUESTION_ID_CHECK_CHARACTER_INDEX, QUESTION_ID_HYPHEN_INDEX, QUESTION_ID_IDENTIFIER_LENGTH,
+    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionAvailabilityEditNumberError,
+    QuestionAvailabilityEvent, QuestionBackend, QuestionDetails, QuestionDetailsPromptView,
+    QuestionLineageView, QuestionPoolId, QuestionRevisionUsageStatistics,
+    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
+    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchFacets, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchResult, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
     QuestionSearchTopicFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
     QuestionUsageTotals, QuestionUseDetails, QuestionUseSummary,
     normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
+pub use crate::question_metadata::{
+    QuestionMetadataReplacement, SaveQuestionMetadataRequest, SavedQuestionMetadata,
+};
 pub use crate::question_pool_library::{
-    AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
-    QuestionPoolLibrarySummary, QuestionPoolMemberView, QuestionPoolMetadata, QuestionPoolView,
+    CurrentQuestionPoolMetadata, QuestionPoolLibrarySummary, QuestionPoolMemberView,
+    QuestionPoolMetadata, QuestionPoolMetadataReplacement, QuestionPoolView,
+    SaveQuestionPoolMembersRequest, SaveQuestionPoolMetadataRequest, SavedQuestionPoolMembers,
+    SavedQuestionPoolMetadata,
 };
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,

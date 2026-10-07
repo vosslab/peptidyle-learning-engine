@@ -44,12 +44,10 @@ BEGIN
     RETURN QUERY
     SELECT child.blueprint_course_id::text, child.short_name, child.long_name,
            child.availability::text, child.current_blueprint_revision_number::bigint,
-           ancestry.source_blueprint_revision_number::bigint,
+           child.parent_blueprint_revision_number::bigint,
            ple_private.instructor_display_name(child.owner_account_id)
-      FROM ple_data.blueprint_course_fork AS ancestry
-      JOIN ple_data.blueprint_course AS child
-        ON child.blueprint_course_id = ancestry.blueprint_course_id
-     WHERE ancestry.source_blueprint_course_id = v_source_blueprint_course_id
+      FROM ple_data.blueprint_course AS child
+     WHERE child.parent_blueprint_course_id = v_source_blueprint_course_id
        AND (child.availability IN ('public', 'archived')
            OR child.owner_account_id = v_actor)
      ORDER BY child.blueprint_course_id COLLATE "C";
@@ -124,17 +122,19 @@ BEGIN
         WITH RECURSIVE left_ancestors(blueprint_course_id) AS (
             SELECT v_source.blueprint_course_id
             UNION
-            SELECT ancestry.source_blueprint_course_id
-              FROM ple_data.blueprint_course_fork AS ancestry
-              JOIN left_ancestors AS ancestor ON ancestor.blueprint_course_id =
-                  ancestry.blueprint_course_id
+            SELECT ancestor.parent_blueprint_course_id
+              FROM ple_data.blueprint_course AS ancestor
+              JOIN left_ancestors AS child ON child.blueprint_course_id =
+                  ancestor.blueprint_course_id
+             WHERE ancestor.parent_blueprint_course_id IS NOT NULL
         ), right_ancestors(blueprint_course_id) AS (
             SELECT v_fork.blueprint_course_id
             UNION
-            SELECT ancestry.source_blueprint_course_id
-              FROM ple_data.blueprint_course_fork AS ancestry
-              JOIN right_ancestors AS ancestor ON ancestor.blueprint_course_id =
-                  ancestry.blueprint_course_id
+            SELECT ancestor.parent_blueprint_course_id
+              FROM ple_data.blueprint_course AS ancestor
+              JOIN right_ancestors AS child ON child.blueprint_course_id =
+                  ancestor.blueprint_course_id
+             WHERE ancestor.parent_blueprint_course_id IS NOT NULL
         )
         SELECT 1 FROM left_ancestors JOIN right_ancestors USING (blueprint_course_id)
     ) THEN RETURN; END IF;
@@ -170,7 +170,7 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     v_actor text;
-    v_origin ple_data.blueprint_course_fork%ROWTYPE;
+    v_origin ple_data.blueprint_course%ROWTYPE;
     v_source ple_data.blueprint_course%ROWTYPE;
     v_fork ple_data.blueprint_course%ROWTYPE;
     v_locked_blueprint_course_id text;
@@ -179,11 +179,9 @@ BEGIN
     IF v_actor IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is unavailable';
     END IF;
-    SELECT ancestry.* INTO v_origin FROM ple_data.blueprint_course_fork AS ancestry
-      JOIN ple_data.blueprint_course AS fork_course
-        ON fork_course.blueprint_course_id = ancestry.blueprint_course_id
+    SELECT fork_course.* INTO v_origin FROM ple_data.blueprint_course AS fork_course
       JOIN ple_data.blueprint_course AS source_course
-        ON source_course.blueprint_course_id = ancestry.source_blueprint_course_id
+        ON source_course.blueprint_course_id = fork_course.parent_blueprint_course_id
      WHERE fork_course.blueprint_course_id = p_fork_blueprint_course_id
        AND source_course.blueprint_course_id = p_source_blueprint_course_id;
     IF NOT FOUND THEN
@@ -191,7 +189,7 @@ BEGIN
     END IF;
     FOR v_locked_blueprint_course_id IN SELECT course.blueprint_course_id FROM ple_data.blueprint_course AS course
       WHERE course.blueprint_course_id IN (v_origin.blueprint_course_id,
-          v_origin.source_blueprint_course_id) ORDER BY course.blueprint_course_id
+          v_origin.parent_blueprint_course_id) ORDER BY course.blueprint_course_id
     LOOP
         IF v_locked_blueprint_course_id = v_origin.blueprint_course_id THEN
             PERFORM 1 FROM ple_data.blueprint_course WHERE blueprint_course_id = v_locked_blueprint_course_id FOR UPDATE;
@@ -200,7 +198,7 @@ BEGIN
         END IF;
     END LOOP;
     SELECT course.* INTO STRICT v_source FROM ple_data.blueprint_course AS course
-      WHERE course.blueprint_course_id = v_origin.source_blueprint_course_id;
+      WHERE course.blueprint_course_id = v_origin.parent_blueprint_course_id;
     SELECT course.* INTO STRICT v_fork FROM ple_data.blueprint_course AS course
       WHERE course.blueprint_course_id = v_origin.blueprint_course_id;
     IF NOT ple_api.current_session_account_is_instructor()
@@ -213,6 +211,7 @@ BEGIN
     END IF;
     IF p_source_blueprint_revision_number IS NULL OR p_fork_blueprint_revision_number IS NULL
        OR p_source_blueprint_edit_number IS NULL OR p_fork_blueprint_edit_number IS NULL
+       OR v_origin.parent_blueprint_revision_number <> p_source_blueprint_revision_number
        OR v_source.current_blueprint_revision_number <> p_source_blueprint_revision_number
        OR v_fork.current_blueprint_revision_number <> p_fork_blueprint_revision_number
        OR v_source.blueprint_edit_number <> p_source_blueprint_edit_number
@@ -252,12 +251,24 @@ BEGIN
     END IF;
     v_actor := ple_api.current_session_account_id();
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
-        pg_catalog.format('ple:blueprint-course-fork:%s:%s', v_actor,
+        pg_catalog.format('ple:blueprint-course-create:%s:%s', v_actor,
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
-    IF EXISTS (SELECT 1 FROM ple_data.blueprint_course_fork_receipt AS receipt
-        WHERE receipt.actor_account_id = v_actor AND receipt.request_checksum = p_request_checksum) THEN
+    IF EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course_create_receipt AS receipt
+        JOIN ple_data.blueprint_course AS child
+          ON child.blueprint_course_id = receipt.blueprint_course_id
+        WHERE receipt.actor_account_id = v_actor
+          AND receipt.request_checksum = p_request_checksum
+          AND child.parent_blueprint_course_id = p_source_blueprint_course_id
+          AND child.parent_blueprint_revision_number = p_source_blueprint_revision_number
+    ) THEN
         RETURN QUERY SELECT NULL::jsonb, NULL::bytea;
         RETURN;
+    END IF;
+    IF EXISTS (SELECT 1 FROM ple_data.blueprint_course_create_receipt AS receipt
+        WHERE receipt.actor_account_id = v_actor AND receipt.request_checksum = p_request_checksum) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Blueprint Course fork request does not match its receipt';
     END IF;
     SELECT course.blueprint_course_id INTO v_source_blueprint_course_id
       FROM ple_data.blueprint_course AS course
@@ -307,16 +318,10 @@ DECLARE
     v_child_assessment jsonb;
     v_module_position integer;
     v_assessment_position integer;
-    v_entry_position integer;
-    v_source_entry jsonb;
-    v_child_entry jsonb;
-    v_source_pool ple_data.question_pool%ROWTYPE;
-    v_child_pool ple_data.question_pool%ROWTYPE;
 BEGIN
-    IF p_blueprint_course_id IS NULL
-       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_blueprint_course_id, 'BP')
-       OR p_source_blueprint_revision_number <= 0
-       OR octet_length(p_request_checksum) <> 32
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_source_blueprint_course_id, 'BP')
+       OR p_source_blueprint_revision_number IS NULL OR p_source_blueprint_revision_number <= 0
+       OR p_request_checksum IS NULL OR octet_length(p_request_checksum) <> 32
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint Course fork is invalid';
@@ -326,16 +331,30 @@ BEGIN
       FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = p_source_blueprint_course_id;
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
-        pg_catalog.format('ple:blueprint-course-fork:%s:%s', v_actor,
+        pg_catalog.format('ple:blueprint-course-create:%s:%s', v_actor,
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
+    IF EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course_create_receipt AS receipt
+        JOIN ple_data.blueprint_course AS child
+          ON child.blueprint_course_id = receipt.blueprint_course_id
+        WHERE receipt.actor_account_id = v_actor
+          AND receipt.request_checksum = p_request_checksum
+          AND (child.parent_blueprint_course_id IS DISTINCT FROM p_source_blueprint_course_id
+            OR child.parent_blueprint_revision_number IS DISTINCT FROM p_source_blueprint_revision_number)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Blueprint Course fork request does not match its receipt';
+    END IF;
     SELECT course.blueprint_course_id, 1, receipt.blueprint_edit_number,
            receipt.accepted_at
       INTO blueprint_course_id, blueprint_revision_number, blueprint_edit_number, accepted_at
-      FROM ple_data.blueprint_course_fork_receipt AS receipt
+      FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS course
         ON course.blueprint_course_id = receipt.blueprint_course_id
      WHERE receipt.actor_account_id = v_actor
-       AND receipt.request_checksum = p_request_checksum;
+       AND receipt.request_checksum = p_request_checksum
+       AND course.parent_blueprint_course_id = p_source_blueprint_course_id
+       AND course.parent_blueprint_revision_number = p_source_blueprint_revision_number;
     IF FOUND THEN
         RETURN NEXT;
         RETURN;
@@ -376,8 +395,8 @@ BEGIN
              USING (blueprint_assessment_id)) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint fork content is invalid';
     END IF;
-    -- Local identities and owned Pool identities differ. Every other authored
-    -- value, exact source member pin, attestation and position remains equal.
+    -- Local Blueprint identities differ. Ordinary Pool IDs and every other
+    -- authored value remain equal across a Blueprint fork.
     FOR v_source_module, v_module_position IN
         SELECT module, ordinality::integer FROM jsonb_array_elements(v_source_revision.content -> 'modules')
             WITH ORDINALITY AS modules(module, ordinality)
@@ -398,44 +417,6 @@ BEGIN
                jsonb_array_length(v_source_assessment #> '{content,entries}') THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint fork content differs from source';
             END IF;
-            FOR v_source_entry, v_entry_position IN
-                SELECT entry, ordinality::integer FROM jsonb_array_elements(v_source_assessment #> '{content,entries}')
-                    WITH ORDINALITY AS entries(entry, ordinality)
-            LOOP
-                v_child_entry := v_child_assessment #> ARRAY['content','entries',(v_entry_position - 1)::text];
-                IF v_source_entry ? 'question_pool_id' THEN
-                    SELECT * INTO v_source_pool FROM ple_data.question_pool
-                     WHERE question_pool_id = v_source_entry ->> 'question_pool_id';
-                    SELECT * INTO v_child_pool FROM ple_data.question_pool
-                     WHERE question_pool_id = v_child_entry ->> 'question_pool_id';
-                    IF v_child_pool.question_pool_id IS NULL
-                       OR v_child_pool.source_question_pool_id IS DISTINCT FROM v_source_pool.question_pool_id
-                       OR v_child_pool.interchangeability_attested_by_account_id
-                            IS DISTINCT FROM v_source_pool.interchangeability_attested_by_account_id
-                       OR v_child_pool.interchangeability_attested_at
-                            IS DISTINCT FROM v_source_pool.interchangeability_attested_at
-                       OR EXISTS (
-                           SELECT 1 FROM
-                               (SELECT member_position, published_question_id, question_revision_number
-                                  FROM ple_data.question_pool_member
-                                 WHERE question_pool_id = v_child_pool.question_pool_id) AS child
-                           FULL JOIN
-                               (SELECT member_position, published_question_id, question_revision_number
-                                  FROM ple_data.question_pool_member
-                                 WHERE question_pool_id = v_source_pool.question_pool_id) AS source
-                             USING (member_position)
-                           WHERE child.published_question_id IS DISTINCT FROM source.published_question_id
-                              OR child.question_revision_number IS DISTINCT FROM source.question_revision_number) THEN
-                        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint fork Pool differs from exact source';
-                    END IF;
-                    v_child_assessment := jsonb_set(v_child_assessment,
-                        ARRAY['content','entries',(v_entry_position - 1)::text,'question_pool_id'],
-                        v_source_entry -> 'question_pool_id');
-                    v_child_assessment := jsonb_set(v_child_assessment,
-                        ARRAY['content','entries',(v_entry_position - 1)::text,'question_pool_edit_number'],
-                        v_source_entry -> 'question_pool_edit_number');
-                END IF;
-            END LOOP;
             IF (v_child_assessment - 'blueprint_assessment_id') <>
                (v_source_assessment - 'blueprint_assessment_id') THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint fork content differs from source';
@@ -446,13 +427,15 @@ BEGIN
     v_blueprint_edit_number := 1;
     INSERT INTO ple_data.blueprint_course AS child (
         blueprint_course_id, owner_account_id, short_name, long_name, availability,
+        parent_blueprint_course_id, parent_blueprint_revision_number,
         blueprint_edit_number, current_blueprint_revision_number, created_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
-        p_blueprint_course_id, v_actor, v_source.short_name, v_source.long_name, 'private',
+        COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, v_source.short_name, v_source.long_name, 'private',
+        v_source_blueprint_course_id, p_source_blueprint_revision_number,
         v_blueprint_edit_number, 1, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
-        v_source.content_subtopic_id, v_source.tags
+        v_source.content_subtopic_id, v_source.tags, v_source.theme_id
     ) RETURNING child.blueprint_course_id INTO v_child_blueprint_course_id;
     INSERT INTO ple_data.blueprint_course_revision (
         blueprint_course_id, blueprint_revision_number,
@@ -482,23 +465,16 @@ BEGIN
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, blueprint_edit_number, occurred_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_child_blueprint_course_id, v_actor, v_source.short_name, v_source.long_name,
         'private', v_blueprint_edit_number, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
-        v_source.content_subtopic_id, v_source.tags
+        v_source.content_subtopic_id, v_source.tags, v_source.theme_id
     );
-    INSERT INTO ple_data.blueprint_course_fork(
-        blueprint_course_id, source_blueprint_course_id,
-        source_blueprint_revision_number, forked_at
-    ) VALUES (
-        v_child_blueprint_course_id, v_source_blueprint_course_id,
-        p_source_blueprint_revision_number, v_now
-    );
-    INSERT INTO ple_data.blueprint_course_fork_receipt VALUES (
-        v_actor, p_request_checksum, v_child_blueprint_course_id, v_source_blueprint_course_id,
-        p_source_blueprint_revision_number, v_blueprint_edit_number, v_now
+    INSERT INTO ple_data.blueprint_course_create_receipt VALUES (
+        v_actor, p_request_checksum, v_child_blueprint_course_id, v_child_revision,
+        v_blueprint_edit_number, v_now
     );
     SELECT course.blueprint_course_id INTO blueprint_course_id
       FROM ple_data.blueprint_course AS course

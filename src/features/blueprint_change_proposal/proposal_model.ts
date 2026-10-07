@@ -6,8 +6,8 @@ export function proposalInventory(
   value: BlueprintChangeProposalComparisonView,
 ): BlueprintComparisonView {
   return {
-    left: { ...value.source, currentRevisionTuple: value.source.blueprintRevisionTuple },
-    right: { ...value.target, currentRevisionTuple: value.target.blueprintRevisionTuple },
+    left: { ...value.source, currentRevisionTuple: value.source.blueprintCourseRevisionTuple },
+    right: { ...value.target, currentRevisionTuple: value.target.blueprintCourseRevisionTuple },
     assessmentRelationships: value.assessmentRelationships,
     sharedQuestionIds: value.sharedQuestionIds,
     leftOnlyQuestionIds: value.sourceOnlyQuestionIds,

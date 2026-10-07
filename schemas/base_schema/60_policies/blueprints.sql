@@ -55,19 +55,3 @@ CREATE POLICY blueprint_metadata_event_api_owner_all ON ple_data.blueprint_metad
 CREATE POLICY blueprint_create_receipt_api_owner_all ON ple_data.blueprint_course_create_receipt TO ple_api_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY blueprint_save_receipt_api_owner_all ON ple_data.blueprint_course_save_receipt TO ple_api_owner USING (true) WITH CHECK (true);
-
-ALTER TABLE ple_data.blueprint_course_fork ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.blueprint_course_fork FORCE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.blueprint_course_fork_receipt ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_data.blueprint_course_fork_receipt FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY blueprint_course_fork_api_owner_all ON ple_data.blueprint_course_fork
-    TO ple_api_owner USING (true) WITH CHECK (true);
-
-CREATE POLICY blueprint_course_fork_receipt_api_owner_all
-    ON ple_data.blueprint_course_fork_receipt
-    TO ple_api_owner USING (true) WITH CHECK (true);
-

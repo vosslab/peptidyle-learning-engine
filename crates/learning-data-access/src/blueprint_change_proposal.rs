@@ -2,7 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintEditNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse, Timestamp,
+    AccountId, BlueprintCourseRevisionTuple, BlueprintEditNumber, CanonicalBlueprintCourse,
+    Timestamp,
 };
 
 use crate::{Page, PageRequest, SessionTokenHash, StoreError, StoredBlueprintRevision};
@@ -26,7 +27,7 @@ pub enum BlueprintChangeProposalDecision {
 #[derive(Debug, Clone)]
 pub struct AcceptBlueprintChangeProposalInput {
     pub proposal_id: uuid::Uuid,
-    pub expected_target_revision_tuple: BlueprintRevisionTuple,
+    pub expected_target_revision_tuple: BlueprintCourseRevisionTuple,
     pub expected_target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecision,
 }
@@ -48,7 +49,7 @@ pub struct AcceptedBlueprintChangeProposal {
     pub proposal_id: uuid::Uuid,
     pub actor: AccountId,
     pub accepted_at: Timestamp,
-    pub target_revision_tuple: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintCourseRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalAcceptedDecision,
     pub resulting_json: CanonicalBlueprintCourse,
@@ -57,9 +58,9 @@ pub struct AcceptedBlueprintChangeProposal {
 /// Exact reviewed content and independent lineage metadata; no client JSON input.
 #[derive(Debug, Clone)]
 pub struct CreateBlueprintChangeProposalInput {
-    pub source_revision_tuple: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintCourseRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target_revision_tuple: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintCourseRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -69,9 +70,9 @@ pub struct StoredBlueprintChangeProposal {
     pub proposal_id: uuid::Uuid,
     pub proposer: AccountId,
     pub created_at: Timestamp,
-    pub source_revision_tuple: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintCourseRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target_revision_tuple: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintCourseRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub proposed_json: CanonicalBlueprintCourse,
     pub target_comparison_json: CanonicalBlueprintCourse,
@@ -91,11 +92,11 @@ pub enum BlueprintChangeProposalListScope {
 pub struct BlueprintChangeProposalSummary {
     pub proposal_id: uuid::Uuid,
     pub created_at: Timestamp,
-    pub source_revision_tuple: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintCourseRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: String,
     pub source_long_name: String,
-    pub target_revision_tuple: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintCourseRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub target_short_name: String,
     pub target_long_name: String,
@@ -106,7 +107,7 @@ pub struct BlueprintChangeProposalSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintChangeProposalAcceptedSummary {
     pub accepted_at: Timestamp,
-    pub target_revision_tuple: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintCourseRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -117,10 +118,7 @@ pub struct BlueprintChangeProposalReview {
     pub source: StoredBlueprintRevision,
     pub target: StoredBlueprintRevision,
     pub pool_memberships: BTreeMap<
-        (
-            question_model::QuestionPoolId,
-            question_model::QuestionPoolEditNumber,
-        ),
+        question_model::QuestionPoolId,
         Vec<question_model::PublishedQuestionRevisionTuple>,
     >,
     pub can_accept: bool,
@@ -163,7 +161,6 @@ pub trait BlueprintChangeProposalStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         input: AcceptBlueprintChangeProposalInput,
-        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<AcceptedBlueprintChangeProposal, StoreError>;
 
     async fn read_accepted_blueprint_change_proposal(

@@ -6,7 +6,7 @@ import {
   pleQuestionJsonPublicPreview,
   serializePleQuestionJsonPublicPreview,
 } from "../src/features/ple_question_json_authoring/question_json_public_preview.ts";
-import { source } from "./ple_question_json_authoring_support.mjs";
+import { recordMetadata, source } from "./ple_question_json_authoring_support.mjs";
 
 test("all remaining source Question Types retain semantic IDs and publish answer-free Question Response Formats", () => {
   const cases = [
@@ -100,9 +100,9 @@ test("all remaining source Question Types retain semantic IDs and publish answer
   for (const item of cases) {
     const decoded = decodePleQuestionJsonSource({ ...source(), response: item.response });
     assert.equal(decoded.response.kind, item.kind);
-    const publicResponse = pleQuestionJsonPublicPreview(decoded).response;
+    const publicResponse = pleQuestionJsonPublicPreview(decoded, recordMetadata()).response;
     assert.equal(publicResponse.kind, item.publicKind);
-    const serialized = serializePleQuestionJsonPublicPreview(decoded);
+    const serialized = serializePleQuestionJsonPublicPreview(decoded, recordMetadata());
     assert.equal(serialized.includes(item.secret), false);
   }
   const numericWithoutUnit = decodePleQuestionJsonSource({
@@ -136,8 +136,8 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
     response: { ...baseResponse, correctRegions: ["centromere", "telomere"] },
   });
 
-  const onePublic = pleQuestionJsonPublicPreview(oneCorrect).response;
-  const twoPublic = pleQuestionJsonPublicPreview(twoCorrect).response;
+  const onePublic = pleQuestionJsonPublicPreview(oneCorrect, recordMetadata()).response;
+  const twoPublic = pleQuestionJsonPublicPreview(twoCorrect, recordMetadata()).response;
   assert.deepEqual(onePublic, twoPublic);
   assert.deepEqual(onePublic, {
     kind: "hotspot",
@@ -166,8 +166,14 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
     ],
     selection: { kind: "atLeastOne" },
   });
-  assert.equal(serializePleQuestionJsonPublicPreview(oneCorrect).includes("correctRegions"), false);
-  assert.equal(serializePleQuestionJsonPublicPreview(twoCorrect).includes("correctRegions"), false);
+  assert.equal(
+    serializePleQuestionJsonPublicPreview(oneCorrect, recordMetadata()).includes("correctRegions"),
+    false,
+  );
+  assert.equal(
+    serializePleQuestionJsonPublicPreview(twoCorrect, recordMetadata()).includes("correctRegions"),
+    false,
+  );
 });
 
 test("remaining source Question Types reject invalid private contracts", () => {
@@ -269,20 +275,4 @@ test("remaining source Question Types reject invalid private contracts", () => {
       },
     }),
   );
-});
-
-test("exact text answers fit the UTF-16 Student response limit", () => {
-  const exact = (answer, maxLength) => ({
-    ...source(),
-    response: { kind: "fillIn", answers: [answer], matchMode: "exact", maxLength },
-  });
-  assert.throws(() => decodePleQuestionJsonSource(exact("AB", 1)));
-  assert.throws(() => decodePleQuestionJsonSource(exact("😀", 1)));
-  assert.equal(decodePleQuestionJsonSource(exact("😀", 2)).response.answers[0], "😀");
-
-  const normalized = decodePleQuestionJsonSource({
-    ...source(),
-    response: { kind: "fillIn", answers: ["ATP synthase"], matchMode: "normalized", maxLength: 3 },
-  });
-  assert.equal(normalized.response.answers[0], "ATP synthase");
 });

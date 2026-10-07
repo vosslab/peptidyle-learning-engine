@@ -45,10 +45,19 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT 'question'::text,
-           metadata.published_question_id::text,
+           requested.published_question_id::text,
            metadata.question_title
-      FROM ple_data.published_question_metadata AS metadata
-     WHERE metadata.published_question_id = ANY (p_question_ids::ple_data.question_family_id[]);
+      FROM unnest(p_question_ids::ple_data.question_family_id[]) AS requested(published_question_id)
+      JOIN LATERAL (
+          SELECT accepted.revision_number
+            FROM ple_data.question_revision_acceptance AS accepted
+           WHERE accepted.published_question_id = requested.published_question_id
+           ORDER BY accepted.revision_number DESC
+           LIMIT 1
+      ) AS latest ON true
+      JOIN ple_data.question_revision_metadata AS metadata
+        ON metadata.published_question_id = requested.published_question_id
+       AND metadata.revision_number = latest.revision_number;
     RETURN QUERY
     SELECT 'pool'::text,
            pool.question_pool_id::text,

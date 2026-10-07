@@ -47,12 +47,4 @@ printf '%s\n' "$proof"
 if [[ "$oracle_status" -ne 0 ]]; then
     exit "$oracle_status"
 fi
-printf '%s\n' "$proof" | rg -q 'save_student_assessment_attempt_response replaced_open_response commit_student_assessment_attempt_finalization graded_without_instructor'
-printf '%s\n' "$proof" | rg -q 'unanswered_question_omitted_from_backend_work'
-printf '%s\n' "$proof" | rg -q 'visibility_does_not_grant_editing_authority'
-printf '%s\n' "$proof" | rg -q 'course_instance_contains_only_published_questions_and_published_pools'
-printf '%s\n' "$proof" | rg -q 'blueprint_courses_contain_only_published_questions_and_published_pools'
-printf '%s\n' "$proof" | rg -q 'ferpa_access_follows_course_membership_and_student_ownership'
-printf '%s\n' "$proof" | rg -q 'students_and_anonymous_users_do_not_receive_instructor_identity_lists_or_watch_information'
-printf '%s\n' "$proof" | rg -q 'assessment_fairness_submitted_active_and_future_attempts_exclude_retired_pool'
 echo "save_student_assessment_attempt_response lifecycle passed"

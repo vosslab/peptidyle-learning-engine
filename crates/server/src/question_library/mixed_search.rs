@@ -8,12 +8,12 @@ use question_model::LibrarySearchResult;
 ///
 /// The opaque cursor is checked before any source read. Native Question source
 /// is resolved only for the store's returned page.
-pub(super) async fn search_question_library<S, O>(
+pub(super) async fn search_library_objects<S, O>(
     store: &S,
     objects: &O,
     session_hash: SessionTokenHash,
     is_instructor: bool,
-    query: QuestionSearchRequest,
+    query: LibraryObjectSearchRequest,
 ) -> Response
 where
     S: QuestionLibraryStore + QuestionLibraryPageStatistics,
@@ -33,9 +33,8 @@ where
     let page_size = query.page_size.unwrap_or(DEFAULT_PAGE_SIZE);
     let request = QuestionLibrarySearchRequest {
         kind: query.kind,
-        membership: query.membership,
+        questions: query.questions,
         owner_account_id: query.owner_account_id.clone(),
-        has_capability_filter: !query.capabilities.is_empty(),
         exact_question_id,
         text_terms,
         author_names: query.author_names.clone(),
@@ -55,10 +54,10 @@ where
         authored_by_current_account: query.authorship
             == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
         sort: match query.sort {
-            question_model::QuestionSearchSort::TitleAscending => {
+            question_model::LibraryObjectSearchSort::TitleAscending => {
                 QuestionLibrarySearchSort::TitleAscending
             }
-            question_model::QuestionSearchSort::PublishedNewest => {
+            question_model::LibraryObjectSearchSort::PublishedNewest => {
                 QuestionLibrarySearchSort::PublishedNewest
             }
         },
@@ -133,7 +132,7 @@ where
         });
     }
     crate::auth::no_store(
-        Json(QuestionSearchPage {
+        Json(LibraryObjectSearchPage {
             items,
             next_cursor,
             facets,

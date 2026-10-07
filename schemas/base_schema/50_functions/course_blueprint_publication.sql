@@ -136,7 +136,6 @@ AS $$
                     WHEN 'question_pool' THEN jsonb_build_object(
                         'kind', 'pool',
                         'question_pool_id', pool.question_pool_id,
-                        'question_pool_edit_number', pool.question_pool_edit_number,
                         'selection_count', pool_entry.selection_count,
                         'points_per_item', pool_entry.points_per_item::text,
                         'scoring_rule', CASE entry.scoring_rule::text
@@ -144,12 +143,6 @@ AS $$
                             WHEN 'extra_credit' THEN 'extraCredit'
                             ELSE entry.scoring_rule::text
                         END,
-                        'selection_rule', jsonb_build_object(
-                            'selectedQuestionOrder', CASE pool_entry.selected_question_order
-                                WHEN 'question_pool_order' THEN 'questionPoolOrder'
-                                WHEN 'random_order' THEN 'randomOrder'
-                            END
-                        ),
                         'question_attempt_limit', jsonb_build_object(
                             'maxAttempts', entry.question_attempt_limit
                         ),
@@ -181,6 +174,7 @@ AS $$
             'assessment_attempt_limit', policy.assessment_attempt_limit,
             'late_work_rule', policy.late_work_rule,
             'activity_rules', jsonb_build_object(
+                'partialCreditEnabled', policy.partial_credit_enabled,
                 'questionVariationRule', CASE policy.question_variation_rule
                     WHEN 'reuse_variation' THEN 'reuseVariation'
                     WHEN 'new_variation' THEN 'newVariation'
@@ -475,13 +469,13 @@ BEGIN
               AND discipline.is_retired
        ) THEN
         SELECT * INTO created FROM ple_private.create_blueprint_course(
-            p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name,
+            p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name, source_course.theme_id,
             p_content, p_content_checksum, p_discipline, p_subject, p_topic,
             p_subtopic, p_tags, source_course.content_discipline_id
         );
     ELSE
         SELECT * INTO created FROM ple_api.create_blueprint_course(
-            p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name,
+            p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name, source_course.theme_id,
             p_content, p_content_checksum, p_discipline, p_subject, p_topic,
             p_subtopic, p_tags
         );

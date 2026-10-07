@@ -23,9 +23,8 @@ mod fork_apply;
 mod fork_comparison;
 pub use assessment_content::{
     BlueprintAssessmentContentInput, BlueprintAssessmentContentView, BlueprintAssessmentDefaults,
-    BlueprintAssessmentEntryInput, BlueprintAssessmentEntryView, BlueprintPoolInputChoice,
-    ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionView,
-    ReusableSelectionAvailability,
+    BlueprintAssessmentEntryInput, BlueprintAssessmentEntryView, ReusableFixedQuestionInput,
+    ReusablePoolInput, ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
 };
 pub use blueprint_children::{
     BlueprintAssessmentEditChoice, BlueprintAssessmentId, BlueprintAssessmentReplacementInput,
@@ -164,12 +163,14 @@ pub struct BlueprintCourseSummaryView {
     pub short_name: String,
     /// Descriptive stable-lineage name for headings and listings.
     pub long_name: String,
+    /// Current independently editable Blueprint Theme.
+    pub theme: crate::Theme,
     /// Current stable-lineage availability for discovery and new selection.
     pub availability: crate::BlueprintAvailability,
     /// Opaque validator for rename and availability actions.
     pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
-    pub current_revision_tuple: crate::BlueprintRevisionTuple,
+    pub current_revision_tuple: crate::BlueprintCourseRevisionTuple,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Lifetime Course Instances adopted from this Blueprint lineage, across Revisions.
@@ -202,16 +203,18 @@ pub struct BlueprintCourseView {
     pub short_name: String,
     /// Descriptive stable-lineage name for headings and listings.
     pub long_name: String,
+    /// Current independently editable Blueprint Theme.
+    pub theme: crate::Theme,
     /// Current stable-lineage availability for discovery and new selection.
     pub availability: crate::BlueprintAvailability,
     /// Opaque validator for rename and availability actions.
     pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
-    pub current_revision_tuple: crate::BlueprintRevisionTuple,
+    pub current_revision_tuple: crate::BlueprintCourseRevisionTuple,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Exact fork origin; roots and hidden sources both return null.
-    pub fork_source_tuple: Option<crate::BlueprintRevisionTuple>,
+    pub fork_source_tuple: Option<crate::BlueprintCourseRevisionTuple>,
     /// Answer-free current Revision content.
     pub modules: Vec<BlueprintModuleView>,
 }
@@ -239,8 +242,6 @@ pub enum BlueprintCourseValidationError {
     InvalidPoolSelectionCount,
     /// A pool repeats a Question Pool Item and therefore changes no selectable meaning.
     DuplicateQuestionPoolItem,
-    /// Newly authored Pool members lack explicit interchangeability review.
-    QuestionPoolInterchangeabilityNotAttested,
     /// All Question Pool Items exceed the assessment-level shared bound.
     TooManyQuestionPoolItems,
     /// A reusable whole Assessment Attempt time limit exceeds the ordinary assessment bound.
@@ -272,9 +273,6 @@ impl std::fmt::Display for BlueprintCourseValidationError {
                 "Question Pool selection count must be between one and Question Pool Item count"
             }
             Self::DuplicateQuestionPoolItem => "Question Pool Items must be distinct",
-            Self::QuestionPoolInterchangeabilityNotAttested => {
-                "new Question Pool members require interchangeability attestation"
-            }
             Self::TooManyQuestionPoolItems => {
                 "Question Pool Items exceed the assessment-level bound"
             }
@@ -304,9 +302,9 @@ mod tests {
         AssessmentPointValue, LateWorkRule, PublishedQuestionId, PublishedQuestionRevisionTuple,
         QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName,
         QuestionAuthorship, QuestionAvailability, QuestionBackend, QuestionBackendCapabilities,
-        QuestionFormat, QuestionLicense, QuestionMetadata, QuestionPoolEditNumber,
-        QuestionPoolSelectionRule, QuestionRevisionNumber, QuestionSearchResult,
-        QuestionStatistics, QuestionSummary, QuestionType, StudentFeedbackReleaseRule, Timestamp,
+        QuestionFormat, QuestionLicense, QuestionMetadata, QuestionRevisionNumber,
+        QuestionSearchResult, QuestionStatistics, QuestionSummary, QuestionType,
+        StudentFeedbackReleaseRule, Timestamp,
     };
     use uuid::Uuid;
 
@@ -353,18 +351,10 @@ mod tests {
                     question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 }),
                 BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
-                    pool: BlueprintPoolInputChoice::Import {
-                        question_pool_id: "12A4-TBCZ".parse().expect("valid Pool ID"),
-                        question_pool_edit_number: QuestionPoolEditNumber::new(1)
-                            .expect("valid Pool Edit Number"),
-                    },
+                    question_pool_id: "12A4-TBCZ".parse().expect("valid Pool ID"),
                     selection_count: NonZeroU32::new(1).expect("positive count"),
                     points_per_item: AssessmentPointValue::from_whole(2),
                     scoring_rule: AssessmentEntryScoringRule::Normal,
-                    selection_rule: QuestionPoolSelectionRule {
-                        selected_question_order:
-                            crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
-                    },
                     question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                     question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 }),
@@ -381,6 +371,7 @@ mod tests {
                     published_question_id: question_id(),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
+                parent_published_question_revision_tuple: None,
                 backend: QuestionBackend::Ple,
                 question_format: QuestionFormat::PleQuestionJson,
                 question_type: QuestionType::MultipleChoice,
@@ -392,7 +383,7 @@ mod tests {
                     tags: Vec::new(),
                     question_license: Some(QuestionLicense::Cc0_1_0),
                     question_citation: None,
-                    language: "en".to_string(),
+                    language: Some("en".to_string()),
                 },
                 authorship: QuestionAuthorship::new(vec![QuestionAuthor {
                     display_name: QuestionAuthorDisplayName::new("Ada Lovelace".to_string())
@@ -403,9 +394,8 @@ mod tests {
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
                 bloom: Some(crate::BloomClassificationView {
-                    cognitive_process: crate::BloomCognitiveProcess::Understand,
-                    knowledge_dimension: crate::BloomKnowledgeDimension::ConceptualKnowledge,
-                    classification_edit_number: crate::BloomClassificationEditNumber::INITIAL,
+                    cognitive_process: Some(crate::BloomCognitiveProcess::Understand),
+                    knowledge_dimension: Some(crate::BloomKnowledgeDimension::ConceptualKnowledge),
                 }),
             },
             discipline_name: "Biology".to_string(),
@@ -441,9 +431,15 @@ mod tests {
             1
         );
         assert_eq!(wire["entries"][0]["points_possible"], "3");
-        assert_eq!(wire["entries"][1]["kind"], "pool");
-        assert_eq!(wire["entries"][1]["pool"]["kind"], "import");
-        assert_eq!(wire["entries"][1]["points_per_item"], "2");
+        let pool_entry = &wire["entries"][1];
+        assert_eq!(pool_entry["kind"], "pool");
+        assert_eq!(pool_entry["question_pool_id"], "12A4-TBCZ");
+        assert_eq!(pool_entry["selection_count"], 1);
+        assert!(pool_entry.get("pool").is_none());
+        assert!(pool_entry.get("owner_account_id").is_none());
+        assert!(pool_entry.get("source_question_pool_id").is_none());
+        assert!(pool_entry.get("question_pool_edit_number").is_none());
+        assert_eq!(pool_entry["points_per_item"], "2");
         assert!(wire["defaults"].is_object());
         assert_eq!(wire["defaults"]["assessment_attempt_limit"], 3);
         assert!(wire["defaults"].get("attempt_limit").is_none());
@@ -491,6 +487,7 @@ mod tests {
             },
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
+            theme: crate::Theme::default(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_string(),
                 assessments: vec![input()],
@@ -512,9 +509,10 @@ mod tests {
             id: "BP7K3M2QXH".parse().expect("valid Blueprint Course ID"),
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
+            theme: crate::Theme::default(),
             availability: crate::BlueprintAvailability::Public,
             blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
-            current_revision_tuple: crate::BlueprintRevisionTuple {
+            current_revision_tuple: crate::BlueprintCourseRevisionTuple {
                 blueprint_course_id: "BP7K3M2QXH".parse().expect("valid Blueprint Course ID"),
                 revision_number: BlueprintRevisionNumber::INITIAL,
             },
@@ -547,15 +545,9 @@ mod tests {
                             },
                             BlueprintAssessmentEntryView::Pool(ReusablePoolView {
                                 question_pool_id: "12A4-TBCZ".parse().expect("Pool ID"),
-                                question_pool_edit_number: QuestionPoolEditNumber::new(1)
-                                    .expect("Pool Edit Number"),
                                 selection_count: NonZeroU32::new(1).expect("positive count"),
                                 points_per_item: AssessmentPointValue::from_whole(2),
                                 scoring_rule: AssessmentEntryScoringRule::Normal,
-                                selection_rule: QuestionPoolSelectionRule {
-                                    selected_question_order:
-                                        crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-                                },
                                 question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             }),
@@ -610,9 +602,9 @@ mod tests {
             wire.pointer("/modules/0/assessments/0/content/entries/1/question_pool_id"),
             Some(&serde_json::Value::String("12A4-TBCZ".to_string()))
         );
-        assert_eq!(
-            wire.pointer("/modules/0/assessments/0/content/entries/1/question_pool_edit_number"),
-            Some(&serde_json::Value::Number(1.into()))
+        assert!(
+            wire.pointer("/modules/0/assessments/0/content/entries/1/question_pool_edit_number")
+                .is_none()
         );
         assert!(
             wire.pointer("/modules/0/assessments/0/content/entries/1/items")
@@ -643,6 +635,7 @@ mod blueprint_course_tests {
             },
             short_name: "Biochemistry".to_owned(),
             long_name: "Biochemistry Blueprint".to_owned(),
+            theme: crate::Theme::default(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_owned(),
                 assessments: vec![BlueprintAssessmentContentInput {
@@ -669,6 +662,7 @@ mod blueprint_course_tests {
                         attempt_limit: None,
                         late_work_rule: LateWorkRule::Accept,
                         activity_rules: AssessmentActivityRules {
+                            partial_credit_enabled: false,
                             question_variation_rule:
                                 crate::AssessmentQuestionVariationRule::NewVariation,
                             ..AssessmentActivityRules::default()
@@ -681,6 +675,10 @@ mod blueprint_course_tests {
         input.validate().expect("valid BlueprintCourse");
         let wire = serde_json::to_value(&input).expect("serializes");
         assert!(wire.get("modules").is_some());
+        assert_eq!(
+            wire["modules"][0]["assessments"][0]["defaults"]["activity_rules"]["partialCreditEnabled"],
+            serde_json::Value::Bool(false)
+        );
         assert!(
             wire.to_string()
                 .contains("published_question_revision_tuple")

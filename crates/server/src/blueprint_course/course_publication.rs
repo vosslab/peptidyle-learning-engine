@@ -35,7 +35,7 @@ pub(super) async fn create(
     };
     let receipt = match state
         .course_publication
-        .create_blueprint_from_course_instance(session, course, checksum, input, Default::default())
+        .create_blueprint_from_course_instance(session, course, checksum, input)
         .await
     {
         Ok(value) => value,
@@ -44,7 +44,7 @@ pub(super) async fn create(
     match load_view(
         &state,
         session,
-        receipt.blueprint_revision_tuple.blueprint_course_id,
+        receipt.blueprint_course_revision_tuple.blueprint_course_id,
     )
     .await
     {

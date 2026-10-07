@@ -4,8 +4,35 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeQuestionPoolView } from "../src/api/decoders/question_pool_detail.ts";
 import { decodeQuestionPoolMetadata } from "../src/api/decoders/question_pool_summary.ts";
-import { decodeAssessmentQuestionPoolForkView } from "../src/api/decoders/assessment_pool_fork.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
+
+const publishedQuestionRevisionTuple = {
+  publishedQuestionId: "7K3M-79QP",
+  revisionNumber: 1,
+};
+
+function questionSummary() {
+  return {
+    questionId: publishedQuestionRevisionTuple.publishedQuestionId,
+    publishedQuestionRevisionTuple,
+    parentPublishedQuestionRevisionTuple: null,
+    backend: "ple",
+    questionFormat: "pleQuestionJson",
+    questionType: "multipleChoice",
+    capabilities: ["clientRendering", "serverGrading"],
+    metadata: {
+      questionTitle: "Peptide bond resonance",
+      questionDescription: "Identify the bond with partial double-bond character.",
+      tags: [],
+      questionLicense: null,
+      questionCitation: null,
+      language: null,
+    },
+    authorship: { authors: [{ displayName: "Test Author", accountId: null }] },
+    availability: { availability: "available" },
+    publishedAt: 1_786_000_000_000,
+    bloom: null,
+  };
+}
 
 const metadata = {
   title: "Inheritance reasoning",
@@ -17,12 +44,13 @@ const metadata = {
   topicUuid: null,
   subtopicUuid: null,
   tags: ["pedigrees"],
+  bloomCognitiveProcess: null,
+  bloomKnowledgeDimension: null,
 };
 
 const bloom = {
   cognitiveProcess: "Analyze",
   knowledgeDimension: "Conceptual Knowledge",
-  classificationEditNumber: "7",
 };
 
 test("Pool metadata retains its independent current identity", () => {
@@ -43,12 +71,16 @@ test("Question Pools use the shared Question Library metadata required for publi
     topicUuid: "00000000-0000-0000-0000-000000000003",
     subtopicUuid: "00000000-0000-0000-0000-000000000004",
     tags: ["review"],
+    bloomCognitiveProcess: "Analyze",
+    bloomKnowledgeDimension: null,
   };
   const decoded = decodeQuestionPoolMetadata(shared, "metadata");
   assert.equal(decoded.disciplineUuid, shared.disciplineUuid);
   assert.equal(decoded.subjectUuid, shared.subjectUuid);
   assert.equal(decoded.topicUuid, shared.topicUuid);
   assert.equal(decoded.subtopicUuid, shared.subtopicUuid);
+  assert.equal(decoded.bloomCognitiveProcess, "Analyze");
+  assert.equal(decoded.bloomKnowledgeDimension, null);
   assert.deepEqual(decoded.tags, shared.tags);
   for (const field of ["disciplineUuid", "subjectUuid"]) {
     const incomplete = { ...shared };
@@ -80,8 +112,7 @@ test("Pool metadata rejects missing required fields, unknown fields and malforme
 });
 
 test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () => {
-  const publishedQuestionRevisionTuple =
-    publishedQuestionFixture.publishedQuestion.publishedQuestionRevisionTuple;
+  const summary = questionSummary();
   const detail = {
     questionPoolId: "3S8B-24DZ",
     ownerAccountId: "UABCDEFGM",
@@ -89,16 +120,16 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
     backend: "ple",
     license: "CC0-1.0",
     questionPoolEditNumber: 4,
+    canEditMetadata: true,
     metadata,
     bloom,
     members: [
       {
-        memberPosition: 0,
         publishedQuestionRevisionTuple,
         question: {
           published_question_revision_tuple: publishedQuestionRevisionTuple,
           question_library: {
-            summary: publishedQuestionFixture.publishedQuestion,
+            summary,
             disciplineName: "Biology",
             disciplineIsRetired: false,
             evidence: { state: "unavailable" },
@@ -110,44 +141,34 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
     evidence: { state: "unavailable" },
   };
   assert.deepEqual(decodeQuestionPoolView(detail), detail);
+  const secondTuple = { publishedQuestionId: "2R5X-E7YA", revisionNumber: 1 };
+  const secondQuestion = {
+    ...summary,
+    questionId: secondTuple.publishedQuestionId,
+    publishedQuestionRevisionTuple: secondTuple,
+  };
+  const secondMember = {
+    publishedQuestionRevisionTuple: secondTuple,
+    question: {
+      published_question_revision_tuple: secondTuple,
+      question_library: {
+        summary: secondQuestion,
+        disciplineName: "Biology",
+        disciplineIsRetired: false,
+        evidence: { state: "unavailable" },
+      },
+      selection_availability: "available",
+    },
+  };
+  assert.deepEqual(
+    decodeQuestionPoolView({ ...detail, members: [secondMember, detail.members[0]] }).members.map(
+      (member) => member.publishedQuestionRevisionTuple.publishedQuestionId,
+    ),
+    [secondTuple.publishedQuestionId, publishedQuestionRevisionTuple.publishedQuestionId],
+    "the API decoder accepts an unordered exact Pool member set",
+  );
+  assert.throws(() => decodeQuestionPoolView({ ...detail, canEditMetadata: "true" }), DecodeError);
   assert.equal(decodeQuestionPoolView({ ...detail, bloom: null }).bloom, null);
   const { bloom: _bloom, ...withoutBloom } = detail;
   assert.throws(() => decodeQuestionPoolView(withoutBloom), DecodeError);
-});
-
-test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pair", () => {
-  const publishedQuestionRevisionTuple =
-    publishedQuestionFixture.publishedQuestion.publishedQuestionRevisionTuple;
-  const fork = {
-    assessmentEntryId: "00000000-0000-0000-0000-000000000011",
-    questionPoolId: "3S8B-24DZ",
-    ownerAccountId: "UABCDEFGM",
-    questionType: "multipleChoice",
-    backend: "ple",
-    license: "CC0-1.0",
-    questionPoolEditNumber: 4,
-    selectionCount: 1,
-    metadata,
-    bloom,
-    members: [
-      {
-        memberPosition: 0,
-        publishedQuestionRevisionTuple,
-        question: {
-          published_question_revision_tuple: publishedQuestionRevisionTuple,
-          question_library: {
-            summary: publishedQuestionFixture.publishedQuestion,
-            disciplineName: "Biology",
-            disciplineIsRetired: false,
-            evidence: { state: "unavailable" },
-          },
-          selection_availability: "available",
-        },
-      },
-    ],
-  };
-  assert.deepEqual(decodeAssessmentQuestionPoolForkView(fork), fork);
-  assert.equal(decodeAssessmentQuestionPoolForkView({ ...fork, bloom: null }).bloom, null);
-  const { bloom: _bloom, ...withoutBloom } = fork;
-  assert.throws(() => decodeAssessmentQuestionPoolForkView(withoutBloom), DecodeError);
 });

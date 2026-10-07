@@ -81,16 +81,18 @@ impl PleQuestionBackend {
     pub fn preview_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
+        question_title: &str,
     ) -> QuestionVariationPresentation {
-        presentation(source)
+        presentation(source, question_title)
     }
 
     /// Issues an answer-free presentation from verified PLE source bytes.
     pub fn issue_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
+        question_title: &str,
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
-        let presentation = presentation(source);
+        let presentation = presentation(source, question_title);
         // The generic presentation serialization intentionally excludes raw
         // author source. Its immutable answer-free descriptor is nonetheless
         // part of the retained rendering integrity record.
@@ -158,13 +160,16 @@ impl PleQuestionBackend {
     }
 }
 
-fn presentation(source: &ResolvedPleQuestionJsonSource) -> QuestionVariationPresentation {
+fn presentation(
+    source: &ResolvedPleQuestionJsonSource,
+    question_title: &str,
+) -> QuestionVariationPresentation {
     QuestionVariationPresentation {
         variation: QuestionVariation::from_question_revision_and_reproduction(
             source.published_question_revision_tuple().clone(),
             QuestionReproduction::Static,
         ),
-        question_title: source.compiled.presentation().question_title().to_string(),
+        question_title: question_title.to_string(),
         prompt: source.compiled.presentation().prompt().to_vec(),
         response: source.compiled.presentation().response().clone(),
         native_choice_order: source.compiled.presentation().native_choice_order(),

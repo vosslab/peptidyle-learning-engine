@@ -1,5 +1,6 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
 import {
   PleQuestionJsonConflictError,
@@ -28,6 +29,12 @@ export interface PleQuestionJsonAuthoringClient {
     request: PleQuestionJsonPublicationRequest,
     expectedDraftQuestionEditNumber: string,
   ): Promise<QuestionSummary>;
+  publishRevision(
+    draftQuestion: DraftQuestionRouteId,
+    parent: PublishedQuestionRevisionTuple,
+    reasonForEdit: string,
+    expectedDraftQuestionEditNumber: string,
+  ): Promise<QuestionSummary>;
 }
 
 export interface PleQuestionJsonRepository {
@@ -40,6 +47,11 @@ export interface PleQuestionJsonRepository {
   publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
+  ): Promise<QuestionSummary>;
+  publishRevision(
+    draftQuestion: DraftQuestionRouteId,
+    parent: PublishedQuestionRevisionTuple,
+    reasonForEdit: string,
   ): Promise<QuestionSummary>;
   /** A separately saved Draft metadata field advances the same server edit number. */
   synchronizeDraftQuestionEditNumber(
@@ -120,6 +132,23 @@ export function createPleQuestionJsonRepository(
     return await client.publish(draftQuestion, request, expectedDraftQuestionEditNumber);
   }
 
+  async function publishRevision(
+    draftQuestion: DraftQuestionRouteId,
+    parent: PublishedQuestionRevisionTuple,
+    reasonForEdit: string,
+  ): Promise<QuestionSummary> {
+    const expectedDraftQuestionEditNumber = editNumbers.get(draftQuestion);
+    if (expectedDraftQuestionEditNumber === undefined) {
+      throw new Error("Load the saved Question before publishing a Revision.");
+    }
+    return await client.publishRevision(
+      draftQuestion,
+      parent,
+      reasonForEdit,
+      expectedDraftQuestionEditNumber,
+    );
+  }
+
   function synchronizeDraftQuestionEditNumber(
     draftQuestion: DraftQuestionRouteId,
     draftQuestionEditNumber: string,
@@ -127,5 +156,5 @@ export function createPleQuestionJsonRepository(
     editNumbers.set(draftQuestion, draftQuestionEditNumber);
   }
 
-  return { load, save, reload, publish, synchronizeDraftQuestionEditNumber };
+  return { load, save, reload, publish, publishRevision, synchronizeDraftQuestionEditNumber };
 }

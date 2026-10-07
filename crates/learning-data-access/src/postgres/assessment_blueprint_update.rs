@@ -1,7 +1,7 @@
 //! Derived source review and one retained Assessment's explicit reusable-content update.
 
 use question_model::{
-    AssessmentId, BlueprintCourseId, BlueprintRevisionNumber, BlueprintRevisionTuple,
+    AssessmentId, BlueprintCourseId, BlueprintCourseRevisionTuple, BlueprintRevisionNumber,
     CourseInstanceId,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -26,7 +26,7 @@ const APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL: &str =
     "SELECT ple_api.apply_assessment_blueprint_update($1, $2, $3, $4, $5)";
 
 struct UpdateSource {
-    source_blueprint_revision_tuple: BlueprintRevisionTuple,
+    source_blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     member: Option<StoredBlueprintAssessment>,
     cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
 }
@@ -60,11 +60,11 @@ pub(super) async fn review_course(
     };
     let adopted_revision_number = parse_revision_number("adopted_revision_number")?;
     let source_revision_number = parse_revision_number("source_revision_number")?;
-    let adopted_blueprint_revision_tuple = BlueprintRevisionTuple {
+    let adopted_blueprint_course_revision_tuple = BlueprintCourseRevisionTuple {
         blueprint_course_id: blueprint_course_id.clone(),
         revision_number: adopted_revision_number,
     };
-    let current_blueprint_revision_tuple = BlueprintRevisionTuple {
+    let current_blueprint_course_revision_tuple = BlueprintCourseRevisionTuple {
         blueprint_course_id,
         revision_number: source_revision_number,
     };
@@ -98,8 +98,8 @@ pub(super) async fn review_course(
     }
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(CourseBlueprintUpdateReview {
-        adopted_blueprint_revision_tuple,
-        current_blueprint_revision_tuple,
+        adopted_blueprint_course_revision_tuple,
+        current_blueprint_course_revision_tuple,
         assessments,
     })
 }
@@ -117,7 +117,7 @@ pub(super) async fn review(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(AssessmentBlueprintUpdateReview {
         assessment,
-        source_blueprint_revision_tuple: source.source_blueprint_revision_tuple,
+        source_blueprint_course_revision_tuple: source.source_blueprint_course_revision_tuple,
         proposed,
         cannot_apply_reason: source.cannot_apply_reason,
     })
@@ -129,14 +129,14 @@ pub(super) async fn apply(
     course_instance_id: CourseInstanceId,
     assessment_id: AssessmentId,
     input: ApplyAssessmentBlueprintUpdateInput,
-    mut bloom_receipts: crate::PoolBloomPreparationReceipts,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.3.1, 15.4.2: the procedure reauthorizes and holds parent,
     // Course and Assessment locks before either qualified precondition is tested.
     let source = load_source(&mut tx, &course_instance_id, &assessment_id).await?;
     let workspace = load_workspace(&mut tx, &course_instance_id, &assessment_id).await?;
-    if source.source_blueprint_revision_tuple != input.expected_source_blueprint_revision_tuple
+    if source.source_blueprint_course_revision_tuple
+        != input.expected_source_blueprint_course_revision_tuple
         || workspace.assessment_edit_number != input.expected_assessment_edit_number
     {
         return Err(StoreError::Conflict);
@@ -160,11 +160,7 @@ pub(super) async fn apply(
     let materialized = if equivalent {
         reusable
     } else {
-        materialize_assessment(
-            &member,
-            store.pool_id_issuer.as_deref(),
-            &mut bloom_receipts,
-        )?
+        materialize_assessment(&member)?
     };
     // ASVS 1.2.4, 2.3.3: parameterized exact-source projection; the database
     // validates it, preserves locked dates, establishes forks, and saves once.
@@ -173,7 +169,7 @@ pub(super) async fn apply(
         .bind(assessment_id.as_string())
         .bind(integer(
             input
-                .expected_source_blueprint_revision_tuple
+                .expected_source_blueprint_course_revision_tuple
                 .revision_number
                 .value(),
             "Blueprint Revision Number",
@@ -213,7 +209,7 @@ async fn load_source(
     let source_blueprint_course_id: String = row
         .try_get("source_blueprint_course_id")
         .map_err(map_sqlx_error)?;
-    let source_blueprint_revision_tuple = BlueprintRevisionTuple {
+    let source_blueprint_course_revision_tuple = BlueprintCourseRevisionTuple {
         blueprint_course_id: source_blueprint_course_id
             .parse()
             .map_err(|_| invalid("Blueprint Course ID"))?,
@@ -251,7 +247,7 @@ async fn load_source(
         return Err(invalid("Blueprint retained Assessment"));
     }
     Ok(UpdateSource {
-        source_blueprint_revision_tuple,
+        source_blueprint_course_revision_tuple,
         member,
         cannot_apply_reason,
     })
@@ -293,20 +289,16 @@ fn public_content(member: &StoredBlueprintAssessment) -> AssessmentBlueprintUpda
                 },
                 StoredBlueprintAssessmentEntry::Pool {
                     question_pool_id,
-                    question_pool_edit_number,
                     selection_count,
                     points_per_item,
                     scoring_rule,
-                    selection_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => AssessmentBlueprintUpdateEntry::QuestionPool {
                     question_pool_id: question_pool_id.clone(),
-                    question_pool_edit_number: *question_pool_edit_number,
                     selection_count: *selection_count,
                     points_per_item: *points_per_item,
                     scoring_rule: *scoring_rule,
-                    selection_rule: *selection_rule,
                     question_attempt_limit: *question_attempt_limit,
                     question_attempt_time_limit: *question_attempt_time_limit,
                 },

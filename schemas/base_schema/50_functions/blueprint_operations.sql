@@ -11,7 +11,7 @@ SET LOCAL ROLE ple_api_owner;
 -- locked source Course's exact retired Discipline. The public wrapper below
 -- never supplies that value, so ordinary new Blueprints remain active-only.
 CREATE FUNCTION ple_private.create_blueprint_course(
-    p_blueprint_course_id text, p_request_checksum bytea, p_short_name text, p_long_name text,
+    p_blueprint_course_id text, p_request_checksum bytea, p_short_name text, p_long_name text, p_theme text,
     p_content jsonb, p_content_checksum bytea,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[],
     p_retired_source_discipline uuid
@@ -34,6 +34,7 @@ BEGIN
        OR char_length(p_short_name) NOT BETWEEN 1 AND 500
        OR p_long_name IS NULL OR p_long_name <> btrim(p_long_name)
        OR char_length(p_long_name) NOT BETWEEN 1 AND 500
+       OR NOT EXISTS (SELECT 1 FROM ple_data.theme WHERE theme_id = p_theme)
        OR octet_length(p_content_checksum) <> 32
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -66,10 +67,10 @@ BEGIN
     END IF;
     INSERT INTO ple_data.blueprint_course AS course (
         blueprint_course_id, owner_account_id, short_name, long_name, blueprint_edit_number, created_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, p_short_name, p_long_name, v_blueprint_edit_number, v_now,
-        p_discipline, p_subject, p_topic, p_subtopic, p_tags
+        p_discipline, p_subject, p_topic, p_subtopic, p_tags, p_theme
     ) RETURNING course.blueprint_course_id INTO v_blueprint_course_id;
     blueprint_revision_number := 1;
     INSERT INTO ple_data.blueprint_course_revision (
@@ -100,11 +101,11 @@ BEGIN
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, blueprint_edit_number, occurred_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_blueprint_course_id, v_actor, p_short_name, p_long_name,
         'private', v_blueprint_edit_number, v_now,
-        p_discipline, p_subject, p_topic, p_subtopic, p_tags
+        p_discipline, p_subject, p_topic, p_subtopic, p_tags, p_theme
     );
     INSERT INTO ple_data.blueprint_course_create_receipt
     VALUES (
@@ -120,7 +121,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.create_blueprint_course(
-    p_blueprint_course_id text, p_request_checksum bytea, p_short_name text, p_long_name text,
+    p_blueprint_course_id text, p_request_checksum bytea, p_short_name text, p_long_name text, p_theme text,
     p_content jsonb, p_content_checksum bytea,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
@@ -132,7 +133,7 @@ LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
     SELECT * FROM ple_private.create_blueprint_course(
-        p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name,
+        p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name, p_theme,
         p_content, p_content_checksum, p_discipline, p_subject, p_topic,
         p_subtopic, p_tags, NULL
     )
@@ -253,7 +254,7 @@ CREATE FUNCTION ple_api.rename_blueprint_course(
 )
 RETURNS TABLE (
     short_name text, long_name text, availability text, blueprint_edit_number bigint,
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[], theme_id text
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -295,7 +296,7 @@ BEGIN
         RETURN QUERY SELECT v_course.short_name, v_course.long_name,
             v_course.availability::text, v_course.blueprint_edit_number,
             v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
-            v_course.content_subtopic_id, v_course.tags;
+            v_course.content_subtopic_id, v_course.tags, v_course.theme_id;
         RETURN;
     END IF;
     v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
@@ -305,16 +306,16 @@ BEGIN
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, blueprint_edit_number, occurred_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_blueprint_course_id, v_actor, p_short_name, p_long_name,
         v_course.availability, v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
-        v_course.content_subtopic_id, v_course.tags
+        v_course.content_subtopic_id, v_course.tags, v_course.theme_id
     );
     RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability::text, v_next_blueprint_edit_number,
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
-        v_course.content_subtopic_id, v_course.tags;
+        v_course.content_subtopic_id, v_course.tags, v_course.theme_id;
 END
 $$;
 
@@ -324,7 +325,7 @@ CREATE FUNCTION ple_api.set_blueprint_availability(
 )
 RETURNS TABLE (
     short_name text, long_name text, availability text, blueprint_edit_number bigint,
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[], theme_id text
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -394,16 +395,16 @@ BEGIN
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, blueprint_edit_number, occurred_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_blueprint_course_id, v_actor, v_course.short_name, v_course.long_name,
         v_availability, v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
-        v_course.content_subtopic_id, v_course.tags
+        v_course.content_subtopic_id, v_course.tags, v_course.theme_id
     );
     RETURN QUERY SELECT v_course.short_name, v_course.long_name, p_availability, v_next_blueprint_edit_number,
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
-        v_course.content_subtopic_id, v_course.tags;
+        v_course.content_subtopic_id, v_course.tags, v_course.theme_id;
 END
 $$;
 
@@ -454,13 +455,84 @@ BEGIN
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, blueprint_edit_number, occurred_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_course.blueprint_course_id, ple_api.current_session_account_id(),
         v_course.short_name, v_course.long_name, v_course.availability,
-        v_next_blueprint_edit_number, pg_catalog.clock_timestamp(), p_discipline, p_subject, p_topic, p_subtopic, p_tags
+        v_next_blueprint_edit_number, pg_catalog.clock_timestamp(), p_discipline, p_subject, p_topic, p_subtopic, p_tags,
+        v_course.theme_id
     );
     RETURN QUERY SELECT v_next_blueprint_edit_number, true;
+END
+$$;
+
+CREATE FUNCTION ple_api.update_blueprint_theme(
+    p_blueprint_course_id text, p_expected_blueprint_edit_number bigint, p_theme_id text
+)
+RETURNS TABLE (
+    short_name text, long_name text, availability text, blueprint_edit_number bigint,
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid,
+    content_subtopic_id uuid, tags text[], theme_id text
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE
+    v_course ple_data.blueprint_course%ROWTYPE;
+    v_next_blueprint_edit_number bigint;
+BEGIN
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
+       OR p_expected_blueprint_edit_number IS NULL
+       OR NOT EXISTS (SELECT 1 FROM ple_data.theme WHERE theme_id = p_theme_id)
+       OR NOT (ple_api.current_session_account_is_sysadmin()
+               OR ple_api.current_session_account_is_instructor()) THEN
+        RAISE EXCEPTION 'Blueprint Theme update is invalid' USING ERRCODE = '22023';
+    END IF;
+    SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
+     WHERE course.blueprint_course_id = p_blueprint_course_id
+       AND (ple_api.current_session_account_is_sysadmin()
+            OR course.owner_account_id = ple_api.current_session_account_id())
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Blueprint Course is not available' USING ERRCODE = '42501';
+    END IF;
+    IF v_course.availability = 'archived'
+       AND NOT ple_api.current_session_account_is_sysadmin() THEN
+        RAISE EXCEPTION 'Archived Blueprint Course is read-only' USING ERRCODE = '55000';
+    END IF;
+    IF p_expected_blueprint_edit_number IS DISTINCT FROM v_course.blueprint_edit_number THEN
+        RAISE EXCEPTION 'Blueprint metadata Edit Number is stale' USING ERRCODE = '40001';
+    END IF;
+    IF v_course.theme_id = p_theme_id THEN
+        RETURN QUERY SELECT v_course.short_name, v_course.long_name,
+            v_course.availability::text, v_course.blueprint_edit_number,
+            v_course.content_discipline_id, v_course.content_subject_id,
+            v_course.content_topic_id, v_course.content_subtopic_id,
+            v_course.tags, v_course.theme_id;
+        RETURN;
+    END IF;
+    v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
+    UPDATE ple_data.blueprint_course SET theme_id = p_theme_id,
+        blueprint_edit_number = v_next_blueprint_edit_number
+     WHERE blueprint_course_id = p_blueprint_course_id;
+    INSERT INTO ple_data.blueprint_metadata_event (
+        blueprint_course_id, actor_account_id, short_name, long_name,
+        availability, blueprint_edit_number, occurred_at,
+        content_discipline_id, content_subject_id, content_topic_id,
+        content_subtopic_id, tags, theme_id
+    ) VALUES (
+        p_blueprint_course_id, ple_api.current_session_account_id(),
+        v_course.short_name, v_course.long_name, v_course.availability,
+        v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
+        v_course.content_discipline_id, v_course.content_subject_id,
+        v_course.content_topic_id, v_course.content_subtopic_id,
+        v_course.tags, p_theme_id
+    );
+    RETURN QUERY SELECT v_course.short_name, v_course.long_name,
+        v_course.availability::text, v_next_blueprint_edit_number,
+        v_course.content_discipline_id, v_course.content_subject_id,
+        v_course.content_topic_id, v_course.content_subtopic_id,
+        v_course.tags, p_theme_id;
 END
 $$;
 
@@ -486,7 +558,8 @@ RETURNS TABLE (
     owner_account_id text, owner_display_name text, owner_affiliation text,
     total_adoptions bigint, total_students_ever_enrolled bigint, star_count bigint, watcher_count bigint,
     last_edited_at_millis bigint,
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[],
+    theme_id text
 )
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -585,7 +658,7 @@ BEGIN
                          course.created_at)
             )) * 1000)::bigint AS last_edited_at_millis,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
-           course.content_subtopic_id, course.tags
+           course.content_subtopic_id, course.tags, course.theme_id
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
        AND (NOT p_public_only OR course.availability = 'public')
@@ -658,7 +731,8 @@ RETURNS TABLE (
     blueprint_edit_number bigint, current_blueprint_revision_number bigint,
     content jsonb, content_checksum bytea, is_owner boolean,
     fork_source_blueprint_course_id text, fork_source_revision_number bigint,
-    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[],
+    theme_id text
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -670,19 +744,17 @@ AS $$
            course.owner_account_id = ple_api.current_session_account_id(),
            source.blueprint_course_id,
            CASE WHEN source.blueprint_course_id IS NOT NULL
-                THEN ancestry.source_blueprint_revision_number::bigint END,
+                THEN course.parent_blueprint_revision_number::bigint END,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
-           course.content_subtopic_id, course.tags
+           course.content_subtopic_id, course.tags, course.theme_id
       FROM ple_data.blueprint_course AS course
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = course.blueprint_course_id
        AND revision.blueprint_revision_number = course.current_blueprint_revision_number
-      LEFT JOIN ple_data.blueprint_course_fork AS ancestry
-        ON ancestry.blueprint_course_id = course.blueprint_course_id
       -- ASVS 8.2.2/3, 8.3.1/2: mask ancestry using current source visibility.
       -- Roots and hidden sources share the same two null fields.
       LEFT JOIN ple_data.blueprint_course AS source
-        ON source.blueprint_course_id = ancestry.source_blueprint_course_id
+        ON source.blueprint_course_id = course.parent_blueprint_course_id
        AND (source.availability IN ('public', 'archived')
             OR source.owner_account_id = ple_api.current_session_account_id())
      WHERE ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')

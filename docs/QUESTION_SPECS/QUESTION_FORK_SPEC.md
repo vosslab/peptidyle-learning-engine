@@ -21,10 +21,10 @@ Archived Published Questions can also be forked through this ordinary workflow.
 The Draft keeps current working state. Its Question Revision history begins when it is published.
 
 The fork starts from an exact source Revision. Its Draft remains private until it passes Question
-Publication Validation and becomes a Published Question at Revision 1. PLE assigns the fork a new
-Question ID; HG does not specify whether allocation occurs during Draft creation or publication.
-The existing [fork design decision](../DESIGN_DECISIONS.md#published-question-forks-create-a-new-private-draft-through-one-server-command)
-reserves that ID when creating the Draft. A reserved identity does not put the Draft in the Library.
+Publication Validation and becomes a Published Question at Revision 1. The server reserves the new
+Question ID when it creates the fork Draft. The Draft UUID remains its private identity, and the
+reserved public ID does not put the Draft in the Library. Publication uses that reserved ID for the
+ordinary Published Question.
 
 The new Published Question ID is distinct from the source ID. The new Question does not receive
 later source changes automatically, and later changes to the fork do not change the source.
@@ -44,9 +44,8 @@ history starts at Revision 1 when published. The detailed fields belong to
   use Revision 3.
 - Publishing a wording change under the original Question ID is a new Revision, not a fork.
 
-## Deferred license behavior
+## License scope
 
-Current Pool and Question license support is CC0, CC BY, and CC BY-SA. NC and ND content are
-deferred. When ND support is added, PLE must block forks of ND Questions. The separate treatment
-of a Pool that merely references an unchanged ND Question remains unresolved. See the
-[question specification open questions](../active_plans/decisions/question_specs_open_questions.md).
+Initial release supports CC0, CC BY, and CC BY-SA Questions. NC and ND Questions are excluded and
+may be reconsidered after release. Pool compatibility follows
+[QUESTION_POOL_SPEC.md](QUESTION_POOL_SPEC.md).

@@ -1,23 +1,15 @@
 // question_json_editor_workspace.tsx - private draft fields, preview, and publish review.
 
-import { For, Show, batch, type Accessor, type JSX, type Setter } from "solid-js";
+import { For, Show, type Accessor, type JSX, type Setter } from "solid-js";
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
-import { AuthoringClassificationLevel } from "../../components/authoring_classification_level";
-import { ContentClassificationSelect } from "../../components/content_classification_select";
 import { PleQuestionJsonFeedbackFields } from "./question_json_feedback_fields";
 import { optionalPleManagedSupportText } from "./question_general_feedback_client";
 import { PleQuestionJsonHintField } from "./question_json_hint_field";
 import {
-  setLanguage,
   setOutcomeFeedback,
   setPleQuestionJsonPrompt,
-  setPleQuestionJsonQuestionTitle,
-  setQuestionCitation,
-  setQuestionDescription,
   setQuestionHint,
-  setQuestionLicense,
-  setTags,
 } from "./question_json_editor_model";
 import { PleQuestionJsonMetadataFields } from "./question_json_metadata_fields";
 import { pleQuestionJsonPublicPreview } from "./question_json_public_preview";
@@ -29,6 +21,8 @@ import {
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
 import type { PleQuestionJsonDocument } from "./question_json_source";
+import type { PleQuestionJsonRecordMetadata } from "./question_json_defaults";
+import { QuestionPublicationReviewFields } from "./question_publication_review_fields";
 
 export type PleQuestionJsonPublishReview = {
   readonly draftQuestionEditNumber: string;
@@ -39,6 +33,9 @@ export type PleQuestionJsonPublishReview = {
 
 export interface PleQuestionJsonEditorWorkspaceProps {
   readonly source: Accessor<PleQuestionJsonDocument | null>;
+  readonly metadata: Accessor<PleQuestionJsonRecordMetadata>;
+  readonly metadataDirty: Accessor<boolean>;
+  readonly metadataSaving: Accessor<boolean>;
   readonly currentSource: () => PleQuestionJsonDocument;
   readonly errors: () => Readonly<Record<string, string>>;
   readonly isLocked: () => boolean;
@@ -67,8 +64,11 @@ export interface PleQuestionJsonEditorWorkspaceProps {
   ) => PleQuestionJsonInstructorAnswerCheck | undefined;
   readonly classificationClient: PleQuestionJsonEditorPageProps["classificationClient"];
   readonly responseValidator: PleQuestionJsonEditorPageProps["responseValidator"];
+  readonly draftPreviewPanel?: JSX.Element;
   readonly questionImagePreviewPath: (asset: string) => string;
   readonly onEdit: (source: PleQuestionJsonDocument) => void;
+  readonly onMetadataChange: (metadata: PleQuestionJsonRecordMetadata) => void;
+  readonly onSaveMetadata: () => void;
   readonly onNumericAnswerLiteralChange: (literal: string) => void;
   readonly onMoveChoice: (choiceId: string, direction: "up" | "down") => void;
   readonly onStatus: (status: string | null) => void;
@@ -100,22 +100,6 @@ export function PleQuestionJsonEditorWorkspace(
         {(_draft) => (
           <div class="editor-grid">
             <section class="editor-panel">
-              <label class="ple-question-json-authoring__field">
-                <span>Question Title</span>
-                <input
-                  value={props.currentSource().questionTitle}
-                  disabled={props.isLocked()}
-                  aria-invalid={props.errors()["questionTitle"] !== undefined}
-                  onInput={(event) =>
-                    props.onEdit(
-                      setPleQuestionJsonQuestionTitle(
-                        props.currentSource(),
-                        event.currentTarget.value,
-                      ),
-                    )
-                  }
-                />
-              </label>
               <label class="ple-question-json-authoring__field">
                 <span>Student-facing prompt</span>
                 <textarea
@@ -248,7 +232,7 @@ export function PleQuestionJsonEditorWorkspace(
                 <For each={[props.currentSource()]}>
                   {(draft) => (
                     <PleQuestionJsonPreview
-                      preview={pleQuestionJsonPublicPreview(draft)}
+                      preview={pleQuestionJsonPublicPreview(draft, props.metadata())}
                       hotspotDraftQuestionImage={props.hotspotDraftQuestionImage()}
                       validator={props.responseValidator}
                       instructorAnswerCheck={
@@ -260,28 +244,27 @@ export function PleQuestionJsonEditorWorkspace(
                   )}
                 </For>
               </section>
+              {props.draftPreviewPanel}
               <PleQuestionJsonMetadataFields
-                questionDescription={props.currentSource().questionDescription}
-                tags={props.currentSource().tags}
-                questionLicense={props.currentSource().questionLicense}
-                questionCitation={props.currentSource().questionCitation}
-                language={props.currentSource().language}
-                fieldErrors={props.errors()}
+                metadata={props.metadata()}
                 disabled={props.isLocked()}
-                onQuestionDescriptionChange={(questionDescription) =>
-                  props.onEdit(setQuestionDescription(props.currentSource(), questionDescription))
-                }
-                onTagsChange={(tags) => props.onEdit(setTags(props.currentSource(), tags))}
-                onQuestionLicenseChange={(questionLicense) =>
-                  props.onEdit(setQuestionLicense(props.currentSource(), questionLicense))
-                }
-                onQuestionCitationChange={(questionCitation) =>
-                  props.onEdit(setQuestionCitation(props.currentSource(), questionCitation))
-                }
-                onLanguageChange={(language) =>
-                  props.onEdit(setLanguage(props.currentSource(), language))
-                }
+                onMetadataChange={props.onMetadataChange}
               />
+              <div class="editor-actions">
+                <button
+                  type="button"
+                  class="primary-action"
+                  disabled={props.isLocked() || props.metadataSaving() || !props.metadataDirty()}
+                  onClick={props.onSaveMetadata}
+                >
+                  {props.metadataSaving()
+                    ? "Saving Question metadata..."
+                    : "Save Question metadata"}
+                </button>
+                <Show when={props.metadataDirty()}>
+                  <span role="status">Question metadata has unsaved changes.</span>
+                </Show>
+              </div>
               <section class="editor-panel" aria-labelledby="ple-question-json-publish-heading">
                 <h2 id="ple-question-json-publish-heading">Publish review</h2>
                 <p>Review the saved content before publishing a new Question ID.</p>
@@ -297,124 +280,25 @@ export function PleQuestionJsonEditorWorkspace(
                 </Show>
                 <Show when={props.review()}>
                   {(activeReview) => (
-                    <div class="ple-question-json-authoring__review">
-                      <p>
-                        <strong>Question:</strong> {activeReview().questionTitle}
-                      </p>
-                      <p>
-                        This publication creates a new Question ID. Existing assessments keep their
-                        assigned questions until an instructor deliberately replaces an item.
-                      </p>
-                      <h3>Changed sections</h3>
-                      <ul>
-                        <For each={activeReview().changed}>{(section) => <li>{section}</li>}</For>
-                      </ul>
-                      <label class="ple-question-json-authoring__field">
-                        <span>Question Authors</span>
-                        <textarea
-                          ref={(element) => {
-                            props.onAuthorshipInput(element);
-                          }}
-                          value={props.authorshipText()}
-                          onInput={(event) =>
-                            props.onAuthorshipTextChange(event.currentTarget.value)
-                          }
-                          aria-describedby="ple-question-json-authorship-help"
-                          disabled={props.isLocked()}
-                        />
-                        <span
-                          id="ple-question-json-authorship-help"
-                          class="ple-question-json-authoring__help"
-                        >
-                          Enter one to sixteen distinct names, one per line. This reviewed text, not
-                          account information, is published with the question.
-                        </span>
-                      </label>
-                      <div class="publication-classification-fields">
-                        <ContentClassificationSelect
-                          label="Discipline"
-                          required
-                          value={props.disciplineUuid()}
-                          disabled={props.isLocked()}
-                          load={() => props.classificationClient.listDisciplinesIncludingRetired()}
-                          onChange={(uuid) =>
-                            batch(() => {
-                              props.onDisciplineChange(uuid);
-                              props.onSubjectChange(null);
-                              props.onTopicChange(null);
-                              props.onSubtopicChange(null);
-                            })
-                          }
-                        />
-                        <AuthoringClassificationLevel
-                          label="Subject"
-                          required
-                          value={props.subjectUuid()}
-                          parentUuid={props.disciplineUuid()}
-                          disabled={props.isLocked()}
-                          load={(uuid) => props.classificationClient.listSubjects(uuid)}
-                          onChange={(uuid) =>
-                            batch(() => {
-                              props.onSubjectChange(uuid);
-                              props.onTopicChange(null);
-                              props.onSubtopicChange(null);
-                            })
-                          }
-                          createName={(name, parent) =>
-                            props.classificationClient.createSubject(name, parent)
-                          }
-                          acceptExisting={(uuid, parent) =>
-                            props.classificationClient.acceptSubjectDiscipline(uuid, parent)
-                          }
-                        />
-                        <AuthoringClassificationLevel
-                          label="Topic"
-                          value={props.topicUuid()}
-                          parentUuid={props.subjectUuid()}
-                          disabled={props.isLocked()}
-                          load={(uuid) => props.classificationClient.listTopics(uuid)}
-                          onChange={(uuid) =>
-                            batch(() => {
-                              props.onTopicChange(uuid);
-                              props.onSubtopicChange(null);
-                            })
-                          }
-                          createName={async (name, parent) => {
-                            const item = await props.classificationClient.createTopic(name, parent);
-                            return { uuid: item.uuid, name: item.name, needsAcceptance: false };
-                          }}
-                        />
-                        <AuthoringClassificationLevel
-                          label="Subtopic"
-                          value={props.subtopicUuid()}
-                          parentUuid={props.topicUuid()}
-                          disabled={props.isLocked()}
-                          load={(uuid) => props.classificationClient.listSubtopics(uuid)}
-                          onChange={props.onSubtopicChange}
-                          createName={async (name, parent) => {
-                            const item = await props.classificationClient.createSubtopic(
-                              name,
-                              parent,
-                            );
-                            return { uuid: item.uuid, name: item.name, needsAcceptance: false };
-                          }}
-                        />
-                      </div>
-                      <p>Confirming publishes this saved private draft with a new Question ID.</p>
-                      <button
-                        type="button"
-                        class="primary-action"
-                        disabled={
-                          !props.isSaved() ||
-                          props.isLocked() ||
-                          props.disciplineUuid() === null ||
-                          props.subjectUuid() === null
-                        }
-                        onClick={() => void props.onPublish()}
-                      >
-                        Confirm and publish
-                      </button>
-                    </div>
+                    <QuestionPublicationReviewFields
+                      questionTitle={activeReview().questionTitle}
+                      changed={activeReview().changed}
+                      isSaved={props.isSaved}
+                      isLocked={props.isLocked}
+                      authorshipText={props.authorshipText()}
+                      disciplineUuid={props.disciplineUuid()}
+                      subjectUuid={props.subjectUuid()}
+                      topicUuid={props.topicUuid()}
+                      subtopicUuid={props.subtopicUuid()}
+                      classificationClient={props.classificationClient}
+                      onAuthorshipTextChange={props.onAuthorshipTextChange}
+                      onAuthorshipInput={props.onAuthorshipInput}
+                      onDisciplineChange={props.onDisciplineChange}
+                      onSubjectChange={props.onSubjectChange}
+                      onTopicChange={props.onTopicChange}
+                      onSubtopicChange={props.onSubtopicChange}
+                      onPublish={props.onPublish}
+                    />
                   )}
                 </Show>
               </section>
@@ -431,7 +315,7 @@ export function PleQuestionJsonEditorWorkspace(
                 <>
                   {/* ASVS 1.2.1: server-validated Question Library fields render as Solid text, not HTML. */}
                   <p>
-                    <strong>Question:</strong> {summary.metadata.questionTitle}
+                    <strong>Question:</strong> {props.metadata().questionTitle}
                   </p>
                   <p>
                     <strong>Question ID:</strong> <code>{summary.questionId}</code>

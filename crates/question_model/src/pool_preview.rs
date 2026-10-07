@@ -7,10 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentId, PublishedQuestionId,
-    QuestionPoolSelectionRule,
-};
+use crate::{AssessmentEditNumber, AssessmentEntryId, AssessmentId, PublishedQuestionId};
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.
 /// The route owns course and assessment identity; the Assessment edit number comes from the
@@ -42,7 +39,6 @@ pub struct QuestionPoolPreview {
     /// Instructor-authored label in v1.
     pub question_pool_label: String,
     pub selection_count: u32,
-    pub selection_rule: QuestionPoolSelectionRule,
     pub items: Vec<QuestionPoolPreviewItem>,
     pub selected_items: Vec<QuestionPoolPreviewItem>,
 }
@@ -69,9 +65,6 @@ mod tests {
             .expect("entry ID"),
             question_pool_label: "Pool 3".to_string(),
             selection_count: 1,
-            selection_rule: QuestionPoolSelectionRule {
-                selected_question_order: crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
-            },
             items: vec![QuestionPoolPreviewItem {
                 question_id: question_id.clone(),
                 question_title: "Question Pool Item".to_string(),
@@ -85,7 +78,7 @@ mod tests {
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
                 "assessmentId":"A7K3M2QXF", "assessmentEditNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
-                "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
+                "selectionCount":1,
                 "items":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}],
                 "selectedItems":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}]
             })
@@ -93,7 +86,7 @@ mod tests {
         assert!(
             serde_json::from_value::<QuestionPoolPreview>(serde_json::json!({
                 "assessmentId":"A7K3M2QXF", "editNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
-                "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
+                "selectionCount":1,
                 "items":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}],
                 "selectedItems":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}]
             }))

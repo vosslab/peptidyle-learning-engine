@@ -53,6 +53,7 @@ export type PleQuestionJsonEditorAction =
   | { readonly kind: "edit"; readonly source: PleQuestionJsonDocument }
   | { readonly kind: "saveStarted" }
   | { readonly kind: "saveSucceeded" }
+  | { readonly kind: "autosaveAcknowledged"; readonly source: PleQuestionJsonDocument }
   | { readonly kind: "saveFailed"; readonly message: string }
   | { readonly kind: "saveConflict" }
   | { readonly kind: "assetConflict" }
@@ -148,6 +149,7 @@ export function reducePleQuestionJsonEditor(
     if (action.kind === "assetConflict") return { kind: "conflict", localSource: state.source };
     if (action.kind === "edit" && state.status !== "saving")
       return ready(action.source, state.savedSource);
+    if (action.kind === "autosaveAcknowledged") return ready(state.source, action.source);
     if (action.kind === "saveStarted" && state.status === "dirty")
       return { ...state, status: "saving" };
     if (action.kind === "saveSucceeded" && state.status === "saving")
@@ -211,13 +213,6 @@ function replaceChoice(
     choice.id === choiceId ? replacement : choice,
   );
   return changed({ ...source, response: { ...source.response, choices } });
-}
-
-export function setPleQuestionJsonQuestionTitle(
-  source: PleQuestionJsonDocument,
-  questionTitle: string,
-): PleQuestionJsonDocument {
-  return { ...source, questionTitle };
 }
 
 export function setPleQuestionJsonPrompt(
@@ -577,47 +572,17 @@ export function setQuestionHint(
   return { ...source, questionHint };
 }
 
-export function setTags(
-  source: PleQuestionJsonDocument,
-  tags: ReadonlyArray<string>,
-): PleQuestionJsonDocument {
-  return { ...source, tags: [...tags] };
-}
-
-export function setQuestionLicense(
-  source: PleQuestionJsonDocument,
-  questionLicense: PleQuestionJsonDocument["questionLicense"],
-): PleQuestionJsonDocument {
-  return { ...source, questionLicense };
-}
-
-export function setQuestionDescription(
-  source: PleQuestionJsonDocument,
-  questionDescription: string,
-): PleQuestionJsonDocument {
-  return { ...source, questionDescription };
-}
-
-export function setQuestionCitation(
-  source: PleQuestionJsonDocument,
-  questionCitation: PleQuestionJsonDocument["questionCitation"],
-): PleQuestionJsonDocument {
-  return { ...source, questionCitation };
-}
-
-export function setLanguage(
-  source: PleQuestionJsonDocument,
-  language: string,
-): PleQuestionJsonDocument {
-  return { ...source, language };
-}
-
 /** Uses the canonical codec and turns its structural result into safe field-level author guidance. */
 export function validatePleQuestionJsonSource(
   source: PleQuestionJsonDocument,
 ): PleQuestionJsonValidation {
   try {
     serializePleQuestionJsonSource(source);
+    const blankPath = firstBlankTextPath(source, "");
+    if (blankPath !== null) {
+      const field = blankPath.replace(/^\.?/u, "") || "question";
+      return { valid: false, issues: [{ field, message: validationMessage(field) }] };
+    }
     return { valid: true, issues: [] };
   } catch (error: unknown) {
     const path =
@@ -625,6 +590,24 @@ export function validatePleQuestionJsonSource(
     const field = path.replace(/^source\.?/u, "") || "question";
     return { valid: false, issues: [{ field, message: validationMessage(field) }] };
   }
+}
+
+function firstBlankTextPath(value: unknown, path: string): string | null {
+  if (typeof value === "string") return value.trim().length === 0 ? path : null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const result = firstBlankTextPath(value[index], `${path}[${index}]`);
+      if (result !== null) return result;
+    }
+    return null;
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const [key, child] of Object.entries(value)) {
+      const result = firstBlankTextPath(child, path === "" ? key : `${path}.${key}`);
+      if (result !== null) return result;
+    }
+  }
+  return null;
 }
 
 /** Compares canonical bytes when valid, with deterministic source shape fallback while typing. */
@@ -657,7 +640,6 @@ function validationMessage(field: string): string {
   if (field.startsWith("response.surface.description")) return "Describe the image for Students.";
   if (field.startsWith("response.choices"))
     return "Check the choices and select one correct answer.";
-  if (field.startsWith("questionTitle")) return "Add a short Question Title.";
   if (field.startsWith("prompt")) return "Add the Student-facing question prompt.";
   return "Check the question details before saving.";
 }

@@ -7,16 +7,16 @@ import {
 } from "../src/api/library_classification_filter.ts";
 import {
   createQuestionLibraryRepository,
-  questionSearchRequest,
+  libraryObjectSearchRequest,
 } from "../src/api/question_library_repository.ts";
-import { questionSearchPath } from "../src/api/question_search_query.ts";
+import { libraryObjectSearchPath } from "../src/api/library_object_search_query.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeQuestionBulkMetadataCurrent } from "../src/api/decoders/question_bulk_metadata.ts";
 import { createQuestionBulkMetadataClient } from "../src/api/http_client/question_bulk_metadata.ts";
 import { decodeQuestionPoolMetadata } from "../src/api/decoders/question_pool_summary.ts";
 import { decodeQuestionSearchFacets } from "../src/api/decoders/question_type_facets.ts";
-import { decodeQuestionSearchPage } from "../src/api/decoders/question_library.ts";
+import { decodeLibraryObjectSearchPage } from "../src/api/decoders/question_library.ts";
 import {
   recoverLibrarySearch,
   searchHandoffQuery,
@@ -26,8 +26,10 @@ import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   NO_QUESTION_LIBRARY_FACET_TRUNCATION,
   decodeQuestionLibraryBrowsePage,
+  decodeLibrarySearchPage,
   normalizeQuestionLibraryBrowseQuery,
 } from "../src/pages/library_page_model.ts";
+import { questionLibraryContent } from "../src/pages/question_library_search_definition.ts";
 import {
   FIRST_MY_QUESTIONS_POSITION,
   loadMyQuestions,
@@ -65,7 +67,6 @@ function row() {
     bloom: {
       cognitiveProcess: "Understand",
       knowledgeDimension: "Conceptual Knowledge",
-      classificationEditNumber: "1",
     },
     disciplineName: "Biology",
     disciplineIsRetired: false,
@@ -77,7 +78,7 @@ function row() {
   };
 }
 
-function questionSearchPage() {
+function libraryObjectSearchPage() {
   const questionId = "7K3M-79QP";
   return {
     items: [
@@ -88,6 +89,7 @@ function questionSearchPage() {
           summary: {
             questionId,
             publishedQuestionRevisionTuple: { publishedQuestionId: questionId, revisionNumber: 1 },
+            parentPublishedQuestionRevisionTuple: null,
             backend: "ple",
             questionFormat: "pleQuestionJson",
             questionType: "multipleChoice",
@@ -130,6 +132,8 @@ function questionSearchPage() {
             topicUuid: null,
             subtopicUuid: null,
             tags: ["protein"],
+            bloomCognitiveProcess: null,
+            bloomKnowledgeDimension: null,
           },
           memberCount: 1,
           bloom: null,
@@ -170,7 +174,7 @@ function questionSearchPage() {
 }
 
 test("Library Objects share the Discipline Subject Topic Subtopic and Tag vocabulary", () => {
-  const request = questionSearchRequest(query(), null);
+  const request = libraryObjectSearchRequest(query(), null);
   assert.equal(request.discipline_uuid, identities.discipline_uuid);
   assert.equal(request.subject_uuid, identities.subject_uuid);
   assert.equal(request.topic_uuid, identities.topic_uuid);
@@ -180,7 +184,7 @@ test("Library Objects share the Discipline Subject Topic Subtopic and Tag vocabu
 
 test("Library Objects use shared metadata for organization, search, and filtering", () => {
   const browse = query();
-  const question = questionSearchRequest(browse, null);
+  const question = libraryObjectSearchRequest(browse, null);
   assert.equal(question.text, browse.search);
   assert.equal(question.discipline_uuid, identities.discipline_uuid);
   assert.equal(question.subject_uuid, identities.subject_uuid);
@@ -189,9 +193,43 @@ test("Library Objects use shared metadata for organization, search, and filterin
   assert.deepEqual(question.tags, ["review"]);
 });
 
+test("Library search canonicalizes valid human-entered IDs and preserves ordinary text", () => {
+  assert.equal(
+    libraryObjectSearchRequest({ ...query(), search: "o1oo-raIb" }, null).text,
+    "0100-RA1B",
+  );
+  assert.equal(
+    libraryObjectSearchRequest({ ...query(), search: "enzyme inhibitor" }, null).text,
+    "enzyme inhibitor",
+  );
+});
+
+test("Library result text names each independently unassigned Bloom dimension", () => {
+  const content = questionLibraryContent({
+    ...row(),
+    title: "Cell division",
+    description: "Shared Library Object description",
+    ownerAccountId: "U00000009",
+    questionType: "multipleChoice",
+    backend: "ple",
+    tags: ["review"],
+    license: "CC-BY-4.0",
+    authors: [],
+    bloom: { cognitiveProcess: null, knowledgeDimension: "Conceptual Knowledge" },
+  });
+  assert.ok(
+    content.details.some(
+      (fact) =>
+        fact.kind === "text" &&
+        fact.label === "Bloom" &&
+        fact.value === "Cognitive Process: Not assigned; Knowledge Dimension: Conceptual Knowledge",
+    ),
+  );
+});
+
 test("The Question Library is one global collection of Published Questions and Question Pools", async () => {
   const requests = [];
-  const questionPage = questionSearchPage();
+  const questionPage = libraryObjectSearchPage();
   const fetchImplementation = async (input) => {
     const url = new URL(String(input), "https://example.test");
     requests.push(url);
@@ -205,7 +243,7 @@ test("The Question Library is one global collection of Published Questions and Q
   const questions = await repository.search(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, null);
   assert.deepEqual(
     requests.map((url) => url.pathname),
-    ["/api/questions/search"],
+    ["/api/library-objects/search"],
   );
   for (const url of requests) {
     assert.equal(url.pathname.includes("course"), false);
@@ -214,26 +252,67 @@ test("The Question Library is one global collection of Published Questions and Q
   assert.equal(requests[0].searchParams.get("authorship"), "any");
   assert.equal(questions.items.length, questionPage.items.length);
   assert.equal(questions.items[0].displayId, questionPage.items[0].question.summary.questionId);
+  const [questionRow, poolRow] = decodeLibrarySearchPage(questions).items;
+  assert.equal(questionRow.title, "Peptide bond");
+  assert.equal(questionRow.ownerAccountId, "U00000009");
+  assert.equal(questionRow.questionType, "multipleChoice");
+  assert.equal(questionRow.backend, "ple");
+  assert.deepEqual(questionRow.tags, ["protein"]);
+  assert.equal(questionRow.license, "CC-BY-4.0");
+  assert.equal(poolRow.title, "Protein structure practice Pool");
+  assert.equal(poolRow.backend, "ple");
+});
+
+test("mixed Library row decoder requires Question common fields at the browser boundary", () => {
+  const mixedQuestion = {
+    ...row(),
+    kind: "question",
+    title: "Peptide bond",
+    description: "Shared description",
+    ownerAccountId: "U00000009",
+    questionType: "multipleChoice",
+    backend: "ple",
+    tags: ["protein"],
+    license: "CC-BY-4.0",
+  };
+  const page = {
+    items: [mixedQuestion],
+    nextCursor: null,
+    aggregates: [],
+    facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+  };
+  assert.equal(decodeLibrarySearchPage(page).items[0].title, "Peptide bond");
+  const { tags: _tags, ...missingCommonField } = mixedQuestion;
+  assert.throws(() => decodeLibrarySearchPage({ ...page, items: [missingCommonField] }));
 });
 
 test("Library metadata describes the Library Object rather than a Course Assessment or textbook", () => {
   const questionMetadata = {
     questionId: "7K3M-79QP",
     metadataEditNumber: 1,
+    questionTitle: "Pedigree",
+    questionDescription: "Read the first pedigree.",
+    questionType: "multipleChoice",
     tags: ["review"],
     disciplineUuid: identities.discipline_uuid,
     subjectUuid: identities.subject_uuid,
     topicUuid: identities.topic_uuid,
     subtopicUuid: identities.subtopic_uuid,
+    bloomCognitiveProcess: null,
+    bloomKnowledgeDimension: null,
   };
   const [decoded] = decodeQuestionBulkMetadataCurrent({ items: [questionMetadata] });
   assert.equal(decoded.questionId, questionMetadata.questionId);
   assert.equal(decoded.metadataEditNumber, questionMetadata.metadataEditNumber);
+  assert.equal(decoded.questionTitle, questionMetadata.questionTitle);
+  assert.equal(decoded.questionDescription, questionMetadata.questionDescription);
   assert.deepEqual(decoded.tags, questionMetadata.tags);
   assert.equal(decoded.disciplineUuid, identities.discipline_uuid);
   assert.equal(decoded.subjectUuid, identities.subject_uuid);
   assert.equal(decoded.topicUuid, identities.topic_uuid);
   assert.equal(decoded.subtopicUuid, identities.subtopic_uuid);
+  assert.equal(decoded.bloomCognitiveProcess, null);
+  assert.equal(decoded.bloomKnowledgeDimension, null);
   const poolMetadata = {
     title: "Inheritance reasoning",
     description: "Interpret interchangeable pedigrees.",
@@ -244,6 +323,8 @@ test("Library metadata describes the Library Object rather than a Course Assessm
     topicUuid: identities.topic_uuid,
     subtopicUuid: identities.subtopic_uuid,
     tags: ["review"],
+    bloomCognitiveProcess: null,
+    bloomKnowledgeDimension: null,
   };
   const pool = decodeQuestionPoolMetadata(poolMetadata, "metadata");
   assert.equal(pool.title, poolMetadata.title);
@@ -270,9 +351,7 @@ test("Library metadata describes the Library Object rather than a Course Assessm
 
 test("search metadata updates Title, Description, and classification without a Question Revision", async () => {
   const bodies = [];
-  let fetched;
   const client = createQuestionBulkMetadataClient(async (_input, init) => {
-    fetched = true;
     const body = JSON.parse(init.body);
     bodies.push(body);
     return new Response(
@@ -313,24 +392,46 @@ test("search metadata updates Title, Description, and classification without a Q
   assert.deepEqual(bodies[0].selection, selection);
   assert.deepEqual(bodies[0].patch, shared);
   assert.equal(Object.hasOwn(bodies[0], "revisionNumber"), false);
-  assert.equal(
-    bodies[0].selection.some((item) => Object.hasOwn(item, "revisionNumber")),
-    false,
-  );
-  assert.notEqual(bodies[0].selection[0].questionTitle, bodies[0].selection[1].questionTitle);
   assert.deepEqual(results, [
     { questionId: "2R5X-E7YA", metadataEditNumber: 2 },
     { questionId: "7K3M-79QP", metadataEditNumber: 4 },
   ]);
-  fetched = false;
-  await assert.rejects(
-    client.updateQuestionBulkMetadata({
-      selection: [{ questionId: "2R5X-E7YA", metadataEditNumber: 1, questionTitle: " " }],
-      patch: {},
-    }),
-    DecodeError,
-  );
-  assert.equal(fetched, false);
+});
+
+test("current Question metadata read returns one complete editor snapshot", async () => {
+  const metadata = {
+    questionId: "7K3M-79QP",
+    metadataEditNumber: 4,
+    questionTitle: "Current title",
+    questionDescription: "Current description",
+    questionType: "multipleChoice",
+    tags: ["current"],
+    disciplineUuid: identities.discipline_uuid,
+    subjectUuid: identities.subject_uuid,
+    topicUuid: identities.topic_uuid,
+    subtopicUuid: identities.subtopic_uuid,
+    bloomCognitiveProcess: "Understand",
+    bloomKnowledgeDimension: null,
+  };
+  let requestBody;
+  const client = createQuestionBulkMetadataClient(async (input, init) => {
+    assert.equal(
+      new URL(input, "https://example.test").pathname,
+      "/api/questions/bulk-metadata/current",
+    );
+    requestBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({ items: [metadata] }), {
+      status: 200,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+    });
+  }, "");
+
+  const [current] = await client.getCurrentQuestionSharedMetadata([metadata.questionId]);
+  assert.deepEqual(requestBody, { questionIds: [metadata.questionId] });
+  assert.equal(current.questionTitle, "Current title");
+  assert.equal(current.questionDescription, "Current description");
+  assert.equal(current.questionType, "multipleChoice");
+  assert.equal(current.metadataEditNumber, 4);
 });
 
 test("Library URL handoff and strict wire request retain hierarchy, filters, and sort", () => {
@@ -344,7 +445,7 @@ test("Library URL handoff and strict wire request retain hierarchy, filters, and
     identities,
   );
   const parameters = new URL(
-    questionSearchPath(questionSearchRequest(restored, "next-page")),
+    libraryObjectSearchPath(libraryObjectSearchRequest(restored, "next-page")),
     "https://example.test",
   ).searchParams;
   for (const [field, value] of Object.entries(identities))
@@ -357,11 +458,11 @@ test("Library URL handoff and strict wire request retain hierarchy, filters, and
   assert.equal(parameters.get("sort"), "publishedNewest");
   assert.equal(parameters.get("cursor"), "next-page");
   assert.equal(parameters.get("kind"), "both");
-  assert.equal(parameters.get("membership"), "noPool");
+  assert.equal(parameters.get("questions"), "inNoPool");
   assert.equal(
     new URL(
-      questionSearchPath({
-        ...questionSearchRequest(restored, null),
+      libraryObjectSearchPath({
+        ...libraryObjectSearchRequest(restored, null),
         owner_account_id: "U00000009",
       }),
       "https://example.test",
@@ -369,27 +470,27 @@ test("Library URL handoff and strict wire request retain hierarchy, filters, and
     "U00000009",
   );
   const empty = new URL(
-    questionSearchPath(questionSearchRequest(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, null)),
+    libraryObjectSearchPath(libraryObjectSearchRequest(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, null)),
     "https://example.test",
   ).searchParams;
   for (const field of Object.keys(identities)) assert.equal(empty.has(field), false);
   assert.equal(empty.get("sort"), "titleAscending");
   assert.equal(empty.get("kind"), "both");
-  assert.equal(empty.get("membership"), "noPool");
+  assert.equal(empty.get("questions"), "inNoPool");
 });
 
 test("Pools-only Library URLs retain text but clear Question-only predicates", () => {
   const pools = searchHandoffQuery(
-    "?kind=pools&membership=all&search=protein&authorName=Ada&capability=clientRendering",
+    "?kind=pools&questions=all&search=protein&authorName=Ada&capability=clientRendering",
   );
   const normalized = normalizeQuestionLibraryBrowseQuery(pools);
   assert.equal(normalized.kind, "pools");
-  assert.equal(normalized.membership, "all");
+  assert.equal(normalized.questions, "all");
   assert.equal(normalized.search, "protein");
   assert.equal(normalized.authorName, null);
-  assert.equal(normalized.capability, null);
+  assert.equal(normalized.capability, "clientRendering");
   assert.match(searchWithinResultsPath(normalized), /kind=pools/);
-  assert.match(searchWithinResultsPath(normalized), /membership=all/);
+  assert.match(searchWithinResultsPath(normalized), /questions=all/);
 });
 
 test("Library cascade clears descendants and cross mode without changing independent filters", () => {
@@ -412,7 +513,7 @@ test("Library cascade clears descendants and cross mode without changing indepen
 });
 
 test("Library request rejects malformed identities, incomplete chains, false booleans and unknown fields", () => {
-  const request = questionSearchRequest(query(), null);
+  const request = libraryObjectSearchRequest(query(), null);
   for (const change of [
     { discipline_uuid: "biology" },
     { discipline_uuid: null },
@@ -420,25 +521,25 @@ test("Library request rejects malformed identities, incomplete chains, false boo
     { topic_uuid: null },
     { cross_discipline: "false" },
     { kind: "unknown" },
-    { membership: "unknown" },
+    { questions: "unknown" },
     { owner_account_id: "not-an-account" },
     { hidden: true },
     { backends: ["imathas"] },
     { bloom_cognitive_process: "analyze" },
     { bloom_knowledge_dimension: "Procedural" },
   ]) {
-    assert.throws(() => questionSearchPath({ ...request, ...change }));
+    assert.throws(() => libraryObjectSearchPath({ ...request, ...change }));
   }
-  assert.throws(() => questionSearchPath({ ...request, sort: "unknown" }));
+  assert.throws(() => libraryObjectSearchPath({ ...request, sort: "unknown" }));
   assert.equal(
     new URL(
-      questionSearchPath({ ...request, page_size: 250 }),
+      libraryObjectSearchPath({ ...request, page_size: 250 }),
       "https://example.test",
     ).searchParams.get("page_size"),
     "250",
   );
-  assert.throws(() => questionSearchPath({ ...request, page_size: 251 }));
-  assert.throws(() => questionSearchPath({ ...request, page_size: 0 }));
+  assert.throws(() => libraryObjectSearchPath({ ...request, page_size: 251 }));
+  assert.throws(() => libraryObjectSearchPath({ ...request, page_size: 0 }));
   assert.throws(() => searchHandoffQuery("?cross_discipline=1"));
   assert.throws(() => searchHandoffQuery("?sort=unknown"));
   assert.throws(() => searchHandoffQuery("?sort=titleAscending&sort=publishedNewest"));
@@ -460,7 +561,7 @@ test("Question discovery rejects zero page size before dispatch", async () => {
     },
   });
   assert.throws(() =>
-    client.searchQuestionLibrary({ ...questionSearchRequest(query(), null), page_size: 0 }),
+    client.searchLibraryObjects({ ...libraryObjectSearchRequest(query(), null), page_size: 0 }),
   );
   assert.equal(dispatched, false);
 });
@@ -536,10 +637,10 @@ test("Bloom facet decoder requires all guide values in guide order, including ze
 });
 
 test("Question discovery decoder accepts 250 rows and rejects 251", () => {
-  const page = questionSearchPage();
+  const page = libraryObjectSearchPage();
   const items = Array.from({ length: 250 }, () => page.items[0]);
-  assert.equal(decodeQuestionSearchPage({ ...page, items }).items.length, 250);
-  assert.throws(() => decodeQuestionSearchPage({ ...page, items: [...items, page.items[0]] }));
+  assert.equal(decodeLibraryObjectSearchPage({ ...page, items }).items.length, 250);
+  assert.throws(() => decodeLibraryObjectSearchPage({ ...page, items: [...items, page.items[0]] }));
 });
 
 test("Library browse decoder accepts 250 rows and rejects 251", () => {
@@ -557,9 +658,9 @@ test("Library browse decoder accepts 250 rows and rejects 251", () => {
 test("My Questions continues the authored library page", async () => {
   const requests = [];
   const client = {
-    async searchQuestionLibrary(request) {
+    async searchLibraryObjects(request) {
       requests.push(request);
-      const page = questionSearchPage();
+      const page = libraryObjectSearchPage();
       return {
         ...page,
         items: page.items.slice(0, 1),

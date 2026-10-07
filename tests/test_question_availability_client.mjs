@@ -2,15 +2,32 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const question = {
-  ...publishedQuestionFixture.publishedQuestion,
+  questionId: "7K3M-79QP",
+  publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
+  parentPublishedQuestionRevisionTuple: null,
+  backend: "ple",
   questionFormat: "pleQuestionJson",
+  questionType: "multipleChoice",
+  capabilities: ["clientRendering", "serverGrading"],
+  metadata: {
+    questionTitle: "Peptide bond resonance",
+    questionDescription: "Identify the bond with partial double-bond character.",
+    tags: [],
+    questionLicense: null,
+    questionCitation: null,
+    language: null,
+  },
+  authorship: { authors: [{ displayName: "Test Author", accountId: null }] },
+  availability: { availability: "available" },
+  publishedAt: 1_786_000_000_000,
+  bloom: null,
 };
 
-function noStoreJson(value, etag) {
+function noStoreJson(value, etag, status = 200) {
   return new Response(JSON.stringify(value), {
+    status,
     headers: {
       "cache-control": "no-store",
       "content-type": "application/json",
@@ -64,7 +81,10 @@ test("Question availability client keeps current lineage transitions and exact r
           '"7"',
         );
       }
-      return noStoreJson({ summary: question, viewerMayArchive: true }, '"5"');
+      return noStoreJson(
+        { summary: question, viewerMayArchive: true, viewerMayEditMetadata: true },
+        '"5"',
+      );
     },
   });
 
@@ -102,7 +122,10 @@ test("Question availability client rejects an ETag or exact revision identity mi
     fetch: async (input) => {
       const path = new URL(input.toString(), "https://ple.example").pathname;
       if (path.endsWith("/revisions/2")) return noStoreJson(details(1), '"5"');
-      return noStoreJson({ summary: question, viewerMayArchive: true }, '"05"');
+      return noStoreJson(
+        { summary: question, viewerMayArchive: true, viewerMayEditMetadata: true },
+        '"05"',
+      );
     },
   });
   await assert.rejects(client.getQuestionLineage(question.questionId), ApiProtocolError);
@@ -110,4 +133,32 @@ test("Question availability client rejects an ETag or exact revision identity mi
     client.getQuestionRevision({ publishedQuestionId: question.questionId, revisionNumber: 2 }),
     ApiProtocolError,
   );
+});
+
+test("Owner correction opens an ordinary Draft from the current exact Revision", async () => {
+  const requests = [];
+  const parent = {
+    publishedQuestionId: question.questionId,
+    revisionNumber: 3,
+  };
+  const draftQuestion = "0190a0b0-c0d0-7e10-8a20-304050607080";
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const request = new Request(new URL(input.toString(), "https://ple.example"), init);
+      requests.push(request.clone());
+      return noStoreJson({ draftQuestion, publishedQuestionRevisionTuple: parent }, undefined, 201);
+    },
+  });
+
+  const created = await client.createCorrectionDraft(parent);
+  const request = requests[0];
+  assert.equal(created.draftQuestion, draftQuestion);
+  assert.deepEqual(created.publishedQuestionRevisionTuple, parent);
+  assert.equal(request.method, "POST");
+  assert.equal(
+    new URL(request.url).pathname,
+    `/api/questions/by-id/${encodeURIComponent(question.questionId)}/revisions/3/correction-draft`,
+  );
+  assert.equal(request.headers.get("content-type"), null);
+  assert.equal(await request.text(), "");
 });

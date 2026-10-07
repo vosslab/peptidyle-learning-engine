@@ -20,39 +20,6 @@ export function createRecordingFetch(respond) {
   return { recordingFetch, requests };
 }
 
-/** Builds a literal browser-issued presentation from current Question Summary evidence. */
-export function issuedQuestionWireFixture(
-  attempt,
-  questionSummary,
-  publishedQuestionRevisionTuple,
-) {
-  return {
-    publishedQuestionRevisionTuple,
-    presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
-    questionTitle: questionSummary.metadata.questionTitle,
-    prompt: [
-      {
-        kind: "text",
-        markdown:
-          "Which bond has restricted rotation because resonance gives it partial double-bond character?",
-      },
-    ],
-    response: {
-      kind: "singleChoice",
-      choices: [
-        {
-          id: "0001",
-          body: [{ kind: "text", markdown: "The carbonyl carbon-to-nitrogen bond" }],
-        },
-        {
-          id: "0002",
-          body: [{ kind: "text", markdown: "The carbonyl carbon-to-oxygen bond" }],
-        },
-      ],
-    },
-  };
-}
-
 /** Tests saved-response validation without importing the retired application validator. */
 export async function validateSavedResponse(responseFormat, response) {
   if (responseFormat.kind === "multipleChoice" && response.kind === "multipleChoice") {

@@ -90,6 +90,7 @@ RETURNS TABLE (
     assessment_attempt_time_limit_seconds integer,
     attempt_limit integer,
     late_work_rule text,
+    partial_credit_enabled boolean,
     question_variation_rule text,
     assessment_question_order_rule text,
     feedback_per_item_correctness text,
@@ -107,20 +108,17 @@ RETURNS TABLE (
     points_possible numeric,
     selection_count integer,
     points_per_item numeric,
-    selected_question_order text,
     question_attempt_limit integer,
     question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer,
     question_pool_id text,
     question_pool_edit_number bigint,
-    member_position integer,
     published_question_id text,
     question_revision_number integer,
     question_title text,
     question_description text,
     bloom_cognitive_process text,
-    bloom_knowledge_dimension text,
-    bloom_classification_edit_number bigint
+    bloom_knowledge_dimension text
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -143,6 +141,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            policy.assessment_attempt_time_limit_seconds,
            policy.assessment_attempt_limit,
            policy.late_work_rule,
+           policy.partial_credit_enabled,
            policy.question_variation_rule,
            policy.assessment_question_order_rule,
            policy.feedback_per_item_correctness,
@@ -160,20 +159,17 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            question.points_possible,
            pool_entry.selection_count,
            pool_entry.points_per_item,
-           pool_entry.selected_question_order,
            entry.question_attempt_limit,
            entry.question_attempt_time_limit_seconds,
            entry.question_attempt_grace_seconds,
            pool_entry.question_pool_id,
            pool.question_pool_edit_number,
-           item.member_position,
            COALESCE(item.published_question_id, question.published_question_id),
            COALESCE(item.question_revision_number, question.question_revision_number),
            metadata.question_title,
            metadata.question_description,
            question_bloom.bloom_cognitive_process,
-           question_bloom.bloom_knowledge_dimension,
-           question_bloom.bloom_classification_edit_number
+           question_bloom.bloom_knowledge_dimension
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
       JOIN ple_data.assessment_policy_snapshot AS policy
@@ -191,8 +187,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = pool_entry.question_pool_id
       LEFT JOIN ple_data.question_pool_member AS item
         ON item.question_pool_id = pool_entry.question_pool_id
-      LEFT JOIN ple_data.published_question_metadata AS metadata
+      LEFT JOIN ple_data.question_revision_metadata AS metadata
         ON metadata.published_question_id = COALESCE(item.published_question_id, question.published_question_id)
+       AND metadata.revision_number = COALESCE(item.question_revision_number, question.question_revision_number)
       LEFT JOIN LATERAL ple_private.question_library_entries(
           COALESCE(item.published_question_id, question.published_question_id, ''),
           COALESCE(item.question_revision_number, question.question_revision_number, 0),
@@ -201,14 +198,14 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
      WHERE course.course_instance_id = p_course_instance_id
        AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
-     ORDER BY entry.authored_position NULLS LAST, item.member_position NULLS LAST
+     ORDER BY entry.authored_position NULLS LAST
 $$;
 
 CREATE FUNCTION ple_api.validate_assessment_release(
     p_course_instance_id text,
     p_assessment_id text
 )
-RETURNS TABLE (issue text)
+RETURNS TABLE (issue text, pool_issues jsonb)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
@@ -228,12 +225,39 @@ BEGIN
     -- ASVS 2.2.2 and 2.3.1-2.3.3: this authorized projection and every
     -- mutating hard gate consume the same closed issue-producing authority.
     RETURN QUERY
-    SELECT release_issue.issue
+    WITH pool_issue_details AS (
+        SELECT COALESCE(
+                   jsonb_agg(
+                       jsonb_build_object(
+                           'assessmentPosition', entry.authored_position + 1,
+                           'poolTitle', pool.title,
+                           'questionPoolId', pool.question_pool_id::text,
+                           'selectionCount', pool_entry.selection_count,
+                           'issue', CASE pool_issue.issue
+                               WHEN 'question_pool_insufficient_items' THEN 'insufficientItems'
+                               WHEN 'question_pool_member_unavailable' THEN 'memberUnavailable'
+                               WHEN 'question_pool_member_backend_mismatch' THEN 'memberBackendMismatch'
+                               WHEN 'question_pool_member_type_mismatch' THEN 'memberTypeMismatch'
+                               WHEN 'question_pool_member_classification_mismatch' THEN 'memberClassificationMismatch'
+                           END
+                       ) ORDER BY entry.authored_position, pool.question_pool_id, pool_issue.issue
+                   ), '[]'::jsonb
+               ) AS details
+          FROM ple_data.assessment_pool_release_issues(assessment_id_value) AS pool_issue
+          JOIN ple_data.assessment_entry AS entry
+            ON entry.assessment_entry_id = pool_issue.assessment_entry_id
+          JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+          JOIN ple_data.question_pool AS pool
+            ON pool.question_pool_id::text = pool_issue.question_pool_id
+    )
+    SELECT release_issue.issue, pool_issue_details.details
       FROM ple_data.assessment_release_issues(
         assessment_id_value,
         transaction_timestamp(),
         assessment_status_value = 'unreleased'
-      ) AS release_issue;
+      ) AS release_issue
+      CROSS JOIN pool_issue_details;
 END
 $$;
 

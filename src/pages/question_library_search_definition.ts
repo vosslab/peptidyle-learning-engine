@@ -1,6 +1,6 @@
 // Question Library content and API rules supplied to the shared search session.
 import type { RecordContent, RecordFact } from "../components/record_list/record_list";
-import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
+import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
 import type {
   SearchAppliedFilter,
   SearchDefinition,
@@ -18,15 +18,21 @@ import {
   decodeLibrarySearchPage,
   normalizeQuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseQuery,
-  type QuestionLibraryBrowseRow,
+  type LibraryObjectQuestionRow,
   type QuestionLibraryPoolRow,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryFilterCounts,
   type LibrarySearchRow,
 } from "./library_page_model";
 
-function questionDetails(row: QuestionLibraryBrowseRow): ReadonlyArray<RecordFact> {
+function questionDetails(row: LibraryObjectQuestionRow): ReadonlyArray<RecordFact> {
   const details: RecordFact[] = [
+    { kind: "text", label: "Library object", value: "Published Question" },
+    { kind: "text", label: "Owner", value: row.ownerAccountId },
+    { kind: "text", label: "Question Type", value: questionTypeLabel(row.questionType) },
+    { kind: "text", label: "Backend", value: backendLabel(row.backend) },
+    { kind: "text", label: "Question License", value: row.license ?? "Not specified" },
+    { kind: "text", label: "Tags", value: row.tags.length === 0 ? "None" : row.tags.join(", ") },
     row.authors.length > 0
       ? { kind: "questionAuthors", label: "Authors", authors: row.authors }
       : { kind: "text", label: "Authors", value: "None" },
@@ -35,29 +41,27 @@ function questionDetails(row: QuestionLibraryBrowseRow): ReadonlyArray<RecordFac
   if (row.disciplineIsRetired) {
     details.push({ kind: "text", label: "Discipline status", value: "Retired discipline" });
   }
-  if (row.bloom !== null) {
-    details.push({
-      kind: "text",
-      label: "Bloom",
-      value: `${row.bloom.cognitiveProcess} / ${row.bloom.knowledgeDimension}`,
-    });
-  }
+  details.push({
+    kind: "text",
+    label: "Bloom",
+    value: `Cognitive Process: ${row.bloom?.cognitiveProcess ?? "Not assigned"}; Knowledge Dimension: ${row.bloom?.knowledgeDimension ?? "Not assigned"}`,
+  });
   const format = webworkFormatLabel(row.questionFormat);
   if (format !== null) {
     details.push({ kind: "text", label: "Format", value: format });
   }
   details.push({
     kind: "questionId",
-    questionTitle: row.questionTitle,
+    questionTitle: row.title,
     displayId: row.displayId,
   });
   return details;
 }
 
-export function questionLibraryContent(row: QuestionLibraryBrowseRow): RecordContent {
-  const summary = row.summary.trim();
+export function questionLibraryContent(row: LibraryObjectQuestionRow): RecordContent {
+  const summary = row.description.trim();
   return {
-    title: row.questionTitle,
+    title: row.title,
     description: summary.length > 0 ? summary : undefined,
     details: questionDetails(row),
     actions: [
@@ -66,7 +70,7 @@ export function questionLibraryContent(row: QuestionLibraryBrowseRow): RecordCon
         kind: "link",
         label: "Open",
         href: questionLink(row),
-        title: `Open ${row.questionTitle}`,
+        title: `Open ${row.title}`,
       },
     ],
   };
@@ -85,13 +89,11 @@ function poolContent(row: QuestionLibraryPoolRow): RecordContent {
   ];
   if (row.disciplineIsRetired)
     details.push({ kind: "text", label: "Discipline status", value: "Retired discipline" });
-  if (row.bloom !== null) {
-    details.push({
-      kind: "text",
-      label: "Bloom",
-      value: `${row.bloom.cognitiveProcess} / ${row.bloom.knowledgeDimension}`,
-    });
-  }
+  details.push({
+    kind: "text",
+    label: "Bloom",
+    value: `Cognitive Process: ${row.bloom?.cognitiveProcess ?? "Not assigned"}; Knowledge Dimension: ${row.bloom?.knowledgeDimension ?? "Not assigned"}`,
+  });
   return {
     title: row.title,
     description: row.description,
@@ -119,7 +121,7 @@ export function questionLibrarySearchDefinition(
   QuestionLibraryBrowseQuery,
   LibrarySearchRow,
   QuestionLibraryFilterCounts,
-  QuestionSearchSort
+  LibraryObjectSearchSort
 > {
   return {
     initialQuery,
@@ -146,11 +148,11 @@ export function questionLibrarySearchDefinition(
           clear: (value) => ({ ...value, kind: "both" }),
         });
       }
-      if (query.kind !== "pools" && query.membership === "noPool") {
+      if (query.kind !== "pools" && query.questions === "inNoPool") {
         filters.push({
-          id: "membership",
-          label: "Question membership: Questions in no Pool",
-          clear: (value) => ({ ...value, membership: "all" }),
+          id: "questions",
+          label: "Questions: in no Pool",
+          clear: (value) => ({ ...value, questions: "all" }),
         });
       }
       if (query.ownerAccountId !== null) {

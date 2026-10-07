@@ -5,6 +5,12 @@ import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionI
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionAvailabilityEditNumber } from "../../generated/api/QuestionAvailabilityEditNumber";
+import type { DraftQuestionRouteId } from "../navigation/public_route";
+
+export type QuestionCorrectionDraft = {
+  readonly draftQuestion: DraftQuestionRouteId;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+};
 
 export type QuestionAvailabilityTransition = {
   readonly availability: "available" | "archived";
@@ -15,6 +21,7 @@ export type QuestionAvailabilityTransition = {
 export type LoadedQuestionLineage = {
   readonly summary: QuestionSummary;
   readonly viewerMayArchive: boolean;
+  readonly viewerMayEditMetadata: boolean;
   readonly questionAvailabilityEditNumber: QuestionAvailabilityEditNumber;
 };
 
@@ -24,6 +31,10 @@ export interface QuestionAvailabilityClient {
   readonly getQuestionRevision: (
     publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   ) => Promise<QuestionDetails>;
+  /** Opens the current owned Question Revision as a separate ordinary private Draft. */
+  readonly createCorrectionDraft: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+  ) => Promise<QuestionCorrectionDraft>;
   /** Same-origin, answer-free WeBWorK preview for one exact immutable Revision. */
   readonly questionRevisionPreviewDocumentUrl: (
     publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,

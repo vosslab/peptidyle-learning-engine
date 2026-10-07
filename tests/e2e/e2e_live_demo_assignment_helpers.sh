@@ -97,12 +97,16 @@ import json, re, sys
 value=json.loads(sys.argv[1])
 items=value.get("items") if isinstance(value, dict) else value
 if not isinstance(items, list) or not items: raise SystemExit("Question picker is empty")
-summary=items[0].get("summary") if isinstance(items[0], dict) else None
+question=next((item for item in items if isinstance(item, dict) and item.get("kind") == "question"), None)
+question_result=question.get("question") if isinstance(question, dict) else None
+summary=question_result.get("summary") if isinstance(question_result, dict) else None
 question_revision=summary.get("publishedQuestionRevisionTuple") if isinstance(summary, dict) else None
 if (not isinstance(question_revision, dict) or set(question_revision) != {"publishedQuestionId", "revisionNumber"}
     or not isinstance(question_revision["publishedQuestionId"], str)
     or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_revision["publishedQuestionId"]) is None
-    or not isinstance(question_revision["revisionNumber"], int) or question_revision["revisionNumber"] < 1):
+    or question_revision["publishedQuestionId"] != summary.get("questionId")
+    or not isinstance(question_revision["revisionNumber"], int) or isinstance(question_revision["revisionNumber"], bool)
+    or question_revision["revisionNumber"] < 1):
     raise SystemExit("Question picker lacks an exact Question Revision Tuple")
 print(json.dumps(question_revision, separators=(",", ":")))
 ' "$1"
