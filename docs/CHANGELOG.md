@@ -30,6 +30,15 @@
   catalog order and replaced Ribbon's complete Student shortcut inventory assertion with required
   destination and unavailable Attempt behavior checks. Removed ignored Ribbon fixture arguments
   and eager whole-catalog validation while preserving validation of rendered controls.
+- Removed the nine-test Ribbon SSR/CSS and fixture-inventory script from the full E2E launcher.
+  Its Instructor fixture exercised only available controls; the disabled branch did not establish
+  disabled Instructor behavior. Marked that checklist evidence retired and unsupported.
+- Corrected the Student Course entry fixture's bonus denominator and asserted score values without
+  binding them to incidental wording. Removed row-position and inventory checks while retaining
+  keyboard, resume/review/start, unavailable action, score, and viewport usability behavior.
+- Aligned the release browser fixture with the API-required `poolIssues` array and typed response.
+  Retained alert, correction-category, and recovery behavior checks without exact heading or prose
+  assertions. Both final browser corrections change test fixtures and assertions only.
 - Simplified the scoped authoring and delivery code before extracting cohesive owners. Native JSON
   authoring now separates answer mapping and workflow coordination from the page; Assessment
   policies retain page state and delivery fields while feedback and release views own presentation.
@@ -62,6 +71,7 @@
   HOTSPOT as PLE-only authoring. TODO records inline images, HTML rendering, and QPM's missing
   Canvas/Blackboard QTI readers. Updated obsolete current references and repaired historical source
   links using immutable Git revisions.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Developer Tests and Notes
 

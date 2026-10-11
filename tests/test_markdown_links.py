@@ -23,6 +23,8 @@ HEADER = "Markdown link errors detected:"
 
 # Inline link and image: optional leading !, [text](url), url ends at ) or space.
 LINK_RE = re.compile(r"!?\[([^\]]*)\]\(\s*([^)\s]+)[^)]*\)")
+REFERENCE_DEFINITION_RE = re.compile(r"^\s*\[([^\]^]+)\]:\s*<?([^\s>]+)>?")
+REFERENCE_LINK_RE = re.compile(r"!?\[([^\]]+)\]\[([^\]]*)\]")
 # Inline code span, used to mask out example links inside backticks.
 INLINE_CODE_RE = re.compile(r"`[^`]*`")
 # Windows absolute path: drive letter then slash or backslash.
@@ -39,9 +41,6 @@ SYSTEM_ROOTS = {"home", "Users", "root", "private", "tmp", "var"}
 # Module-level dict of repo-relative POSIX key -> list of violation lines.
 # Populated by the autouse collect_report fixture before any test runs.
 VIOLATIONS_BY_FILE: dict[str, list[str]] = {}
-HUMAN_GUIDANCE_RELATIVE = "docs/HUMAN_GUIDANCE.md"
-CHECKLIST_COPY_PATH = "docs/active_plans/audits/human_guidance_implementation_checklist.md"
-CHECKLIST_PARTS_PREFIX = "docs/archive/audits/hg_checklist_parts/"
 
 
 #============================================
@@ -143,6 +142,36 @@ def parse_links(masked_line: str) -> list[tuple[str, str]]:
 		link_text = match.group(1)
 		url = match.group(2).strip()
 		links.append((link_text, url))
+	return links
+
+
+#============================================
+def document_links(text: str) -> list[tuple[int, str, str]]:
+	"""Collect inline and defined reference links outside code regions.
+
+	Both Markdown and Djot support explicit and empty reference labels.
+	Definitions are checked even when unused; missing-label syntax remains the
+	parser's responsibility. This lightweight check is not a renderer.
+	"""
+	lines = strip_code_regions(text)
+	definitions = {}
+	links = []
+	for line_number, line in lines:
+		match = REFERENCE_DEFINITION_RE.match(line)
+		if match:
+			label, url = match.groups()
+			definitions[' '.join(label.split()).casefold()] = url
+			links.append((line_number, '', url))
+	for line_number, line in lines:
+		if REFERENCE_DEFINITION_RE.match(line):
+			continue
+		for label, url in parse_links(line):
+			links.append((line_number, label, url))
+		for match in REFERENCE_LINK_RE.finditer(line):
+			label, reference = match.groups()
+			key = ' '.join((reference or label).split()).casefold()
+			if key in definitions:
+				links.append((line_number, label, definitions[key]))
 	return links
 
 
@@ -269,7 +298,7 @@ def check_path_like_text(
 	# Allow one optional layer of backticks around the visible text.
 	if len(text) > 1 and text.startswith("`") and text.endswith("`"):
 		text = text[1:-1]
-	if ".md" not in text and "/" not in text:
+	if ".md" not in text and ".djot" not in text and "/" not in text:
 		return ""
 	# Normalize trailing slashes so [tests/] vs target `tests` compares equal.
 	text_norm = text.rstrip("/")
@@ -315,7 +344,7 @@ def check_local_link(
 	target = resolve_target(repo_root, file_dir, url_no_anchor)
 	rel_from_root = os.path.relpath(target, repo_root)
 
-	# Repo containment: the target must live inside REPO_ROOT.
+	# ASVS 5.3.2: document-provided paths must remain inside REPO_ROOT.
 	if rel_from_root == ".." or rel_from_root.startswith(".." + os.sep):
 		return (
 			f"local link [{link_text}]({url}) escapes repository "
@@ -365,58 +394,12 @@ def build_tracked_dirs(tracked_set: set) -> set:
 
 
 #============================================
-def is_human_guidance_copy(md_path: str) -> bool:
-	"""Return whether md_path must keep Human Guidance link text verbatim."""
-	if md_path == CHECKLIST_COPY_PATH:
-		return True
-	return md_path.startswith(CHECKLIST_PARTS_PREFIX)
-
-
-#============================================
-def human_guidance_link_pairs(repo_root: str) -> set[tuple[str, str]]:
-	"""Return every inline link pair written in Human Guidance."""
-	path = os.path.join(repo_root, HUMAN_GUIDANCE_RELATIVE)
-	pairs: set[tuple[str, str]] = set()
-	with open(path, encoding="utf-8") as handle:
-		text = handle.read()
-	for _line_number, masked_line in strip_code_regions(text):
-		for link_text, url in parse_links(masked_line):
-			pairs.add((link_text, url))
-	return pairs
-
-
-#============================================
-def link_directory(
-	repo_root: str,
-	file_dir: str,
-	md_path: str,
-	link_text: str,
-	url: str,
-	guidance_links: set[tuple[str, str]],
-) -> str:
-	"""
-	Resolve a verbatim Human Guidance link from docs/.
-
-	Checklist copies keep the original relative URL. Other files, and links
-	that Human Guidance does not contain, stay relative to the file.
-	"""
-	if not is_human_guidance_copy(md_path):
-		return file_dir
-	if (link_text, url) not in guidance_links:
-		return file_dir
-	if url.startswith("/") or "://" in url:
-		return file_dir
-	return os.path.join(repo_root, "docs")
-
-
-#============================================
 def scan_file(
 	repo_root: str,
 	tracked_set: set,
 	tracked_dirs: set,
 	recent_untracked_set: set,
 	md_path: str,
-	guidance_links: set[tuple[str, str]] | None = None,
 ) -> list[str]:
 	"""
 	Scan one markdown file for link issues.
@@ -427,7 +410,6 @@ def scan_file(
 		tracked_dirs: Set of tracked-directory repo-relative paths.
 		recent_untracked_set: Set of recently created untracked repo-relative paths.
 		md_path: Repo-relative path to the markdown file.
-		guidance_links: Inline links copied verbatim from Human Guidance.
 
 	Returns:
 		list[str]: "path:line: message" issue strings.
@@ -436,28 +418,17 @@ def scan_file(
 	file_dir = os.path.dirname(abs_path)
 	with open(abs_path, encoding="utf-8") as handle:
 		text = handle.read()
-	if guidance_links is None:
-		guidance_links = set()
 
 	issues = []
-	for line_number, masked_line in strip_code_regions(text):
-		for link_text, url in parse_links(masked_line):
-			if classify_url(url) != "local":
-				continue
-			base_dir = link_directory(
-				repo_root, file_dir, md_path, link_text, url, guidance_links,
-			)
-			message = check_local_link(
-				repo_root,
-				base_dir,
-				tracked_set,
-				tracked_dirs,
-				recent_untracked_set,
-				link_text,
-				url,
-			)
-			if message:
-				issues.append(f"{md_path}:{line_number}: {message}")
+	for line_number, link_text, url in document_links(text):
+		if classify_url(url) != "local":
+			continue
+		message = check_local_link(
+			repo_root, file_dir, tracked_set, tracked_dirs,
+			recent_untracked_set, link_text, url,
+		)
+		if message:
+			issues.append(f"{md_path}:{line_number}: {message}")
 	return issues
 
 
@@ -536,18 +507,12 @@ def collect_violations(
 	# Build whole-repo context once -- never per file.
 	tracked_set = set(file_utils.list_tracked_files(REPO_ROOT))
 	tracked_dirs = build_tracked_dirs(tracked_set)
-	guidance_links = human_guidance_link_pairs(REPO_ROOT)
 
 	violations: dict[str, list[str]] = {}
 	all_issues: list[str] = []
 	for md_path in rel_files:
 		issues = scan_file(
-			REPO_ROOT,
-			tracked_set,
-			tracked_dirs,
-			recent_untracked_set,
-			md_path,
-			guidance_links,
+			REPO_ROOT, tracked_set, tracked_dirs, recent_untracked_set, md_path,
 		)
 		all_issues.extend(issues)
 		if issues:
@@ -565,12 +530,12 @@ def collect_violations(
 SCAN_NOW = time.time()
 RECENT_UNTRACKED_PATHS = recent_untracked_paths(REPO_ROOT, SCAN_NOW)
 TRACKED_MARKDOWN_FILES = file_utils.discover_files(
-	extensions=(".md",), test_key="markdown_links",
+	extensions=(".md", ".djot"), test_key="markdown_links",
 )
 RECENT_MARKDOWN_FILES = [
 	os.path.join(REPO_ROOT, path)
 	for path in RECENT_UNTRACKED_PATHS
-	if os.path.splitext(path)[1].lower() == ".md"
+	if os.path.splitext(path)[1].lower() in (".md", ".djot")
 ]
 FILES = sorted(set(TRACKED_MARKDOWN_FILES + RECENT_MARKDOWN_FILES))
 
@@ -614,44 +579,6 @@ def test_recent_untracked_target_is_available_but_ignored_target_is_not() -> Non
 	)
 	assert allowed == ""
 	assert "target not found: docs/ignored.md" in ignored
-
-
-#============================================
-def test_verbatim_human_guidance_link_resolves_from_docs() -> None:
-	"""A checklist copy of a Human Guidance relative link resolves from docs/."""
-	tracked = {"docs/DESIGN_DECISIONS.md", "docs/FERPA_DATA_POLICY.md"}
-	tracked_dirs = build_tracked_dirs(tracked)
-	guidance_links = human_guidance_link_pairs(REPO_ROOT)
-	copies = (
-		CHECKLIST_COPY_PATH,
-		"docs/archive/audits/hg_checklist_parts/07_questions.md",
-	)
-	for path in copies:
-		issues = scan_file(
-			REPO_ROOT, tracked, tracked_dirs, set(), path, guidance_links,
-		)
-		design_issues = [issue for issue in issues if "DESIGN_DECISIONS.md" in issue]
-		assert design_issues == []
-	unrelated = check_local_link(
-		REPO_ROOT,
-		os.path.join(REPO_ROOT, "docs/archive/audits"),
-		tracked,
-		tracked_dirs,
-		set(),
-		"DESIGN_DECISIONS.md",
-		"DESIGN_DECISIONS.md",
-	)
-	assert "target not found: docs/archive/audits/DESIGN_DECISIONS.md" in unrelated
-	checklist_dir = os.path.join(REPO_ROOT, "docs/active_plans/audits")
-	unchanged = link_directory(
-		REPO_ROOT,
-		checklist_dir,
-		CHECKLIST_COPY_PATH,
-		"Missing",
-		"missing.md",
-		guidance_links,
-	)
-	assert unchanged == checklist_dir
 
 
 #============================================

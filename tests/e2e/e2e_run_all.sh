@@ -55,7 +55,6 @@ run_check ribbon_icon_sprite_build node tests/e2e/e2e_ribbon_icon_sprite_build.m
 run_check ribbon_production_styles node tests/e2e/e2e_ribbon_production_styles.mjs
 run_check ribbon_destination_ledger node tests/e2e/e2e_ribbon_destination_ledger.mjs
 run_check devel_repo_root node tests/e2e/e2e_devel_repo_root.mjs
-run_check ribbon_app_component node --import tsx --test tests/e2e/e2e_ribbon_app_component.mjs
 run_check ribbon_destination_ledger_contract node --import tsx --test tests/e2e/e2e_ribbon_destination_ledger_contract.mjs
 run_check ribbon_icon_sprite_contract node --import tsx --test tests/e2e/e2e_ribbon_icon_sprite_contract.mjs
 

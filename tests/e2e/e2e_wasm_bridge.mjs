@@ -131,7 +131,7 @@ assert.equal(questionAttemptTimingDecision, "finalizedWithinGrace");
 
 assert.equal(
   JSON.parse(
-    bridge.assignment_attempt_remaining_milliseconds(
+    bridge.assessment_attempt_remaining_milliseconds(
       JSON.stringify({ initialRemainingMilliseconds: 10_000, elapsedMilliseconds: 1_234 }),
     ),
   ),
@@ -140,7 +140,7 @@ assert.equal(
 );
 assert.equal(
   JSON.parse(
-    bridge.assignment_attempt_remaining_milliseconds(
+    bridge.assessment_attempt_remaining_milliseconds(
       JSON.stringify({ initialRemainingMilliseconds: 1, elapsedMilliseconds: 2 }),
     ),
   ),
@@ -149,22 +149,22 @@ assert.equal(
 );
 assert.equal(
   JSON.parse(
-    bridge.assignment_attempt_remaining_milliseconds(
+    bridge.assessment_attempt_remaining_milliseconds(
       JSON.stringify({ initialRemainingMilliseconds: null, elapsedMilliseconds: 2 }),
     ),
   ),
   null,
-  "untimed Assignment Attempts remain untimed",
+  "untimed Assessment Attempts remain untimed",
 );
 assert.throws(
   () =>
-    bridge.assignment_attempt_remaining_milliseconds(
+    bridge.assessment_attempt_remaining_milliseconds(
       JSON.stringify({
         initialRemainingMilliseconds: 1,
         elapsedMilliseconds: 9_007_199_254_740_992,
       }),
     ),
-  /^invalid assignment attempt duration:/u,
+  /^invalid assessment attempt duration:/u,
   "unsafe browser duration values are rejected at the boundary",
 );
 

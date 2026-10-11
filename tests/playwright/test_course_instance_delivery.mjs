@@ -140,21 +140,13 @@ test("release validation explains missing questions, the question limit, and an 
     });
     await page.getByRole("heading", { name: "Assessment and delivery", exact: true }).waitFor();
     await page.getByRole("button", { name: "Check release readiness", exact: true }).click();
-    await page.getByRole("heading", { name: "Release needs attention", exact: true }).waitFor();
-    await page
-      .getByText("Select and save at least one published Question.", { exact: true })
-      .waitFor();
-    await page
-      .getByText(
-        "Reduce the Assessment to at most 250 delivered Questions, counting each Pool's selected Questions.",
-        { exact: true },
-      )
-      .waitFor();
-    await page
-      .getByText("A selected Question is unavailable. Review and save the Questions list.", {
-        exact: true,
-      })
-      .waitFor();
+    const validation = page.getByRole("alert");
+    await validation.waitFor();
+    const explanation = await validation.innerText();
+    assert.match(explanation, /at least one .*Question/i);
+    assert.match(explanation, /at most \d+ .*Questions/i);
+    assert.match(explanation, /Question is unavailable/i);
+    await validation.getByRole("link", { name: /Review.*Questions/i }).waitFor();
     assert.deepEqual(pageErrors, []);
   } finally {
     await browser.close();

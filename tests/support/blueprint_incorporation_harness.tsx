@@ -5,6 +5,7 @@ import { MemoryRouter, Route, createMemoryHistory } from "@solidjs/router";
 import { render } from "solid-js/web";
 
 import type { AssessmentBlueprintUpdateReview } from "../../src/api/assessment_release";
+import type { AssessmentReleaseValidation } from "../../src/api/assessment_release";
 import type { LiveAssessmentWorkspace } from "../../src/api/assessment_release";
 import type { CourseBlueprintUpdateReview } from "../../src/api/assessment_release";
 import type { SaveBaseAssessmentPolicyInput } from "../../src/api/assessment_release";
@@ -395,9 +396,10 @@ export function mountAssessmentReleaseQuestionIssues(target: HTMLElement): void 
   const applicationApi = {
     client: {
       getLiveAssessmentWorkspace: () => Promise.resolve({ workspace: daughterWorkspace(false) }),
-      validateLiveAssessmentRelease: () =>
+      validateLiveAssessmentRelease: (): Promise<AssessmentReleaseValidation> =>
         Promise.resolve({
           canRelease: false,
+          poolIssues: [],
           issues: ["noPublishedQuestions", "questionCountExceeded", "questionUnavailable"],
         }),
     },

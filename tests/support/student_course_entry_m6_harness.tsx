@@ -92,7 +92,7 @@ const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   gradedQuestionCount: 2,
   savedQuestionCount: 0,
   questionCount: 2,
-  assessmentScore: { pointsEarned: 3, pointsPossible: 8 },
+  assessmentScore: { pointsEarned: 3, pointsPossible: 0 },
 };
 const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   id: "A7K2CW4A0",

@@ -1330,7 +1330,7 @@ not an implementation requirement. Glossary and usage guidance remain authoritat
 - [ ] Required Instructor Ribbon choices stay visible but disabled, without extra annotations,
   until their pages and actions are available.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `UnavailableRibbonChoice` keeps the choice visible, disabled, and labeled without a navigation href.
-  - Evidence (test): `tests/e2e/e2e_ribbon_app_component.mjs` `required Instructor choices remain visible without inventing unfinished routes` checks that unavailable choices stay visible and available choices keep their routes.
+  - Retired evidence (test): The removed `e2e_ribbon_app_component.mjs` fixture test exercised only available Instructor controls. Its disabled-control branch was vacuous and does not establish this requirement.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A working navigation destination remains visible when its collection is empty.

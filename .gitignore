@@ -8,7 +8,6 @@
 /graphify-out/
 _temp*.?*
 /temp/
-/_temp/
 /tests/_temp/
 /OTHER_REPOS/
 /LOCAL_ONLY/
