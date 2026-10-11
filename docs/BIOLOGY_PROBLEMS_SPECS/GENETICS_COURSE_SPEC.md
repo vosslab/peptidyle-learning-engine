@@ -55,5 +55,5 @@ per topic to start, splitting long topics into parts and usually treating Hard Q
 
 
 Exact topic splits, entry order, points, Pool use, and reusable defaults remain Course content work under
-[Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+[Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 Course classification and Ocean Theme review remain ordinary Course-definition work.

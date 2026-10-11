@@ -520,7 +520,7 @@ conflicts. The checklist is a record of product evidence, not a second product s
 | Checklist                                       | `docs/active_plans/audits/human_guidance_implementation_checklist.md`       |
 | Audit part files (temporary archived snapshots) | `docs/archive/audits/hg_checklist_parts/NN_<section>.md`                    |
 | Generator and checks                            | `devel/human_guidance_checklist.py`                                         |
-| Gap map                                         | `docs/active_plans/audits/human_guidance_gap_map.md`                        |
+| Gap map                                         | `docs/archive/audits/human_guidance_gap_map.md`                        |
 | Implementation compliance reports (archived snapshot) | `docs/archive/reports/human_guidance_implementation_compliance/*.md`   |
 | Correction milestones                           | appended to the plan under "Correction milestones" as the gap map grows     |
 
@@ -780,7 +780,7 @@ patterns found in the checklist; `compliance_summary.md` states the current chec
 ## Milestone G: Gap map and correction milestones (incremental)
 
 A fresh planner subagent runs once per landed part (nine runs, each fresh) and appends to
-`docs/active_plans/audits/human_guidance_gap_map.md`. Input: the part's `[ ]` items with owner
+`docs/archive/audits/human_guidance_gap_map.md`. Input: the part's `[ ]` items with owner
 pointers resolved. For every owning `[ ]` item record: quoted bullet, current evidence, concrete
 mismatch, owning source area, dependencies on other gaps (including gaps from parts not yet
 audited, marked `pending`), verification method (focused test, E2E lane, synthetic fixture,
@@ -1892,7 +1892,7 @@ C200-C216 range; C205 is the recorded product question, not a code milestone. Th
 not reuse C1-C90 or reserve a dynamic A5 identifier.
 
 The authoritative one-to-one A6 record map is
-`docs/active_plans/audits/human_guidance_gap_map.md` under "A6 Data and history - canonicalized
+`docs/archive/audits/human_guidance_gap_map.md` under "A6 Data and history - canonicalized
 2026-09-14": 37 unchecked A6 records, two named later duplicates, and 35 owning gaps. C200-C216
 contains 16 atomic implementation/evidence milestones (C205 is the product question). New proof
 starts in ignored `tests/_temp/` and is deleted at plan closeout unless it independently satisfies
@@ -1933,7 +1933,7 @@ release policy cannot cycle with retention deletion.
 
 C300-C375 is the ordinary A7 dispatch range, disjoint from A5's C91+ range and A6's C200-C216
 range. C825-C831 is the reserved cross-boundary native-reproduction chain for C300. Use the
-current A7 rows in `docs/active_plans/audits/human_guidance_gap_map.md` for the named owner,
+current A7 rows in `docs/archive/audits/human_guidance_gap_map.md` for the named owner,
 affected boundary, prerequisite handoff, and proof. Do not dispatch from superseded drafts.
 
 C904 records the Assessment-owned-fork engineering decision; C905-C909 remain the implementation and proof chain for the five

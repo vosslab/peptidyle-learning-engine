@@ -102,7 +102,7 @@ proving each item separately; most disappear with the architecture change.
 - The theme contract is named for Courses only, though personal themes will use the same set.
 - Tests and screenshots cover Light only.
 - Authority docs describe the old model (`docs/HUMAN_GUIDANCE.md:337-338,491`, the superseded
-  `docs/active_plans/active/theme_completion_plan.md`).
+  `docs/archive/theme_completion_plan.md`).
 
 ## Behavior contracts
 
@@ -286,7 +286,7 @@ The plan is done when the final behavior holds:
   rename decision.
 - `docs/API_CONTRACTS.md`, `docs/TERMINOLOGY_CONTRACT.md` (Theme, Personal Theme, Display Mode,
   Display Mode Preference, palette color, look), and `docs/SCHEMA_TABLES.md` match the result.
-- `docs/active_plans/active/theme_completion_plan.md` is marked superseded; `docs/TODO.md` notes the
+- `docs/archive/theme_completion_plan.md` is marked superseded; `docs/TODO.md` notes the
   unset increased-contrast attribute; docs/CHANGELOG.md has an entry per milestone.
 
 ## Open questions and decisions needed

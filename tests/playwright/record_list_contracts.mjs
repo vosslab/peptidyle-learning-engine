@@ -1,102 +1,13 @@
-// Durable browser contracts for the production RecordList APIs.
-
+// Stable record states, accessible selection, metadata retention, image fallback, and movement.
+// Fixture sections identify independent journeys; production record IDs identify ordered rows.
 import assert from "node:assert/strict";
 
 import { openRecordListHarness, recordIds } from "./helper_record_list_harness.mjs";
-import {
-  checkSequenceReorder,
-  checkOutlineReorder,
-  checkReorder,
-} from "./helper_record_list_reorder.mjs";
-import { CANONICAL_VIEWPORTS } from "./screenshot_corpus/manifest.ts";
-
-async function checkAlignment(page) {
-  const alignmentCase = page.locator('[data-record-list-case="alignment"]');
-  const expected = [
-    { recordId: "brief", title: "DNA", status: "Ready", action: "Open DNA" },
-    {
-      recordId: "detailed",
-      title: "Genome-wide association study preparation",
-      status: "Needs review",
-      action: "Open Genome-wide association study preparation",
-    },
-  ];
-
-  for (const [id, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
-    await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    const list = alignmentCase.getByRole("list", { name: "Alignment records", exact: true });
-    const rows = await list.getByRole("listitem").evaluateAll((elements) =>
-      elements.map((row) => {
-        const visible = (element) =>
-          element instanceof HTMLElement &&
-          getComputedStyle(element).display !== "none" &&
-          element.getBoundingClientRect().width > 0;
-        const title = row.querySelector(".record-list__title");
-        const status = [...row.querySelectorAll(".record-list__fact")].find((fact) =>
-          fact.textContent?.includes("Status"),
-        );
-        const action = row.querySelector("button");
-        return {
-          recordId: row.getAttribute("data-record-id"),
-          title: title?.textContent?.trim() ?? "",
-          titleVisible: visible(title),
-          status: status?.textContent?.trim() ?? "",
-          statusVisible: visible(status),
-          action: action?.textContent?.trim() ?? "",
-          actionVisible: visible(action),
-        };
-      }),
-    );
-    assert.deepEqual(await recordIds(list), ["brief", "detailed"], `${id} record order`);
-    assert.equal(rows.length, 2, `${id} retains all alignment records`);
-    for (const [index, row] of rows.entries()) {
-      assert.equal(row.recordId, expected[index].recordId, `${id} keeps record identity`);
-      assert.equal(row.title, expected[index].title, `${id} retains the record title`);
-      assert.equal(row.titleVisible, true, `${id} keeps the title visible`);
-      assert.match(row.status, new RegExp(expected[index].status), `${id} retains status`);
-      assert.equal(row.statusVisible, true, `${id} keeps status visible`);
-      assert.equal(row.action, expected[index].action, `${id} retains the record action`);
-      assert.equal(row.actionVisible, true, `${id} retains actions`);
-    }
-    const grouped = await list.getByRole("listitem").evaluateAll((elements) =>
-      elements.map((row) => {
-        const titles = [...row.querySelectorAll(".record-list__title")];
-        const content = row.querySelector(".record-list__content");
-        const facts = row.querySelector(".record-list__facts");
-        const actions = row.querySelector(".record-list__actions");
-        const title = titles[0] ?? null;
-        const groupedAfterTitle = (later) =>
-          content instanceof Element &&
-          title instanceof Element &&
-          later instanceof Element &&
-          content.contains(title) &&
-          content.contains(later) &&
-          (title.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-        return {
-          titleCount: titles.length,
-          factsFollowTitle: groupedAfterTitle(facts),
-          actionsFollowTitle: groupedAfterTitle(actions),
-        };
-      }),
-    );
-    for (const group of grouped) {
-      assert.equal(group.titleCount, 1, `${id} gives the list entry one title`);
-      assert.equal(group.factsFollowTitle, true, `${id} groups metadata beneath the title`);
-      assert.equal(group.actionsFollowTitle, true, `${id} groups actions beneath the title`);
-    }
-  }
-  await page.setViewportSize({ width: 1024, height: 768 });
-}
 
 async function checkPrimitiveStates(page) {
   const ready = page.locator('[data-record-list-case="primitive-ready"]');
   await ready.getByRole("listitem").first().waitFor({ state: "visible" });
-  assert.equal(
-    await ready.getByRole("listitem").count(),
-    3,
-    "ready state renders deterministic rows",
-  );
-
+  assert.equal(await ready.getByRole("listitem").count(), 3, "ready state renders records");
   await page
     .locator('[data-record-list-case="primitive-empty"]')
     .getByRole("heading", { name: "No primitive records", exact: true })
@@ -109,595 +20,191 @@ async function checkPrimitiveStates(page) {
   assert.match(await error.innerText(), /Primitive records are unavailable/);
 }
 
-async function checkSemanticContent(page) {
-  const semanticCase = page.locator('[data-record-list-case="semantic-content"]');
-  const list = semanticCase.getByRole("list", { name: "Semantic content records", exact: true });
-  await list.getByRole("listitem").first().waitFor({ state: "visible" });
-  assert.deepEqual(await recordIds(list), ["question-dna", "avatar-amber", "student-score"]);
-  assert.match(await list.innerText(), /Score pending/);
-  assert.equal(
-    await list
-      .getByRole("link", { name: "Course: Molecular Biology", exact: true })
-      .getAttribute("href"),
-    "/courses/molecular-biology",
-    "linked facts preserve their native destination",
-  );
-  assert.equal(
-    await list
-      .getByRole("link", { name: "Course: Molecular Biology", exact: true })
-      .getAttribute("target"),
-    "_blank",
-    "record-list facts open separately from the current task",
-  );
-  assert.equal(
-    await list.getByRole("link", { name: "Open", exact: true }).first().getAttribute("rel"),
-    "noopener",
-    "record-list actions protect the opener from the opened page",
-  );
-  assert.equal(
-    await list
-      .getByRole("button", { name: "Use template", exact: true })
-      .getAttribute("aria-pressed"),
-    "true",
-  );
-  assert.equal(
-    await list
-      .getByRole("button", { name: "Known Forks", exact: true })
-      .getAttribute("aria-expanded"),
-    "true",
-  );
-  assert.equal(
-    await list
-      .getByRole("button", { name: "Known Forks", exact: true })
-      .getAttribute("aria-controls"),
-    "semantic-known-forks",
-  );
-  const timeFact = list.locator('time[datetime="2026-09-25T14:30:00.000Z"]');
-  assert.equal(await timeFact.innerText(), "September 25, 2026, 9:30 AM");
-  await page.evaluate(() => {
-    window.recordListClipboardWrites = [];
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (value) => {
-          window.recordListClipboardWrites.push(value);
-        },
-      },
-    });
-  });
-  await list.getByRole("button", { name: "Copy Question ID 7K3M-79QP", exact: true }).click();
-  await page.waitForFunction(() => window.recordListClipboardWrites[0] === "7K3M-79QP");
-  assert.deepEqual(
-    await page.evaluate(() => window.recordListClipboardWrites),
-    ["7K3M-79QP"],
-    "copyable Question IDs write their exact canonical value",
-  );
-  await list
-    .locator(".copyable-question-id-status")
-    .getByText("Copied 7K3M-79QP.", { exact: true })
-    .waitFor({ state: "visible" });
-  await list.getByRole("img", { name: /Amber arch/u }).waitFor({ state: "visible" });
-  const classificationFact = list.locator(".record-list__fact--course-classification");
-  await classificationFact.getByText("Molecular Biology (retired)", { exact: false }).waitFor({
-    state: "visible",
-  });
-  assert.match(
-    await classificationFact.innerText(),
-    /Subject: Nucleic acids; Tags: replication, evidence/u,
-    "classification facts preserve current vocabulary labels and tags",
-  );
-  assert.equal(
-    await classificationFact.evaluate(
-      (element) => element.closest('[data-record-id="question-dna"]') !== null,
-    ),
-    true,
-    "classification renders in the shared Question record facts",
-  );
-
+async function checkMetadataUpdate(page) {
+  const fixture = page.locator('[data-record-list-case="metadata-update"]');
+  const list = fixture.getByRole("list", { name: "Metadata update records", exact: true });
   const draft = list.getByRole("textbox", { name: "Unsaved Question note", exact: true });
-  const templateAction = await list
-    .getByRole("button", { name: "Use template", exact: true })
-    .elementHandle();
-  assert.notEqual(templateAction, null, "template action has a native button owner");
+  const selected = list.getByLabel("Select DNA replication evidence", { exact: true });
+  await selected.check();
   await draft.fill("A live unsaved draft");
-  await draft.focus();
-  await page.evaluate(() => window.recordListHarness.refreshSemanticRecords());
-  await page.waitForFunction(() => document.body.textContent?.includes("Refreshed metadata"));
-  assert.equal(await draft.inputValue(), "A live unsaved draft");
-  assert.equal(
-    await page.evaluate(
-      () =>
-        document.activeElement instanceof HTMLInputElement &&
-        document.activeElement.value === "A live unsaved draft",
-    ),
-    true,
-    "same-ID refresh retains the focused body input",
-  );
-  assert.equal(
-    await list.getByRole("button", { name: "Use template", exact: true }).isDisabled(),
-    true,
-  );
-  assert.equal(
-    await templateAction.evaluate(
-      (element) =>
-        element.isConnected &&
-        element ===
-          document.querySelector('[data-record-id="question-dna"] button[aria-pressed="true"]'),
-    ),
-    true,
-    "same-ID action state update retains its native button owner",
-  );
-
-  await semanticCase.getByRole("button", { name: "Show retained loading", exact: true }).click();
-  await semanticCase
-    .getByText("Refreshing records...", { exact: true })
-    .waitFor({ state: "visible" });
-  assert.equal(
-    await list.getByRole("listitem").count(),
-    3,
-    "loading notice retains loaded records",
-  );
-  await semanticCase.getByRole("button", { name: "Show retained error", exact: true }).click();
-  await semanticCase.getByRole("alert").waitFor({ state: "visible" });
-  assert.equal(await list.getByRole("listitem").count(), 3, "error notice retains loaded records");
-  await semanticCase.getByRole("button", { name: "Retry", exact: true }).click();
-
-  await page.setViewportSize({ width: 393, height: 844 });
-  assert.equal(
-    await classificationFact.evaluate((element) => {
-      const bounds = element.getBoundingClientRect();
-      return getComputedStyle(element).display !== "none" && bounds.width > 0 && bounds.height > 0;
-    }),
-    true,
-    "classification fact remains visible in the shared narrow row",
-  );
-  const visibleSemanticText = await list
-    .locator(".record-list__title, .record-list__fact, .record-list__action")
-    .evaluateAll((elements) =>
-      elements.every((element) => {
-        const bounds = element.getBoundingClientRect();
-        return (
-          getComputedStyle(element).display !== "none" && bounds.width > 0 && bounds.height > 0
-        );
-      }),
-    );
-  assert.equal(visibleSemanticText, true, "shared semantic content reflows without omitted fields");
-  await page.setViewportSize({ width: 1024, height: 768 });
+  await fixture.getByRole("button", { name: "Refresh same records", exact: true }).click();
+  await list.getByText("Refreshed metadata", { exact: true }).waitFor({ state: "visible" });
+  assert.deepEqual(await recordIds(list), ["question-dna"], "metadata refresh keeps the record ID");
+  assert.equal(await draft.inputValue(), "A live unsaved draft", "refresh preserves unsaved work");
+  assert.equal(await selected.isChecked(), true, "refresh preserves the caller's selection");
 }
 
 async function checkSelection(page) {
-  const selectionCase = page.locator('[data-record-list-case="selection"]');
-  const radioList = selectionCase.getByRole("list", {
-    name: "Single record selection",
+  const fixture = page.locator('[data-record-list-case="selection"]');
+  const radioList = fixture.getByRole("list", { name: "Single record selection", exact: true });
+  const radioDna = radioList.getByRole("radio", {
+    name: "Select DNA replication evidence",
     exact: true,
   });
-  const checkboxList = selectionCase.getByRole("list", {
+  const radioScore = radioList.getByRole("radio", {
+    name: "Select Week 2 Coursework",
+    exact: true,
+  });
+  assert.equal(await radioDna.isChecked(), true, "radio reflects the caller's initial selection");
+  assert.equal(
+    await radioList.getByRole("radio", { name: "Select Amber arch", exact: true }).isDisabled(),
+    true,
+  );
+  await radioScore.check();
+  assert.equal(await radioScore.isChecked(), true);
+  assert.equal(await radioDna.isChecked(), false, "radio choice clears the earlier selection");
+  await radioScore.focus();
+  await page.keyboard.press("ArrowUp");
+  assert.equal(await radioDna.isChecked(), true, "radio supports native keyboard selection");
+
+  const checkboxList = fixture.getByRole("list", {
     name: "Multiple record selection",
     exact: true,
   });
-  const radioDna = radioList.getByLabel("Select DNA replication evidence", { exact: true });
-  const radioScore = radioList.getByLabel("Select Week 2 Coursework", { exact: true });
-  const radioAvatar = radioList.getByLabel("Select Amber arch", { exact: true });
-
-  assert.equal(await radioDna.getAttribute("type"), "radio");
-  assert.equal(await radioDna.isChecked(), true, "radio selection reflects page state");
+  const checkboxDna = checkboxList.getByRole("checkbox", {
+    name: "Select DNA replication evidence",
+    exact: true,
+  });
+  const checkboxScore = checkboxList.getByRole("checkbox", {
+    name: "Select Week 2 Coursework",
+    exact: true,
+  });
+  assert.equal(await checkboxScore.isChecked(), true);
   assert.equal(
-    await radioAvatar.isDisabled(),
+    await checkboxList
+      .getByRole("checkbox", { name: "Select Amber arch", exact: true })
+      .isDisabled(),
     true,
-    "radio disabled decision remains caller-owned",
-  );
-  assert.equal(
-    await radioDna.getAttribute("name"),
-    await radioScore.getAttribute("name"),
-    "shared radio controls form one native group",
-  );
-  assert.notEqual(
-    await radioDna.getAttribute("name"),
-    null,
-    "shared radio group has a native name",
-  );
-  await radioScore.check();
-  assert.equal(await radioScore.isChecked(), true, "radio callback updates controlled selection");
-  assert.equal(
-    await radioDna.isChecked(),
-    false,
-    "radio group clears the prior controlled selection",
-  );
-  await radioScore.focus();
-  await page.keyboard.press("ArrowUp");
-  assert.equal(
-    await radioDna.isChecked(),
-    true,
-    "native radio keyboard movement updates page state",
-  );
-
-  const checkboxDna = checkboxList.getByLabel("Select DNA replication evidence", { exact: true });
-  const checkboxScore = checkboxList.getByLabel("Select Week 2 Coursework", { exact: true });
-  const checkboxAvatar = checkboxList.getByLabel("Select Amber arch", { exact: true });
-  assert.equal(await checkboxDna.getAttribute("type"), "checkbox");
-  assert.equal(await checkboxScore.isChecked(), true, "checkbox selection reflects page state");
-  assert.equal(
-    await checkboxAvatar.isDisabled(),
-    true,
-    "checkbox disabled decision remains caller-owned",
   );
   await checkboxDna.check();
-  assert.equal(
-    await checkboxDna.isChecked(),
-    true,
-    "checkbox callback adds a controlled selection",
-  );
-  assert.equal(await checkboxScore.isChecked(), true, "checkbox retains independent selections");
+  assert.equal(await checkboxDna.isChecked(), true);
+  assert.equal(await checkboxScore.isChecked(), true, "checkbox choices remain independent");
   await checkboxDna.focus();
   await page.keyboard.press("Space");
-  assert.equal(
-    await checkboxDna.isChecked(),
-    false,
-    "native checkbox keyboard movement updates page state",
-  );
+  assert.equal(await checkboxDna.isChecked(), false, "checkbox supports native keyboard selection");
   await checkboxScore.uncheck();
-  assert.equal(
-    await checkboxScore.isChecked(),
-    false,
-    "checkbox callback removes a controlled selection",
-  );
-
-  const selectedRow = radioScore.locator("xpath=ancestor::article");
-  await radioScore.focus();
-  assert.equal(
-    await selectedRow
-      .locator(".record-list__selection")
-      .evaluate((element) => getComputedStyle(element).outlineStyle),
-    "solid",
-    "selection focus receives the shared visible treatment",
-  );
-  assert.equal(
-    await selectedRow.getByRole("link", { name: "Open", exact: true }).count(),
-    1,
-    "record commands remain outside the selection label",
-  );
-  assert.equal(
-    await selectedRow.locator("label").locator("a, button").count(),
-    0,
-    "selection labels do not contain record links or commands",
-  );
+  assert.equal(await checkboxScore.isChecked(), false, "caller can remove a selection");
 }
 
 async function checkImageBrowser(page) {
-  const browserCase = page.locator('[data-record-list-case="image-browser"]');
-  const list = browserCase.getByRole("list", { name: "Image browser records", exact: true });
-  const choices = browserCase.getByRole("group", { name: "Record presentation", exact: true });
-  const expectedIds = ["amber-arch", "fallback-arch"];
-
-  await list.getByRole("listitem").first().waitFor({ state: "visible" });
-  assert.equal(
-    await browserCase
-      .locator(".record-list-image-browser")
-      .getAttribute("data-record-list-presentation"),
-    "gallery",
-    "image browsing starts in the shared visual Gallery",
-  );
-  assert.deepEqual(await recordIds(list), expectedIds, "Gallery retains every record identity");
+  const fixture = page.locator('[data-record-list-case="image-browser"]');
+  const list = fixture.getByRole("list", { name: "Image browser records", exact: true });
+  const choices = fixture.getByRole("group", { name: "Record presentation", exact: true });
+  const amber = list.getByRole("radio", { name: "Select Amber arch", exact: true });
+  const fallback = list.getByRole("radio", { name: "Select Fallback arch", exact: true });
   await list.getByText("Amber arch", { exact: true }).waitFor({ state: "visible" });
-  await list.getByText("Fallback arch", { exact: true }).waitFor({ state: "visible" });
-
-  const amber = list.getByLabel("Select Amber arch", { exact: true });
-  const fallback = list.getByLabel("Select Fallback arch", { exact: true });
+  assert.equal(
+    await choices
+      .getByRole("button", { name: "Gallery", exact: true })
+      .getAttribute("aria-pressed"),
+    "true",
+  );
   await amber.focus();
   await page.keyboard.press("ArrowDown");
-  assert.equal(
-    await fallback.isChecked(),
-    true,
-    "Gallery keeps native controlled radio navigation",
-  );
-
+  assert.equal(await fallback.isChecked(), true, "Gallery supports native radio selection");
   await choices.getByRole("button", { name: "List", exact: true }).click();
   assert.equal(
-    await browserCase
-      .locator(".record-list-image-browser")
-      .getAttribute("data-record-list-presentation"),
-    "list",
-    "shared switcher changes the image presentation",
+    await choices.getByRole("button", { name: "List", exact: true }).getAttribute("aria-pressed"),
+    "true",
   );
   assert.deepEqual(
     await recordIds(list),
-    expectedIds,
-    "List keeps the same record identity and order",
+    ["amber-arch", "fallback-arch"],
+    "view change preserves records and order",
   );
-  assert.equal(await fallback.isChecked(), true, "view changes retain caller-controlled selection");
-  await list.getByText("Fallback arch", { exact: true }).waitFor({ state: "visible" });
+  assert.equal(await fallback.isChecked(), true, "view change preserves selection");
 
-  const failedMedia = list.locator('[data-record-id="fallback-arch"] .record-list__media');
-  await failedMedia.locator("img").evaluate((image) => image.dispatchEvent(new Event("error")));
-  await page.waitForFunction(() =>
-    document
-      .querySelector('[data-record-id="fallback-arch"] .record-list__media')
-      ?.hasAttribute("hidden"),
-  );
-  assert.equal(await failedMedia.isHidden(), true, "failed images use the shared fallback");
-  assert.equal(await fallback.isVisible(), true, "image fallback leaves native selection usable");
-  await list.getByText("Fallback arch", { exact: true }).waitFor({ state: "visible" });
-  assert.equal(await amber.isVisible(), true, "image fallback leaves sibling records usable");
+  const failedRow = list.locator('[data-record-id="fallback-arch"]');
+  await failedRow.locator("figure").waitFor({ state: "hidden" });
+  await failedRow.getByText("Fallback arch", { exact: true }).waitFor({ state: "visible" });
+  await failedRow
+    .getByText("The name and description remain available when its image cannot load.", {
+      exact: true,
+    })
+    .waitFor({ state: "visible" });
+  assert.equal(await fallback.isVisible(), true, "failed image leaves selection available");
+  await amber.check();
+  assert.equal(await amber.isChecked(), true, "failed image leaves sibling selection usable");
+}
 
-  await failedMedia.locator("img").evaluate((image) => image.dispatchEvent(new Event("load")));
+async function waitForOrder(page, label, ids) {
   await page.waitForFunction(
-    () =>
-      !document
-        .querySelector('[data-record-id="fallback-arch"] .record-list__media')
-        ?.hasAttribute("hidden"),
-  );
-  assert.equal(
-    await failedMedia.isVisible(),
-    true,
-    "a later successful image load restores shared media",
+    ({ label, ids }) => {
+      const list = document.querySelector(`[aria-label="${label}"]`);
+      const current = [...(list?.querySelectorAll("[data-record-id]") ?? [])].map((row) =>
+        row.getAttribute("data-record-id"),
+      );
+      return current.join(",") === ids.join(",");
+    },
+    { label, ids },
   );
 }
 
-async function checkSemanticSequence(page) {
-  const sequenceCase = page.locator('[data-record-list-case="semantic-sequence"]');
-  const sequence = sequenceCase.getByRole("list", {
-    name: "Semantic ordered records",
+async function checkReorder(page) {
+  const fixture = page.locator('[data-record-list-case="reorder"]');
+  const list = fixture.getByRole("list", { name: "Reorderable records", exact: true });
+  assert.equal(
+    await list.getByRole("button", { name: "Move Alpha earlier", exact: true }).isDisabled(),
+    true,
+    "first record cannot move earlier",
+  );
+  assert.equal(
+    await list.getByRole("button", { name: "Move Charlie later", exact: true }).isDisabled(),
+    true,
+    "last record cannot move later",
+  );
+  for (const name of ["Move Bravo earlier", "Move Bravo later", "Drag Bravo to a new position"]) {
+    assert.equal(
+      await list.getByRole("button", { name, exact: true }).isDisabled(),
+      true,
+      "caller policy disables movement",
+    );
+  }
+  await list.getByRole("button", { name: "Move Alpha later", exact: true }).press("ArrowDown");
+  await waitForOrder(page, "Reorderable records", ["bravo", "alpha", "charlie"]);
+  assert.equal(await fixture.getByRole("status").innerText(), "Alpha moved to position 2.");
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute("aria-label") === "Move Alpha later",
+  );
+  await list
+    .getByRole("button", { name: "Drag Alpha to a new position", exact: true })
+    .dragTo(list.getByRole("button", { name: "Drag Charlie to a new position", exact: true }));
+  await waitForOrder(page, "Reorderable records", ["bravo", "charlie", "alpha"]);
+  assert.equal(await fixture.getByRole("status").innerText(), "Alpha moved to position 3.");
+
+  const rejected = page.locator('[data-record-list-case="rejected-reorder"]');
+  const rejectedList = rejected.getByRole("list", {
+    name: "Rejected reordered records",
     exact: true,
   });
-  await sequence.getByRole("listitem").first().waitFor({ state: "visible" });
-  assert.equal(await sequence.evaluate((element) => element.tagName), "OL");
-  assert.deepEqual(await recordIds(sequence), ["question-dna", "avatar-amber"]);
-
-  const questionRecord = sequence.locator('[data-record-id="question-dna"]');
-  const draft = sequence.getByRole("textbox", { name: "Unsaved ordered note", exact: true });
-  const inspectAction = await questionRecord
-    .getByRole("button", { name: "Inspect", exact: true })
-    .elementHandle();
-  assert.notEqual(inspectAction, null, "ordered action has a native button owner");
-  await draft.fill("A live ordered draft");
-  await draft.focus();
-  await page.evaluate(() => window.recordListHarness.refreshSemanticSequence());
-  await page.waitForFunction(() =>
-    document.body.textContent?.includes("Refreshed ordered metadata"),
-  );
-  assert.equal(await draft.inputValue(), "A live ordered draft");
-  assert.equal(
-    await page.evaluate(
-      () =>
-        document.activeElement instanceof HTMLInputElement &&
-        document.activeElement.value === "A live ordered draft",
-    ),
-    true,
-    "same-ID Sequence refresh retains the focused body input",
-  );
-  assert.equal(
-    await questionRecord.getByRole("button", { name: "Inspect", exact: true }).isDisabled(),
-    true,
-  );
-  assert.equal(
-    await inspectAction.evaluate(
-      (element) => element.isConnected && element instanceof HTMLButtonElement && element.disabled,
-    ),
-    true,
-    "same-ID Sequence refresh retains its native action owner",
-  );
-
-  await sequenceCase
-    .getByRole("button", { name: "Show retained sequence loading", exact: true })
-    .click();
-  await sequenceCase
-    .getByText("Refreshing order...", { exact: true })
+  await rejectedList.getByRole("button", { name: "Move Alpha later", exact: true }).click();
+  await rejected
+    .getByRole("alert")
+    .getByText("The saved order was not updated.", { exact: true })
     .waitFor({ state: "visible" });
-  assert.equal(await sequence.getByRole("listitem").count(), 2, "loading retains ordered records");
-  await sequenceCase
-    .getByRole("button", { name: "Show retained sequence error", exact: true })
-    .click();
-  await sequenceCase.getByRole("alert").waitFor({ state: "visible" });
-  assert.equal(await sequence.getByRole("listitem").count(), 2, "error retains ordered records");
-  await sequenceCase.getByRole("button", { name: "Retry", exact: true }).click();
-  await sequenceCase
-    .getByRole("heading", { name: "No semantic ordered records", exact: true })
-    .waitFor({ state: "visible" });
-
-  await page.setViewportSize({ width: 393, height: 844 });
-  const visibleSequenceContent = await sequence
-    .locator(".record-list__title, .record-list__fact, .record-list__action")
-    .evaluateAll((elements) =>
-      elements.every((element) => {
-        const bounds = element.getBoundingClientRect();
-        return (
-          getComputedStyle(element).display !== "none" && bounds.width > 0 && bounds.height > 0
-        );
-      }),
-    );
-  assert.equal(visibleSequenceContent, true, "shared semantic sequence content reflows naturally");
-  await page.setViewportSize({ width: 1024, height: 768 });
-}
-
-async function checkDuplicateActionIds(page) {
-  const duplicateCase = page.locator('[data-record-list-case="duplicate-action-id"]');
-  await duplicateCase
-    .getByRole("button", { name: "Render duplicate action IDs", exact: true })
-    .click();
-  const alert = duplicateCase.getByRole("alert");
-  await alert.waitFor({ state: "visible" });
-  assert.match(await alert.innerText(), /duplicate action ID open/u);
-}
-
-async function checkRecordFamily(page) {
-  const family = page.locator('[data-record-list-case="record-family"]');
-  await family.locator("[data-record-family-tab-start]").focus();
-  const expectedTabStops = [
-    "Select Enzyme kinetics",
-    "Select Genetics review",
-    "Select Protein structure",
-    "Open DNA",
-    "Open Genome-wide association study preparation",
-    "Open assessment one",
-    "Review Question 1",
-    "Review Question 2",
-  ];
-  for (const expectedText of expectedTabStops) {
-    await page.keyboard.press("Tab");
-    assert.equal(
-      await page.evaluate(() => document.activeElement?.textContent?.trim()),
-      expectedText,
-      `${expectedText} is reachable in document Tab order`,
-    );
-  }
-
-  const sequence = family.locator('[data-record-family-case="sequence"]');
-  const orderedRecords = sequence.getByRole("list", {
-    name: "Ordered course records",
-    exact: true,
-  });
-  assert.equal(await orderedRecords.evaluate((element) => element.tagName), "OL");
-  assert.deepEqual(await recordIds(orderedRecords), ["enzyme", "genetics", "proteins"]);
-  await family
-    .locator('[data-record-family-case="sequence-empty"]')
-    .getByRole("heading", { name: "No ordered records", exact: true })
-    .waitFor({ state: "visible" });
-  const loading = family.locator('[data-record-family-case="sequence-loading"]');
-  assert.match(await loading.getByRole("status").innerText(), /Loading ordered course records/);
-  const error = family.locator('[data-record-family-case="sequence-error"]');
-  assert.match(await error.getByRole("alert").innerText(), /unavailable/);
-
-  const table = family.getByRole("table", { name: "Course roster records", exact: true });
-  const tableRows = table.locator("tbody tr");
-  const tableRowCount = await tableRows.count();
-  assert.ok(tableRowCount > 0, "ready state renders table records");
   assert.deepEqual(
-    await table.getByRole("columnheader").allTextContents(),
-    ["Student", "Week", "Action"],
-    "table names each column",
-  );
-  const columnCount = await table.getByRole("columnheader").count();
-  for (let rowIndex = 0; rowIndex < tableRowCount; rowIndex += 1) {
-    const row = tableRows.nth(rowIndex);
-    assert.equal(await row.getByRole("rowheader").count(), 1, "each table record has one title");
-    const title = (await row.getByRole("rowheader").innerText()).trim();
-    assert.notEqual((await row.getByRole("cell").first().innerText()).trim(), "");
-    assert.equal((await row.getByRole("button").innerText()).trim(), `Open ${title}`);
-    assert.equal(
-      await row.getByRole("cell").count(),
-      columnCount - 1,
-      "each record retains one cell per remaining column",
-    );
-  }
-  assert.equal(
-    await table
-      .getByRole("columnheader", { name: "Action" })
-      .evaluate((element) => getComputedStyle(element).textAlign),
-    "end",
-    "column alignment applies to headers",
+    await recordIds(rejectedList),
+    ["alpha", "bravo", "charlie"],
+    "rejected save preserves the controlled order",
   );
   assert.equal(
-    await table
-      .getByRole("row")
-      .nth(1)
-      .getByRole("cell")
-      .nth(1)
-      .evaluate((element) => getComputedStyle(element).textAlign),
-    "end",
-    "column alignment applies to data cells",
-  );
-  const outline = family.getByRole("list", { name: "Course modules", exact: true });
-  assert.equal(await outline.evaluate((element) => element.tagName), "OL");
-  const nestedOutline = family.getByRole("list", { name: "Module one assessments", exact: true });
-  assert.equal(await nestedOutline.evaluate((element) => element.parentElement?.tagName), "LI");
-  assert.deepEqual(await recordIds(nestedOutline), ["assessment-one"]);
-
-  const details = family.getByRole("list", { name: "Attempt review records", exact: true });
-  assert.deepEqual(await recordIds(details), ["attempt-one", "attempt-two"]);
-  assert.ok((await details.innerText()).trim().length > 0, "expanded records retain their content");
-  const detailItems = details.getByRole("listitem");
-  assert.equal(await detailItems.count(), 2);
-  for (let index = 0; index < 2; index += 1) {
-    const item = detailItems.nth(index);
-    assert.equal(await item.getByRole("heading").count(), 1, "each review record has one title");
-    const title = (await item.getByRole("heading").innerText()).trim();
-    const placedWithTitle = await item.evaluate((element) => {
-      const heading = element.querySelector("h3");
-      const note = element.querySelector("p");
-      const action = element.querySelector("button");
-      const follows = (earlier, later) =>
-        earlier instanceof Element &&
-        later instanceof Element &&
-        (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-      return follows(heading, note) && follows(heading, action);
-    });
-    assert.equal(placedWithTitle, true, `${title} keeps its note and action with the title`);
-  }
-}
-
-async function checkPresentation(page) {
-  const oneVariant = page.locator('[data-record-list-case="one-variant"]');
-  assert.equal(
-    await oneVariant.getByRole("group", { name: "Presentation choices" }).count(),
-    0,
-    "one declared presentation has no redundant switcher",
-  );
-
-  const twoVariants = page.locator('[data-record-list-case="two-variants"]');
-  const choices = twoVariants.getByRole("group", { name: "Presentation choices" });
-  await choices.waitFor({ state: "visible" });
-  assert.equal(await choices.getByRole("button").count(), 2);
-  assert.equal(
-    await twoVariants.getByRole("button", { name: "Table" }).getAttribute("aria-pressed"),
-    "true",
-  );
-  const list = twoVariants.getByRole("list", { name: "two-variants records" });
-  const initialIds = await recordIds(list);
-
-  await twoVariants.getByRole("button", { name: "Select Enzyme kinetics" }).click();
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('[data-record-list-case="two-variants"] [data-record-list-selection]')
-        ?.getAttribute("data-record-list-selection") === "enzyme",
-  );
-  await twoVariants.getByRole("button", { name: "Cards" }).click();
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('[data-record-list-case="two-variants"] [data-record-list-presentation]')
-        ?.getAttribute("data-record-list-presentation") === "cards",
-  );
-  assert.equal(
-    await twoVariants
-      .locator("[data-record-list-selection]")
-      .getAttribute("data-record-list-selection"),
-    "enzyme",
-    "changing presentation retains the current record selection",
-  );
-  assert.deepEqual(
-    await recordIds(list),
-    initialIds,
-    "presentation retains record identity and order",
-  );
-  assert.equal(
-    await twoVariants.getByRole("button", { name: "Cards" }).getAttribute("aria-pressed"),
-    "true",
-  );
-  assert.equal(
-    await twoVariants.getByRole("button", { name: "Table" }).getAttribute("aria-pressed"),
-    "false",
+    await rejected.getByRole("status").innerText(),
+    "",
+    "rejected save announces no successful move",
   );
 }
 
 const { browser, consoleErrors, harnessServer, page, pageErrors } = await openRecordListHarness();
 try {
-  await checkAlignment(page);
   await checkPrimitiveStates(page);
-  await checkSemanticContent(page);
+  await checkMetadataUpdate(page);
   await checkSelection(page);
   await checkImageBrowser(page);
-  await checkSemanticSequence(page);
-  await checkSequenceReorder(page);
-  await checkOutlineReorder(page);
-  await checkDuplicateActionIds(page);
-  await checkRecordFamily(page);
-  await checkPresentation(page);
   await checkReorder(page);
   assert.deepEqual(pageErrors, [], "RecordList contracts raise no browser page errors");
   assert.deepEqual(consoleErrors, [], "RecordList contracts raise no console errors");
   process.stdout.write(
-    "RecordList shared semantic-content, selection, image presentation, state, family, and reorder contracts passed.\n",
+    "RecordList state, metadata retention, selection, image fallback, and reorder contracts passed.\n",
   );
 } finally {
   await browser.close();

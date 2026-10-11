@@ -50,7 +50,7 @@ A Pool mismatch identifies a requirement the Pool fails. Resolve it before relea
 Assessment; an Assessment already released when the mismatch develops continues as-is. These
 recent requirements are not all implemented or runtime-verified yet. See
 [QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md) for the rules and
-[question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md)
+[question_specs_alignment_report.md](archive/reports/question_specs_alignment_report.md)
 for implementation gaps.
 
 ## Assessment changes and Unrelease

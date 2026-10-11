@@ -66,7 +66,7 @@
   screenshot verification passed its 246-capture manifest, privacy, and published-artifact checks;
   243 replay byte differences are informational. The complete-suite receipt and three connected
   acceptance lanes are recorded in
-  [whole_interface_theme_progress.md](active_plans/reports/whole_interface_theme_progress.md).
+  [whole_interface_theme_progress.md](archive/reports/whole_interface_theme_progress.md).
 - The final `all_test.sh` receipt passed schema, Rust, WebAssembly, TypeScript, ESLint, Prettier, and
   Node (`484/484`). Pytest reported 9,645 passed, eight baseline Markdown-link failures, and three
   existing line warnings; it introduced no new failure. The connected Account persistence oracle
@@ -288,7 +288,7 @@
   avoids a duplicate parser across the two sequential data leases.
 
 - Applied the follow-up external review to the
-  [RecordList plan](active_plans/active/record_list_page_frame_standardization_plan.md) and ledger.
+  [RecordList plan](archive/record_list_page_frame_standardization_plan.md) and ledger.
   Clarified domain bodies versus shared record presentation, including form-local controls, and made
   same-ID refresh with retained input focus/draft explicit in the existing CORE and Course editor
   browser proofs. Retained milestone numbering, dependencies and the scoped discovery contract.
@@ -297,8 +297,8 @@
   implementation and product testing remain pending.
 
 - Investigated RecordList's real query-to-render paths and added the
-  [data-flow audit](active_plans/audits/record_list_data_flow_investigation_2026-09-25.md) and required
-  [bounded data workstream](active_plans/workstreams/record_list_bounded_data_workstream.md).
+  [data-flow audit](archive/audits/record_list_data_flow_investigation_2026-09-25.md) and required
+  [bounded data workstream](archive/workstreams/record_list_bounded_data_workstream.md).
   The plan keeps presentation in Solid/TypeScript, moves Question search/facets/paging to PostgreSQL,
   resolves only returned native Questions, corrects Blueprint partial sorting, and replaces the
   Assessment editor's full-catalog/first-page-only discovery with reusable paged pickers.
@@ -312,7 +312,7 @@
   changed, no product tests or runtime performance measurements ran.
 
 - Deepened the RecordList caller investigation and added the
-  [complete caller table](active_plans/audits/record_list_caller_investigation_2026-09-25.md).
+  [complete caller table](archive/audits/record_list_caller_investigation_2026-09-25.md).
   Revised the plan around expressive shared content: descriptions, linked facts, image media,
   copyable references, native pressed/disclosure commands, focus refs and bounded editor bodies,
   with presentation owned by the shared family. Stable record/action identity and reactive body ownership address refresh/focus risks.
@@ -325,7 +325,7 @@
   This is planning only; no production code changed and no
   product tests ran.
 - Completed the initial caller investigation for the
-  [record_list_page_frame_standardization_plan.md](active_plans/active/record_list_page_frame_standardization_plan.md).
+  [record_list_page_frame_standardization_plan.md](archive/record_list_page_frame_standardization_plan.md).
   All 38 RecordList/Sequence consumer files now have source-based content dispositions and individual
   prerequisites in the ledger. The base contract is title, always-visible semantic details and native
   actions, with shared Assessment Type icon/label rendering required by Human Guidance. Selection,
@@ -336,7 +336,7 @@
   and the complete acyclic dependency graph. This was planning/source investigation; implementation
   remains pending, and no product tests were run.
 - Prepared the autonomous
-  [record_list_page_frame_standardization_plan.md](active_plans/active/record_list_page_frame_standardization_plan.md)
+  [record_list_page_frame_standardization_plan.md](archive/record_list_page_frame_standardization_plan.md)
   and its file-level execution ledger and manager goal. The plan proves a minimal flat scan first,
   uses one shared reflow treatment, admits only demonstrated shared capabilities, and completes the
   caller/API/CSS cleanup. It includes bounded ownership, independent breadcrumb work, agent-operated
@@ -346,7 +346,7 @@
   shared components enforce presentation standards. Current-source browser evidence confirmed
   hidden Student scores at phone width and touching rounded Attempt History rows. Recorded the
   proposed component contract, spacing ownership, ancestry fixes, and validation limits in
-  [record_list_page_frame_standardization_audit_2026-09-25.md](active_plans/audits/record_list_page_frame_standardization_audit_2026-09-25.md).
+  [record_list_page_frame_standardization_audit_2026-09-25.md](archive/audits/record_list_page_frame_standardization_audit_2026-09-25.md).
   TypeScript and the focused RecordList browser contracts passed; this entry records an audit,
   with implementation recommendations still open.
 - Completed the shared record-presentation components and all ledgered page migrations. The clean

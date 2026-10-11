@@ -13,7 +13,7 @@ acceptance rules.
   base Blueprint Course mappings.
 - [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](BLUEPRINT_COURSE_IMPORT_API_SPEC.md) defines reusable
   Course assembly through authenticated APIs and generated identities.
-- [question_specs_open_questions.md](active_plans/decisions/question_specs_open_questions.md)
+- [question_specs_open_questions.md](archive/decisions/question_specs_open_questions.md)
   records unresolved choices for the later Human Guidance interview.
 
 ## Start an edit

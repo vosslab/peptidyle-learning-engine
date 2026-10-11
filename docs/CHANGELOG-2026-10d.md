@@ -5,8 +5,8 @@
 - Aligned Blueprint Course Revision Tuple types, fields, and JSON names across Rust, TypeScript,
   generated contracts, and active documentation. Focused implementation checks and scoped independent
   specification and quality reviews passed; M02 milestone acceptance remains pending M01 live
-  dependency evidence. See the [M02 verification report](active_plans/reports/question_spec_m02_tuple_names.md)
-  and [execution ledger](active_plans/reports/question_spec_implementation_ledger.md).
+  dependency evidence. See the [M02 verification report](archive/reports/question_spec_m02_tuple_names.md)
+  and [execution ledger](archive/reports/question_spec_implementation_ledger.md).
 
 - Named Instructor screenshots by visible PLE location and state: removed redundant laptop
   suffixes from both picker filenames, renamed the Profile capture to `profile_preferences.webp`,
@@ -160,7 +160,7 @@
 - Traced the Assessment-owned Pool model's history and rationale in the fork audit; this is historical
   evidence, not a new product decision.
 - Audited fork storage across SQL, Rust, TypeScript, tests, fixtures, and docs; recorded schema/design
-  gaps and TODOs in [the fork audit](active_plans/reports/FORK_MODEL_CODE_AUDIT_2026_10_05.md). Static only;
+  gaps and TODOs in [the fork audit](archive/reports/FORK_MODEL_CODE_AUDIT_2026_10_05.md). Static only;
   450 doc checks passed, with no code/schema/runtime change.
 - Recorded Q36's four agreed credit measures and aligned HG/Library specs; removed unsupported metrics
   and queued code review. HG/checklist align at 1,232; 449 documentation checks passed.
@@ -225,7 +225,7 @@
 
 - Audited the Question specification refactor against HG and Neil's explicit decisions. Recorded
   seven remaining conflicts or unsupported choices in
-  [QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md](active_plans/reports/QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md),
+  [QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md](archive/reports/QUESTION_SPEC_AUTHORITY_AUDIT_2026_10_05.md),
   including the agent's overreach when changing automatic Pool forking during an ownership
   correction. Linked the findings from earlier reports and the decision log. This pass changes
   audit records only; product rules and code remain unchanged. All 457 documentation checks pass;
@@ -388,10 +388,10 @@
   (42 files total with the shared import API doc), each with a clear rule owner. Recorded course
   completeness, syllabus colors and tentative Theme mappings, authenticated API import requirements,
   and the current loader's direct database path. The plan's link check passed; spec writing remains
-  separate. See [the plan](active_plans/active/question_specs_documentation_plan.md).
+  separate. See [the plan](archive/question_specs_documentation_plan.md).
 - Audited Library Object fields and filters across docs, SQL, API, browser, and Assessment selection.
   Recorded inconsistencies and a proposed doc structure in the
-  [audit](active_plans/audits/library_object_documentation_audit_2026_10_05.md); its link passed.
+  [audit](archive/audits/library_object_documentation_audit_2026_10_05.md); its link passed.
   Full link check had 404 passes and three stale links in an older audit. Static only; no runtime change.
 - Documented shared-search boundaries and the three-display rule. HG/checklist match at 1,196; the new
   item remains open pending mixed Library/picker acceptance. Isolated browser probes found no storage

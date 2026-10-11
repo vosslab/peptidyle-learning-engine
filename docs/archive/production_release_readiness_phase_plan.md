@@ -10,7 +10,7 @@ Related active authority:
 `docs/active_plans/active/webwork_opaque_backend_plan.md`
 
 Active Phase 2 implementation plan:
-`docs/active_plans/active/student_decisions_and_grading_trust_plan.md`
+`docs/archive/student_decisions_and_grading_trust_plan.md`
 
 Completed Phase 1 detail:
 [instructor_safety_truthful_ui_plan.md](instructor_safety_truthful_ui_plan.md)
@@ -303,7 +303,7 @@ shared browser flow. Phase 2 is then unblocked.
 ### Phase 2 - Student decisions and grading trust
 
 Active implementation tracker:
-`docs/active_plans/active/student_decisions_and_grading_trust_plan.md`. WW-C1 is met by the
+`docs/archive/student_decisions_and_grading_trust_plan.md`. WW-C1 is met by the
 complete shared opaque boundary (M3-M6); WW-C2 is met by complete document delivery, submission,
 worker grading, and browser integration (M8-M9); WW-C3 is met by accepted boundary and connected
 evidence plus documentation close-out (M11-M13).

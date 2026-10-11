@@ -1,6 +1,6 @@
 # Implementation compliance summary
 
-Current findings: [2026-10-04 implementation audit](../../../active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md).
+Current findings: [2026-10-04 implementation audit](../HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md).
 The counts below are historical and are not current compliance claims.
 
 Implementation audit of the running PLE system against Human Guidance on 2026-10-03.
@@ -23,7 +23,7 @@ evidence; this documentation interview does not renew its verification claims.
 [HUMAN_GUIDANCE.md](../../../HUMAN_GUIDANCE.md) is the product authority. See the
 [checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md).
 The gap map is context in
-[human_guidance_gap_map.md](../../../active_plans/audits/human_guidance_gap_map.md).
+[human_guidance_gap_map.md](../../audits/human_guidance_gap_map.md).
 The documentation-pass reports under
 [human_guidance_compliance](../human_guidance_compliance/COMPLIANCE_SUMMARY.md)
 record an earlier docs reconciliation. They are not this audit.

@@ -38,6 +38,6 @@ Use the topic-based organization in
 per topic to start, splitting long topics into parts and usually treating Hard Questions as bonus.
 
 
-The current deferral is recorded in [Q08 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
-Assessment grouping, selected Questions, points, and defaults are [Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+The current deferral is recorded in [Q08 in the central question log](../archive/decisions/question_specs_open_questions.md).
+Assessment grouping, selected Questions, points, and defaults are [Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 Final classification and Grassland Theme review remain ordinary Course-definition work.

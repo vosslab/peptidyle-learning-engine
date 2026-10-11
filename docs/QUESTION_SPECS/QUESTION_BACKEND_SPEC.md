@@ -100,6 +100,6 @@ is limited to Weekly Assignments, Bonus Assignments, and Practice Question activ
 Exams do not use H5P.
 
 Implementation evidence is recorded outside this specification in
-[question_backend_spec_handoff.md](../active_plans/reports/question_backend_spec_handoff.md).
+[question_backend_spec_handoff.md](../archive/reports/question_backend_spec_handoff.md).
 Open and deferred decisions are listed in
-[question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md).
+[question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md).

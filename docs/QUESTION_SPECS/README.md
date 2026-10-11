@@ -98,10 +98,10 @@ relationships; PLE assigns PLE identities. QTI Package Maker is reused, not rebu
 
 ## Open choices and evidence
 
-[question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md)
+[question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md)
 collects uncertainty for the later grill, ordered by impact. It records what is unknown and why
 it matters rather than silently completing missing product rules. The earlier
-[HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](../active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
+[HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](../archive/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
 retains the reasons and strength of decisions already made.
 
 Explicit deferrals remain in force: Instructor bulk editing, optional feedback timing, evaluating
@@ -111,7 +111,7 @@ undefined Sysadmin work.
 Missing code for settled behavior belongs in the implementation gap report, not the decision queue.
 These files specify intended behavior and concrete contracts; passing documentation checks does
 not establish runtime compliance. Coverage, contradictions corrected, and verification are in
-[question_specs_alignment_report.md](../active_plans/reports/question_specs_alignment_report.md).
+[question_specs_alignment_report.md](../archive/reports/question_specs_alignment_report.md).
 
-The [settled-decision review](../active_plans/reports/QUESTION_SPEC_SETTLED_DECISIONS_REVIEW_2026_10_05.md)
+The [settled-decision review](../archive/reports/QUESTION_SPEC_SETTLED_DECISIONS_REVIEW_2026_10_05.md)
 traces strong requirements back to HG and separates implementation choices from product decisions.

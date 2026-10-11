@@ -26,7 +26,7 @@
   change. All 246 fresh screenshots remain verified. The repair is ready for human review. The final
   fresh capture published all 246 images; manifest, receipt, and current-file checks passed with
   representative image review. See
-  the [repair ledger](active_plans/audits/fresh_audit_repair_status_2026_10_01.md),
+  the [repair ledger](archive/audits/fresh_audit_repair_status_2026_10_01.md),
   [screenshot atlas](SCREENSHOT_ATLAS.md), and
   [capture receipt](screenshots/current_capture_receipt.json).
 
@@ -35,11 +35,11 @@
 - Completed a deeper static review of 515 reference-changed paths with per-file evidence and
   limits. Confirmed Pool import source-version loss and stale classification creation context,
   refined Pool concurrency ownership, and withdrew the earlier SQL helper privilege finding.
-  See the [deeper audit](active_plans/audits/human_guidance_deeper_code_review_2026_10_01.md).
+  See the [deeper audit](archive/audits/human_guidance_deeper_code_review_2026_10_01.md).
   Only audit documentation changed; no tests, builds, services, or compliance gates ran.
 - Completed a fresh static whole-codebase audit with 2,654 path assessments, explicit review
   depths, source hashes, preserved designs, and prioritized corrections. See the
-  [audit report](active_plans/audits/fresh_codebase_audit_2026_10_01.md). No implementation edits,
+  [audit report](archive/audits/fresh_codebase_audit_2026_10_01.md). No implementation edits,
   tests, builds, services, or compliance gates were performed for this review.
 - An active Sysadmin has platform-administration authority over PLE. The check uses that active
   role and does not grant Course membership. A disposable database executed the contract, denied
@@ -140,5 +140,5 @@
 
 - Recorded a static design review of the 378 changed-file entries against `e67eacab`, with
   strengths, defects, refinements, and per-file coverage in the
-  [deep review](active_plans/audits/human_guidance_deep_code_review_2026_09_30.md).
+  [deep review](archive/audits/human_guidance_deep_code_review_2026_09_30.md).
   This review ran no tests or builds and changed no implementation files.

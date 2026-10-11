@@ -1,19 +1,10 @@
 // ribbon_model_fixtures.ts - catalog-valid presentation models for Ribbon component evidence.
 
 import type { UserRole } from "../../generated/api/UserRole";
-import { routeParams, type RouteParamName } from "../../src/navigation/route_params";
-import {
-  userRoleMayAccessRoute,
-  ROUTE_CONTRACT,
-  type RibbonScope,
-  type RouteContract,
-  type RouteId,
-} from "../../src/route_contract";
+import type { RouteParamName } from "../../src/navigation/route_params";
+import type { RibbonScope } from "../../src/route_contract";
 import { buildRoutePath } from "../../src/ribbon/ribbon_route_path";
-import {
-  deriveRibbonModel,
-  type DeclaredRibbonRouteParams,
-} from "../../src/ribbon/ribbon_contract";
+import type { DeclaredRibbonRouteParams } from "../../src/ribbon/ribbon_contract";
 import {
   RIBBON_TASK_CATALOG,
   RIBBON_CONTEXT_CONTROL_CATALOG,
@@ -47,92 +38,7 @@ const CANONICAL_FIXTURE_PARAMS = {
   accountId: "U00000009",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
-const RIBBON_ROUTE_USER_ROLES = ["instructor", "student", "sysadmin"] as const;
 const COURSE_SHORT_NAME = "BCHM 355";
-
-export interface RibbonRouteMaterialization {
-  readonly userRole: UserRole;
-  readonly route: RouteContract;
-  readonly pathname: string;
-  readonly model: RibbonModel;
-}
-
-function paramsForRoute(route: RouteContract): DeclaredRibbonRouteParams {
-  const params: Partial<Record<RouteParamName, string>> = {};
-  for (const segment of route.path.split("/")) {
-    if (!segment.startsWith(":")) continue;
-    const name = segment.slice(1) as RouteParamName;
-    params[name] = CANONICAL_FIXTURE_PARAMS[name];
-  }
-  return params;
-}
-
-/**
- * Builds a Ribbon model only from one declared, signed-in route and role.
- * This is the shared browser-harness source for complete route/role evidence.
- */
-export function materializeRibbonRoute(
-  userRole: UserRole,
-  routeId: RouteId,
-): RibbonRouteMaterialization {
-  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
-  if (route === undefined) throw new Error(`Ribbon fixture has no declared route ${routeId}.`);
-  if (!userRoleMayAccessRoute(route.id, userRole)) {
-    throw new Error(`Ribbon fixture cannot give ${userRole} access to ${route.id}.`);
-  }
-  if (route.id === "signIn") {
-    throw new Error("Ribbon fixture does not materialize the signed-out sign-in route.");
-  }
-  const pathname = buildRoutePath(route.id, paramsForRoute(route));
-  if (pathname === undefined) throw new Error(`Ribbon fixture cannot build ${route.id}.`);
-  const routeState =
-    route.id === "assessmentAttempt" || route.id === "assessmentAttemptSummary"
-      ? { assessmentAttemptId: CANONICAL_FIXTURE_PARAMS.assessmentAttemptId }
-      : undefined;
-  const params = routeParams(route, pathname, routeState);
-  if (params === undefined) throw new Error(`Ribbon fixture cannot parse ${route.id}.`);
-  const ribbonParams =
-    route.ribbon.scope === "assessmentAttempt"
-      ? { ...params, courseInstanceId: CANONICAL_FIXTURE_PARAMS.courseInstanceId }
-      : params;
-  const model = deriveRibbonModel(
-    {
-      route,
-      params: ribbonParams,
-      ...(userRole === "student"
-        ? {
-            studentCourses: [
-              {
-                id: CANONICAL_FIXTURE_PARAMS.courseInstanceId,
-                shortName: COURSE_SHORT_NAME,
-              },
-            ],
-            ...(route.id === "assessmentAttempt"
-              ? { activeAttemptId: CANONICAL_FIXTURE_PARAMS.assessmentAttemptId }
-              : {}),
-            ...(route.id === "assessmentAttemptSummary"
-              ? { latestFeedbackAttemptId: CANONICAL_FIXTURE_PARAMS.assessmentAttemptId }
-              : {}),
-          }
-        : {}),
-    },
-    { userRole },
-    {
-      assessmentTitle: "Problem Set 7",
-    },
-  );
-  return Object.freeze({ userRole, route, pathname, model });
-}
-
-/** Every signed-in role/route pair that the declared browser boundary admits. */
-export const RIBBON_ROUTE_MATERIALIZATIONS: ReadonlyArray<RibbonRouteMaterialization> =
-  Object.freeze(
-    RIBBON_ROUTE_USER_ROLES.flatMap((userRole) =>
-      ROUTE_CONTRACT.filter(
-        (route) => route.id !== "signIn" && userRoleMayAccessRoute(route.id, userRole),
-      ).map((route) => materializeRibbonRoute(userRole, route.id)),
-    ),
-  );
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
   const control = ALL_CATALOG_CONTROLS.find(
@@ -143,8 +49,8 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 }
 
 /**
- * Future entries have no backing route. Every route-backed catalog entry must
- * build here, so catalog drift fails at fixture creation.
+ * Future entries have no backing route. Used route-backed controls must build
+ * their declared destinations when fixtures are created.
  */
 function isDocumentedUnavailableFixtureControl(
   catalog: RibbonCatalogControl<RibbonDestinationId>,
@@ -171,10 +77,6 @@ function fixtureHrefFor(catalog: RibbonCatalogControl<RibbonDestinationId>): str
     throw new Error(`Ribbon fixture cannot build declared route for ${catalog.id}.`);
   }
   return href;
-}
-
-for (const catalog of ALL_CATALOG_CONTROLS) {
-  fixtureHrefFor(catalog);
 }
 
 function control<Id extends RibbonDestinationId>(
@@ -237,8 +139,6 @@ function model(
   userRole: UserRole,
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
-  _unusedContentLayout: string,
-  _contextLabels: Readonly<Record<string, unknown>>,
 ): RibbonModel {
   return {
     scope,
@@ -269,8 +169,6 @@ export const M6_RIBBON_FIXTURES = {
         studentCourseControl(CANONICAL_FIXTURE_PARAMS.courseInstanceId, COURSE_SHORT_NAME, true),
       ]),
     ],
-    "reading",
-    { signOutAction: SIGN_OUT },
   ),
   productInstructor: model(
     "product",
@@ -286,8 +184,6 @@ export const M6_RIBBON_FIXTURES = {
         control("browseQuestionLibrary"),
       ]),
     ],
-    "fullWidth",
-    { signOutAction: SIGN_OUT },
   ),
   productSysadmin: model(
     "product",
@@ -299,8 +195,6 @@ export const M6_RIBBON_FIXTURES = {
       control("disciplines"),
     ],
     [],
-    "reading",
-    { signOutAction: SIGN_OUT },
   ),
   courseStudent: model(
     "courseInstance",
@@ -314,8 +208,6 @@ export const M6_RIBBON_FIXTURES = {
         control("activeAttempt", { available: false }),
       ]),
     ],
-    "reading",
-    { scopeLabel: COURSE_SHORT_NAME, signOutAction: SIGN_OUT },
   ),
   courseInstructor: model(
     "courseInstance",
@@ -329,12 +221,6 @@ export const M6_RIBBON_FIXTURES = {
         control("assessmentStudentView"),
       ]),
     ],
-    "fullWidth",
-    {
-      scopeLabel: COURSE_SHORT_NAME,
-      assessmentLabel: "Problem Set 7",
-      signOutAction: SIGN_OUT,
-    },
   ),
   courseSysadmin: model(
     "courseInstance",
@@ -346,11 +232,6 @@ export const M6_RIBBON_FIXTURES = {
       control("disciplines"),
     ],
     [],
-    "reading",
-    {
-      scopeLabel: COURSE_SHORT_NAME,
-      signOutAction: SIGN_OUT,
-    },
   ),
   attemptStudent: model(
     "assessmentAttempt",
@@ -364,20 +245,12 @@ export const M6_RIBBON_FIXTURES = {
         control("activeAttempt", { available: false }),
       ]),
     ],
-    "reading",
-    {
-      assessmentLabel: "Problem Set 7",
-      assessmentAttemptProgress: "Question 999 of 999",
-      signOutAction: SIGN_OUT,
-    },
   ),
   attemptInstructor: model(
     "assessmentAttempt",
     "instructor",
     [control("courses"), control("questions"), control("productAssessments")],
     [],
-    "reading",
-    { signOutAction: SIGN_OUT },
   ),
   attemptSysadmin: model(
     "assessmentAttempt",
@@ -389,8 +262,6 @@ export const M6_RIBBON_FIXTURES = {
       control("disciplines"),
     ],
     [],
-    "reading",
-    { signOutAction: SIGN_OUT },
   ),
   longCourse: model(
     "courseInstance",
@@ -402,36 +273,18 @@ export const M6_RIBBON_FIXTURES = {
         control("assessmentQuestions", { selected: true }),
       ]),
     ],
-    "fullWidth",
-    {
-      scopeLabel:
-        "Molecular Biology of the Cell: Evidence, Explanation, and Experimental Design " +
-        "Across a Very Long Course Instance Title",
-      assessmentLabel: "A deliberately long assessment label for a dense professional workspace",
-      signOutAction: SIGN_OUT,
-    },
   ),
   loadingCourse: model(
     "courseInstance",
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
     [],
-    "reading",
-    {
-      scopeLabel: "Loading course title...",
-      signOutAction: SIGN_OUT,
-    },
   ),
   errorCourse: model(
     "courseInstance",
     "student",
     [control("courses"), control("coursework", { selected: true }), control("grades")],
     [],
-    "reading",
-    {
-      scopeLabel: "Unable to refresh course title",
-      signOutAction: SIGN_OUT,
-    },
   ),
 } as const satisfies Readonly<Record<string, RibbonModel>>;
 

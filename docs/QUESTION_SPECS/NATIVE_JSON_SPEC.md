@@ -64,8 +64,8 @@ content and grading fields only; its strict decoder rejects `questionTitle`,
 tests verify rejection of all six keys. Authoring keeps Question metadata in its separate metadata
 editor and Draft metadata record. Publication uses the locked Draft metadata row, and Native
 issuance and preview receive the Question title from the Question record. See the
-[M04 adapter evidence](../active_plans/reports/question_spec_m04_native_adapter.md) and
-[M04 producer evidence](../active_plans/reports/question_spec_m04_producers.md).
+[M04 adapter evidence](../archive/reports/question_spec_m04_native_adapter.md) and
+[M04 producer evidence](../archive/reports/question_spec_m04_producers.md).
 
 ## Current implementation evidence: language
 
@@ -73,7 +73,7 @@ HG establishes no required Question language. Draft and published Question metad
 language as nullable; authoring preserves a supplied value and leaves an absent value absent. The
 Native adapter does not create a language value or default one during parsing, preview, or
 issuance. See [Question Library metadata](QUESTION_LIBRARY_METADATA_SPEC.md) and the
-[M04 metadata evidence](../active_plans/reports/question_spec_m04_record_core.md).
+[M04 metadata evidence](../archive/reports/question_spec_m04_record_core.md).
 
 ## Current implementation evidence: FIB and MULTI-FIB
 
@@ -82,7 +82,7 @@ The shared model and Native JSON authoring codec accept `regex` alongside `exact
 patterns fail source compilation, which publication validation requires. The grading evaluator uses
 the configured matcher for FIB and each MULTI-FIB blank, and divides correct blanks by all authored
 blanks. Empty, wrong, and omitted responses earn zero. Focused source and test references are in
-the [M19 report](../active_plans/reports/QUESTION_SPEC_M19_FIB.md).
+the [M19 report](../archive/reports/QUESTION_SPEC_M19_FIB.md).
 
 The current Draft preview endpoint loads source at the expected Draft Edit Number. For Native JSON,
 the server parses and compiles the source before returning an answer-free presentation. Draft
@@ -95,7 +95,7 @@ identity. See [the server preview routes](../../crates/server/src/draft_preview.
 [WebWork preview tests](../../crates/adapters/webwork/src/lib/draft_preview_tests.rs).
 
 These source and test paths are implementation evidence. Connected database and browser acceptance
-for M01-M29 passed in the [October 7 final ledger closeout](../active_plans/reports/question_spec_implementation_ledger.md).
+for M01-M29 passed in the [October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md).
 That closeout predates the separately recorded HTML display correction and does not establish
 HTML or inline-image rendering acceptance.
 
@@ -105,7 +105,7 @@ The ignored generated output `generated/api/TextResponseMatchRule.ts` was observ
 `Regex` variant as `regex`. This does not establish full TypeScript type acceptance. Source-level
 grading evidence also does not by itself establish connected response persistence, Student grading
 presentation, or Assessment points. Those integrated M01-M29 criteria passed in the
-[October 7 final ledger closeout](../active_plans/reports/question_spec_implementation_ledger.md);
+[October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md);
 the closeout does not establish the later HTML and inline-image behavior.
 
 ## Response shapes and grading
@@ -150,7 +150,7 @@ pair-counting explanation, and worked examples belong to
 
 These source-level grading results do not by themselves establish Assessment point calculation or
 connected response persistence and Student browser behavior. Those integrated M01-M29 criteria
-passed in the [October 7 final ledger closeout](../active_plans/reports/question_spec_implementation_ledger.md).
+passed in the [October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md).
 That accepted evidence does not cover the later HTML and inline-image implementation gap.
 
 FIB supports lists of accepted answers and author-supplied regular expressions. MULTI-FIB uses

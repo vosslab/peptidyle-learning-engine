@@ -61,7 +61,7 @@ Previewing and testing leave the Question as a private Draft and create no Stude
 Human Guidance permits cleanup of expired Drafts after an appropriate warning and recovery period.
 Automated cleanup remains deferred; no expiration period or duration is set.
 Cleanup must never damage content already copied into a Published Question Revision.
-See the [question specification open questions](../active_plans/decisions/question_specs_open_questions.md).
+See the [question specification open questions](../archive/decisions/question_specs_open_questions.md).
 
 ## Examples
 

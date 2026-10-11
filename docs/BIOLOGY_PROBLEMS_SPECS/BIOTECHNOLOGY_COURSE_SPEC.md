@@ -40,6 +40,6 @@ Use the topic-based organization in
 per topic to start, splitting long topics into parts and usually treating Hard Questions as bonus.
 
 
-Source completeness is settled in [Q09 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
-Assessment grouping, source selection, points, and defaults are [Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+Source completeness is settled in [Q09 in the central question log](../archive/decisions/question_specs_open_questions.md).
+Assessment grouping, source selection, points, and defaults are [Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 - Confirm the proposed Magma Theme in both appearances.

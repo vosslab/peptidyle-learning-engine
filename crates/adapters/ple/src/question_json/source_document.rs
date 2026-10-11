@@ -278,26 +278,6 @@ impl PleQuestionJsonDocumentBody {
         Ok(published)
     }
 
-    pub(super) fn imported_single_choice(
-        prompt: String,
-        choices: Vec<PleQuestionJsonChoice>,
-        correct_choice: String,
-    ) -> Self {
-        Self {
-            format: PLE_QUESTION_JSON_FORMAT_NAME.to_string(),
-            prompt,
-            response: PleQuestionJsonResponse::SingleChoice {
-                choices,
-                correct_choice,
-                randomize_choices: false,
-            },
-            feedback: PleQuestionJsonOutcomeFeedback::default(),
-            question_hint: None,
-            external_resources: Vec::new(),
-            author_script: None,
-        }
-    }
-
     pub(super) fn validate(&self) -> Result<(), PleQuestionJsonError> {
         if self.format != PLE_QUESTION_JSON_FORMAT_NAME {
             return Err(PleQuestionJsonError::UnsupportedFormat);

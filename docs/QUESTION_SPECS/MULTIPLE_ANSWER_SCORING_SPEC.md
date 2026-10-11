@@ -154,4 +154,4 @@ New Assessments start with partial credit enabled. The formula and applying the 
 setting to all Attempts using stored fractions are settled.
 Application work belongs in [TODO.md](../TODO.md#question-spec-implementation-follow-up).
 The decision history is in
-[question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md).
+[question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md).

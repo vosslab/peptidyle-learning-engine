@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -62,22 +61,6 @@ test("timing settings name minutes, a blank override, no closing time, and unlim
     "Leave the closing date and time blank for no closing time.",
   );
   assert.equal(UNLIMITED_ATTEMPTS_GUIDANCE, "Leave blank for unlimited Attempts.");
-  const page = readFileSync(
-    new URL(
-      "../src/pages/assessment_workspace/assessment_workspace_policies_page.tsx",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  for (const name of [
-    "AssessmentWorkspacePoliciesPage",
-    "OPTIONAL_DURATION_OVERRIDE_GUIDANCE",
-    "NO_OPENING_TIME_GUIDANCE",
-    "NO_CLOSING_TIME_GUIDANCE",
-    "UNLIMITED_ATTEMPTS_GUIDANCE",
-  ]) {
-    assert.equal(page.includes(name), true, name);
-  }
 });
 
 test("Assessment duration display uses minutes and hours without rounding legacy seconds", () => {

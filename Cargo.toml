@@ -8,7 +8,6 @@ members = [
     "crates/learning-data-access",
     "crates/adapters/ple",
     "crates/adapters/webwork",
-    "crates/adapters/qti",
     "crates/adapters/imathas",
     "crates/export",
     "crates/wasm",
@@ -45,7 +44,6 @@ base64 = { version = "*", default-features = false, features = ["std"] }
 cookie = "*"
 getrandom = "*"
 hmac = "*"
-html5ever = "*"
 image = { version = "*", default-features = false, features = ["jpeg", "png", "webp"] }
 resvg = { version = "*", default-features = false, features = ["text", "raster-images"] }
 idna = "*"
@@ -126,6 +124,5 @@ objects = { path = "./crates/objects" }
 learning-data-access = { path = "./crates/learning-data-access" }
 adapter_ple = { path = "./crates/adapters/ple" }
 adapter_webwork = { path = "./crates/adapters/webwork" }
-adapter_qti = { path = "./crates/adapters/qti" }
 adapter_imathas = { path = "./crates/adapters/imathas" }
 browser-api-contract = { path = "./crates/browser-api-contract" }

@@ -104,7 +104,10 @@ layer; afterward, forward-only SQLx migrations belong in
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification. |
 | [crates/server/](../crates/server/) | Axum HTTP routes, authentication, authorization, and service composition. |
 | [crates/browser-api-contract/](../crates/browser-api-contract/) | Browser-safe Rust contract roots for TypeScript generation. |
-| [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, iMathAS, and QTI backend or import adapters. |
+| [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, and iMathAS Question Backend adapters. |
+| [assets/qpm_wasm/source.json](../assets/qpm_wasm/source.json) | Vendored QPM browser wrapper, WASM, license, and artifact provenance. |
+| [devel/vendor_qpm_wasm.py](../devel/vendor_qpm_wasm.py) | Refreshes QPM's browser runtime, types, license, and provenance from a separate checkout; excludes upstream demos. |
+| [src/pages/question_import_screen.tsx](../src/pages/question_import_screen.tsx) | Lazy QPM loading, local conversion, per-question image checks, and sequential Draft results. |
 | [crates/objects/](../crates/objects/) | Object-address, checksum, image, and object-store ownership. |
 | [crates/wasm/](../crates/wasm/) | Answer-free Rust-to-browser WebAssembly facade. |
 | [crates/export/](../crates/export/) | PDF and DOCX export models and writers. |

@@ -36,6 +36,41 @@ derives each authenticated session, User Role, and Course relationship from stor
 PLE records. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the ordinary teaching
 graph and its data boundaries.
 
+## Import question banks
+
+Open **Questions > My Draft Questions > Import questions**, choose a file and its format, then
+choose **Import into Drafts**. Conversion runs locally in QPM's vendored WASM package. The format
+picker lists QPM's readable formats: BBQ text upload, text2qti, Oklahoma, and Blackboard export ZIP
+in the current distribution. Canvas QTI 1.2 and Blackboard QTI 2.1 are writer-only formats in QPM
+and are not offered as imports.
+
+Read any conversion warnings and the single results list. **Created** means saved as a private
+Draft, with a link to open it. **Rejected** shows the available server error; **failed** shows the
+individual request error; **skipped: contains images** means no Draft was created for that item.
+Images are detected in each question's display content. Media shared by a package does not cause
+unrelated image-free questions to be skipped. A failed item does not stop later saves or undo
+earlier successes. Requests are not retried automatically; a network failure may leave the save
+outcome unknown, so check My Draft Questions before importing again.
+
+Open the created Drafts to preview and test them, supply metadata using the ordinary controls,
+and publish. Saving does not validate complete Native JSON; preview and publication use PLE's
+existing decoder. Existing metadata defaults remain unchanged. Source HTML is preserved, while
+the broader HTML-rendering and inline-image-binding gaps remain in [TODO.md](TODO.md).
+Create HOTSPOT questions with PLE's existing image upload, region editor, and correct-region
+selection; HOTSPOT is outside QPM import.
+
+For a maintainer refresh, follow [INSTALL.md](INSTALL.md#refresh-the-qpm-distribution), then run
+the permanent browser journey against the running Live Demo:
+
+```bash
+source source_me.sh && python3 tests/e2e/e2e_live_demo_production_browser.py \
+  --running --scenario question_import
+```
+
+It imports a fixed BBQ bank covering MC, MA, FIB, MULTI-FIB, NUM, MATCH, and ORDER and opens every
+saved Draft preview. A failure requires correcting the QPM Native JSON engine or PLE decoder
+against the [Native JSON specification](QUESTION_SPECS/NATIVE_JSON_SPEC.md).
+
 ## Work with Blueprint Courses
 
 Open a Public Blueprint Course and choose **Create Course Instance from this

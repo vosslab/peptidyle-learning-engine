@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Trusted QTI-profile mapping bridge for canonical PLE Question JSON source.
-pub mod imported;
 mod source_document;
 
 /// Canonical media type for canonical PLE Question JSON source payloads.

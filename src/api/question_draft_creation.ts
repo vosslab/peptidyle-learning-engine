@@ -152,7 +152,23 @@ export function createQuestionDraftCreationClient(
       credentials: "same-origin",
       cache: "no-store",
     });
-    if (!response.ok) throw new ApiRequestError(response.status, DRAFTS_PATH);
+    if (!response.ok) {
+      const error = new ApiRequestError(response.status, DRAFTS_PATH);
+      if (response.headers.get("content-type")?.includes("application/json")) {
+        const body: unknown = await response.json().catch(() => null);
+        if (
+          typeof body === "object" &&
+          body !== null &&
+          "error" in body &&
+          typeof body.error === "string"
+        )
+          error.message = body.error;
+      } else if (response.headers.get("content-type")?.includes("text/plain")) {
+        const message = await response.text();
+        if (message.trim() !== "") error.message = message;
+      }
+      throw error;
+    }
     return decodeCreatedQuestionDraft((await response.json()) as unknown);
   }
 

@@ -47,6 +47,7 @@ const publishedDistDir = path.join(repoRoot, "dist");
 let distDir = publishedDistDir;
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
+const qpmDir = path.join(repoRoot, "assets", "qpm_wasm");
 const STANDALONE_STYLESHEETS = ["styles/ple_embed.css"];
 const PUBLIC_BROWSER_FILES = ["ple_bridge.js"];
 const RIBBON_ICON_SPRITE = "assets/ribbon-icons.svg";
@@ -313,6 +314,18 @@ async function main() {
       wasmHasher.update(file).update(fs.readFileSync(path.join(wasmWebDir, file)));
     }
     const wasmAssetVersion = wasmHasher.digest("hex").slice(0, 12);
+    const qpmFiles = fs
+      .readdirSync(qpmDir, { recursive: true })
+      .filter((file) => fs.statSync(path.join(qpmDir, file)).isFile())
+      .sort();
+    const qpmHasher = crypto.createHash("sha256");
+    for (const file of qpmFiles) {
+      qpmHasher.update(file).update(fs.readFileSync(path.join(qpmDir, file)));
+    }
+    const qpmAssetVersion = qpmHasher.digest("hex").slice(0, 12);
+    fs.cpSync(qpmDir, path.join(distDir, "wasm", `qpm-${qpmAssetVersion}`), {
+      recursive: true,
+    });
 
     console.log("==> bundle");
     await esbuild.build({
@@ -327,7 +340,10 @@ async function main() {
       sourcemap: true,
       logLevel: "info",
       plugins: [solidPlugin()],
-      define: { __PLE_WASM_ASSET_VERSION__: JSON.stringify(wasmAssetVersion) },
+      define: {
+        __PLE_WASM_ASSET_VERSION__: JSON.stringify(wasmAssetVersion),
+        __QPM_WASM_ASSET_VERSION__: JSON.stringify(qpmAssetVersion),
+      },
     });
     const bundlePath = path.join(distDir, "main.js");
     const bundleMapPath = `${bundlePath}.map`;

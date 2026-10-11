@@ -51,7 +51,9 @@
 \ir 50_functions/question_authoring_state.sql
 \ir 50_functions/draft_question_images.sql
 \ir 50_functions/question_publication_operations.sql
-\ir 50_functions/question_authoring_operations.sql
+\ir 50_functions/question_authoring_draft_access.sql
+\ir 50_functions/question_authoring_draft_lifecycle.sql
+\ir 50_functions/question_authoring_fork.sql
 \ir 50_functions/published_question_metadata_operations.sql
 \ir 50_functions/question_images.sql
 \ir 50_functions/blueprints.sql

@@ -97,7 +97,7 @@ including when a result page is empty.
 `GET /api/library-objects/search` currently serves combined Library search. The table records the
 implemented request names and values. The request, route, client, and filter field use the
 Library Object and Questions in no Pool vocabulary. They do not settle the tentative initial
-filter choice; see the [M24 implementation report](../active_plans/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
+filter choice; see the [M24 implementation report](../archive/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
 
 | Parameters | Values |
 | --- | --- |

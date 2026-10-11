@@ -1,5 +1,21 @@
 # Plan: Student task surface
 
+## Current execution and acceptance
+
+Reconcile this older plan with current source before implementing changes. The obsolete response
+restore controls and full phone wordmark were removed in the September 24 work recorded in
+[CHANGELOG-2026-09p.md](../../CHANGELOG-2026-09p.md). Preserve those fixes and verify the remaining
+wrapper, navigation, and usable-space outcomes against current captures.
+
+The manager runs the existing fast checks to establish a fresh baseline and assigns demonstrated
+failures to implementation agents. A stale statement that stabilization is pending is not an
+external dependency. Fresh test and visual-review agents assess the actual Student journey,
+keyboard operation, visible nearby Question navigation, and clipping at supported viewports.
+Use local seeded Accounts and automated browser interaction; independent capture review replaces
+human visual sign-off. Treat the old 444px figure as a diagnostic baseline, not a pass/fail cap.
+Fix observed behavior failures and repeat the affected checks. Finish after independent acceptance,
+the applicable aggregate gate, and documentation; no milestone needs a human reply or deployment.
+
 ## Context
 
 The Student stability-and-density audit identifies bounded task-surface problems: excess response
@@ -7,8 +23,8 @@ recovery controls, five visually separate WeBWorK boxes, native/WeBWorK surface 
 Question navigation, phone branding density, and a 444px attempt vertical budget. This is a single
 Student interface pass, not a shell redesign.
 
-The current fast gate is red. Stabilization is a prerequisite; no package below begins until it is
-green.
+Establish the current baseline with the fast gate. The manager assigns any demonstrated regression
+to an agent and continues independent checks while that repair proceeds.
 
 ## Objectives
 
@@ -25,8 +41,7 @@ redesign is rejected.
 
 ## Scope
 
-- Remove Undo and Restore response controls, their seven call sites, and the response-control
-  `"restored"` presentation state.
+- Verify the removal of Undo and Restore response controls and their obsolete presentation state.
 - Flatten the five WeBWorK containers to one surface and align the native Question surface to it.
 - Make Question navigation show `...` and allocate narrower Previous/Next controls from measured width.
 - Remove the word "Peptidyle" from the narrow-phone product treatment.
@@ -36,20 +51,21 @@ redesign is rejected.
 
 - Do not change Question Backend grading, response persistence, or submission semantics.
 - Do not add a new Student workflow, Ribbon destination, preference, or navigation mode.
-- Do not solve the current fast-gate failures inside this task-surface plan.
+- Keep unrelated feature development outside this task; assign necessary baseline repairs as
+  bounded agent tasks with their own checks.
 
 ## Current state summary
 
-`question_response_controls/common.tsx` owns the response reset presentation and the `restored`
-phase. The audit names five WeBWorK boxes and identifies the current Question navigator's fixed
-five-slot logic as unable to show a useful nearby range on phone. SUI-04 supplies the acceptance
+The historical audit named obsolete response controls, five WeBWorK boxes, and a Question
+navigator unable to show a useful nearby range on phone. Reproduce any remaining issue against
+current source before changing it. SUI-04 supplies the acceptance
 examples; SUI-08 supplies the attempt vertical-budget rule. SUI-06 separately requires one
 cross-surface Student terminology review; it is a deferred acceptance item, not M6 or WP-H2 work.
 
 ## Approach
 
-1. After stabilization, remove the reset/restore surface and state as one response-control package;
-   preserve normal response issue, save, and submit behavior.
+1. Verify the existing removal of the reset/restore surface and state; correct only demonstrated
+   regressions while preserving normal response issue, save, and submit behavior.
 2. Flatten WeBWorK wrappers first, then apply the same resulting surface hierarchy to native
    Question content without changing either backend contract.
 3. Measure available navigator width at 393, 600, 800, and 1280px (including enlarged text), then
@@ -75,12 +91,13 @@ cross-surface Student terminology review; it is a deferred acceptance item, not 
   `1 2 ... 3 [4] 5 ... 8 9` over endpoints alone.
 - Previous/Next remain keyboard reachable with long labels and enlarged text.
 - The 444px measurement is reported for the audit scenarios rather than treated as a universal CSS cap.
-- **Deferred SUI-06 acceptance:** before this plan closes, review Ribbon labels, breadcrumbs,
+- **SUI-06 acceptance:** an independent agent reviews Ribbon labels, breadcrumbs,
   headings, buttons, and status messages across the Student Attempt journey. Keep the Assessment
   Type for the item, `Attempt` for the saved or submitted work unit, and `Coursework` for the
   collection; keep the type and Attempt context adjacent to a submission action. This does not
   authorize a general terminology rewrite or change the current implementation scope.
-- Fast checks, focused Student browser evidence, rendered PNG review, and `git diff --check` pass.
+- Fast checks, focused automated Student browser evidence, independent capture review, and
+  `git diff --check` pass.
 
 ## Risk register
 
@@ -92,6 +109,6 @@ cross-surface Student terminology review; it is a deferred acceptance item, not 
 
 ## Verification
 
-The current red fast gate blocks work. Once green, run the fast gate plus focused response-control
-and Student navigation checks, then inspect native PNGs at the four widths. A failing rendered
-ellipsis, keyboard path, or response contract blocks the relevant package.
+Run the fast gate plus focused response-control and Student navigation checks. A fresh visual-review
+agent inspects current captures at the four widths. A failing ellipsis, keyboard path, clipping, or
+response contract returns the relevant package to its implementation agent for repair and recheck.

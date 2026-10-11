@@ -6,7 +6,7 @@
   exact retry, bounded selection, and disposal. Replacement searches clear stale rows and facet
   counts; failed paging preserves the current page. Eight session regressions and the full
   TypeScript, lint, formatting, and 544-test Node gate pass. Implementation and remaining gates
-  are tracked in [SHARED_SEARCH_IMPLEMENTATION.md](active_plans/reports/SHARED_SEARCH_IMPLEMENTATION.md).
+  are tracked in [SHARED_SEARCH_IMPLEMENTATION.md](archive/reports/SHARED_SEARCH_IMPLEMENTATION.md).
 
 ### Behavior or Interface Changes
 
@@ -29,7 +29,7 @@
   Trusted writes enforce post-issue content limits and protect issued Pool
   members. Automated score timing controls were removed, and Quiz/Exam answer
   timing is an overridable default. Focused validation and remaining acceptance
-  work are tracked in [HG_COMPLIANCE_FIXES_2026_10_04.md](active_plans/HG_COMPLIANCE_FIXES_2026_10_04.md).
+  work are tracked in [HG_COMPLIANCE_FIXES_2026_10_04.md](archive/HG_COMPLIANCE_FIXES_2026_10_04.md).
 - Replaced search restoration with separate result tabs and discard confirmation,
   added shared search display modes, and expanded Blueprint comparison fields.
   The shared RecordList browser regression passed after its reorder checks were
@@ -141,7 +141,7 @@
   avoid mixed licenses but has not chosen identical licenses over compatible
   licenses. No new membership restriction was implemented.
 
-- Added [SHARED_SEARCH_PAGE_SCHEMATIC.md](active_plans/active/SHARED_SEARCH_PAGE_SCHEMATIC.md)
+- Added [SHARED_SEARCH_PAGE_SCHEMATIC.md](archive/SHARED_SEARCH_PAGE_SCHEMATIC.md)
   proposing shared search controls, request handling, and result displays on top
   of the existing database queries. It separates shared behavior from content
   fields/actions and describes a serial migration with behavior checks.
@@ -171,7 +171,7 @@
   Blueprint sort tests. After cleanup, 536 Node and 10217 Python tests pass;
   the isolated Blueprint PostgreSQL proof passes. Remaining findings and the
   Sysadmin avatar-upload failure are recorded in
-  [HG_SIX_PASS_AUDIT_2026_10_04.md](active_plans/reports/HG_SIX_PASS_AUDIT_2026_10_04.md).
+  [HG_SIX_PASS_AUDIT_2026_10_04.md](archive/reports/HG_SIX_PASS_AUDIT_2026_10_04.md).
 - Corrected the Profile-image upload and deletion queries to read the SQL
   functions' `object_record_id` column. The wrong column name caused live uploads
   to return HTTP 503 before reaching object storage. Finalization now uses the
@@ -196,7 +196,7 @@
   Reconciled all nine checklist parts to 1177 current bullets (81 added/reworded,
   50 removed/reworded), reopened inherited verification, and preserved prior evidence
   and annotations. The prioritized report is
-  [HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md](active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md).
+  [HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md](archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md).
   Before the repair, a disposable PostgreSQL probe confirmed that removing a Pool leaves its earned
   and possible points in an existing Attempt. Further findings include unrestricted
   post-issue edits, score withholding, an unchangeable Quiz/Exam answer gate, and
@@ -309,7 +309,7 @@
   and delegated engineering details. The broader design interview remains open;
   the old audit's 27 bullets are not a complete design inventory.
 - Recorded Neil's concern about shared spreadsheet-style search in
-  [HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
+  [HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](archive/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
   for investigation after the guidance interview. Shared list/table components
   remain; the limited history check does not establish whether a fuller
   spreadsheet interface was removed.

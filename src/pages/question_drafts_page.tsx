@@ -4,6 +4,7 @@ import { useNavigate } from "@solidjs/router";
 import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
 import { PageFrame } from "../components/page_frame";
+import { QuestionImportScreen } from "./question_import_screen";
 import {
   RecordList,
   type RecordContent,
@@ -127,6 +128,7 @@ export function QuestionDraftsPage(): JSX.Element {
   const draftCreationClient = createQuestionDraftCreationClient();
   const draftsLoadFailed = createMemo(() => drafts.error !== undefined);
   const [creating, setCreating] = createSignal(false);
+  const [importing, setImporting] = createSignal(false);
   const [creationFormat, setCreationFormat] =
     createSignal<QuestionDraftCreationFormat>("pleQuestionJson");
   const [webworkPgPath, setWebworkPgPath] = createSignal("");
@@ -233,60 +235,80 @@ export function QuestionDraftsPage(): JSX.Element {
       title="My Draft Questions"
       lede="Draft Questions stay in your Authoring Workspace until you publish a validated question."
     >
-      <section class="question-draft-creation" aria-labelledby="question-draft-creation-heading">
-        <h2 id="question-draft-creation-heading">Create a private Draft Question</h2>
-        <p>Choose the source format for this Draft. Its Backend, format, and PG path stay fixed.</p>
-        <form
-          class="question-draft-creation__form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void createDraft();
-          }}
-        >
-          <label class="question-draft-creation__field">
-            <span>Question source format</span>
-            <select
-              value={creationFormat()}
-              disabled={creating()}
-              onChange={(event) => {
-                const selected = event.currentTarget.value;
-                if (isQuestionDraftCreationFormat(selected)) setCreationFormat(selected);
-              }}
-            >
-              {QUESTION_DRAFT_CREATION_FORMATS.map(({ format, label }) => (
-                <option value={format}>{label}</option>
-              ))}
-            </select>
-          </label>
-          <Show when={creationFormat() !== "pleQuestionJson"}>
-            <label class="question-draft-creation__field">
-              <span>Registered WebWork PG path</span>
-              <input
-                type="text"
-                value={webworkPgPath()}
-                disabled={creating()}
-                aria-describedby="question-draft-webwork-path-help"
-                aria-invalid={!isAllowedWebworkPgPath(webworkPgPath())}
-                onInput={(event) => setWebworkPgPath(event.currentTarget.value)}
-              />
-            </label>
-            <p id="question-draft-webwork-path-help">
-              Enter the allowed relative PG path for the configured WebWork Library. This path
-              becomes part of the Draft binding.
-            </p>
-          </Show>
-          <button
-            class="primary-action"
-            type="submit"
-            disabled={
-              creating() ||
-              (creationFormat() !== "pleQuestionJson" && !isAllowedWebworkPgPath(webworkPgPath()))
-            }
+      <Show when={!importing()}>
+        <section class="question-draft-creation" aria-labelledby="question-draft-creation-heading">
+          <h2 id="question-draft-creation-heading">Create a private Draft Question</h2>
+          <p>
+            Choose the source format for this Draft. Its Backend, format, and PG path stay fixed.
+          </p>
+          <form
+            class="question-draft-creation__form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createDraft();
+            }}
           >
-            {creating() ? "Creating private draft..." : "Create Draft Question"}
-          </button>
-        </form>
-      </section>
+            <label class="question-draft-creation__field">
+              <span>Question source format</span>
+              <select
+                value={creationFormat()}
+                disabled={creating()}
+                onChange={(event) => {
+                  const selected = event.currentTarget.value;
+                  if (isQuestionDraftCreationFormat(selected)) setCreationFormat(selected);
+                }}
+              >
+                {QUESTION_DRAFT_CREATION_FORMATS.map(({ format, label }) => (
+                  <option value={format}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <Show when={creationFormat() !== "pleQuestionJson"}>
+              <label class="question-draft-creation__field">
+                <span>Registered WebWork PG path</span>
+                <input
+                  type="text"
+                  value={webworkPgPath()}
+                  disabled={creating()}
+                  aria-describedby="question-draft-webwork-path-help"
+                  aria-invalid={!isAllowedWebworkPgPath(webworkPgPath())}
+                  onInput={(event) => setWebworkPgPath(event.currentTarget.value)}
+                />
+              </label>
+              <p id="question-draft-webwork-path-help">
+                Enter the allowed relative PG path for the configured WebWork Library. This path
+                becomes part of the Draft binding.
+              </p>
+            </Show>
+            <button
+              class="primary-action"
+              type="submit"
+              disabled={
+                creating() ||
+                (creationFormat() !== "pleQuestionJson" && !isAllowedWebworkPgPath(webworkPgPath()))
+              }
+            >
+              {creating() ? "Creating private draft..." : "Create Draft Question"}
+            </button>
+            <button
+              class="quiet-action"
+              type="button"
+              disabled={creating() || importing()}
+              onClick={() => setImporting(true)}
+            >
+              Import questions
+            </button>
+          </form>
+        </section>
+      </Show>
+      <Show when={importing()}>
+        <QuestionImportScreen
+          onClose={() => {
+            setImporting(false);
+            void refetch();
+          }}
+        />
+      </Show>
       <Show when={message()}>
         {(value) => (
           <p class={value().kind === "error" ? "inline-error" : "calm-status"} role="status">
@@ -294,17 +316,19 @@ export function QuestionDraftsPage(): JSX.Element {
           </p>
         )}
       </Show>
-      <RecordList
-        rows={drafts() ?? []}
-        content={(draft) => draftContent(draft, deleting, requestDelete)}
-        recordId={(draft) => draft.draftQuestionId}
-        state={draftListState()}
-        ariaLabel="Private Draft Questions"
-        emptyState={{
-          title: "No Draft Questions yet",
-          message: "Create a Draft Question to begin authoring privately.",
-        }}
-      />
+      <Show when={!importing()}>
+        <RecordList
+          rows={drafts() ?? []}
+          content={(draft) => draftContent(draft, deleting, requestDelete)}
+          recordId={(draft) => draft.draftQuestionId}
+          state={draftListState()}
+          ariaLabel="Private Draft Questions"
+          emptyState={{
+            title: "No Draft Questions yet",
+            message: "Create a Draft Question to begin authoring privately.",
+          }}
+        />
+      </Show>
       <Show when={pendingDelete()}>
         {(draft) => (
           <dialog

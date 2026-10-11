@@ -8,7 +8,7 @@ API contract.
 
 ## Browser and server boundary
 
-The browser may receive answer-free question presentation, safe Question-import reports, and export
+Student delivery may receive answer-free question presentation, safe Question-import reports, and export
 status or downloadable artifacts. It never receives answer keys, expected values, hidden correct
 choices, private rubrics, grading code, provider credentials, raw provider results, Object
 Addresses, or source archives. The complete allowlist and privacy boundary are in
@@ -16,10 +16,9 @@ Addresses, or source archives. The complete allowlist and privacy boundary are i
 
 Authorized server operations and Question Backends may handle private payloads inside their
 own boundaries.
-Private source bytes, Answer Keys, Question Feedback, Question Answer Explanations,
-and format-specific Question Grading Input remain in their owning adapter or
-object-store boundary;
-they are not browser formats merely because an Instructor can initiate the operation.
+Authorized Instructor authoring separately receives private Draft source. QPM processes the
+Instructor-selected bank locally in the browser, then PLE stores converted source through the
+existing Draft API. Answer-bearing import source never enters Student delivery.
 
 ## Live-demo operator input
 
@@ -40,13 +39,13 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 | Format                 | Surface and media type                                                      | Implemented boundary                                                                                                                                                                     | Owner                                                                                                                                           |
 | ---------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | PLE Question JSON      | Private PLE Question JSON route; `application/vnd.peptidyle.question+json`  | One answer-bearing document with the closed eight Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                                                | PLE Question JSON adapter source (currently `crates/adapters/ple/src/question_json.rs`), [NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md) |
-| Canvas QTI 1.2 ZIP     | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and QTI Import Package Checksum evidence stay private    | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs)                                                     |
-| Blackboard QTI 2.1 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free                                             | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs)                                             |
+| QPM-readable banks | Import in My Draft Questions; local file bytes | QPM's `formats()` supplies the readable inventory. Current formats are BBQ, text2qti, Oklahoma, and Blackboard export ZIP. Image-free items save as Native JSON Drafts. | [question_import_screen.tsx](../src/pages/question_import_screen.tsx) |
 
-QTI conversion produces one complete PLE Question JSON Draft Question through
-the shared authoring contract. Workspace Import separately retains the original
-archive, private mapping evidence, choice maps, and QTI Import Checksums. The
-ordinary PLE Question Backend later produces the answer-free Question Presentation. See
+QPM conversion produces Native JSON files and warnings. Each image-free question saves through
+the ordinary Draft API. The results list preserves independent outcomes; there is no import history,
+queued processing, or retained source archive in this workflow. Canvas QTI 1.2 and Blackboard QTI
+2.1 have no QPM reader and are not current import formats. The ordinary PLE Question Backend later
+produces the answer-free Question Presentation. See
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and [README.md](QUESTION_SPECS/README.md).
 
 ## Private server source

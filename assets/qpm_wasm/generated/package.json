@@ -1,0 +1,21 @@
+{
+  "name": "qti-wasm",
+  "type": "module",
+  "description": "Typed browser adapter for shared QTI conversion and integrity checks",
+  "version": "26.10.0",
+  "license": "LGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vosslab/qti-package-maker-rs"
+  },
+  "files": [
+    "qti_wasm_bg.wasm",
+    "qti_wasm.js",
+    "qti_wasm.d.ts"
+  ],
+  "main": "qti_wasm.js",
+  "types": "qti_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

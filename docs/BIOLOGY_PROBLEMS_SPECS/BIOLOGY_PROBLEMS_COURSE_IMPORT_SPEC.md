@@ -53,6 +53,6 @@ Assessment; Course assembly does not add speculative overlap gates.
 ## Open Course choices
 
 The topic-based starting organization is settled. Exact splits, points, selection counts, and
-reusable defaults remain ordinary Course content work. This is [Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+reusable defaults remain ordinary Course content work. This is [Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 Each Course specification records available topics until a Course definition makes those choices
 explicit.

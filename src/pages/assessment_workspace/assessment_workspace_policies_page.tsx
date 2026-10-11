@@ -1,4 +1,3 @@
-import { A } from "@solidjs/router";
 import {
   ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
   NO_CLOSING_TIME_GUIDANCE,
@@ -10,7 +9,7 @@ import {
   assessmentDurationOverrideMinutesError,
   assessmentDurationOverrideSecondsFromMinutesDraft,
 } from "../../assessment_duration";
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type {
@@ -23,6 +22,11 @@ import { useApplicationApi } from "../../api/application_api";
 import { PageFrame } from "../../components/page_frame";
 import { ApiRequestError } from "../../api/http_client/error";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
+import {
+  AssessmentPolicyFeedbackControls,
+  type AssessmentFeedbackField,
+} from "./assessment_policy_feedback_controls";
+import { AssessmentPolicyReleaseControls } from "./assessment_policy_release_controls";
 import { AssessmentFixedQuestionPointsEditor } from "./assessment_fixed_question_points_editor";
 import { AssessmentStudentTimeAccommodations } from "./assessment_student_time_accommodations";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
@@ -46,28 +50,6 @@ import {
   baseAssessmentPolicySaveSucceeded,
   createBaseAssessmentPolicyAutosaveState,
 } from "./base_assessment_policy_autosave_model";
-
-const FEEDBACK_FIELDS = [
-  ["per_item_correctness", "Per-item correctness"],
-  [
-    "submitted_response",
-    "Previous-attempt response",
-    "Controls the Student's recorded response in previous attempts. Never leaves correctness visible when Per-item correctness permits it.",
-  ],
-  ["question_answer", "Correct answer"],
-  ["question_answer_explanation", "Question answer explanation"],
-  [
-    "class_statistics",
-    "Class statistics",
-    "Default: Never. Choose a later timing only when sharing class statistics is appropriate.",
-  ],
-  ["hints", "Hints", "Default: Never. This timing is separate from correct-answer disclosure."],
-  [
-    "worked_solutions",
-    "Worked Solutions",
-    "Default: Never. This timing is separate from Hints and from correct-answer disclosure.",
-  ],
-] as const;
 
 function baseAssessmentPolicyInput(
   workspace: LiveAssessmentWorkspace,
@@ -189,7 +171,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   function updatePartialCredit(enabled: boolean): void {
     setActivityRules((current) => ({ ...current, partialCreditEnabled: enabled }));
   }
-  function updateFeedback(field: (typeof FEEDBACK_FIELDS)[number][0], value: string): void {
+  function updateFeedback(field: AssessmentFeedbackField, value: string): void {
     if (
       value === "during_attempt" ||
       value === "after_submit" ||
@@ -740,196 +722,31 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
             Students see one Question at a time. Answer-choice order is configured on each Question.
           </p>
         </section>
-        <section class="assessment-editor-policy-panel">
-          <h2>Student feedback</h2>
-          <For each={FEEDBACK_FIELDS}>
-            {([field, label, help]) => (
-              <label class="assessment-editor-field">
-                {label}
-                <select
-                  value={feedbackRules()[field]}
-                  aria-describedby={help === undefined ? undefined : `feedback-${field}-help`}
-                  onChange={(event) => {
-                    updateFeedback(field, event.currentTarget.value);
-                    recordDraft();
-                  }}
-                >
-                  <option value="during_attempt">During attempt</option>
-                  <option value="after_submit">After submit</option>
-                  <option value="after_due">After due</option>
-                  <option value="after_close">After close</option>
-                  <Show
-                    when={field === "question_answer" || field === "question_answer_explanation"}
-                  >
-                    <option value="after_all_students_complete">After all Students complete</option>
-                  </Show>
-                  <option value="never">Never</option>
-                </select>
-                <Show when={help !== undefined}>
-                  <small id={`feedback-${field}-help`}>{help}</small>
-                </Show>
-              </label>
-            )}
-          </For>
-        </section>
-        <p class="assessment-editor-actions">
-          <Show when={policyState().persistence === "failed"}>
-            <button class="primary-action" type="button" onClick={retry}>
-              Retry
-            </button>
-          </Show>
-          <Show when={workspace.assessment().workspace.status === "unreleased"}>
-            <button
-              type="button"
-              disabled={!allBaseAssessmentPolicyEditsPersisted(policyState()) || busy()}
-              onClick={() => void validateRelease()}
-            >
-              {busy() ? "Checking release readiness..." : "Check release readiness"}
-            </button>
-            <button
-              class="primary-action"
-              type="button"
-              disabled={!allBaseAssessmentPolicyEditsPersisted(policyState()) || busy()}
-              onClick={() => void release()}
-            >
-              Release assessment
-            </button>
-          </Show>
-          <Show when={policyState().persistence === "conflict"}>
-            <button type="button" onClick={() => void reload()}>
-              Reload server state
-            </button>
-          </Show>
-          <A class="quiet-link" href={questionsPath}>
-            Edit Questions
-          </A>
-          <A
-            class="quiet-link"
-            href={`${assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId)}/student-view`}
-          >
-            Open Student View
-          </A>
-        </p>
-        <Show when={releaseValidation()}>
-          {(validation) => (
-            <section
-              class="assessment-workspace-release-readiness"
-              aria-labelledby="assessment-release-readiness-heading"
-              role={validation().canRelease ? undefined : "alert"}
-            >
-              <h2 id="assessment-release-readiness-heading">
-                {validation().canRelease ? "Ready to release" : "Release needs attention"}
-              </h2>
-              <Show
-                when={!validation().canRelease}
-                fallback={<p>All current release requirements are met.</p>}
-              >
-                <ul>
-                  <For each={validation().poolIssues}>
-                    {(poolIssue) => (
-                      <li>
-                        Assessment position {poolIssue.assessmentPosition}: Question Pool "
-                        {poolIssue.poolTitle}" ({poolIssue.questionPoolId}) requests{" "}
-                        {poolIssue.selectionCount} Question
-                        {poolIssue.selectionCount === 1 ? "" : "s"};{" "}
-                        {poolIssue.issue === "insufficientItems"
-                          ? "it has too few valid Questions."
-                          : poolIssue.issue === "memberUnavailable"
-                            ? "a member Question or its Revision metadata is unavailable."
-                            : poolIssue.issue === "memberBackendMismatch"
-                              ? "a member Question uses an unsupported or different Backend."
-                              : poolIssue.issue === "memberTypeMismatch"
-                                ? "a member Question has a different Type."
-                                : "a member Question has a different Discipline or Subject."}
-                      </li>
-                    )}
-                  </For>
-                  <For
-                    each={validation().issues.filter(
-                      (issue) =>
-                        issue !== "questionUnavailable" || validation().poolIssues.length === 0,
-                    )}
-                  >
-                    {(issue) => (
-                      <li>
-                        {issue === "noPublishedQuestions"
-                          ? "Select and save at least one published Question."
-                          : issue === "questionCountExceeded"
-                            ? "Reduce the Assessment to at most 250 delivered Questions, counting each Pool's selected Questions."
-                            : issue === "questionUnavailable"
-                              ? "A selected Question is unavailable. Review and save the Questions list."
-                              : issue === "dueDateRequired"
-                                ? "Enter a Due date, save, then check release readiness again."
-                                : issue === "dueDateLessThan24HoursAhead"
-                                  ? "Move the Due date to at least 24 hours from now, save, then check release readiness again."
-                                  : issue === "dueDateAfterCourseActiveUntil"
-                                    ? "Move the Due date no later than the Course Active limit, save, then check release readiness again."
-                                    : issue === "availabilityAfterDueDate"
-                                      ? "Move Available to no later than the Due date, save, then check release readiness again."
-                                      : "Move Closes to the Due date or later, save, then check release readiness again."}
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-              <Show when={!validation().canRelease}>
-                <A class="quiet-link" href={questionsPath}>
-                  Review assessment Questions
-                </A>
-              </Show>
-            </section>
-          )}
-        </Show>
-        <Show when={workspace.assessment().workspace.status === "released" && unreleaseImpact()}>
-          {(impact) => (
-            <section
-              class="assessment-workspace-unrelease-danger-zone"
-              aria-labelledby="assessment-unrelease-heading"
-            >
-              <h2 id="assessment-unrelease-heading">Danger Zone: Unrelease assessment</h2>
-              <p>
-                Unreleasing makes this Assessment unavailable to Students and permanently deletes
-                its Student Work. The current Assessment definition remains available for later
-                editing and release.
-              </p>
-              <dl aria-label="Unrelease deletion impact">
-                <div>
-                  <dt>Attempts</dt>
-                  <dd>{impact().attemptCount}</dd>
-                </div>
-                <div>
-                  <dt>Submissions</dt>
-                  <dd>{impact().submissionCount}</dd>
-                </div>
-                <div>
-                  <dt>Grades</dt>
-                  <dd>{impact().gradeCount}</dd>
-                </div>
-              </dl>
-              <label class="assessment-editor-field">
-                Type <strong>{impact().confirmationTitle}</strong> to confirm
-                <input
-                  aria-describedby="assessment-unrelease-confirmation-help"
-                  autocomplete="off"
-                  value={confirmationTitle()}
-                  onInput={(event) => setConfirmationTitle(event.currentTarget.value)}
-                />
-              </label>
-              <p id="assessment-unrelease-confirmation-help">
-                Unrelease permanently deletes the Student Work represented by these counts. No
-                Student names, responses, or grade details are displayed here.
-              </p>
-              <button
-                class="assessment-workspace-danger-action"
-                type="button"
-                disabled={needsReload() || confirmationTitle() !== impact().confirmationTitle}
-                onClick={() => void unrelease()}
-              >
-                {busy() ? "Unreleasing assessment..." : "Unrelease and delete Student Work"}
-              </button>
-            </section>
-          )}
-        </Show>
+        <AssessmentPolicyFeedbackControls
+          rules={feedbackRules()}
+          onChange={(field, value) => {
+            updateFeedback(field, value);
+            recordDraft();
+          }}
+        />
+        <AssessmentPolicyReleaseControls
+          persistence={policyState().persistence}
+          status={workspace.assessment().workspace.status}
+          persisted={allBaseAssessmentPolicyEditsPersisted(policyState())}
+          busy={busy()}
+          needsReload={needsReload()}
+          validation={releaseValidation()}
+          unreleaseImpact={unreleaseImpact()}
+          confirmationTitle={confirmationTitle()}
+          questionsPath={questionsPath}
+          studentViewPath={`${assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId)}/student-view`}
+          onRetry={retry}
+          onValidateRelease={validateRelease}
+          onRelease={release}
+          onReload={reload}
+          onConfirmationTitleChange={setConfirmationTitle}
+          onUnrelease={unrelease}
+        />
       </fieldset>
       <AssessmentStudentTimeAccommodations
         ready={!busy() && !needsReload() && allBaseAssessmentPolicyEditsPersisted(policyState())}

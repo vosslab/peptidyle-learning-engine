@@ -180,7 +180,7 @@ failure, read-only status, and Gradebook work that does not depend on Instructor
 
 - Owner: primary implementation agent.
 - Touch points: `docs/active_plans/active/production_release_readiness_phase_plan.md`,
-  `docs/active_plans/active/student_decisions_and_grading_trust_plan.md`, and `plan-phase_2.md`.
+  `docs/archive/student_decisions_and_grading_trust_plan.md`, and `plan-phase_2.md`.
 - Depends on: none.
 - Acceptance criteria: the plans distinguish Attempt recovery from automatic grading; remove
   Instructor Retry from scope, milestones, workstreams, packages, walkthroughs, risks, tests, and

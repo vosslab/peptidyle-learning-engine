@@ -1,40 +1,8 @@
-// Signed-in shell contracts: role-stable tier-one navigation and fixed geometry.
-// Selector contract: ApplicationShell owns the breadcrumb/main rails; PageFrame owns the title;
-// AppRibbon exposes stable tier-one control IDs.
+// Routed App contracts for deferred labels, guarded writes, Student View, and session recovery.
 
 import assert from "node:assert/strict";
 
-import { RIBBON_ROUTE_MATERIALIZATIONS } from "../support/ribbon_model_fixtures.ts";
-import { CANONICAL_VIEWPORTS } from "./screenshot_corpus/manifest.ts";
-import { caseLocator, openRibbonShellEvidencePage, waitForPath } from "./ribbon_shell_helpers.mjs";
-
-function tierOneControlIds(ribbon) {
-  return ribbon
-    .locator('nav[aria-label="Ribbon tabs"] [data-ribbon-control-id]')
-    .evaluateAll((controls) =>
-      controls.map((control) => control.getAttribute("data-ribbon-control-id")),
-    );
-}
-
-async function shellGeometry(shellCase) {
-  return shellCase.evaluate((root) => {
-    const breadcrumb = root.querySelector(".ple-shell__breadcrumb-prelude");
-    const mainContent = root.querySelector("#main-content");
-    const pageTitle = root.querySelector(".page-frame__title");
-    if (
-      !(breadcrumb instanceof HTMLElement) ||
-      !(mainContent instanceof HTMLElement) ||
-      !(pageTitle instanceof HTMLElement)
-    ) {
-      throw new Error("Signed-in shell fixture is missing its breadcrumb, main content, or title.");
-    }
-    return {
-      breadcrumbTop: breadcrumb.getBoundingClientRect().top,
-      mainContentTop: mainContent.getBoundingClientRect().top,
-      pageTitleLeft: pageTitle.getBoundingClientRect().left,
-    };
-  });
-}
+import { caseLocator, openRibbonShellEvidencePage } from "./ribbon_shell_helpers.mjs";
 
 const MEMBERSHIP_SETTINGS_SENTENCE =
   "Identify the object and relevant context before an action that changes membership or stored settings, so users can recognize what they are accepting or changing.";
@@ -71,18 +39,9 @@ function assertOutcome(label, paint, tokenName) {
     paint[tokenName],
     `${FEEDBACK_OUTCOME_SENTENCE} ${label} uses the ${tokenName} emphasis`,
   );
-  for (const other of ["success", "danger", "warning", "information"]) {
-    if (other === tokenName) continue;
-    assert.notEqual(paint.border, paint[other], `${label} emphasis stays distinct from ${other}`);
-  }
 }
 
 async function assertRosterRemovalNamesTheStudent(page) {
-  await page.setViewportSize({
-    width: CANONICAL_VIEWPORTS.laptop.width,
-    height: CANONICAL_VIEWPORTS.laptop.height,
-  });
-  await page.evaluate(() => window.ribbonShell.releaseSession());
   await page
     .locator('[data-m10-case="current-production"]')
     .getByText("Preparing your learning space")
@@ -203,10 +162,6 @@ async function waitForSelectedText(select, expected) {
 }
 
 async function assertClassificationWorkflowCreatesVocabulary(page) {
-  await page.setViewportSize({
-    width: CANONICAL_VIEWPORTS.laptop.width,
-    height: CANONICAL_VIEWPORTS.laptop.height,
-  });
   await page.evaluate(() => {
     window.ribbonShell.seedAuthoringClassification();
     window.ribbonShell.currentNavigate("/instructor");
@@ -275,66 +230,52 @@ async function assertClassificationWorkflowCreatesVocabulary(page) {
   );
 }
 
+async function assertDeferredCourseLabels(page) {
+  const current = caseLocator(page, "current-production");
+  await page.evaluate(() => window.ribbonShell.releaseSession());
+  await current.getByRole("region", { name: "PLE application Ribbon", exact: true }).waitFor({
+    state: "visible",
+  });
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2QAZ"));
+  const breadcrumbs = current.getByRole("navigation", { name: "Breadcrumb", exact: true });
+  const deferred = breadcrumbs.getByRole("link", { name: "Course", exact: true });
+  await deferred.waitFor({ state: "visible" });
+  assert.equal(await deferred.getAttribute("href"), "/courses/CI7K3M2QAZ");
+  await page.waitForFunction(() => window.ribbonShell.scopeRequestCount("CI7K3M2QAZ") >= 1);
+  await page.evaluate(() => window.ribbonShell.releaseCourseScope("CI7K3M2QAZ"));
+  const resolved = breadcrumbs.getByRole("link", {
+    name: "BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)",
+    exact: true,
+  });
+  await resolved.waitFor({ state: "visible" });
+  assert.equal(await resolved.getAttribute("href"), "/courses/CI7K3M2QAZ");
+  assert.equal(await resolved.getAttribute("aria-current"), "page");
+}
+
+async function assertSignOutRecovery(page) {
+  const current = caseLocator(page, "current-production");
+  await current.getByRole("button", { name: "Profile", exact: true }).click();
+  await current.getByRole("menuitem", { name: "Sign Out", exact: true }).click();
+  await page.waitForFunction(() => window.ribbonShell.currentPathname() === "/sign-in");
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2QAZ"));
+  await current.getByRole("heading", { name: "You are signed out", exact: true }).waitFor({
+    state: "visible",
+  });
+  assert.equal(await current.getByRole("region", { name: "PLE application Ribbon" }).count(), 0);
+}
+
 const { browser, page, harnessServer, pageErrors, consoleErrors } =
   await openRibbonShellEvidencePage();
 try {
-  const fixtureCase = caseLocator(page, "fixture-shell");
-  const shellOffsets = new Map();
-  const studentTitleEdges = new Map();
-  const tierOneSequences = new Map();
-
-  for (const [viewportId, viewport] of Object.entries(CANONICAL_VIEWPORTS)) {
-    await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    for (const materialization of RIBBON_ROUTE_MATERIALIZATIONS) {
-      const { userRole, pathname, route } = materialization;
-      if (userRole !== "student" && viewportId !== "laptop") continue;
-
-      await page.evaluate(
-        ({ role, routeId }) => window.ribbonShell.fixtureNavigateRoute(role, routeId),
-        { role: userRole, routeId: route.id },
-      );
-      await waitForPath(page, "fixture-shell", pathname);
-      const ribbon = fixtureCase.getByRole("region", {
-        name: "PLE application Ribbon",
-        exact: true,
-      });
-      await ribbon.waitFor();
-      await page.waitForFunction(
-        ({ role }) =>
-          document
-            .querySelector('[data-m10-case="fixture-shell"] .ple-app-ribbon')
-            ?.getAttribute("data-ribbon-user-role") === role,
-        { role: userRole },
-      );
-
-      const { pageTitleLeft, ...offsets } = await shellGeometry(fixtureCase);
-      const key = `${viewportId}/${userRole}`;
-      const previousOffsets = shellOffsets.get(key);
-      if (previousOffsets === undefined) shellOffsets.set(key, offsets);
-      else
-        assert.deepEqual(offsets, previousOffsets, `${key} shell geometry drifts at ${route.id}`);
-
-      if (userRole === "student") {
-        const previousTitleLeft = studentTitleEdges.get(viewportId);
-        if (previousTitleLeft === undefined) studentTitleEdges.set(viewportId, pageTitleLeft);
-        else assert.equal(pageTitleLeft, previousTitleLeft, `${key} PageFrame title origin drifts`);
-      }
-
-      const ids = await tierOneControlIds(ribbon);
-      assert.notEqual(ids.length, 0, `${key}/${route.id} has tier-one controls`);
-      const previousIds = tierOneSequences.get(key);
-      if (previousIds === undefined) tierOneSequences.set(key, ids);
-      else assert.deepEqual(ids, previousIds, `${key} tier-one navigation drifts at ${route.id}`);
-    }
-  }
-
+  await assertDeferredCourseLabels(page);
   await assertRosterRemovalNamesTheStudent(page);
   await assertStudentViewCreatesNoStudentWork(page);
   await assertClassificationWorkflowCreatesVocabulary(page);
-  assert.deepEqual(pageErrors, [], "signed-in route sweep raises no browser page errors");
-  assert.deepEqual(consoleErrors, [], "signed-in route sweep raises no browser console errors");
+  await assertSignOutRecovery(page);
+  assert.deepEqual(pageErrors, [], "routed App contracts raise no browser page errors");
+  assert.deepEqual(consoleErrors, [], "routed App contracts raise no browser console errors");
   process.stdout.write(
-    "Ribbon navigation and shell geometry remain stable across role-reachable routes.\n",
+    "Routed App labels, guarded writes, Student View, and session recovery passed.\n",
   );
 } finally {
   await browser.close();

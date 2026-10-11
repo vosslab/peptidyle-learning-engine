@@ -9,7 +9,7 @@
   - Evidence (source): `crates/server/src/assessment_delivery/submission.rs` `SavedResponseAcknowledgement` confirms a save with the Attempt id, position, and saved state.
   - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` passed on 2026-09-30. The withheld projection omitted questionAnswer and questionAnswerExplanation. `weekly_and_bonus_keep_the_correct_answer_hidden_after_submission` kept Weekly and Bonus correct answers hidden after submission and still showed correctness. Fifteen student_feedback_release tests passed.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Keep public data separate from private data, answers, identifying information, and radioactive
   FERPA data.
   - Evidence (source): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` stores identity-free issued, blank, answered, outcome, and credit-sum counts in ple_data, and `question_statistics_observation_receipt` stores the Course, Issued Question, and submission receipt in ple_private.
@@ -19,7 +19,7 @@
   - Evidence (source): `schemas/base_schema/70_grants/statistics.sql` `question_revision_statistics` revokes PUBLIC and grants SELECT only to ple_api_owner, and `question_statistics_observation_receipt` revokes PUBLIC.
   - Evidence (runtime): `schemas/base_schema/20_tables/statistics.sql` `question_revision_statistics` on a fresh PostgreSQL 17 install had columns published_question_id, revision_number, issued_count, blank_count, answered_count, correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq, created_on, and updated_on. The receipt held course_instance_id, issued_question_id, and assessment_submission_id. `schemas/base_schema/20_tables/assessment_attempt.sql` `assessment_attempt_saved_response` held student_response. `schemas/base_schema/20_tables/authentication.sql` `account_authentication_email` held normalized_email. ple_app, ple_student, and public had no SELECT on any ple_private table, view, materialized view, or partition, and no USAGE on ple_private. public had no USAGE on ple_data. SET ROLE ple_app was denied SELECT on the receipt, saved-response, and email tables with permission denied. No rows were inserted. A disposable PostgreSQL session ran that check on 2026-09-30 and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-readable titles and identifiers should be used wherever people must recognize, copy, or enter them.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_selected_entry.ts` `selectedAssessmentEntryContent` uses the Question or Pool title as the record heading and keeps Question ID, Revision, Question Pool ID, and Edit as labeled facts.
   - Evidence (source): `src/features/blueprint_course/blueprint_assessment_entry_content.ts` `blueprintAssessmentEntryContent` uses the Question or Pool title as the Blueprint Assessment entry heading and keeps the public ID, Revision, and Edit as labeled facts.
@@ -36,7 +36,7 @@
   - Evidence (test): `tests/test_student_course_response_stats.mjs` `decodeStudentCourseResponseStats` accepted questionTitle Peptide bond for Question ID 7K3M-79QP on 2026-09-30.
   - Evidence (test): `src/features/blueprint_course/blueprint_assessment_entry_content.ts` `blueprintAssessmentEntryContent` returned heading Peptide bond with labeled Question ID 7K3M-79QP, and heading Amino acids with labeled Question Pool ID 2R5X-E7YA, on 2026-09-30. `selectedAssessmentEntryContent` returned the same Question heading and labeled Question ID. `cargo check -p learning-data-access --features postgres` and `cargo check -p server_core` finished. `contract_contains_only_disclosed_counts_and_exact_question_revision` passed. No PostgreSQL session ran `load_recognition_titles`. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] FERPA-sensitive Student data should not become ordinary logs, analytics, URLs, or long-lived browser storage.
   - Evidence (source): `src/log.ts` `log` prints a closed public phrase and withholds an unrecognized event. Extra arguments are ignored.
   - Evidence (source): `crates/learning-data-access/src/contracts/store_error.rs` `diagnostic_kind` names a store failure without the record message, identity, response, or answer.
@@ -47,38 +47,38 @@
   - Evidence (source): `src/api/http_client/request.ts` `requestSameOrigin` sends same-origin requests with cache no-store.
   - Evidence (runtime): `src/log.ts` `log` printed `[ple] peptidyle client booting` for clientBooting on 2026-09-30. An email address, an answer-key object, and a Student response were not printed. The unrecognized event printed `[ple] diagnostic withheld`. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Opaque IDs remain FERPA-sensitive when they link a Student to Course activity.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_owns_student_record` authorizes a Student record only through its Course and active membership.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Human-facing public IDs
 
 - [ ] Public IDs are intended for content creators (Instructors) and for Sysadmins providing Instructor support.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Here, "public" refers to Instructors and Sysadmins.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-facing public IDs should be short, opaque, and easy to communicate.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QUESTION_ID_CANONICAL_LENGTH` fixes the Question and Pool form at nine characters, and `QUESTION_ID_ALPHABET` omits ambiguous Crockford characters.
   - Evidence (source): `crates/question_model/src/public_route.rs` `PUBLIC_ID_RANDOM_LENGTH` fixes seven random characters before the checksum on prefixed IDs.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredPublicId` accepts spoken Crockford aliases and returns the canonical form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-facing public IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `crockford_id_suffix` draws seven characters from random UUID bytes and skips the UUID version byte so the suffix does not expose creation order.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionId` is a non-sequential identity, and `public_id_checksum_character` derives the final character from the other ID characters.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `public_id_reservation` records one canonical value per public object kind, while the owning tables store that value directly.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Give an internal object a human-facing public ID when a useful workflow needs it.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `assign_public_id` issues Account, Course Instance, Assessment, and Blueprint Course IDs for the workflows that display and support those objects.
   - Evidence (source): `schemas/base_schema/20_tables/assessment_attempt.sql` `assessment_attempt_id` keeps an Attempt as a UUID because resuming that Attempt does not ask anyone to type an Attempt ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Useful human-facing ID workflows include display, search, communication, and support.
   - Evidence (source): `src/pages/profile_account_id.tsx` `ProfileAccountId` shows a checksum-validated Account ID and copies that canonical value.
   - Evidence (source): `src/pages/question_library_search_definition.ts` `questionDetails` places the Question ID on each Library result.
@@ -90,7 +90,7 @@
   - Evidence (test): `crates/server/src/question_library/search_query.rs` `exact_canonical_question_id_is_the_library_search_identity` accepted ABCD-XEFG as the exact Question ID and rejected a bad checksum and lowercase text.
   - Evidence (test): `tests/test_frontend_contract.mjs` `a Sysadmin creates a Course that an Instructor teaches` sent Instructor Account ID U0000035E and refused a blank Account ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
   - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` stored and reread Account UABCDEFGM as that same string.
   - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` kept Account UABCDEFGM and Question ABCD-XEFG as those Rust and JSON strings.
@@ -99,7 +99,7 @@
   - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_failure_log_keeps_the_canonical_course_id` wrote Course CIABCDEFGS in the retention failure log and did not write the lowercase form.
   - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Preserve the canonical ID exactly across system boundaries.
   - Evidence (test): `crates/objects/src/bucket_tests.rs` `object_storage_and_its_hash_keep_the_canonical_public_id` carried Question ABCD-XEFG from the Rust ID into the object path, object JSON, and object-id hash, and carried Course CIABCDEFGS into the record path.
   - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_failure_log_keeps_the_canonical_course_id` logged the same Course CIABCDEFGS the Rust ID holds.
@@ -108,7 +108,7 @@
   - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` reread the stored Account UABCDEFGM as that same string.
   - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E and showed nothing for u0000035e. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.
   - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` transmitted Account UABCDEFGM and Question ABCD-XEFG as those exact JSON strings and restored the Account ID as the same canonical value.
   - Evidence (test): `tests/test_public_navigation.mjs` `human route IDs are canonical, typed, and bounded` returned CIABCDEFGS, AABCDEFG8, and BPABCDEFGJ unchanged from the route parsers and rejected a lowercase Question route.
@@ -116,100 +116,100 @@
   - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` stored and reread Account UABCDEFGM, replaced mint placeholder U00000009 with a different canonical Account ID, rejected a lowercase Account ID, and returned Question ABCD-XEFG, Course Instance CIABCDEFGS, Assessment AABCDEFG8, and Blueprint Course BPABCDEFGJ unchanged from their domains. A disposable database ran the proof and was removed. No Live Demo stack was started.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `assign_public_id` reserves a supplied canonical ID and returns that row unchanged.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] ID generation enforces global uniqueness across all public IDs and retries random collisions.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `public_id_reservation` provides one global collision boundary, and `assign_public_id` retries the shared `QP001` collision signal.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Once issued, a public ID permanently identifies that object.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `public_id_reservation_is_permanent` rejects reservation update or deletion.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Never reuse a public ID for another object, including after deletion or archival.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `public_id_reservation` is an append-only global registry retained independently of object lifecycle state.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Public ID alphabet and canonical form
 
 - [ ] Public IDs use the Crockford Base32 alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QUESTION_ID_ALPHABET` is the shared public-ID alphabet used by the Rust issuers and generated browser contract.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Public IDs have one canonical uppercase ASCII form.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId::from_str` and `crates/question_model/src/public_route.rs` `impl_public_id` reject every noncanonical form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] In ID format notation, `X` denotes a cryptographically random Crockford Base32 character.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `crockford_id_suffix` and `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` mint each `X` from operating-system randomness.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] In ID format notation, `Z` denotes the calculated checksum character.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` calculates `Z` from the canonical checksum input.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Both `X` and `Z` represent characters stored as part of the canonical ID.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `is_canonical_prefixed_public_id` and `schemas/base_schema/50_functions/question_lineages.sql` `published_question_id_is_crockford_shape` validate the complete stored values.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] `Z` is not a literal character or separate metadata.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `assign_public_id` appends the calculated checksum directly to the stored canonical ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-entered IDs may use lowercase Crockford characters.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` uppercase only explicit human-entry values before validation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-entered IDs may use `O` or `o` for `0`.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` map the Crockford `O` alias to `0` before validation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Human-entered IDs may use `I`, `i`, `L`, or `l` for `1`.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` map the Crockford `I` and `L` aliases to `1` before validation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] When an ID is entered, normalize it to the canonical form, then validate its syntax and checksum.
   - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicId` normalize explicit human entry and then invoke the generated exact validators.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Store, transmit, display, copy, and generate only the canonical form.
   - Evidence (test): `crates/question_model/src/public_route.rs` `store_transmit_display_copy_and_generate_only_the_canonical_form` generated Account UABCDEFGM, Course Instance CIABCDEFGS, Assessment AABCDEFG8, Blueprint Course BPABCDEFGJ, and Question ABCD-XEFG, transmitted the Account and Question as those exact JSON strings, and rejected lowercase and bad-checksum Account JSON.
   - Evidence (source): `src/pages/profile_account_id.tsx` `ProfileAccountId` displays and copies only the string returned by validateCanonicalPublicId.
   - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed U0000035E, copied that same string, and showed no ID and no copy control for u0000035e. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Public ID checksum
 
 - [ ] Calculate the checksum from the ASCII bytes of every other uppercase canonical-ID character.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` hashes caller-supplied canonical ASCII characters after typed constructors exclude separators and checksum positions.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Include type prefixes in the checksum input.
   - Evidence (source): `crates/question_model/src/public_route.rs` `impl_public_id` builds checksum input from the exact type prefix plus seven random characters.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Exclude only separators and the checksum position from the checksum input.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId::from_str` excludes the hyphen and checksum position, while `crates/question_model/src/public_route.rs` `impl_public_id` excludes only final `Z`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] `XXXX-ZXXX` has checksum input `XXXXXXX`.
   - Evidence (source): `crates/question_model/src/question_library.rs` `from_random_identifier` checksums the seven identity characters, then inserts the hyphen and checksum.
   - Evidence (source): `schemas/base_schema/10_types.sql` `is_canonical_question_family_id` checksums the first four characters plus the last three.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] For `BPXXXXXXXZ`, `CIXXXXXXXZ`, `UXXXXXXXZ`, and `AXXXXXXXZ`, calculate the checksum from every preceding character.
   - Evidence (source): `crates/question_model/src/public_route.rs` `impl_public_id` hashes each literal prefix followed by its seven random Crockford characters.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Use public unsalted SHA-256 for the checksum.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` applies SHA-256 directly to the canonical checksum input.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Map the high five bits of SHA-256 digest byte 0 through the Crockford alphabet.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` shifts digest byte 0 by three bits and indexes `QUESTION_ID_ALPHABET`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Validate the public-ID syntax and embedded checksum before database lookup or resolution.
   - Evidence (source): `crates/question_model/src/public_route.rs` `from_str` rejects a prefixed public ID whose checksum does not match its canonical characters.
   - Evidence (test): `crates/server/src/question_library/tests.rs` `exact_question_routes_reject_a_wrong_checksum_character_before_lookup` resolves a bad Question checksum without a Store call.
@@ -219,15 +219,15 @@
   - Evidence (test): `crates/server/src/blueprint_course.rs` `load_blueprint_rejects_a_bad_checksum_before_database_lookup` conceals a bad Blueprint Course checksum before lookup.
   - Evidence (test): `crates/server/src/instructor_account.rs` `deactivate_instructor_account_rejects_a_bad_checksum_before_database_lookup` conceals a bad Account checksum before lookup.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The embedded checksum detects typos.
   - Evidence (test): `crates/question_model/src/public_route.rs` `public_ids_are_exact_checksum_validated_values` accepts canonical vectors and rejects altered checksum characters for every current public-ID family.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The checksum adds no identity space.
   - Evidence (source): `crates/question_model/src/public_route.rs` `impl_public_id` derives the checksum deterministically from the prefix and seven-character random identity.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Public ID formats by object
 
@@ -235,61 +235,61 @@
   - Evidence (source): `schemas/base_schema/10_types.sql` `question_family_id` stores both Published Question IDs and Question Pool IDs in that form.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionId` parses only that canonical form, and the same file defines `QuestionPoolId` with it.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Question ID is the shared term for Published Question IDs and Question Pool IDs.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QUESTION_ID_CANONICAL_LENGTH` is the shared canonical length for a Question or Pool ID.
   - Evidence (source): `schemas/base_schema/10_types.sql` `question_family_id` stores both Published Question IDs and Question Pool IDs.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The hyphen is specific to Question IDs. Other public IDs use a prefix without a hyphen.
   - Evidence (source): `schemas/base_schema/10_types.sql` `is_canonical_question_family_id` requires the hyphen, and `is_canonical_prefixed_public_id` accepts Account, Course Instance, Assessment, and Blueprint IDs with a prefix and no hyphen.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Published Questions and Question Pools share the same public-ID namespace.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `public_id_reservation` uses one primary key for both `published_question` and `question_pool` reservations.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `reserve_public_id` rejects a second object-kind reservation for an already issued canonical value.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Blueprint Course IDs use `BPXXXXXXXZ`.
   - Evidence (source): `crates/question_model/src/public_route.rs` `BlueprintCourseId` and `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course.blueprint_course_id` enforce the exact form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Course Instance IDs use `CIXXXXXXXZ`.
   - Evidence (source): `crates/question_model/src/public_route.rs` `CourseInstanceId` and `schemas/base_schema/50_functions/course_core.sql` `course_instance.course_instance_id` enforce the exact form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Assessment IDs use `AXXXXXXXZ`.
   - Evidence (source): `crates/question_model/src/public_route.rs` `AssessmentId` and `schemas/base_schema/50_functions/assessments.sql` `assessment.assessment_id` enforce the exact form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Account IDs use `UXXXXXXXZ`.
   - Evidence (source): `crates/question_model/src/public_route.rs` `AccountId` and `schemas/base_schema/50_functions/accounts.sql` `account.account_id` enforce the exact form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
   - Evidence (source): `schemas/base_schema/50_functions/public_ids.sql` `assign_public_id` generates seven random characters, calculates the checksum over prefix plus random identity, and stores the result.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
   - Evidence (source): `crates/question_model/src/public_route.rs` `PUBLIC_ID_RANDOM_LENGTH` fixes seven random positions over the 32-character `QUESTION_ID_ALPHABET`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Sysadmins use Account IDs (`UXXXXXXXZ`) to look up Accounts for support.
   - Evidence (source): `src/route_contract.ts` `instructorAccounts` opens `/sysadmin/instructor-accounts` only for the Sysadmin role.
   - Evidence (source): `src/pages/instructor_accounts_page.tsx` `accountContent` shows the Account ID as the record title, with state and last successful sign-in.
   - Evidence (source): `crates/server/src/instructor_account.rs` `list_instructor_accounts` requires `sysadmin_session_hash` before returning those Account IDs.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Students and Instructors see their Account ID (`UXXXXXXXZ`) only on their Profile page.
   - Evidence (source): `src/pages/profile_page.tsx` `ProfileAccountId` receives the signed-in `authenticatedAccountId` on Profile.
   - Evidence (source): `src/pages/profile_account_id.tsx` `validateCanonicalPublicId` shows and copies only a canonical Account ID.
   - Evidence (source): `src/route_contract.ts` `instructorAccounts` stays the Sysadmin support lookup, and `profile` is the Student and Instructor page.
   - Evidence (test): `tests/test_frontend_contract.mjs` `the profile page shows the signed-in Account ID as a labeled fact` rendered Account ID U0000035E and rendered nothing for a non-canonical value.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Database keys and clocks
 
@@ -297,51 +297,51 @@
   foreign key to it.
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `course_instance.course_instance_id`, `schemas/base_schema/50_functions/assessments.sql` `assessment.assessment_id`, `schemas/base_schema/50_functions/blueprints.sql` `blueprint_course.blueprint_course_id`, `schemas/base_schema/50_functions/accounts.sql` `account.account_id`, and `schemas/base_schema/50_functions/question_pools.sql` `question_pool.question_pool_id` store the public ID as the primary key.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] An object without a public ID uses a native UUID primary key, or a combined key when it is owned
   by a parent (for example, a Revision identified by its parent object ID and Revision Number).
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] One value that identifies one object is an Id, such as a Public ID or UUID.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionId` is one value for one Published Question.
   - Evidence (source): `crates/question_model/src/public_route.rs` `AccountId` is one value for one Account.
   - Evidence (source): `schemas/base_schema/20_tables/assessment_attempt.sql` `assessment_attempt_id` is one UUID for one Attempt.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Multiple values that together identify one exact object, state, or version are a Tuple.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionRevisionTuple` identifies one Question Revision from its Published Question ID and Revision Number.
   - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `BlueprintRevisionTuple` identifies one Blueprint Revision from its Blueprint Course ID and Revision Number.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Tuple is the general cross-language term and suffix for a composite identity made from multiple values.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionRevisionTuple` serializes camelCase revisionNumber beside the Question ID.
   - Evidence (source): `src/pages/library_page_model.ts` `publishedQuestionRevisionTuple` reads that Tuple from library JSON.
   - Evidence (source): `schemas/base_schema/50_functions/blueprints.sql` `published_question_revision_tuple` stores that Tuple in Blueprint content.
   - Evidence (source): `src/api/course_instance.ts` `blueprintRevisionTuple` reads the Blueprint Tuple from Course JSON.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Question Revision Tuple is one example: Question ID plus Question Revision Number.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionRevisionTuple` stores published_question_id and revision_number.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `revision_number` is the second column of the Question Revision primary key beside published_question_id.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Blueprint Course Revision Tuple is a Blueprint Course ID plus Blueprint Revision Number.
   - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `BlueprintRevisionTuple` stores blueprint_course_id and revision_number.
   - Evidence (source): `schemas/base_schema/20_tables/blueprint_course.sql` `blueprint_revision_number` is the second column of the Blueprint Revision primary key beside blueprint_course_id.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Use Reference for a genuine indirect, scoped, or external locator.
   - Evidence (source): `crates/adapters/webwork/src/lib/source_object_id.rs` `WebworkQuestionSourceBinding` names the external source location as a binding of a Published Question Revision to its PG path.
   - Evidence (test): `crates/question_model/src/question_library.rs` `published_question_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Question ID and Revision Number.
   - Evidence (test): `crates/question_model/src/blueprint_operations/contracts.rs` `blueprint_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Blueprint Course ID and Revision Number.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
   - Evidence (source): `crates/question_model/src/question_library.rs` `published_question_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Question ID and Revision Number.
   - Evidence (source): `crates/question_model/src/blueprint_operations/contracts.rs` `blueprint_revision_tuple_rejects_legacy_reference_json` refuses a reference wrapper around the Blueprint Course ID and Revision Number.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Use the simplest term that accurately describes what the value represents.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] An object without a public ID uses its UUID Id in routes and JSON. Secondary Ids are not allowed.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` uses assessmentAttemptId, draftQuestionId, and proposalId for objects without a public ID.
   - Evidence (source): `src/navigation/route_params.ts` `routeScopeKey` accepts each of those route params only as one lowercase UUID.
@@ -351,19 +351,19 @@
   - Evidence (test): `tests/test_assessment_attempt_history_decoder.mjs` `attempt history JSON uses the Assessment Attempt UUID and rejects a second attempt id` accepted assessmentAttemptId 00000000-0000-0000-0000-00000000000c with attemptNumber 2 and rejected attemptId, a UUID suffix, and attempt number 2 used as the identity.
   - Evidence (test): `tests/test_nested_identity_contracts.mjs` `change proposal JSON uses the proposal UUID and rejects a second proposal id` accepted proposalId 00000000-0000-0000-0000-00000000001e and rejected a second id field and a UUID suffix.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Internal UUIDs never substitute for or appear as public identities.
   - Evidence (test): `crates/question_model/src/public_route.rs` `internal_uuids_do_not_substitute_for_public_identities` accepted Question ABCD-XEFG and Account UABCDEFGM and rejected UUID 00000000-0000-0000-0000-000000000001 for Question, Account, Course, Assessment, and Blueprint JSON and parsers.
   - Evidence (test): `crates/learning-data-access/tests/public_id_canonical_persistence.rs` `persistence_does_not_reformat_a_canonical_public_id` stored Account UABCDEFGM and rejected that UUID as an Account ID. A disposable database ran the proof and was removed.
   - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E and showed nothing for that UUID. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
   - Evidence (source): `schemas/base_schema/10_types.sql` `support_repair_resource_class` is the enum for student, course, and content.
   - Evidence (source): `schemas/base_schema/20_tables/support_repair.sql` `ple_data.support_repair_resource_class` types both resource_class columns.
   - Evidence (test): `tests/test_schema_table_shape.py` `test_table_shape_and_clocks_follow_database_style` loaded schemas/base_schema from source, required the clock rules to run, and reported no findings. Both resource_class columns are ple_data.support_repair_resource_class.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Content classification
 
@@ -374,74 +374,74 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores a Discipline and Subject from that vocabulary on a Published Question.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores that same Discipline and Subject on a Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subject_discipline` associates a Subject with a Discipline.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_topic` belongs to one Subject.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subtopic` belongs to one Topic.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores that Discipline, Subject, Topic, and Subtopic chain on a Published Question.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_discipline` stores the named Discipline above Subject, Topic, and Subtopic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_discipline` stores a Sysadmin-named Discipline such as Biology.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` classifies a Published Question with that Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
   Biochemistry, or Ecology.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subject` stores one global Subject.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `add_content_subject_discipline` associates that Subject with another Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns that same Subject under each associated Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_topic` stores a Topic under one Subject.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_topic` creates that Topic for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_topics` returns that Topic for its Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subtopic` stores a Subtopic under one Topic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subtopic` creates that Subtopic for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subtopics` returns that Subtopic for its Topic.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Subjects have a global identity across PLE, and Subject names are unique across PLE.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subject` stores one Subject row for one global name.
   - Evidence (source): `schemas/base_schema/40_indexes.sql` `content_subject_global_name_unique` rejects a second Subject with the same name.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` inserts one Subject row for a new name and returns the existing Subject when that name already exists.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Subject may be associated with one or more Disciplines.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subject_discipline` stores one association for each Subject and Discipline pair.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` records the Subject's first Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `add_content_subject_discipline` adds another Discipline and keeps the same Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Topic belongs to one Subject.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_topic` stores one content_subject_id for each Topic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_topic` creates a Topic for one Subject.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_topics` returns that Topic under that Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Subtopic belongs to one Topic.
   - Evidence (source): `schemas/base_schema/20_tables/content_classification.sql` `content_subtopic` stores one content_topic_id for each Subtopic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subtopic` creates a Subtopic for one Topic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subtopics` returns that Subtopic under that Topic.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Every Course has exactly one **Discipline**.
   - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `content_discipline_id` stores one Discipline on each Course.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` requires that Discipline and refuses a retired Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns that one Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Subject**, **Topic**, and **Subtopic** are optional for Courses.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores a Course with Subject, Topic, and Subtopic absent, and stores another Course with all three present.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns the bare Course with those three absent and the other Course with all three present.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Every Library Object has exactly one **Discipline** and one **Subject**.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `published_question_metadata` stores one Discipline and one Subject for each Published Question.
   - Evidence (source): `schemas/base_schema/20_tables/question_pool.sql` `question_pool` stores one Discipline and one Subject for each Question Pool.
@@ -450,14 +450,14 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` copies that one Discipline and Subject onto the Question Pool.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool's Discipline and Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Topic** and **Subtopic** are optional for Library Objects.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` publishes a Question with Topic and Subtopic absent, and publishes another with both present.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `list_question_library_entries` returns those Question classifications.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a Question Pool with Topic and Subtopic absent.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns that Pool classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Courses retain the hierarchy because their classification supports Course organization, search,
   filtering, and discovery.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores a Course classification chain.
@@ -465,7 +465,7 @@
   - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` shows that classification on each Course record.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` searches, filters, and sorts Public Blueprint Courses by classification.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Course and Library Object selections follow the hierarchy: the Subject is associated with the
   selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns Subjects associated with the selected Discipline.
@@ -474,14 +474,14 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores that chain and refuses a Subject, Topic, or Subtopic from another parent.
   - Evidence (source): `schemas/base_schema/20_tables/published_question.sql` `published_question_metadata` requires the same parent chain on a Published Question.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Courses and Library Objects select from the same shared global vocabulary.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_disciplines` returns the active Discipline an Instructor selects for both a Published Question and a Course.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns the Subject associated with that Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores that Discipline and Subject on the Published Question.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores that same Discipline and Subject on the Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Classification vocabulary management
 
@@ -491,7 +491,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `retire_content_discipline` retires that Discipline and `restore_content_discipline` returns it to the active vocabulary.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_disciplines` omits a retired Discipline, and `get_content_discipline` still returns the same Discipline id.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Discipline is a stable vocabulary expected to change infrequently.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `rename_content_discipline` keeps one Discipline id across two renames, and an Instructor rename is refused.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `retire_content_discipline` keeps that id.
@@ -499,7 +499,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `get_content_discipline` returns that same id while it is retired.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `restore_content_discipline` returns that same id to the active vocabulary.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_disciplines` returns the active Sysadmin Disciplines to an Instructor and omits a retired Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores the Discipline selected from that list and refuses a retired Discipline.
@@ -507,43 +507,43 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores that selected Discipline on a new Course and refuses a retired Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns that selected Discipline on the Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Instructors** can create new Subjects within a selected Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` creates a Subject and associates it with the selected Discipline for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns that Subject for the Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
   offers the existing Subject.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` returns the existing Subject for a duplicate name and does not add the other Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` omits that Subject from the other Discipline until acceptance.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `add_content_subject_discipline` associates that returned Subject only when the Instructor calls it.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] PLE requires explicit Instructor acceptance before associating the existing Subject with the
   selected Discipline.
   - Evidence (source): `schemas/base_schema/40_indexes.sql` `content_subject_global_name_unique` keeps one global Subject name.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` inserts a new Subject and its first Discipline association. It does not attach an existing Subject to another Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `add_content_subject_discipline` associates that existing Subject with another Discipline only when the Instructor calls it.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Instructors** can create new Topics within a Subject.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_topic` creates a Topic belonging to the selected Subject for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_topics` returns that Topic for the Subject.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Instructors** can create new Subtopics within a Topic.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subtopic` creates a Subtopic belonging to the selected Topic for a vetted Instructor.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subtopics` returns that Subtopic for the Topic.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Creating or selecting vocabulary should fit naturally into the classification workflow.
   - Evidence (source): `src/components/authoring_classification_level.tsx` `AuthoringClassificationLevel` places Subject, Topic, and Subtopic creation beside the classification selector.
   - Evidence (source): `crates/server/src/content_classification.rs` `create_subject` creates a Subject in the selected Discipline or offers an existing global name for acceptance.
   - Evidence (test): `tests/test_content_classification_client.mjs` `createSubject` posts a new Subject and accepts an existing Subject on the shipped client.
   - Evidence (test): `tests/playwright/ribbon_shell_contract.mjs` `Creating or selecting vocabulary should fit naturally into the classification workflow.` creates and selects Subject, Topic, and Subtopic on the Course classification form.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Classification selection and discovery
 
@@ -556,7 +556,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns no rows when a Subject is set without a Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `list_blueprint_courses` rejects a Subject without a Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
   progressively narrowing the available choices at each level.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` limits Subject choices to the selected Discipline.
@@ -564,12 +564,12 @@
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subtopics` limits Subtopic choices to the selected Topic.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores one chain from those choices and refuses a choice from another parent.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` associates a new Subject with the selected Discipline.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `list_content_subjects` returns that Subject for the selected Discipline and returns no Subject for another Discipline.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] After selecting a Subject, search interfaces may offer an explicit option to include content
   associated with that Subject across its other Disciplines.
   - Evidence (source): `src/components/library_classification_search.tsx` `LibraryClassificationSearch` shows Include this Subject across Disciplines only after a Subject is selected.
@@ -577,7 +577,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the selected Discipline when the option is off and both Disciplines when it is on.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns the selected Discipline when the option is off and both Disciplines when it is on.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters Published Questions by classification and sorts that page.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` filters Question Pools by classification.
@@ -585,7 +585,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns Course classification in long-name order.
   - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` shows that classification on the Course list.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 #### Tags and classification names
 
@@ -597,7 +597,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stores tags on a Published Question whose Topic and Subtopic are absent.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a caller-chosen tag list that is not copied from the member Question.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Courses and Library Objects can have any number of Tags, including none.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `create_course_instance` stores a Course with no tags and a Course with several tags.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `list_course_instances` returns those Course tag lists.
@@ -606,36 +606,36 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stores a Question Pool with no tags and a Question Pool with several tags.
   - Evidence (source): `schemas/base_schema/50_functions/question_library_operations.sql` `search_question_library_entries` returns those Pool tag lists.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `normalize_content_classification_name` strips boundary whitespace, then rejects an empty name, a control character, or a name outside the caller's length limit.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` stores a Subject only after that normalization. `create_content_topic` and `create_content_subtopic` use the same check.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` limits a Subject name to 120 characters.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_topic` limits a Topic name to 240 characters.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subtopic` limits a Subtopic name to 480 characters.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `normalize_content_classification_name` removes leading and trailing whitespace before the shared length and control-character check.
   - Evidence (source): `schemas/base_schema/50_functions/content_classification_operations.sql` `create_content_subject` stores that stripped Subject name. `create_content_topic` and `create_content_subtopic` store the stripped Topic and Subtopic names.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Student and FERPA data
 
 - [ ] **Student** course data falls under FERPA; treat it as radioactive.
   - Evidence (source): `schemas/base_schema/20_tables/course_membership.sql` `student_record` is protected by RLS and has no PUBLIC privilege.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
   - Evidence (source): `schemas/base_schema/50_functions/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
 - [ ] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/50_functions/authorization.sql` `current_session_account_owns_student_record` allows the session only when that Account owns the Student record through an active Student membership in that Course.
@@ -645,46 +645,46 @@
   - Evidence (test): `tests/e2e/assessment_saved_response/05_student_history_privacy.sql` `ferpa_access_follows_course_membership_and_student_ownership` checks that Attempt history follows the owning Student membership and refuses another Student on the same Course.
   - Evidence (test): `tests/e2e/e2e_assessment_saved_response.sh` `ferpa_access_follows_course_membership_and_student_ownership` ran that oracle on PostgreSQL. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Sysadmins** should use Course and Student records only for administrative work.
   - Evidence (source): `crates/server/src/support_capability.rs` `support_capability_router` exposes only a scoped, revocable exact-record repair reader; it has no whole-Course roster route.
   - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `prove_issue` exercises named-record repair issuance, concealment, use, and revocation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Student Accounts persist independently of Course data and Course retention.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account` is separate from course-scoped `student_record`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes private Attempt roots and Course-scoped Student records only after the archived state, while retaining Course teaching material and identity-free aggregate rows.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL actual-role proof with a released Assessment, issued Question, saved response, whole-Assessment submission, `question_response`, grading result, grading receipt, and aggregate; deletion removed the identifiable Student Work descendants at the stored expiry.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL actual-role proof retaining the global Student Account, Course, Assessment, Published Question, immutable source, settings, and an unrelated Course membership after the populated Student Work was deleted.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_work_records` lists Assessment Attempts, Question Pool selections and selected items, Issued Questions, Question Attempts, saved responses, submissions, presentation bindings, grading results, and automated grading receipts for one Student Record, and `read_course_student_work_for_retention` reads Attempt rows from that collective.
   - Evidence (source): `crates/question_model/src/student_work.rs` `Student Work` names that collective of Course records.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` joins Attempt, issued question, response, submission, grading, and receipt evidence.
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `first_score` verifies retained response finalization and resulting score evidence.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Student Work is an umbrella term; the underlying records retain their own identities and purposes.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_work_records` returns each record kind with that record's own id, member position, presentation response item id, or Question Image Asset id.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Student retention removes identifiable Student evidence and leaves Question usage statistics
   unchanged.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records` removed the Attempt, observation receipt, and Student record for Course CIA0000003 after the issued count was 1. A fresh read still returned issued 1. Instructor UXR5JYCDE and Student UBA7QPMZF remained. `start_assessment_attempt` issued 7A3M-V0A1. The response, submission, and grading row were inserted directly so the observation could record one answered use. No Question Backend was called. A disposable PostgreSQL session ran that check and was not kept.
   - Evidence (source): `schemas/base_schema/50_functions/statistics.sql` `read_question_library_usage_statistics` returned issued 1, answered 1, and correct 1 both before `archive_course_student_records` and after deletion.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Course retention and lifecycle
 
@@ -694,21 +694,21 @@
   - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `course_instance` stores term_ends_on and requires that date to fall on or before the UTC date of active_until_at.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_core.sql` `enforce_course_instance_retention_schedule` stored summer CIB1000008 created 2024-06-03 with term end 2024-07-26 and active_until 2024-12-03, quarter CIB200000E created 2024-03-25 with term end 2024-06-07 and active_until 2024-09-25, and semester CIB300000B created 2024-01-16 with term end 2024-05-10 and active_until 2024-07-16. Each retention_starts_at matched that active_until. Supplying 2024-07-26 as the summer lifetime was refused, and a summer term ending 2024-12-04 was refused. The Courses were inserted directly. A disposable PostgreSQL session ran that check and was not kept.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA
   retention clock.
   - Evidence (source): `schemas/base_schema/20_tables/course_instance.sql` `retention_starts_at` must equal the latest Assessment Due date when that date is present, and otherwise the six-month active_until_at.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `synchronize_course_assessment_deadline` stores the current maximum Due date of unreleased and released Assessments and sets the active Course retention clock to that date.
   - Evidence (runtime): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `synchronize_course_assessment_deadline` moved Course CIK1000000, created 2025-01-01 with active_until 2025-07-01, from a retention clock equal to that lifetime to 2025-06-01. That instant was the Due date of released Assessment AK100000Z, and latest_assessment_due_at stored the same instant. The Course stayed active. The Course, Accounts, and Assessment were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Creating or extending a later Assessment deadline may move those dates, but not beyond the
   six-month Active lifetime.
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies` lock the Course first, reject a Due date after its immutable `active_until_at`, and invoke `ple_data.synchronize_course_assessment_deadline` after an accepted change.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` stores the current maximum Assessment Due date and moves the active Course retention anchor to that date, or to `active_until_at` when no Due date remains.
   - Evidence (runtime): accepted independent PostgreSQL actual-API proofs exercised `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies`, covering release, a cleared last Due date, cap rollback, stale CAS, wrong-Instructor denial, deterministic concurrent saves to two Assessments, an archive race, and frozen archived/deleted retention anchors.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `synchronize_course_assessment_deadline` writes the latest Due date and the retention clock and does not insert a notification or change archive, deletion, or Course lifecycle columns.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_notifications.sql` `claim_course_retention_notification` inserts a receipt only for a warn_inactive or notify_archive action that is already due.
@@ -717,7 +717,7 @@
   - Evidence (runtime): `schemas/base_schema/50_functions/grading_access.sql` `read_course_gradebook` returned one row for Instructor U8QGEKSFF before and after that clock move. `schemas/base_schema/50_functions/course_retention.sql` `course_student_work_is_ordinarily_visible` stayed true.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_notifications.sql` `claim_course_retention_notification` at 2025-06-01 returned no receipt for Course CIK1000000, and no notification row was stored. No mail transport ran. The Course, Accounts, released Assessment, roster, and Assessment Attempt were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The configured FERPA retention policy determines when to send notices, archive Student data,
   allow recovery, and permanently delete it.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `retention_schedule` reads ple.retention_inactive_warning_lead_time, ple.retention_archive_notice_lead_time, ple.retention_archive_after_retention_start, and ple.retention_delete_after_archive.
@@ -726,7 +726,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/archived_student_work_recovery.sql` `lock_archived_course_for_recovery` returns the live delete deadline, and select_archived_assessment_attempts_for_recovery raises when clock_timestamp is no longer before that deadline.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` for Course CIR100000V, Instructor U682DAX5X, active_until and retention_starts 2024-12-03 00:00:00+00, returned default warn 2024-11-19 00:00:00+00, notify 2025-01-02 00:00:00+00, archive 2025-03-13 00:00:00+00, and delete 2025-12-03 00:00:00+00. Setting those four intervals to 10 days, 40 days, 90 days, and 200 days moved the same four dues to 2024-11-23 00:00:00+00, 2025-01-22 00:00:00+00, 2025-03-03 00:00:00+00, and 2025-09-19 00:00:00+00. With archive after 90 days, archive_course_student_records refused one second before 2025-03-03 00:00:00+00 and returned true at that instant. With delete after 1000 days, lock_archived_course_for_recovery returned 2027-11-28 00:00:00+00. Shortening delete after to 1 day made select_archived_assessment_attempts_for_recovery raise 42501 while the Student record still existed, refused delete one second before 2025-03-04 00:00:00+00, and at 2025-03-04 00:00:00+00 delete_course_student_records returned true and left 0 Student records. The Course, Accounts, and Student record were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
   creation.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` schedules warn_inactive at active_until_at minus the configured lead while the Course is still active.
@@ -734,32 +734,32 @@
   - Evidence (source): `crates/server/src/course_retention_notification_delivery.rs` `SmtpCourseRetentionNotificationDelivery` sends the fixed sign-in sentence and returns success only after the SMTP transport accepts the message.
   - Evidence (runtime): `crates/server/src/course_retention_worker.rs` `run_until_shutdown` ran as server_core --course-retention-worker on 2026-09-30. It claimed warn_inactive for still-active Course CIN100000A, active_until_at 2026-10-07 10:41:20.955465+00, and the SMTP provider accepted the sign-in sentence addressed to Instructor U0R8YSJWC at retention-warn@example.edu with idempotency key 43aaba1f-ff6a-4c34-84ca-d297ac50d577. The receipt stored provider_accepted_at and last_failure_kind stayed null. course_became_inactive_at stayed null, student_data_archived_at stayed null, and the Student record for U0EAQGJ45 remained. The message did not contain the Course id. The Course, Accounts, and roster were inserted directly. A disposable PostgreSQL session and a local SMTP listener ran that check and were not kept. No Question Backend was called. The SMTP 250 response is provider acceptance, not an inbox-delivery claim.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
   FERPA retention and deletion.
   - Evidence (source): `schemas/base_schema/50_functions/course_core.sql` `ple_data.enforce_course_instance_retention_schedule` derives and preserves the immutable six-month `active_until_at`; `schemas/base_schema/50_functions/assessments.sql` `ple_data.save_assessment` and its sibling save functions reject every saved Due date beyond that cutoff.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` bounds the active retention anchor by the accepted current maximum Due date or that immutable cutoff and does not move an archived or deleted anchor.
   - Evidence (runtime): accepted independent PostgreSQL actual-API proofs exercised `schemas/base_schema/50_functions/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Course becoming Inactive does not itself delete Student records. FERPA deletion follows its
   own schedule.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` sets course_lifecycle_state to inactive and course_became_inactive_at to active_until_at.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `delete_course_student_records` deletes Student records only from the archived retention state.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` refused 2023-07-14 for Course CIC100000D, then at 2023-07-15 returned true and a later call returned false. The Student record remained for Account UBVMVNJCV. retention_lifecycle_state stayed active, and student_data_archived_at and student_data_deleted_at stayed null. The Course, Accounts, and Student record were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_core.sql` `enforce_course_instance_retention_schedule` applied created_at plus six months to summer CIB1000008, quarter CIB200000E, and semester CIB300000B. Their term ends stayed 2024-07-26, 2024-06-07, and 2024-05-10. The Courses were inserted directly. A disposable PostgreSQL session ran that check and was not kept.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] PLE should notify the **Instructor** before FERPA-sensitive Student data is archived.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` schedules notify_archive before the archive transition while student_data_archived_at is null.
   - Evidence (source): `crates/server/src/course_retention_worker.rs` `run_iteration` claims due notices before it applies mark, archive, or delete.
   - Evidence (source): `crates/server/src/course_retention_notification_delivery.rs` `deliver_claimed_course_retention_notification` records provider acceptance only after submit returns success.
   - Evidence (runtime): `crates/server/src/course_retention_worker.rs` `run_until_shutdown` ran as server_core --course-retention-worker on 2026-09-30. It claimed notify_archive for Course CIP100000T, retention_starts_at 2026-08-21 10:41:20.955522+00, while student_data_archived_at was null. The SMTP provider accepted the sign-in sentence addressed to Instructor UKC8GE644 at retention-archive@example.edu with idempotency key d24bc786-2d63-428a-9354-e57a56a403b9. The receipt stored provider_accepted_at and last_failure_kind stayed null. The Course stayed active, the Student record for UTMV62309 remained, and the message did not contain the Course id. The Course, Accounts, roster, and released Assessment were inserted directly, and synchronize_course_assessment_deadline set the retention clock from that Assessment Due date. A disposable PostgreSQL session and a local SMTP listener ran that check and were not kept. No Question Backend was called. The SMTP 250 response is provider acceptance, not an inbox-delivery claim.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Archived Student data should leave normal Instructor and Student interfaces but remain recoverable during the retention period.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `course_student_work_is_ordinarily_visible` is true only while retention_lifecycle_state is active.
   - Evidence (source): `schemas/base_schema/50_functions/grading_access.sql` `read_course_gradebook` reads a Course only while that retention state is active.
@@ -767,23 +767,23 @@
   - Evidence (source): `schemas/base_schema/50_functions/archived_student_work_recovery.sql` `select_archived_assessment_attempts_for_recovery` returns an archived Assessment Attempt for the Course Instructor and refuses a Course that is not archived.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `archive_course_student_records` refused 2026-06-08 for Course CIH100000P, then at 2026-09-01 returned true and a later call returned false. Before that archive, `list_live_student_course_attempt_history` as Student UTJE7MSCY returned one Attempt history row and `read_course_gradebook` as Instructor U193H1VV3 returned one row, while `select_archived_assessment_attempts_for_recovery` was refused. After it, the Student history call was refused, the gradebook returned no row, and the recovery read returned Assessment Attempt a3000000-0000-0000-0000-000000000011 for Assessment AH1000006. student_data_deleted_at stayed null and the Student record remained. The Course, Accounts, released Assessment, roster, and Assessment Attempt were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` is an archived-Course deletion transition and is repeat-safe after a deleted state.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` refused a premature transition, deleted populated Student Work at the stored due time, returned false on repeat, and serialized two concurrent executors as one true transition followed by one false reread in fresh PostgreSQL actual-role proof.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL actual-role proof retaining the global Student Account, Course, Assessment, Published Question, immutable source, settings, and an unrelated Course membership after the populated Student Work was deleted.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
   - Owner: First occurrence of this exact HG bullet in the assembled checklist; its status and current audit findings apply here too.
 - [ ] FERPA retention periods are set in the server configuration.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `retention_schedule` reads ple.retention_archive_after_retention_start and the sibling retention interval settings, using defaults of 14 days, 70 days, 100 days, and 265 days.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` as ple_course_retention_executor scheduled summer CIB1000008 archive at 2025-03-13 under the 100-day default and at 2025-03-03 after ple.retention_archive_after_retention_start was set to 90 days. active_until stayed 2024-12-03. A disposable PostgreSQL session ran that check and was not kept.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Course retention processing
 
@@ -792,103 +792,103 @@
   - Evidence (source): `crates/learning-data-access/src/postgres/retention.rs` `list_due_course_retention_actions` reads `course_retention_due_actions` before the worker applies a transition.
   - Evidence (runtime): `crates/server/src/course_retention_worker.rs` `run_until_shutdown` ran as server_core --course-retention-worker on 2026-09-30. Its first sweep claimed passed warn_inactive for still-active Course CIN100000A and passed notify_archive for Course CIP100000T, whose retention_starts_at was 2026-08-21 10:41:20.955522+00 and whose Student data was not archived. The fixture had stored no notification receipts, so the worker created them. Both Courses stayed active, so that sweep did not apply mark, archive, or delete. The process logged shutdown 166 milliseconds after it selected SMTP delivery, before the 60-second repeat. The Courses, Accounts, roster, and released Assessment were inserted directly. A disposable PostgreSQL session and a local SMTP listener ran that check and were not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Retention decisions should come from stored Course dates and the Course Instance creation time.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` schedules mark_inactive at the stored active_until_at and schedules archive and delete from retention_starts_at plus the configured intervals.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` evaluated at 2026-01-01 returned summer CIB1000008 mark_inactive at 2024-12-03, archive at 2025-03-13, and delete at 2025-12-03. Those instants follow the Course created on 2024-06-03, not its 2024-07-26 term end. The read ran as ple_course_retention_executor. A disposable PostgreSQL session ran that check and was not kept.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The background process should execute retention policy rather than define when retention periods begin or end.
   - Evidence (source): `crates/server/src/course_retention_worker.rs` `run_iteration` dispatches mark_inactive, archive, and delete from the actions returned by list_due_course_retention_actions and does not compute retention intervals.
   - Evidence (source): `crates/learning-data-access/src/postgres/retention.rs` `list_due_course_retention_actions` reads course_retention_due_actions and calls the matching transition procedure.
   - Evidence (test): `crates/server/src/course_retention_worker.rs` `course_retention_delete_follows_the_course_not_the_account` passed. run_iteration executed the stored delete for one Course and did not mark that Course inactive or archive it. The test supplied that delete through a recording store and did not query PostgreSQL.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Running the retention process late should produce the same retention decision as running it on schedule.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` returns each unperformed action at its stored due_at once the evaluated instant reaches that due_at.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` stores course_became_inactive_at as the Course active_until_at.
   - Evidence (runtime): `schemas/base_schema/50_functions/course_retention.sql` `course_retention_due_actions` for Course CIR100000V printed late_warn warn_inactive=2024-11-19 00:00:00+00 after reading that due instant and six days later, and late_mark warn_inactive=2024-11-19 00:00:00+00,mark_inactive=2024-12-03 00:00:00+00 after reading active_until 2024-12-03 00:00:00+00 and twelve days later. mark_course_instance_inactive at the later instant stored course_became_inactive_at 2024-12-03 00:00:00+00. The Course, Accounts, and Student record were inserted directly. A disposable PostgreSQL session ran that check and was not kept. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The retention process should be safe to run repeatedly.
   - Evidence (source): `crates/server/src/course_retention_worker.rs` `run_iteration` claims due notices and then applies the mark, archive, and delete actions listed for that instant.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_notifications.sql` `claim_course_retention_notification` compares a due action as text and returns only an unaccepted notice receipt.
   - Evidence (source): `schemas/base_schema/50_functions/course_retention_transitions.sql` `mark_course_instance_inactive` returns false when the Course is already inactive, `archive_course_student_records` returns false when retention is archived or deleted, and `delete_course_student_records` returns false when retention is deleted.
   - Evidence (runtime): `crates/server/src/course_retention_worker.rs` `run_until_shutdown` ran twice as server_core --course-retention-worker on 2026-09-30 for Course CIS100000Z, Instructor U46SS8JCE. The first pass selected SMTP, submitted two notices, stored course_became_inactive_at 2024-12-03 00:00:00+00, and stored student_data_archived_at and student_data_deleted_at 2026-09-30 11:11:07.36+00. It left two accepted receipts, zero Student records, and no due action. The second pass selected SMTP at 2026-09-30 11:11:08.711784Z and logged shutdown at 2026-09-30 11:11:16.823664Z. It recorded no submission and no transition failure. The inactive, archive, and deletion timestamps, the two receipts, and the zero Student records stayed the same, and no due action remained. The Course, Accounts, roster, and verified Instructor email were inserted directly. A disposable PostgreSQL session and a local SMTP listener ran that check and were not kept. No Question Backend was called. The SMTP 250 response is provider acceptance, not an inbox-delivery claim.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Common revision and history specifications
 
 - [ ] Be conservative about creating revisions.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Assessments, Course Instances, and Draft Questions use current state.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `save_assessment_inline` advanced Assessment A9FM0000C from Edit Number 1 to 2 and left one current Assessment row. A later Pool import advanced that same row again. No assessment_revision relation exists.
   - Evidence (source): `schemas/base_schema/50_functions/course_operations.sql` `update_course_classification` advanced Course Instance CI9F100006 from Edit Number 1 to 2 and left one current Course row. No course_instance_revision relation exists.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `save_authoring_draft` replaced one Draft Question, advanced its Edit Number from 1 to 2, and left that one Draft row. No draft revision relation exists.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `create_question_pool` stored Pool 8K3M-J9F1 at Edit Number 1. `schemas/base_schema/50_functions/assessment_pool_forks.sql` `append_assessment_question_pool_fork_members_for_course` advanced fork Pool 8K3M-09F2 from Edit Number 1 to 2, left one Pool row, and left the member pin on Question Revision 2. No question_pool_revision relation exists.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Published Questions and Blueprint Courses use numbered Revisions for their saved content.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision_is_immutable` refused an update of Question Revision 1 on 7K3M-V9F1 and left Revisions 1 and 2 stored.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` refused an update of Blueprint Revision 1 on BP9F10000N and left Revisions 1 and 2 stored, including the original empty-module Revision 1.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Revision is a complete database record. Permitted metadata fields can change without
   creating another Revision.
   - Verification pending: Question record and reusable Pool alignment; see docs/TODO.md.
 - [ ] Use an Edit Number when current-state editing needs conflict detection.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `save_assessment_inline` requires and advances `assessment_edit_number`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] An Edit Number is only a counter and does not identify a stored historical object.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_operations.sql` `assessment_edit_number` is a current-state concurrency field rather than a revision foreign key.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Question and Blueprint Revision Numbers start at 1 and increase sequentially for each object.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stored Question Revision 1 for 7K3M-V9F1, and `publish_question_revision` stored Revision 2 on that same Published Question.
   - Evidence (source): `schemas/base_schema/50_functions/blueprint_operations.sql` `create_blueprint_course` stored Blueprint Revision 1 for BP9F10000N, and `schemas/base_schema/50_functions/course_blueprint_adoption.sql` `save_blueprint_course` stored Revision 2 for that same Blueprint Course.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Revision Number identifies a specific complete Revision record stored by PLE.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` stored Revision 2 as its own question_revision row beside Revision 1 of Published Question 7K3M-V9F1. Blueprint Revisions 1 and 2 are separate rows of Blueprint Course BP9F10000N.
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_edit_number` is the current Pool counter. The same session found no revision_number column on question_pool and no question_pool_revision relation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A new Revision keeps the same Published Question ID.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` stored Revision 2 of Published Question 7K3M-V9F1, and Revision 1 of that Question uses the same Published Question ID.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Forking a Library Object creates a new public ID.
   - Evidence (source): `crates/server/src/question_fork.rs` `fork_published_question` issues `forked_question_id` before the fork-to-Draft operation; `schemas/base_schema/50_functions/question_pools.sql` `ple_data.construct_question_pool_pin_fork` inserts the fork as a new Pool lineage with `p_public_question_pool_id`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Published Question fork starts at Revision 1 under its new ID.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `fork_published_question_to_draft` copied Revision 1 of 7K3M-V9F1 into a new Draft. `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_new_question_lineage` stored Revision 1 under new Published Question 7K3M-89F2, and question_fork_source records that source Revision. The source Question still has Revisions 1 and 2.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Question Pool fork starts at Edit Number 1 under its new ID.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork_for_ids` created Pool 8K3M-09F2 at Edit Number 1 from source Pool 8K3M-J9F1 and set source_question_pool_id to that source. question_pool keeps question_pool_edit_number, has no revision_number column, and has no question_pool_revision relation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempts.sql` `issued_question` records Attempt identity with `question_id` and `revision_number`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Student Work records the Student's responses and the grading outcome returned by the Question Backend.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` returns retained responses and grading results.
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `first_score` verifies the finalization grading outcome.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] For a Published Question selected from a Pool, Student Work records the Question Revision Tuple,
   Pool ID, and Pool Edit Number at selection time.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_start.sql` `start_assessment_attempt` stored fork Pool 8K3M-H0K4 at Edit Number 1 with Published Questions 7K3M-T0K1 and 7K3M-F0K2, both at Revision 1.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_attempt_pool_selection` returned 8K3M-H0K4:1:1:7K3M-T0K1:1 and 8K3M-H0K4:1:2:7K3M-F0K2:1, which is the Pool ID, that Edit Number, each Published Question ID, and Revision 1.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `append_assessment_question_pool_fork_members_for_course` then stored Pool Edit Number 2 and moved 7K3M-T0K1 to Revision 2. The stored selection stayed at Edit Number 1 and Revision 1. The Questions were inserted directly. The credit passed to commit was an input. No Question Backend was called.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [x] Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_finalization.sql` `normalized_credit` projection uses current points; `schemas/base_schema/50_functions/grading.sql` `score_recorded_credit` rescales stored credit. S-01 supports point edits, not removal (A-04).
   - Evidence (test): `crates/question_model/src/student_work/grading.rs` `current_points_recalculate_without_changing_recorded_credit` passed on 2026-10-04; 0.67 stored credit produces 1.34 at two points and 2.01 at three points.
@@ -896,63 +896,63 @@
 - [ ] Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` deliberately interprets retained Attempt evidence rather than current Assessment content.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Immutable Question source and Question Image Assets use SHA-256 checksums where needed to verify their stored contents.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `source_object_checksum` binds immutable Question-source contents to SHA-256 object records.
   - Evidence (source): `schemas/base_schema/20_tables/question_images.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A public-ID checksum is one embedded character derived from other ID characters.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` derives one Crockford character from the canonical ID characters.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A stored-content checksum is a full SHA-256 value verifying exact bytes.
   - Evidence (source): `crates/question_model/src/student_work/source_object_checksum.rs` `SourceObjectChecksum` accepts exactly one 64-character lowercase SHA-256 hexadecimal value.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Public-ID checksums and stored-content checksums are not interchangeable.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` embeds one Crockford checksum character, while `crates/question_model/src/student_work/source_object_checksum.rs` `SourceObjectChecksum` is a separate full-digest type with incompatible validation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
 ### Dates and time zones
 
 - [ ] Assessment deadlines are stored as instants.
   - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `due_at` stores the Assessment deadline as `timestamptz`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Instructor dates and times use the Instructor's IANA time zone.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account_time_zone_is_exact_iana` validates Instructor account zones against `pg_timezone_names`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The Instructor's time zone is used to interpret dates and times the Instructor enters.
   - Evidence (source): `crates/learning-data-access/src/postgres/assessment_release.rs` `resolve_in_account_time_zone` resolves entered release times with the account zone.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
   - Evidence (source): `crates/learning-data-access/src/postgres/assessment_release.rs` `LocalDateAndTime::from_activity_timestamp_in_account_time_zone` derives display values from stored timestamps and account zone.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Assessment deadlines are stored as absolute UTC instants.
   - Evidence (source): `schemas/base_schema/20_tables/assessment.sql` `due_at` stores that deadline as `timestamptz`, which PostgreSQL keeps as an absolute UTC instant.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Students have their own IANA time zone for displaying dates and times.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `account_time_zone_is_exact_iana` validates each Account's exact IANA time-zone preference.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] A Student's time zone defaults to the Instructor's time zone during the invite phase.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `apply_student_invitation_time_zone_default` copies the Instructor preference while pending.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_access` returns stored deadlines and separately reads `display_time_zone`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Changing a display time zone changes how a deadline is shown, not the deadline itself.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_access.sql` `read_student_assessment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] I want times in my account formatted in the selected display zone, with the zone name shown only on
   Profile.
   - Evidence (source): `src/pages/library_watch_notifications_page.tsx` `useSelectedDisplayDateTimeFormatter` formats Watch activity from the signed-in Account zone. Blueprint Course detail, Change Proposals, and library discussion use that same formatter.
@@ -960,4 +960,4 @@
   - Evidence (source): `src/format_datetime.ts` `createDisplayDateTimeFormatter` formats that zone with date and time styles and no zone name.
   - Evidence (test): `tests/test_student_time_zone.mjs` `useSelectedDisplayDateTimeFormatter` renders 2026-01-15 18:30 UTC as Jan 15, 2026, 1:30 PM in America/New_York and 10:30 AM in America/Los_Angeles, and neither string contains the zone name.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
-  - Verification pending: Current implementation audit; see docs/active_plans/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
+  - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.

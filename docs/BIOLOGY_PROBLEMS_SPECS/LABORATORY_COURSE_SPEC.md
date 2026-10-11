@@ -39,5 +39,5 @@ per topic to start, splitting long topics into parts and usually treating Hard Q
 
 This Blueprint Course comes after the first delivery; see [../FALL_2026_PILOT.md](../FALL_2026_PILOT.md).
 Module/Assessment grouping, exact selections, points, and reusable defaults are
-[Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+[Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 - Theme selection that matches the settled teal-green preference in both appearances.

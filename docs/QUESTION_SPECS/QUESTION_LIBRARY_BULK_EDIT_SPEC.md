@@ -51,7 +51,7 @@ HG records bulk editing of shared Library metadata as desired but currently defe
 Save is one all-or-none operation or several clearly reported operations. Existing Question and Pool
 commands have different field sets. Their separate transaction guarantees do not imply a single all-or-none
 request for both kinds. Keep that question explicit in
-[question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md).
+[question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md).
 
 For example, changing Tags on a selected Question and Pool affects their own Tags, not the Pool's
 members. If one write fails, the interface must accurately report what committed. Whether both
@@ -112,4 +112,4 @@ request, empty or duplicate selection, forbidden fields, bad IDs, or invalid val
 stale token or retryable transaction, and `409` for an otherwise conflicting lifecycle. Concealed
 or unauthorized selected objects also return `404`. A failed atomic command leaves all selected
 objects unchanged. A future mixed command remains deferred with Instructor bulk editing; see
-[question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md).
+[question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md).

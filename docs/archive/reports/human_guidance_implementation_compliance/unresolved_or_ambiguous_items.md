@@ -12,7 +12,7 @@ No choice here authorizes new product behavior.
   confirmation before discarding searches, and removal of Student collaboration.
   System-wide settings are deferred. The old questions below are historical audit
   readings, not a current list of unanswered questions. See
-  [HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](../../../active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
+  [HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md](../../decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
   for decisions, reasons, expressed commitment, and remaining investigations.
 - On 2026-10-04, Neil resolved former position 475: a Sysadmin vets the Instructor
   outside PLE before creating an Account with an email address. PLE sends

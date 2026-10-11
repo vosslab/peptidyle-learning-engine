@@ -15,6 +15,8 @@ use zeroize::Zeroize;
 
 use crate::auth::{SeededDemoAccount, SeededDemoConfig, SeededDemoPersona};
 
+use super::environment;
+
 const LIVE_DEMO_ACCOUNT_ID_ENV: [(SeededDemoPersona, &str, &str); 6] = [
     (
         SeededDemoPersona::ElenaInstructor,
@@ -52,7 +54,7 @@ pub(crate) fn live_demo_config_from_env() -> Result<Option<SeededDemoConfig>> {
     live_demo_config_from_environment_values(|name| std::env::var(name).ok())
 }
 
-pub(crate) fn live_demo_config_from_environment_values(
+fn live_demo_config_from_environment_values(
     mut value_for: impl FnMut(&str) -> Option<String>,
 ) -> Result<Option<SeededDemoConfig>> {
     // ASVS 2.2.1 and 16.5.2: each trusted deployment value is independently
@@ -68,7 +70,7 @@ pub(crate) fn live_demo_config_from_environment_values(
     live_demo_config_from_account_mappings(configured)
 }
 
-pub(crate) fn live_demo_config_from_account_mappings(
+fn live_demo_config_from_account_mappings(
     configured: Vec<(SeededDemoPersona, AccountId, &'static str)>,
 ) -> Result<Option<SeededDemoConfig>> {
     let duplicate_accounts = configured.iter().fold(
@@ -89,14 +91,6 @@ pub(crate) fn live_demo_config_from_account_mappings(
     (!accounts.is_empty())
         .then(|| SeededDemoConfig::new(accounts).map_err(anyhow::Error::msg))
         .transpose()
-}
-
-pub(crate) fn required_env(name: &str) -> Result<String> {
-    let value = std::env::var(name).with_context(|| format!("{name} must be set"))?;
-    if value.is_empty() {
-        bail!("{name} must not be empty");
-    }
-    Ok(value)
 }
 
 /// Creates the local-only store after the controller has supplied both
@@ -142,7 +136,7 @@ pub(crate) fn local_sysadmin_totp_store_from_env(
 /// data has created Morgan's active Sysadmin Account. The process mode has no
 /// listener or browser surface. ASVS 2.3.1 and 6.4.1.
 pub async fn provision_local_sysadmin_totp_from_env() -> Result<()> {
-    let database_url = required_env("DATABASE_URL")?;
+    let database_url = environment::required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
         local_development_pool(&database_url, ProductionLoginProfile::Api)
@@ -155,17 +149,65 @@ pub async fn provision_local_sysadmin_totp_from_env() -> Result<()> {
         .context("the attested API database pool could not connect")?;
     let store = local_sysadmin_totp_store_from_env(pool)?
         .ok_or_else(|| anyhow::anyhow!("local Sysadmin TOTP material is not configured"))?;
-    let seed_path = required_env("PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE")?;
+    let seed_path = environment::required_env("PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE")?;
     let mut seed_bytes =
         std::fs::read(seed_path).context("could not read the local Sysadmin TOTP seed")?;
     let seed = SysadminTotpSeed::from_csprng_bytes(std::mem::take(&mut seed_bytes))
         .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP seed is invalid"))?;
     seed_bytes.zeroize();
-    let account = AccountId::new(required_env("PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID")?)
-        .map_err(|_| anyhow::anyhow!("Morgan local Sysadmin Account ID is invalid"))?;
+    let account = AccountId::new(environment::required_env(
+        "PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
+    )?)
+    .map_err(|_| anyhow::anyhow!("Morgan local Sysadmin Account ID is invalid"))?;
     store
         .provision_sysadmin_totp_seed(account, seed)
         .await
         .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP seed provisioning failed"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn malformed_and_duplicate_mappings_preserve_only_unambiguous_demo_personas() {
+        let elena = "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID";
+        let mary = "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID";
+        let morgan = "PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID";
+        let first = AccountId::from_debug_serial(1).as_string();
+        let second = AccountId::from_debug_serial(2).as_string();
+        for (values, expected_unavailable) in [
+            (
+                BTreeMap::from([
+                    (elena, first.clone()),
+                    (mary, "not-an-account-id".to_owned()),
+                    (morgan, second.clone()),
+                ]),
+                Some(4),
+            ),
+            (
+                BTreeMap::from([
+                    (elena, first.clone()),
+                    (mary, first.clone()),
+                    (morgan, second),
+                ]),
+                Some(5),
+            ),
+            (
+                BTreeMap::from([(elena, first.clone()), (mary, first)]),
+                None,
+            ),
+        ] {
+            let config = live_demo_config_from_environment_values(|name| values.get(name).cloned())
+                .expect("independent deployment values should parse");
+            assert_eq!(
+                config
+                    .as_ref()
+                    .map(SeededDemoConfig::unavailable_account_count),
+                expected_unavailable,
+            );
+        }
+    }
 }

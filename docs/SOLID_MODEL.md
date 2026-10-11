@@ -13,7 +13,7 @@ complete inventory of every route-local signal.
 | Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before Question Response Controls render. Consumers read context; fallback validation stays behind the same facade.                                   |
 | Route scope data                     | Route resource and context                   | `RouteScopeProvider`                    | One route-owned query loads authorized Course or Attempt data for the current route. Descendants consume it without a second transport request.                                              |
 | Resolved appearance                  | Memos, resource, and render effect           | `AppearanceOwner`                       | The owner resolves Course, personal Instructor, and default Themes with the independent display mode, then writes the result to `<html>`.                                                    |
-| PLE Question JSON Draft Question     | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`             | The author editor keeps private source, Edit Number, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                          |
+| PLE Question JSON Draft Question     | Signals, memos, effects, and `<For>`         | `createQuestionJsonEditorController` in [question_json_editor_controller.ts](../src/features/ple_question_json_authoring/question_json_editor_controller.ts) | The page creates the controller, which coordinates private source, Edit Number, review, status, and locks. Reducers replace the explicit editor state; derived source/errors stay memos. |
 | Student-equivalent author preview    | Signal and answer-free Question Preview      | `PleQuestionJsonPreview`                | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check. |
 | iMathAS Question Backend Launch      | Signals, refs, effect, and lifecycle cleanup | `ImathasQuestionBackendResponseControl` | The browser receives a same-origin launch path only after activation. Readiness is presentation state; it cannot provide a score, backend identity, or grading input.                       |
 | Route-local screens                  | Signals or router `createAsync` resources    | Owning route                            | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                             |
@@ -44,8 +44,8 @@ One-time DOM setup belongs in `onMount`. Every timer, subscription, listener, ob
 browser resource registers teardown with `onCleanup`. An `onMount` callback never returns a cleanup
 function.
 
-The app owns one Wasm loader resource at startup. Route components read the shared facade from
-context; they do not instantiate modules independently. The same ownership rule applies to the API
+The app owns one PLE Wasm loader resource at startup. Route components read the shared facade from
+context. The separate QPM conversion package loads only when Import opens. The same ownership rule applies to the API
 runtime and session bootstrap. `ImathasQuestionBackendResponseControl` installs the same-origin `message` listener during component initialization and removes it
 on disposal; a request counter rejects late launch results after a new attempt or disposal.
 
@@ -68,11 +68,12 @@ Authoring Workspace access before returning any draft; the current routes are li
 [API_CONTRACTS.md](API_CONTRACTS.md). The answer-free preview remains separate, and private author
 source does not enter Student components, URLs, browser storage, or diagnostics.
 
-QTI profile import is composed with the same browser editor model. Its future server route accepts
-opaque ZIP bytes for review and returns queued, processing, failed, unsupported-profile, or
-answer-free ready-report state. The supported conversion profiles are bounded; the browser does
-not parse ZIP/XML, choose a conversion result, or persist QTI Import Checksums. The available implementation
-must require a reviewed accepted item and a clean visible draft before conversion and refetch.
+Question import loads vendored QPM WASM when the Instructor opens Import from My Draft Questions.
+QPM parses supported files locally and returns Native JSON and conversion warnings. The browser
+checks each item's display content for images, skips those items until inline-image binding is
+available, and saves the remaining items sequentially through the existing Draft API. The results
+list retains created Draft links, server rejections, skipped reasons, and individual request
+failures. Each Draft uses the ordinary editor, preview, and publication workflow.
 
 Each route has an error boundary through the app shell so a screen failure leaves navigation usable.
 Documented slices must show loading, error/recovery, empty where applicable, and ready states rather
@@ -112,22 +113,22 @@ ordinary PLE flow.
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                                  |
 | Appearance presentation from authorized route data and Account settings           | Course identity, Account appearance persistence, Banner-object authorization, and independent mutation decisions                     |
-| Question authoring state and local QTI archive selection                         | Complete Question Source persistence, publication review, backend evaluation, and feedback disclosure                                |
-| QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, QTI Import Checksums, and atomic draft replacement |
+| Question authoring state and local question-bank selection                         | Complete Question Source persistence, publication review, backend evaluation, and feedback disclosure                                |
+| QPM parsing and conversion, warnings, per-question image checks, and import results | Existing Draft authorization and storage; Native JSON acceptance in preview and publication |
 | iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording            |
 | Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                                 |
 
 The Assessment Question owns points; the Assessment owns Attempt limits,
 timing, and disclosure. The Question Backend owns credit, and the whole
 Assessment Attempt owns submission.
-The same browser/server ownership split applies to every registered Question Backend; QTI Import maps
-accepted items into PLE Question JSON before the shared Draft Question and publication operations.
+The same browser/server ownership split applies to every registered Question Backend. QPM emits
+Native JSON before the existing Draft Question and publication operations.
 
 Everything crossing the browser boundary is JSON-serializable except browser-local `File`, DOM ref,
 and object-URL state, which never crosses it. The generated client surface derives from
 `crates/question_model`; answer-bearing `crates/grading` types never enter it. The iMathAS Question Backend
-launch DTO is intentionally only a same-origin path, never a provider URL, token, score, source,
-or QTI Import Package Checksum record. Protected database functions remain narrow and subject to
+launch DTO is intentionally only a same-origin path, never a provider URL, token, score, or source.
+Protected database functions remain narrow and subject to
 forced RLS; see `docs/DATABASE_AUTHORIZATION.md#row-level-security` and
 `docs/ADAPTER_DEVELOPMENT.md`.
 
@@ -136,11 +137,11 @@ forced RLS; see `docs/DATABASE_AUTHORIZATION.md#row-level-security` and
 Slice tests must prove observable behavior rather than only construction:
 
 - changing one selected response updates its control and live status without recreating the Question Response Control;
-- `<For>` keeps identity for choices, draft rows, and QTI report items;
+- `<For>` keeps identity for choices, draft rows, and import results;
 - a course route loads one authorized `CourseRouteView` and drops it on navigation;
 - the native preview remains answer-free until an instructor explicitly opens the protected check;
-- QTI conversion rejects a dirty or unavailable draft and leaves the editor locked only during the
-  replacement/refetch handoff;
+- imported questions use the ordinary saved Draft preview, while each request failure leaves
+  earlier results intact and permits later saves;
 - an external iframe accepts readiness only from its own same-origin frame and cleanup removes its
   listener; and
 - application disposal leaves no timer, listener, or object URL owned by these slices.

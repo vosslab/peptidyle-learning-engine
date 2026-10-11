@@ -11,21 +11,21 @@ are in [ROADMAP.md](ROADMAP.md).
 
 The approved 29-milestone Question-spec implementation is complete locally. All 35 scoped
 behaviors below have decisive evidence and passed M29 integration acceptance. Per-item evidence and
-independent reviews are in the [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
-The inventory, dependencies, and acceptance criteria are in the [implementation plan](active_plans/active/question_spec_implementation_plan.md)
-and [execution ledger](active_plans/reports/question_spec_implementation_ledger.md). A milestone is
+independent reviews are in the [implementation ledger](archive/reports/question_spec_implementation_ledger.md).
+The inventory, dependencies, and acceptance criteria are in the [implementation plan](archive/question_spec_implementation_plan.md)
+and [execution ledger](archive/reports/question_spec_implementation_ledger.md). A milestone is
 accepted only after its listed dependencies and evidence gates pass. Existing deferred decisions
-remain in the [decision log](active_plans/decisions/question_spec_implementation_uncertainties.md).
+remain in the [decision log](archive/decisions/question_spec_implementation_uncertainties.md).
 Neil chose to retain the already-written removal of "Used in my Courses"; offline checks passed. The
 finding-by-finding reconciliation is in the
-[decision review](active_plans/reports/QUESTION_SPEC_SETTLED_DECISIONS_REVIEW_2026_10_05.md#implementation-follow-up-reconciliation).
+[decision review](archive/reports/QUESTION_SPEC_SETTLED_DECISIONS_REVIEW_2026_10_05.md#implementation-follow-up-reconciliation).
 
 - [x] Align implementation names with PLE product vocabulary across SQL, Rust, TypeScript, JSON,
       API routes, clients, tests, and generated contracts. Blueprint Course Revision Tuple names
-      are implemented; see the [M02 verification report](active_plans/reports/question_spec_m02_tuple_names.md).
+      are implemented; see the [M02 verification report](archive/reports/question_spec_m02_tuple_names.md).
       The combined Library route `/api/library-objects/search`, `questions`, and
       `PublishedQuestionFilter` now use Library Object and Questions in no Pool names across the
-      producers and consumers. See the [M24 results report](active_plans/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
+      producers and consumers. See the [M24 results report](archive/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
       PLE is pre-production; change the design directly. Sources:
       [question_search.rs](../crates/question_model/src/question_search.rs) and
       [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs).
@@ -36,8 +36,8 @@ finding-by-finding reconciliation is in the
       separate. Watch events carry Question Revision Number or Pool Edit Number across SQL, Rust,
       API, and TypeScript. Source/review and all three connected Watch selectors pass in the
       canonical database baseline. See the
-      [M14 removal report](active_plans/reports/QUESTION_SPEC_M14_NOTICES.md) and current
-      [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+      [M14 removal report](archive/reports/QUESTION_SPEC_M14_NOTICES.md) and current
+      [implementation ledger](archive/reports/question_spec_implementation_ledger.md).
 
 - [x] When the set of Question Revision Tuples in a Pool changes, saving advances
       the Pool's Edit Number (R04).
@@ -50,7 +50,7 @@ finding-by-finding reconciliation is in the
       Evidence: [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql),
       [question_pool_create_dialog.tsx](../src/components/question_pool_create_dialog.tsx), and
       [test_question_pool_creation_client.mjs](../tests/test_question_pool_creation_client.mjs).
-      Order-correction implementation and evidence: [M09 order correction report](active_plans/reports/QUESTION_SPEC_M09_ORDER_CORRECTION.md).
+      Order-correction implementation and evidence: [M09 order correction report](archive/reports/QUESTION_SPEC_M09_ORDER_CORRECTION.md).
       Verify that valid members save without an additional certification input.
       The ordinary Owner/Sysadmin Pool editor now has Add/Remove/Save and local table sorting. Its
       isolated Playwright check verifies that sorting an edited draft leaves its exact Save tuple
@@ -84,21 +84,21 @@ finding-by-finding reconciliation is in the
       Questions are read-only, outside normal discovery, preserved with existing references,
       and available to restore or fork. The permitted production-browser authoring scenario now
       verifies read-only state, discovery exclusion, retained source tuple/metadata on fork,
-      restoration, and return to discovery; see the [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+      restoration, and return to discovery; see the [implementation ledger](archive/reports/question_spec_implementation_ledger.md).
 - [x] Complete the remaining Question Pool acceptance gates. M09-M11 source work is complete:
       Pool storage uses exact Question Revision Tuples; Assessments and Blueprint/Course operations
       preserve ordinary Pool IDs with Assessment-local counts; only explicit ordinary Pool forks
       copy current metadata, including both Bloom dimensions; and Attempts retain their exact
-      selected Question Revision Tuples. See the [M09 Pool storage report](active_plans/reports/QUESTION_SPEC_M09_POOL_STORAGE.md),
-      [M10 Pool references report](active_plans/reports/QUESTION_SPEC_M10_POOL_REFERENCES.md), and
-      [M11 Pool operations report](active_plans/reports/QUESTION_SPEC_M11_POOL_OPERATIONS.md).
+      selected Question Revision Tuples. See the [M09 Pool storage report](archive/reports/QUESTION_SPEC_M09_POOL_STORAGE.md),
+      [M10 Pool references report](archive/reports/QUESTION_SPEC_M10_POOL_REFERENCES.md), and
+      [M11 Pool operations report](archive/reports/QUESTION_SPEC_M11_POOL_OPERATIONS.md).
       Connected Pool Save/editor, shared-reference/API readback, Blueprint persistence/adoption/update,
       explicit fork independence, and issued-tuple fairness checks pass. M12 request-count,
       classification mismatch, and release-blocking runtime proofs also pass. M04/M05/M06 specific
       criteria also pass; the connected Native metadata, Pool Bloom, and non-owner permission proof
       is in `output_question_spec/final_proofs/metadata_nonowner_proof_origin_20261007.log`.
       Fresh database and final integration acceptance passed under M29; see the
-      [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+      [implementation ledger](archive/reports/question_spec_implementation_ledger.md).
 - [x] Align Question statistics with the agreed measures: times received by Students,
       graded-response count, average stored credit, full-credit percentage, and zero-credit
       percentage. Preserve per-Revision/per-Pool storage and existing privacy requirements.
@@ -114,7 +114,7 @@ finding-by-finding reconciliation is in the
       `output_question_spec/m23_available_final_20261007.log`. The final UI proof stores 0.5 credit
       while awarding zero points with partial credit disabled; separate scoring/display proof covers
       all five Native formats. Remaining status follows M11 dependency criteria in the
-      [implementation ledger](active_plans/reports/question_spec_implementation_ledger.md).
+      [implementation ledger](archive/reports/question_spec_implementation_ledger.md).
       Pool statistics accumulate from Questions delivered through that Pool, including across
       changes to its set of Question Revision Tuples. Preserve privacy-safe aggregation and
       ordinary duplicate-count protection. Verify
@@ -150,7 +150,7 @@ finding-by-finding reconciliation is in the
       update source examples, import/export callers, fixtures, and tests. Verify that a metadata
       correction appears consistently in detail and search without changing source or Revision.
       Native JSON holds the Backend's rendering, response, and grading material. Q31 records
-      the decision in the [question log](active_plans/decisions/question_specs_open_questions.md).
+      the decision in the [question log](archive/decisions/question_specs_open_questions.md).
       Connected M04 evidence passes Native detail/search with unchanged source/Revision Tuple and
       supplied-language publication in `output_question_spec/final_proofs/metadata_nonowner_proof_origin_20261007.log`.
 - [x] Verify ordinary nullable Bloom metadata edits and Assessment sorting. Current Question and
@@ -171,7 +171,7 @@ finding-by-finding reconciliation is in the
       counts, removing the special Assessment-owned Pool association and its fork-only API/editor
       paths. The connected selector proves two Assessments save and read back the same direct Pool ID
       at counts 1 and 2 while the Pool owner remains unchanged (`03_course_pool_forks.sql` 390-471);
-      see the [M10 Pool references report](active_plans/reports/QUESTION_SPEC_M10_POOL_REFERENCES.md).
+      see the [M10 Pool references report](archive/reports/QUESTION_SPEC_M10_POOL_REFERENCES.md).
 - [x] Store Question and Blueprint parent references with the ordinary object records. Fold
       `question_fork_source`, `draft_question_fork_source`, and `blueprint_course_fork` into their
       respective ordinary records, retaining the exact source Revision where applicable and
@@ -184,7 +184,7 @@ finding-by-finding reconciliation is in the
       The audit separates this concern from the confirmed Assessment Pool ownership error.
 - [x] Preserve all current Pool metadata during an explicit fork, including both Bloom dimensions.
       M11 implementation and review evidence are in the
-      [M11 Pool operations report](active_plans/reports/QUESTION_SPEC_M11_POOL_OPERATIONS.md);
+      [M11 Pool operations report](archive/reports/QUESTION_SPEC_M11_POOL_OPERATIONS.md);
       connected PostgreSQL checks also prove Edit Number 1, exact tuple copy, both Bloom dimensions,
       and independent parent/fork membership (`04_blueprint_pool_forks.sql` 259-325).
 - [x] Allow corrections to Backend Question Type classification as ordinary metadata edits and
@@ -262,7 +262,7 @@ finding-by-finding reconciliation is in the
       change the Course Theme independently. Audit the existing create/adopt path and add the
       missing Blueprint Theme support. See [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](BLUEPRINT_COURSE_IMPORT_API_SPEC.md).
 - [x] Carry shared Library Object fields through the combined result and browser rows. The
-      [Library Object audit](active_plans/audits/library_object_documentation_audit_2026_10_05.md)
+      [Library Object audit](archive/audits/library_object_documentation_audit_2026_10_05.md)
       records missing Question owner, Type, Backend, and Tags in the browser row and different
       shapes for common fields. Align the Rust/API/decoder/row/display boundary with
       [LIBRARY_OBJECT_SPEC.md](QUESTION_SPECS/LIBRARY_OBJECT_SPEC.md); retain kind-specific Revision
@@ -288,7 +288,7 @@ finding-by-finding reconciliation is in the
       filter normalization. The targeted source trace found no remaining saved-search callers or
       persistent prompt/result storage; useful parsing/round-trip checks remain. Fresh-schema filter
       and pagination checks and temporary search discard/reopen pass. See the
-      [M25 report](active_plans/reports/QUESTION_SPEC_M25_SEARCH_STORAGE.md); final integration
+      [M25 report](archive/reports/QUESTION_SPEC_M25_SEARCH_STORAGE.md); final integration
       review passed under M29.
 - [x] Verify the revised filter schema with the existing Question Library filtering and pagination
       selector. `question_library_search_filters_and_pages_in_postgresql` and its mixed-search matrix
@@ -302,26 +302,30 @@ finding-by-finding reconciliation is in the
 
 ## Future product capabilities
 
-- [ ] Integrate imports that accept Native JSON directly from qti-package-maker-rs.
-      Bind verified image bytes to the existing QuestionImageAssetTuple (logical asset ID and
-      SHA-256 checksum) and make the corresponding asset available through existing Draft storage.
-      Preserve that logical identity independently of physical object-store identity, and save
-      Question metadata through the ordinary Draft metadata path. Reuse existing import and asset
-      storage; prefer assets alongside text-only JSON over a ZIP package. This is separate future
-      integration work; it does not reopen the accepted 29-milestone Question-spec implementation.
-      Preserve and display authored HTML with inline CSS in Native JSON display content through
-      authoring, preview, and live prompt, choice, and response rendering. For ordinary HTML image
-      references relative to supplied import files, locate, verify, hash, and store the bytes, then
-      bind them to the existing QuestionImageAssetTuple; the import path is not persisted identity,
-      and the converter need not know PLE asset IDs. Add focused visual behavior checks for prompt and
-      choice images when implemented. Current text escaping is implementation drift. Current
-      publication binds one HOTSPOT surface image and does not enumerate ordinary prompt and choice
-      image references. The HOTSPOT converter-side pre-binding shape is a shared implementation
-      question; keep using the existing asset model, with PLE computing or verifying the tuple
-      checksum. Transport details and final stored HTML `src` syntax remain implementation work;
-      sanitization details are deferred. Existing
-      author-JavaScript isolation and RDKit rules remain in force.
-      See [Native JSON converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md).
+- [x] Integrate QPM as a vendored browser WASM distribution and save emitted Native JSON through
+      the existing Draft API. Import uses ordinary metadata defaults; preview and publication own
+      Native JSON validation. Each request has its own result and failures do not stop later items.
+- [ ] Bind imported inline-image references through existing Draft image storage and the
+      QuestionImageAssetTuple. Currently the importer detects images per question and skips the
+      affected item before creating a Draft. Shared package media does not skip unrelated questions.
+      Future binding must locate, verify, hash, and store referenced bytes, preserving logical image
+      identity separately from physical object identity. The converter does not mint PLE IDs.
+      Final stored HTML `src` syntax and multi-image publication remain deferred.
+- [ ] Display preserved HTML and inline CSS in Native JSON authoring, preview, and published prompt,
+      choice, and response content. Current text escaping remains implementation drift. Verify prompt
+      and choice images visually when image binding is implemented. Sanitization detail remains
+      deferred; existing author-JavaScript isolation and RDKit rules stay in force.
+- [ ] Add and verify Canvas QTI 1.2 and Blackboard QTI 2.1 readers upstream before offering these
+      formats in Import. The vendored QPM registry exposes both as writers only. Current readers are
+      BBQ, text2qti, Oklahoma, and Blackboard export ZIP. Reader work belongs in a separate upstream
+      plan with independent agent review and automated import checks; PLE does not add a second
+      converter. This deferred work does not gate the completed supported-bank integration.
+- [ ] Revisit QPM's XML-compatible source HTML restriction upstream if ordinary HTML banks require
+      it. An unclosed HTML `img` tag currently produces a QPM warning and drops that source item.
+      PLE shows QPM's warnings; changing stable parser behavior is outside this integration.
+- HOTSPOT is outside QPM integration. Its existing PLE GUI owns image upload, region editing, and
+  correct-region selection. See [Design Decisions](DESIGN_DECISIONS.md#hotspot-authoring-stays-in-ple)
+  and the [Native JSON converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md).
 - [ ] Configure an external email provider and verify inbox delivery for the
       implemented SMTP email-code sign-in path. The optional Gmail API adapter
       remains future work under

@@ -57,6 +57,6 @@ per topic to start, splitting long topics into parts and usually treating Hard Q
 
 
 Assessment grouping, selected problem sets, points, Pool use, and reusable defaults are
-[Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+[Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 Course classification and final Theme review are normal Course-definition work, not an implied
 mapping from this source inventory.

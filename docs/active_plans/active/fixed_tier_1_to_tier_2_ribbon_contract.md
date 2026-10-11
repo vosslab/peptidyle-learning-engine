@@ -1,5 +1,20 @@
 # Fixed Tier 1 -> Tier 2 Ribbon Contract
 
+## Current execution and acceptance
+
+The September 29 receipts in [CHANGELOG-2026-09r.md](../../CHANGELOG-2026-09r.md) already record
+fixed Instructor rows, My Questions, Starred, and answer-free Student View. Begin by checking
+current route reachability and the remaining Instructor investigation below; preserve accepted
+behavior and implement only demonstrated gaps. This retained plan owns that final reconciliation,
+not a second navigation redesign.
+
+The manager and fresh implementation/test/review agents complete the plan using local seeded
+Accounts, automated route and keyboard journeys, and independent screenshot assessment. An
+independent architect agent resolves the Assessment-row and Student View choices from existing
+guidance and observed tasks; when no improvement is justified, retain the settled row and preview
+as already specified below. Failed checks return to the owning agent for correction and focused
+re-verification. No milestone depends on human approval, a participant study, or production access.
+
 > Only the Student Tier 2 investigation in this plan is superseded by the approved
 > [Student Progress and Response Stats plan](../../archive/STUDENT_PROGRESS_RESPONSE_STATS_PLAN.md) and
 > [Human Guidance](../../HUMAN_GUIDANCE.md).

@@ -57,8 +57,8 @@ Use the following sequence for a question-agnostic adapter.
    owning Draft Question or Question Revision. Record the Question Backend separately,
    with only its exact backend-specific reference when one is required, such as a WeBWorK PG Path
    or `ImathasQuestionBackendBinding`. Keep credentials and mutable locations outside the stored
-   relationship. QTI package and item references belong to Workspace Import evidence; an accepted
-   QTI item becomes PLE Question JSON before this Question Source boundary.
+   relationship. Browser QPM conversion emits PLE Question JSON before this Question Source
+   boundary; source-package identifiers do not become PLE identities.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
    media type, Question License, Source Object ID and Source Object Checksum, immutable
    Question Revision binding, and any required assets.
@@ -133,7 +133,6 @@ needed, correlate and verify it with server-held attempt state before it becomes
 | Adapter           | Implemented behavior                                                                                                                                                         | Current boundary and status                                                                                                                                              |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                     | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain open.                                      |
-| QTI Import        | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, and PLE Question JSON mapping      | The accepted static-import boundary deliberately supports only those profiles. Accepted items use the PLE Question Backend after conversion.                             |
 | iMathAS           | Exact immutable Question Source/Revision evidence, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed. |
 | WeBWorK           | Private standalone `/render-api` Question Backend client, exact attempt-bound backend document, generic ordered-pair capture, server-only grading, and private stateless container | WeBWorK owns PG controls and grading semantics. PLE retains the document, response, lifecycle, and outcome without projecting PGML or inferring a Question Type. |
 
@@ -141,6 +140,10 @@ For the exact current WeBWorK protocol, configuration ownership, and required ev
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md). The author declares the
 educational Question Type on the immutable Published Question Revision; PLE never derives it from
 PG controls or the returned document.
+
+Question-bank conversion uses vendored QPM in the Instructor's browser. The unused server-side QTI
+adapter was removed. Readable QPM banks become Native JSON Drafts through the existing API; see
+[the converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md).
 
 ## Conformance and acceptance gates
 

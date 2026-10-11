@@ -3,7 +3,7 @@
 This is PLE's target route-level HTTP contract. It follows
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Generic teaching objects are Assessments.
 Assignment appears only in the three Assessment Type names. Blueprint lifecycle
-states are Private, Public, and Archived. [composition.rs](../crates/server/src/composition.rs)
+states are Private, Public, and Archived. [api_assembly.rs](../crates/server/src/composition/api_assembly.rs)
 composes the currently executable route surface.
 
 [CONTRACTS.md](CONTRACTS.md) owns module boundaries,
@@ -97,7 +97,7 @@ Question availability belongs to the stable Question identity, separate from imm
 Revisions. Exact authorized historical references remain resolvable after archival. Question
 Revision references use `{ publishedQuestionId, revisionNumber }`; Pool references use their
 Pool ID and Pool Edit Number, not a Pool Revision family. Implementation differences and evidence
-limits are in [question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md).
+limits are in [question_specs_alignment_report.md](archive/reports/question_specs_alignment_report.md).
 
 ## Blueprint Courses
 

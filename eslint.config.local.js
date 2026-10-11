@@ -45,6 +45,7 @@ export default [
       "crates/**",
       "target/**",
       "dist_wasm/**",
+      "assets/qpm_wasm/**",
       "containers/**",
       "generated/wasm-export-check/**",
       // The current RDKit browser runtime is copied and byte-verified by

@@ -75,7 +75,7 @@ Use the repository's precise capability vocabulary in evidence and review:
 
 6. **Register the production Server Route.** Add the handler to the production composition and bind
    the typed browser operation to that handler. The production registration point is
-   [server composition](../../crates/server/src/composition.rs). Record the handler's exact
+   [server composition](../../crates/server/src/composition/api_assembly.rs). Record the handler's exact
    symbol/path, request contract, service owner, Store owner, authorization rule, and expected
    failure mapping. Only after this registration and usable request boundary may evidence say that
    a Server Route exists.
@@ -155,7 +155,7 @@ future destination.
 | User Role and authorization              | [Route access boundary](../../src/route_access_boundary.tsx), named server authorization owner, and relationship rule if applicable.                                                     |
 | Typed browser method                        | [API client](../../src/api/client.ts), request/response contract and decoder location, plus [application API](../../src/api/application_api.tsx) query key if cached.                    |
 | Service and Store                           | [Contract register](../CONTRACTS.md), exact Service module/symbol, exact Store module/symbol, and service/Store evidence.                                                                |
-| Server Route                                | [Production composition](../../crates/server/src/composition.rs), exact handler symbol, request mapping, and failure mapping; or explicit no-server-call justification.                  |
+| Server Route                                | [Production composition](../../crates/server/src/composition/api_assembly.rs), exact handler symbol, request mapping, and failure mapping; or explicit no-server-call justification.                  |
 | Complete usable-path evidence               | Exact focused test or disposable acceptance command/result and browser scenario where available, including permitted and denied/recovery outcomes.                                       |
 | Registry admission                          | [Capability registry](../../src/ribbon/capability_registry.ts) entry id, `RouteId`, client method, handler/no-server evidence, relationship requirement, and ledger regeneration result. |
 | Shell and accessibility                     | [Ribbon model](../../src/ribbon/ribbon_contract.ts), [Application Shell](../../src/application_shell.tsx), browser evidence, and responsive/forced-colors/reduced-motion review record.  |

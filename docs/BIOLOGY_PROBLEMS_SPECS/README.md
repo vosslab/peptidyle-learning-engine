@@ -14,7 +14,7 @@ the primary authorities. The local source mirror is
 3. Read [BIOLOGY_PROBLEMS_COURSE_IMPORT_SPEC.md](BIOLOGY_PROBLEMS_COURSE_IMPORT_SPEC.md) for
    base Blueprint Course assembly.
 4. Read the applicable Course file for its source inventory, then
-   [question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md)
+   [question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md)
    for unresolved Course decisions.
 
 ## Source-course inventory

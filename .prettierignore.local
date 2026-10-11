@@ -2,3 +2,4 @@
 # This file is shipped once and never overwritten by propagation.
 # Add repository-specific Prettier exclusions here.
 assets/author-content-dependencies/**
+assets/qpm_wasm/**

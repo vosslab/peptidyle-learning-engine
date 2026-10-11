@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "9e4674c81d0381dc5086450db7b66b0cb608b115",
+  "sourcePath": "packages/qti-wasm/dist",
+  "provenanceNote": "Local built artifacts; sourceCommit records the checkout HEAD. Artifact hashes identify consumed bytes.",
+  "sha256": {
+    "LICENSE.LGPL-3.0": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+    "generated/package.json": "fe66b9570aace04576d57be2957fdc673a9360e0ce4145ce7ea1d8511dafd1be",
+    "generated/qti_wasm.d.ts": "4af59593611c021f6adaec62a824f2cb8e7af98b0685a1c94e425e65a2017aeb",
+    "generated/qti_wasm.js": "6127a5472a771ab65847b1bd1fff67716aa84dfbc9f850852fde30910eeb46bf",
+    "generated/qti_wasm_bg.wasm": "a67e76859284a2513371943d5eccaef0278f8a1198f1c9c021ef94f56144c0d6",
+    "generated/qti_wasm_bg.wasm.d.ts": "3e3afa6ca7c4402be8ecba824e7924f23ae7264d2eecb3b78eb498000903d094",
+    "src/index.d.ts": "8fe6396423de05078cd8a8e2dcf63e092fad54a955b5f41f89af0ded84fa2bd9",
+    "src/index.js": "f36b74b7db161ebbb6d372ee474f812e01b43a3682ba0dd7ee68dcf55668cafd"
+  }
+}

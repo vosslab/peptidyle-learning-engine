@@ -26,6 +26,48 @@ plans are evidence about implementation or history; they do not override it.
 
 ## Product model
 
+### QPM is a vendored browser WASM distribution; QPM converts, PLE's decoder accepts
+
+**Decision.** Ship QPM's browser distribution in `assets/qpm_wasm/`, including its license,
+checkout commit and artifact hashes. Load it when the Instructor opens Import from My Draft
+Questions. QPM parses and validates source banks locally and emits Native JSON. PLE saves each
+image-free item through the existing Draft API, with ordinary metadata defaults. Its existing
+Native JSON decoder validates content for preview and publication; a created Draft means saved.
+
+**Why.** Reuse QPM's conversion engines and PLE's authoring workflow while keeping the projects
+independent and avoiding server-side conversion work.
+
+Use QPM for software and integration names: `assets/qpm_wasm/`,
+`devel/vendor_qpm_wasm.py`, and `dist/wasm/qpm-<hash>/`. Reserve QTI for the assessment standard
+and QTI-specific functionality. Preserve upstream-generated filenames inside the vendored package.
+Vendor the wrapper, generated runtime, type declarations, and license; exclude upstream demo apps.
+
+**Consequence.** Show conversion warnings and one result per emitted item. Inspect images in each
+question's display content; shared package media does not make unrelated questions image-bearing.
+Skip affected questions before creating Drafts until inline-image binding exists. An individual
+HTTP rejection or request failure preserves earlier successes and permits later saves, without
+automatic retry. Readable formats come from QPM's registry. New readers and broader HTML rendering
+remain separate work.
+
+**Owner.** [Import screen](../src/pages/question_import_screen.tsx),
+[Native JSON specification](QUESTION_SPECS/NATIVE_JSON_SPEC.md), and
+[converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md).
+
+### HOTSPOT authoring stays in PLE
+
+**Decision.** HOTSPOT is outside QPM import. PLE's existing Native JSON Draft editor owns HOTSPOT
+image upload, region editing, and correct-region selection through ordinary authoring, preview,
+and publication.
+
+**Why.** PLE already owns these interactions and its Question image identities. The seven-kind
+QPM import does not need a converter-side HOTSPOT representation or new image-binding workflow.
+
+**Consequence.** Create HOTSPOT questions with the PLE editor. Inline-image import remains deferred;
+that limitation neither removes existing HOTSPOT authoring nor creates QPM HOTSPOT work.
+
+**Owner.** [HOTSPOT editor](../src/features/ple_question_json_authoring/question_json_hotspot_editor.tsx)
+and [Native JSON specification](QUESTION_SPECS/NATIVE_JSON_SPEC.md).
+
 ### Assessment is the generic activity object
 
 **Decision.** PLE calls the generic object an Assessment. Assignment is not an
@@ -473,7 +515,7 @@ Revisions, Pool membership edits, and forks. The existing Change Proposal guidan
 separate from notices.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-library-stewardship-specifications)
-and the [interview follow-up](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md).
+and the [interview follow-up](archive/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md).
 
 ### Public Question and Pool IDs are checked human references
 
@@ -1860,7 +1902,7 @@ released when a problem develops continue as-is. Per-Question uniqueness and rem
 ordering and admission-only classification checks still require implementation alignment.
 A role-typed composite foreign key enforces Instructor ownership. See
 [QUESTION_POOL_SPEC.md](QUESTION_SPECS/QUESTION_POOL_SPEC.md) for the product boundary and
-[question_specs_alignment_report.md](active_plans/reports/question_specs_alignment_report.md)
+[question_specs_alignment_report.md](archive/reports/question_specs_alignment_report.md)
 for implementation differences.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications)
@@ -2026,18 +2068,20 @@ memory from the live replay and fails when the committed file differs.
 
 **Decision.** PLE accepts Native JSON directly from qti-package-maker-rs, with no intermediate
 Question format. The existing Native JSON specification owns the unversioned format; Question
-metadata stays separate. Imported image assets use existing PLE image storage and accompany the
-text-only JSON rather than a ZIP package.
+metadata stays separate. The converter supplies referenced image files separately from text-only
+JSON. Future imported-image binding will use existing PLE image storage.
 
 **Why.** Neil selected the direct Native JSON handoff and existing asset storage.
 
-**Consequence.** Use the ordinary Draft image upload and metadata paths. Converter and Draft
-integrations remain separate implementation work in [TODO.md](TODO.md#future-product-capabilities).
-Native JSON display-content strings carry HTML with inline CSS, including ordinary `img src`
-references resolved through the existing image tuple and asset storage. This does not change the
-source shape, asset identity, or author-JavaScript isolation rules; sanitization remains deferred.
-The converter supplies Native JSON and referenced files using content-relative paths; PLE resolves
-those paths and owns Question Image Asset IDs, checksums, and storage identities.
+**Consequence.** Browser conversion and image-free Draft creation are implemented through
+[vendored QPM](#qpm-is-a-vendored-browser-wasm-distribution-qpm-converts-ples-decoder-accepts).
+Current import skips image-bearing questions before creating their Drafts. Inline-image binding
+and HTML rendering remain deferred in [TODO.md](TODO.md#future-product-capabilities).
+Native JSON display-content strings preserve HTML with inline CSS and content-relative `img src`
+references. When binding is implemented, PLE will resolve supplied files through its existing image
+tuple and storage; PLE owns Question Image Asset IDs, checksums, and storage identities. This does
+not change the source shape, asset identity, or author-JavaScript isolation rules; sanitization
+remains deferred. Existing PLE HOTSPOT authoring continues through its ordinary Draft image path.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#draft-question-specifications),
 [NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md), and
@@ -2109,7 +2153,7 @@ that owner; they do not create nested Theme scopes.
 ## Unresolved decisions
 
 The complete Sysadmin Ribbon layout is unresolved. HG's Deferred section and
-the [interview follow-up](active_plans/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
+the [interview follow-up](archive/decisions/HUMAN_GUIDANCE_INTERVIEW_FOLLOWUP.md)
 track other deferred or unsettled decisions; this section is not an exhaustive
 list. Product documentation should
 not turn hypothetical capabilities, tunable FERPA retention intervals, or

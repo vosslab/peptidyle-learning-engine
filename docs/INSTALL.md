@@ -47,6 +47,33 @@ Chromium and Firefox:
 ./devel/setup_playwright.sh
 ```
 
+## Refresh the QPM distribution
+
+Normal PLE builds use the committed [QPM distribution](../assets/qpm_wasm/source.json); a QPM checkout is
+needed only to refresh it. With Rust, Node, npm, and QPM's browser build tooling available:
+
+```bash
+source source_me.sh && python3 devel/vendor_qpm_wasm.py
+source source_me.sh && python3 devel/vendor_qpm_wasm.py -q /path/to/qti-package-maker-rs
+source source_me.sh && ./build.sh
+```
+
+The default source is the sibling `../qti-package-maker-rs`; use `-q/--qpm-root` to select another
+checkout explicitly. The script
+runs QPM's `npm ci` and browser build, copies the wrapper, generated runtime, type declarations,
+and license, then records
+the checkout HEAD and consumed-file SHA-256 hashes in `source.json`. HEAD identifies the checkout;
+the hashes identify the actual built bytes, including any uncommitted engine edits. Review both
+repositories when refreshing a locally changed engine. PLE serves the distribution under
+`dist/wasm/qpm-<hash>/`; the wrapper and WASM load only when Import opens.
+PLE-owned paths use QPM names. Upstream package paths and generated filenames remain unchanged
+inside the distribution, so its wrapper imports and recorded hashes stay reproducible.
+Upstream browser and Node demos are excluded because PLE uses its own import screen.
+
+After refresh, run the seven-kind import journey described in [USAGE.md](USAGE.md), plus the
+ordinary PLE checks. A failing preview calls for an engine or decoder correction against
+[NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md), followed by rebuilding and re-vendoring.
+
 ## Instructor setup email
 
 Instructor creation works without a configured email provider and reports that the

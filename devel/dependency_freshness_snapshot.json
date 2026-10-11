@@ -55,7 +55,6 @@
       "version": "0.23.1",
       "manifests": [
         "crates/adapters/imathas/Cargo.toml",
-        "crates/adapters/qti/Cargo.toml",
         "crates/adapters/webwork/Cargo.toml",
         "crates/learning-data-access/Cargo.toml",
         "crates/objects/Cargo.toml",
@@ -133,12 +132,6 @@
         "crates/server/Cargo.toml"
       ]
     },
-    "html5ever": {
-      "version": "0.40.1",
-      "manifests": [
-        "crates/adapters/qti/Cargo.toml"
-      ]
-    },
     "idna": {
       "version": "1.1.0",
       "manifests": [
@@ -148,7 +141,6 @@
     "image": {
       "version": "0.25.10",
       "manifests": [
-        "crates/adapters/qti/Cargo.toml",
         "crates/learning-data-access/Cargo.toml",
         "crates/objects/Cargo.toml",
         "crates/server/Cargo.toml"
@@ -194,7 +186,6 @@
         "crates/acceptance-runtime/Cargo.toml",
         "crates/adapters/imathas/Cargo.toml",
         "crates/adapters/ple/Cargo.toml",
-        "crates/adapters/qti/Cargo.toml",
         "crates/adapters/webwork/Cargo.toml",
         "crates/browser-api-contract/Cargo.toml",
         "crates/domain/Cargo.toml",
@@ -213,7 +204,6 @@
       "manifests": [
         "crates/adapters/imathas/Cargo.toml",
         "crates/adapters/ple/Cargo.toml",
-        "crates/adapters/qti/Cargo.toml",
         "crates/adapters/webwork/Cargo.toml",
         "crates/browser-api-contract/Cargo.toml",
         "crates/domain/Cargo.toml",
@@ -279,7 +269,6 @@
       "manifests": [
         "crates/adapters/imathas/Cargo.toml",
         "crates/adapters/ple/Cargo.toml",
-        "crates/adapters/qti/Cargo.toml",
         "crates/adapters/webwork/Cargo.toml",
         "crates/learning-data-access/Cargo.toml",
         "crates/objects/Cargo.toml",
@@ -321,7 +310,6 @@
       "manifests": [
         "crates/adapters/imathas/Cargo.toml",
         "crates/adapters/ple/Cargo.toml",
-        "crates/adapters/qti/Cargo.toml",
         "crates/adapters/webwork/Cargo.toml",
         "crates/domain/Cargo.toml",
         "crates/grading/Cargo.toml",
@@ -352,12 +340,6 @@
         "crates/wasm/Cargo.toml"
       ]
     },
-    "xmlparser": {
-      "version": "0.13.6",
-      "manifests": [
-        "crates/adapters/qti/Cargo.toml"
-      ]
-    },
     "zeroize": {
       "version": "1.9.0",
       "manifests": [
@@ -368,7 +350,6 @@
     "zip": {
       "version": "8.6.0",
       "manifests": [
-        "crates/adapters/qti/Cargo.toml",
         "crates/server/Cargo.toml"
       ]
     }

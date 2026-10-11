@@ -1,4 +1,4 @@
--- Privileges from question_authoring_operations.sql.
+-- Privileges for Question Draft access, lifecycle, and fork operations.
 
 SET LOCAL ROLE ple_private_owner;
 

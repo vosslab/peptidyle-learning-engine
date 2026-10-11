@@ -37,5 +37,5 @@ has been chosen; the Course specification must not invent one.
 
 - The source inventory is not a claim of complete Molecular Biology coverage.
 - This Blueprint Course comes after the first delivery; see [../FALL_2026_PILOT.md](../FALL_2026_PILOT.md).
-- Assessment grouping, points, and defaults are [Q02 in the central question log](../active_plans/decisions/question_specs_open_questions.md).
+- Assessment grouping, points, and defaults are [Q02 in the central question log](../archive/decisions/question_specs_open_questions.md).
 - Match the required magenta preference to an existing PLE Theme through Light and Dark review.

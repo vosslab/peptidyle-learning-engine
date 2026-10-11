@@ -44,7 +44,7 @@ stand in for every member-only search match.
 
 The Backend capability filter is recorded as implementation evidence, not a new approved search
 requirement. Its implementation needs review for consistent treatment of both Library Object
-kinds. [question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md)
+kinds. [question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md)
 records that engineering work; it is not a separate Pool product decision.
 
 A missing optional field is distinct from a malformed required field. It must not become an

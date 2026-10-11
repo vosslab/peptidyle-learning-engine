@@ -59,20 +59,20 @@
   pointer/keyboard overflow navigation. One-time live checks verify narrow
   Instructor pages and Blueprint editor access. Regenerated all 246 screenshots
   directly and rebuilt the Instructor crop stack after capture completion. See
-  [review fixes](active_plans/reports/ribbon_review_fixes_2026_10_03.md).
+  [review fixes](archive/reports/ribbon_review_fixes_2026_10_03.md).
 
 - Added separate skill-guided Instructor reviews: an
-  [HCI review](active_plans/reports/ribbon_hci_review_2026_10_03.md)
+  [HCI review](archive/reports/ribbon_hci_review_2026_10_03.md)
   covering task orientation and navigation, and a
-  [CSS creative review](active_plans/reports/ribbon_css_creative_review_2026_10_03.md)
+  [CSS creative review](archive/reports/ribbon_css_creative_review_2026_10_03.md)
   covering composition, tab silhouettes, and surface relationships. Each
   distinguishes screenshot evidence from behavior requiring runtime validation
   and gives concrete implementation and acceptance recommendations.
 
 - Two independent image reviewers assessed the current Instructor screenshot
   corpus, all 30 theme/mode samples, representative full pages, and controlled
-  narrow-screen examples. Their separate [review A](active_plans/reports/ribbon_independent_image_review_a_2026_10_03.md)
-  and [review B](active_plans/reports/ribbon_independent_image_review_b_2026_10_03.md)
+  narrow-screen examples. Their separate [review A](archive/reports/ribbon_independent_image_review_a_2026_10_03.md)
+  and [review B](archive/reports/ribbon_independent_image_review_b_2026_10_03.md)
   preserve their differing aesthetic judgments. This pass changes review
   documentation only.
 
@@ -82,7 +82,7 @@
   all-theme check now protects meaningful surface separation instead of mere
   color inequality. Refreshed all 246 real-app screenshots directly in
   `docs/screenshots` and rebuilt the 66-image Instructor crop stack. See the
-  [contrast review](active_plans/reports/ribbon_state_contrast_2026_10_03.md).
+  [contrast review](archive/reports/ribbon_state_contrast_2026_10_03.md).
 
 - Regenerated all 246 screenshots into staging from a fresh Live Demo and ran
   the existing Instructor crop-stack script there: 66 images, 1280 by 11748
@@ -98,13 +98,13 @@
 
 - Surface refinement passes all-theme density/contrast, responsive, routed-shell,
   style-ownership, TypeScript, and focused lint checks. Local design comparisons
-  are in the [surface review](active_plans/reports/ribbon_surface_refinement_2026_10_03.md).
+  are in the [surface review](archive/reports/ribbon_surface_refinement_2026_10_03.md).
   Screenshots for this pass use staging only; publishing and Git are out of scope.
 
 - Replaced the earlier miniature-folder assertions with the clarified bar/tab
   surface contract. All-theme contrast, focus, forced colors, reduced motion,
   responsive, routed-shell, and offline checks pass. See the
-  [file-tab review](active_plans/reports/ribbon_file_tabs_2026_10_03.md).
+  [file-tab review](archive/reports/ribbon_file_tabs_2026_10_03.md).
 - Refreshed all 246 real-app captures on a fresh demo. Final publication resumed
   after removing Finder metadata from the corpus root; receipt/gallery checks pass.
 
@@ -112,7 +112,7 @@
   [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md), retaining the latest two dates.
 - All-theme light/dark density, responsive, and routed-shell checks pass for
   the polish. Rendered comparisons and final capture evidence are recorded in
-  [ribbon_polish_2026_10_03.md](active_plans/reports/ribbon_polish_2026_10_03.md).
+  [ribbon_polish_2026_10_03.md](archive/reports/ribbon_polish_2026_10_03.md).
 
 ## 2026-10-02
 
@@ -136,7 +136,7 @@
   320, 393, 768, and 1280px. Density, responsive, shell, and style-ownership
   evidence passed. The clean 246-image corpus and required acceptance stages
   passed; final review and test-fixture repairs are recorded in
-  [ribbon_review_2026_10_02.md](active_plans/reports/ribbon_review_2026_10_02.md).
+  [ribbon_review_2026_10_02.md](archive/reports/ribbon_review_2026_10_02.md).
 - Screenshot invitation setup confirms roster revocation through its existing
   modal. Instructor crop stacking runs in its own directory and excludes its
   previous output. Submitted-Attempt captures select the latest Attempt when

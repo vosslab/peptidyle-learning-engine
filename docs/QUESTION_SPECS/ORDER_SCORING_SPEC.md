@@ -181,4 +181,4 @@ swap tables, required properties, and the awarded credit through saved and displ
 
 New Assessments start with partial credit enabled. Later changes apply to all Attempts
 using the stored fractions. The decision and its reason are recorded as Q20 in
-[question_specs_open_questions.md](../active_plans/decisions/question_specs_open_questions.md).
+[question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md).

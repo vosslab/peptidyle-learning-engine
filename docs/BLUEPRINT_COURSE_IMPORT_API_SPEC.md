@@ -44,7 +44,7 @@ The first-delivery choices and source completeness are recorded in
 - Pool membership is an unordered set of exact Revision tuples; Blueprint assembly has no Pool-order request value.
 
 Detailed source evidence is retained in
-[biology_course_spec_handoff.md](active_plans/reports/biology_course_spec_handoff.md).
-The [alignment report](active_plans/reports/question_specs_alignment_report.md) separates these
+[biology_course_spec_handoff.md](archive/reports/biology_course_spec_handoff.md).
+The [alignment report](archive/reports/question_specs_alignment_report.md) separates these
 implementation differences from product-specification conflicts. HTTP protocol and replacement
 implementation design are outside this documentation-drift pass.

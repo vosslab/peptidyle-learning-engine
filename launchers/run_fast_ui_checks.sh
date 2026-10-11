@@ -36,10 +36,9 @@ if [ "$#" -eq 0 ]; then
 		tests/playwright/test_assessment_attempt_delivery.mjs \
 		tests/playwright/test_assessment_student_time.mjs \
 		tests/playwright/test_course_instance_delivery.mjs \
-		tests/playwright/test_bloom_classification_workflow.mjs \
 		tests/playwright/test_region_sizing.mjs \
 		tests/playwright/test_teaching_task_pages.mjs \
-		tests/playwright/test_student_assessment_presentation.mjs \
+		tests/playwright/test_matching_response_accessibility.mjs \
 		tests/playwright/test_course_entry_banner.mjs \
 		tests/playwright/test_question_pool_task_isolation.mjs; do
 		node --import tsx --test "$check"

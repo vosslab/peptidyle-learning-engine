@@ -1,10 +1,10 @@
 # Ribbon folder tabs + Ribbon-hierarchy breadcrumbs
 
-The later [file-tab correction](../active_plans/reports/ribbon_file_tabs_2026_10_03.md)
+The later [file-tab correction](reports/ribbon_file_tabs_2026_10_03.md)
 supersedes the Tier 1 visual model recorded in this completed plan.
 
 Completed October 3, 2026. Implementation, rendered review, and verification are recorded in
-[ribbon_review_2026_10_02.md](../active_plans/reports/ribbon_review_2026_10_02.md).
+[ribbon_review_2026_10_02.md](reports/ribbon_review_2026_10_02.md).
 
 ## Context
 

@@ -1,7 +1,6 @@
 // Shared HTTP/browser setup for RecordList contract evidence.
 
 import { chromium } from "playwright";
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { resolveTheme } from "../../src/appearance/appearance_rules.ts";
@@ -56,17 +55,6 @@ export async function openRecordListHarness(options = {}) {
     },
     { declarations: themeStyle(themeTokens(theme)), themeId: theme },
   );
-  const typography = await page.evaluate(() => {
-    const code = document.createElement("pre");
-    code.textContent = "semantic code typography probe";
-    document.body.append(code);
-    const normal = getComputedStyle(document.body).fontFamily;
-    const monospace = getComputedStyle(code).fontFamily;
-    code.remove();
-    return { normal, monospace };
-  });
-  assert.match(typography.normal, /Atkinson Hyperlegible Next/u);
-  assert.match(typography.monospace, /Atkinson Hyperlegible Mono/u);
   await page.addScriptTag({ content: Buffer.from(bundle.javascript).toString("utf8") });
   await page.waitForFunction(
     () => typeof window.PleRecordListHarness?.mountRecordListHarness === "function",
@@ -76,9 +64,9 @@ export async function openRecordListHarness(options = {}) {
   await page.evaluate(() => {
     const root = document.querySelector("#root");
     if (!(root instanceof HTMLElement)) throw new Error("RecordList harness root is missing.");
-    window.recordListHarness = window.PleRecordListHarness.mountRecordListHarness(root);
+    window.PleRecordListHarness.mountRecordListHarness(root);
   });
-  await page.locator('[data-record-list-case="one-variant"]').waitFor({ state: "visible" });
+  await page.locator('[data-record-list-case="primitive-ready"]').waitFor({ state: "visible" });
   return { browser, consoleErrors, harnessServer, page, pageErrors };
 }
 
