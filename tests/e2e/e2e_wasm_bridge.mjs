@@ -225,7 +225,8 @@ const presentation = {
     ],
   },
 };
-const presentationToken = "pd1_wxgG9DAg0hfK5l5Ya63o3Q";
+// Native rebuild_native_static_question_presentation, descriptor version 3.
+const presentationToken = "pd1_vWgaUtCSNmhJrMXXg0ZY-Q";
 assert.equal(
   bridge.verify_native_static_presentation_descriptor(
     JSON.stringify(presentation),
