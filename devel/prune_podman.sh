@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
+set -e
+
 podman system df
 echo ""
-sleep 1
-podman system prune
-sleep 1
-podman volume prune
-sleep 1
+
+podman stop -a
+podman rm -a -f
+
+podman system prune --all --force
+podman volume prune --all --force
+
 echo ""
 podman system df
 echo ""
