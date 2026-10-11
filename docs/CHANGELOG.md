@@ -28,7 +28,8 @@
 - Removed the stale standalone Bloom fixture from the teaching-browser launcher and retained the
   Course-to-Create-Assessment journey. Made the RecordList image fixture independent of avatar
   catalog order and replaced Ribbon's complete Student shortcut inventory assertion with required
-  destination and unavailable Attempt behavior checks.
+  destination and unavailable Attempt behavior checks. Removed ignored Ribbon fixture arguments
+  and eager whole-catalog validation while preserving validation of rendered controls.
 - Simplified the scoped authoring and delivery code before extracting cohesive owners. Native JSON
   authoring now separates answer mapping and workflow coordination from the page; Assessment
   policies retain page state and delivery fields while feedback and release views own presentation.
